@@ -1,0 +1,104 @@
+{
+    "input": {
+        "file2": "/Users/guyjacubovski/Sample_video/bbb_sunflower_1080p_30fps_normal.mp4",
+        "file": "/Users/guyjacubovski/Sample_video/900.mp4",
+        "realTime": false,
+        "activeStream": 0,
+        "duration": 900000,
+        "randomDataPercentage": 0
+    },
+    "listener": {
+        "port": 9000
+    },
+    "debug": {
+        "dummyPackager": false
+    },
+    "output": {
+        "saveFile": false,
+        "outputFileNamePattern": "/Users/guyjacubovski/Sample_video/output_%s.mp4",
+        "streamingUrl1": "kmp://localhost:10000"
+    },
+    "engine": {
+        "useNvidiaDecoder": true,
+        "codecs":"libx264|h264_videotoolbox|h264_nvenc"
+    },
+    "outputTracks": [
+        {
+            "trackId": "v32",
+            "enabled": true,
+            "passthrough": true
+        },
+        {
+            "trackId": "a32t",
+            "enabled": false,
+            "bitrate": 64,
+            "passthrough": false,
+            "codec": "aac",
+            "audioParams": {
+                "samplingRate": -1,
+                "channels": 2
+            }
+        },
+        {
+            "trackId": "v33",
+            "passthrough": false,
+            "enabled": true,
+            "bitrate": 900,
+            "codec": "libx264",
+            "videoParams": {
+                "profile": "main",
+                "preset": "veryfast",
+                "height": 480
+            }
+        },
+        {
+            "trackId": "v34",
+            "enabled": false,
+            "passthrough": false,
+            "bitrate": 600,
+            "codec": "libx264",
+            "videoParams": {
+                "profile": "baseline",
+                "preset": "veryfast",
+                "height": 360
+            }
+        },
+        {
+            "trackId": "v35",
+            "enabled": false,
+            "passthrough": false,
+            "bitrate": 400,
+            "codec": "libx264",
+            "videoParams": {
+                "profile": "baseline",
+                "preset": "veryfast",
+                "height": 360
+            }
+        },
+        {
+            "trackId": "v42",
+            "enabled": false,
+            "passthrough": false,
+            "bitrate": 1500,
+            "codec": "libx264",
+            "videoParams": {
+                "profile": "high",
+                "preset": "veryfast",
+                "height": 720
+            }
+        },
+        {
+            "trackId": "v43",
+            "enabled": false,
+            "passthrough": false,
+            "bitrate": 2500,
+            "codec": "libx264",
+            "videoParams": {
+                "profile": "high",
+                "preset": "veryfast",
+                "height": 720,
+                "skipFrame": 1
+            }
+        }
+    ]
+}

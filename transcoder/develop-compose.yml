@@ -1,0 +1,14 @@
+version: '2'
+services:
+  ##### the develop image you've build
+  ### don't forget to open ports for your app
+  dev-image:
+    image: kaltura/build-enviroment
+    ports:
+      - "2000:2000"
+      - "50010:50010"
+    privileged: true
+    container_name: devenv
+# mapping your project folder (.) to /home/develop/project    
+    volumes:
+      - "/Users/guyjacubovski/Sample_video/:/data"

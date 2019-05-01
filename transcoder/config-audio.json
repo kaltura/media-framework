@@ -1,0 +1,24 @@
+{
+    "input": "/Users/guyjacubovski/Sample_video/900.mp4",
+    "debug": {
+        "saveFile": true,
+        "outputFileNamePattern": "/Users/guyjacubovski/dev/live-transcoder/output_%s.mp4"
+    },
+    "engine": {
+        "useNvidiaDecoder": false
+    },
+    "outputs": [
+        {
+            "name": "32",
+            "passthrough": true
+        },
+        {
+            "name": "33",
+            "passthrough": false,
+            "bitrate": 900,
+            "codec": "libx264",
+            "audioParams": {
+            }
+        }
+    ]
+}

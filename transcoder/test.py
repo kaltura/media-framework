@@ -1,0 +1,1 @@
+ docker run  -v /Users/guyjacubovski/Sample_video/:/data -it sitkevij/ffmpeg:3.3-vmaf  -i /data/output_32.mp4  -i /data/output_43.mp4  -filter_complex [0]scale=-2:720,libvmaf -f null -
