@@ -14,6 +14,7 @@
 typedef int (*http_request_callback)(const char* uri, char* buf,int bufSize,int* bytesWritten);
 
 typedef struct {
+    char listenAddress[MAX_URL_LENGTH];
     int port;
     http_request_callback request;
     pthread_t thread_id;

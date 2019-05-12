@@ -1,36 +1,50 @@
 {
     "input": {
-        "file2": "/Users/guyjacubovski/Sample_video/bbb_sunflower_1080p_30fps_normal.mp4",
-        "file": "/Users/guyjacubovski/Sample_video/900.mp4",
+        "file1": "/Users/guyjacubovski/Sample_video/bbb_sunflower_1080p_30fps_normal.mp4",
+        "file2": "/Users/guyjacubovski/Sample_video/900.mp4",
+        "file3": "/Users/guyjacubovski/Downloads/video.kmp",
+        "file": "/Users/guyjacubovski/Downloads/audio.kmp",
         "realTime": false,
         "activeStream": 0,
         "duration": 900000,
         "randomDataPercentage": 0
     },
-    "listener": {
-        "port": 9000
+    "kmp": {
+        "listenPort": 12346,
+        "listenAddress": "127.0.0.1"
+    },
+    "api": {
+        "listenPort": 12345,
+        "listenAddress": "127.0.0.1"
     },
     "debug": {
         "dummyPackager": false
     },
     "output": {
-        "saveFile": false,
-        "outputFileNamePattern": "/Users/guyjacubovski/Sample_video/output_%s.mp4",
+        "saveFile": true,
+        "outputFileNamePattern": "./output_%s.mp4",
         "streamingUrl1": "kmp://localhost:10000"
     },
     "engine": {
         "useNvidiaDecoder": true,
-        "codecs":"libx264|h264_videotoolbox|h264_nvenc"
+        "encoders": {
+            "h264": ["h264_nvenc","h264_videotoolbox","libx264"]
+        }
     },
     "outputTracks": [
         {
             "trackId": "v32",
+            "enabled": false,
+            "passthrough": true
+        },
+        {
+            "trackId": "a32",
             "enabled": true,
             "passthrough": true
         },
         {
-            "trackId": "a32t",
-            "enabled": false,
+            "trackId": "a33",
+            "enabled": true,
             "bitrate": 64,
             "passthrough": false,
             "codec": "aac",
@@ -42,9 +56,9 @@
         {
             "trackId": "v33",
             "passthrough": false,
-            "enabled": true,
+            "enabled": false,
             "bitrate": 900,
-            "codec": "libx264",
+            "codec": "h264",
             "videoParams": {
                 "profile": "main",
                 "preset": "veryfast",
@@ -56,7 +70,7 @@
             "enabled": false,
             "passthrough": false,
             "bitrate": 600,
-            "codec": "libx264",
+            "codec": "h264",
             "videoParams": {
                 "profile": "baseline",
                 "preset": "veryfast",
@@ -68,7 +82,7 @@
             "enabled": false,
             "passthrough": false,
             "bitrate": 400,
-            "codec": "libx264",
+            "codec": "h264",
             "videoParams": {
                 "profile": "baseline",
                 "preset": "veryfast",
@@ -80,7 +94,7 @@
             "enabled": false,
             "passthrough": false,
             "bitrate": 1500,
-            "codec": "libx264",
+            "codec": "h264",
             "videoParams": {
                 "profile": "high",
                 "preset": "veryfast",
@@ -92,7 +106,7 @@
             "enabled": false,
             "passthrough": false,
             "bitrate": 2500,
-            "codec": "libx264",
+            "codec": "h264",
             "videoParams": {
                 "profile": "high",
                 "preset": "veryfast",

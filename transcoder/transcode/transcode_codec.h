@@ -29,7 +29,7 @@ typedef struct
 
 int transcode_codec_init(transcode_codec_t * pContext);
 
-int transcode_codec_init_decoder(transcode_codec_t * pContext,AVCodecParameters *pCodecParams,AVRational framerate);
+int transcode_codec_init_decoder(transcode_codec_t * pContext,ExtendedCodecParameters_t* extraParams);
 
 int transcode_codec_close(transcode_codec_t * pContext);
 

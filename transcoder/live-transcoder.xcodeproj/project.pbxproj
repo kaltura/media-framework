@@ -11,6 +11,7 @@
 		0822C6AD221FEF300095F76B /* config.json in Sources */ = {isa = PBXBuildFile; fileRef = 0822C6AC221FEF300095F76B /* config.json */; };
 		0822C6B0221FEF690095F76B /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 0822C6AF221FEF690095F76B /* utils.c */; };
 		0822C6B32221C7880095F76B /* config.c in Sources */ = {isa = PBXBuildFile; fileRef = 0822C6B22221C7880095F76B /* config.c */; };
+		08432987228212C700D3D40F /* kmp_streamer.c in Sources */ = {isa = PBXBuildFile; fileRef = 08432986228212C700D3D40F /* kmp_streamer.c */; };
 		084335D621D8C1A80031BF3B /* VideoToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 084335D321D8C1A70031BF3B /* VideoToolbox.framework */; };
 		084335D721D8C1A80031BF3B /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 084335D421D8C1A80031BF3B /* AudioToolbox.framework */; };
 		084335D821D8C1A80031BF3B /* MediaToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 084335D521D8C1A80031BF3B /* MediaToolbox.framework */; };
@@ -48,6 +49,7 @@
 		08DA39172244D22100C57507 /* file_streamer.c in Sources */ = {isa = PBXBuildFile; fileRef = 08DA39162244D22100C57507 /* file_streamer.c */; };
 		08DA391A22453CA400C57507 /* http_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 08DA391922453CA400C57507 /* http_server.c */; };
 		08DD3783224AE2D400B51A0D /* vector.c in Sources */ = {isa = PBXBuildFile; fileRef = 08DD3782224AE2D400B51A0D /* vector.c */; };
+		08E1253622840AE600385F89 /* time_estimator.c in Sources */ = {isa = PBXBuildFile; fileRef = 08E1253522840AE600385F89 /* time_estimator.c */; };
 		08F2959E21DDF7FF0028EEE5 /* transcode_codec.c in Sources */ = {isa = PBXBuildFile; fileRef = 08F2959D21DDF7FF0028EEE5 /* transcode_codec.c */; };
 /* End PBXBuildFile section */
 
@@ -72,6 +74,8 @@
 		0822C6AF221FEF690095F76B /* utils.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = utils.c; sourceTree = "<group>"; };
 		0822C6B12221C7880095F76B /* config.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
 		0822C6B22221C7880095F76B /* config.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = config.c; sourceTree = "<group>"; };
+		08432985228212C700D3D40F /* kmp_streamer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = kmp_streamer.h; sourceTree = "<group>"; };
+		08432986228212C700D3D40F /* kmp_streamer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = kmp_streamer.c; sourceTree = "<group>"; };
 		084335A021D89A7C0031BF3B /* install_ffmpeg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install_ffmpeg.sh; sourceTree = "<group>"; };
 		084335D321D8C1A70031BF3B /* VideoToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VideoToolbox.framework; path = System/Library/Frameworks/VideoToolbox.framework; sourceTree = SDKROOT; };
 		084335D421D8C1A80031BF3B /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
@@ -127,6 +131,8 @@
 		08DA391922453CA400C57507 /* http_server.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = http_server.c; sourceTree = "<group>"; };
 		08DD3781224AE2D400B51A0D /* vector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vector.h; sourceTree = "<group>"; };
 		08DD3782224AE2D400B51A0D /* vector.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = vector.c; sourceTree = "<group>"; };
+		08E1253422840AE600385F89 /* time_estimator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = time_estimator.h; sourceTree = "<group>"; };
+		08E1253522840AE600385F89 /* time_estimator.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = time_estimator.c; sourceTree = "<group>"; };
 		08F2959C21DDF7FF0028EEE5 /* transcode_codec.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = transcode_codec.h; sourceTree = "<group>"; };
 		08F2959D21DDF7FF0028EEE5 /* transcode_codec.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = transcode_codec.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -191,6 +197,8 @@
 		082CAB8B224AD13300B304EA /* utils */ = {
 			isa = PBXGroup;
 			children = (
+				08E1253422840AE600385F89 /* time_estimator.h */,
+				08E1253522840AE600385F89 /* time_estimator.c */,
 				08C421182219D78F003AA42F /* samples_stats.h */,
 				08C421192219D78F003AA42F /* samples_stats.c */,
 				0869F1E921DA089F003F3538 /* logger.c */,
@@ -203,16 +211,26 @@
 			path = utils;
 			sourceTree = "<group>";
 		};
+		084329842282126B00D3D40F /* debug */ = {
+			isa = PBXGroup;
+			children = (
+				08DA39152244D22100C57507 /* file_streamer.h */,
+				08DA39162244D22100C57507 /* file_streamer.c */,
+				08432985228212C700D3D40F /* kmp_streamer.h */,
+				08432986228212C700D3D40F /* kmp_streamer.c */,
+			);
+			path = debug;
+			sourceTree = "<group>";
+		};
 		086E7AC41E044C7400206F21 = {
 			isa = PBXGroup;
 			children = (
+				084329842282126B00D3D40F /* debug */,
 				082CAB8B224AD13300B304EA /* utils */,
 				082CAB8A224AD06500B304EA /* KMP */,
 				082CAB89224ACED400B304EA /* common */,
 				08DA391822453CA400C57507 /* http_server.h */,
 				08DA391922453CA400C57507 /* http_server.c */,
-				08DA39152244D22100C57507 /* file_streamer.h */,
-				08DA39162244D22100C57507 /* file_streamer.c */,
 				08141DBA2222B23700EA1219 /* core.h */,
 				0822C6AC221FEF300095F76B /* config.json */,
 				08C4211B2219EAB7003AA42F /* receiver_server.h */,
@@ -345,12 +363,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				0869F1F121DA216A003F3538 /* transcode_session_output.c in Sources */,
+				08E1253622840AE600385F89 /* time_estimator.c in Sources */,
 				08F2959E21DDF7FF0028EEE5 /* transcode_codec.c in Sources */,
 				0822C6AB221ED3310095F76B /* json_parser.c in Sources */,
 				08DD3783224AE2D400B51A0D /* vector.c in Sources */,
 				0869F1E721D9F9F4003F3538 /* transcode_session.c in Sources */,
 				08DA391A22453CA400C57507 /* http_server.c in Sources */,
 				0869F1EA21DA089F003F3538 /* logger.c in Sources */,
+				08432987228212C700D3D40F /* kmp_streamer.c in Sources */,
 				0869F20721DB3B60003F3538 /* transcode_filter.c in Sources */,
 				08516DF91FA10B5D0077B9F0 /* Makefile in Sources */,
 				085E1F601EA6BA470056B80C /* main.c in Sources */,
@@ -393,7 +413,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -441,7 +461,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;

@@ -48,7 +48,8 @@
       enableASanStackUseAfterReturn = "YES"
       disableMainThreadChecker = "YES"
       launchStyle = "0"
-      useCustomWorkingDirectory = "NO"
+      useCustomWorkingDirectory = "YES"
+      customWorkingDirectory = "$PROJECT_DIR"
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       stopOnEveryUBSanitizerIssue = "YES"
@@ -67,7 +68,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "-f /Users/guyjacubovski/dev/live-transcoder/transcoder/config.json"
+            argument = "-f ./config.json"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

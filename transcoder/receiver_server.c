@@ -29,14 +29,14 @@ int init_outputs(receiver_server_t *server,receiver_server_session_t* session,js
         bool enabled=true;
         json_get_bool(&outputJson,"enabled",true,&enabled);
         if (!enabled) {
-            char trackId[MAX_TRACK_ID];
-            json_get_string(&outputJson,"trackId","",trackId);
+            char trackId[KMP_MAX_TRACK_ID];
+            json_get_string(&outputJson,"trackId","",trackId,sizeof(trackId));
             LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"Skipping output %s since it's disabled",trackId);
             continue;
         }
         transcode_session_output_t *pOutput=&server->outputs[server->totalOutputs];
         transcode_session_output_from_json(pOutput,&outputJson);
-        strcpy(pOutput->set_id,session->set_id);
+        strcpy(pOutput->channel_id,session->channel_id);
         transcode_session_add_output(session->server->transcode_session,pOutput);
         server->totalOutputs++;
     }
@@ -74,56 +74,70 @@ void* processClient(void *vargp)
     
     json_value_t* config=GetConfig();
 
-    AVRational frameRate;
+    ExtendedCodecParameters_t currentCodecParams;
     
-    AVCodecParameters* params=avcodec_parameters_alloc();
+    currentCodecParams.codecParams=avcodec_parameters_alloc();
     
     sample_stats_init(&server->listnerStats,standard_timebase);
     
     AVPacket packet;
-    packet_header_t header;
+    kmp_packet_header_t header;
     
     uint64_t lastStatsUpdated=0;
+    bool ignoreMediaInfo=false;
     while (true) {
         
         KMP_read_header(&session->kmpClient,&header);
-        if (header.packet_type==PACKET_TYPE_EOS) {
+        if (header.packet_type==KMP_PACKET_EOS) {
             LOGGER(CATEGORY_KMP,AV_LOG_INFO,"[%s] recieved termination packet",session->stream_name);
             break;
         }
-        if (header.packet_type==PACKET_TYPE_CONNECT) {
+        if (header.packet_type==KMP_PACKET_CONNECT) {
             
-            if ( KMP_read_handshake(&session->kmpClient,&header,session->set_id,session->track_id)<0) {
+            if ( KMP_read_handshake(&session->kmpClient,&header,session->channel_id,session->track_id)<0) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] Invalid mediainfo",session->stream_name);
                 
             }
-            sprintf(session->stream_name,"%s_%s",session->set_id,session->track_id);
+            sprintf(session->stream_name,"%s_%s",session->channel_id,session->track_id);
             LOGGER(CATEGORY_KMP,AV_LOG_INFO,"[%s] recieved handshake",session->stream_name);
         }
-        if (header.packet_type==PACKET_TYPE_MEDIA_INFO)
+        if (header.packet_type==KMP_PACKET_MEDIA_INFO)
         {
-            if (KMP_read_mediaInfo(&session->kmpClient,&header,params,&frameRate)<0) {
+            ExtendedCodecParameters_t newParams;
+            newParams.codecParams=avcodec_parameters_alloc();
+            if (KMP_read_mediaInfo(&session->kmpClient,&header,&newParams)<0) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] Invalid mediainfo",session->stream_name);
-                exit (-1);
+                break;
             }
+            LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] received packet  KMP_PACKET_MEDIA_INFO",session->stream_name);
+
+            bool changed=newParams.codecParams->width!=currentCodecParams.codecParams->width ||
+            newParams.codecParams->height!=currentCodecParams.codecParams->height ||
+            newParams.codecParams->extradata_size!=currentCodecParams.codecParams->extradata_size;
+            if (changed &&
+                newParams.codecParams->extradata_size>0 &&
+                newParams.codecParams->extradata!=NULL &&
+                currentCodecParams.codecParams->extradata!=NULL &&
+                0!=memcmp(newParams.codecParams->extradata,currentCodecParams.codecParams->extradata,newParams.codecParams->extradata_size))
+                changed=true;
+            currentCodecParams=newParams;
             
-            if (transcode_session!=NULL) {
-                transcode_session_init(transcode_session,session->stream_name,params,frameRate);
+            if (transcode_session!=NULL && !ignoreMediaInfo) {
+                transcode_session_init(transcode_session,session->stream_name,&currentCodecParams);
                 init_outputs(server,session,config);
+                ignoreMediaInfo=true;
             }
         }
-        if (header.packet_type==PACKET_TYPE_FRAME)
+        if (header.packet_type==KMP_PACKET_FRAME)
         {
             if (KMP_readPacket(&session->kmpClient,&header,&packet)<=0) {
                 break;
             }
             
-            samples_stats_add(&server->listnerStats,packet.pts,packet.size);
+            samples_stats_add(&server->listnerStats,packet.pts,packet.pos,packet.size);
             
             samples_stats_log(CATEGORY_RECEIVER,AV_LOG_DEBUG,&server->listnerStats,session->stream_name);
             LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] received packet %s (%p)",session->stream_name,getPacketDesc(&packet),transcode_session);
-            
-            packet.pos=getClock64();
             
             if (transcode_session!=NULL)
             {
@@ -152,7 +166,7 @@ void* processClient(void *vargp)
         }
     }
     
-    avcodec_parameters_free(&params);
+    avcodec_parameters_free(&currentCodecParams.codecParams);
     
     KMP_close(&session->kmpClient);
     
@@ -206,7 +220,7 @@ int receiver_server_init(receiver_server_t *server)
     pthread_mutex_init(&server->diagnostics_locker,NULL);
     server->lastDiagnsotics=NULL;
     int ret;
-    if ((ret=KMP_listen(&server->kmpServer,server->port))<0) {
+    if ((ret=KMP_listen(&server->kmpServer))<0) {
         return ret;
     }
     vector_init(&server->sessions);

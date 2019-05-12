@@ -13,7 +13,7 @@ set -ex
 
 BASE_DIR="$(dirname "$0")/ThirdParty"
 
-BASE_DIR="/Users/guyjacubovski/dev/live-transcoder/ThirdParty"
+BASE_DIR="/Users/guyjacubovski/dev/live/transcoder/ThirdParty"
 
 export PATH="$BASE_DIR/compiled/bin":$PATH
 export PKG_CONFIG_PATH=$BASE_DIR/compiled/lib/pkgconfig

@@ -14,9 +14,6 @@
 #include "config.h"
 
 
-#define CATEGORY_HTTP_SERVER "HttpServer"
-
-
 static void process_client(AVIOContext *client,http_request_callback callback)
 {
     uint8_t buf[10240];
@@ -105,7 +102,10 @@ int http_server_start(http_server_t * http_server)
         LOGGER(CATEGORY_HTTP_SERVER,AV_LOG_FATAL,"http listener failed set listen mode for %d %s",ret,av_err2str(ret));
         return ret;
     }
-    if ((ret = avio_open2(&http_server->http, "http://localhost:12345", AVIO_FLAG_WRITE, NULL, &options)) < 0) {
+    
+    char url[128];
+    sprintf(url,"http://%s:%d",http_server->listenAddress,http_server->port);
+    if ((ret = avio_open2(&http_server->http, url, AVIO_FLAG_WRITE, NULL, &options)) < 0) {
         LOGGER(CATEGORY_HTTP_SERVER,AV_LOG_FATAL,"Failed to open server: %d %s",ret,av_err2str(ret));
         return ret;
     }

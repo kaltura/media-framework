@@ -52,7 +52,8 @@ void calculate_stats(samples_stats_t* pStats)
         double ptsPassedInSec= (pHead->pts - pTail->pts )  / 90000.0;
         
         pStats->ptsPassed=(pHead->pts - pStats->firstPts);
-        
+        pStats->timeStampPassed=(pHead->timeStamp - pStats->firstTimeStamp);
+
         int64_t frames=(pStats->head - pStats->tail + 1);
         
         if (ptsPassedInSec>0 && timePassedInSec>0) {
@@ -60,22 +61,25 @@ void calculate_stats(samples_stats_t* pStats)
             pStats->currentBitRate=(int)dbitRate;
             pStats->currentFrameRate=frames/timePassedInSec;
             pStats->currentRate=ptsPassedInSec/timePassedInSec;
+            pStats->clockDrift=pStats->timeStampPassed/1000-ptsPassedInSec/90;
         }
     }
 }
 
 
-void samples_stats_add(samples_stats_t* pStats,uint64_t pts,int frameSize)
+void samples_stats_add(samples_stats_t* pStats,uint64_t pts,uint64_t ts,int frameSize)
 {
     pStats->head++;
     if (pStats->head==0){
         pStats->tail=0;
         pStats->firstPts=pts;
+        pStats->firstTimeStamp=ts;
     }
     samples_stats_history_t  *pHead=sample_stats_get_history(pStats,pStats->head);
     pHead->frameSize=frameSize;
     pHead->pts=pts;
     pHead->clock=getTime64();
+    pHead->timeStamp=ts;
     
     pStats->totalFrames++;
     pStats->totalWindowSizeInBytes+=frameSize;
@@ -92,6 +96,7 @@ int sample_stats_get_diagnostics(samples_stats_t *pStats,char* buf)
     JSON_SERIALIZE_INT("bitrate",pStats->currentBitRate)
     JSON_SERIALIZE_DOUBLE("fps",pStats->currentFrameRate)
     JSON_SERIALIZE_DOUBLE("rate",pStats->currentRate)
+    JSON_SERIALIZE_INT64("drift",pStats->clockDrift)
     JSON_SERIALIZE_END()
     return n;
 }
@@ -99,10 +104,12 @@ int sample_stats_get_diagnostics(samples_stats_t *pStats,char* buf)
 
 void samples_stats_log(const char* category,int level,samples_stats_t *stats,const char*prefix)
 {
-    LOGGER(category,level,"[%s] Stats: total frames: %lld total time: %s, bitrate %.2lf Kbit/s fps=%.2lf rate=x%.2lf",
+    LOGGER(category,level,"[%s] Stats: total frames: %lld total time: %s (%s), clock drift %s,bitrate %.2lf Kbit/s fps=%.2lf rate=x%.2lf",
            prefix,
            stats->totalFrames,
-           ts2str(stats->ptsPassed, true),
+           pts2str(stats->ptsPassed),
+           pts2str(stats->firstPts),
+           pts2str(stats->clockDrift),
            ((double)stats->currentBitRate)/(1000.0),
            stats->currentFrameRate,
            stats->currentRate)

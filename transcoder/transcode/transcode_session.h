@@ -17,6 +17,7 @@
 #include "transcode_session_output.h"
 #include "transcode_codec.h"
 #include "transcode_filter.h"
+#include "../utils/time_estimator.h"
 
 #define MAX_INPUTS 10
 #define MAX_OUTPUTS 10
@@ -25,7 +26,7 @@
 typedef struct  {
     
     char name[128];
-    struct AVCodecParameters* inputCodecParams;
+    ExtendedCodecParameters_t inputCodecParams;
     
     int decoders;
     transcode_codec_t decoder[MAX_INPUTS];
@@ -41,6 +42,7 @@ typedef struct  {
     int filters;
     transcode_filter_t filter[10];
     
+    clock_estimator_t clock_estimator;
 } transcode_session_t;
 
 
@@ -49,7 +51,7 @@ typedef struct  {
  1
  */
 
-int transcode_session_init(transcode_session_t *ctx,char* name,struct AVCodecParameters* codecParams,AVRational framerate);
+int transcode_session_init(transcode_session_t *ctx,char* name,ExtendedCodecParameters_t* extraParams);
 int transcode_session_send_packet(transcode_session_t *pContext, struct AVPacket* packet);
 int transcode_session_close(transcode_session_t *ctx);
 int transcode_session_add_output(transcode_session_t* pContext, transcode_session_output_t * pOutput);

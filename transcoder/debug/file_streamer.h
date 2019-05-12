@@ -9,16 +9,17 @@
 #ifndef fileReader_h
 #define fileReader_h
 
-#include "core.h"
-#include "logger.h"
-#include "config.h"
-#include "utils.h"
+#include "../core.h"
+#include "../utils/logger.h"
+#include "../utils/config.h"
+#include "../utils/utils.h"
 
 
 typedef struct
 {
     pthread_t threadId;
-    const char* source_file_name;
+    char source_file_name[MAX_URL_LENGTH];
+    char kmp_url[MAX_URL_LENGTH];
     bool stop;
 } file_streamer_t;
 

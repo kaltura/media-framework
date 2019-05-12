@@ -901,18 +901,26 @@ json_status_t json_get_array_index(const json_value_t* obj,int index,  json_valu
     
     result->type = obj->v.arr.type;
 
-    void* data=obj->v.arr.items.elts + obj->v.arr.items.size*index;
 
     if (result->type ==JSON_OBJECT) {
+        void* data=obj->v.arr.items.elts + obj->v.arr.items.size*index;
+
         json_object_t* item=(json_object_t*)data;
         result->v.obj=*item;
         return JSON_OK;
 
     }
+    if (result->type ==JSON_STRING) {
+        str_t* str=(str_t*)(obj->v.arr.items.elts + obj->v.arr.items.size*index);
+        result->v.str.data=str->data;
+        result->v.str.len=str->len;
+        return JSON_OK;
+        
+    }
     return JSON_OK;
 
 }
-json_status_t json_get_string(const json_value_t* obj,char* path,const char* defaultValue,char* result)
+json_status_t json_get_string(const json_value_t* obj,char* path,const char* defaultValue,char* result,size_t maxlen)
 {
     const json_value_t* jresult;
     json_status_t ret=json_get(obj,path,&jresult);
@@ -924,10 +932,12 @@ json_status_t json_get_string(const json_value_t* obj,char* path,const char* def
     if (jresult->type!=JSON_STRING) {
         return JSON_BAD_DATA;
     }
-    char *str=malloc(jresult->v.str.len+1);
-    memcpy(str,jresult->v.str.data,jresult->v.str.len);
-    str[jresult->v.str.len]=0;
-    strcpy(result,str);
+    size_t len=jresult->v.str.len;
+    if (len>=maxlen) {
+        len=maxlen-1;
+    }
+    memcpy(result,jresult->v.str.data,len);
+    result[len]=0;
     return JSON_OK;
 }
 

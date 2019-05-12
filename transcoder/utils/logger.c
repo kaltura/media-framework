@@ -57,6 +57,7 @@ void logger2(const char* category,const char* subcategory,int level,const char *
     if (newLine) {
         fprintf( out, "\n" );
     }
+    fflush(out);
     pthread_mutex_unlock(&logger_locker); // unlock once you are done
 }
 

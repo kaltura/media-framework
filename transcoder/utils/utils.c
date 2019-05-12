@@ -130,8 +130,9 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
         return "<NULL>";
     }
     if (pFrame->width>0) {
-        snprintf(buf,size,"pts=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d",
-             ts2str(pFrame->pts,true),
+        snprintf(buf,size,"pts=%s;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d",
+             pts2str(pFrame->pts),
+             ts2str(pFrame->pkt_pos,false),
              pFrame->key_frame==1 ? "True" : "False",
              &pFrame->data[0],
              pFrame->hw_frames_ctx,
@@ -141,7 +142,7 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
              pFrame->height);
     } else {
         snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%lld",
-                 ts2str(pFrame->pts,true),
+                 pts2str(pFrame->pts),
                  pFrame->channels,pFrame->sample_rate,pFrame->format,pFrame->nb_samples,pFrame->channel_layout);
     }
     return buf;
@@ -152,11 +153,12 @@ char *av_get_packet_desc(char *buf,int len,const  AVPacket * packet)
     if (packet==NULL) {
         return "<NULL>";
     }
-    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;key=%s;size=%d;flags=%d",
+    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;clock=%s;key=%s;size=%d;flags=%d",
              packet,
              packet->data,
-             ts2str(packet->pts,true),
-             ts2str(packet->dts,true),
+             pts2str(packet->pts),
+             pts2str(packet->dts),
+             ts2str(packet->pos,false),
              (packet->flags & AV_PKT_FLAG_KEY)==AV_PKT_FLAG_KEY ? "Yes" : "No",
              packet->size,
              packet->flags);
@@ -175,5 +177,23 @@ char* av_socket_info(char* buf,int len,const struct sockaddr_in* sa)
         port=((struct sockaddr_in6*)sa)->sin6_port;
     }
     snprintf(buf,len,"%s:%d",buffer,ntohs(port));
+    return buf;
+}
+
+
+char *av_pts_to_string(char *buf, int64_t pts)
+{
+    int64_t totalSeconds=pts/90000;
+    int milliseconds=(pts % 90000)/90;
+    int seconds = (totalSeconds % 60);
+    int minutes = (totalSeconds % 3600) / 60;
+    int hours = (totalSeconds % 86400) / 3600;
+    int days = (totalSeconds % (86400 * 24)) / 86400;
+    
+    if (days==0) {
+        sprintf(buf,"%.2d:%.2d:%.2d.%.3d",hours,minutes,seconds,milliseconds);
+    } else {
+        sprintf(buf,"%d %.2d:%.2d:%.2d.%.3d",days,hours,minutes,seconds,milliseconds);
+    }
     return buf;
 }

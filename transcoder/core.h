@@ -24,4 +24,6 @@
 #define u_char  unsigned char
 #endif
 
+#define MAX_URL_LENGTH 1024
+#define MAX_DIAGNOSTICS_STRING_LENGTH 4096
 #endif

@@ -18,6 +18,7 @@
 #define CATEGORY_FFMPEG "FFMPEG"
 #define CATEGORY_RECEIVER "RECEIVER"
 #define CATEGORY_KMP "KMP"
+#define CATEGORY_HTTP_SERVER "HTTPSERVER"
 
 void logger1(const char* category,int level,const char *fmt, ...);
 void loggerFlush();

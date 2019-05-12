@@ -23,8 +23,8 @@ enum TranscodeOutputType
 
 typedef struct
 {
-    char set_id[MAX_SET_ID];
-    char track_id[MAX_TRACK_ID];
+    char channel_id[KMP_MAX_CHANNEL_ID];
+    char track_id[KMP_MAX_TRACK_ID];
     char codec[128];
     enum AVMediaType codec_type;
     bool passthrough;
@@ -50,7 +50,6 @@ typedef struct
     samples_stats_t stats;
     
     AVFormatContext *oc;
-    AVBSFContext* bsf;
     
     KMP_session_t* sender;
 } transcode_session_output_t;
@@ -60,7 +59,7 @@ int transcode_session_output_init(transcode_session_output_t* ) ;
 int transcode_session_output_from_json(transcode_session_output_t* ,const json_value_t* );
 int transcode_session_output_close(transcode_session_output_t* ) ;
 
-int transcode_session_output_set_format(transcode_session_output_t *,struct AVCodecParameters* ,AVRational ) ;
+int transcode_session_output_set_format(transcode_session_output_t *,ExtendedCodecParameters_t* extra ) ;
 int transcode_session_output_send_output_packet(transcode_session_output_t *,struct AVPacket* ) ;
 
 int transcode_session_output_get_diagnostics (transcode_session_output_t *,char* );

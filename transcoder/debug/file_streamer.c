@@ -7,7 +7,7 @@
 //
 
 #include "file_streamer.h"
-#include "KMP/KMP.h"
+#include "../KMP/KMP.h"
 #include "samples_stats.h"
 #include <pthread.h>
 
@@ -48,7 +48,7 @@ void* thread_stream_from_file(void *vargp)
     av_init_packet(&packet);
     
     KMP_session_t kmp;
-    if (KMP_connect(&kmp,"kmp://localhost:9999")<0) {
+    if (KMP_connect(&kmp,args->kmp_url)<0) {
         return NULL;
     }
     KMP_send_handshake(&kmp,"1_abcdefgh","1");
@@ -56,8 +56,12 @@ void* thread_stream_from_file(void *vargp)
     
     AVStream *in_stream=ifmt_ctx->streams[activeStream];
     
-    AVRational frame_rate={15,1};
-    KMP_send_header(&kmp,in_stream->codecpar,frame_rate);
+    ExtendedCodecParameters_t extra;
+    extra.frameRate.den=1;
+    extra.timeScale.num=15;
+    extra.timeScale=standard_timebase;
+    extra.codecParams=in_stream->codecpar;
+    KMP_send_header(&kmp,&extra);
     
     LOGGER("SENDER",AV_LOG_INFO,"Realtime = %s",realTime ? "true" : "false");
     srand((int)time(NULL));
@@ -115,7 +119,7 @@ void* thread_stream_from_file(void *vargp)
         lastDts=packet.dts;
         
         
-        samples_stats_add(&stats,packet.pts,packet.size);
+        samples_stats_add(&stats,packet.pts,start_time,packet.size);
         
         /*
         int avgBitrate;

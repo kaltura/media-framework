@@ -32,7 +32,7 @@ json_value_t* GetConfig()
 int parseArgs(int argc, char **argv) {
     
     if (argc!=3) {
-        printf("syntax: transcoder --configFile [JSONFILE] --config [JSON]\n");
+        printf("syntax: transcoder -f [JSONFILE] -c [JSON]\n");
         exit(-1);
     }
     int  ch;

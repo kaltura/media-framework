@@ -30,7 +30,8 @@ typedef struct
     transcode_session_output_t outputs[100];
     int totalOutputs;
     samples_stats_t listnerStats;
-    int port;
+    char listenAddress[MAX_URL_LENGTH];
+    uint16_t port;
     vector_t sessions;
     
     pthread_mutex_t diagnostics_locker;
@@ -39,9 +40,9 @@ typedef struct
 
 typedef struct
 {
-    char stream_name[MAX_SET_ID+MAX_TRACK_ID+1];
-    char set_id[MAX_SET_ID];
-    char track_id[MAX_TRACK_ID];
+    char stream_name[KMP_MAX_CHANNEL_ID+KMP_MAX_TRACK_ID+1];
+    char channel_id[KMP_MAX_CHANNEL_ID];
+    char track_id[KMP_MAX_TRACK_ID];
     receiver_server_t *server;
     KMP_session_t kmpClient;
     pthread_t thread_id;

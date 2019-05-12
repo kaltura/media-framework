@@ -13,19 +13,21 @@
 
 
 /* initialization */
-int transcode_session_init(transcode_session_t *pContext,char* name,struct AVCodecParameters* codecParams,AVRational framerate)
+int transcode_session_init(transcode_session_t *pContext,char* name,ExtendedCodecParameters_t* extraParams)
 {
     pContext->decoders=0;
     pContext->outputs=0;
     pContext->filters=0;
     pContext->encoders=0;
-    pContext->inputCodecParams=codecParams;
+    pContext->inputCodecParams=*extraParams;
     strcpy(pContext->name,name);
     
     transcode_codec_t *pDecoderContext=&pContext->decoder[0];
-    transcode_codec_init_decoder(pDecoderContext,codecParams,framerate);
+    transcode_codec_init_decoder(pDecoderContext,extraParams);
     sprintf(pDecoderContext->name,"Decoder for input %s",name);
     pContext->decoders++;
+
+    clock_estimator_init(&pContext->clock_estimator);
 
     return 0;
 }
@@ -63,7 +65,7 @@ void get_filter_config(char *filterConfig,  transcode_codec_t *pDecoderContext, 
 
 transcode_filter_t* GetFilter(transcode_session_t* pContext,transcode_session_output_t* pOutput, transcode_codec_t *pDecoderContext)
 {
-    char filterConfig[2048];
+    char filterConfig[MAX_URL_LENGTH]={0};
     get_filter_config(filterConfig, pDecoderContext, pOutput);
     
     transcode_filter_t* pFilter=NULL;
@@ -155,13 +157,19 @@ int transcode_session_add_output(transcode_session_t* pContext, transcode_sessio
         pOutput->encoderId=pContext->encoders++;
         LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"Output %s - Added encoder %d bitrate=%d",pOutput->track_id,pOutput->encoderId,pOutput->bitrate*1000);
         
-        struct AVCodecParameters* pCodecParams=avcodec_parameters_alloc();
-        avcodec_parameters_from_context(pCodecParams,pEncoderContext->ctx);
-        transcode_session_output_set_format(pOutput,pCodecParams,pEncoderContext->ctx->framerate);
+        ExtendedCodecParameters_t extra;
+        extra.frameRate=pEncoderContext->ctx->framerate;
+        extra.timeScale=pEncoderContext->ctx->time_base;
+        extra.codecParams=avcodec_parameters_alloc();
+        avcodec_parameters_from_context(extra.codecParams,pEncoderContext->ctx);
+        transcode_session_output_set_format(pOutput,&extra);
     } else
     {
-        transcode_session_output_set_format(pOutput,pContext->inputCodecParams,pDecoderContext->ctx->framerate);
-        
+        ExtendedCodecParameters_t extra;
+        extra.frameRate=pDecoderContext->ctx->framerate;
+        extra.timeScale=pDecoderContext->ctx->time_base;
+        extra.codecParams=pContext->inputCodecParams.codecParams;
+        transcode_session_output_set_format(pOutput,&extra);
     }
     
     return 0;
@@ -216,6 +224,7 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
                encoderId);
         
         
+        pOutPacket->pos=clock_estimator_get_clock(&pContext->clock_estimator,pOutPacket->pts);
         transcode_session_output_send_output_packet(pOutput,pOutPacket);
         
         av_packet_free(&pOutPacket);
@@ -323,6 +332,8 @@ int decodePacket(transcode_session_t *transcodingContext,const AVPacket* pkt) {
     
     
     if (pkt!=NULL) {
+        clock_estimator_push_frame(&transcodingContext->clock_estimator,pkt->pts,pkt->pos);
+    
         LOGGER(CATEGORY_DEFAULT,AV_LOG_DEBUG, "[%s] Sending packet %s to decoder",
                transcodingContext->name,
                getPacketDesc(pkt));
@@ -375,7 +386,7 @@ int transcode_session_send_packet(transcode_session_t *pContext ,struct AVPacket
         }
     }
     if (shouldDecode) {
-       return decodePacket(pContext,packet);
+        return decodePacket(pContext,packet);
     }
     return 0;
 }
@@ -414,7 +425,7 @@ int transcode_session_to_json(transcode_session_t *ctx,char* buf)
     for (int i=0;i<ctx->decoders;i++)
     {
         transcode_codec_t* context=&ctx->decoder[i];
-        char tmp[1024];
+        char tmp[MAX_DIAGNOSTICS_STRING_LENGTH];
         transcode_codec_get_diagnostics(context,tmp);
         JSON_SERIALIZE_ARRAY_ITEM(tmp)
     }
@@ -423,7 +434,7 @@ int transcode_session_to_json(transcode_session_t *ctx,char* buf)
     for (int i=0;i<ctx->outputs;i++)
     {
         transcode_session_output_t* output=ctx->output[i];
-        char tmp[1024];
+        char tmp[MAX_DIAGNOSTICS_STRING_LENGTH];
         transcode_session_output_get_diagnostics(output,tmp);
         JSON_SERIALIZE_ARRAY_ITEM(tmp)
     }

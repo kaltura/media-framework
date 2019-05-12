@@ -99,12 +99,13 @@ static int get_decoder_buffer(AVCodecContext *s, AVFrame *frame, int flags)
 
 
 
-int transcode_codec_init_decoder( transcode_codec_t * pContext,AVCodecParameters *pCodecParams,AVRational framerate)
+int transcode_codec_init_decoder( transcode_codec_t * pContext,ExtendedCodecParameters_t* extraParams)
 {
     transcode_codec_init(pContext);
     bool result;
     json_get_bool(GetConfig(),"engine.useNvidiaDecoder",false,&result);
 
+    AVCodecParameters *pCodecParams=extraParams->codecParams;
     
     enum AVHWDeviceType hardWareAcceleration=AV_HWDEVICE_TYPE_NONE;
     
@@ -147,9 +148,8 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,AVCodecParameters
         return AVERROR(ENOMEM);
     }
     codec_ctx->opaque=pContext;
-    codec_ctx->framerate=framerate;
-    
-    codec_ctx->time_base=standard_timebase;
+    codec_ctx->framerate=extraParams->frameRate;
+    codec_ctx->time_base=extraParams->timeScale;
 
     int ret = avcodec_parameters_to_context(codec_ctx, pCodecParams);
     if (ret < 0) {
@@ -180,7 +180,7 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,AVCodecParameters
         codec_ctx->hw_frames_ctx = av_buffer_ref(pContext->hw_frames_ctx);
     }
     pContext->ctx = codec_ctx;
-    codec_ctx->time_base=standard_timebase;
+    codec_ctx->time_base=extraParams->timeScale;
 
     if (codec_ctx->codec_type==AVMEDIA_TYPE_VIDEO) {
         LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "Initialized video decoder \"%s\" color space: %s",dec->long_name, av_get_pix_fmt_name (codec_ctx->pix_fmt));
@@ -191,7 +191,33 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,AVCodecParameters
     return 0;
 }
 
-
+AVCodec * get_encoder(const char* codecCode) {
+    const json_value_t* result;
+    char key[128];
+    sprintf(key,"engine.encoders.%s", codecCode);
+    json_status_t status= json_get(GetConfig(),key,&result);
+    if (status!=JSON_OK)
+        return NULL;
+        
+    AVCodec* codec=NULL;
+    size_t items=json_get_array_count(result);
+    for (int i=0;!codec && i<items;i++) {
+        json_value_t r;
+        status=json_get_array_index(result,i,&r);
+        if (status!=JSON_OK || r.type!=JSON_STRING)
+            continue;
+        
+        char tmp[100]={0};
+        memcpy(tmp,r.v.str.data,__MIN(sizeof(tmp)-1,r.v.str.len));
+        codec = avcodec_find_encoder_by_name(tmp);
+        if (codec) {
+            break;
+        }
+        LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"Unable to find %s",tmp);
+    }
+    return codec;
+}
+    
 int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
                        AVRational inputAspectRatio,
                        enum AVPixelFormat inputPixelFormat,
@@ -208,8 +234,7 @@ int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
     AVCodecContext *enc_ctx  = NULL;
     int ret = 0;
     
-    
-    codec = avcodec_find_encoder_by_name(pOutput->codec);
+    codec = get_encoder(pOutput->codec);
     if (!codec) {
         LOGGER(CATEGORY_CODEC,AV_LOG_ERROR,"Unable to find %s",pOutput->codec);
         return -1;
@@ -318,7 +343,7 @@ int transcode_codec_send_frame( transcode_codec_t *encoder,const AVFrame* pFrame
 {
     if (pFrame!=NULL) {
         encoder->inPts=pFrame->pts;
-        samples_stats_add(&encoder->inStats,pFrame->pts,0);
+        samples_stats_add(&encoder->inStats,pFrame->pts,pFrame->pkt_pos, 0);
     }
 
     int ret = avcodec_send_frame(encoder->ctx, pFrame);
@@ -345,7 +370,7 @@ int transcode_codec_receive_packet( transcode_codec_t *encoder,AVPacket* pkt)
         return ret;
     }
     encoder->outPts=pkt->pts;
-    samples_stats_add(&encoder->outStats,pkt->pts,pkt->size);
+    samples_stats_add(&encoder->outStats,pkt->pts,pkt->pos,pkt->size);
 
     return ret;
     
@@ -360,7 +385,7 @@ int transcode_codec_send_packet( transcode_codec_t *decoder,const AVPacket* pkt)
     
     if (pkt!=NULL) {
         decoder->inPts=pkt->pts;
-        samples_stats_add(&decoder->inStats,pkt->pts,pkt->size);
+        samples_stats_add(&decoder->inStats,pkt->pts,pkt->pos,pkt->size);
     }
     ret = avcodec_send_packet(decoder->ctx, pkt);
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
@@ -393,7 +418,7 @@ int transcode_codec_receive_frame( transcode_codec_t *decoder,AVFrame *pFrame)
     
     
     decoder->outPts=pFrame->pts;
-    samples_stats_add(&decoder->outStats,pFrame->pts,0);
+    samples_stats_add(&decoder->outStats,pFrame->pts,pFrame->pkt_pos,0);
 
     return 0;
 }
