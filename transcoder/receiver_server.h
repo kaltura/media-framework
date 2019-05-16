@@ -14,9 +14,7 @@
 #include "kalturaMediaProtocol.h"
 #include "KMP/KMP.h"
 #include "vector.h"
-
-typedef void* on_terminate_request_cb();
-
+#include "./utils/packetQueue.h"
 
 
 typedef struct
@@ -24,16 +22,11 @@ typedef struct
     transcode_session_t *transcode_session;
     KMP_session_t kmpServer;
     pthread_t thread_id;
-    
     bool multiThreaded;
-    
-    transcode_session_output_t outputs[100];
-    int totalOutputs;
-    samples_stats_t listnerStats;
     char listenAddress[MAX_URL_LENGTH];
     uint16_t port;
     vector_t sessions;
-    
+    samples_stats_t receiverStats;
     pthread_mutex_t diagnostics_locker;
     char* lastDiagnsotics;
 } receiver_server_t;
@@ -46,6 +39,8 @@ typedef struct
     receiver_server_t *server;
     KMP_session_t kmpClient;
     pthread_t thread_id;
+    uint64_t lastStatsUpdated;
+    int64_t diagnosticsIntervalInSeconds;
 } receiver_server_session_t;
 
 int receiver_server_init( receiver_server_t *server);

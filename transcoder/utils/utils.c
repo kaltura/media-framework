@@ -95,14 +95,17 @@ char *av_ts_make_time_stringEx(char *buf, int64_t ts,bool shortFormat)
     
     time_t epoch=ts/standard_timebase.den;
     
-    struct tm *gm = localtime(&epoch);
+    struct tm *gm = gmtime(&epoch);
     
     
     size_t written = (size_t)strftime(buf, K_TS_MAX_STRING_SIZE, shortFormat ? "%H:%M:%S" : "%Y-%m-%dT%H:%M:%S", gm);
     if ((written > 0) && ((size_t)written < K_TS_MAX_STRING_SIZE))
     {
-        snprintf(buf+written, K_TS_MAX_STRING_SIZE-(size_t)written, ".%03lld", ((1000*ts) / standard_timebase.den) % 1000);
-        
+        written+=snprintf(buf+written, K_TS_MAX_STRING_SIZE-(size_t)written, ".%03lld", ((1000*ts) / standard_timebase.den) % 1000);
+    }
+    if (!shortFormat){
+        buf[written-1]='Z';
+        buf[written]=0;
     }
     return buf;
 }
@@ -132,7 +135,7 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
     if (pFrame->width>0) {
         snprintf(buf,size,"pts=%s;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d",
              pts2str(pFrame->pts),
-             ts2str(pFrame->pkt_pos,false),
+             pFrame->pkt_pos != 0 ? ts2str(pFrame->pkt_pos,false) :  "N/A",
              pFrame->key_frame==1 ? "True" : "False",
              &pFrame->data[0],
              pFrame->hw_frames_ctx,
@@ -158,7 +161,7 @@ char *av_get_packet_desc(char *buf,int len,const  AVPacket * packet)
              packet->data,
              pts2str(packet->pts),
              pts2str(packet->dts),
-             ts2str(packet->pos,false),
+             packet->pos != 0 ? ts2str(packet->pos,false) :  "N/A",
              (packet->flags & AV_PKT_FLAG_KEY)==AV_PKT_FLAG_KEY ? "Yes" : "No",
              packet->size,
              packet->flags);
@@ -183,17 +186,17 @@ char* av_socket_info(char* buf,int len,const struct sockaddr_in* sa)
 
 char *av_pts_to_string(char *buf, int64_t pts)
 {
-    int64_t totalSeconds=pts/90000;
-    int milliseconds=(pts % 90000)/90;
+    int64_t totalSeconds=llabs(pts/90000);
+    int milliseconds=abs((int)(pts % 90000)/90);
     int seconds = (totalSeconds % 60);
     int minutes = (totalSeconds % 3600) / 60;
     int hours = (totalSeconds % 86400) / 3600;
-    int days = (totalSeconds % (86400 * 24)) / 86400;
+    int days = (int)(totalSeconds / 86400);
     
     if (days==0) {
-        sprintf(buf,"%.2d:%.2d:%.2d.%.3d",hours,minutes,seconds,milliseconds);
+        sprintf(buf,"%s%.2d:%.2d:%.2d.%.3d",pts>=0 ? "" : "-",hours,minutes,seconds,milliseconds);
     } else {
-        sprintf(buf,"%d %.2d:%.2d:%.2d.%.3d",days,hours,minutes,seconds,milliseconds);
+        sprintf(buf,"%s%d %.2d:%.2d:%.2d.%.3d",pts>=0 ? "" : "-",days,hours,minutes,seconds,milliseconds);
     }
     return buf;
 }

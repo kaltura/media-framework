@@ -169,6 +169,11 @@ int main(int argc, char **argv)
     if (ret < 0) {
         return ret;
     }
+    
+    char logLevel[10];
+    if (JSON_OK==json_get_string(GetConfig(),"logger.logLevel","VERBOSE",logLevel,sizeof(logLevel))) {
+        set_log_level(logLevel);
+    }
 
     //alarm(3);
     

@@ -16,7 +16,7 @@ static enum AVPixelFormat hw_pix_fmt;
 int transcode_codec_init( transcode_codec_t * pContext)
 {
     pContext->name[0]=0;
-    pContext->inPts=pContext->outPts=0;
+    pContext->inDts=pContext->outDts=0;
     sample_stats_init(&pContext->inStats,standard_timebase);
     sample_stats_init(&pContext->outStats,standard_timebase);
     return 0;
@@ -99,7 +99,7 @@ static int get_decoder_buffer(AVCodecContext *s, AVFrame *frame, int flags)
 
 
 
-int transcode_codec_init_decoder( transcode_codec_t * pContext,ExtendedCodecParameters_t* extraParams)
+int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaInfo_t* extraParams)
 {
     transcode_codec_init(pContext);
     bool result;
@@ -150,6 +150,7 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,ExtendedCodecPara
     codec_ctx->opaque=pContext;
     codec_ctx->framerate=extraParams->frameRate;
     codec_ctx->time_base=extraParams->timeScale;
+    codec_ctx->pkt_timebase=codec_ctx->time_base;
 
     int ret = avcodec_parameters_to_context(codec_ctx, pCodecParams);
     if (ret < 0) {
@@ -180,8 +181,7 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,ExtendedCodecPara
         codec_ctx->hw_frames_ctx = av_buffer_ref(pContext->hw_frames_ctx);
     }
     pContext->ctx = codec_ctx;
-    codec_ctx->time_base=extraParams->timeScale;
-
+    //codec_ctx->time_base=extraParams->timeScale;
     if (codec_ctx->codec_type==AVMEDIA_TYPE_VIDEO) {
         LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "Initialized video decoder \"%s\" color space: %s",dec->long_name, av_get_pix_fmt_name (codec_ctx->pix_fmt));
     }
@@ -216,6 +216,14 @@ AVCodec * get_encoder(const char* codecCode) {
         LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"Unable to find %s",tmp);
     }
     return codec;
+}
+
+int get_preset(const char* codec,const char* preset,char* result,size_t resultSize) {
+    char key[100]={0};
+    sprintf(key,"engine.presets.%s.%s", preset,codec);
+    if (JSON_OK==json_get_string(GetConfig(),key,preset,result, resultSize))
+        return 0;
+    return -1;
 }
     
 int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
@@ -258,12 +266,18 @@ int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
     enc_ctx->gop_size=60;
     enc_ctx->time_base = timebase;
     enc_ctx->framerate = inputFrameRate;
+    enc_ctx->pkt_timebase = timebase;
 
-    if (strlen(pOutput->videoParams.preset)>0) {
-        av_opt_set(enc_ctx->priv_data, "preset",   pOutput->videoParams.preset, 0);
-    }
     if (strlen(pOutput->videoParams.profile)>0) {
         av_opt_set(enc_ctx->priv_data, "profile", pOutput->videoParams.profile, 0);
+        LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"set video encoder profile %s",pOutput->videoParams.profile);
+    }
+    if (strlen(pOutput->videoParams.preset)>0) {
+        char preset[100]={0};
+        if (0>=get_preset(codec->name,pOutput->videoParams.preset,preset,sizeof(preset))) {
+            av_opt_set(enc_ctx->priv_data, "preset",   preset, 0);
+            LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"set video encoder preset %s",preset);
+        }
     }
     if (strcmp(pOutput->codec,"libx264")==0) {
         av_opt_set(enc_ctx->priv_data, "x264-params", "nal-hrd=cbr:ratetol=10", AV_OPT_SEARCH_CHILDREN);
@@ -281,8 +295,8 @@ int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
     pContext->ctx=enc_ctx;
     LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"video encoder  \"%s\"  %dx%d %d Kbit/s %s initilaized",codec->long_name,enc_ctx->width,enc_ctx->height,enc_ctx->bit_rate/1000, av_get_pix_fmt_name (enc_ctx->pix_fmt));
     
-    pContext->inPts=0;
-    pContext->outPts=0;
+    pContext->inDts=0;
+    pContext->outDts=0;
 
     return 0;
 }
@@ -308,11 +322,9 @@ int transcode_codec_init_audio_encoder( transcode_codec_t * pContext,transcode_f
     enc_ctx->channel_layout = av_buffersink_get_channel_layout(pFilter->sink_ctx);
     enc_ctx->channels = av_buffersink_get_channels(pFilter->sink_ctx);
     enc_ctx->sample_rate = av_buffersink_get_sample_rate(pFilter->sink_ctx);
-    enc_ctx->time_base = av_buffersink_get_time_base(pFilter->sink_ctx);
+    enc_ctx->time_base = standard_timebase;// !
     enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-
     enc_ctx->bit_rate=pOutput->bitrate*1000;
-    enc_ctx->pkt_timebase=standard_timebase;
     ret = avcodec_open2(enc_ctx, codec,NULL);
     if (ret<0) {
         LOGGER(CATEGORY_CODEC,AV_LOG_ERROR,"error initilizing video encoder %d (%s)",ret,av_err2str(ret));
@@ -339,10 +351,10 @@ int transcode_codec_close( transcode_codec_t * pContext)
     
     return 0;
 }
-int transcode_codec_send_frame( transcode_codec_t *encoder,const AVFrame* pFrame)
+int transcode_encoder_send_frame( transcode_codec_t *encoder, const AVFrame* pFrame)
 {
     if (pFrame!=NULL) {
-        encoder->inPts=pFrame->pts;
+        encoder->inDts=pFrame->pts;
         samples_stats_add(&encoder->inStats,pFrame->pts,pFrame->pkt_pos, 0);
     }
 
@@ -357,7 +369,7 @@ int transcode_codec_send_frame( transcode_codec_t *encoder,const AVFrame* pFrame
     }
     return ret;
 }
-int transcode_codec_receive_packet( transcode_codec_t *encoder,AVPacket* pkt)
+int transcode_encoder_receive_packet( transcode_codec_t *encoder,AVPacket* pkt)
 {
     int ret;
     ret = avcodec_receive_packet(encoder->ctx, pkt);
@@ -369,23 +381,27 @@ int transcode_codec_receive_packet( transcode_codec_t *encoder,AVPacket* pkt)
         LOGGER(CATEGORY_CODEC,AV_LOG_WARNING, "Error recveiving a packet for encoding %d (%s)",ret,av_err2str(ret));
         return ret;
     }
-    encoder->outPts=pkt->pts;
-    samples_stats_add(&encoder->outStats,pkt->pts,pkt->pos,pkt->size);
+
+    encoder->outDts=pkt->dts;
+    if (pkt->pos==-1) {
+        pkt->pos=0;
+    }
+    samples_stats_add(&encoder->outStats,pkt->dts,pkt->pos,pkt->size);
 
     return ret;
     
 }
 
 
-int transcode_codec_send_packet( transcode_codec_t *decoder,const AVPacket* pkt) {
+int transcode_decoder_send_packet( transcode_codec_t *decoder, const AVPacket* pkt) {
     
     int ret;
     
     //LOGGER0(CATEGORY_CODEC, AV_LOG_DEBUG,"Sending packet to decoder");
     
     if (pkt!=NULL) {
-        decoder->inPts=pkt->pts;
-        samples_stats_add(&decoder->inStats,pkt->pts,pkt->pos,pkt->size);
+        decoder->inDts=pkt->dts;
+        samples_stats_add(&decoder->inStats,pkt->dts,pkt->pos,pkt->size);
     }
     ret = avcodec_send_packet(decoder->ctx, pkt);
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
@@ -402,7 +418,7 @@ int transcode_codec_send_packet( transcode_codec_t *decoder,const AVPacket* pkt)
 }
 
 
-int transcode_codec_receive_frame( transcode_codec_t *decoder,AVFrame *pFrame)
+int transcode_decoder_receive_frame( transcode_codec_t *decoder,AVFrame *pFrame)
 {
     int ret;
     ret = avcodec_receive_frame(decoder->ctx, pFrame);
@@ -414,10 +430,11 @@ int transcode_codec_receive_frame( transcode_codec_t *decoder,AVFrame *pFrame)
         LOGGER(CATEGORY_CODEC,AV_LOG_ERROR, "Error recieving packet from decoder %d (%s)",ret,av_err2str(ret));
         return ret;
     }
+    
     //pFrame->pts = pFrame->best_effort_timestamp;
     
     
-    decoder->outPts=pFrame->pts;
+    decoder->outDts=pFrame->pts;
     samples_stats_add(&decoder->outStats,pFrame->pts,pFrame->pkt_pos,0);
 
     return 0;
@@ -426,22 +443,22 @@ int transcode_codec_receive_frame( transcode_codec_t *decoder,AVFrame *pFrame)
 
 int transcode_codec_get_diagnostics( transcode_codec_t *codec,char *buf)
 {
-    char tmp[2048];
+    char tmp[MAX_DIAGNOSTICS_STRING_LENGTH];
     JSON_SERIALIZE_INIT(buf)
     JSON_SERIALIZE_STRING("name",codec->name)
     
     JSON_SERIALIZE_OBJECT_BEGIN("input")
-        sample_stats_get_diagnostics(&codec->inStats, tmp);
-        JSON_SERIALIZE_INT64("pts", codec->inPts)
+        sample_stats_get_diagnostics(&codec->inStats,tmp);
+        JSON_SERIALIZE_INT64("dts", codec->inDts)
         JSON_SERIALIZE_OBJECT("stats", tmp)
     JSON_SERIALIZE_OBJECT_END()
     
     JSON_SERIALIZE_OBJECT_BEGIN("output")
-        sample_stats_get_diagnostics(&codec->outStats, tmp);
-        JSON_SERIALIZE_INT64("pts", codec->outPts)
+        sample_stats_get_diagnostics(&codec->outStats,tmp);
+        JSON_SERIALIZE_INT64("dts", codec->outDts)
         JSON_SERIALIZE_OBJECT("stats", tmp)
     JSON_SERIALIZE_OBJECT_END()
-    JSON_SERIALIZE_INT64("delay", codec->outPts-codec->inPts)
+    JSON_SERIALIZE_INT64("delay", codec->outDts-codec->inDts)
 
     JSON_SERIALIZE_END()
     return n;

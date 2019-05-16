@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		081DBB4A228B40DA001D2754 /* transcode_dropper.c in Sources */ = {isa = PBXBuildFile; fileRef = 081DBB49228B40DA001D2754 /* transcode_dropper.c */; };
 		0822C6AB221ED3310095F76B /* json_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = 0822C6A9221ED3310095F76B /* json_parser.c */; };
 		0822C6AD221FEF300095F76B /* config.json in Sources */ = {isa = PBXBuildFile; fileRef = 0822C6AC221FEF300095F76B /* config.json */; };
 		0822C6B0221FEF690095F76B /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 0822C6AF221FEF690095F76B /* utils.c */; };
@@ -44,6 +45,7 @@
 		0874214B21D8EC3200F0D6E6 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 0874214A21D8EC3200F0D6E6 /* libz.tbd */; };
 		0874214F21D8ED6E00F0D6E6 /* libbz2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 0874214E21D8ED6E00F0D6E6 /* libbz2.tbd */; };
 		0886F1D422439B5D005C4B5B /* KMP.c in Sources */ = {isa = PBXBuildFile; fileRef = 0886F1D322439B5D005C4B5B /* KMP.c */; };
+		0887D61A2289887E007946BE /* packetQueue.c in Sources */ = {isa = PBXBuildFile; fileRef = 0887D6192289887E007946BE /* packetQueue.c */; };
 		08C4211A2219D78F003AA42F /* samples_stats.c in Sources */ = {isa = PBXBuildFile; fileRef = 08C421192219D78F003AA42F /* samples_stats.c */; };
 		08C4211D2219EAB7003AA42F /* receiver_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 08C4211C2219EAB7003AA42F /* receiver_server.c */; };
 		08DA39172244D22100C57507 /* file_streamer.c in Sources */ = {isa = PBXBuildFile; fileRef = 08DA39162244D22100C57507 /* file_streamer.c */; };
@@ -67,6 +69,8 @@
 
 /* Begin PBXFileReference section */
 		08141DBA2222B23700EA1219 /* core.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = core.h; sourceTree = "<group>"; };
+		081DBB48228B40DA001D2754 /* transcode_dropper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = transcode_dropper.h; sourceTree = "<group>"; };
+		081DBB49228B40DA001D2754 /* transcode_dropper.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = transcode_dropper.c; sourceTree = "<group>"; };
 		0822C6A9221ED3310095F76B /* json_parser.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = json_parser.c; sourceTree = "<group>"; };
 		0822C6AA221ED3310095F76B /* json_parser.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = json_parser.h; sourceTree = "<group>"; };
 		0822C6AC221FEF300095F76B /* config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = config.json; sourceTree = "<group>"; };
@@ -121,6 +125,8 @@
 		0874214E21D8ED6E00F0D6E6 /* libbz2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbz2.tbd; path = usr/lib/libbz2.tbd; sourceTree = SDKROOT; };
 		0886F1D222439B5D005C4B5B /* KMP.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = KMP.h; sourceTree = "<group>"; };
 		0886F1D322439B5D005C4B5B /* KMP.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = KMP.c; sourceTree = "<group>"; };
+		0887D6182289887E007946BE /* packetQueue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = packetQueue.h; sourceTree = "<group>"; };
+		0887D6192289887E007946BE /* packetQueue.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = packetQueue.c; sourceTree = "<group>"; };
 		08C421182219D78F003AA42F /* samples_stats.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = samples_stats.h; sourceTree = "<group>"; };
 		08C421192219D78F003AA42F /* samples_stats.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = samples_stats.c; sourceTree = "<group>"; };
 		08C4211B2219EAB7003AA42F /* receiver_server.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = receiver_server.h; sourceTree = "<group>"; };
@@ -207,6 +213,8 @@
 				0822C6B22221C7880095F76B /* config.c */,
 				0822C6AE221FEF690095F76B /* utils.h */,
 				0822C6AF221FEF690095F76B /* utils.c */,
+				0887D6182289887E007946BE /* packetQueue.h */,
+				0887D6192289887E007946BE /* packetQueue.c */,
 			);
 			path = utils;
 			sourceTree = "<group>";
@@ -300,6 +308,8 @@
 				0869F20621DB3B60003F3538 /* transcode_filter.c */,
 				08F2959C21DDF7FF0028EEE5 /* transcode_codec.h */,
 				08F2959D21DDF7FF0028EEE5 /* transcode_codec.c */,
+				081DBB48228B40DA001D2754 /* transcode_dropper.h */,
+				081DBB49228B40DA001D2754 /* transcode_dropper.c */,
 			);
 			path = transcode;
 			sourceTree = "<group>";
@@ -365,6 +375,7 @@
 				0869F1F121DA216A003F3538 /* transcode_session_output.c in Sources */,
 				08E1253622840AE600385F89 /* time_estimator.c in Sources */,
 				08F2959E21DDF7FF0028EEE5 /* transcode_codec.c in Sources */,
+				0887D61A2289887E007946BE /* packetQueue.c in Sources */,
 				0822C6AB221ED3310095F76B /* json_parser.c in Sources */,
 				08DD3783224AE2D400B51A0D /* vector.c in Sources */,
 				0869F1E721D9F9F4003F3538 /* transcode_session.c in Sources */,
@@ -372,6 +383,7 @@
 				0869F1EA21DA089F003F3538 /* logger.c in Sources */,
 				08432987228212C700D3D40F /* kmp_streamer.c in Sources */,
 				0869F20721DB3B60003F3538 /* transcode_filter.c in Sources */,
+				081DBB4A228B40DA001D2754 /* transcode_dropper.c in Sources */,
 				08516DF91FA10B5D0077B9F0 /* Makefile in Sources */,
 				085E1F601EA6BA470056B80C /* main.c in Sources */,
 				08C4211A2219D78F003AA42F /* samples_stats.c in Sources */,

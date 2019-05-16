@@ -1,13 +1,27 @@
 {
     "input": {
         "file1": "/Users/guyjacubovski/Sample_video/bbb_sunflower_1080p_30fps_normal.mp4",
-        "file2": "/Users/guyjacubovski/Sample_video/900.mp4",
-        "file3": "/Users/guyjacubovski/Downloads/video.kmp",
-        "file": "/Users/guyjacubovski/Downloads/audio.kmp",
-        "realTime": false,
+        "file11": "/Users/guyjacubovski/Sample_video/flas_dupa_s4e01_hdfr_1_2_60sec.mp4",
+        "file": "/Users/guyjacubovski/Sample_video/900.mp4",
+        "file1": "/Users/guyjacubovski/Downloads/video.kmp",
+        "file3": "/Users/guyjacubovski/Downloads/audio.kmp",
+        "realTime": true,
         "activeStream": 0,
         "duration": 900000,
+        "queueDuration": 10,
+        "queueSize": 2000,
         "randomDataPercentage": 0
+    },
+    "frameDropper": {
+        "enabled": false,
+        "queueDuration": 10,
+        "queueSize": 2000,
+        "nonKeyFrameDropperThreshold": 4,
+        "decodedFrameDropperThreshold": 2
+    },
+    "logger": {
+        "logLevels": ["DEBUG","VERBOSE","INFO","WARN","ERROR","FATAL","PANIC"],
+        "logLevel": "INFO"
     },
     "kmp": {
         "listenPort": 12346,
@@ -18,7 +32,8 @@
         "listenAddress": "127.0.0.1"
     },
     "debug": {
-        "dummyPackager": false
+        "dummyPackager": false,
+        "diagnosticsIntervalInSeconds": 1
     },
     "output": {
         "saveFile": true,
@@ -29,22 +44,29 @@
         "useNvidiaDecoder": true,
         "encoders": {
             "h264": ["h264_nvenc","h264_videotoolbox","libx264"]
+        },
+        "presets": {
+            "A": {
+                "h264_videotoolbox": "default",
+                "libx264": "veryfast",
+                "h264_nvenc": "fast"
+            }
         }
     },
     "outputTracks": [
         {
             "trackId": "v32",
-            "enabled": false,
+            "enabled": true,
             "passthrough": true
         },
         {
             "trackId": "a32",
-            "enabled": true,
+            "enabled": false,
             "passthrough": true
         },
         {
             "trackId": "a33",
-            "enabled": true,
+            "enabled": false,
             "bitrate": 64,
             "passthrough": false,
             "codec": "aac",
@@ -56,12 +78,12 @@
         {
             "trackId": "v33",
             "passthrough": false,
-            "enabled": false,
+            "enabled": true,
             "bitrate": 900,
             "codec": "h264",
             "videoParams": {
                 "profile": "main",
-                "preset": "veryfast",
+                "preset": "A",
                 "height": 480
             }
         },
@@ -73,7 +95,7 @@
             "codec": "h264",
             "videoParams": {
                 "profile": "baseline",
-                "preset": "veryfast",
+                "preset": "A",
                 "height": 360
             }
         },
@@ -85,7 +107,7 @@
             "codec": "h264",
             "videoParams": {
                 "profile": "baseline",
-                "preset": "veryfast",
+                "preset": "A",
                 "height": 360
             }
         },
@@ -97,7 +119,7 @@
             "codec": "h264",
             "videoParams": {
                 "profile": "high",
-                "preset": "veryfast",
+                "preset": "A",
                 "height": 720
             }
         },
@@ -109,8 +131,8 @@
             "codec": "h264",
             "videoParams": {
                 "profile": "high",
-                "preset": "veryfast",
-                "height": 720,
+                "preset": "A",
+                "height": 2160,
                 "skipFrame": 1
             }
         }

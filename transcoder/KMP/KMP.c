@@ -96,29 +96,29 @@ static kmp_codec_id get_video_codec(AVCodecParameters *apar)
     }
 }
 
-int KMP_send_header( KMP_session_t *context,ExtendedCodecParameters_t* extra )
+int KMP_send_header( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo )
 {
     if (context->socket==0)
     {
         LOGGER0(CATEGORY_KMP,AV_LOG_FATAL,"Invalid socket");
         return -1;
     }
-    AVCodecParameters *codecpar=extra->codecParams;
+    AVCodecParameters *codecpar=mediaInfo->codecParams;
     kmp_packet_header_t header;
     kmp_media_info_t media_info;
     header.packet_type=KMP_PACKET_MEDIA_INFO;
     header.header_size=sizeof(kmp_packet_header_t)+sizeof(media_info);
     header.data_size=codecpar->extradata_size;
     media_info.bitrate=(uint32_t)codecpar->bit_rate;
-    media_info.timescale=extra->timeScale.num;
+    media_info.timescale=mediaInfo->timeScale.den;
     if (codecpar->codec_type==AVMEDIA_TYPE_VIDEO)
     {
         media_info.media_type=KMP_MEDIA_VIDEO;
         media_info.codec_id=get_video_codec(codecpar);
         media_info.u.video.width=codecpar->width;
         media_info.u.video.height=codecpar->height;
-        media_info.u.video.frame_rate.denom=extra->frameRate.den;
-        media_info.u.video.frame_rate.num=extra->frameRate.num;
+        media_info.u.video.frame_rate.denom=mediaInfo->frameRate.den;
+        media_info.u.video.frame_rate.num=mediaInfo->frameRate.num;
     }
     if (codecpar->codec_type==AVMEDIA_TYPE_AUDIO)
     {
@@ -233,7 +233,8 @@ int KMP_send_packet( KMP_session_t *context,AVPacket* packet)
     }
     sample.dts=packet->dts;
     sample.created=packet->pos;
-    sample.flags=0;
+    sample.flags=((packet->flags& AV_PKT_FLAG_KEY)==AV_PKT_FLAG_KEY)? KMP_FRAME_FLAG_KEY : 0;
+
     
     send(context->socket, &packetHeader, sizeof(packetHeader), 0);
     send(context->socket, &sample, sizeof(sample), 0);
@@ -465,7 +466,7 @@ static void set_video_codec(int codecid,AVCodecParameters *apar)
     }
 }
 
-int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,ExtendedCodecParameters_t *extra)
+int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,transcode_mediaInfo_t *transcodeMediaInfo)
 {
     kmp_media_info_t mediaInfo;
     if (header->packet_type!=KMP_PACKET_MEDIA_INFO) {
@@ -476,7 +477,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,Exten
     if (valread<=0) {
         return valread;
     }
-    AVCodecParameters* params=extra->codecParams;
+    AVCodecParameters* params=transcodeMediaInfo->codecParams;
     if (mediaInfo.media_type==KMP_MEDIA_AUDIO) {
         params->codec_type=AVMEDIA_TYPE_AUDIO;
         params->sample_rate=mediaInfo.u.audio.sample_rate;
@@ -490,12 +491,12 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,Exten
         params->format=AV_PIX_FMT_YUV420P;
         params->width=mediaInfo.u.video.width;
         params->height=mediaInfo.u.video.height;
-        extra->frameRate.den=mediaInfo.u.video.frame_rate.denom;
-        extra->frameRate.num=mediaInfo.u.video.frame_rate.num;
+        transcodeMediaInfo->frameRate.den=mediaInfo.u.video.frame_rate.denom;
+        transcodeMediaInfo->frameRate.num=mediaInfo.u.video.frame_rate.num;
         set_video_codec(mediaInfo.codec_id,params);
     }
-    extra->timeScale.den=mediaInfo.timescale;
-    extra->timeScale.num=1;
+    transcodeMediaInfo->timeScale.den=mediaInfo.timescale;
+    transcodeMediaInfo->timeScale.num=1;
     params->bit_rate=mediaInfo.bitrate;
     //params->codec_id=mediaInfo.codec_id;
     params->extradata_size=header->data_size;
@@ -530,6 +531,7 @@ int KMP_readPacket( KMP_session_t *context,kmp_packet_header_t *header,AVPacket 
     }
     packet->duration=0;
     packet->pos=sample.created;
+    packet->flags=((sample.flags& KMP_FRAME_FLAG_KEY )==KMP_FRAME_FLAG_KEY)? AV_PKT_FLAG_KEY : 0;
     
     valread =recvExact(context->socket,(char*)packet->data,(int)header->data_size);
     return valread;

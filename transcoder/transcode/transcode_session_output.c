@@ -101,13 +101,22 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
     }
     samples_stats_add(&pOutput->stats,packet->dts,packet->pos, packet->size);
     
-    LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"[%s] got data: %s", pOutput->track_id,getPacketDesc(packet))
-    samples_stats_log(CATEGORY_OUTPUT,AV_LOG_DEBUG,&pOutput->stats,pOutput->track_id);
+    LOGGER(CATEGORY_OUTPUT,AV_LOG_VERBOSE,"[%s] got data: %s", pOutput->track_id,getPacketDesc(packet))
+    samples_stats_log(CATEGORY_OUTPUT,AV_LOG_VERBOSE,&pOutput->stats,pOutput->track_id);
     
     if (pOutput->oc) {
         
         AVPacket* cpPacket=av_packet_clone(packet);
         
+        if (cpPacket->dts<pOutput->lastFileDts) {
+            pOutput->fileDuration+=pOutput->lastFileDts;
+        }
+            
+        pOutput->lastFileDts=cpPacket->dts;
+        cpPacket->pts+=pOutput->fileDuration;
+        cpPacket->dts+=pOutput->fileDuration;
+        
+        av_packet_rescale_ts(cpPacket,standard_timebase, pOutput->oc->streams[0]->time_base); 
         int ret=av_write_frame(pOutput->oc, cpPacket);
     
         if (ret<0) {
@@ -117,16 +126,21 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
         av_write_frame(pOutput->oc, NULL);
         
         av_packet_free(&cpPacket);
+        
     }
     
     if (pOutput->sender!=NULL)
     {
         KMP_send_packet(pOutput->sender,packet);
     }
+    
+    /*if (strcmp("v32",pOutput->channel_id)!=0) {
+        av_usleep(100*1000);
+    }*/
     return 0;
 }
 
-int transcode_session_output_set_format(transcode_session_output_t *pOutput,ExtendedCodecParameters_t* extra)
+int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,transcode_mediaInfo_t* extra)
 {
     char senderUrl[MAX_URL_LENGTH];
     json_get_string(GetConfig(),"output.streamingUrl","",senderUrl,sizeof(senderUrl));
@@ -142,7 +156,7 @@ int transcode_session_output_set_format(transcode_session_output_t *pOutput,Exte
     if (saveFile && pOutput->oc==NULL) {
         char fileNamePattern[MAX_URL_LENGTH];
         char filename[MAX_URL_LENGTH];
-        json_get_string(GetConfig(),"debug.outputFileNamePattern","output_%s.mp4",fileNamePattern,sizeof(fileNamePattern));
+        json_get_string(GetConfig(),"output.outputFileNamePattern","output_%s.mp4",fileNamePattern,sizeof(fileNamePattern));
         sprintf(filename,fileNamePattern, pOutput->track_id);
         //pOutput->pOutputFile= fopen(filename,"wb+");  // r for read, b for binary
 
@@ -173,7 +187,10 @@ int transcode_session_output_set_format(transcode_session_output_t *pOutput,Exte
             
             LOGGER(CATEGORY_OUTPUT,AV_LOG_FATAL,"(%s) cannot create filename %s - %d (%s)",pOutput->track_id,filename,ret,av_err2str(ret))
         }
+        pOutput->fileDuration=0;
+        pOutput->lastFileDts=0;
 
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"(%s) opened filename %s",pOutput->track_id,filename);
     }
     return 0;
 }
@@ -200,17 +217,14 @@ int transcode_session_output_close(transcode_session_output_t* pOutput)
     return 0;
 }
 
-int transcode_session_output_get_diagnostics(transcode_session_output_t *pOutput,char* buf)
+int transcode_session_output_get_diagnostics(transcode_session_output_t *pOutput,uint64_t recieveDts,uint64_t startProcessDts,char* buf)
 {
     JSON_SERIALIZE_INIT(buf)
-    JSON_SERIALIZE_STRING("channel_id",pOutput->channel_id)
     JSON_SERIALIZE_STRING("track_id",pOutput->track_id)
-    JSON_SERIALIZE_INT("bitrate",pOutput->bitrate)
-    JSON_SERIALIZE_INT("codec_type",pOutput->codec_type)
-    JSON_SERIALIZE_BOOL("passthrough",pOutput->passthrough)
-    char tmp[MAX_DIAGNOSTICS_STRING_LENGTH];
-    sample_stats_get_diagnostics(&pOutput->stats, tmp);
-    JSON_SERIALIZE_OBJECT("stats",tmp)
+    JSON_SERIALIZE_INT64("totalFrames",pOutput->stats.totalFrames)
+    JSON_SERIALIZE_STRING("lastDts",pts2str(pOutput->stats.lastDts))
+    JSON_SERIALIZE_INT("bitrate",pOutput->bitrate > 0 ? pOutput->bitrate* 1000 : -1)
+    JSON_SERIALIZE_INT("currenBitrate",pOutput->stats.currentBitRate)
     JSON_SERIALIZE_END()
     return n;
 }

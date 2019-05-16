@@ -16,8 +16,6 @@
 
  todo:
  1. drop frames if cannot reach realtime
- 2. video/audio sync?
- 3. pts/dts wrap?
  4.send stream
  
 

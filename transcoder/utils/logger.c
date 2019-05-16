@@ -13,11 +13,11 @@
 #include "logger.h"
 #include "utils.h"
 #include <pthread.h>
-
+#include <string.h>
 
 static int logLevel =AV_LOG_VERBOSE;
 
-const   char* getLevelStr(int level) {
+const char* getLevelStr(int level) {
     switch(level){
         case AV_LOG_PANIC: return "PANIC";
         case AV_LOG_FATAL: return "FATAL";
@@ -28,6 +28,28 @@ const   char* getLevelStr(int level) {
         case AV_LOG_DEBUG: return "DEBUG";
     }
     return "";
+}
+
+int parseLoglevel(const char* loglevel)
+{
+    const struct { const char *name; int level; } log_levels[] = {
+        { "quiet"  , AV_LOG_QUIET   },
+        { "panic"  , AV_LOG_PANIC   },
+        { "fatal"  , AV_LOG_FATAL   },
+        { "error"  , AV_LOG_ERROR   },
+        { "warning", AV_LOG_WARNING },
+        { "info"   , AV_LOG_INFO    },
+        { "verbose", AV_LOG_VERBOSE },
+        { "debug"  , AV_LOG_DEBUG   },
+        { "trace"  , AV_LOG_TRACE   },
+    };
+    
+    for (int i=0;i<sizeof(log_levels)/sizeof(log_levels[0]);i++) {
+        if (0==strcasecmp(loglevel, log_levels[i].name)) {
+            return log_levels[i].level;
+        }
+    }
+    return AV_LOG_DEBUG;
 }
 
 pthread_mutex_t logger_locker;
@@ -119,6 +141,10 @@ void log_init(int level)
     pthread_mutexattr_init(&Attr);
     pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
     pthread_mutex_init(&logger_locker, &Attr);
+}
+
+void set_log_level(const char* loglevel) {
+    logLevel=parseLoglevel(loglevel);
 }
 
 int get_log_level(const char* category)

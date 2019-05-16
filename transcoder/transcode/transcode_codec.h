@@ -21,7 +21,7 @@ typedef struct
     AVBufferRef *hw_device_ctx,*hw_frames_ctx;
     AVCodec* codec;
     AVCodecContext* ctx;
-    int64_t inPts,outPts;
+    int64_t inDts,outDts;
     bool nvidiaAccelerated;
     samples_stats_t inStats,outStats;
 
@@ -29,7 +29,7 @@ typedef struct
 
 int transcode_codec_init(transcode_codec_t * pContext);
 
-int transcode_codec_init_decoder(transcode_codec_t * pContext,ExtendedCodecParameters_t* extraParams);
+int transcode_codec_init_decoder(transcode_codec_t * pContext,transcode_mediaInfo_t* extraParams);
 
 int transcode_codec_close(transcode_codec_t * pContext);
 
@@ -45,15 +45,15 @@ int transcode_codec_init_video_encoder(transcode_codec_t * pContext,
 int transcode_codec_init_audio_encoder(transcode_codec_t * pContext, transcode_filter_t* pFilter,const  transcode_session_output_t* pOutput);
 
 
-int transcode_codec_send_frame(transcode_codec_t *encoder,const AVFrame* pFrame);
-int transcode_codec_receive_packet(transcode_codec_t *encoder,AVPacket* pkt);
+int transcode_encoder_send_frame(transcode_codec_t *encoder, const AVFrame* pFrame);
+int transcode_encoder_receive_packet(transcode_codec_t *encoder,AVPacket* pkt);
 
-int transcode_codec_send_packet( transcode_codec_t *decoder,const AVPacket* pkt);
-int transcode_codec_receive_frame( transcode_codec_t *decoder,AVFrame *pFrame);
+int transcode_decoder_send_packet( transcode_codec_t *decoder,const AVPacket* pkt);
+int transcode_decoder_receive_frame( transcode_codec_t *decoder,AVFrame *pFrame);
 
 int transcode_codec_reset( transcode_codec_t *decoder);
 
-inline int64_t transcode_codec_get_latency( transcode_codec_t *codec) { return llabs(codec->outPts-codec->inPts);}
+inline int64_t transcode_codec_get_latency( transcode_codec_t *codec) { return llabs(codec->outDts-codec->inDts);}
 
 int transcode_codec_get_diagnostics( transcode_codec_t *decoder,char* buf);
 

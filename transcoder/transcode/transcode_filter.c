@@ -8,6 +8,7 @@
 
 #include "transcode_filter.h"
 #include "logger.h"
+#include "../utils/utils.h"
 
 int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,const char *filters_descr)
 {
@@ -23,7 +24,7 @@ int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,
         snprintf(args, sizeof(args),
                  "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d:frame_rate=%d/%d:sws_param=%s",
                  dec_ctx->width, dec_ctx->height, dec_ctx->pix_fmt,
-                 dec_ctx->time_base.num, dec_ctx->time_base.den,
+                 standard_timebase.num, standard_timebase.den,
                  dec_ctx->sample_aspect_ratio.num, dec_ctx->sample_aspect_ratio.den,
                  dec_ctx->framerate.num, dec_ctx->framerate.den,
                  "flags=2");
@@ -35,7 +36,7 @@ int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,
                  "sample_rate=%d:sample_fmt=%d:channel_layout=0x%"PRIx64":channels=%d:"
                  "time_base=%d/%d",
                  dec_ctx->sample_rate, dec_ctx->sample_fmt, dec_ctx->channel_layout,
-                 dec_ctx->channels, dec_ctx->time_base.num, dec_ctx->time_base.den);
+                 dec_ctx->channels, standard_timebase.num, standard_timebase.den);
     }
     
     AVFilterInOut *outputs = avfilter_inout_alloc();
@@ -127,6 +128,7 @@ end:
     avfilter_inout_free(&inputs);
     avfilter_inout_free(&outputs);
     
+    pFilter->outputTimeScale=av_buffersink_get_time_base(pFilter->sink_ctx);
     return ret;
 }
 int transcode_filter_close( transcode_filter_t *pFilter)
@@ -135,7 +137,7 @@ int transcode_filter_close( transcode_filter_t *pFilter)
     return 0;
 }
 
-int transcode_filter_send_frame( transcode_filter_t *pFilter,struct AVFrame* pInFrame)
+int transcode_filter_send_frame( transcode_filter_t *pFilter,const AVFrame* pInFrame)
 {
     int ret=0;
     ret = av_buffersrc_write_frame(pFilter->src_ctx, pInFrame);
@@ -147,6 +149,10 @@ int transcode_filter_receive_frame( transcode_filter_t *pFilter,struct AVFrame* 
 {
     int ret=0;
     ret = av_buffersink_get_frame(pFilter->sink_ctx, pOutFrame);
+    if (pFilter->outputTimeScale.den!=standard_timebase.den) {
+        pOutFrame->pts=av_rescale_q(pOutFrame->pts,pFilter->outputTimeScale,standard_timebase);
+        pOutFrame->pkt_duration=av_rescale_q(pOutFrame->pkt_duration,pFilter->outputTimeScale,standard_timebase);
+    }
     return ret;
 }
 

@@ -17,14 +17,14 @@
 typedef struct
 {
     uint32_t frameSize;
-    uint64_t pts;
+    uint64_t dts;
     uint64_t clock;
     uint64_t timeStamp;
 } samples_stats_history_t ;
 
 typedef struct
 {
-    uint64_t firstPts;
+    uint64_t firstDts,lastDts;
     uint64_t totalFrames;
     uint64_t head,tail;
     samples_stats_history_t history[HISTORY_SIZE];
@@ -35,15 +35,15 @@ typedef struct
     int currentBitRate;
     double currentFrameRate;
     double currentRate;
-    int64_t ptsPassed;
+    int64_t dtsPassed;
     
-    uint64_t firstTimeStamp;
+    uint64_t firstTimeStamp,lastTimeStamp;
     int64_t timeStampPassed;
     int64_t clockDrift;
 } samples_stats_t;
 
 void sample_stats_init(samples_stats_t* pStats,AVRational basetime);
-void samples_stats_add(samples_stats_t* pStats,uint64_t pts,uint64_t creationTime,int size);
+void samples_stats_add(samples_stats_t* pStats,uint64_t dts,uint64_t creationTime,int size);
 int sample_stats_get_diagnostics(samples_stats_t *pStats,char* buf);
 void samples_stats_log(const char* category,int level,samples_stats_t *stats,const char*prefix);
 

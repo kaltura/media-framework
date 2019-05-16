@@ -16,7 +16,7 @@
 
 
 typedef struct {
-    uint64_t pts;
+    uint64_t dts;
     uint64_t clock;
 }clock_estimator_sample_t;
 
@@ -27,8 +27,8 @@ typedef struct {
 
 
 void clock_estimator_init(clock_estimator_t *fifo);
-void clock_estimator_push_frame(clock_estimator_t *fifo,uint64_t pts,uint64_t clock);
-uint64_t clock_estimator_get_clock(clock_estimator_t *fifo,uint64_t pts);
+void clock_estimator_push_frame(clock_estimator_t *fifo,uint64_t dts,uint64_t clock);
+uint64_t clock_estimator_get_clock(clock_estimator_t *fifo,uint64_t dts);
 
 
 #endif /* time_estimator_h */

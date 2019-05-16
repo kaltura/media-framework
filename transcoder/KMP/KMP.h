@@ -27,10 +27,10 @@ typedef struct
     AVCodecParameters* codecParams;
     AVRational timeScale;
     AVRational frameRate;
-} ExtendedCodecParameters_t;
+} transcode_mediaInfo_t;
 
 int KMP_connect( KMP_session_t *context,char* url);
-int KMP_send_header( KMP_session_t *context,ExtendedCodecParameters_t* params);
+int KMP_send_header( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo);
 int KMP_send_handshake( KMP_session_t *context,const char* channel_id,const char* track_id);
 int KMP_send_packet( KMP_session_t *context,AVPacket*);
 int KMP_send_eof( KMP_session_t *context);
@@ -42,7 +42,7 @@ int KMP_listen( KMP_session_t *context);
 int KMP_accept( KMP_session_t *context, KMP_session_t *client);
 int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char* channel_id,char* track_id);
 int KMP_read_header( KMP_session_t *context,kmp_packet_header_t *header);
-int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,ExtendedCodecParameters_t *params);
+int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,transcode_mediaInfo_t *mediaInfo);
 int KMP_readPacket( KMP_session_t *context,kmp_packet_header_t *header,AVPacket *packet);
 
 #endif /* sender_h */

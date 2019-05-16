@@ -82,7 +82,7 @@ void* httpServerThread(void *vargp)
             LOGGER(CATEGORY_HTTP_SERVER,AV_LOG_INFO,"Failed to avio_accept: %d (%s)", ret,av_err2str(ret));
             break;
         }
-        LOGGER0(CATEGORY_HTTP_SERVER,AV_LOG_INFO,"Accepted client from");
+        LOGGER0(CATEGORY_HTTP_SERVER,AV_LOG_VERBOSE,"Accepted client from");
         process_client(client,http_server->request);
     }
     

@@ -52,13 +52,12 @@ void* thread_stream_from_file(void *vargp)
         return NULL;
     }
     KMP_send_handshake(&kmp,"1_abcdefgh","1");
-    uint64_t  basePts=0;//av_rescale_q( getClock64(), clockScale, standard_timebase);
+    uint64_t  cumulativeDuration=0;
     
     AVStream *in_stream=ifmt_ctx->streams[activeStream];
     
-    ExtendedCodecParameters_t extra;
-    extra.frameRate.den=1;
-    extra.timeScale.num=15;
+    transcode_mediaInfo_t extra;
+    extra.frameRate=in_stream->avg_frame_rate;
     extra.timeScale=standard_timebase;
     extra.codecParams=in_stream->codecpar;
     KMP_send_header(&kmp,&extra);
@@ -68,16 +67,18 @@ void* thread_stream_from_file(void *vargp)
     uint64_t lastDts=0;
     int64_t start_time=av_gettime_relative();
     
+    int64_t createTime=av_rescale_q( getClock64(), clockScale, standard_timebase);
+    
     
     samples_stats_t stats;
     sample_stats_init(&stats,standard_timebase);
     
     while (!args->stop ) {
         
-        if ((ret = av_read_frame(ifmt_ctx, &packet)) < 0)
+        if ((ret = av_read_frame(ifmt_ctx, &packet)) < 0 )
         {
             av_seek_frame(ifmt_ctx,activeStream,0,AVSEEK_FLAG_FRAME);
-            basePts+=lastDts;
+            cumulativeDuration=lastDts+1;
             continue;
         }
         
@@ -85,14 +86,16 @@ void* thread_stream_from_file(void *vargp)
             av_packet_unref(&packet);
             continue;
         }
-        
+                
         AVStream *in_stream=ifmt_ctx->streams[packet.stream_index];
         
         av_packet_rescale_ts(&packet,in_stream->time_base, standard_timebase);
-        packet.pts+=basePts;
-        packet.dts+=basePts;
+        packet.pts+=cumulativeDuration;
+        packet.dts+=cumulativeDuration;
+        packet.pos=createTime +packet.dts;
         if (duration!=-1) {
-            if (packet.pts>=duration) {
+            if (packet.dts>=duration) {
+                LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"Duration exceeded %s>=%s, terminating!",pts2str(packet.dts),pts2str(duration));
                 break;
             }
         }
@@ -107,7 +110,7 @@ void* thread_stream_from_file(void *vargp)
         
         if (realTime) {
             
-            int64_t timePassed=av_rescale_q(packet.dts-basePts,standard_timebase,AV_TIME_BASE_Q);
+            int64_t timePassed=av_rescale_q(packet.dts-cumulativeDuration,standard_timebase,AV_TIME_BASE_Q);
             //LOGGER("SENDER",AV_LOG_DEBUG,"XXXX dt=%ld dd=%ld", (av_gettime_relative() - start_time),timePassed);
             while ((av_gettime_relative() - start_time) < timePassed) {
                 
@@ -118,8 +121,7 @@ void* thread_stream_from_file(void *vargp)
         
         lastDts=packet.dts;
         
-        
-        samples_stats_add(&stats,packet.pts,start_time,packet.size);
+        samples_stats_add(&stats,packet.dts,packet.pos,packet.size);
         
         /*
         int avgBitrate;
