@@ -1099,7 +1099,7 @@ ngx_rtmp_record_node_av(ngx_rtmp_session_t *s, ngx_rtmp_record_rec_ctx_t *rctx,
         }
     }
 
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
     if (codec_ctx) {
         ch = *h;
 

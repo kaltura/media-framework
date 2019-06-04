@@ -177,6 +177,7 @@ typedef struct {
     uint32_t                len;        /* current fragment length */
     uint8_t                 ext;
     ngx_chain_t            *in;
+    void                  **ctx;
 } ngx_rtmp_stream_t;
 
 
@@ -379,6 +380,12 @@ typedef struct {
 #define ngx_rtmp_get_module_ctx(s, module)     (s)->ctx[module.ctx_index]
 #define ngx_rtmp_set_ctx(s, c, module)         s->ctx[module.ctx_index] = c;
 #define ngx_rtmp_delete_ctx(s, module)         s->ctx[module.ctx_index] = NULL;
+
+
+#define ngx_rtmp_stream_ctx(s)                        (s)->in_streams[(s)->in_csid].ctx
+#define ngx_rtmp_stream_get_module_ctx(s, module)     ngx_rtmp_stream_ctx(s)[module.ctx_index]
+#define ngx_rtmp_stream_set_ctx(s, c, module)         ngx_rtmp_stream_ctx(s)[module.ctx_index] = c;
+#define ngx_rtmp_stream_delete_ctx(s, module)         ngx_rtmp_stream_ctx(s)[module.ctx_index] = NULL;
 
 
 #define ngx_rtmp_get_module_main_conf(s, module)                             \

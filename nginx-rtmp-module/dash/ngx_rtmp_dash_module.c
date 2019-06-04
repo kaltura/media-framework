@@ -233,7 +233,7 @@ ngx_rtmp_dash_write_playlist(ngx_rtmp_session_t *s)
 
     dacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_dash_module);
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_dash_module);
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     if (dacf == NULL || ctx == NULL || codec_ctx == NULL) {
         return NGX_ERROR;
@@ -456,7 +456,7 @@ ngx_rtmp_dash_write_init_segments(ngx_rtmp_session_t *s)
     static u_char          buffer[NGX_RTMP_DASH_BUFSIZE];
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_dash_module);
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     if (ctx == NULL || codec_ctx == NULL) {
         return NGX_ERROR;
@@ -1112,7 +1112,7 @@ ngx_rtmp_dash_audio(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     dacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_dash_module);
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_dash_module);
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     if (dacf == NULL || !dacf->dash || ctx == NULL ||
         codec_ctx == NULL || h->mlen < 2)
@@ -1162,7 +1162,7 @@ ngx_rtmp_dash_video(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     dacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_dash_module);
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_dash_module);
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     if (dacf == NULL || !dacf->dash || ctx == NULL || codec_ctx == NULL ||
         codec_ctx->avc_header == NULL || h->mlen < 5)

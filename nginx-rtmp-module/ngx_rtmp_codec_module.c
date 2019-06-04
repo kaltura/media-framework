@@ -163,27 +163,35 @@ ngx_rtmp_codec_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 {
     ngx_rtmp_codec_ctx_t               *ctx;
     ngx_rtmp_core_srv_conf_t           *cscf;
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
-    if (ctx == NULL) {
-        return NGX_OK;
-    }
+    ngx_int_t                           i;
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
-    if (ctx->avc_header) {
-        ngx_rtmp_free_shared_chain(cscf, ctx->avc_header);
-        ctx->avc_header = NULL;
-    }
+    for (i = 0; i < cscf->max_streams; i++)
+    {
+        if (s->in_streams[i].ctx == NULL) {
+            continue;
+        }
 
-    if (ctx->aac_header) {
-        ngx_rtmp_free_shared_chain(cscf, ctx->aac_header);
-        ctx->aac_header = NULL;
-    }
+        ctx = s->in_streams[i].ctx[ngx_rtmp_codec_module.ctx_index];
+        if (ctx == NULL) {
+            continue;
+        }
 
-    if (ctx->meta) {
-        ngx_rtmp_free_shared_chain(cscf, ctx->meta);
-        ctx->meta = NULL;
+        if (ctx->avc_header) {
+            ngx_rtmp_free_shared_chain(cscf, ctx->avc_header);
+            ctx->avc_header = NULL;
+        }
+
+        if (ctx->aac_header) {
+            ngx_rtmp_free_shared_chain(cscf, ctx->aac_header);
+            ctx->aac_header = NULL;
+        }
+
+        if (ctx->meta) {
+            ngx_rtmp_free_shared_chain(cscf, ctx->meta);
+            ctx->meta = NULL;
+        }
     }
 
     return NGX_OK;
@@ -205,10 +213,10 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_OK;
     }
 
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
     if (ctx == NULL) {
         ctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_codec_ctx_t));
-        ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_codec_module);
+        ngx_rtmp_stream_set_ctx(s, ctx, ngx_rtmp_codec_module);
     }
 
     /* save codec */
@@ -285,7 +293,7 @@ ngx_rtmp_codec_parse_aac_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     ngx_rtmp_codec_dump_header(s, "aac", in);
 #endif
 
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     ngx_rtmp_bit_init_reader(&br, in->buf->pos, in->buf->last);
 
@@ -367,7 +375,7 @@ ngx_rtmp_codec_parse_avc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     ngx_rtmp_codec_dump_header(s, "avc", in);
 #endif
 
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     ngx_rtmp_bit_init_reader(&br, in->buf->pos, in->buf->last);
 
@@ -647,7 +655,7 @@ ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s)
           out_inf, sizeof(out_inf) },
     };
 
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
     if (ctx == NULL) {
         return NGX_OK;
     }
@@ -687,7 +695,7 @@ ngx_rtmp_codec_copy_meta(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_rtmp_codec_ctx_t      *ctx;
     ngx_rtmp_core_srv_conf_t  *cscf;
 
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
@@ -711,7 +719,7 @@ ngx_rtmp_codec_prepare_meta(ngx_rtmp_session_t *s, uint32_t timestamp)
     ngx_rtmp_header_t      h;
     ngx_rtmp_codec_ctx_t  *ctx;
 
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     ngx_memzero(&h, sizeof(h));
     h.csid = NGX_RTMP_CSID_AMF;
@@ -831,10 +839,10 @@ ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_codec_module);
 
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
     if (ctx == NULL) {
         ctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_codec_ctx_t));
-        ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_codec_module);
+        ngx_rtmp_stream_set_ctx(s, ctx, ngx_rtmp_codec_module);
     }
 
     ngx_memzero(&v, sizeof(v));

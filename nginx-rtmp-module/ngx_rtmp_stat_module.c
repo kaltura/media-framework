@@ -408,11 +408,133 @@ ngx_rtmp_stat_get_avc_profile(ngx_uint_t p) {
 
 
 static void
+ngx_rtmp_stat_live_codec(ngx_http_request_t *r, ngx_chain_t ***lll,
+    ngx_rtmp_codec_ctx_t *codec)
+{
+    u_char                          buf[NGX_INT_T_LEN];
+    u_char                         *cname;
+
+    NGX_RTMP_STAT_L("<meta>");
+
+    NGX_RTMP_STAT_L("<video>");
+    NGX_RTMP_STAT_L("<width>");
+    NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                  "%ui", codec->width) - buf);
+    NGX_RTMP_STAT_L("</width><height>");
+    NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                  "%ui", codec->height) - buf);
+    NGX_RTMP_STAT_L("</height><frame_rate>");
+    NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                  "%ui", (ngx_uint_t)codec->frame_rate) - buf);
+    NGX_RTMP_STAT_L("</frame_rate>");
+
+    cname = ngx_rtmp_get_video_codec_name(codec->video_codec_id);
+    if (*cname) {
+        NGX_RTMP_STAT_L("<codec>");
+        NGX_RTMP_STAT_ECS(cname);
+        NGX_RTMP_STAT_L("</codec>");
+    }
+    if (codec->video_data_rate) {
+        NGX_RTMP_STAT_L("<data_rate>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                      "%ui", codec->video_data_rate) - buf);
+        NGX_RTMP_STAT_L("</data_rate>");
+    }
+    if (codec->avc_profile) {
+        NGX_RTMP_STAT_L("<profile>");
+        NGX_RTMP_STAT_CS(
+                ngx_rtmp_stat_get_avc_profile(codec->avc_profile));
+        NGX_RTMP_STAT_L("</profile>");
+    }
+    if (codec->avc_level) {
+        NGX_RTMP_STAT_L("<compat>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                      "%ui", codec->avc_compat) - buf);
+        NGX_RTMP_STAT_L("</compat>");
+    }
+    if (codec->avc_level) {
+        NGX_RTMP_STAT_L("<level>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                      "%.1f", codec->avc_level / 10.) - buf);
+        NGX_RTMP_STAT_L("</level>");
+    }
+    NGX_RTMP_STAT_L("</video>");
+
+    NGX_RTMP_STAT_L("<audio>");
+    cname = ngx_rtmp_get_audio_codec_name(codec->audio_codec_id);
+    if (*cname) {
+        NGX_RTMP_STAT_L("<codec>");
+        NGX_RTMP_STAT_ECS(cname);
+        NGX_RTMP_STAT_L("</codec>");
+    }
+    if (codec->audio_data_rate) {
+        NGX_RTMP_STAT_L("<data_rate>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                      "%ui", codec->audio_data_rate) - buf);
+        NGX_RTMP_STAT_L("</data_rate>");
+    }
+    if (codec->aac_profile) {
+        NGX_RTMP_STAT_L("<profile>");
+        NGX_RTMP_STAT_CS(
+                ngx_rtmp_stat_get_aac_profile(codec->aac_profile,
+                                              codec->aac_sbr,
+                                              codec->aac_ps));
+        NGX_RTMP_STAT_L("</profile>");
+    }
+    if (codec->aac_chan_conf) {
+        NGX_RTMP_STAT_L("<channels>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                      "%ui", codec->aac_chan_conf) - buf);
+        NGX_RTMP_STAT_L("</channels>");
+    } else if (codec->audio_channels) {
+        NGX_RTMP_STAT_L("<channels>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                      "%ui", codec->audio_channels) - buf);
+        NGX_RTMP_STAT_L("</channels>");
+    }
+    if (codec->sample_rate) {
+        NGX_RTMP_STAT_L("<sample_rate>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                      "%ui", codec->sample_rate) - buf);
+        NGX_RTMP_STAT_L("</sample_rate>");
+    }
+    NGX_RTMP_STAT_L("</audio>");
+
+    NGX_RTMP_STAT_L("</meta>\r\n");
+}
+
+
+static void
+ngx_rtmp_stat_live_codecs(ngx_http_request_t *r, ngx_chain_t ***lll,
+    ngx_rtmp_session_t *s)
+{
+    ngx_rtmp_codec_ctx_t               *ctx;
+    ngx_rtmp_core_srv_conf_t           *cscf;
+    ngx_int_t                           i;
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    for (i = 0; i < cscf->max_streams; i++)
+    {
+        if (s->in_streams[i].ctx == NULL) {
+            continue;
+        }
+
+        ctx = s->in_streams[i].ctx[ngx_rtmp_codec_module.ctx_index];
+        if (ctx == NULL) {
+            continue;
+        }
+
+        ngx_rtmp_stat_live_codec(r, lll, ctx);
+    }
+}
+
+
+static void
 ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
         ngx_rtmp_live_app_conf_t *lacf)
 {
     ngx_rtmp_live_stream_t         *stream;
-    ngx_rtmp_codec_ctx_t           *codec;
     ngx_rtmp_live_ctx_t            *ctx;
     ngx_rtmp_session_t             *s;
     ngx_int_t                       n;
@@ -420,7 +542,6 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
     u_char                          buf[NGX_INT_T_LEN];
     u_char                          bbuf[NGX_INT32_LEN];
     ngx_rtmp_stat_loc_conf_t       *slcf;
-    u_char                         *cname;
 
     if (!lacf->live) {
         return;
@@ -455,7 +576,6 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
                              NGX_RTMP_STAT_BW);
 
             nclients = 0;
-            codec = NULL;
             for (ctx = stream->ctx; ctx; ctx = ctx->next, ++nclients) {
                 s = ctx->session;
                 if (slcf->stat & NGX_RTMP_STAT_CLIENTS) {
@@ -492,88 +612,10 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
                     NGX_RTMP_STAT_L("</client>\r\n");
                 }
                 if (ctx->publishing) {
-                    codec = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+                    ngx_rtmp_stat_live_codecs(r, lll, s);
                 }
             }
             total_nclients += nclients;
-
-            if (codec) {
-                NGX_RTMP_STAT_L("<meta>");
-
-                NGX_RTMP_STAT_L("<video>");
-                NGX_RTMP_STAT_L("<width>");
-                NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
-                              "%ui", codec->width) - buf);
-                NGX_RTMP_STAT_L("</width><height>");
-                NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
-                              "%ui", codec->height) - buf);
-                NGX_RTMP_STAT_L("</height><frame_rate>");
-                NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
-                              "%ui", (ngx_uint_t)codec->frame_rate) - buf);
-                NGX_RTMP_STAT_L("</frame_rate>");
-
-                cname = ngx_rtmp_get_video_codec_name(codec->video_codec_id);
-                if (*cname) {
-                    NGX_RTMP_STAT_L("<codec>");
-                    NGX_RTMP_STAT_ECS(cname);
-                    NGX_RTMP_STAT_L("</codec>");
-                }
-                if (codec->avc_profile) {
-                    NGX_RTMP_STAT_L("<profile>");
-                    NGX_RTMP_STAT_CS(
-                            ngx_rtmp_stat_get_avc_profile(codec->avc_profile));
-                    NGX_RTMP_STAT_L("</profile>");
-                }
-                if (codec->avc_level) {
-                    NGX_RTMP_STAT_L("<compat>");
-                    NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
-                                  "%ui", codec->avc_compat) - buf);
-                    NGX_RTMP_STAT_L("</compat>");
-                }
-                if (codec->avc_level) {
-                    NGX_RTMP_STAT_L("<level>");
-                    NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
-                                  "%.1f", codec->avc_level / 10.) - buf);
-                    NGX_RTMP_STAT_L("</level>");
-                }
-                NGX_RTMP_STAT_L("</video>");
-
-                NGX_RTMP_STAT_L("<audio>");
-                cname = ngx_rtmp_get_audio_codec_name(codec->audio_codec_id);
-                if (*cname) {
-                    NGX_RTMP_STAT_L("<codec>");
-                    NGX_RTMP_STAT_ECS(cname);
-                    NGX_RTMP_STAT_L("</codec>");
-                }
-                if (codec->aac_profile) {
-                    NGX_RTMP_STAT_L("<profile>");
-                    NGX_RTMP_STAT_CS(
-                            ngx_rtmp_stat_get_aac_profile(codec->aac_profile,
-                                                          codec->aac_sbr,
-                                                          codec->aac_ps));
-                    NGX_RTMP_STAT_L("</profile>");
-                }
-                if (codec->aac_chan_conf) {
-                    NGX_RTMP_STAT_L("<channels>");
-                    NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
-                                  "%ui", codec->aac_chan_conf) - buf);
-                    NGX_RTMP_STAT_L("</channels>");
-                } else if (codec->audio_channels) {
-                    NGX_RTMP_STAT_L("<channels>");
-                    NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
-                                  "%ui", codec->audio_channels) - buf);
-                    NGX_RTMP_STAT_L("</channels>");
-                }
-                if (codec->sample_rate) {
-                    NGX_RTMP_STAT_L("<sample_rate>");
-                    NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
-                                  "%ui", codec->sample_rate) - buf);
-                    NGX_RTMP_STAT_L("</sample_rate>");
-                }
-                NGX_RTMP_STAT_L("</audio>");
-
-                NGX_RTMP_STAT_L("</meta>\r\n");
-            }
 
             NGX_RTMP_STAT_L("<nclients>");
             NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),

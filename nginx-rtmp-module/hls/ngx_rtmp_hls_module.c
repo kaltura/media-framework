@@ -693,7 +693,7 @@ ngx_rtmp_hls_append_sps_pps(ngx_rtmp_session_t *s, ngx_buf_t *out)
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_hls_module);
 
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     if (ctx == NULL || codec_ctx == NULL) {
         return NGX_ERROR;
@@ -1506,7 +1506,7 @@ ngx_rtmp_hls_parse_aac_header(ngx_rtmp_session_t *s, ngx_uint_t *objtype,
     ngx_chain_t            *cl;
     u_char                 *p, b0, b1;
 
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     cl = codec_ctx->aac_header;
 
@@ -1693,7 +1693,7 @@ ngx_rtmp_hls_audio(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_hls_module);
 
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     if (hacf == NULL || !hacf->hls || ctx == NULL ||
         codec_ctx == NULL  || h->mlen < 2)
@@ -1857,7 +1857,7 @@ ngx_rtmp_hls_video(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_hls_module);
 
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     if (hacf == NULL || !hacf->hls || ctx == NULL || codec_ctx == NULL ||
         codec_ctx->avc_header == NULL || h->mlen < 1)

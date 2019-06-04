@@ -461,6 +461,14 @@ ngx_rtmp_recv(ngx_event_t *rev)
             st->len = 0;
             h->timestamp += st->dtime;
 
+            if (st->ctx == NULL) {
+                st->ctx = ngx_pcalloc(c->pool, sizeof(void *) * ngx_rtmp_max_module);
+                if (st->ctx == NULL) {
+                    ngx_rtmp_finalize_session(s);
+                    return;
+                }
+            }
+
             if (ngx_rtmp_receive_message(s, h, head) != NGX_OK) {
                 ngx_rtmp_finalize_session(s);
                 return;

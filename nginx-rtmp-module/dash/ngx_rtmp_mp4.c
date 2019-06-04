@@ -285,7 +285,7 @@ ngx_rtmp_mp4_write_tkhd(ngx_rtmp_session_t *s, ngx_buf_t *b,
     u_char                *pos;
     ngx_rtmp_codec_ctx_t  *codec_ctx;
 
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     pos = ngx_rtmp_mp4_start_box(b, "tkhd");
 
@@ -496,7 +496,7 @@ ngx_rtmp_mp4_write_avcc(ngx_rtmp_session_t *s, ngx_buf_t *b)
     ngx_chain_t           *in;
     ngx_rtmp_codec_ctx_t  *codec_ctx;
 
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     if (codec_ctx == NULL) {
         return NGX_ERROR;
@@ -541,7 +541,7 @@ ngx_rtmp_mp4_write_video(ngx_rtmp_session_t *s, ngx_buf_t *b)
     u_char                *pos;
     ngx_rtmp_codec_ctx_t  *codec_ctx;
 
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     pos = ngx_rtmp_mp4_start_box(b, "avc1");
 
@@ -605,7 +605,7 @@ ngx_rtmp_mp4_write_esds(ngx_rtmp_session_t *s, ngx_buf_t *b)
     ngx_buf_t             *db;
     ngx_rtmp_codec_ctx_t  *codec_ctx;
 
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     if (codec_ctx == NULL || codec_ctx->aac_header == NULL) {
         return NGX_ERROR;
@@ -683,7 +683,7 @@ ngx_rtmp_mp4_write_audio(ngx_rtmp_session_t *s, ngx_buf_t *b)
     u_char                *pos;
     ngx_rtmp_codec_ctx_t  *codec_ctx;
 
-    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
     pos = ngx_rtmp_mp4_start_box(b, "mp4a");
 
