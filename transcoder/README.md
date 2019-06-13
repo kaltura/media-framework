@@ -16,8 +16,9 @@
 
  todo:
  1. drop frames if cannot reach realtime
- 4.send stream
- 
+ 4. send stream
+ 2. ack
+ 3. caption with GPU
 
 
 

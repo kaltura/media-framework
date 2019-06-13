@@ -54,18 +54,18 @@ typedef struct {
 } kmp_media_info_t;
 
 typedef struct {
-    uint64_t created;
-    uint64_t dts;
+    int64_t created;
+    int64_t dts;
     uint32_t flags;
     uint32_t pts_delay;
 } kmp_frame_t;
 
 #define KMP_FRAME_FLAG_KEY (0x01)
 enum {
-    KMP_PACKET_CONNECT = 1,
-    KMP_PACKET_MEDIA_INFO = 2,
-    KMP_PACKET_FRAME = 3,
-    KMP_PACKET_EOS = 4
+    KMP_PACKET_CONNECT = 0x74636e63,    // cnct
+    KMP_PACKET_MEDIA_INFO = 0x666e696d, // minf
+    KMP_PACKET_FRAME = 0x6d617266,      // fram
+    KMP_PACKET_EOS = 0x74736f65         // eost
 };
 
 #define KMP_MAX_CHANNEL_ID (32)
@@ -89,6 +89,7 @@ typedef struct {
     kmp_packet_header_t header;
     u_char channel_id[KMP_MAX_CHANNEL_ID];
     u_char track_id[KMP_MAX_TRACK_ID];
+    uint64_t initial_frame_id;
 } kmp_connect_header_t;
 
 typedef struct {

@@ -11,11 +11,10 @@
 
 #include <stdio.h>
 #include <stdbool.h>
-#include <libavformat/avformat.h>
+#include "../core.h"
 #include <arpa/inet.h>
-#include <libavutil/timestamp.h>
 
-int load_file_to_memory(const char *filename, char **result);
+size_t load_file_to_memory(const char *filename, char **result);
 
 uint64_t getClock64();
 uint64_t getTime64();
@@ -31,6 +30,7 @@ const char* pict_type_to_string(int pt);
 char *av_get_frame_desc(char *buf,int len, const AVFrame * frame);
 char *av_get_packet_desc(char *buf,int len, const AVPacket * packet);
 char* av_socket_info(char* buf,int len,const struct sockaddr_in* sa);
+void log_frame_side_data(const char* category,const AVFrame *pFrame);
 
 /**
  * Convenience macro, the return value should be used only directly in

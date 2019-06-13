@@ -10,7 +10,6 @@
 #define TranscoderEncoder_h
 
 #include <stdio.h>
-#include <libavformat/avformat.h>
 #include "transcode_filter.h"
 #include "transcode_session_output.h"
 #include "samples_stats.h"

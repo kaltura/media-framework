@@ -13,15 +13,18 @@
 
 
 /* initialization */
-int transcode_session_init(transcode_session_t *ctx,char* name)
+int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackId)
 {
     ctx->decoders=0;
     ctx->outputs=0;
     ctx->filters=0;
     ctx->encoders=0;
     ctx->currentMediaInfo=NULL;
-    strcpy(ctx->name,name);
-    
+    strcpy(ctx->channelId,channelId);
+    strcpy(ctx->trackId,trackId);
+    sprintf(ctx->name,"%s_%s",channelId,trackId);
+
+
     transcode_dropper_init(&ctx->dropper);
 
     clock_estimator_init(&ctx->clock_estimator);
@@ -64,7 +67,7 @@ int init_outputs_from_config(transcode_session_t *ctx)
             LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Skipping output %s since it's disabled",trackId);
             continue;
         }
-        transcode_session_add_output(ctx,&outputJson);
+        _S(transcode_session_add_output(ctx,&outputJson));
     }
     return 0;
 }
@@ -122,7 +125,9 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
     transcode_codec_init_decoder(pDecoderContext,newMediaInfo);
     sprintf(pDecoderContext->name,"Decoder for input %s",ctx->name);
     ctx->decoders++;
-    init_outputs_from_config(ctx);
+    if (init_outputs_from_config(ctx)<0) {
+        exit(-1);
+    }
     return 0;
 }
 
@@ -236,6 +241,7 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
     transcode_codec_t *pDecoderContext=&pContext->decoder[0];
     transcode_session_output_t* pOutput=&pContext->output[pContext->outputs++];
     transcode_session_output_from_json(pOutput, json);
+    strcpy(pOutput->channel_id,pContext->channelId);
     int ret=0;
     
     if (!pOutput->passthrough)
@@ -256,14 +262,14 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
         extra.timeScale=pEncoderContext->ctx->time_base;
         extra.codecParams=avcodec_parameters_alloc();
         avcodec_parameters_from_context(extra.codecParams,pEncoderContext->ctx);
-        transcode_session_output_set_media_info(pOutput,&extra);
+        _S(transcode_session_output_set_media_info(pOutput,&extra));
     } else
     {
         transcode_mediaInfo_t extra;
         extra.frameRate=pDecoderContext->ctx->framerate;
         extra.timeScale=pDecoderContext->ctx->time_base;
         extra.codecParams=pContext->currentMediaInfo->codecParams;
-        transcode_session_output_set_media_info(pOutput,&extra);
+        _S(transcode_session_output_set_media_info(pOutput,&extra));
     }
     
     return 0;
@@ -286,10 +292,10 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
     
     if (pFrame) {
         //key frame aligment
-        if ((pFrame->flags & AV_PKT_FLAG_KEY)!=AV_PKT_FLAG_KEY)
-            pFrame->pict_type=AV_PICTURE_TYPE_NONE;
-        else
+        if (pFrame->key_frame==1 || (pFrame->flags & AV_PKT_FLAG_KEY)==AV_PKT_FLAG_KEY)
             pFrame->pict_type=AV_PICTURE_TYPE_I;
+        else
+            pFrame->pict_type=AV_PICTURE_TYPE_NONE;
     }
     
     ret=transcode_encoder_send_frame(pEncoder,pFrame);
@@ -314,7 +320,7 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
         
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] received encoded frame %s from encoder Id %d",
                pOutput->track_id,
-               getFrameDesc(pFrame),
+               getPacketDesc(pOutPacket),
                encoderId);
         
         pOutPacket->pos=clock_estimator_get_clock(&pContext->clock_estimator,pOutPacket->dts);

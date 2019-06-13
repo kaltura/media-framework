@@ -10,10 +10,6 @@
 #define TranscodePipeline_hpp
 
 
-#include <libavutil/timestamp.h>
-#include <libavformat/avformat.h>
-#include <libavfilter/buffersink.h>
-#include <libavfilter/buffersrc.h>
 #include "transcode_session_output.h"
 #include "transcode_codec.h"
 #include "transcode_filter.h"
@@ -28,7 +24,9 @@ typedef int transcode_session_processedFrameCB(void *pContext,bool completed);
 
 typedef struct  {
     
-    char name[128];
+    char name[KMP_MAX_CHANNEL_ID+KMP_MAX_TRACK_ID+2];
+    char channelId[KMP_MAX_CHANNEL_ID];
+    char trackId[KMP_MAX_TRACK_ID];
     transcode_mediaInfo_t* currentMediaInfo;
     
     int decoders;
@@ -64,7 +62,7 @@ typedef struct  {
  1
  */
 
-int transcode_session_init(transcode_session_t *ctx,char* name);
+int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackId);
 int transcode_session_set_media_info(transcode_session_t *pContext,transcode_mediaInfo_t* mediaInfo);
 int transcode_session_send_packet(transcode_session_t *pContext, struct AVPacket* packet);
 

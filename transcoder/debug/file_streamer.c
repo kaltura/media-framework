@@ -44,14 +44,20 @@ void* thread_stream_from_file(void *vargp)
     int randomDataPercentage;
     json_get_int(GetConfig(),"input.randomDataPercentage",0,&randomDataPercentage);
     
+    
+    char channelId[KMP_MAX_CHANNEL_ID];
+    json_get_string(GetConfig(),"input.channelId","1_abcdefgh",channelId,sizeof(channelId));
+    
     AVPacket packet;
     av_init_packet(&packet);
     
     KMP_session_t kmp;
+    
+    KMP_init(&kmp);
     if (KMP_connect(&kmp,args->kmp_url)<0) {
         return NULL;
     }
-    KMP_send_handshake(&kmp,"1_abcdefgh","1");
+    KMP_send_handshake(&kmp,channelId,"1");
     uint64_t  cumulativeDuration=0;
     
     AVStream *in_stream=ifmt_ctx->streams[activeStream];

@@ -117,8 +117,8 @@ int start()
     }
     
     //last to start...
-    json_get_int(GetConfig(),"api.listenPort",12345,&listenPort);
-    json_get_string(GetConfig(),"api.listenAddress","127.0.0.1",http_server.listenAddress,sizeof(receiver.listenAddress));
+    json_get_int(GetConfig(),"control.listenPort",12345,&listenPort);
+    json_get_string(GetConfig(),"control.listenAddress","127.0.0.1",http_server.listenAddress,sizeof(receiver.listenAddress));
     http_server.port=listenPort;
     http_server.request=on_http_request;
     http_server_start(&http_server);
@@ -139,6 +139,7 @@ int stop()
         kmp_streamer_stop(kmp_streamer);
     }
     receiver_server_close(&receiver);
+    loggerFlush();
     return 0;
 }
 
@@ -163,6 +164,7 @@ int main(int argc, char **argv)
     LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"Version: %s", APPLICATION_VERSION)
 
     signal(SIGINT, intHandler);
+    signal(SIGPIPE, intHandler);
     signal(SIGALRM, timeout);
 
     int ret=LoadConfig(argc,argv);
@@ -198,8 +200,8 @@ int main(int argc, char **argv)
         receiver_server_close(pDummyPackager);
     }
     
-    loggerFlush();
     LOGGER0(CATEGORY_DEFAULT,AV_LOG_INFO,"exiting");
+    loggerFlush();
 
     return 0;
 }

@@ -19,17 +19,39 @@
 #include <netdb.h>
 #include <unistd.h> // close function
 #include "libavutil/intreadwrite.h"
+#include "libavformat/avc.h"
 
 #define DUMMY_NOPTS_VALUE -999999
+
+
+static ssize_t KMP_send( KMP_session_t *context,const void *buf, size_t len)
+{
+    ssize_t ret = send(context->socket ,buf , len , 0 );
+    
+    if (ret==-1) {
+        LOGGER(CATEGORY_KMP,AV_LOG_WARNING,"[%s] failed sending! (%d - %s)",context->sessionName,errno,strerror(errno));
+    }
+    return ret;
+}
+int KMP_init( KMP_session_t *context)
+{
+    context->socket=0;
+    context->bindAddress[0]=0;
+    context->listenPort=0;
+    memset(&context->address,0,sizeof(context->address));
+    context->sessionName[0]=0;
+    return 0;
+}
+
 int KMP_connect( KMP_session_t *context,char* url)
 {
     
     int ret=0;
     
     char host[256];
-    char port[5];
+    char port[6];
     
-    int n=sscanf(url,"kmp://%255[^:]:%5s ",host,port);// this line isnt working properly
+    int n=sscanf(url,"kmp://%255[^:]:%5s",host,port);// this line isnt working properly
     if (n!=2) {
         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Cannot parse url '%s'",url);
         return 0;
@@ -43,23 +65,34 @@ int KMP_connect( KMP_session_t *context,char* url)
     hints.ai_flags = AI_CANONNAME;
     
     if ((ret = getaddrinfo(host, port, &hints, &servinfo)) != 0) {
-        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Cannot resolve %s - error %d (%s)",url,ret,av_err2str(ret));
+        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Cannot resolve %s - error %d (%s)",url,errno,strerror(errno));
         return -1;
     }
     struct addrinfo *p=servinfo; //take first match
 
     if ((ret = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) <= 0)
     {
-        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Socket creation for %s - error %d (%s)",url,ret,av_err2str(ret));
-        return ret;
+        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Socket creation for %s - error %d (%s)",url,errno,strerror(errno));
+        return -1;
     }
     context->socket=ret;
 
-    if ( (ret=connect(context->socket,p->ai_addr, p->ai_addrlen)) < 0)
+    if ( connect(context->socket,p->ai_addr, p->ai_addrlen) < 0)
     {
-        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Connection Failed for %s - error %d (%s)",url,ret,av_err2str(ret));
-        return ret;
+        context->socket=-1;
+        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Connection Failed for %s - error %d (%s)",url,errno,strerror(errno));
+        return -1;
     }
+    
+    
+    struct sockaddr_in address;
+    socklen_t addrLen = sizeof(address);
+    if (getsockname(context->socket, (struct sockaddr *)&address, &addrLen) == -1) {
+        LOGGER0(CATEGORY_KMP,AV_LOG_FATAL,"getsockname() failed");
+        return -1;
+    }
+    
+    sprintf(context->sessionName,"localhost:%d => %s:%s",htons(address.sin_port),host,port);
     return 1;
 }
 
@@ -103,6 +136,8 @@ int KMP_send_header( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo )
         LOGGER0(CATEGORY_KMP,AV_LOG_FATAL,"Invalid socket");
         return -1;
     }
+    LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send kmp_media_info",context->sessionName);
+    uint8_t *actualExtraData = NULL;
     AVCodecParameters *codecpar=mediaInfo->codecParams;
     kmp_packet_header_t header;
     kmp_media_info_t media_info;
@@ -129,10 +164,20 @@ int KMP_send_header( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo )
         media_info.u.audio.channels=codecpar->channels;
     }
     
-    send(context->socket , &header , sizeof(header) , 0 );
-    send(context->socket , &media_info , sizeof(media_info) , 0 );
-    if (codecpar->extradata_size>0) {
-        send(context->socket , codecpar->extradata , codecpar->extradata_size , 0 );
+    if (codecpar->extradata_size>0 && codecpar->extradata[0] != 1) { //convert to mp4 header
+        AVIOContext *extra = NULL;
+        avio_open_dyn_buf(&extra);
+        ff_isom_write_avcc(extra,codecpar->extradata , codecpar->extradata_size);
+        //override data_size with mp4 format
+        header.data_size = avio_close_dyn_buf(extra, &actualExtraData);
+    }
+    
+    
+    _S(KMP_send(context , &header , sizeof(header) ));
+    _S(KMP_send(context , &media_info , sizeof(media_info) ));
+    if (header.data_size>0) {
+        _S(KMP_send(context , actualExtraData!=NULL  ?  actualExtraData : codecpar->extradata, header.data_size ));
+        av_free(actualExtraData);
     }
     
     return 0;
@@ -184,7 +229,7 @@ const uint8_t *kk_avc_find_startcode(const uint8_t *p, const uint8_t *end){
 }
 
 
-uint32_t kk_avc_parse_nal_units( const uint8_t *buf_in, int size,int socket)
+uint32_t kk_avc_parse_nal_units(KMP_session_t *context, const uint8_t *buf_in, int size)
 {
     
     const uint8_t *p = buf_in;
@@ -201,9 +246,10 @@ uint32_t kk_avc_parse_nal_units( const uint8_t *buf_in, int size,int socket)
         nal_end = kk_avc_find_startcode(nal_start, end);
         nNalSize = (uint32_t)(nal_end - nal_start);
         
-        if (socket!=0) {
-            send(socket, &nNalSize, sizeof(uint32_t), 0);
-            send(socket, nal_start, nNalSize, 0);
+        if (context!=NULL) {
+            uint32_t size=htonl(nNalSize);
+            KMP_send(context, &size, sizeof(uint32_t));
+            KMP_send(context, nal_start, nNalSize);
         }
         written += sizeof(uint32_t) + nNalSize;
         nal_start = nal_end;
@@ -213,9 +259,12 @@ uint32_t kk_avc_parse_nal_units( const uint8_t *buf_in, int size,int socket)
 
 
 
-
 int KMP_send_packet( KMP_session_t *context,AVPacket* packet)
 {
+    if (context->socket==-1) {
+        return -1;
+    }
+    //LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send KMP_send_packet",context->sessionName);
     bool annex_b=
         AV_RB32(packet->data) == 0x00000001 ||
         AV_RB24(packet->data) == 0x000001;
@@ -225,7 +274,7 @@ int KMP_send_packet( KMP_session_t *context,AVPacket* packet)
     
     packetHeader.packet_type=KMP_PACKET_FRAME;
     packetHeader.header_size=sizeof(sample)+sizeof(packetHeader);
-    packetHeader.data_size = annex_b ? kk_avc_parse_nal_units(packet->data,packet->size,0) : packet->size;
+    packetHeader.data_size = annex_b ? kk_avc_parse_nal_units(NULL,packet->data,packet->size) : packet->size;
     if (AV_NOPTS_VALUE!=packet->pts) {
         sample.pts_delay=(uint32_t)(packet->pts - packet->dts);
     } else {
@@ -234,14 +283,13 @@ int KMP_send_packet( KMP_session_t *context,AVPacket* packet)
     sample.dts=packet->dts;
     sample.created=packet->pos;
     sample.flags=((packet->flags& AV_PKT_FLAG_KEY)==AV_PKT_FLAG_KEY)? KMP_FRAME_FLAG_KEY : 0;
-
     
-    send(context->socket, &packetHeader, sizeof(packetHeader), 0);
-    send(context->socket, &sample, sizeof(sample), 0);
+    _S(KMP_send(context, &packetHeader, sizeof(packetHeader)));
+    _S(KMP_send(context, &sample, sizeof(sample)));
     if (annex_b) {
-        kk_avc_parse_nal_units(packet->data, packet->size,context->socket);
+        kk_avc_parse_nal_units(context,packet->data, packet->size);
     } else {
-        send(context->socket, packet->data, packet->size, 0);
+        _S(KMP_send(context, packet->data, packet->size));
     }
     return 0;
 }
@@ -249,30 +297,31 @@ int KMP_send_packet( KMP_session_t *context,AVPacket* packet)
 
 int KMP_send_eof( KMP_session_t *context)
 {
+    LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send KMP_send_eof",context->sessionName);
     kmp_packet_header_t packetHeader;
     packetHeader.packet_type=KMP_PACKET_EOS;
     packetHeader.header_size=0;
     packetHeader.data_size=0;
-    send(context->socket, &packetHeader, sizeof(packetHeader), 0);
-    
+    _S(KMP_send(context, &packetHeader, sizeof(packetHeader)));
     return 0;
 }
 
 int KMP_send_handshake( KMP_session_t *context,const char* channel_id,const char* track_id)
 {
+    LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send KMP_send_handshake %s,%s",context->sessionName,channel_id,track_id);
     kmp_connect_header_t connect;
     connect.header.packet_type=KMP_PACKET_CONNECT;
     connect.header.header_size=sizeof(kmp_connect_header_t);
     connect.header.data_size=0;
     strcpy((char*)connect.channel_id,channel_id);
     strcpy((char*)connect.track_id,track_id);
-    send(context->socket, &connect, sizeof(connect), 0);
-
+    _S(KMP_send(context, &connect, sizeof(connect)));
     return 0;
 }
 
 int KMP_close( KMP_session_t *context)
 {
+    LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] KMP_close",context->sessionName);
     close(context->socket);
     context->socket=0;
     return 0;
@@ -321,13 +370,15 @@ int KMP_listen( KMP_session_t *context)
     
     context->listenPort=htons( context->address.sin_port );
     
+    
+    sprintf(context->sessionName,"Listen %s",socketAddress(&context->address));
     return 0;
 }
 
 int KMP_accept( KMP_session_t *context, KMP_session_t *client)
 {
     int addrlen = sizeof(context->address);
-    int clientSocket=accept(context->socket, (struct sockaddr *)&context->address,
+    int clientSocket=accept(context->socket, (struct sockaddr *)&client->address,
                             (socklen_t*)&addrlen);
     
     if (clientSocket<=0) {
@@ -335,6 +386,10 @@ int KMP_accept( KMP_session_t *context, KMP_session_t *client)
     }
     client->socket =clientSocket;
     client->listenPort=0;
+
+    
+    sprintf(client->sessionName,"%s => %s",socketAddress(&client->address),socketAddress(&context->address));
+
     return 1;
 }
 

@@ -91,8 +91,7 @@ static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,const enum AVPixelFo
 
 static int get_decoder_buffer(AVCodecContext *s, AVFrame *frame, int flags)
 {
-    transcode_codec_t *context = s->opaque;
-    
+    //transcode_codec_t *context = s->opaque;
     
     return avcodec_default_get_buffer2(s, frame, flags);
 }
@@ -279,8 +278,8 @@ int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
             LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"set video encoder preset %s",preset);
         }
     }
-    if (strcmp(pOutput->codec,"libx264")==0) {
-        av_opt_set(enc_ctx->priv_data, "x264-params", "nal-hrd=cbr:ratetol=10", AV_OPT_SEARCH_CHILDREN);
+    if (strcmp(enc_ctx->codec->name,"libx264")==0) {
+        av_opt_set(enc_ctx->priv_data, "x264-params", "nal-hrd=cbr:ratetol=10:scenecut=-1", AV_OPT_SEARCH_CHILDREN);
     }
     enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     
@@ -432,6 +431,7 @@ int transcode_decoder_receive_frame( transcode_codec_t *decoder,AVFrame *pFrame)
     }
     
     //pFrame->pts = pFrame->best_effort_timestamp;
+    log_frame_side_data(CATEGORY_CODEC,pFrame);
     
     
     decoder->outDts=pFrame->pts;

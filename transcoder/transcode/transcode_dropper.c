@@ -44,11 +44,11 @@ bool transcode_dropper_should_drop_frame(transcode_dropper_t *ctx,int64_t lastQu
         }
         
         if (ctx->skippedFrame>0) {
-            LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"skipping decoded frame  %s  %d / %d (%lld)",getFrameDesc(frame), ctx->skippedFrame,ctx->skipFrameCount,waitTime);
+            LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"skipping decoded frame  %s  %d / %d (%ld)",getFrameDesc(frame), ctx->skippedFrame,ctx->skipFrameCount,waitTime);
             ctx->skippedFrame++;
             return true;
         }
-        LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"passed decoded frame  %s  %d / %d (%lld)",getFrameDesc(frame), ctx->skippedFrame,ctx->skipFrameCount,waitTime);
+        LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"passed decoded frame  %s  %d / %d (%ld)",getFrameDesc(frame), ctx->skippedFrame,ctx->skipFrameCount,waitTime);
         ctx->skippedFrame++;
         return false;
     }
@@ -61,21 +61,21 @@ bool transcode_dropper_should_drop_packet(transcode_dropper_t *ctx,int64_t lastQ
     int64_t waitTime=lastQueuedDts-pkt->dts;
     if (waitTime>ctx->nonKeyFrameDropperThreshold ) {
         ctx->waitForKeyFrame=true;
-        //LOGGER(CATEGORY_DEFAULT,AV_LOG_WARNING,"dropping frame %lld",waitTime);
+        //LOGGER(CATEGORY_DEFAULT,AV_LOG_WARNING,"dropping frame %ld",waitTime);
         //return true;
     }
     
     if (ctx->waitForKeyFrame) {
         if ((pkt->flags & AV_PKT_FLAG_KEY)!=AV_PKT_FLAG_KEY) {
-            LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"dropping non-key frame %s  (%lld)",getPacketDesc(pkt), waitTime);
+            LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"dropping non-key frame %s  (%ld)",getPacketDesc(pkt), waitTime);
             return true;
         }
-        LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"got key frame (%lld)",waitTime);
+        LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"got key frame (%ld)",waitTime);
 
         ctx->waitForKeyFrame=false;
     }
     
-    //LOGGER(CATEGORY_DEFAULT,AV_LOG_WARNING,"[%s] waitTime  %lld",ctx->name,waitTime);
+    //LOGGER(CATEGORY_DEFAULT,AV_LOG_WARNING,"[%s] waitTime  %ld",ctx->name,waitTime);
     
     return false;
 }

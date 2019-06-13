@@ -11,12 +11,11 @@
 #include <termios.h>
 #include <time.h>
 #include <sys/ioctl.h> // For FIONREAD
-#include <libavutil/pixdesc.h>
 #include <arpa/inet.h>
-
-int load_file_to_memory(const char *filename, char **result)
+#include "logger.h"
+size_t load_file_to_memory(const char *filename, char **result)
 {
-    int size = 0;
+    size_t size = 0;
     FILE *f = fopen(filename, "rb");
     if (f == NULL)
     {
@@ -199,4 +198,37 @@ char *av_pts_to_string(char *buf, int64_t pts)
         sprintf(buf,"%s%d %.2d:%.2d:%.2d.%.3d",pts>=0 ? "" : "-",days,hours,minutes,seconds,milliseconds);
     }
     return buf;
+}
+
+void log_frame_side_data(const char* category,const AVFrame *pFrame)
+{
+
+    if (get_log_level(category)<AV_LOG_DEBUG)
+        return;
+
+    if (pFrame->nb_side_data==0)
+        return;
+    
+    for (int i = 0; i < pFrame->nb_side_data; i++) {
+        const AVFrameSideData *sd = pFrame->side_data[i];
+        switch(sd->type)
+        {
+            case AV_FRAME_DATA_A53_CC:
+                LOGGER(category,AV_LOG_DEBUG, "A/53 closed captions (%d bytes) %s", sd->size,sd->data);
+                break;
+            case AV_FRAME_DATA_S12M_TIMECODE: {
+                uint32_t *tc = (uint32_t*)sd->data;
+                for (int j = 1; j <= tc[0]; j++) {
+                    char tcbuf[100];
+                    av_timecode_make_smpte_tc_string(tcbuf, tc[j], 0);
+                    LOGGER(category,AV_LOG_DEBUG, "timecode - %s%s", tcbuf, j != tc[0] ? ", " : "");
+                }
+                break;
+            }
+            default: {
+                const char *name = av_frame_side_data_name(sd->type);
+                LOGGER(category,AV_LOG_DEBUG, "%s (%d bytes)", name,sd->size);
+            }
+        }
+    }
 }

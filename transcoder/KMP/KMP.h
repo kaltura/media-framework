@@ -19,6 +19,7 @@ typedef struct
     char bindAddress[MAX_URL_LENGTH];
     uint16_t listenPort;
     struct sockaddr_in address;
+    char sessionName[MAX_URL_LENGTH];
 } KMP_session_t;
 
 
@@ -28,6 +29,8 @@ typedef struct
     AVRational timeScale;
     AVRational frameRate;
 } transcode_mediaInfo_t;
+
+int KMP_init( KMP_session_t *context);
 
 int KMP_connect( KMP_session_t *context,char* url);
 int KMP_send_header( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo);

@@ -76,11 +76,11 @@ void* processClient(void *vargp)
             if ( KMP_read_handshake(&session->kmpClient,&header,session->channel_id,session->track_id)<0) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] Invalid mediainfo",session->stream_name);
             } else {
-                sprintf(session->stream_name,"%s_%s",session->channel_id,session->track_id);
                 LOGGER(CATEGORY_KMP,AV_LOG_INFO,"[%s] recieved handshake",session->stream_name);
                 transcode_session->onProcessedFrame=(transcode_session_processedFrameCB*)processedFrameCB;
                 transcode_session->onProcessedFrameContext=session;
-                transcode_session_init(transcode_session,session->stream_name);
+                sprintf(session->stream_name,"%s_%s",session->channel_id,session->track_id);
+                transcode_session_init(transcode_session,session->channel_id,session->track_id);
             }
         }
         if (header.packet_type==KMP_PACKET_MEDIA_INFO)
@@ -146,6 +146,7 @@ void* listenerThread(void *vargp)
         }
         
         LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"Waiting for accept on %s",socketAddress(&server->kmpServer.address));
+        KMP_init(&session->kmpClient);
         if (KMP_accept(&server->kmpServer,&session->kmpClient)<0) {
             return NULL;
         }
@@ -170,6 +171,8 @@ int receiver_server_init(receiver_server_t *server)
     
     pthread_mutex_init(&server->diagnostics_locker,NULL);
     server->lastDiagnsotics=NULL;
+    KMP_init(&server->kmpServer);
+    server->kmpServer.listenPort=server->port;
     int ret;
     if ((ret=KMP_listen(&server->kmpServer))<0) {
         return ret;

@@ -7,8 +7,6 @@
 //
 
 #include "transcode_session_output.h"
-#include <libavformat/avformat.h>
-#include <libavutil/timestamp.h>
 #include "utils.h"
 #include "logger.h"
 #include "config.h"
@@ -104,9 +102,17 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
     LOGGER(CATEGORY_OUTPUT,AV_LOG_VERBOSE,"[%s] got data: %s", pOutput->track_id,getPacketDesc(packet))
     samples_stats_log(CATEGORY_OUTPUT,AV_LOG_VERBOSE,&pOutput->stats,pOutput->track_id);
     
+    if (strcmp("v33",pOutput->track_id)==0) {
+    //  LOGGER0(CATEGORY_OUTPUT,AV_LOG_VERBOSE,"")
+    //  av_usleep(100*1000);
+    }
     if (pOutput->oc) {
         
         AVPacket* cpPacket=av_packet_clone(packet);
+        
+        if (cpPacket->dts<0) {
+            cpPacket->dts=0;
+        }
         
         if (cpPacket->dts<pOutput->lastFileDts) {
             pOutput->fileDuration+=pOutput->lastFileDts;
@@ -131,12 +137,9 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
     
     if (pOutput->sender!=NULL)
     {
-        KMP_send_packet(pOutput->sender,packet);
+        _S(KMP_send_packet(pOutput->sender,packet));
     }
     
-    /*if (strcmp("v32",pOutput->channel_id)!=0) {
-        av_usleep(100*1000);
-    }*/
     return 0;
 }
 
@@ -146,9 +149,13 @@ int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,
     json_get_string(GetConfig(),"output.streamingUrl","",senderUrl,sizeof(senderUrl));
     if (strlen(senderUrl)>0) {
         pOutput->sender=( KMP_session_t* )malloc(sizeof( KMP_session_t* ));
-        KMP_connect(pOutput->sender, senderUrl);
-        KMP_send_handshake(pOutput->sender,pOutput->channel_id,pOutput->track_id);
-        KMP_send_header(pOutput->sender,extra);
+        KMP_init(pOutput->sender);
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] connecting to %s",pOutput->track_id,senderUrl);
+        _S(KMP_connect(pOutput->sender, senderUrl));
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending handshake (channelId: %s trackId: %s)",pOutput->track_id,pOutput->channel_id,pOutput->track_id);
+        _S(KMP_send_handshake(pOutput->sender,pOutput->channel_id,pOutput->track_id));
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending header",pOutput->track_id);
+        _S(KMP_send_header(pOutput->sender,extra));
     }
     
     bool saveFile;

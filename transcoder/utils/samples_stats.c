@@ -110,7 +110,7 @@ int sample_stats_get_diagnostics(samples_stats_t *pStats,char* buf)
 
 void samples_stats_log(const char* category,int level,samples_stats_t *stats,const char *prefix)
 {
-    LOGGER(category,level,"[%s] Stats: total frames: %lld total time: %s (%s), clock drift %s,bitrate %.2lf Kbit/s fps=%.2lf rate=x%.2lf",
+    LOGGER(category,level,"[%s] Stats: total frames: %ld total time: %s (%s), clock drift %s,bitrate %.2lf Kbit/s fps=%.2lf rate=x%.2lf",
            prefix,
            stats->totalFrames,
            pts2str(stats->dtsPassed),

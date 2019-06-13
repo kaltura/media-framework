@@ -28,7 +28,7 @@ void* thread_stream_from_kmp(void *vargp)
 
     while (!context->stop ) {
         
-        int nread = fread(buf, 1, sizeof buf, context->file);
+        nread = fread(buf, 1, sizeof buf, context->file);
         if (nread<=0) {
             
             break;
@@ -50,6 +50,7 @@ int kmp_streamer_start(kmp_streamer_t* context)
     
     context->file = fopen(context->source_file_name, "r");
 
+    KMP_init(&context->kmp);
     KMP_connect(&context->kmp,context->kmp_url);
                 
     context->stop=false;

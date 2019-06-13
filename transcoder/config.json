@@ -2,32 +2,31 @@
     "input": {
         "file1": "/Users/guyjacubovski/Sample_video/bbb_sunflower_1080p_30fps_normal.mp4",
         "file11": "/Users/guyjacubovski/Sample_video/flas_dupa_s4e01_hdfr_1_2_60sec.mp4",
+        "file2": "/Users/guyjacubovski/Sample_video/subtitles.mp4",
         "file": "/Users/guyjacubovski/Sample_video/900.mp4",
         "file1": "/Users/guyjacubovski/Downloads/video.kmp",
-        "file3": "/Users/guyjacubovski/Downloads/audio.kmp",
-        "realTime": true,
+        "filea": "/Users/guyjacubovski/Downloads/audio.kmp",
+        "realTime": false,
         "activeStream": 0,
-        "duration": 900000,
-        "queueDuration": 10,
-        "queueSize": 2000,
+        "duration": 9000000,
         "randomDataPercentage": 0
     },
     "frameDropper": {
         "enabled": false,
         "queueDuration": 10,
-        "queueSize": 2000,
+        "queueSize": 0,
         "nonKeyFrameDropperThreshold": 4,
         "decodedFrameDropperThreshold": 2
     },
     "logger": {
         "logLevels": ["DEBUG","VERBOSE","INFO","WARN","ERROR","FATAL","PANIC"],
-        "logLevel": "INFO"
+        "logLevel": "DEBUG"
     },
     "kmp": {
         "listenPort": 12346,
         "listenAddress": "127.0.0.1"
     },
-    "api": {
+    "control": {
         "listenPort": 12345,
         "listenAddress": "127.0.0.1"
     },
@@ -37,13 +36,13 @@
     },
     "output": {
         "saveFile": true,
-        "outputFileNamePattern": "./output_%s.mp4",
+        "outputFileNamePattern": "./output_%s.ts",
         "streamingUrl1": "kmp://localhost:10000"
     },
     "engine": {
         "useNvidiaDecoder": true,
         "encoders": {
-            "h264": ["h264_nvenc","h264_videotoolbox","libx264"]
+            "h264": ["h264_nvenc","libx264","h264_videotoolbox"]
         },
         "presets": {
             "A": {
