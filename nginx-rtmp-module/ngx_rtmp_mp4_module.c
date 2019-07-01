@@ -2051,7 +2051,7 @@ ngx_rtmp_mp4_send_meta(ngx_rtmp_session_t *s)
     ngx_memzero(&h, sizeof(h));
 
     h.csid = NGX_RTMP_CSID_AMF;
-    h.msid = NGX_RTMP_MSID;
+    h.msid = s->in_msid;
     h.type = NGX_RTMP_MSG_AMF_META;
 
     ngx_rtmp_prepare_message(s, &h, NULL, out);
@@ -2180,7 +2180,7 @@ ngx_rtmp_mp4_send(ngx_rtmp_session_t *s, ngx_file_t *f, ngx_uint_t *ts)
 
         ngx_memzero(&h, sizeof(h));
 
-        h.msid = NGX_RTMP_MSID;
+        h.msid = s->in_msid;
         h.type = (uint8_t) t->type;
         h.csid = t->csid;
 

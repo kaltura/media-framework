@@ -167,8 +167,8 @@ ngx_rtmp_codec_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
-    for (i = 0; i < cscf->max_streams; i++)
-    {
+    for (i = 0; i < cscf->max_streams; i++) {
+
         if (s->in_streams[i].ctx == NULL) {
             continue;
         }
@@ -211,6 +211,12 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     if (h->type != NGX_RTMP_MSG_AUDIO && h->type != NGX_RTMP_MSG_VIDEO) {
         return NGX_OK;
+    }
+
+    if (!s->in_stream) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+            "codec: av with no stream context");
+        return NGX_ERROR;
     }
 
     ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
@@ -314,7 +320,7 @@ ngx_rtmp_codec_parse_aac_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     ctx->aac_chan_conf = (ngx_uint_t) ngx_rtmp_bit_read(&br, 4);
 
     if (ctx->aac_profile == 5 || ctx->aac_profile == 29) {
-        
+
         if (ctx->aac_profile == 29) {
             ctx->aac_ps = 1;
         }
@@ -351,7 +357,7 @@ ngx_rtmp_codec_parse_aac_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
            5 bits: object type
            if (object type == 31)
              6 bits + 32: object type
-             
+
        var bits: AOT Specific Config
      */
 
@@ -421,7 +427,7 @@ ngx_rtmp_codec_parse_avc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     {
         /* chroma format idc */
         cf_idc = (ngx_uint_t) ngx_rtmp_bit_read_golomb(&br);
-        
+
         if (cf_idc == 3) {
 
             /* separate color plane */
@@ -723,7 +729,7 @@ ngx_rtmp_codec_prepare_meta(ngx_rtmp_session_t *s, uint32_t timestamp)
 
     ngx_memzero(&h, sizeof(h));
     h.csid = NGX_RTMP_CSID_AMF;
-    h.msid = NGX_RTMP_MSID;
+    h.msid = s->in_msid;
     h.type = NGX_RTMP_MSG_AMF_META;
     h.timestamp = timestamp;
     ngx_rtmp_prepare_message(s, &h, NULL, ctx->meta);
@@ -838,6 +844,12 @@ ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     };
 
     cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_codec_module);
+
+    if (!s->in_stream) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+            "codec: meta data with no stream context");
+        return NGX_ERROR;
+    }
 
     ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
     if (ctx == NULL) {

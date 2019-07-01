@@ -177,9 +177,12 @@ typedef struct {
     uint32_t                len;        /* current fragment length */
     uint8_t                 ext;
     ngx_chain_t            *in;
-    void                  **ctx;
-} ngx_rtmp_stream_t;
+} ngx_rtmp_chunk_stream_t;
 
+typedef struct {
+    void                  **ctx;
+    unsigned                allocated:1;
+} ngx_rtmp_stream_t;
 
 /* disable zero-sized array warning by msvc */
 
@@ -247,7 +250,11 @@ typedef struct {
     /* input stream 0 (reserved by RTMP spec)
      * is used as free chain link */
 
+    uint32_t                in_msid;
+    ngx_rtmp_stream_t      *in_stream;
     ngx_rtmp_stream_t      *in_streams;
+
+    ngx_rtmp_chunk_stream_t *in_chunk_streams;
     uint32_t                in_csid;
     ngx_uint_t              in_chunk_size;
     ngx_pool_t             *in_pool;
@@ -382,10 +389,10 @@ typedef struct {
 #define ngx_rtmp_delete_ctx(s, module)         s->ctx[module.ctx_index] = NULL;
 
 
-#define ngx_rtmp_stream_ctx(s)                        (s)->in_streams[(s)->in_csid].ctx
-#define ngx_rtmp_stream_get_module_ctx(s, module)     ngx_rtmp_stream_ctx(s)[module.ctx_index]
-#define ngx_rtmp_stream_set_ctx(s, c, module)         ngx_rtmp_stream_ctx(s)[module.ctx_index] = c;
-#define ngx_rtmp_stream_delete_ctx(s, module)         ngx_rtmp_stream_ctx(s)[module.ctx_index] = NULL;
+#define ngx_rtmp_stream_get_module_ctx(s, module)     ((s)->in_stream ?      \
+    (s)->in_stream->ctx[module.ctx_index] : NULL)
+#define ngx_rtmp_stream_set_ctx(s, c, module)         if ((s)->in_stream) {  \
+    (s)->in_stream->ctx[module.ctx_index] = c; }
 
 
 #define ngx_rtmp_get_module_main_conf(s, module)                             \

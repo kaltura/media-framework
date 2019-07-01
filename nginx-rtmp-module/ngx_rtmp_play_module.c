@@ -307,7 +307,7 @@ ngx_rtmp_play_send(ngx_event_t *e)
     ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "play: send done");
 
-    ngx_rtmp_send_stream_eof(s, NGX_RTMP_MSID);
+    ngx_rtmp_send_stream_eof(s, s->in_msid);
 
     ngx_rtmp_send_play_status(s, "NetStream.Play.Complete", "status", ts, 0);
 
@@ -557,7 +557,7 @@ ngx_rtmp_play_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
         ngx_close_file(ctx->file.fd);
         ctx->file.fd = NGX_INVALID_FILE;
 
-        ngx_rtmp_send_stream_eof(s, NGX_RTMP_MSID);
+        ngx_rtmp_send_stream_eof(s, s->in_msid);
 
         ngx_rtmp_send_status(s, "NetStream.Play.Stop", "status",
                              "Stop video on demand");
@@ -591,7 +591,7 @@ ngx_rtmp_play_seek(ngx_rtmp_session_t *s, ngx_rtmp_seek_t *v)
         goto next;
     }
 
-    if (ngx_rtmp_send_stream_eof(s, NGX_RTMP_MSID) != NGX_OK) {
+    if (ngx_rtmp_send_stream_eof(s, s->in_msid) != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -603,7 +603,7 @@ ngx_rtmp_play_seek(ngx_rtmp_session_t *s, ngx_rtmp_seek_t *v)
         return NGX_ERROR;
     }
 
-    if (ngx_rtmp_send_stream_begin(s, NGX_RTMP_MSID) != NGX_OK) {
+    if (ngx_rtmp_send_stream_begin(s, s->in_msid) != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -899,7 +899,7 @@ ngx_rtmp_play_open(ngx_rtmp_session_t *s, double start)
         return NGX_ERROR;
     }
 
-    if (ngx_rtmp_send_stream_begin(s, NGX_RTMP_MSID) != NGX_OK) {
+    if (ngx_rtmp_send_stream_begin(s, s->in_msid) != NGX_OK) {
         return NGX_ERROR;
     }
 

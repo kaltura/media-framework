@@ -336,7 +336,7 @@ ngx_rtmp_control_walk_app(ngx_http_request_t *r,
     }
 
     for (ls = lacf->streams[ngx_hash_key(name.data, name.len) % lacf->nbuckets];
-         ls; ls = ls->next) 
+         ls; ls = ls->next)
     {
         len = ngx_strlen(ls->name);
         if (name.len != len || ngx_strncmp(name.data, ls->name, name.len)) {

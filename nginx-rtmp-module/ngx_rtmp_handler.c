@@ -197,7 +197,7 @@ ngx_rtmp_recv(ngx_event_t *rev)
     ngx_rtmp_session_t         *s;
     ngx_rtmp_core_srv_conf_t   *cscf;
     ngx_rtmp_header_t          *h;
-    ngx_rtmp_stream_t          *st, *st0;
+    ngx_rtmp_chunk_stream_t    *st, *st0;
     ngx_chain_t                *in, *head;
     ngx_buf_t                  *b;
     u_char                     *p, *pp, *old_pos;
@@ -218,7 +218,7 @@ ngx_rtmp_recv(ngx_event_t *rev)
 
     for( ;; ) {
 
-        st = &s->in_streams[s->in_csid];
+        st = &s->in_chunk_streams[s->in_csid];
 
         /* allocate new buffer */
         if (st->in == NULL) {
@@ -338,7 +338,7 @@ ngx_rtmp_recv(ngx_event_t *rev)
 
                 /* link to new stream */
                 s->in_csid = csid;
-                st = &s->in_streams[csid];
+                st = &s->in_chunk_streams[csid];
                 if (st->in == NULL) {
                     in->next = in;
                 } else {
@@ -461,14 +461,6 @@ ngx_rtmp_recv(ngx_event_t *rev)
             st->len = 0;
             h->timestamp += st->dtime;
 
-            if (st->ctx == NULL) {
-                st->ctx = ngx_pcalloc(c->pool, sizeof(void *) * ngx_rtmp_max_module);
-                if (st->ctx == NULL) {
-                    ngx_rtmp_finalize_session(s);
-                    return;
-                }
-            }
-
             if (ngx_rtmp_receive_message(s, h, head) != NGX_OK) {
                 ngx_rtmp_finalize_session(s);
                 return;
@@ -482,7 +474,7 @@ ngx_rtmp_recv(ngx_event_t *rev)
 
             } else {
                 /* add used bufs to stream #0 */
-                st0 = &s->in_streams[0];
+                st0 = &s->in_chunk_streams[0];
                 st->in->next = st0->in;
                 st0->in = head;
                 st->in = NULL;
@@ -762,9 +754,12 @@ ngx_rtmp_receive_message(ngx_rtmp_session_t *s,
         ngx_rtmp_header_t *h, ngx_chain_t *in)
 {
     ngx_rtmp_core_main_conf_t  *cmcf;
+    ngx_rtmp_core_srv_conf_t   *cscf;
     ngx_array_t                *evhs;
     size_t                      n;
     ngx_rtmp_handler_pt        *evh;
+    ngx_int_t                   rc;
+    ngx_rtmp_stream_t          *in_stream;
 
     cmcf = ngx_rtmp_get_module_main_conf(s, ngx_rtmp_core_module);
 
@@ -791,8 +786,18 @@ ngx_rtmp_receive_message(ngx_rtmp_session_t *s,
         return NGX_OK;
     }
 
+    s->in_msid = h->msid;
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+    if (s->in_msid < cscf->max_streams) {
+        in_stream = &s->in_streams[s->in_msid];
+        if (in_stream->allocated && in_stream->ctx) {
+            s->in_stream = in_stream;
+        }
+    }
+
     evhs = &cmcf->events[h->type];
     evh = evhs->elts;
+    rc = NGX_OK;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "nhandlers: %d", evhs->nelts);
@@ -808,13 +813,18 @@ ngx_rtmp_receive_message(ngx_rtmp_session_t *s,
             case NGX_ERROR:
                 ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                         "handler %d failed", n);
-                return NGX_ERROR;
+                rc = NGX_ERROR;
+                goto done;
+
             case NGX_DONE:
-                return NGX_OK;
+                goto done;
         }
     }
 
-    return NGX_OK;
+done:
+    s->in_msid = 0;
+    s->in_stream = NULL;
+    return rc;
 }
 
 
@@ -844,16 +854,16 @@ ngx_rtmp_set_chunk_size(ngx_rtmp_session_t *s, ngx_uint_t size)
     /* copy existing chunk data */
     if (s->in_old_pool) {
         s->in_chunk_size_changing = 1;
-        s->in_streams[0].in = NULL;
+        s->in_chunk_streams[0].in = NULL;
 
         for(n = 1; n < cscf->max_streams; ++n) {
             /* stream buffer is circular
              * for all streams except for the current one
              * (which caused this chunk size change);
              * we can simply ignore it */
-            li = s->in_streams[n].in;
+            li = s->in_chunk_streams[n].in;
             if (li == NULL || li->next == NULL) {
-                s->in_streams[n].in = NULL;
+                s->in_chunk_streams[n].in = NULL;
                 continue;
             }
             /* move from last to the first */
@@ -874,7 +884,7 @@ ngx_rtmp_set_chunk_size(ngx_rtmp_session_t *s, ngx_uint_t size)
                     li = li->next;
                     if (li == fli)  {
                         lo->next = flo;
-                        s->in_streams[n].in = lo;
+                        s->in_chunk_streams[n].in = lo;
                         break;
                     }
                     continue;
