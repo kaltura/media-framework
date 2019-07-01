@@ -352,10 +352,12 @@ ngx_rtmp_cmd_create_stream_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 static ngx_int_t
 ngx_rtmp_cmd_create_stream(ngx_rtmp_session_t *s, ngx_rtmp_create_stream_t *v)
 {
-    /* support one message stream per connection */
-    static double               stream;
+    ngx_int_t                   i;
+    static double               stream_id;
     static double               trans;
     ngx_rtmp_header_t           h;
+    ngx_rtmp_stream_t          *stream;
+    ngx_rtmp_core_srv_conf_t   *cscf;
 
     static ngx_rtmp_amf_elt_t  out_elts[] = {
 
@@ -373,11 +375,36 @@ ngx_rtmp_cmd_create_stream(ngx_rtmp_session_t *s, ngx_rtmp_create_stream_t *v)
 
         { NGX_RTMP_AMF_NUMBER,
           ngx_null_string,
-          &stream, sizeof(stream) },
+          &stream_id, sizeof(stream_id) },
     };
 
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    for (i = 0; ; i++) {
+
+        if (i >= cscf->max_streams) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                "createStream: no available streams");
+            return NGX_ERROR;
+        }
+
+        stream = &s->in_streams[i];
+        if (stream->allocated) {
+            continue;
+        }
+
+        stream_id = i;
+        break;
+    }
+
+    stream->allocated = 1;
+    stream->ctx = ngx_pcalloc(s->connection->pool, sizeof(void *) *
+        ngx_rtmp_max_module);
+    if (stream->ctx == NULL) {
+        return NGX_ERROR;
+    }
+
     trans = v->trans;
-    stream = NGX_RTMP_MSID;
 
     ngx_memzero(&h, sizeof(h));
 
@@ -457,12 +484,56 @@ static ngx_int_t
 ngx_rtmp_cmd_delete_stream(ngx_rtmp_session_t *s, ngx_rtmp_delete_stream_t *v)
 {
     ngx_rtmp_close_stream_t         cv;
+    ngx_rtmp_core_srv_conf_t       *cscf;
+    ngx_int_t                       in_msid;
+    ngx_rtmp_stream_t              *in_stream;
+    ngx_int_t                       rc = NGX_OK;
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0, "deleteStream");
 
     cv.stream = 0;
 
-    return ngx_rtmp_close_stream(s, &cv);
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    if (v != NULL) {
+        s->in_stream = NULL;
+        s->in_msid = 0;
+
+        in_msid = v->stream;
+        if (in_msid < cscf->max_streams &&
+            in_msid != 0 && in_msid != 2) {
+            in_stream = &s->in_streams[in_msid];
+            if (in_stream->allocated && in_stream->ctx) {
+                s->in_stream = in_stream;
+                s->in_msid = in_msid;
+            }
+            in_stream->allocated = 0;
+        }
+
+        if (ngx_rtmp_close_stream(s, &cv) != NGX_OK) {
+            rc = NGX_ERROR;
+        }
+    } else {
+        /* called from ngx_rtmp_cmd_disconnect, close all streams */
+        for (in_msid = 0; in_msid < cscf->max_streams; in_msid++) {
+            in_stream = &s->in_streams[in_msid];
+            if (!in_stream->allocated || !in_stream->ctx) {
+                continue;
+            }
+
+            s->in_stream = in_stream;
+            s->in_msid = in_msid;
+
+            if (ngx_rtmp_close_stream(s, &cv) != NGX_OK) {
+                rc = NGX_ERROR;
+            }
+        }
+    }
+
+    s->in_stream = NULL;
+    s->in_msid = 0;
+
+    return rc;
 }
 
 

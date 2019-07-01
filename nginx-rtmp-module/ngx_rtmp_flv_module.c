@@ -349,7 +349,7 @@ ngx_rtmp_flv_read_meta(ngx_rtmp_session_t *s, ngx_file_t *f)
     ngx_memzero(&h, sizeof(h));
 
     h.type = NGX_RTMP_MSG_AMF_META;
-    h.msid = NGX_RTMP_MSID;
+    h.msid = s->in_msid;
     h.csid = NGX_RTMP_CSID_AMF;
 
     size = 0;
@@ -437,7 +437,7 @@ ngx_rtmp_flv_send(ngx_rtmp_session_t *s, ngx_file_t *f, ngx_uint_t *ts)
     /* parse header fields */
     ngx_memzero(&h, sizeof(h));
 
-    h.msid = NGX_RTMP_MSID;
+    h.msid = s->in_msid;
     h.type = ngx_rtmp_flv_header[0];
 
     size = 0;

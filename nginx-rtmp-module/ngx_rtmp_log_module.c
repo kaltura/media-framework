@@ -9,8 +9,9 @@
 #include "ngx_rtmp_cmd_module.h"
 
 
-static ngx_rtmp_publish_pt  next_publish;
-static ngx_rtmp_play_pt     next_play;
+static ngx_rtmp_close_stream_pt     next_close_stream;
+static ngx_rtmp_publish_pt          next_publish;
+static ngx_rtmp_play_pt             next_play;
 
 
 static ngx_int_t ngx_rtmp_log_postconfiguration(ngx_conf_t *cf);
@@ -204,7 +205,7 @@ ngx_rtmp_log_var_msec_getdata(ngx_rtmp_session_t *s, u_char *buf,
     ngx_time_t  *tp;
 
     tp = ngx_timeofday();
-    
+
     return ngx_sprintf(buf, "%T.%03M", tp->sec, tp->msec);
 }
 
@@ -252,7 +253,7 @@ ngx_rtmp_log_var_command_getdata(ngx_rtmp_session_t *s, u_char *buf,
         ngx_string("PLAY+PUBLISH")
     };
 
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_log_module);
+    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_log_module);
 
     n = ctx ? (ctx->play + ctx->publish * 2) : 0;
 
@@ -277,7 +278,7 @@ ngx_rtmp_log_var_context_cstring_getdata(ngx_rtmp_session_t *s, u_char *buf,
     ngx_rtmp_log_ctx_t *ctx;
     u_char             *p;
 
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_log_module);
+    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_log_module);
     if (ctx == NULL) {
         return buf;
     }
@@ -812,14 +813,20 @@ ngx_rtmp_log_set_names(ngx_rtmp_session_t *s, u_char *name, u_char *args)
 {
     ngx_rtmp_log_ctx_t *ctx;
 
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_log_module);
+    if (!s->in_stream) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+            "log: play/publish with no stream context");
+        return NULL;
+    }
+
+    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_log_module);
     if (ctx == NULL) {
         ctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_log_ctx_t));
         if (ctx == NULL) {
             return NULL;
         }
 
-        ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_log_module);
+        ngx_rtmp_stream_set_ctx(s, ctx, ngx_rtmp_log_module);
     }
 
     ngx_memcpy(ctx->name, name, NGX_RTMP_MAX_NAME);
@@ -914,9 +921,9 @@ ngx_rtmp_log_write(ngx_rtmp_session_t *s, ngx_rtmp_log_t *log, u_char *buf,
 
 
 static ngx_int_t
-ngx_rtmp_log_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-                        ngx_chain_t *in)
+ngx_rtmp_log_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
 {
+    ngx_rtmp_log_ctx_t         *ctx;
     ngx_rtmp_log_app_conf_t    *lacf;
     ngx_rtmp_log_t             *log;
     ngx_rtmp_log_op_t          *op;
@@ -925,12 +932,17 @@ ngx_rtmp_log_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     size_t                      len;
 
     if (s->auto_pushed || s->relay) {
-        return NGX_OK;
+        goto next;
     }
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_log_module);
     if (lacf == NULL || lacf->off || lacf->logs == NULL) {
-        return NGX_OK;
+        goto next;
+    }
+
+    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_log_module);
+    if (ctx == NULL || (!ctx->play && !ctx->publish)) {
+        goto next;
     }
 
     log = lacf->logs->elts;
@@ -952,7 +964,7 @@ ngx_rtmp_log_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
         line = ngx_palloc(s->connection->pool, len);
         if (line == NULL) {
-            return NGX_OK;
+            break;
         }
 
         p = line;
@@ -966,15 +978,16 @@ ngx_rtmp_log_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ngx_rtmp_log_write(s, log, line, p - line);
     }
 
-    return NGX_OK;
-}
+    ctx->play = 0;
+    ctx->publish = 0;
 
+next:
+    return next_close_stream(s, v);
+}
 
 static ngx_int_t
 ngx_rtmp_log_postconfiguration(ngx_conf_t *cf)
 {
-    ngx_rtmp_core_main_conf_t  *cmcf;
-    ngx_rtmp_handler_pt        *h;
     ngx_rtmp_log_main_conf_t   *lmcf;
     ngx_array_t                 a;
     ngx_rtmp_log_fmt_t         *fmt;
@@ -1001,10 +1014,8 @@ ngx_rtmp_log_postconfiguration(ngx_conf_t *cf)
         }
     }
 
-    cmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_core_module);
-
-    h = ngx_array_push(&cmcf->events[NGX_RTMP_DISCONNECT]);
-    *h = ngx_rtmp_log_disconnect;
+    next_close_stream = ngx_rtmp_close_stream;
+    ngx_rtmp_close_stream = ngx_rtmp_log_close_stream;
 
     next_publish = ngx_rtmp_publish;
     ngx_rtmp_publish = ngx_rtmp_log_publish;

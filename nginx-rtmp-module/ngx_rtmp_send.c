@@ -508,7 +508,7 @@ ngx_rtmp_create_status(ngx_rtmp_session_t *s, char *code, char* level,
 
     h.type = NGX_RTMP_MSG_AMF_CMD;
     h.csid = NGX_RTMP_CSID_AMF;
-    h.msid = NGX_RTMP_MSID;
+    h.msid = s->in_msid;
 
     return ngx_rtmp_create_amf(s, &h, out_elts,
                                sizeof(out_elts) / sizeof(out_elts[0]));
@@ -577,7 +577,7 @@ ngx_rtmp_create_play_status(ngx_rtmp_session_t *s, char *code, char* level,
 
     h.type = NGX_RTMP_MSG_AMF_META;
     h.csid = NGX_RTMP_CSID_AMF;
-    h.msid = NGX_RTMP_MSID;
+    h.msid = s->in_msid;
     h.timestamp = duration;
 
     return ngx_rtmp_create_amf(s, &h, out_elts,
@@ -620,7 +620,7 @@ ngx_rtmp_create_sample_access(ngx_rtmp_session_t *s)
 
     h.type = NGX_RTMP_MSG_AMF_META;
     h.csid = NGX_RTMP_CSID_AMF;
-    h.msid = NGX_RTMP_MSID;
+    h.msid = s->in_msid;
 
     return ngx_rtmp_create_amf(s, &h, access_elts,
                                sizeof(access_elts) / sizeof(access_elts[0]));

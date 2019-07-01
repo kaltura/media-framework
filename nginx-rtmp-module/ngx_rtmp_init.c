@@ -192,9 +192,21 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
 
     s->out_queue = cscf->out_queue;
     s->out_cork = cscf->out_cork;
+
     s->in_streams = ngx_pcalloc(c->pool, sizeof(ngx_rtmp_stream_t)
             * cscf->max_streams);
     if (s->in_streams == NULL) {
+        ngx_rtmp_close_connection(c);
+        return NULL;
+    }
+
+    /* streams 0 & 2 are reserved */
+    s->in_streams[0].allocated = 1;
+    s->in_streams[2].allocated = 1;
+
+    s->in_chunk_streams = ngx_pcalloc(c->pool, sizeof(ngx_rtmp_chunk_stream_t)
+            * cscf->max_streams);
+    if (s->in_chunk_streams == NULL) {
         ngx_rtmp_close_connection(c);
         return NULL;
     }
