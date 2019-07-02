@@ -237,8 +237,10 @@ ngx_rtmp_recv(ngx_event_t *rev)
 
         if (old_size) {
 
+#if (NGX_RTMP_VERBOSE)
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, c->log, 0,
                     "reusing formerly read data: %d", old_size);
+#endif
 
             b->pos = b->start;
             b->last = ngx_movemem(b->pos, old_pos, old_size);
@@ -318,9 +320,11 @@ ngx_rtmp_recv(ngx_event_t *rev)
                 csid += (uint32_t)256 * (*(uint8_t*)p++);
             }
 
+#if (NGX_RTMP_VERBOSE)
             ngx_log_debug2(NGX_LOG_DEBUG_RTMP, c->log, 0,
                     "RTMP bheader fmt=%d csid=%D",
                     (int)fmt, csid);
+#endif
 
             if (csid >= (uint32_t)cscf->max_streams) {
                 ngx_log_error(NGX_LOG_INFO, c->log, 0,
@@ -419,11 +423,13 @@ ngx_rtmp_recv(ngx_event_t *rev)
                 }
             }
 
+#if (NGX_RTMP_VERBOSE)
             ngx_log_debug8(NGX_LOG_DEBUG_RTMP, c->log, 0,
                     "RTMP mheader fmt=%d %s (%d) "
                     "time=%uD+%uD mlen=%D len=%D msid=%D",
                     (int)fmt, ngx_rtmp_message_type(h->type), (int)h->type,
                     h->timestamp, st->dtime, h->mlen, st->len, h->msid);
+#endif
 
             /* header done */
             b->pos = p;
@@ -799,15 +805,19 @@ ngx_rtmp_receive_message(ngx_rtmp_session_t *s,
     evh = evhs->elts;
     rc = NGX_OK;
 
+#if (NGX_RTMP_VERBOSE)
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "nhandlers: %d", evhs->nelts);
+#endif
 
     for(n = 0; n < evhs->nelts; ++n, ++evh) {
         if (!evh) {
             continue;
         }
+#if (NGX_RTMP_VERBOSE)
         ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "calling handler %d", n);
+#endif
 
         switch ((*evh)(s, h, in)) {
             case NGX_ERROR:
