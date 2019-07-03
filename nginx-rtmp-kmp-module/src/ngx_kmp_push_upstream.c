@@ -655,6 +655,7 @@ ngx_kmp_push_upstream_read_handler(ngx_event_t *rev)
 {
     u_char                   *recv_end;
     ssize_t                   n;
+    ngx_uint_t                level;
     ngx_connection_t         *c;
     ngx_kmp_push_upstream_t  *u;
 
@@ -698,7 +699,8 @@ ngx_kmp_push_upstream_read_handler(ngx_event_t *rev)
         break;
     }
 
-    ngx_log_error(u->sent_end ? NGX_LOG_INFO : NGX_LOG_ERR, &u->log, 0,
+    level = u->sent_end ? NGX_LOG_INFO : NGX_LOG_ERR;
+    ngx_log_error(level, &u->log, 0,
         "ngx_kmp_push_upstream_read_handler: upstream closed connection");
     ngx_kmp_push_upstream_error(u);
 }
