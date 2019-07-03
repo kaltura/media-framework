@@ -1,0 +1,9 @@
+static ngx_rtmp_kmp_connect_json ngx_rtmp_kmp_connect_t ngx_rtmp_session_t *s
+    event_type connect
+    app %V
+    flashver %V
+    swf_url %V
+    tc_url %V
+    page_url %V
+    addr %V s->connection->addr_text
+    connection %uA s->connection->number
