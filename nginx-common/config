@@ -1,0 +1,34 @@
+ngx_addon_name=ngx_live_common
+
+LIVE_COMMON_SRCS="                            \
+    $ngx_addon_dir/src/ngx_buf_queue.c        \
+    $ngx_addon_dir/src/ngx_buf_queue_reader.c \
+    $ngx_addon_dir/src/ngx_http_call.c        \
+    $ngx_addon_dir/src/ngx_json_parser.c      \
+    "
+LIVE_COMMON_DEPS="                            \
+    $ngx_addon_dir/src/ngx_buf_queue.h        \
+    $ngx_addon_dir/src/ngx_buf_queue_reader.h \
+    $ngx_addon_dir/src/ngx_http_call.h        \
+    $ngx_addon_dir/src/ngx_json_parser.h      \
+    $ngx_addon_dir/src/ngx_live_kmp.h         \
+    "
+
+LIVE_COMMON_INCS="$ngx_addon_dir/src"
+
+HTTP_INCS="$HTTP_INCS $ngx_addon_dir/src"
+
+if test -n "$ngx_module_link"; then
+    ngx_module_type=CORE
+    ngx_module_name=""
+    ngx_module_srcs="$LIVE_COMMON_SRCS"
+    ngx_module_deps="$LIVE_COMMON_DEPS"
+    ngx_module_incs="$LIVE_COMMON_INCS"
+
+    . auto/module
+else
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $LIVE_COMMON_SRCS"
+    NGX_ADDON_DEPS="$NGX_ADDON_SRCS $LIVE_COMMON_DEPS"
+fi
+
+have=LIVE_COMMON . auto/have

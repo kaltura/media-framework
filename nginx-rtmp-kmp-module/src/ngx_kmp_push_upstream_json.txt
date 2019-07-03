@@ -1,0 +1,6 @@
+static ngx_kmp_push_upstream_republish_json ngx_kmp_push_upstream_t
+    event_type republish
+    id %V
+    input_id %V obj->track->
+    channel_id %V obj->track->
+    track_id %V obj->track->

@@ -1,0 +1,53 @@
+static noobject ngx_rtmp_kmp_track_video_json ngx_rtmp_codec_ctx_t ngx_rtmp_kmp_publish_t *pi, ngx_rtmp_session_t *s, ngx_kmp_push_track_t *track
+    input_type rtmp
+
+    app %V s->
+    flashver %V s->
+    swf_url %V s->
+    tc_url %V s->
+    page_url %V s->
+    addr %V s->connection->addr_text
+    connection %uA s->connection->number
+
+    name %V pi->
+    type %V pi->
+    args %V pi->
+
+    media_type video
+    width %ui
+    height %ui
+    duration %ui
+    frame_rate %.2f
+    video_data_rate %ui
+    video_codec_id %ui
+    avc_profile %ui
+    avc_compat %ui
+    avc_level %ui
+    avc_nal_bytes %ui
+    avc_ref_frames %ui
+
+static noobject ngx_rtmp_kmp_track_audio_json ngx_rtmp_codec_ctx_t ngx_rtmp_kmp_publish_t *pi, ngx_rtmp_session_t *s, ngx_kmp_push_track_t *track
+    input_type rtmp
+
+    app %V s->
+    flashver %V s->
+    swf_url %V s->
+    tc_url %V s->
+    page_url %V s->
+    addr %V s->connection->addr_text
+    connection %uA s->connection->number
+
+    name %V pi->
+    type %V pi->
+    args %V pi->
+
+    media_type audio %ui
+    audio_data_rate %ui
+    audio_codec_id %ui
+    aac_profile %ui
+    aac_chan_conf %ui
+    aac_sbr %ui
+    aac_ps %ui
+    sample_rate %ui
+    sample_size %ui
+    audio_channels %ui

@@ -1,0 +1,53 @@
+ngx_addon_name=ngx_rtmp_kmp_module
+
+if test -n "$ngx_module_link"; then
+    if test -n "$LIVE_COMMON_SRCS"; then
+        echo "found ngx_live_common for nginx_rtmp_kmp_module; looks good."
+    else
+        echo "error: ngx_live_common is required to build nginx_rtmp_kmp_module; please put it before nginx_rtmp_kmp_module." 1>&2
+        exit 1
+    fi
+else
+    if echo $NGX_ADDON_SRCS | grep " ngx_json_parser" > /dev/null; then
+        echo "found ngx_live_common for nginx_rtmp_kmp_module; looks good."
+    else
+        echo "error: ngx_live_common is required to build nginx_rtmp_kmp_module; please put it before nginx_rtmp_kmp_module." 1>&2
+        exit 1
+    fi
+fi
+
+RTMP_KMP_SRCS="                                       \
+    $ngx_addon_dir/src/ngx_kmp_push_track.c           \
+    $ngx_addon_dir/src/ngx_kmp_push_upstream.c        \
+    $ngx_addon_dir/src/ngx_rtmp_kmp_module.c          \
+    $ngx_addon_dir/src/ngx_rtmp_kmp_track.c           \
+    $ngx_addon_dir/src/ngx_kmp_push_utils.c           \
+    "
+
+RTMP_KMP_DEPS="                                       \
+    $ngx_addon_dir/src/ngx_kmp_push_track.h           \
+    $ngx_addon_dir/src/ngx_kmp_push_track_internal.h  \
+    $ngx_addon_dir/src/ngx_kmp_push_track_json.h      \
+    $ngx_addon_dir/src/ngx_kmp_push_upstream.h        \
+    $ngx_addon_dir/src/ngx_kmp_push_upstream_json.h   \
+    $ngx_addon_dir/src/ngx_kmp_push_utils.h           \
+    $ngx_addon_dir/src/ngx_rtmp_kmp_json.h            \
+    $ngx_addon_dir/src/ngx_rtmp_kmp_track.h           \
+    $ngx_addon_dir/src/ngx_rtmp_kmp_track_json.h      \
+    "
+
+if [ -f auto/module ] ; then
+    ngx_module_type=CORE
+    ngx_module_incs=$ngx_addon_dir
+    ngx_module_name=ngx_rtmp_kmp_module
+    ngx_module_srcs=$RTMP_KMP_SRCS
+    ngx_module_deps=$RTMP_KMP_DEPS
+    . auto/module
+else
+    CORE_MODULES="$CORE_MODULES ngx_rtmp_kmp_module"
+
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $RTMP_KMP_DEPS"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $RTMP_KMP_SRCS"
+
+    CFLAGS="$CFLAGS -I$ngx_addon_dir"
+fi
