@@ -58,6 +58,75 @@ ngx_kmp_push_track_get_time(ngx_kmp_push_track_t *track)
         (int64_t)spec.tv_nsec * track->timescale / 1000000000;
 }
 
+void
+ngx_kmp_push_track_init_conf(ngx_kmp_push_track_conf_t *conf)
+{
+    conf->ctrl_publish_url = NGX_CONF_UNSET_PTR;
+    conf->ctrl_unpublish_url = NGX_CONF_UNSET_PTR;
+    conf->ctrl_republish_url = NGX_CONF_UNSET_PTR;
+    conf->ctrl_timeout = NGX_CONF_UNSET_MSEC;
+    conf->ctrl_read_timeout = NGX_CONF_UNSET_MSEC;
+    conf->ctrl_buffer_size = NGX_CONF_UNSET_SIZE;
+    conf->ctrl_retries = NGX_CONF_UNSET_UINT;
+    conf->ctrl_retry_interval = NGX_CONF_UNSET_MSEC;
+
+    conf->timescale = NGX_CONF_UNSET_UINT;
+    conf->timeout = NGX_CONF_UNSET_MSEC;
+    conf->max_free_buffers = NGX_CONF_UNSET_UINT;
+    conf->video_buffer_size = NGX_CONF_UNSET_SIZE;
+    conf->video_memory_limit = NGX_CONF_UNSET_SIZE;
+    conf->audio_buffer_size = NGX_CONF_UNSET_SIZE;
+    conf->audio_memory_limit = NGX_CONF_UNSET_SIZE;
+}
+
+void
+ngx_kmp_push_track_merge_conf(ngx_kmp_push_track_conf_t *conf,
+    ngx_kmp_push_track_conf_t *prev)
+{
+    ngx_conf_merge_ptr_value(conf->ctrl_publish_url,
+                             prev->ctrl_publish_url, NULL);
+
+    ngx_conf_merge_ptr_value(conf->ctrl_unpublish_url,
+                             prev->ctrl_unpublish_url, NULL);
+
+    ngx_conf_merge_ptr_value(conf->ctrl_republish_url,
+                             prev->ctrl_republish_url, NULL);
+
+    ngx_conf_merge_msec_value(conf->ctrl_timeout,
+                              prev->ctrl_timeout, 2000);
+
+    ngx_conf_merge_msec_value(conf->ctrl_read_timeout,
+                              prev->ctrl_read_timeout, 20000);
+
+    ngx_conf_merge_size_value(conf->ctrl_buffer_size,
+                              prev->ctrl_buffer_size, 4 * 1024);
+
+    ngx_conf_merge_uint_value(conf->ctrl_retries,
+                              prev->ctrl_retries, 5);
+
+    ngx_conf_merge_msec_value(conf->ctrl_retry_interval,
+                              prev->ctrl_retry_interval, 2000);
+
+    ngx_conf_merge_uint_value(conf->timescale, prev->timescale, 90000);
+
+    ngx_conf_merge_msec_value(conf->timeout, prev->timeout, 10000);
+
+    ngx_conf_merge_uint_value(conf->max_free_buffers,
+                              prev->max_free_buffers, 4);
+
+    ngx_conf_merge_size_value(conf->video_buffer_size,
+                              prev->video_buffer_size, 64 * 1024);
+
+    ngx_conf_merge_size_value(conf->video_memory_limit,
+                              prev->video_memory_limit, 16 * 1024 * 1024);
+
+    ngx_conf_merge_size_value(conf->audio_buffer_size,
+                              prev->audio_buffer_size, 4 * 1024);
+
+    ngx_conf_merge_size_value(conf->audio_memory_limit,
+                              prev->audio_memory_limit, 1 * 1024 * 1024);
+}
+
 ngx_http_call_ctx_t *
 ngx_kmp_push_track_http_call_create(ngx_kmp_push_track_t *track,
     ngx_http_call_init_t *ci)

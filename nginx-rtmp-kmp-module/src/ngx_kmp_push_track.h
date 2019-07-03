@@ -33,6 +33,12 @@ typedef struct {
 } ngx_kmp_push_track_conf_t;
 
 
+void ngx_kmp_push_track_init_conf(ngx_kmp_push_track_conf_t *conf);
+
+void ngx_kmp_push_track_merge_conf(ngx_kmp_push_track_conf_t *conf,
+    ngx_kmp_push_track_conf_t *prev);
+
+
 ngx_kmp_push_track_t *ngx_kmp_push_track_create(
     ngx_kmp_push_track_conf_t *conf, ngx_uint_t media_type);
 

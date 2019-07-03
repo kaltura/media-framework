@@ -205,7 +205,7 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
       NULL },
 
     { ngx_string("kmp_video_buffer_size"),
-      NGX_RTMP_MAIN_CONF | NGX_RTMP_SRV_CONF | NGX_RTMP_APP_CONF | NGX_CONF_TAKE1,
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.video_buffer_size),
@@ -219,7 +219,7 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
       NULL },
 
     { ngx_string("kmp_audio_buffer_size"),
-      NGX_RTMP_MAIN_CONF | NGX_RTMP_SRV_CONF | NGX_RTMP_APP_CONF | NGX_CONF_TAKE1,
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.audio_buffer_size),
@@ -335,6 +335,7 @@ ngx_rtmp_kmp_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
+
 static void *
 ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf)
 {
@@ -345,22 +346,7 @@ ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    kacf->t.ctrl_publish_url = NGX_CONF_UNSET_PTR;
-    kacf->t.ctrl_unpublish_url = NGX_CONF_UNSET_PTR;
-    kacf->t.ctrl_republish_url = NGX_CONF_UNSET_PTR;
-    kacf->t.ctrl_timeout = NGX_CONF_UNSET_MSEC;
-    kacf->t.ctrl_read_timeout = NGX_CONF_UNSET_MSEC;
-    kacf->t.ctrl_buffer_size = NGX_CONF_UNSET_SIZE;
-    kacf->t.ctrl_retries = NGX_CONF_UNSET_UINT;
-    kacf->t.ctrl_retry_interval = NGX_CONF_UNSET_MSEC;
-
-    kacf->t.timescale = NGX_CONF_UNSET_UINT;
-    kacf->t.timeout = NGX_CONF_UNSET_MSEC;
-    kacf->t.max_free_buffers = NGX_CONF_UNSET_UINT;
-    kacf->t.video_buffer_size = NGX_CONF_UNSET_SIZE;
-    kacf->t.video_memory_limit = NGX_CONF_UNSET_SIZE;
-    kacf->t.audio_buffer_size = NGX_CONF_UNSET_SIZE;
-    kacf->t.audio_memory_limit = NGX_CONF_UNSET_SIZE;
+    ngx_kmp_push_track_init_conf(&kacf->t);
 
     return kacf;
 }
@@ -372,48 +358,7 @@ ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_rtmp_kmp_app_conf_t  *prev = parent;
     ngx_rtmp_kmp_app_conf_t  *conf = child;
 
-    ngx_conf_merge_ptr_value(conf->t.ctrl_publish_url,
-                             prev->t.ctrl_publish_url, NULL);
-
-    ngx_conf_merge_ptr_value(conf->t.ctrl_unpublish_url,
-                             prev->t.ctrl_unpublish_url, NULL);
-
-    ngx_conf_merge_ptr_value(conf->t.ctrl_republish_url,
-                             prev->t.ctrl_republish_url, NULL);
-
-    ngx_conf_merge_msec_value(conf->t.ctrl_timeout,
-                              prev->t.ctrl_timeout, 2000);
-
-    ngx_conf_merge_msec_value(conf->t.ctrl_read_timeout,
-                              prev->t.ctrl_read_timeout, 20000);
-
-    ngx_conf_merge_size_value(conf->t.ctrl_buffer_size,
-                              prev->t.ctrl_buffer_size, 4 * 1024);
-
-    ngx_conf_merge_uint_value(conf->t.ctrl_retries,
-                              prev->t.ctrl_retries, 5);
-
-    ngx_conf_merge_msec_value(conf->t.ctrl_retry_interval,
-                              prev->t.ctrl_retry_interval, 2000);
-
-    ngx_conf_merge_uint_value(conf->t.timescale, prev->t.timescale, 90000);
-
-    ngx_conf_merge_msec_value(conf->t.timeout, prev->t.timeout, 10000);
-
-    ngx_conf_merge_uint_value(conf->t.max_free_buffers,
-                              prev->t.max_free_buffers, 4);
-
-    ngx_conf_merge_size_value(conf->t.video_buffer_size,
-                              prev->t.video_buffer_size, 64 * 1024);
-
-    ngx_conf_merge_size_value(conf->t.video_memory_limit,
-                              prev->t.video_memory_limit, 16 * 1024 * 1024);
-
-    ngx_conf_merge_size_value(conf->t.audio_buffer_size,
-                              prev->t.audio_buffer_size, 4 * 1024);
-
-    ngx_conf_merge_size_value(conf->t.audio_memory_limit,
-                              prev->t.audio_memory_limit, 1 * 1024 * 1024);
+    ngx_kmp_push_track_merge_conf(&conf->t, &prev->t);
 
     if (conf->t.timescale % NGX_RTMP_TIMESCALE) {
         ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
