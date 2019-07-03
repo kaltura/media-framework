@@ -118,7 +118,7 @@ int start()
     
     //last to start...
     json_get_int(GetConfig(),"control.listenPort",12345,&listenPort);
-    json_get_string(GetConfig(),"control.listenAddress","127.0.0.1",http_server.listenAddress,sizeof(receiver.listenAddress));
+    json_get_string(GetConfig(),"control.listenAddress","0.0.0.0",http_server.listenAddress,sizeof(receiver.listenAddress));
     http_server.port=listenPort;
     http_server.request=on_http_request;
     http_server_start(&http_server);

@@ -138,7 +138,7 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
 
     AVCodecContext *codec_ctx;
     if (!dec) {
-        LOGGER0(CATEGORY_CODEC,AV_LOG_ERROR, "Failed to find decoder for stream");
+        LOGGER(CATEGORY_CODEC,AV_LOG_ERROR, "Failed to find decoder for stream %s",pCodecParams->codec_id);
         return AVERROR_DECODER_NOT_FOUND;
     }
     codec_ctx = avcodec_alloc_context3(dec);

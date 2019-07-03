@@ -24,6 +24,7 @@ int transcode_session_output_init(transcode_session_output_t* pOutput)  {
     pOutput->videoParams.width=pOutput->videoParams.height=-1;
     pOutput->videoParams.skipFrame=1;
     pOutput->videoParams.frameRate=-1;
+    pOutput->lastAck=-1;
     strcpy(pOutput->videoParams.level,"");
     strcpy(pOutput->videoParams.profile,"");
     pOutput->audioParams.samplingRate=pOutput->audioParams.channels=-1;
@@ -138,12 +139,17 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
     if (pOutput->sender!=NULL)
     {
         _S(KMP_send_packet(pOutput->sender,packet));
+        uint64_t frame_id;
+        
+        if (KMP_read_ack(pOutput->sender, &frame_id)) {
+            pOutput->lastAck=frame_id;
+        }
     }
     
     return 0;
 }
 
-int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,transcode_mediaInfo_t* extra)
+int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,transcode_mediaInfo_t* extra,uint64_t initial_frame_id)
 {
     char senderUrl[MAX_URL_LENGTH];
     json_get_string(GetConfig(),"output.streamingUrl","",senderUrl,sizeof(senderUrl));
@@ -153,7 +159,7 @@ int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] connecting to %s",pOutput->track_id,senderUrl);
         _S(KMP_connect(pOutput->sender, senderUrl));
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending handshake (channelId: %s trackId: %s)",pOutput->track_id,pOutput->channel_id,pOutput->track_id);
-        _S(KMP_send_handshake(pOutput->sender,pOutput->channel_id,pOutput->track_id));
+        _S(KMP_send_handshake(pOutput->sender,pOutput->channel_id,pOutput->track_id,initial_frame_id));
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending header",pOutput->track_id);
         _S(KMP_send_header(pOutput->sender,extra));
     }
@@ -229,9 +235,11 @@ int transcode_session_output_get_diagnostics(transcode_session_output_t *pOutput
     JSON_SERIALIZE_INIT(buf)
     JSON_SERIALIZE_STRING("track_id",pOutput->track_id)
     JSON_SERIALIZE_INT64("totalFrames",pOutput->stats.totalFrames)
+    JSON_SERIALIZE_INT64("lastAck", pOutput->lastAck)
     JSON_SERIALIZE_STRING("lastDts",pts2str(pOutput->stats.lastDts))
     JSON_SERIALIZE_INT("bitrate",pOutput->bitrate > 0 ? pOutput->bitrate* 1000 : -1)
     JSON_SERIALIZE_INT("currenBitrate",pOutput->stats.currentBitRate)
+   
     JSON_SERIALIZE_END()
     return n;
 }

@@ -141,6 +141,7 @@
 		08E1253522840AE600385F89 /* time_estimator.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = time_estimator.c; sourceTree = "<group>"; };
 		08F2959C21DDF7FF0028EEE5 /* transcode_codec.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = transcode_codec.h; sourceTree = "<group>"; };
 		08F2959D21DDF7FF0028EEE5 /* transcode_codec.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = transcode_codec.c; sourceTree = "<group>"; };
+		08F6838A22A95E400095B2BD /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -233,6 +234,7 @@
 		086E7AC41E044C7400206F21 = {
 			isa = PBXGroup;
 			children = (
+				08F6838A22A95E400095B2BD /* README.md */,
 				084329842282126B00D3D40F /* debug */,
 				082CAB8B224AD13300B304EA /* utils */,
 				082CAB8A224AD06500B304EA /* KMP */,

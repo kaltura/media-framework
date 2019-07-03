@@ -13,13 +13,14 @@
 
 
 /* initialization */
-int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackId)
+int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackId,uint64_t input_frame_first_id)
 {
     ctx->decoders=0;
     ctx->outputs=0;
     ctx->filters=0;
     ctx->encoders=0;
     ctx->currentMediaInfo=NULL;
+    ctx->input_frame_first_id=input_frame_first_id;
     strcpy(ctx->channelId,channelId);
     strcpy(ctx->trackId,trackId);
     sprintf(ctx->name,"%s_%s",channelId,trackId);
@@ -95,6 +96,16 @@ int transcode_session_async_send_packet(transcode_session_t *ctx, struct AVPacke
     return 0;
 }
 
+int64_t transcode_session_get_ack_frame_id(transcode_session_t *ctx)
+{
+    /*
+    for (int i=0;i<ctx->outputs;i++)
+    {
+        transcode_session_output_t* output=&ctx->output[i];
+    }*/
+    return 0;
+}
+
 int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInfo_t* newMediaInfo)
 {
     if (ctx->currentMediaInfo) {
@@ -118,7 +129,6 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
         }
     }
    
-    
     ctx->currentMediaInfo=newMediaInfo;
     
     transcode_codec_t *pDecoderContext=&ctx->decoder[0];
@@ -262,14 +272,14 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
         extra.timeScale=pEncoderContext->ctx->time_base;
         extra.codecParams=avcodec_parameters_alloc();
         avcodec_parameters_from_context(extra.codecParams,pEncoderContext->ctx);
-        _S(transcode_session_output_set_media_info(pOutput,&extra));
+        _S(transcode_session_output_set_media_info(pOutput,&extra,pContext->input_frame_first_id));
     } else
     {
         transcode_mediaInfo_t extra;
         extra.frameRate=pDecoderContext->ctx->framerate;
         extra.timeScale=pDecoderContext->ctx->time_base;
         extra.codecParams=pContext->currentMediaInfo->codecParams;
-        _S(transcode_session_output_set_media_info(pOutput,&extra));
+        _S(transcode_session_output_set_media_info(pOutput,&extra,pContext->input_frame_first_id));
     }
     
     return 0;
@@ -428,8 +438,6 @@ int decodePacket(transcode_session_t *transcodingContext,const AVPacket* pkt) {
     
     
     if (pkt!=NULL) {
-        clock_estimator_push_frame(&transcodingContext->clock_estimator,pkt->dts,pkt->pos);
-    
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG, "[%s] Sending packet %s to decoder",
                transcodingContext->name,
                getPacketDesc(pkt));
@@ -471,6 +479,7 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
 {
     if (packet!=NULL) {
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG, "Processing packet %s",getPacketDesc(packet));
+        clock_estimator_push_frame(&ctx->clock_estimator,packet->dts,packet->pos);
         ctx->lastInputDts=packet->dts;
         samples_stats_add(&ctx->processedStats,packet->dts,packet->pos,packet->size);
     }
