@@ -159,11 +159,12 @@ ngx_kmp_push_parse_json_response(ngx_pool_t *pool, ngx_uint_t code,
         return NGX_ERROR;
     }
 
-    if (content_type->len != ngx_kmp_push_json_type.len
+    if (content_type->len < ngx_kmp_push_json_type.len
         || ngx_strncasecmp(content_type->data,
             ngx_kmp_push_json_type.data,
             ngx_kmp_push_json_type.len)
-        != 0) {
+        != 0)
+    {
         ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_kmp_push_parse_json_response: invalid content type %V",
             content_type);
