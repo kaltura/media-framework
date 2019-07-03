@@ -17,6 +17,8 @@
 #include <libavutil/time.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/timestamp.h>
+#include "libavutil/intreadwrite.h"
+#include "libavformat/avc.h"
 #pragma GCC diagnostic pop
 
 //#pragma clang diagnostic pop

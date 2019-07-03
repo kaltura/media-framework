@@ -18,20 +18,33 @@
 #include <regex.h>
 #include <netdb.h>
 #include <unistd.h> // close function
-#include "libavutil/intreadwrite.h"
-#include "libavformat/avc.h"
+#include <fcntl.h>
+#include <sys/ioctl.h>
 
 #define DUMMY_NOPTS_VALUE -999999
 
 
 static ssize_t KMP_send( KMP_session_t *context,const void *buf, size_t len)
 {
-    ssize_t ret = send(context->socket ,buf , len , 0 );
-    
-    if (ret==-1) {
-        LOGGER(CATEGORY_KMP,AV_LOG_WARNING,"[%s] failed sending! (%d - %s)",context->sessionName,errno,strerror(errno));
+    int bytesRead=0;
+    while (len>0) {
+        int valread = (int)send(context->socket ,buf+bytesRead , len , 0 );
+        if (valread<=0) {
+            if (errno==EAGAIN || errno==EWOULDBLOCK) {
+                
+                struct timespec tv;
+                tv.tv_sec=0;
+                tv.tv_nsec=250*1000000;//wait 250ms
+                nanosleep(&tv,NULL);
+                continue;
+            }
+            LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"incomplete recv, returned %d errno=%d",valread,errno);
+            return errno;
+        }
+        bytesRead+=valread;
+        len-=valread;
     }
-    return ret;
+    return 0;
 }
 int KMP_init( KMP_session_t *context)
 {
@@ -46,7 +59,7 @@ int KMP_init( KMP_session_t *context)
 int KMP_connect( KMP_session_t *context,char* url)
 {
     
-    int ret=0;
+    int fd=0,ret=0;
     
     char host[256];
     char port[6];
@@ -70,12 +83,13 @@ int KMP_connect( KMP_session_t *context,char* url)
     }
     struct addrinfo *p=servinfo; //take first match
 
-    if ((ret = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) <= 0)
+    if ((fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) <= 0)
     {
         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Socket creation for %s - error %d (%s)",url,errno,strerror(errno));
         return -1;
     }
-    context->socket=ret;
+    context->socket=fd;
+    
 
     if ( connect(context->socket,p->ai_addr, p->ai_addrlen) < 0)
     {
@@ -84,6 +98,11 @@ int KMP_connect( KMP_session_t *context,char* url)
         return -1;
     }
     
+    
+    int flags=0;
+    if (-1 == (flags = fcntl(fd, F_GETFL, 0)))
+        flags = 0;
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
     
     struct sockaddr_in address;
     socklen_t addrLen = sizeof(address);
@@ -306,13 +325,26 @@ int KMP_send_eof( KMP_session_t *context)
     return 0;
 }
 
-int KMP_send_handshake( KMP_session_t *context,const char* channel_id,const char* track_id)
+int KMP_send_ack( KMP_session_t *context,uint64_t frame_id)
+{
+    LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send KMP_send_ack %lld",context->sessionName,frame_id);
+    kmp_ack_frames_packet_t pkt;
+    pkt.header.packet_type=KMP_PACKET_ACK_FRAMES;
+    pkt.header.data_size=0;
+    pkt.header.header_size=sizeof(kmp_ack_frames_packet_t);
+    pkt.frame_id=frame_id;
+    _S(KMP_send(context, &pkt, sizeof(kmp_ack_frames_packet_t)));
+    return 0;
+}
+
+int KMP_send_handshake( KMP_session_t *context,const char* channel_id,const char* track_id,uint64_t initial_frame_id)
 {
     LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send KMP_send_handshake %s,%s",context->sessionName,channel_id,track_id);
     kmp_connect_header_t connect;
     connect.header.packet_type=KMP_PACKET_CONNECT;
     connect.header.header_size=sizeof(kmp_connect_header_t);
     connect.header.data_size=0;
+    connect.initial_frame_id=initial_frame_id;
     strcpy((char*)connect.channel_id,channel_id);
     strcpy((char*)connect.track_id,track_id);
     _S(KMP_send(context, &connect, sizeof(connect)));
@@ -419,7 +451,7 @@ int KMP_read_header( KMP_session_t *context,kmp_packet_header_t *header)
     int valread =recvExact(context->socket,(char*)header,sizeof(kmp_packet_header_t));
     return valread;
 }
-int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char* channel_id,char* track_id)
+int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char* channel_id,char* track_id,uint64_t* initial_frame_id)
 {
     kmp_connect_header_t connect;
     if (header->packet_type!=KMP_PACKET_CONNECT) {
@@ -433,6 +465,7 @@ int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char*
     
     strcpy(channel_id,(char*)connect.channel_id);
     strcpy(track_id,(char*)connect.track_id);
+    *initial_frame_id=connect.initial_frame_id;
     return 0;
 }
 
@@ -568,7 +601,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
     
 }
 
-int KMP_readPacket( KMP_session_t *context,kmp_packet_header_t *header,AVPacket *packet)
+int KMP_read_packet( KMP_session_t *context,kmp_packet_header_t *header,AVPacket *packet)
 {
     kmp_frame_t sample;
     
@@ -590,4 +623,19 @@ int KMP_readPacket( KMP_session_t *context,kmp_packet_header_t *header,AVPacket 
     
     valread =recvExact(context->socket,(char*)packet->data,(int)header->data_size);
     return valread;
+}
+
+bool KMP_read_ack(KMP_session_t *context,uint64_t* frame_id)
+{
+    *frame_id=0;
+    while(true) {
+        int bytesAv=0;
+        if ( ioctl (context->socket,FIONREAD,&bytesAv) <0  || bytesAv<sizeof(kmp_ack_frames_packet_t)) {
+            return *frame_id!=0;
+        }
+        kmp_ack_frames_packet_t pkt;
+        recvExact(context->socket,(char*)&pkt,(int)sizeof(kmp_ack_frames_packet_t));
+        *frame_id=pkt.frame_id;
+    }
+    
 }

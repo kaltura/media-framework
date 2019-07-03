@@ -11,12 +11,14 @@ _OBJ = $(SRC:.c=.o)
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 _EXE = transcoder
 EXE = $(patsubst %,$(ODIR)/%,$(_EXE))
-ifeq ($(OS), Linux)
-        FFMPEG_LIB_DIR := ./ffmpeg
-        X264_LIB_DIR := ./x264
-else
+OS := $(shell uname)
+
+ifeq ($(OS),Darwin)
         FFMPEG_LIB_DIR := ./ThirdParty/ffmpeg
         X264_LIB_DIR := ./ThirdParty/x264
+else
+        FFMPEG_LIB_DIR := ./ffmpeg
+        X264_LIB_DIR := ./x264
 endif
 
 IDIRS = -I. -I$(FFMPEG_LIB_DIR) -I"./common" -I"./utils"  -I"./KMP" -I"./transcode" -I"./debug"
@@ -26,13 +28,12 @@ LIBS = -lm -lpthread  -lz -lbz2 -ldl
 CUDA_LIBS = -lnppig_static -lnppicc_static -lnppc_static -lnppidei_static -lcublas_static -lcudart_static -lculibos  -lcudart -lstdc++
 CFLAGS = -Wall -g $(IDIRS) -fPIC  -static -std=c11 -D_GNU_SOURCE
 LDFLAGS =  $(LDIR) $(LIBS)  $(FFMPEG_LIBS) $(LIBS) 
-OS := $(shell uname)
 
 
-ifeq ($(OS), Linux)
-        LIBS += -lrt ${CUDA_LIBS} 
-else
+ifeq ($(OS),Darwin)
         LIBS += -liconv  -framework AudioToolbox  -framework VideoToolbox  -framework MediaToolbox  -framework CoreMedia  -framework CoreMediaIO  -framework CoreVideo   -framework CoreAudio  -framework CoreImage  -framework OpenGL   -framework AppKit  -framework QuartzCore  -framework ImageCaptureCore  -framework CoreFoundation  -framework Security   -framework SecurityFoundation  -framework SecurityInterface
+else
+        LIBS += -lrt ${CUDA_LIBS} 
 endif
 
 dir_guard=@mkdir -p $(@D)

@@ -62,10 +62,14 @@ typedef struct {
 
 #define KMP_FRAME_FLAG_KEY (0x01)
 enum {
+    // client -> server
     KMP_PACKET_CONNECT = 0x74636e63,    // cnct
     KMP_PACKET_MEDIA_INFO = 0x666e696d, // minf
     KMP_PACKET_FRAME = 0x6d617266,      // fram
-    KMP_PACKET_EOS = 0x74736f65         // eost
+    KMP_PACKET_EOS = 0x74736f65,         // eost
+    
+    // server -> client
+    KMP_PACKET_ACK_FRAMES = 0x666b6361   // ackf
 };
 
 #define KMP_MAX_CHANNEL_ID (32)
@@ -101,5 +105,10 @@ typedef struct {
     kmp_packet_header_t header;
     kmp_frame_t f;
 } kmp_frame_packet_t;
+
+typedef struct {
+    kmp_packet_header_t header;
+    uint64_t frame_id;
+} kmp_ack_frames_packet_t;
 
 #endif /* _LIVE_PROTOCOL_H_INCLUDED_ */

@@ -57,7 +57,11 @@ void* thread_stream_from_file(void *vargp)
     if (KMP_connect(&kmp,args->kmp_url)<0) {
         return NULL;
     }
-    KMP_send_handshake(&kmp,channelId,"1");
+    
+    
+    int64_t createTime=av_rescale_q( getClock64(), clockScale, standard_timebase);
+    uint64_t frame_id=createTime;
+    KMP_send_handshake(&kmp,channelId,"1",frame_id);
     uint64_t  cumulativeDuration=0;
     
     AVStream *in_stream=ifmt_ctx->streams[activeStream];
@@ -72,8 +76,6 @@ void* thread_stream_from_file(void *vargp)
     srand((int)time(NULL));
     uint64_t lastDts=0;
     int64_t start_time=av_gettime_relative();
-    
-    int64_t createTime=av_rescale_q( getClock64(), clockScale, standard_timebase);
     
     
     samples_stats_t stats;
@@ -139,7 +141,13 @@ void* thread_stream_from_file(void *vargp)
                fps,
                rate)*/
         
-         KMP_send_packet(&kmp,&packet);
+        
+        uint64_t frame_id_ack;
+        KMP_send_packet(&kmp,&packet);
+        if (KMP_read_ack(&kmp,&frame_id_ack)) {
+            LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"received ack for packet id  %lld",frame_id_ack);
+        }
+        
         
         /*
          LOGGER("SENDER",AV_LOG_DEBUG,"sent packet pts=%s dts=%s  size=%d",

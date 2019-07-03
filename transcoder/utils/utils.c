@@ -84,6 +84,12 @@ uint64_t getClock64()
     return usecondsSinceEpoch;
 }
 
+
+uint64_t getClock90Khz()
+{
+    return av_rescale_q( getClock64(), clockScale, standard_timebase);
+}
+
 char *av_ts_make_time_stringEx(char *buf, int64_t ts,bool shortFormat)
 {
     

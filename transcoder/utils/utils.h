@@ -16,6 +16,7 @@
 
 size_t load_file_to_memory(const char *filename, char **result);
 
+uint64_t getClock90Khz();
 uint64_t getClock64();
 uint64_t getTime64();
 int kbhit(void);
