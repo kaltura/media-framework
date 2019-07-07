@@ -184,7 +184,7 @@ ngx_rtmp_live_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_value(conf->play_restart, prev->play_restart, 0);
     ngx_conf_merge_value(conf->idle_streams, prev->idle_streams, 1);
 
-    conf->pool = ngx_create_pool(4096, &cf->cycle->new_log);
+    conf->pool = ngx_create_pool(4096, cf->log);
     if (conf->pool == NULL) {
         return NGX_CONF_ERROR;
     }
