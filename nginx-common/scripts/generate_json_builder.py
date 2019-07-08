@@ -1,3 +1,4 @@
+from utils import writeText
 import json
 import sys
 import re
@@ -30,9 +31,11 @@ def outputObject(objectInfo, properties):
     outputBaseFunc = objectInfo[0]
 
     args = ''
+    defaultExprBase = ''
     if len(objectInfo) > 1:
         objectType = objectInfo[1]
         args = '%s *obj' % objectType
+        defaultExprBase = 'obj->'
     if len(objectInfo) > 2:
         args += ', %s' % ' '.join(objectInfo[2:])
 
@@ -42,6 +45,7 @@ def outputObject(objectInfo, properties):
     writeCode = ''
     funcDefs = set([])
     writeDefs = set([])
+    returnConds = set([])
     fixed = prefix
     nextFixed = ''
     firstField = True
@@ -50,13 +54,17 @@ def outputObject(objectInfo, properties):
             funcDefs.add(' '.join(property[2:]))
             continue
 
+        if property[1] == '%return':
+            returnConds.add(' '.join(property[2:]))
+            continue
+
         fieldName, format = property[:2]
         if len(property) > 2:
             expr = ' '.join(property[2:])
         else:
-            expr = 'obj->'
+            expr = defaultExprBase
 
-        if expr.endswith('->'):
+        if expr == '' or expr.endswith('->') or expr.endswith('.'):
             expr += fieldName
 
         if not firstField:
@@ -67,29 +75,34 @@ def outputObject(objectInfo, properties):
 
         if format.startswith('%'):
             format = format[1:]
-            if format.startswith('func-'):
-                baseFunc = format[len('func-'):]
-                if len(property) > 2:
-                    expr = ', %s' % expr
-                else:
-                    expr = ''
-                if fieldName != '-':
+            if format.startswith('func-') or format.startswith('objFunc-') or \
+                format.startswith('arrFunc-'):
+                baseFunc = format.split('-', 1)[1]
+
+                if format.startswith('objFunc-'):
                     fixed += '{';
                     nextFixed = '}'
+                elif format.startswith('arrFunc-'):
+                    fixed += '[';
+                    nextFixed = ']'
+
+                if len(expr) > 0:
+                    expr = ', %s' % expr
 
                 if fixed.endswith(','):
                     writeDefs.add('u_char  *next;');
-                    valueWrite = 'next = %s_write(p, obj%s);' % (baseFunc, expr)
+                    valueWrite = 'next = %s_write(p%s);' % (baseFunc, expr)
                     valueWrite += '\n' + 'p = next == p ? p - 1 : next;'
                 else:
-                    valueWrite = 'p = %s_write(p, obj%s);' % (baseFunc, expr)
+                    valueWrite = 'p = %s_write(p%s);' % (baseFunc, expr)
 
-                valueSize = '%s_get_size(obj%s)' % (baseFunc, expr)
+                valueSize = '%s_get_size(%s)' % (baseFunc, expr[2:])
             elif format.startswith('objQueue-'):
                 params = format[len('objQueue-'):].split(',')
                 baseFunc, objectType, queueNode, idField = params
                 fixed += '{';
                 nextFixed = '}'
+
                 getSizeCode += '''
 for (q = ngx_queue_head(&%s);
     q != ngx_queue_sentinel(&%s);
@@ -99,7 +112,9 @@ for (q = ngx_queue_head(&%s);
     result += cur->%s.len + ngx_escape_json(NULL, cur->%s.data, cur->%s.len);
     result += %s_get_size(cur) + sizeof(",\\"\\":") - 1;
 }
-''' % (expr, expr, objectType, objectType, queueNode, idField, idField, idField, baseFunc)
+''' % (expr, expr, objectType, objectType, queueNode, idField, idField,
+        idField, baseFunc)
+
                 valueWrite = '''
 for (q = ngx_queue_head(&%s);
     q != ngx_queue_sentinel(&%s);
@@ -117,14 +132,17 @@ for (q = ngx_queue_head(&%s);
     *p++ = ':';
     p = %s_write(p, cur);
 }
-''' % (expr, expr, objectType, objectType, queueNode, expr, idField, idField, baseFunc)
-                funcDefs.add('ngx_queue_t *q;')
+''' % (expr, expr, objectType, objectType, queueNode, expr, idField,
+        idField, baseFunc)
+
+                funcDefs.add('ngx_queue_t  *q;')
                 valueSize = ''
             elif format.startswith('queue-'):
                 params = format[len('queue-'):].split(',')
                 baseFunc, objectType, queueNode = params
                 fixed += '[';
                 nextFixed = ']'
+
                 getSizeCode += '''
 for (q = ngx_queue_head(&%s);
     q != ngx_queue_sentinel(&%s);
@@ -134,6 +152,7 @@ for (q = ngx_queue_head(&%s);
     result += %s_get_size(cur) + sizeof(",") - 1;
 }
 ''' % (expr, expr, objectType, objectType, queueNode, baseFunc)
+
                 valueWrite = '''
 for (q = ngx_queue_head(&%s);
     q != ngx_queue_sentinel(&%s);
@@ -148,27 +167,59 @@ for (q = ngx_queue_head(&%s);
     p = %s_write(p, cur);
 }
 ''' % (expr, expr, objectType, objectType, queueNode, expr, baseFunc)
+
                 funcDefs.add('ngx_queue_t  *q;')
+                valueSize = ''
+            elif format.startswith('array-'):
+                params = format[len('array-'):].split(',')
+                baseFunc, objectType = params
+                fixed += '[';
+                nextFixed = ']'
+                getSizeCode += '''
+for (n = 0; n < %s.nelts; ++n) {
+    %s cur = ((%s*)%s.elts)[n];
+    result += %s_get_size(cur) + sizeof(",") - 1;
+}
+''' % (expr, objectType, objectType, expr, baseFunc)
+                valueWrite = '''
+for (n = 0; n < %s.nelts; ++n) {
+    %s cur = ((%s*)%s.elts)[n];
+
+    if (n > 0) {
+        *p++ = ',';
+    }
+    p = %s_write(p, cur);
+}
+''' % (expr, objectType, objectType, expr, baseFunc)
+                funcDefs.add('ngx_uint_t  n;')
                 valueSize = ''
             elif format == 'V':
                 fixed += '"';
                 nextFixed = '"'
-                valueWrite = 'p = (u_char*)ngx_escape_json(p, %s.data, %s.len);' % (expr, expr)
-                valueSize = '%s.len + ngx_escape_json(NULL, %s.data, %s.len)' % (expr, expr, expr)
+                valueWrite =                                                  \
+                    'p = (u_char*)ngx_escape_json(p, %s.data, %s.len);' %     \
+                    (expr, expr)
+                valueSize =                                                   \
+                    '%s.len + ngx_escape_json(NULL, %s.data, %s.len)' %       \
+                    (expr, expr, expr)
             elif format == 'xV':
                 fixed += '"';
                 nextFixed = '"'
-                valueWrite = 'p = ngx_hex_dump(p, %s.data, %s.len);' % (expr, expr)
+                valueWrite = 'p = ngx_hex_dump(p, %s.data, %s.len);' %        \
+                    (expr, expr)
                 valueSize = '%s.len * 2' % expr
             elif format == '4cc':
                 fixed += '"';
                 nextFixed = '"'
-                valueWrite = 'p = (u_char*)ngx_escape_json(p, (u_char *)&%s, sizeof(uint32_t));' % expr
-                valueSize = 'sizeof(uint32_t) + ngx_escape_json(NULL, (u_char *)&%s, sizeof(uint32_t))' % expr
+                valueWrite = 'p = (u_char*)ngx_escape_json(p, ' +             \
+                    '(u_char *)&%s, sizeof(uint32_t));' % expr
+                valueSize = 'sizeof(uint32_t) + ngx_escape_json(NULL, ' +     \
+                    '(u_char *)&%s, sizeof(uint32_t))' % expr
             else:
                 match = re.match('^\.(\d+)f$', format)
                 if not match is None:
-                    valueSize = 'NGX_INT64_LEN + %s' % (int(match.groups()[0]) + 1)
+                    valueSize = 'NGX_INT64_LEN + %s' %                        \
+                        (int(match.groups()[0]) + 1)
                     cast = 'double'
                 elif format == 'L':
                     valueSize = 'NGX_INT64_LEN'
@@ -179,6 +230,9 @@ for (q = ngx_queue_head(&%s);
                 elif format == 'uD':
                     valueSize = 'NGX_INT32_LEN'
                     cast = 'uint32_t'
+                elif format == 'i':
+                    valueSize = 'NGX_INT_T_LEN'
+                    cast = 'ngx_int_t'
                 elif format == 'ui':
                     valueSize = 'NGX_INT_T_LEN'
                     cast = 'ngx_uint_t'
@@ -191,7 +245,8 @@ for (q = ngx_queue_head(&%s);
                 else:
                     print 'Unknown format %s' % format
                     sys.exit(1)
-                valueWrite = 'p = ngx_sprintf(p, "%s", (%s)%s);' % ('%' + format, cast, expr)
+                valueWrite = 'p = ngx_sprintf(p, "%s", (%s)%s);' %            \
+                    ('%' + format, cast, expr)
 
         else:
             fixed += '"%s"' % format
@@ -222,24 +277,43 @@ for (q = ngx_queue_head(&%s);
     funcDefs = ''.join(map(lambda x: '    %s\n' % x, funcDefs))
     writeDefs = ''.join(map(lambda x: '    %s\n' % x, writeDefs))
 
-    print '''
+    checks = ''.join(map(lambda x:
+'''    if (%s) {
+        return 0;
+    }
+''' % x, returnConds))
+
+    result = '''
 %ssize_t
 %s_get_size(%s)
 {
-%s    size_t result = %s;
+%s    size_t result =
+        %s;
 %s
     return result;
 }
-''' % (static, outputBaseFunc, args, funcDefs, sizeCalc.replace('\n', '\n        '), getSizeCode.replace('\n', '\n    '))
+
+''' % (static, outputBaseFunc, args, funcDefs + checks,
+    sizeCalc.replace('\n', '\n        '), getSizeCode.replace('\n', '\n    '))
+
+    checks = ''.join(map(lambda x:
+'''    if (%s) {
+        return p;
+    }
+''' % x, returnConds))
 
     if len(args) > 0:
         args = ', %s' % args
-    print '''%su_char*
+
+    result += '''%su_char*
 %s_write(u_char *p%s)
 {
 %s    %s
     return p;
-}''' % (static, outputBaseFunc, args, funcDefs + writeDefs, writeCode.replace('\n', '\n    '))
+}''' % (static, outputBaseFunc, args, funcDefs + writeDefs + checks,
+    writeCode.replace('\n', '\n    '))
+
+    writeText(result)
 
 if len(sys.argv) < 2:
     print 'Usage:\n\t%s <objects definition file>' % os.path.basename(__file__)
@@ -256,7 +330,7 @@ for curLine in file(inputFile):
         continue
 
     splittedLine = strippedLine.split()
-    if not curLine.startswith('\t'):
+    if not curLine.startswith('\t') and not curLine.startswith(' '):
         if len(properties) > 0:
             outputObject(objectInfo, properties)
         objectInfo = splittedLine
