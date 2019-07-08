@@ -397,6 +397,7 @@ ngx_kmp_push_upstream_republish(ngx_kmp_push_upstream_t *u)
     u->log.connection = 0;
     ngx_close_connection(u->peer.connection);
     u->peer.connection = NULL;
+    u->addr_text.len = 0;
 
     for (cl = u->busy; cl; cl = cl->next) {
         cl->next = u->free;
@@ -439,7 +440,11 @@ ngx_kmp_push_upstream_republish(ngx_kmp_push_upstream_t *u)
 static void
 ngx_kmp_push_upstream_error(ngx_kmp_push_upstream_t *u)
 {
-    ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+    ngx_uint_t  level;
+
+    level = u->sent_end ? NGX_LOG_INFO : NGX_LOG_NOTICE;
+
+    ngx_log_error(level, &u->log, 0,
         "ngx_kmp_push_upstream_error: called");
 
     if (ngx_kmp_push_upstream_republish(u) == NGX_OK) {

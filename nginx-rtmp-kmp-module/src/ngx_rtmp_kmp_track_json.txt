@@ -1,19 +1,4 @@
-static noobject ngx_rtmp_kmp_track_video_json ngx_rtmp_codec_ctx_t ngx_rtmp_kmp_publish_t *pi, ngx_rtmp_session_t *s, ngx_kmp_push_track_t *track
-    input_type rtmp
-
-    app %V s->
-    flashver %V s->
-    swf_url %V s->
-    tc_url %V s->
-    page_url %V s->
-    addr %V s->connection->addr_text
-    connection %uA s->connection->number
-
-    name %V pi->
-    type %V pi->
-    args %V pi->
-
-    media_type video
+ngx_rtmp_kmp_api_video_codec_info_json ngx_rtmp_codec_ctx_t
     width %ui
     height %ui
     duration %ui
@@ -26,22 +11,7 @@ static noobject ngx_rtmp_kmp_track_video_json ngx_rtmp_codec_ctx_t ngx_rtmp_kmp_
     avc_nal_bytes %ui
     avc_ref_frames %ui
 
-static noobject ngx_rtmp_kmp_track_audio_json ngx_rtmp_codec_ctx_t ngx_rtmp_kmp_publish_t *pi, ngx_rtmp_session_t *s, ngx_kmp_push_track_t *track
-    input_type rtmp
-
-    app %V s->
-    flashver %V s->
-    swf_url %V s->
-    tc_url %V s->
-    page_url %V s->
-    addr %V s->connection->addr_text
-    connection %uA s->connection->number
-
-    name %V pi->
-    type %V pi->
-    args %V pi->
-
-    media_type audio %ui
+ngx_rtmp_kmp_api_audio_codec_info_json ngx_rtmp_codec_ctx_t
     audio_data_rate %ui
     audio_codec_id %ui
     aac_profile %ui
@@ -51,3 +21,39 @@ static noobject ngx_rtmp_kmp_track_audio_json ngx_rtmp_codec_ctx_t ngx_rtmp_kmp_
     sample_rate %ui
     sample_size %ui
     audio_channels %ui
+
+static noobject ngx_rtmp_kmp_track_video_json ngx_rtmp_session_t ngx_rtmp_kmp_publish_t *pi, ngx_rtmp_codec_ctx_t *codec_ctx
+    input_type rtmp
+
+    app %V
+    flashver %V
+    swf_url %V
+    tc_url %V
+    page_url %V
+    addr %V obj->connection->addr_text
+    connection %uA obj->connection->number
+
+    name %V pi->
+    type %V pi->
+    args %V pi->
+
+    media_type video
+    codec_info %func-ngx_rtmp_kmp_api_video_codec_info_json codec_ctx
+
+static noobject ngx_rtmp_kmp_track_audio_json ngx_rtmp_session_t ngx_rtmp_kmp_publish_t *pi, ngx_rtmp_codec_ctx_t *codec_ctx
+    input_type rtmp
+
+    app %V
+    flashver %V
+    swf_url %V
+    tc_url %V
+    page_url %V
+    addr %V obj->connection->addr_text
+    connection %uA obj->connection->number
+
+    name %V pi->
+    type %V pi->
+    args %V pi->
+
+    media_type audio
+    codec_info %func-ngx_rtmp_kmp_api_audio_codec_info_json codec_ctx

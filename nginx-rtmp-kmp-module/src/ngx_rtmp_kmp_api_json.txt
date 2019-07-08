@@ -1,0 +1,79 @@
+
+static ngx_rtmp_kmp_api_upstream_json ngx_kmp_push_upstream_t
+    id %V
+    addr_text %V
+    connection %uA obj->log.
+
+static ngx_rtmp_kmp_api_video_track_json ngx_kmp_push_track_t ngx_rtmp_codec_ctx_t *codec_ctx
+    input_id %V
+    channel_id %V
+    track_id %V
+    memory_left %uz obj->memory_limit
+
+    codec_info %func-ngx_rtmp_kmp_api_video_codec_info_json codec_ctx
+
+    upstreams %queue-ngx_rtmp_kmp_api_upstream_json,ngx_kmp_push_upstream_t,queue
+
+static ngx_rtmp_kmp_api_audio_track_json ngx_kmp_push_track_t ngx_rtmp_codec_ctx_t *codec_ctx
+    input_id %V
+    channel_id %V
+    track_id %V
+    memory_left %uz obj->memory_limit
+
+    codec_info %func-ngx_rtmp_kmp_api_audio_codec_info_json codec_ctx
+
+    upstreams %queue-ngx_rtmp_kmp_api_upstream_json,ngx_kmp_push_upstream_t,queue
+
+static ngx_rtmp_kmp_api_stream_json ngx_rtmp_kmp_stream_ctx_t ngx_rtmp_live_stream_t *stream, ngx_rtmp_codec_ctx_t *codec_ctx
+    name %V obj->publish.
+    args %V obj->publish.
+    type %V obj->publish.
+
+    bw_in %uL (stream->bw_in.bandwidth * 8)
+    bytes_in %uL stream->bw_in.bytes
+    bw_in_audio %uL (stream->bw_in_audio.bandwidth * 8)
+    bytes_in_audio %uL stream->bw_in_audio.bytes
+    bw_in_video %uL (stream->bw_in_video.bandwidth * 8)
+    bytes_in_video %uL stream->bw_in_video.bytes
+    bw_out %uL (stream->bw_out.bandwidth * 8)
+    bytes_out %uL stream->bw_out.bytes
+    time %i (ngx_current_msec - stream->epoch)
+
+    tracks %objFunc-ngx_rtmp_kmp_api_tracks_json obj->tracks, codec_ctx
+
+static ngx_rtmp_kmp_api_session_json ngx_rtmp_kmp_ctx_t
+    - %code ngx_rtmp_session_t  *s = obj->s;
+    flashver %V s->
+    swf_url %V s->
+    tc_url %V s->
+    page_url %V s->
+    addr %V s->connection->addr_text
+    time %i (ngx_current_msec - s->epoch)
+    connection %uA s->connection->number
+    streams %arrFunc-ngx_rtmp_kmp_api_streams_json s
+
+static ngx_rtmp_kmp_api_application_json ngx_rtmp_core_app_conf_t
+    - %code ngx_rtmp_kmp_app_conf_t  *kacf = obj->app_conf[ngx_rtmp_kmp_module.ctx_index];
+    - %return kacf == NULL
+    name %V
+    sessions %queue-ngx_rtmp_kmp_api_session_json,ngx_rtmp_kmp_ctx_t,queue kacf->
+
+static ngx_rtmp_kmp_api_server_json ngx_rtmp_core_srv_conf_t
+    applications %array-ngx_rtmp_kmp_api_application_json,ngx_rtmp_core_app_conf_t*
+
+static ngx_rtmp_kmp_api_json
+    - %code ngx_rtmp_core_main_conf_t  *cmcf = ngx_rtmp_core_main_conf;
+    ngx_version %V ngx_rtmp_kmp_version
+    rtmp_version %V ngx_rtmp_kmp_rtmp_version
+    compiler %V ngx_rtmp_kmp_compiler
+    built %V ngx_rtmp_kmp_built
+    pid %ui ngx_getpid()
+    uptime %i (ngx_cached_time->sec - ngx_rtmp_kmp_start_time)
+    naccepted %ui ngx_rtmp_naccepted
+
+    bw_in %uL (ngx_rtmp_bw_in.bandwidth * 8)
+    bytes_in %uL ngx_rtmp_bw_in.bytes
+    bw_out %uL (ngx_rtmp_bw_out.bandwidth * 8)
+    bytes_out %uL ngx_rtmp_bw_out.bytes
+
+    servers %array-ngx_rtmp_kmp_api_server_json,ngx_rtmp_core_srv_conf_t* cmcf->
