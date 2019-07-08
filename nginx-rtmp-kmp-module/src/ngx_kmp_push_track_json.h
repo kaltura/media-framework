@@ -3,7 +3,10 @@
 static size_t
 ngx_kmp_push_track_publish_json_get_size(ngx_kmp_push_track_t *obj)
 {
-    size_t result = sizeof("\"event_type\":\"publish\",\"input_id\":\"") - 1 + obj->input_id.len + ngx_escape_json(NULL, obj->input_id.data, obj->input_id.len) +
+    size_t result =
+        sizeof("\"event_type\":\"publish\",\"input_id\":\"") - 1 +
+            obj->input_id.len + ngx_escape_json(NULL, obj->input_id.data,
+            obj->input_id.len) +
         sizeof("\"") - 1;
 
     return result;
@@ -12,7 +15,8 @@ ngx_kmp_push_track_publish_json_get_size(ngx_kmp_push_track_t *obj)
 static u_char*
 ngx_kmp_push_track_publish_json_write(u_char *p, ngx_kmp_push_track_t *obj)
 {
-    p = ngx_copy(p, "\"event_type\":\"publish\",\"input_id\":\"", sizeof("\"event_type\":\"publish\",\"input_id\":\"") - 1);
+    p = ngx_copy(p, "\"event_type\":\"publish\",\"input_id\":\"",
+        sizeof("\"event_type\":\"publish\",\"input_id\":\"") - 1);
     p = (u_char*)ngx_escape_json(p, obj->input_id.data, obj->input_id.len);
     p = ngx_copy(p, "\"", sizeof("\"") - 1);
 
@@ -22,7 +26,10 @@ ngx_kmp_push_track_publish_json_write(u_char *p, ngx_kmp_push_track_t *obj)
 static size_t
 ngx_kmp_push_track_unpublish_json_get_size(ngx_kmp_push_track_t *obj)
 {
-    size_t result = sizeof("{\"event_type\":\"unpublish\",\"input_id\":\"") - 1 + obj->input_id.len + ngx_escape_json(NULL, obj->input_id.data, obj->input_id.len) +
+    size_t result =
+        sizeof("{\"event_type\":\"unpublish\",\"input_id\":\"") - 1 +
+            obj->input_id.len + ngx_escape_json(NULL, obj->input_id.data,
+            obj->input_id.len) +
         sizeof("\"}") - 1;
 
     return result;
@@ -31,7 +38,8 @@ ngx_kmp_push_track_unpublish_json_get_size(ngx_kmp_push_track_t *obj)
 static u_char*
 ngx_kmp_push_track_unpublish_json_write(u_char *p, ngx_kmp_push_track_t *obj)
 {
-    p = ngx_copy(p, "{\"event_type\":\"unpublish\",\"input_id\":\"", sizeof("{\"event_type\":\"unpublish\",\"input_id\":\"") - 1);
+    p = ngx_copy(p, "{\"event_type\":\"unpublish\",\"input_id\":\"",
+        sizeof("{\"event_type\":\"unpublish\",\"input_id\":\"") - 1);
     p = (u_char*)ngx_escape_json(p, obj->input_id.data, obj->input_id.len);
     p = ngx_copy(p, "\"}", sizeof("\"}") - 1);
 

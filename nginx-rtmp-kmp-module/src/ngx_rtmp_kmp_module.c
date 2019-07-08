@@ -9,8 +9,8 @@
 #include <ngx_live_kmp.h>
 #include <ngx_http_call.h>
 #include <ngx_json_parser.h>
-#include "ngx_rtmp_kmp_track.h"
 #include "ngx_kmp_push_utils.h"
+#include "ngx_rtmp_kmp_module.h"
 
 
 #define ngx_str_from_c(dst, src) {       \
@@ -22,6 +22,7 @@
 static ngx_rtmp_connect_pt       next_connect;
 static ngx_rtmp_publish_pt       next_publish;
 static ngx_rtmp_close_stream_pt  next_close_stream;
+static ngx_rtmp_disconnect_pt    next_disconnect;
 
 
 // Note: an ngx_str_t version of ngx_rtmp_connect_t
@@ -44,32 +45,6 @@ static ngx_int_t ngx_rtmp_kmp_postconfiguration(ngx_conf_t *cf);
 static void *ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf);
 static char *ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent,
     void *child);
-static void *ngx_rtmp_kmp_create_srv_conf(ngx_conf_t *cf);
-static char *ngx_rtmp_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent,
-       void *child);
-
-
-typedef struct {
-    ngx_kmp_push_track_conf_t  t;
-} ngx_rtmp_kmp_app_conf_t;
-
-
-typedef struct {
-    ngx_url_t               *ctrl_connect_url;
-    ngx_msec_t               ctrl_connect_timeout;
-    ngx_msec_t               ctrl_connect_read_timeout;
-    size_t                   ctrl_connect_buffer_size;
-    ngx_uint_t               ctrl_connect_retries;
-    ngx_msec_t               ctrl_connect_retry_interval;
-} ngx_rtmp_kmp_srv_conf_t;
-
-
-typedef struct ngx_rtmp_kmp_ctx_s {
-    ngx_rtmp_session_t      *s;
-    ngx_rtmp_publish_t       publish_buf;
-    ngx_rtmp_kmp_publish_t   publish;
-    ngx_kmp_push_track_t    *tracks[KMP_MEDIA_COUNT];
-} ngx_rtmp_kmp_ctx_t;
 
 
 typedef struct {
@@ -84,47 +59,11 @@ typedef struct {
 static ngx_command_t  ngx_rtmp_kmp_commands[] = {
 
     { ngx_string("kmp_ctrl_connect_url"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_CONF_TAKE1,
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_rtmp_kmp_url_slot,
-      NGX_RTMP_SRV_CONF_OFFSET,
-      offsetof(ngx_rtmp_kmp_srv_conf_t, ctrl_connect_url),
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_kmp_app_conf_t, ctrl_connect_url),
       NULL },
-
-    { ngx_string("kmp_ctrl_connect_timeout"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_msec_slot,
-      NGX_RTMP_SRV_CONF_OFFSET,
-      offsetof(ngx_rtmp_kmp_srv_conf_t, ctrl_connect_timeout),
-      NULL },
-
-    { ngx_string("kmp_ctrl_connect_read_timeout"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_msec_slot,
-      NGX_RTMP_SRV_CONF_OFFSET,
-      offsetof(ngx_rtmp_kmp_srv_conf_t, ctrl_connect_read_timeout),
-      NULL },
-
-    { ngx_string("kmp_ctrl_connect_buffer_size"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_size_slot,
-      NGX_RTMP_SRV_CONF_OFFSET,
-      offsetof(ngx_rtmp_kmp_srv_conf_t, ctrl_connect_buffer_size),
-      NULL },
-
-    { ngx_string("kmp_ctrl_connect_retries"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_num_slot,
-      NGX_RTMP_SRV_CONF_OFFSET,
-      offsetof(ngx_rtmp_kmp_srv_conf_t, ctrl_connect_retries),
-      NULL },
-
-    { ngx_string("kmp_ctrl_connect_retry_interval"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_msec_slot,
-      NGX_RTMP_SRV_CONF_OFFSET,
-      offsetof(ngx_rtmp_kmp_srv_conf_t, ctrl_connect_retry_interval),
-      NULL },
-
 
     { ngx_string("kmp_ctrl_publish_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
@@ -241,8 +180,8 @@ static ngx_rtmp_module_t  ngx_rtmp_kmp_module_ctx = {
     ngx_rtmp_kmp_postconfiguration,         /* postconfiguration */
     NULL,                                   /* create main configuration */
     NULL,                                   /* init main configuration */
-    ngx_rtmp_kmp_create_srv_conf,           /* create server configuration */
-    ngx_rtmp_kmp_merge_srv_conf,            /* merge server configuration */
+    NULL,                                   /* create server configuration */
+    NULL,                                   /* merge server configuration */
     ngx_rtmp_kmp_create_app_conf,           /* create app configuration */
     ngx_rtmp_kmp_merge_app_conf             /* merge app configuration */
 };
@@ -346,6 +285,9 @@ ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    ngx_queue_init(&kacf->sessions);
+    kacf->ctrl_connect_url = NGX_CONF_UNSET_PTR;
+
     ngx_kmp_push_track_init_conf(&kacf->t);
 
     return kacf;
@@ -358,6 +300,9 @@ ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_rtmp_kmp_app_conf_t  *prev = parent;
     ngx_rtmp_kmp_app_conf_t  *conf = child;
 
+    ngx_conf_merge_ptr_value(conf->ctrl_connect_url,
+                             prev->ctrl_connect_url, NULL);
+
     ngx_kmp_push_track_merge_conf(&conf->t, &prev->t);
 
     if (conf->t.timescale % NGX_RTMP_TIMESCALE) {
@@ -365,55 +310,6 @@ ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
             "configured timescale %ui is not a multiple of rtmp timescale",
             conf->t.timescale);
     }
-
-    return NGX_CONF_OK;
-}
-
-
-static void *
-ngx_rtmp_kmp_create_srv_conf(ngx_conf_t *cf)
-{
-    ngx_rtmp_kmp_srv_conf_t  *kscf;
-
-    kscf = ngx_pcalloc(cf->pool, sizeof(ngx_rtmp_kmp_srv_conf_t));
-    if (kscf == NULL) {
-        return NULL;
-    }
-
-    kscf->ctrl_connect_url = NGX_CONF_UNSET_PTR;
-    kscf->ctrl_connect_timeout = NGX_CONF_UNSET_MSEC;
-    kscf->ctrl_connect_read_timeout = NGX_CONF_UNSET_MSEC;
-    kscf->ctrl_connect_buffer_size = NGX_CONF_UNSET_SIZE;
-    kscf->ctrl_connect_retries = NGX_CONF_UNSET_UINT;
-    kscf->ctrl_connect_retry_interval = NGX_CONF_UNSET_MSEC;
-
-    return kscf;
-}
-
-
-static char *
-ngx_rtmp_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
-{
-    ngx_rtmp_kmp_srv_conf_t  *prev = parent;
-    ngx_rtmp_kmp_srv_conf_t  *conf = child;
-
-    ngx_conf_merge_ptr_value(conf->ctrl_connect_url,
-                             prev->ctrl_connect_url, NULL);
-
-    ngx_conf_merge_msec_value(conf->ctrl_connect_timeout,
-                              prev->ctrl_connect_timeout, 2000);
-
-    ngx_conf_merge_msec_value(conf->ctrl_connect_read_timeout,
-                              prev->ctrl_connect_read_timeout, 10000);
-
-    ngx_conf_merge_size_value(conf->ctrl_connect_buffer_size,
-                              prev->ctrl_connect_buffer_size, 4 * 1024);
-
-    ngx_conf_merge_uint_value(conf->ctrl_connect_retries,
-                              prev->ctrl_connect_retries, 5);
-
-    ngx_conf_merge_msec_value(conf->ctrl_connect_retry_interval,
-                              prev->ctrl_connect_retry_interval, 2000);
 
     return NGX_CONF_OK;
 }
@@ -644,45 +540,61 @@ static ngx_int_t
 ngx_rtmp_kmp_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 {
     ngx_url_t                        *url;
+    ngx_rtmp_kmp_ctx_t               *ctx;
     ngx_http_call_init_t              ci;
-    ngx_rtmp_kmp_srv_conf_t          *kscf;
-    ngx_rtmp_kmp_connect_call_ctx_t   ctx;
+    ngx_rtmp_kmp_app_conf_t          *kacf;
+    ngx_rtmp_kmp_connect_call_ctx_t   create_ctx;
 
     if (s->auto_pushed || s->relay) {
         goto next;
     }
 
-    kscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_kmp_module);
-    if (kscf == NULL) {
+    kacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_kmp_module);
+    if (kacf == NULL) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-            "ngx_rtmp_kmp_connect: failed to get srv conf");
+            "ngx_rtmp_kmp_connect: failed to get app conf");
         return NGX_ERROR;
     }
 
-    url = kscf->ctrl_connect_url;
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_kmp_module);
+    if (ctx == NULL) {
+        ctx = ngx_pcalloc(s->connection->pool, sizeof(*ctx));
+        if (ctx == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+                "ngx_rtmp_kmp_connect: alloc failed");
+            return NGX_ERROR;
+        }
+
+        ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_kmp_module);
+
+        ctx->s = s;
+        ngx_queue_insert_tail(&kacf->sessions, &ctx->queue);
+    }
+
+    url = kacf->ctrl_connect_url;
     if (url == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_KMP, s->connection->log, 0,
             "ngx_rtmp_kmp_connect: no connect url set in conf");
         goto next;
     }
 
-    ctx.s = s;
-    ctx.connect = *v;
-    ctx.host = kscf->ctrl_connect_url->host;
-    ctx.uri = kscf->ctrl_connect_url->uri;
-    ctx.retries_left = kscf->ctrl_connect_retries;
+    create_ctx.s = s;
+    create_ctx.connect = *v;
+    create_ctx.host = kacf->ctrl_connect_url->host;
+    create_ctx.uri = kacf->ctrl_connect_url->uri;
+    create_ctx.retries_left = kacf->t.ctrl_retries;
 
     ngx_memzero(&ci, sizeof(ci));
     ci.url = url;
     ci.create = ngx_rtmp_kmp_connect_create;
     ci.handle = ngx_rtmp_kmp_connect_handle;
     ci.handler_pool = s->connection->pool;
-    ci.arg = &ctx;
-    ci.argsize = sizeof(ctx);
-    ci.timeout = kscf->ctrl_connect_timeout;
-    ci.read_timeout = kscf->ctrl_connect_read_timeout;
-    ci.buffer_size = kscf->ctrl_connect_buffer_size;
-    ci.retry_interval = kscf->ctrl_connect_retry_interval;
+    ci.arg = &create_ctx;
+    ci.argsize = sizeof(create_ctx);
+    ci.timeout = kacf->t.ctrl_timeout;
+    ci.read_timeout = kacf->t.ctrl_read_timeout;
+    ci.buffer_size = kacf->t.ctrl_buffer_size;
+    ci.retry_interval = kacf->t.ctrl_retry_interval;
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
         "ngx_rtmp_kmp_connect: sending connect request to \"%V\"", &url->url);
@@ -700,12 +612,25 @@ next:
     return next_connect(s, v);
 }
 
+static ngx_int_t
+ngx_rtmp_kmp_disconnect(ngx_rtmp_session_t *s)
+{
+    ngx_rtmp_kmp_ctx_t  *ctx;
+
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_kmp_module);
+    if (ctx != NULL) {
+        ngx_queue_remove(&ctx->queue);
+        ngx_rtmp_delete_ctx(s, ngx_rtmp_kmp_module);
+    }
+
+    return next_disconnect(s);
+}
 
 static ngx_int_t
 ngx_rtmp_kmp_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 {
-    ngx_rtmp_kmp_app_conf_t  *kacf;
-    ngx_rtmp_kmp_ctx_t       *ctx;
+    ngx_rtmp_kmp_app_conf_t    *kacf;
+    ngx_rtmp_kmp_stream_ctx_t  *ctx;
 
     if (s->auto_pushed || s->relay) {
         goto next;
@@ -733,7 +658,7 @@ ngx_rtmp_kmp_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_kmp_module);
     if (ctx == NULL) {
 
-        ctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_kmp_ctx_t));
+        ctx = ngx_pcalloc(s->connection->pool, sizeof(*ctx));
         if (ctx == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
                 "ngx_rtmp_kmp_publish: alloc failed");
@@ -741,7 +666,6 @@ ngx_rtmp_kmp_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
         }
 
         ngx_rtmp_stream_set_ctx(s, ctx, ngx_rtmp_kmp_module);
-        ctx->s = s;
     }
 
     ctx->publish_buf = *v;
@@ -756,7 +680,7 @@ next:
 }
 
 static void
-ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_ctx_t *ctx)
+ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_stream_ctx_t *ctx)
 {
     ngx_uint_t             media_type;
     ngx_kmp_push_track_t  *track;
@@ -777,7 +701,7 @@ ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_ctx_t *ctx)
 static ngx_int_t
 ngx_rtmp_kmp_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
 {
-    ngx_rtmp_kmp_ctx_t  *ctx;
+    ngx_rtmp_kmp_stream_ctx_t  *ctx;
 
     ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_kmp_module);
     if (ctx == NULL) {
@@ -800,7 +724,7 @@ static ngx_int_t
 ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
 {
     ngx_uint_t                        media_type;
-    ngx_rtmp_kmp_ctx_t               *ctx;
+    ngx_rtmp_kmp_stream_ctx_t        *ctx;
     ngx_kmp_push_track_t             *track;
     ngx_rtmp_kmp_app_conf_t          *kacf;
     ngx_rtmp_kmp_track_create_ctx_t   create_ctx;
@@ -875,6 +799,9 @@ ngx_rtmp_kmp_postconfiguration(ngx_conf_t *cf)
 
     next_connect = ngx_rtmp_connect;
     ngx_rtmp_connect = ngx_rtmp_kmp_connect;
+
+    next_disconnect = ngx_rtmp_disconnect;
+    ngx_rtmp_disconnect = ngx_rtmp_kmp_disconnect;
 
     next_publish = ngx_rtmp_publish;
     ngx_rtmp_publish = ngx_rtmp_kmp_publish;

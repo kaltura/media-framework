@@ -51,13 +51,13 @@ ngx_rtmp_kmp_publish_get_size(ngx_kmp_push_track_t *track, void *arg)
     switch (ctx->media_type) {
 
     case KMP_MEDIA_VIDEO:
-        size = ngx_rtmp_kmp_track_video_json_get_size(ctx->codec_ctx,
-            ctx->publish, s, track);
+        size = ngx_rtmp_kmp_track_video_json_get_size(s, ctx->publish,
+            ctx->codec_ctx);
         break;
 
     case KMP_MEDIA_AUDIO:
-        size = ngx_rtmp_kmp_track_audio_json_get_size(ctx->codec_ctx,
-            ctx->publish, s, track);
+        size = ngx_rtmp_kmp_track_audio_json_get_size(s, ctx->publish,
+            ctx->codec_ctx);
         break;
     }
 
@@ -73,13 +73,13 @@ ngx_rtmp_kmp_publish_write(u_char *p, ngx_kmp_push_track_t *track, void *arg)
     switch (ctx->media_type) {
 
     case KMP_MEDIA_VIDEO:
-        p = ngx_rtmp_kmp_track_video_json_write(p, ctx->codec_ctx,
-            ctx->publish, s, track);
+        p = ngx_rtmp_kmp_track_video_json_write(p, s, ctx->publish,
+            ctx->codec_ctx);
         break;
 
     case KMP_MEDIA_AUDIO:
-        p = ngx_rtmp_kmp_track_audio_json_write(p, ctx->codec_ctx,
-            ctx->publish, s, track);
+        p = ngx_rtmp_kmp_track_audio_json_write(p, s, ctx->publish,
+            ctx->codec_ctx);
         break;
     }
 
@@ -378,7 +378,7 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_push_track_t *track,
 }
 
 ngx_int_t
-ngx_rtmp_kmp_track_av(ngx_kmp_push_track_t* track, ngx_rtmp_header_t *h,
+ngx_rtmp_kmp_track_av(ngx_kmp_push_track_t *track, ngx_rtmp_header_t *h,
     ngx_chain_t *in)
 {
     u_char                    *p;

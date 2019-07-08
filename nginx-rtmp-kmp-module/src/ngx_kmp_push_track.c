@@ -436,7 +436,12 @@ ngx_kmp_push_track_cleanup(ngx_kmp_push_track_t *track)
 void
 ngx_kmp_push_track_error(ngx_kmp_push_track_t *track)
 {
-    ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+    ngx_uint_t  level;
+
+    level = track->state == NGX_KMP_TRACK_INACTIVE ? NGX_LOG_INFO :
+        NGX_LOG_NOTICE;
+
+    ngx_log_error(level, &track->log, 0,
         "ngx_kmp_push_track_error: called");
 
     if (track->detached) {

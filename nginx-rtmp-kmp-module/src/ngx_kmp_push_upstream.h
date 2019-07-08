@@ -6,6 +6,7 @@
 #include <ngx_core.h>
 #include <ngx_event_connect.h>
 #include <ngx_buf_queue_reader.h>
+#include <ngx_json_parser.h>
 
 
 typedef struct {

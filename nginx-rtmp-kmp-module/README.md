@@ -20,12 +20,11 @@ rtmp {
 
         listen 1935;
 
-        kmp_ctrl_connect_url http://controller/connect;
-
         application live{
             live on;
             deny play all;
 
+            kmp_ctrl_connect_url http://controller/connect;
             kmp_ctrl_publish_url http://controller/publish;
             kmp_ctrl_unpublish_url http://controller/unpublish;
             kmp_ctrl_republish_url http://controller/republish;
@@ -50,7 +49,7 @@ http {
 #### kmp_ctrl_connect_url
 * **syntax**: `kmp_ctrl_connect_url url`
 * **default**: `none`
-* **context**: `rtmp`, `server`
+* **context**: `rtmp`, `server`, `application`
 
 Sets HTTP connection callback. When clients issue an RTMP connect command, an HTTP request is issued asynchronously and command processing is suspended until it returns.
 
@@ -77,44 +76,6 @@ Sample response:
 ```
 
 If the code field is not `ok`, the RTMP connection is dropped. In this case, the string in the `message` field is returned as the error description to the client.
-
-#### kmp_ctrl_connect_timeout
-* **syntax**: `kmp_ctrl_connect_timeout time`
-* **default**: `2s`
-* **context**: `rtmp`, `server`
-
-Sets a timeout for sending the connect HTTP request to the upstream server. The timeout includes both the connection establishment as well as the sending of the request.
-
-#### kmp_ctrl_connect_read_timeout
-* **syntax**: `kmp_ctrl_connect_read_timeout time`
-* **default**: `10s`
-* **context**: `rtmp`, `server`
-
-Sets a timeout for reading the response of the connect HTTP request from the upstream server. 
-
-#### kmp_ctrl_connect_buffer_size
-* **syntax**: `kmp_ctrl_connect_buffer_size size`
-* **default**: `4k`
-* **context**: `rtmp`, `server`
-
-Sets the size of the buffer that holds the response of the connect notification. The buffer size should be large enough to hold the largest expected response.
-
-#### kmp_ctrl_connect_retries
-* **syntax**: `kmp_ctrl_connect_retries count`
-* **default**: `5`
-* **context**: `rtmp`, `server`
-
-Sets the number of retries for issuing the connect notification request. A request is considered as failed if -
-- The request could not be sent (e.g. connect error)
-- The response could not be parsed as JSON (bad http status, non-json content type, invalid JSON)
-- The `code` field is missing/has a value other than `ok`
-
-#### kmp_ctrl_connect_retry_interval
-* **syntax**: `kmp_ctrl_connect_retry_interval time`
-* **default**: `2s`
-* **context**: `rtmp`, `server`
-
-Sets the time to wait before performing each retry attempt for the connect request.
 
 #### kmp_ctrl_publish_url
 * **syntax**: `kmp_ctrl_publish_url url`
@@ -210,7 +171,7 @@ Sets a timeout for sending HTTP requests to the upstream server. The timeout inc
 * **default**: `20s`
 * **context**: `rtmp`, `server`, `application`
 
-Sets a timeout for reading the response of HTTP requests sent to the upstream server. 
+Sets a timeout for reading the response of HTTP requests sent to the upstream server.
 
 #### kmp_ctrl_buffer_size
 * **syntax**: `kmp_ctrl_buffer_size size`
@@ -287,7 +248,7 @@ Sets the maximum total size of the buffers used to send audio data to the upstre
 
 ## Copyright & License
 
-All code in this project is released under the [AGPLv3 license](http://www.gnu.org/licenses/agpl-3.0.html) unless a different license for a particular library is specified in the applicable library path. 
+All code in this project is released under the [AGPLv3 license](http://www.gnu.org/licenses/agpl-3.0.html) unless a different license for a particular library is specified in the applicable library path.
 
 Copyright © Kaltura Inc. All rights reserved.
 
