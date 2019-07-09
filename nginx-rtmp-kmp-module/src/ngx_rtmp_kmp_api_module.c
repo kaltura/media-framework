@@ -46,7 +46,7 @@ static char *ngx_rtmp_kmp_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static ngx_command_t  ngx_rtmp_kmp_api_commands[] = {
 
     { ngx_string("rtmp_kmp_api"),
-      NGX_HTTP_LOC_CONF | NGX_CONF_ANY,
+      NGX_HTTP_LOC_CONF|NGX_CONF_ANY,
       ngx_rtmp_kmp_api,
       0,
       0,

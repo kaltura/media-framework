@@ -34,12 +34,8 @@ rtmp {
 
 http {
 
-    location /rtmp_stat/ {
-        rtmp_stat all;
-    }
-
-    location /rtmp_control/ {
-        rtmp_control all;
+    location /rtmp_kmp_api/ {
+        rtmp_kmp_api write=on;
     }
 }
 ```
@@ -245,6 +241,43 @@ Sets the size of the buffers used to send audio data to the upstream server. A l
 * **context**: `rtmp`, `server`, `application`
 
 Sets the maximum total size of the buffers used to send audio data to the upstream server. If the limit is hit, the module drops the RTMP connection.
+
+#### rtmp_kmp_api
+* **syntax**: `rtmp_kmp_api [write=on|off]`
+* **default**: `none`
+* **context**: `location`
+
+Turns on the module API interface in the surrounding location. Access to this location should be limited.
+
+The write parameter determines whether the API is read-only or read-write. By default, the API is read-only.
+
+
+## API endpoints
+
+- /
+
+    Supported methods:
+
+    * GET - Returns detailed information about all connected sessions and upstreams.
+
+        Possible responses:
+
+        200 - Success, returns an object
+
+- /sessions/{connection}
+
+    Supported methods:
+
+    * DELETE - Drops an RTMP session by connection id.
+
+        Possible responses:
+
+        204 - Success, connection was dropped
+
+        400 - Provided connection id is not a number
+
+        404 - No session matching the provided connection id was found
+
 
 ## Copyright & License
 
