@@ -389,9 +389,12 @@ ngx_rtmp_kmp_api_json_get_size()
     ngx_uint_t  n;
     ngx_rtmp_core_main_conf_t *cmcf = ngx_rtmp_core_main_conf;
     size_t result =
-        sizeof("{\"ngx_version\":\"") - 1 + ngx_rtmp_kmp_version.len +
+        sizeof("{\"version\":\"") - 1 + ngx_rtmp_kmp_version.len +
             ngx_escape_json(NULL, ngx_rtmp_kmp_version.data,
             ngx_rtmp_kmp_version.len) +
+        sizeof("\",\"nginx_version\":\"") - 1 + ngx_rtmp_kmp_nginx_version.len
+            + ngx_escape_json(NULL, ngx_rtmp_kmp_nginx_version.data,
+            ngx_rtmp_kmp_nginx_version.len) +
         sizeof("\",\"rtmp_version\":\"") - 1 + ngx_rtmp_kmp_rtmp_version.len +
             ngx_escape_json(NULL, ngx_rtmp_kmp_rtmp_version.data,
             ngx_rtmp_kmp_rtmp_version.len) +
@@ -425,9 +428,13 @@ ngx_rtmp_kmp_api_json_write(u_char *p)
 {
     ngx_uint_t  n;
     ngx_rtmp_core_main_conf_t *cmcf = ngx_rtmp_core_main_conf;
-    p = ngx_copy(p, "{\"ngx_version\":\"", sizeof("{\"ngx_version\":\"") - 1);
+    p = ngx_copy(p, "{\"version\":\"", sizeof("{\"version\":\"") - 1);
     p = (u_char*)ngx_escape_json(p, ngx_rtmp_kmp_version.data,
         ngx_rtmp_kmp_version.len);
+    p = ngx_copy(p, "\",\"nginx_version\":\"",
+        sizeof("\",\"nginx_version\":\"") - 1);
+    p = (u_char*)ngx_escape_json(p, ngx_rtmp_kmp_nginx_version.data,
+        ngx_rtmp_kmp_nginx_version.len);
     p = ngx_copy(p, "\",\"rtmp_version\":\"", sizeof("\",\"rtmp_version\":\"")
         - 1);
     p = (u_char*)ngx_escape_json(p, ngx_rtmp_kmp_rtmp_version.data,

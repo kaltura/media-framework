@@ -9,7 +9,7 @@
 #include "ngx_rtmp_live_module.h"
 #include "ngx_kmp_push_track_internal.h"
 #include "ngx_kmp_push_upstream.h"
-
+#include "ngx_rtmp_kmp_version.h"
 
 /* routes */
 static ngx_int_t ngx_rtmp_kmp_api_get(ngx_http_request_t *r, ngx_str_t *params,
@@ -30,7 +30,8 @@ static size_t ngx_rtmp_kmp_api_tracks_json_get_size(
 static u_char * ngx_rtmp_kmp_api_tracks_json_write(u_char *p,
     ngx_kmp_push_track_t **tracks, ngx_rtmp_codec_ctx_t *codec_ctx);
 
-static ngx_str_t  ngx_rtmp_kmp_version = ngx_string(NGINX_VERSION);
+static ngx_str_t  ngx_rtmp_kmp_version = ngx_string(NGX_RTMP_KMP_VERSION);
+static ngx_str_t  ngx_rtmp_kmp_nginx_version = ngx_string(NGINX_VERSION);
 static ngx_str_t  ngx_rtmp_kmp_rtmp_version = ngx_string(NGINX_RTMP_VERSION);
 static ngx_str_t  ngx_rtmp_kmp_compiler = ngx_string(NGX_COMPILER);
 static ngx_str_t  ngx_rtmp_kmp_built = ngx_string(__DATE__ " " __TIME__);

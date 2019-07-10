@@ -63,7 +63,8 @@ static ngx_rtmp_kmp_api_server_json ngx_rtmp_core_srv_conf_t
 
 static ngx_rtmp_kmp_api_json
     - %code ngx_rtmp_core_main_conf_t  *cmcf = ngx_rtmp_core_main_conf;
-    ngx_version %V ngx_rtmp_kmp_version
+    version %V ngx_rtmp_kmp_version
+    nginx_version %V ngx_rtmp_kmp_nginx_version
     rtmp_version %V ngx_rtmp_kmp_rtmp_version
     compiler %V ngx_rtmp_kmp_compiler
     built %V ngx_rtmp_kmp_built

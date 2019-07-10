@@ -1,5 +1,7 @@
 ngx_addon_name=ngx_rtmp_kmp_module
 
+# nginx-common dependency
+#
 if test -n "$ngx_module_link"; then
     if test -n "$LIVE_COMMON_CORE_SRCS"; then
         echo "found ngx_live_common for nginx_rtmp_kmp_module; looks good."
@@ -16,6 +18,15 @@ else
     fi
 fi
 
+# version
+#
+RTMP_KMP_DEFAULT_VERSION=0.1
+RTMP_KMP_VERSION=${RTMP_KMP_VERSION:-`git --git-dir=$ngx_addon_dir/.git describe 2>/dev/null`}
+RTMP_KMP_VERSION=${RTMP_KMP_VERSION:-$RTMP_KMP_DEFAULT_VERSION}
+echo "#define NGX_RTMP_KMP_VERSION \""$RTMP_KMP_VERSION"\"" > $NGX_OBJS/ngx_rtmp_kmp_version.h
+
+# source
+#
 RTMP_KMP_CORE_SRCS="                                  \
     $ngx_addon_dir/src/ngx_kmp_push_track.c           \
     $ngx_addon_dir/src/ngx_kmp_push_upstream.c        \
