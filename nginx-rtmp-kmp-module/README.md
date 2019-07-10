@@ -97,9 +97,11 @@ Sample request:
     "type": "live",
     "args": "videoKeyframeFrequency=5&totalDatarate=200",
     "media_type": "video",
-    "width": 320,
-    "height": 240,
-    ...
+    "codec_info": {
+        "width": 320,
+        "height": 240,
+        ...
+    }
 }
 ```
 
@@ -127,6 +129,7 @@ Sample request:
 {
     "event_type": "unpublish",
     "input_id": "rtmp://testserver:1935/live?arg=value/streamname_1/video"
+    "reason": "rtmp_close"
 }
 ```
 
@@ -144,7 +147,7 @@ Sample request:
     "event_type": "republish",
     "input_id": "rtmp://testserver:1935/live?arg=value/streamname_1/video"
     "channel_id": "somechannel",
-    "track_id": "sometrack",
+    "track_id": "sometrack"
 }
 ```
 
