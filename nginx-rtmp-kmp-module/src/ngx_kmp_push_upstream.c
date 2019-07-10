@@ -245,7 +245,7 @@ ngx_kmp_push_upstream_free_notify(ngx_kmp_push_upstream_t *u)
 
     ngx_kmp_push_upstream_free(u);
 
-    ngx_kmp_push_track_error(track);
+    ngx_kmp_push_track_error(track, "upstream_error");
 }
 
 ngx_int_t

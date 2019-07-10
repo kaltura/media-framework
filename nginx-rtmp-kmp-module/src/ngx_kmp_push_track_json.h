@@ -30,6 +30,9 @@ ngx_kmp_push_track_unpublish_json_get_size(ngx_kmp_push_track_t *obj)
         sizeof("{\"event_type\":\"unpublish\",\"input_id\":\"") - 1 +
             obj->input_id.len + ngx_escape_json(NULL, obj->input_id.data,
             obj->input_id.len) +
+        sizeof("\",\"reason\":\"") - 1 + obj->unpublish_reason.len +
+            ngx_escape_json(NULL, obj->unpublish_reason.data,
+            obj->unpublish_reason.len) +
         sizeof("\"}") - 1;
 
     return result;
@@ -41,6 +44,9 @@ ngx_kmp_push_track_unpublish_json_write(u_char *p, ngx_kmp_push_track_t *obj)
     p = ngx_copy(p, "{\"event_type\":\"unpublish\",\"input_id\":\"",
         sizeof("{\"event_type\":\"unpublish\",\"input_id\":\"") - 1);
     p = (u_char*)ngx_escape_json(p, obj->input_id.data, obj->input_id.len);
+    p = ngx_copy(p, "\",\"reason\":\"", sizeof("\",\"reason\":\"") - 1);
+    p = (u_char*)ngx_escape_json(p, obj->unpublish_reason.data,
+        obj->unpublish_reason.len);
     p = ngx_copy(p, "\"}", sizeof("\"}") - 1);
 
     return p;

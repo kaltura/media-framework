@@ -44,6 +44,8 @@ struct ngx_kmp_push_track_s {
     void                          *ctx;
     ngx_kmp_push_track_handler_pt  handler;
 
+    ngx_str_t                      unpublish_reason;
+
     unsigned                       detached:1;
 };
 

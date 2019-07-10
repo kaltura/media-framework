@@ -280,7 +280,7 @@ ngx_kmp_push_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
         if (ngx_kmp_push_upstream_from_json(temp_pool, track, cur) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_kmp_push_publish_handle: failed to create upstream");
-            ngx_kmp_push_track_error(track);
+            ngx_kmp_push_track_error(track, "create_upstream_failed");
             goto done;
         }
     }
@@ -299,7 +299,7 @@ retry:
         return NGX_AGAIN;
     }
 
-    ngx_kmp_push_track_error(track);
+    ngx_kmp_push_track_error(track, "parse_publish_failed");
 
     track->publish_call = NULL;
     return NGX_OK;
@@ -434,7 +434,7 @@ ngx_kmp_push_track_cleanup(ngx_kmp_push_track_t *track)
 }
 
 void
-ngx_kmp_push_track_error(ngx_kmp_push_track_t *track)
+ngx_kmp_push_track_error(ngx_kmp_push_track_t *track, char *code)
 {
     ngx_uint_t  level;
 
@@ -443,6 +443,11 @@ ngx_kmp_push_track_error(ngx_kmp_push_track_t *track)
 
     ngx_log_error(level, &track->log, 0,
         "ngx_kmp_push_track_error: called");
+
+    if (track->unpublish_reason.len == 0) {
+        track->unpublish_reason.data = (u_char*)code;
+        track->unpublish_reason.len = ngx_strlen(code);
+    }
 
     if (track->detached) {
         ngx_kmp_push_track_cleanup(track);
@@ -471,12 +476,17 @@ ngx_kmp_push_track_free_upstreams(ngx_kmp_push_track_t *track)
 }
 
 void
-ngx_kmp_push_track_detach(ngx_kmp_push_track_t *track)
+ngx_kmp_push_track_detach(ngx_kmp_push_track_t *track, char *reason)
 {
     ngx_log_error(NGX_LOG_INFO, &track->log, 0,
         "ngx_kmp_push_track_detach: called");
 
     track->detached = 1;
+
+    if (track->unpublish_reason.len == 0) {
+        track->unpublish_reason.data = (u_char*)reason;
+        track->unpublish_reason.len = ngx_strlen(reason);
+    }
 
     if (track->publish_call != NULL) {
         ngx_http_call_cancel(track->publish_call);
