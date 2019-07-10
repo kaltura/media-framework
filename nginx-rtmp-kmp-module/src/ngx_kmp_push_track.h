@@ -45,8 +45,8 @@ ngx_kmp_push_track_t *ngx_kmp_push_track_create(
 ngx_int_t ngx_kmp_push_track_publish(ngx_kmp_push_track_t *track,
     ngx_kmp_push_track_publish_writer_t *writer);
 
-void ngx_kmp_push_track_detach(ngx_kmp_push_track_t *track);
+void ngx_kmp_push_track_detach(ngx_kmp_push_track_t *track, char *reason);
 
-void ngx_kmp_push_track_error(ngx_kmp_push_track_t *track);
+void ngx_kmp_push_track_error(ngx_kmp_push_track_t *track, char *code);
 
 #endif /* _NGX_KMP_PUSH_TRACK_H_INCLUDED_ */

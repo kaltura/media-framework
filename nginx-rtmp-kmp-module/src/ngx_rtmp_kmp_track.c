@@ -128,7 +128,7 @@ ngx_rtmp_kmp_track_create(
     if (ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_rtmp_kmp_track_create: alloc failed");
-        ngx_kmp_push_track_detach(track);
+        ngx_kmp_push_track_detach(track, "create_track_failed");
         return NULL;
     }
 
@@ -159,7 +159,7 @@ ngx_rtmp_kmp_track_create(
     if (ngx_kmp_push_track_publish(track, &writer) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_rtmp_kmp_track_create: alloc failed");
-        ngx_kmp_push_track_detach(track);
+        ngx_kmp_push_track_detach(track, "publish_track_failed");
         return NULL;
     }
 

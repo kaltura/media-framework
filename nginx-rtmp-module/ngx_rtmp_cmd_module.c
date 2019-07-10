@@ -453,6 +453,8 @@ ngx_rtmp_cmd_close_stream_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0, "closeStream");
 
+    v.disconnect = 0;
+
     return ngx_rtmp_close_stream(s, &v);
 }
 
@@ -525,10 +527,15 @@ ngx_rtmp_cmd_delete_stream(ngx_rtmp_session_t *s, ngx_rtmp_delete_stream_t *v)
             in_stream->allocated = 0;
         }
 
+        cv.disconnect = 0;
+
         if (ngx_rtmp_close_stream(s, &cv) != NGX_OK) {
             rc = NGX_ERROR;
         }
     } else {
+
+        cv.disconnect = 1;
+
         /* called from ngx_rtmp_cmd_disconnect, close all streams */
         for (in_msid = 0; in_msid < cscf->max_streams; in_msid++) {
             in_stream = &s->in_streams[in_msid];
@@ -721,6 +728,7 @@ ngx_rtmp_cmd_play2_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_memzero(&vc, sizeof(vc));
 
     /* close_stream should be synchronous */
+    vc.disconnect = 0;
     ngx_rtmp_close_stream(s, &vc);
 
     return ngx_rtmp_play(s, &v);

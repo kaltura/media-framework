@@ -680,7 +680,7 @@ next:
 }
 
 static void
-ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_stream_ctx_t *ctx)
+ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_stream_ctx_t *ctx, char *reason)
 {
     ngx_uint_t             media_type;
     ngx_kmp_push_track_t  *track;
@@ -694,7 +694,7 @@ ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_stream_ctx_t *ctx)
 
         ctx->tracks[media_type] = NULL;
 
-        ngx_kmp_push_track_detach(track);
+        ngx_kmp_push_track_detach(track, reason);
     }
 }
 
@@ -714,7 +714,8 @@ ngx_rtmp_kmp_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
 
     ngx_memzero(&ctx->publish, sizeof(ctx->publish));
 
-    ngx_rtmp_kmp_detach_tracks(ctx);
+    ngx_rtmp_kmp_detach_tracks(ctx, v->disconnect ? "rtmp_disconnect" :
+        "rtmp_close");
 
 next:
     return next_close_stream(s, v);

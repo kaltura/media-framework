@@ -48,6 +48,7 @@ typedef struct {
 
 typedef struct {
     double                          stream;
+    unsigned                        disconnect:1;
 } ngx_rtmp_close_stream_t;
 
 
