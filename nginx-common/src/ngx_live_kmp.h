@@ -10,8 +10,10 @@
 #define KMP_MAX_CHANNEL_ID_LEN  (32)
 #define KMP_MAX_TRACK_ID_LEN    (32)
 
-#define KMP_FRAME_FLAG_KEY      (0x01)
+#define KMP_MAX_HEADER_SIZE     (64 * 1024)
+#define KMP_MAX_DATA_SIZE       (16 * 1024 * 1024)
 
+#define KMP_FRAME_FLAG_KEY      (0x01)
 
 // enums
 enum {
