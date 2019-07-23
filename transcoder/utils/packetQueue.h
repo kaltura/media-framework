@@ -20,7 +20,7 @@ typedef int packet_queue_mediaInfoCB(void* cbContext,transcode_mediaInfo_t* medi
 
 typedef struct  {
     pthread_t thread;
-    int totalPackets;
+    int queueSize;
     AVThreadMessageQueue *queue;
     void* callbackContext;
     packet_queue_packetCB*  onPacket;

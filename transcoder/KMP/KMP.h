@@ -33,7 +33,7 @@ typedef struct
 int KMP_init( KMP_session_t *context);
 
 int KMP_connect( KMP_session_t *context,char* url);
-int KMP_send_header( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo);
+int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo);
 int KMP_send_handshake( KMP_session_t *context,const char* channel_id,const char* track_id,uint64_t initial_frame_id);
 int KMP_send_packet( KMP_session_t *context,AVPacket*);
 int KMP_send_eof( KMP_session_t *context);

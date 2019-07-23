@@ -7,7 +7,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include "logger.h"
+
 #ifndef VERSION
 #define VERSION __TIME__
 #endif
@@ -16,8 +16,6 @@
 #include "receiver_server.h"
 #include "transcode_session_output.h"
 #include "json_parser.h"
-#include "utils.h"
-#include "config.h"
 #include <unistd.h>
 #include <signal.h>
 #include "debug/file_streamer.h"
@@ -44,11 +42,15 @@ int on_http_request(const char* uri, char* buf,int bufSize,int* bytesWritten)
     
     char diagnostics[4096];
     strcpy(diagnostics,"{}");
-    if (strcmp(uri,"/diagnostics")==0) {
+    if (strcmp(uri,"/control/diagnostics")==0) {
         receiver_server_get_diagnostics(&receiver,diagnostics);
         retVal=200;
     }
     if (strcmp(uri,"/status")==0) {
+        JSON_SERIALIZE_STRING("state", "ready")
+        retVal=200;
+    }
+    if (strcmp(uri,"/control/status")==0) {
         JSON_SERIALIZE_STRING("state", "ready")
         retVal=200;
     }

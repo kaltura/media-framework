@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "termios.h": "c"
-    }
+        "termios.h": "c",
+        "timestamp.h": "c"
+    },
+    "python.pythonPath": "/usr/bin/python"
 }

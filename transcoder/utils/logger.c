@@ -6,14 +6,8 @@
 //  Copyright © 2018 Kaltura. All rights reserved.
 //
 
-#include <stdio.h>
-
-#include <stdbool.h>
-#include <sys/time.h>
 #include "logger.h"
 #include "utils.h"
-#include <pthread.h>
-#include <string.h>
 
 static int logLevel =AV_LOG_VERBOSE;
 

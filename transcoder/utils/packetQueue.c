@@ -8,7 +8,6 @@
 
 #include "packetQueue.h"
 #include <pthread.h>
-#include "logger.h"
 
 
 #define CATEGORY_PACKET_QUEUE "CATEGORY_PACKET_QUEUE"
@@ -60,7 +59,7 @@ void* fifo_consumer_thread(void* params) {
 int packet_queue_init(PacketQueueContext_t *ctx)
 {
      int ret;
-     av_thread_message_queue_alloc(&ctx->queue,ctx->totalPackets,sizeof(FifoMessage));
+     av_thread_message_queue_alloc(&ctx->queue,ctx->queueSize,sizeof(FifoMessage));
     
      ret = pthread_create(&ctx->thread, NULL, fifo_consumer_thread, ctx);
      if (ret) {

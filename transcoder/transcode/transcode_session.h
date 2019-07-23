@@ -54,7 +54,7 @@ typedef struct  {
     void* onProcessedFrameContext;
     transcode_session_processedFrameCB* onProcessedFrame;
     transcode_dropper_t dropper;
-    int64_t input_frame_first_id;
+    int64_t input_frame_first_id,completed_frame_id;
 } transcode_session_t;
 
 

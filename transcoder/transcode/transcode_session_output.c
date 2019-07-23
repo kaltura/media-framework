@@ -7,9 +7,6 @@
 //
 
 #include "transcode_session_output.h"
-#include "utils.h"
-#include "logger.h"
-#include "config.h"
 
 
 int transcode_session_output_init(transcode_session_output_t* pOutput)  {
@@ -24,6 +21,9 @@ int transcode_session_output_init(transcode_session_output_t* pOutput)  {
     pOutput->videoParams.width=pOutput->videoParams.height=-1;
     pOutput->videoParams.skipFrame=1;
     pOutput->videoParams.frameRate=-1;
+    memset(&pOutput->actualVideoParams, 0, sizeof(pOutput->actualVideoParams));
+    memset(&pOutput->actualAudioParams, 0, sizeof(pOutput->actualAudioParams));
+    
     pOutput->lastAck=-1;
     strcpy(pOutput->videoParams.level,"");
     strcpy(pOutput->videoParams.profile,"");
@@ -151,17 +151,28 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
 
 int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,transcode_mediaInfo_t* extra,uint64_t initial_frame_id)
 {
+    if (extra->codecParams->width>0) {
+        pOutput->actualVideoParams.width=extra->codecParams->width;
+        pOutput->actualVideoParams.height=extra->codecParams->height;
+        pOutput->codec_type=AVMEDIA_TYPE_VIDEO;
+    }
+    if (extra->codecParams->sample_rate>0) {
+        pOutput->actualAudioParams.samplingRate=extra->codecParams->sample_rate;
+        pOutput->actualAudioParams.channels=extra->codecParams->channels;
+        pOutput->codec_type=AVMEDIA_TYPE_AUDIO;
+    }
+    
     char senderUrl[MAX_URL_LENGTH];
     json_get_string(GetConfig(),"output.streamingUrl","",senderUrl,sizeof(senderUrl));
     if (strlen(senderUrl)>0) {
-        pOutput->sender=( KMP_session_t* )malloc(sizeof( KMP_session_t* ));
+        pOutput->sender=( KMP_session_t* )malloc(sizeof( KMP_session_t ));
         KMP_init(pOutput->sender);
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] connecting to %s",pOutput->track_id,senderUrl);
         _S(KMP_connect(pOutput->sender, senderUrl));
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending handshake (channelId: %s trackId: %s)",pOutput->track_id,pOutput->channel_id,pOutput->track_id);
         _S(KMP_send_handshake(pOutput->sender,pOutput->channel_id,pOutput->track_id,initial_frame_id));
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending header",pOutput->track_id);
-        _S(KMP_send_header(pOutput->sender,extra));
+        _S(KMP_send_mediainfo(pOutput->sender,extra));
     }
     
     bool saveFile;
@@ -232,11 +243,19 @@ int transcode_session_output_close(transcode_session_output_t* pOutput)
 
 int transcode_session_output_get_diagnostics(transcode_session_output_t *pOutput,uint64_t recieveDts,uint64_t startProcessDts,char* buf)
 {
+    char codecData[100]={0};
+    if (pOutput->codec_type==AVMEDIA_TYPE_VIDEO)
+        sprintf(codecData,"%dx%d",pOutput->actualVideoParams.width,pOutput->actualVideoParams.height);
+    if (pOutput->codec_type==AVMEDIA_TYPE_AUDIO)
+        sprintf(codecData,"%d",pOutput->actualAudioParams.samplingRate);
+    
     JSON_SERIALIZE_INIT(buf)
     JSON_SERIALIZE_STRING("track_id",pOutput->track_id)
     JSON_SERIALIZE_INT64("totalFrames",pOutput->stats.totalFrames)
+    JSON_SERIALIZE_DOUBLE("currentFrameRate",pOutput->stats.currentFrameRate)
+    JSON_SERIALIZE_STRING("codecData",codecData)
     JSON_SERIALIZE_INT64("lastAck", pOutput->lastAck)
-    JSON_SERIALIZE_STRING("lastDts",pts2str(pOutput->stats.lastDts))
+    JSON_SERIALIZE_INT64("lastDts",pOutput->stats.lastDts)
     JSON_SERIALIZE_INT("bitrate",pOutput->bitrate > 0 ? pOutput->bitrate* 1000 : -1)
     JSON_SERIALIZE_INT("currenBitrate",pOutput->stats.currentBitRate)
    

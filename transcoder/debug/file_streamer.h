@@ -10,9 +10,6 @@
 #define fileReader_h
 
 #include "../core.h"
-#include "../utils/logger.h"
-#include "../utils/config.h"
-#include "../utils/utils.h"
 
 
 typedef struct

@@ -7,8 +7,6 @@
 //
 
 #include "core.h"
-#include "utils.h"
-#include "logger.h"
 
 #include "kalturaMediaProtocol.h"
 #include "KMP.h"
@@ -20,6 +18,7 @@
 #include <unistd.h> // close function
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <errno.h>
 
 #define DUMMY_NOPTS_VALUE -999999
 
@@ -38,7 +37,7 @@ static ssize_t KMP_send( KMP_session_t *context,const void *buf, size_t len)
                 nanosleep(&tv,NULL);
                 continue;
             }
-            LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"incomplete recv, returned %d errno=%d",valread,errno);
+            LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"incomplete send, returned %d errno=%d",valread,errno);
             return errno;
         }
         bytesRead+=valread;
@@ -90,7 +89,12 @@ int KMP_connect( KMP_session_t *context,char* url)
     }
     context->socket=fd;
     
+    struct timeval tv;
+    tv.tv_sec = 10000;
+    tv.tv_usec = 0;
+    setsockopt(context->socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
 
+    
     if ( connect(context->socket,p->ai_addr, p->ai_addrlen) < 0)
     {
         context->socket=-1;
@@ -112,6 +116,8 @@ int KMP_connect( KMP_session_t *context,char* url)
     }
     
     sprintf(context->sessionName,"localhost:%d => %s:%s",htons(address.sin_port),host,port);
+    
+    LOGGER(CATEGORY_KMP,AV_LOG_INFO,"[%s] connected",context->sessionName);
     return 1;
 }
 
@@ -148,7 +154,7 @@ static kmp_codec_id get_video_codec(AVCodecParameters *apar)
     }
 }
 
-int KMP_send_header( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo )
+int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo )
 {
     if (context->socket==0)
     {
@@ -388,6 +394,7 @@ int KMP_listen( KMP_session_t *context)
         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"bind to port %d failed  error:%d (%s)",context->listenPort,ret,av_err2str(ret));
         return ret;
     }
+    
     if ( (ret=listen(context->socket, 10)) < 0)
     {
         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"listen failed %d (%s)",ret,av_err2str(ret));
@@ -410,6 +417,28 @@ int KMP_listen( KMP_session_t *context)
 int KMP_accept( KMP_session_t *context, KMP_session_t *client)
 {
     int addrlen = sizeof(context->address);
+    
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(context->socket, &rfds);
+    
+    int tv_sec=10;
+    json_get_int(GetConfig(),"kmp.acceptTimeout",10,&tv_sec);
+    struct timeval tv;
+    tv.tv_sec = tv_sec;
+    tv.tv_usec = 0;
+    
+    int nfd = select(context->socket+1, &rfds, &rfds, NULL, &tv);
+
+    if (nfd<0)
+    {
+        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"accept failure errno=%d",errno);
+        return -1;
+    }
+    if (nfd==0) {
+        LOGGER0(CATEGORY_KMP,AV_LOG_FATAL,"timeout waiting for accept");
+        return -1;
+    }
     int clientSocket=accept(context->socket, (struct sockaddr *)&client->address,
                             (socklen_t*)&addrlen);
     

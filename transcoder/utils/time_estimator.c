@@ -7,7 +7,6 @@
 //
 
 #include "time_estimator.h"
-#include "logger.h"
 
 #define CATEGORY_CLOCK_ESTIMATOR "CLOCKESTIMATOR"
 

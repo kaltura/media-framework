@@ -5,6 +5,14 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "python",
+            "request": "launch",
+            "name": "Python: current file",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        
+        {
             "name": "(lldb) Launch",
             "type": "cppdbg",
             "request": "launch",

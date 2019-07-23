@@ -94,6 +94,7 @@ typedef struct {
     u_char channel_id[KMP_MAX_CHANNEL_ID];
     u_char track_id[KMP_MAX_TRACK_ID];
     uint64_t initial_frame_id;
+    uint32_t initial_offset;
 } kmp_connect_header_t;
 
 typedef struct {
@@ -109,6 +110,7 @@ typedef struct {
 typedef struct {
     kmp_packet_header_t header;
     uint64_t frame_id;
+    uint32_t offset;
 } kmp_ack_frames_packet_t;
 
 #endif /* _LIVE_PROTOCOL_H_INCLUDED_ */

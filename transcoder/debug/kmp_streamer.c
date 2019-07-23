@@ -9,9 +9,7 @@
 #include "../core.h"
 #include "kmp_streamer.h"
 #include <netinet/in.h>
-#include <pthread.h>
 #include <netdb.h>
-#include "../utils/logger.h"
 
 #define CATEGORY_KMP_FS "KMPFS"
 #define CHUNK 1024 /* read 1024 bytes at a time */

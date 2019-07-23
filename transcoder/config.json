@@ -3,15 +3,17 @@
         "file1": "/Users/guyjacubovski/Sample_video/bbb_sunflower_1080p_30fps_normal.mp4",
         "file11": "/Users/guyjacubovski/Sample_video/flas_dupa_s4e01_hdfr_1_2_60sec.mp4",
         "file2": "/Users/guyjacubovski/Sample_video/subtitles.mp4",
-        "file": "/Users/guyjacubovski/Sample_video/900.mp4",
-        "file1": "/Users/guyjacubovski/Downloads/video.kmp",
+        "fileש": "/Users/guyjacubovski/Sample_video/900.mp4",
+        "filea": "/Users/guyjacubovski/dev/live/controller/logs/my_file.kmp",
         "filea": "/Users/guyjacubovski/Downloads/audio.kmp",
-        "realTime": false,
+        "filea": "/Users/guyjacubovski/v33.kmp",
+        "file11": "/Users/guyjacubovski/Downloads/media-u33b539kv_65513.mp4",
+        "realTime": true,
         "activeStream": 0,
         "duration": 9000000,
         "randomDataPercentage": 0
     },
-    "frameDropper": {
+    "frameDropper1": {
         "enabled": false,
         "queueDuration": 10,
         "queueSize": 0,
@@ -23,21 +25,25 @@
         "logLevel": "DEBUG"
     },
     "kmp": {
-        "listenPort": 12346,
-        "listenAddress": "127.0.0.1"
+        "listenPort": 16543,
+        "listenAddress": "0.0.0.0",
+        "acceptTimeout": 15,
+        "idleTimeout": 10,
+        "connectTimeout": 10
     },
     "control": {
-        "listenPort": 12345,
-        "listenAddress": "127.0.0.1"
+        "listenPort": 18001,
+        "listenAddress": "0.0.0.0"
     },
     "debug": {
-        "dummyPackager": false,
         "diagnosticsIntervalInSeconds": 1
     },
     "output": {
-        "saveFile": true,
+        "saveFile": false,
         "outputFileNamePattern": "./output_%s.ts",
-        "streamingUrl1": "kmp://localhost:10000"
+        "streamingUrl": "kmp://localhost:6543",
+        "streamingUrl12": "kmp://192.168.11.59:6543",
+        "streamingUrl1": ""
     },
     "engine": {
         "useNvidiaDecoder": true,
@@ -88,7 +94,7 @@
         },
         {
             "trackId": "v34",
-            "enabled": false,
+            "enabled": true,
             "passthrough": false,
             "bitrate": 600,
             "codec": "h264",

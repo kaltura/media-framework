@@ -1,3 +1,5 @@
+#docker run --cap-add=SYS_PTRACE --security-opt seccomp=unconfined -it -v /Users/guyjacubovski/dev/live/transcoder:/tmp   -p 6543:6543 kaltura/live-transcoder  
+#gdb --args ./transcoder -f /tmp/config2.json
 
 ARG  CUDA_VERSION="10.0"
 
@@ -5,7 +7,7 @@ FROM nvidia/cuda:${CUDA_VERSION}-devel
 
 WORKDIR /build
 
-RUN apt-get update && apt-get install -y sudo git build-essential gdbserver vim yasm cmake libtool autogen dh-autoreconf libbz2-dev libc6 libc6-dev unzip wget libnuma1 libnuma-dev frei0r-plugins-dev libgnutls28-dev libass-dev libmp3lame-dev libopencore-amrnb-dev libopencore-amrwb-dev libopus-dev librtmp-dev libsoxr-dev libspeex-dev libtheora-dev libvo-amrwbenc-dev libvorbis-dev libvpx-dev libwebp-dev libx264-dev libx265-dev libxvidcore-dev
+RUN apt-get update && apt-get install -y sudo git build-essential gdbserver vim yasm cmake libtool autogen dh-autoreconf libbz2-dev libc6 libc6-dev unzip wget libnuma1 libnuma-dev frei0r-plugins-dev libgnutls28-dev libass-dev libmp3lame-dev libopencore-amrnb-dev libopencore-amrwb-dev libopus-dev librtmp-dev libsoxr-dev libspeex-dev libtheora-dev libvo-amrwbenc-dev libvorbis-dev libvpx-dev libwebp-dev libx264-dev libx265-dev libxvidcore-dev gdb
 
 ARG  FFMPEG_VERSION="n4.1.1"
 ARG  NVIDIA_CODEC_HEADERS_VERSION="n8.1.24.9"

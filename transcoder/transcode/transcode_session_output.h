@@ -38,11 +38,19 @@ typedef struct
         char preset[128];
         int skipFrame;
     } videoParams;
+    struct ActualVideoParams
+    {
+        int width,height;
+    } actualVideoParams;
     
     struct
     {
         int samplingRate, channels;
     } audioParams;
+    struct ActualAudioParams
+    {
+        int samplingRate,channels;
+    } actualAudioParams;
     
     int filterId;
     int encoderId;

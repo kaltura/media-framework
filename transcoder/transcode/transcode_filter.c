@@ -7,8 +7,6 @@
 //
 
 #include "transcode_filter.h"
-#include "logger.h"
-#include "../utils/utils.h"
 
 int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,const char *filters_descr)
 {

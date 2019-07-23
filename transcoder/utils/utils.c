@@ -12,7 +12,7 @@
 #include <time.h>
 #include <sys/ioctl.h> // For FIONREAD
 #include <arpa/inet.h>
-#include "logger.h"
+
 size_t load_file_to_memory(const char *filename, char **result)
 {
     size_t size = 0;

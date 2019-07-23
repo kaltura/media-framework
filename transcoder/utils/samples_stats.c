@@ -7,8 +7,6 @@
 //
 
 #include "samples_stats.h"
-#include "logger.h"
-#include "utils.h"
 #include "json_parser.h"
 
 
@@ -102,7 +100,7 @@ int sample_stats_get_diagnostics(samples_stats_t *pStats,char* buf)
     JSON_SERIALIZE_INT64("drift",pStats->lastTimeStamp>0 ? pStats->clockDrift : 0);
     JSON_SERIALIZE_STRING("firstTimeStamp",pStats->firstTimeStamp>0 ? ts2str(pStats->firstTimeStamp,false): "N/A")
     JSON_SERIALIZE_STRING("lastTimeStamp",pStats->lastTimeStamp>0 ? ts2str(pStats->lastTimeStamp,false) : "N/A")
-    JSON_SERIALIZE_STRING("lastDts",pts2str(pStats->lastDts))
+    JSON_SERIALIZE_INT64("lastDts",pStats->lastDts)
     JSON_SERIALIZE_END()
     return n;
 }

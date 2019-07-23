@@ -7,9 +7,6 @@
 //
 
 #include "transcode_session.h"
-#include "utils.h"
-#include "logger.h"
-#include "config.h"
 
 
 /* initialization */
@@ -21,6 +18,7 @@ int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackI
     ctx->encoders=0;
     ctx->currentMediaInfo=NULL;
     ctx->input_frame_first_id=input_frame_first_id;
+    ctx->completed_frame_id=0;
     strcpy(ctx->channelId,channelId);
     strcpy(ctx->trackId,trackId);
     sprintf(ctx->name,"%s_%s",channelId,trackId);
@@ -33,7 +31,7 @@ int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackI
     ctx->packetQueue.callbackContext=ctx;
     ctx->packetQueue.onMediaInfo=(packet_queue_mediaInfoCB*)transcode_session_set_media_info;
     ctx->packetQueue.onPacket=(packet_queue_packetCB*)transcode_session_send_packet;
-    json_get_int(GetConfig(),"frameDropper.queueSize",2000,&ctx->packetQueue.totalPackets);
+    json_get_int(GetConfig(),"frameDropper.queueSize",2000,&ctx->packetQueue.queueSize);
     json_get_int64(GetConfig(),"frameDropper.queueDuration",10,&ctx->queueDuration);
     AVRational seconds={1,1};
     ctx->queueDuration=av_rescale_q(ctx->queueDuration,seconds,standard_timebase);
@@ -41,6 +39,9 @@ int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackI
     packet_queue_init(&ctx->packetQueue);
     
     json_get_bool(GetConfig(),"frameDropper.enabled",false,&ctx->dropper.enabled);
+    if (!ctx->dropper.enabled) {
+        ctx->packetQueue.queueSize=0;
+    }
     json_get_int64(GetConfig(),"frameDropper.nonKeyFrameDropperThreshold",10,&ctx->dropper.nonKeyFrameDropperThreshold);
     json_get_int64(GetConfig(),"frameDropper.decodedFrameDropperThreshold",10,&ctx->dropper.decodedFrameDropperThreshold);
     ctx->dropper.nonKeyFrameDropperThreshold=av_rescale_q(ctx->dropper.nonKeyFrameDropperThreshold,seconds,standard_timebase);
@@ -75,7 +76,7 @@ int init_outputs_from_config(transcode_session_t *ctx)
 
 int transcode_session_async_set_mediaInfo(transcode_session_t *ctx,transcode_mediaInfo_t* mediaInfo)
 {
-    if (ctx->packetQueue.totalPackets==0) {
+    if (ctx->packetQueue.queueSize==0) {
         return transcode_session_set_media_info(ctx,mediaInfo);
     }
     LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] enqueue media info",ctx->name);
@@ -85,7 +86,7 @@ int transcode_session_async_set_mediaInfo(transcode_session_t *ctx,transcode_med
 
 int transcode_session_async_send_packet(transcode_session_t *ctx, struct AVPacket* packet)
 {
-    if (ctx->packetQueue.totalPackets==0) {
+    if (ctx->packetQueue.queueSize==0) {
         return transcode_session_send_packet(ctx,packet);
     }
     LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] enqueue packet %s",ctx->name,getPacketDesc(packet));
@@ -98,12 +99,12 @@ int transcode_session_async_send_packet(transcode_session_t *ctx, struct AVPacke
 
 int64_t transcode_session_get_ack_frame_id(transcode_session_t *ctx)
 {
+    return ctx->completed_frame_id;
     /*
     for (int i=0;i<ctx->outputs;i++)
     {
         transcode_session_output_t* output=&ctx->output[i];
     }*/
-    return 0;
 }
 
 int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInfo_t* newMediaInfo)
@@ -236,10 +237,15 @@ int config_encoder(transcode_session_output_t *pOutput,  transcode_codec_t *pDec
                                width,
                                height);
         
+        pOutput->actualVideoParams.width=pEncoderContext->ctx->width;
+        pOutput->actualVideoParams.height=pEncoderContext->ctx->height;
+        
     }
     if (pOutput->codec_type==AVMEDIA_TYPE_AUDIO)
     {
         ret=transcode_codec_init_audio_encoder(pEncoderContext, pFilter,pOutput);
+        pOutput->actualAudioParams.samplingRate=pEncoderContext->ctx->sample_rate;
+        pOutput->actualAudioParams.channels=pEncoderContext->ctx->channels;
     }
     
     sprintf(pEncoderContext->name,"Encoder for output %s",pOutput->track_id);
@@ -275,11 +281,7 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
         _S(transcode_session_output_set_media_info(pOutput,&extra,pContext->input_frame_first_id));
     } else
     {
-        transcode_mediaInfo_t extra;
-        extra.frameRate=pDecoderContext->ctx->framerate;
-        extra.timeScale=pDecoderContext->ctx->time_base;
-        extra.codecParams=pContext->currentMediaInfo->codecParams;
-        _S(transcode_session_output_set_media_info(pOutput,&extra,pContext->input_frame_first_id));
+        _S(transcode_session_output_set_media_info(pOutput,pContext->currentMediaInfo,pContext->input_frame_first_id));
     }
     
     return 0;
@@ -505,6 +507,11 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
     if (ctx->onProcessedFrame) {
         ctx->onProcessedFrame(ctx->onProcessedFrameContext,false);
     }
+    if (ctx->completed_frame_id==0) {
+        ctx->completed_frame_id=ctx->input_frame_first_id;
+    } else {
+        ctx->completed_frame_id++;
+    }
     return 0;
 }
 
@@ -513,7 +520,7 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
 
 int transcode_session_close(transcode_session_t *session) {
     
-    if (session->packetQueue.totalPackets>0) {
+    if (session->packetQueue.queueSize>0) {
         packet_queue_destroy(&session->packetQueue);
     }
     
@@ -600,9 +607,9 @@ int transcode_session_get_diagnostics(transcode_session_t *ctx,char* buf,size_t 
     }
     JSON_SERIALIZE_ARRAY_END()
     
-    JSON_SERIALIZE_STRING("lastIncommingDts",pts2str(ctx->lastQueuedDts));
-    JSON_SERIALIZE_STRING("lastProcessedDts",pts2str(ctx->processedStats.lastDts));
-    JSON_SERIALIZE_STRING("minDts",pts2str(lastDts));
+    JSON_SERIALIZE_INT64("lastIncommingDts",ctx->lastQueuedDts);
+    JSON_SERIALIZE_INT64("lastProcessedDts",ctx->processedStats.lastDts);
+    JSON_SERIALIZE_INT64("minDts",lastDts);
     JSON_SERIALIZE_INT64("processTime",(ctx->lastInputDts-lastDts)/90);
     JSON_SERIALIZE_INT64("latency",(now-lastTimeStamp)/90);
     JSON_SERIALIZE_INT("currentIncommingQueueLength",ctx->packetQueue.queue ? av_thread_message_queue_nb_elems(ctx->packetQueue.queue) : -1);

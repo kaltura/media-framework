@@ -7,13 +7,8 @@
 //
 
 #include "receiver_server.h"
-#include "utils.h"
-#include "logger.h"
-#include <pthread.h>
-#include "config.h"
 #include "KMP/KMP.h"
 #include "transcode_session.h"
-#include <stdatomic.h>
 
 
 
@@ -65,7 +60,8 @@ void* processClient(void *vargp)
     
     session->lastStatsUpdated=0;
     
-    uint64_t received_frame_id_ack=0;
+    uint64_t received_frame_ack_id=0;
+    uint64_t received_frame_id=0;
     while (true) {
         
         KMP_read_header(&session->kmpClient,&header);
@@ -83,6 +79,7 @@ void* processClient(void *vargp)
                 transcode_session->onProcessedFrameContext=session;
                 sprintf(session->stream_name,"%s_%s",session->channel_id,session->track_id);
                 transcode_session_init(transcode_session,session->channel_id,session->track_id,frame_id);
+                received_frame_id=frame_id;
             }
         }
         if (header.packet_type==KMP_PACKET_MEDIA_INFO)
@@ -107,12 +104,14 @@ void* processClient(void *vargp)
             samples_stats_add(&server->receiverStats,packet->dts,packet->pos,packet->size);
             pthread_mutex_unlock(&server->diagnostics_locker);  // lock the critical section
 
-            LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] received packet %s (%p)",session->stream_name,getPacketDesc(packet),transcode_session);
+            LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] received packet %s (%p) #: %lld",session->stream_name,getPacketDesc(packet),transcode_session,received_frame_id);
             transcode_session_async_send_packet(transcode_session, packet);
+            received_frame_id++;
             uint64_t frame_id = transcode_session_get_ack_frame_id(transcode_session);
-            if (frame_id!=0 && received_frame_id_ack!=frame_id) {
+            if (frame_id!=0 && received_frame_ack_id!=frame_id) {
+                LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] sending ack for packet # : %lld",session->stream_name,frame_id);
                 KMP_send_ack(&session->kmpClient, frame_id);
-                received_frame_id_ack=frame_id;
+                received_frame_ack_id=frame_id;
             }
         }
 

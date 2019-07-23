@@ -7,9 +7,6 @@
 //
 #include "core.h"
 #include "transcode_codec.h"
-#include "utils.h"
-#include "logger.h"
-#include "config.h"
 
 static enum AVPixelFormat hw_pix_fmt;
 

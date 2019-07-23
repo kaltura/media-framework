@@ -7,10 +7,10 @@
 //
 
 #include "config.h"
-#include "logger.h"
 #include "json_parser.h"
 #include <getopt.h>
 #include "utils.h"
+#include "logger.h"
 
 static struct option long_options[] =
 {

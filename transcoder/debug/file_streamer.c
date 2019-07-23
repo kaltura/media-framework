@@ -61,7 +61,10 @@ void* thread_stream_from_file(void *vargp)
     
     int64_t createTime=av_rescale_q( getClock64(), clockScale, standard_timebase);
     uint64_t frame_id=createTime;
-    KMP_send_handshake(&kmp,channelId,"1",frame_id);
+    if (KMP_send_handshake(&kmp,channelId,"1",frame_id)<0) {
+        LOGGER0(CATEGORY_RECEIVER,AV_LOG_FATAL,"couldn't send handshake!");
+        return NULL;
+    }
     uint64_t  cumulativeDuration=0;
     
     AVStream *in_stream=ifmt_ctx->streams[activeStream];
@@ -70,7 +73,10 @@ void* thread_stream_from_file(void *vargp)
     extra.frameRate=in_stream->avg_frame_rate;
     extra.timeScale=standard_timebase;
     extra.codecParams=in_stream->codecpar;
-    KMP_send_header(&kmp,&extra);
+    if (KMP_send_mediainfo(&kmp,&extra)<0) {
+        LOGGER0(CATEGORY_RECEIVER,AV_LOG_FATAL,"couldn't send mediainfo!");
+        return NULL;
+    }
     
     LOGGER("SENDER",AV_LOG_INFO,"Realtime = %s",realTime ? "true" : "false");
     srand((int)time(NULL));
@@ -143,7 +149,10 @@ void* thread_stream_from_file(void *vargp)
         
         
         uint64_t frame_id_ack;
-        KMP_send_packet(&kmp,&packet);
+        if (KMP_send_packet(&kmp,&packet)<0) {
+            LOGGER0(CATEGORY_RECEIVER,AV_LOG_FATAL,"couldn't send packet!");
+            break;
+        }
         if (KMP_read_ack(&kmp,&frame_id_ack)) {
             LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"received ack for packet id  %lld",frame_id_ack);
         }

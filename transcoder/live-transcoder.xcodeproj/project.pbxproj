@@ -127,6 +127,7 @@
 		0886F1D322439B5D005C4B5B /* KMP.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = KMP.c; sourceTree = "<group>"; };
 		0887D6182289887E007946BE /* packetQueue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = packetQueue.h; sourceTree = "<group>"; };
 		0887D6192289887E007946BE /* packetQueue.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = packetQueue.c; sourceTree = "<group>"; };
+		08BAA00922DB777200E22CE9 /* config2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = config2.json; sourceTree = "<group>"; };
 		08C421182219D78F003AA42F /* samples_stats.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = samples_stats.h; sourceTree = "<group>"; };
 		08C421192219D78F003AA42F /* samples_stats.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = samples_stats.c; sourceTree = "<group>"; };
 		08C4211B2219EAB7003AA42F /* receiver_server.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = receiver_server.h; sourceTree = "<group>"; };
@@ -234,6 +235,7 @@
 		086E7AC41E044C7400206F21 = {
 			isa = PBXGroup;
 			children = (
+				08BAA00922DB777200E22CE9 /* config2.json */,
 				08F6838A22A95E400095B2BD /* README.md */,
 				084329842282126B00D3D40F /* debug */,
 				082CAB8B224AD13300B304EA /* utils */,

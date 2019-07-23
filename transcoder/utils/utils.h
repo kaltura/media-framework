@@ -9,9 +9,9 @@
 #ifndef utils_h
 #define utils_h
 
+#include "../core.h"
 #include <stdio.h>
 #include <stdbool.h>
-#include "../core.h"
 #include <arpa/inet.h>
 
 size_t load_file_to_memory(const char *filename, char **result);

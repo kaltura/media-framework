@@ -8,10 +8,6 @@
 
 #include "core.h"
 #include "http_server.h"
-#include "utils.h"
-#include "logger.h"
-#include <pthread.h>
-#include "config.h"
 
 
 static void process_client(AVIOContext *client,http_request_callback callback)

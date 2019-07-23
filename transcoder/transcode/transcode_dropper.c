@@ -7,8 +7,7 @@
 //
 
 #include "transcode_dropper.h"
-#include "../utils/logger.h"
-#include "../utils/utils.h"
+
 void transcode_dropper_init(transcode_dropper_t* ctx)
 {
     ctx->nonKeyFrameDropperThreshold=3*90000LL;
