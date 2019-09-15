@@ -269,6 +269,15 @@ ngx_rtmp_recv(ngx_event_t *rev)
                 return;
             }
 
+            if (s->dump_fd != NGX_INVALID_FILE) {
+                if (ngx_write_fd(s->dump_fd, b->last, n) == NGX_ERROR) {
+                    ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
+                        "failed to write to rtmp dump file");
+                    ngx_close_file(s->dump_fd);
+                    s->dump_fd = NGX_INVALID_FILE;
+                }
+            }
+
             s->ping_reset = 1;
             ngx_rtmp_update_bandwidth(&ngx_rtmp_bw_in, n);
             b->last += n;
@@ -771,18 +780,22 @@ ngx_rtmp_receive_message(ngx_rtmp_session_t *s,
 
 #ifdef NGX_DEBUG
     {
-        int             nbufs;
+        uint32_t        mlen;
+        ngx_int_t       nbufs;
         ngx_chain_t    *ch;
 
-        for(nbufs = 1, ch = in;
-                ch->next;
-                ch = ch->next, ++nbufs);
+        mlen = 0;
+        nbufs = 0;
+        for (ch = in; ch; ch = ch->next) {
+            mlen += (ch->buf->last - ch->buf->pos);
+            ++nbufs;
+        }
 
-        ngx_log_debug7(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+        ngx_log_debug8(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "RTMP recv %s (%d) csid=%D timestamp=%D "
-                "mlen=%D msid=%D nbufs=%d",
+                "mlen=%D msid=%D nbufs=%d real_mlen=%D",
                 ngx_rtmp_message_type(h->type), (int)h->type,
-                h->csid, h->timestamp, h->mlen, h->msid, nbufs);
+                h->csid, h->timestamp, h->mlen, h->msid, nbufs, mlen);
     }
 #endif
 
@@ -902,6 +915,7 @@ ngx_rtmp_set_chunk_size(ngx_rtmp_session_t *s, ngx_uint_t size)
 
                 bi->pos += (ngx_cpymem(bo->last, bi->pos,
                             bo->end - bo->last) - bo->last);
+                bo->last = bo->end;
                 lo->next = ngx_rtmp_alloc_in_buf(s);
                 lo = lo->next;
                 if (lo == NULL) {

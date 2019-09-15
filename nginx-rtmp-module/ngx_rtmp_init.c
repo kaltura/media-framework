@@ -10,6 +10,9 @@
 #include "ngx_rtmp_proxy_protocol.h"
 
 
+#define NGX_RTMP_ISO8601_DATE_LEN  (sizeof("yyyy-mm-dd") - 1)
+
+
 static void ngx_rtmp_close_connection(ngx_connection_t *c);
 static u_char * ngx_rtmp_log_error(ngx_log_t *log, u_char *buf, size_t len);
 
@@ -141,6 +144,42 @@ ngx_rtmp_init_connection(ngx_connection_t *c)
     }
 }
 
+static ngx_fd_t
+ngx_rtmp_open_dump_file(ngx_rtmp_session_t *s)
+{
+    ngx_fd_t                   fd;
+    ngx_str_t                  name;
+    ngx_rtmp_core_srv_conf_t  *cscf;
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    if (cscf->dump_folder.len == 0) {
+        return NGX_INVALID_FILE;
+    }
+
+    name.len = cscf->dump_folder.len + sizeof("/ngx_rtmp_dump___.dat") +
+        NGX_RTMP_ISO8601_DATE_LEN + NGX_INT64_LEN + NGX_ATOMIC_T_LEN;
+    name.data = ngx_alloc(name.len, s->connection->log);
+    if (name.data == NULL) {
+        return NGX_INVALID_FILE;
+    }
+
+    ngx_sprintf(name.data, "%V/ngx_rtmp_dump_%*s_%P_%uA.dat%Z",
+        &cscf->dump_folder, NGX_RTMP_ISO8601_DATE_LEN,
+        ngx_cached_http_log_iso8601.data, ngx_pid, s->connection->number);
+
+    fd = ngx_open_file((char*)name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
+        NGX_FILE_DEFAULT_ACCESS);
+    if (fd == NGX_INVALID_FILE) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
+            "failed to open rtmp dump file");
+        ngx_free(name.data);
+        return NGX_INVALID_FILE;
+    }
+
+    ngx_free(name.data);
+    return fd;
+}
 
 ngx_rtmp_session_t *
 ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
@@ -151,7 +190,7 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
 
     s = ngx_pcalloc(c->pool, sizeof(ngx_rtmp_session_t) +
             sizeof(ngx_chain_t *) * ((ngx_rtmp_core_srv_conf_t *)
-                addr_conf->ctx-> srv_conf[ngx_rtmp_core_module
+                addr_conf->ctx->srv_conf[ngx_rtmp_core_module
                     .ctx_index])->out_queue);
     if (s == NULL) {
         ngx_rtmp_close_connection(c);
@@ -220,6 +259,7 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
     s->buflen = cscf->buflen;
     ngx_rtmp_set_chunk_size(s, NGX_RTMP_DEFAULT_CHUNK_SIZE);
 
+    s->dump_fd = ngx_rtmp_open_dump_file(s);
 
     if (ngx_rtmp_fire_event(s, NGX_RTMP_CONNECT, NULL, NULL) != NGX_OK) {
         ngx_rtmp_finalize_session(s);
@@ -313,6 +353,10 @@ ngx_rtmp_close_session_handler(ngx_event_t *e)
     while (s->out_pos != s->out_last) {
         ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos++]);
         s->out_pos %= s->out_queue;
+    }
+
+    if (s->dump_fd != NGX_INVALID_FILE) {
+        ngx_close_file(s->dump_fd);
     }
 
     ngx_rtmp_close_connection(c);

@@ -417,6 +417,15 @@ ngx_rtmp_handshake_recv(ngx_event_t *rev)
             return;
         }
 
+        if (s->dump_fd != NGX_INVALID_FILE) {
+            if (ngx_write_fd(s->dump_fd, b->last, n) == NGX_ERROR) {
+                ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
+                    "failed to write to rtmp dump file");
+                ngx_close_file(s->dump_fd);
+                s->dump_fd = NGX_INVALID_FILE;
+            }
+        }
+
         b->last += n;
     }
 

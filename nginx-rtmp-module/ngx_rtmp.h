@@ -60,16 +60,16 @@ typedef struct {
 } ngx_rtmp_addr_conf_t;
 
 typedef struct {
-    in_addr_t               addr;
     ngx_rtmp_addr_conf_t    conf;
+    in_addr_t               addr;
 } ngx_rtmp_in_addr_t;
 
 
 #if (NGX_HAVE_INET6)
 
 typedef struct {
-    struct in6_addr         addr6;
     ngx_rtmp_addr_conf_t    conf;
+    struct in6_addr         addr6;
 } ngx_rtmp_in6_addr_t;
 
 #endif
@@ -267,6 +267,7 @@ typedef struct {
     ngx_int_t               in_chunk_size_changing;
 
     ngx_connection_t       *connection;
+    ngx_fd_t                dump_fd;
 
     /* circular buffer of RTMP message pointers */
     ngx_msec_t              timeout;
@@ -339,6 +340,7 @@ typedef struct ngx_rtmp_core_srv_conf_s {
     size_t                  out_queue;
     size_t                  out_cork;
     ngx_msec_t              buflen;
+    ngx_str_t               dump_folder;
 
     ngx_rtmp_conf_ctx_t    *ctx;
 } ngx_rtmp_core_srv_conf_t;
