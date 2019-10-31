@@ -1080,6 +1080,7 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track,
     segment->start_dts = frames[0].dts;
     segment->data_head = frames[0].data;
 
+    src = NULL;     /* prevent uninit var warning */
     prev_src = NULL;
     prev_dest = NULL;
     size = 0;
