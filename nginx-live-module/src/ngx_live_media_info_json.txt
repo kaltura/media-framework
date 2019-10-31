@@ -1,0 +1,21 @@
+static ngx_live_media_info_json_video media_info_t
+    media_type video
+    format %4cc
+    bitrate %uD
+    codec_id %uD
+    codec_name %V
+    extra_data %xV
+    width %uD obj->u.video.width
+    height %uD obj->u.video.height
+    frame_rate %.2f obj->u.video.frame_rate_num / obj->u.video.frame_rate_denom
+
+static ngx_live_media_info_json_audio media_info_t
+    media_type audio
+    format %4cc
+    bitrate %uD
+    codec_id %uD
+    codec_name %V
+    extra_data %xV
+    channels %uD obj->u.audio.channels
+    bits_per_sample %uD obj->u.audio.bits_per_sample
+    sample_rate %uD obj->u.audio.sample_rate

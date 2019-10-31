@@ -106,17 +106,17 @@ ngx_rtmp_kmp_api_streams_json_get_size(ngx_rtmp_session_t *s)
             continue;
         }
 
-        kmp_ctx = in_stream->ctx[ngx_rtmp_kmp_module.ctx_index];
+        kmp_ctx = ngx_rtmp_get_module_ctx(in_stream, ngx_rtmp_kmp_module);
         if (kmp_ctx == NULL) {
             continue;
         }
 
-        live_ctx = in_stream->ctx[ngx_rtmp_live_module.ctx_index];
+        live_ctx = ngx_rtmp_get_module_ctx(in_stream, ngx_rtmp_live_module);
         if (live_ctx == NULL || live_ctx->stream == NULL) {
             continue;
         }
 
-        codec_ctx = in_stream->ctx[ngx_rtmp_codec_module.ctx_index];
+        codec_ctx = ngx_rtmp_get_module_ctx(in_stream, ngx_rtmp_codec_module);
         if (codec_ctx == NULL) {
             continue;
         }
@@ -148,17 +148,17 @@ ngx_rtmp_kmp_api_streams_json_write(u_char *p, ngx_rtmp_session_t *s)
             continue;
         }
 
-        kmp_ctx = in_stream->ctx[ngx_rtmp_kmp_module.ctx_index];
+        kmp_ctx = ngx_rtmp_get_module_ctx(in_stream, ngx_rtmp_kmp_module);
         if (kmp_ctx == NULL) {
             continue;
         }
 
-        live_ctx = in_stream->ctx[ngx_rtmp_live_module.ctx_index];
+        live_ctx = ngx_rtmp_get_module_ctx(in_stream, ngx_rtmp_live_module);
         if (live_ctx == NULL || live_ctx->stream == NULL) {
             continue;
         }
 
-        codec_ctx = in_stream->ctx[ngx_rtmp_codec_module.ctx_index];
+        codec_ctx = ngx_rtmp_get_module_ctx(in_stream, ngx_rtmp_codec_module);
         if (codec_ctx == NULL) {
             continue;
         }
@@ -292,7 +292,7 @@ ngx_rtmp_kmp_api_application_get_session(ngx_uint_t connection,
     ngx_rtmp_kmp_ctx_t       *cur;
     ngx_rtmp_kmp_app_conf_t  *kacf;
 
-    kacf = app_conf->app_conf[ngx_rtmp_kmp_module.ctx_index];
+    kacf = ngx_rtmp_get_module_app_conf(app_conf, ngx_rtmp_kmp_module);
     if (kacf == NULL) {
         return 0;
     }
@@ -366,7 +366,8 @@ ngx_rtmp_kmp_api_session_delete(ngx_http_request_t *r, ngx_str_t *params,
     connection = ngx_atoi(params[0].data, params[0].len);
     if (connection == NGX_ERROR) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_rtmp_kmp_api_session_delete: failed to parse connection num");
+            "ngx_rtmp_kmp_api_session_delete: "
+            "failed to parse connection num \"%V\"", &params[0]);
         return NGX_HTTP_BAD_REQUEST;
     }
 
@@ -408,8 +409,21 @@ ngx_rtmp_kmp_api_ro_handler(ngx_http_request_t *r)
 static char *
 ngx_rtmp_kmp_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    return ngx_http_api(cf, cmd, conf, ngx_rtmp_kmp_api_handler,
-        ngx_rtmp_kmp_api_ro_handler);
+    char                          *rv;
+    ngx_http_api_options_t         options;
+    ngx_http_core_loc_conf_t      *clcf;
+
+    ngx_memzero(&options, sizeof(options));
+    rv = ngx_http_api_parse_options(cf, &options);
+    if (rv != NGX_CONF_OK) {
+        return rv;
+    }
+
+    clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+    clcf->handler = options.write ? ngx_rtmp_kmp_api_handler :
+        ngx_rtmp_kmp_api_ro_handler;
+
+    return NGX_CONF_OK;
 }
 
 

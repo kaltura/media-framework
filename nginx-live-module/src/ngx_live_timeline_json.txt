@@ -1,0 +1,24 @@
+static ngx_live_period_json ngx_live_period_t
+    time %L
+    duration %uL
+    segment_count %uD
+
+ngx_live_timeline_json ngx_live_timeline_t
+    active %uD obj->conf.active
+    max_segments %uD (obj->conf.max_segments != NGX_MAX_UINT32_VALUE ? obj->conf.max_segments : 0)
+    max_duration %uL (obj->conf.max_duration != ULLONG_MAX ? obj->conf.max_duration : 0)
+    start %L obj->conf.start
+    end %L (obj->conf.end != LLONG_MAX ? obj->conf.end : 0)
+    manifest_max_segments %uD (obj->manifest.conf.max_segments != NGX_MAX_UINT32_VALUE ? obj->manifest.conf.max_segments : 0)
+    manifest_max_duration %uL (obj->manifest.conf.max_duration != ULLONG_MAX ? obj->manifest.conf.max_duration : 0)
+    manifest_expiry_threshold %uD obj->manifest.conf.expiry_threshold
+    manifest_target_duration_segments %uD obj->manifest.conf.target_duration_segments
+    segment_count %uD
+    duration %uL
+    periods %slist-ngx_live_period_json,ngx_live_period_t obj->head_period
+
+static noobject ngx_live_timelines_json ngx_live_timeline_channel_ctx_t
+    - %objQueue-ngx_live_timeline_json,ngx_live_timeline_t,queue,sn.str obj->queue
+
+static noobject ngx_live_timelines_module_json ngx_live_timeline_channel_ctx_t
+    timelines %func-ngx_live_timelines_json obj

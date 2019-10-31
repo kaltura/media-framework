@@ -1,14 +1,16 @@
 
 static ngx_rtmp_kmp_api_upstream_json ngx_kmp_push_upstream_t
     id %V
-    addr_text %V
+    remote_addr %V
+    local_addr %V
     connection %uA obj->log.
 
 static ngx_rtmp_kmp_api_video_track_json ngx_kmp_push_track_t ngx_rtmp_codec_ctx_t *codec_ctx
     input_id %V
     channel_id %V
     track_id %V
-    memory_left %uz obj->memory_limit
+    mem_left %uz
+    mem_limit %uz
 
     codec_info %func-ngx_rtmp_kmp_api_video_codec_info_json codec_ctx
 
@@ -18,7 +20,8 @@ static ngx_rtmp_kmp_api_audio_track_json ngx_kmp_push_track_t ngx_rtmp_codec_ctx
     input_id %V
     channel_id %V
     track_id %V
-    memory_left %uz obj->memory_limit
+    mem_left %uz
+    mem_limit %uz
 
     codec_info %func-ngx_rtmp_kmp_api_audio_codec_info_json codec_ctx
 
@@ -47,7 +50,7 @@ static ngx_rtmp_kmp_api_session_json ngx_rtmp_kmp_ctx_t
     swf_url %V s->
     tc_url %V s->
     page_url %V s->
-    addr %V s->connection->addr_text
+    remote_addr %V
     time %i (ngx_current_msec - s->epoch)
     connection %uA s->connection->number
     streams %arrFunc-ngx_rtmp_kmp_api_streams_json s

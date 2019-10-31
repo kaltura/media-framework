@@ -1,0 +1,265 @@
+ngx_addon_name="ngx_live_module"
+
+# nginx-common dependency
+#
+if test -n "$ngx_module_link"; then
+    if test -n "$LIVE_COMMON_CORE_SRCS"; then
+        echo "found ngx_live_common for nginx_live_module; looks good."
+    else
+        echo "error: ngx_live_common is required to build nginx_live_module; please put it before nginx_live_module." 1>&2
+        exit 1
+    fi
+else
+    if echo $NGX_ADDON_SRCS | grep " ngx_json_parser" > /dev/null; then
+        echo "found ngx_live_common for nginx_live_module; looks good."
+    else
+        echo "error: ngx_live_common is required to build nginx_live_module; please put it before nginx_live_module." 1>&2
+        exit 1
+    fi
+fi
+
+# version
+#
+LIVE_DEFAULT_VERSION=0.1
+LIVE_VERSION=${LIVE_VERSION:-`git --git-dir=$ngx_addon_dir/.git describe 2>/dev/null`}
+LIVE_VERSION=${LIVE_VERSION:-$LIVE_DEFAULT_VERSION}
+echo "#define NGX_LIVE_VERSION \""$LIVE_VERSION"\"" > $NGX_OBJS/ngx_live_version.h
+
+# openssl evp
+#
+LIVE_FEATURE_SRCS="                                           \
+    $ngx_addon_dir/src/media/hls/aes_cbc_encrypt.c            \
+    $ngx_addon_dir/src/media/hls/eac3_encrypt_filter.c        \
+    $ngx_addon_dir/src/media/hls/frame_encrypt_filter.c       \
+    $ngx_addon_dir/src/media/hls/sample_aes_avc_filter.c      \
+    "
+
+LIVE_FEATURE_DEPS="                                           \
+    $ngx_addon_dir/src/media/hls/aes_cbc_encrypt.h            \
+    $ngx_addon_dir/src/media/hls/eac3_encrypt_filter.h        \
+    $ngx_addon_dir/src/media/hls/frame_encrypt_filter.h       \
+    $ngx_addon_dir/src/media/hls/sample_aes_avc_filter.h      \
+    "
+
+if [ $OPENSSL = NONE ]; then
+    LIB_CRYPTO=${LIB_CRYPTO:--lcrypto}
+    LIB_PTHREAD=${LIB_PTHREAD:--lpthread}
+
+    ngx_feature="OpenSSL EVP library"
+    ngx_feature_name="NGX_HAVE_OPENSSL_EVP"
+    ngx_feature_run=no
+    ngx_feature_incs="#include <openssl/evp.h>"
+    ngx_feature_path=
+    ngx_feature_libs="$LIB_CRYPTO $NGX_LIBDL $LIB_PTHREAD"
+    ngx_feature_test="EVP_CIPHER_CTX_new();"
+    . auto/feature
+
+    if [ $ngx_found = yes ]; then
+        ngx_module_libs="$ngx_module_libs $ngx_feature_libs"
+        LIVE_MEDIA_SRCS="$LIVE_MEDIA_SRCS $LIVE_FEATURE_SRCS"
+        LIVE_DEPS="$LIVE_DEPS $LIVE_FEATURE_DEPS"
+    fi
+else
+    LIVE_MEDIA_SRCS="$LIVE_MEDIA_SRCS $LIVE_FEATURE_SRCS"
+    LIVE_DEPS="$LIVE_DEPS $LIVE_FEATURE_DEPS"
+    cat << END >> $NGX_AUTO_CONFIG_H
+
+#ifndef NGX_HAVE_OPENSSL_EVP
+#define NGX_HAVE_OPENSSL_EVP  1
+#endif
+
+END
+fi
+
+# source
+#
+LIVE_CORE_MODULES="                                           \
+    ngx_live_module                                           \
+    ngx_live_core_module                                      \
+    ngx_live_segmenter_module                                 \
+    ngx_live_media_info_module                                \
+    ngx_live_timeline_module                                  \
+    ngx_live_input_bufs_module                                \
+    ngx_live_segment_cache_module                             \
+    ngx_live_syncer_module                                    \
+    ngx_live_dvr_module                                       \
+    ngx_live_dvr_http_module                                  \
+    ngx_live_dvr_s3_module                                    \
+    "
+
+LIVE_STREAM_MODULES="                                         \
+    ngx_stream_live_kmp_module                                \
+    "
+
+LIVE_HTTP_MODULES="                                           \
+    ngx_http_live_core_module                                 \
+    ngx_http_live_hls_module                                  \
+    ngx_http_live_api_module                                  \
+    "
+
+LIVE_MEDIA_SRCS="$LIVE_MEDIA_SRCS                             \
+    $ngx_addon_dir/src/media/avc_hevc_parser.c                \
+    $ngx_addon_dir/src/media/avc_parser.c                     \
+    $ngx_addon_dir/src/media/common.c                         \
+    $ngx_addon_dir/src/media/buffer_pool.c                    \
+    $ngx_addon_dir/src/media/codec_config.c                   \
+    $ngx_addon_dir/src/media/hevc_parser.c                    \
+    $ngx_addon_dir/src/media/write_buffer.c                   \
+    $ngx_addon_dir/src/media/write_buffer_queue.c             \
+    $ngx_addon_dir/src/media/hls/adts_encoder_filter.c        \
+    $ngx_addon_dir/src/media/hls/buffer_filter.c              \
+    $ngx_addon_dir/src/media/hls/frame_joiner_filter.c        \
+    $ngx_addon_dir/src/media/hls/hls_muxer.c                  \
+    $ngx_addon_dir/src/media/hls/id3_encoder_filter.c         \
+    $ngx_addon_dir/src/media/hls/mp4_to_annexb_filter.c       \
+    $ngx_addon_dir/src/media/hls/mpegts_encoder_filter.c      \
+    $ngx_addon_dir/src/media/mp4/mp4_cbcs_encrypt.c           \
+    $ngx_addon_dir/src/media/mp4/mp4_fragment.c               \
+    $ngx_addon_dir/src/media/mp4/mp4_init_segment.c           \
+    $ngx_addon_dir/src/media/mp4/mp4_muxer.c                  \
+    "
+
+LIVE_MEDIA_DEPS="$LIVE_MEDIA_DEPS                             \
+    $ngx_addon_dir/src/media/aes_defs.h                       \
+    $ngx_addon_dir/src/media/avc_defs.h                       \
+    $ngx_addon_dir/src/media/avc_hevc_parser.h                \
+    $ngx_addon_dir/src/media/avc_parser.h                     \
+    $ngx_addon_dir/src/media/bit_read_stream.h                \
+    $ngx_addon_dir/src/media/buffer_pool.h                    \
+    $ngx_addon_dir/src/media/codec_config.h                   \
+    $ngx_addon_dir/src/media/common.h                         \
+    $ngx_addon_dir/src/media/frames_source.h                  \
+    $ngx_addon_dir/src/media/hevc_parser.h                    \
+    $ngx_addon_dir/src/media/hls/adts_encoder_filter.h        \
+    $ngx_addon_dir/src/media/hls/aes_cbc_encrypt.h            \
+    $ngx_addon_dir/src/media/hls/bit_fields.h                 \
+    $ngx_addon_dir/src/media/hls/buffer_filter.h              \
+    $ngx_addon_dir/src/media/hls/eac3_encrypt_filter.h        \
+    $ngx_addon_dir/src/media/hls/frame_encrypt_filter.h       \
+    $ngx_addon_dir/src/media/hls/frame_joiner_filter.h        \
+    $ngx_addon_dir/src/media/hls/hls_encryption.h             \
+    $ngx_addon_dir/src/media/hls/hls_muxer.h                  \
+    $ngx_addon_dir/src/media/hls/id3_encoder_filter.h         \
+    $ngx_addon_dir/src/media/hls/media_filter.h               \
+    $ngx_addon_dir/src/media/hls/mp4_to_annexb_filter.h       \
+    $ngx_addon_dir/src/media/hls/mpegts_encoder_filter.h      \
+    $ngx_addon_dir/src/media/hls/sample_aes_avc_filter.h      \
+    $ngx_addon_dir/src/media/media_format.h                   \
+    $ngx_addon_dir/src/media/mp4/mp4_aes_ctr.h                \
+    $ngx_addon_dir/src/media/mp4/mp4_cbcs_encrypt.h           \
+    $ngx_addon_dir/src/media/mp4/mp4_cenc_encrypt.h           \
+    $ngx_addon_dir/src/media/mp4/mp4_defs.h                   \
+    $ngx_addon_dir/src/media/mp4/mp4_fragment.h               \
+    $ngx_addon_dir/src/media/mp4/mp4_init_segment.h           \
+    $ngx_addon_dir/src/media/mp4/mp4_muxer.h                  \
+    $ngx_addon_dir/src/media/mp4/mp4_write_stream.h           \
+    $ngx_addon_dir/src/media/read_stream.h                    \
+    $ngx_addon_dir/src/media/write_buffer.h                   \
+    $ngx_addon_dir/src/media/write_buffer_queue.h             \
+    $ngx_addon_dir/src/media/write_stream.h                   \
+    "
+
+LIVE_CORE_SRCS="                                              \
+    $ngx_addon_dir/src/ngx_buf_chain.c                        \
+    $ngx_addon_dir/src/ngx_block_pool.c                       \
+    $ngx_addon_dir/src/ngx_block_str.c                        \
+    $ngx_addon_dir/src/ngx_live.c                             \
+    $ngx_addon_dir/src/ngx_live_core_module.c                 \
+    $ngx_addon_dir/src/ngx_live_channel.c                     \
+    $ngx_addon_dir/src/ngx_live_input_bufs.c                  \
+    $ngx_addon_dir/src/ngx_live_json_commands.c               \
+    $ngx_addon_dir/src/ngx_live_media_info.c                  \
+    $ngx_addon_dir/src/ngx_live_script.c                      \
+    $ngx_addon_dir/src/ngx_live_segment_cache.c               \
+    $ngx_addon_dir/src/ngx_live_segment_list.c                \
+    $ngx_addon_dir/src/ngx_live_segmenter.c                   \
+    $ngx_addon_dir/src/ngx_live_syncer.c                      \
+    $ngx_addon_dir/src/ngx_live_timeline.c                    \
+    $ngx_addon_dir/src/ngx_live_variables.c                   \
+    $ngx_addon_dir/src/dvr/ngx_live_dvr.c                     \
+    $ngx_addon_dir/src/dvr/ngx_live_dvr_http.c                \
+    $ngx_addon_dir/src/dvr/ngx_live_dvr_s3.c                  \
+    $LIVE_MEDIA_SRCS                                          \
+    "
+
+LIVE_STREAM_SRCS="                                            \
+    $ngx_addon_dir/src/stream/ngx_stream_live_kmp_module.c    \
+    "
+
+LIVE_HTTP_SRCS="                                              \
+    $ngx_addon_dir/src/http/ngx_http_live_core_module.c       \
+    $ngx_addon_dir/src/http/ngx_http_live_hls_module.c        \
+    $ngx_addon_dir/src/http/ngx_http_live_hls_m3u8.c          \
+    $ngx_addon_dir/src/http/ngx_http_live_api_module.c        \
+    "
+
+LIVE_DEPS="$LIVE_DEPS                                         \
+    $ngx_addon_dir/src/dvr/ngx_live_dvr.h                     \
+    $ngx_addon_dir/src/dvr/ngx_live_dvr_format.h              \
+    $ngx_addon_dir/src/dvr/ngx_live_dvr_http.h                \
+    $ngx_addon_dir/src/http/ngx_http_live_api_json.h          \
+    $ngx_addon_dir/src/http/ngx_http_live_api_routes.h        \
+    $ngx_addon_dir/src/http/ngx_http_live_core_module.h       \
+    $ngx_addon_dir/src/http/ngx_http_live_hls_m3u8.h          \
+    $ngx_addon_dir/src/ngx_block_pool.h                       \
+    $ngx_addon_dir/src/ngx_block_str.h                        \
+    $ngx_addon_dir/src/ngx_buf_chain.h                        \
+    $ngx_addon_dir/src/ngx_live.h                             \
+    $ngx_addon_dir/src/ngx_live_channel.h                     \
+    $ngx_addon_dir/src/ngx_live_channel_json.h                \
+    $ngx_addon_dir/src/ngx_live_config.h                      \
+    $ngx_addon_dir/src/ngx_live_core_module.h                 \
+    $ngx_addon_dir/src/ngx_live_input_bufs.h                  \
+    $ngx_addon_dir/src/ngx_live_json_commands.h               \
+    $ngx_addon_dir/src/ngx_live_media_info.h                  \
+    $ngx_addon_dir/src/ngx_live_media_info_json.h             \
+    $ngx_addon_dir/src/ngx_live_script.h                      \
+    $ngx_addon_dir/src/ngx_live_segmenter.h                   \
+    $ngx_addon_dir/src/ngx_live_segment_cache.h               \
+    $ngx_addon_dir/src/ngx_live_segment_list.h                \
+    $ngx_addon_dir/src/ngx_live_timeline.h                    \
+    $ngx_addon_dir/src/ngx_live_timeline_json.h               \
+    $ngx_addon_dir/src/ngx_live_variables.h                   \
+    $LIVE_MEDIA_DEPS                                          \
+    "
+
+if [ -f auto/module ] ; then
+    ngx_module_incs=$ngx_addon_dir
+    ngx_module_deps=$LIVE_DEPS
+
+    if [ $ngx_module_link = DYNAMIC ] ; then
+        ngx_module_name="$LIVE_CORE_MODULES $LIVE_STREAM_MODULES $LIVE_HTTP_MODULES"
+        ngx_module_srcs="$LIVE_CORE_SRCS $LIVE_STREAM_SRCS $LIVE_HTTP_SRCS"
+
+        . auto/module
+
+    else
+        ngx_module_type=CORE
+        ngx_module_name=$LIVE_CORE_MODULES
+        ngx_module_srcs=$LIVE_CORE_SRCS
+
+        . auto/module
+
+        ngx_module_type=STREAM
+        ngx_module_name=$LIVE_STREAM_MODULES
+        ngx_module_srcs=$LIVE_STREAM_SRCS
+
+        . auto/module
+
+        ngx_module_type=HTTP
+        ngx_module_name=$LIVE_HTTP_MODULES
+        ngx_module_srcs=$LIVE_HTTP_SRCS
+
+        . auto/module
+    fi
+
+else
+    CORE_MODULES="$CORE_MODULES $LIVE_CORE_MODULES"
+    STREAM_MODULES="$STREAM_MODULES $LIVE_STREAM_MODULES"
+    HTTP_MODULES="$HTTP_MODULES $LIVE_HTTP_MODULES"
+
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $LIVE_DEPS"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $LIVE_CORE_SRCS $LIVE_STREAM_SRCS $LIVE_HTTP_SRCS"
+
+    CFLAGS="$CFLAGS -I$ngx_addon_dir"
+fi

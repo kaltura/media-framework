@@ -26,7 +26,8 @@ typedef struct {
     ngx_log_t              *log;
     size_t                  alloc_size;
     size_t                  used_size;
-    size_t                 *memory_limit;
+    size_t                 *mem_left;
+    ngx_uint_t              nbuffers;
     ngx_buf_queue_node_t   *used_head;
     ngx_buf_queue_node_t  **used_tail;
     ngx_buf_queue_node_t   *free;
@@ -35,9 +36,11 @@ typedef struct {
 
 
 ngx_int_t ngx_buf_queue_init(ngx_buf_queue_t *buf_queue, ngx_log_t *log,
-    size_t buffer_size, ngx_uint_t max_free_buffers, size_t *memory_limit);
+    size_t buffer_size, ngx_uint_t max_free_buffers, size_t *mem_left);
 
 void ngx_buf_queue_delete(ngx_buf_queue_t *buf_queue);
+
+void ngx_buf_queue_detach(ngx_buf_queue_t *buf_queue);
 
 u_char *ngx_buf_queue_get(ngx_buf_queue_t *buf_queue);
 

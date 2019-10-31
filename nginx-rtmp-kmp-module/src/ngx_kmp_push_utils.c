@@ -23,7 +23,7 @@ ngx_kmp_push_alloc_chain_temp_buf(ngx_pool_t *pool, size_t size)
     if (b == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_kmp_push_alloc_chain_temp_buf: "
-            "ngx_create_temp_buf failed, size=%uz", size);
+            "ngx_create_temp_buf failed, size: %uz", size);
         return NULL;
     }
 
@@ -147,14 +147,15 @@ ngx_kmp_push_format_json_http_request(ngx_pool_t *pool, ngx_str_t *host,
 }
 
 ngx_int_t
-ngx_kmp_push_parse_json_response(ngx_pool_t *pool, ngx_uint_t code,
-    ngx_str_t *content_type, ngx_buf_t *body, ngx_json_value_t *json)
+ngx_kmp_push_parse_json_response(ngx_pool_t *pool, ngx_log_t *log,
+    ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *body,
+    ngx_json_value_t *json)
 {
     ngx_int_t  rc;
     u_char     error[128];
 
-    if (code != 200) {      // NGX_HTTP_OK
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+    if (code != 200) {      /* NGX_HTTP_OK */
+        ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_kmp_push_parse_json_response: invalid http status %ui", code);
         return NGX_ERROR;
     }
@@ -165,35 +166,30 @@ ngx_kmp_push_parse_json_response(ngx_pool_t *pool, ngx_uint_t code,
             ngx_kmp_push_json_type.len)
         != 0)
     {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+        ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_kmp_push_parse_json_response: invalid content type %V",
             content_type);
         return NGX_ERROR;
     }
 
     if (body->last >= body->end) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+        ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_kmp_push_parse_json_response: no room for null terminator");
         return NGX_ERROR;
     }
 
     *body->last = '\0';
 
-    rc = ngx_json_parse(
-        pool,
-        body->pos,
-        json,
-        error,
-        sizeof(error));
+    rc = ngx_json_parse(pool, body->pos, json, error, sizeof(error));
     if (rc != NGX_JSON_OK) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+        ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_kmp_push_parse_json_response: ngx_json_parse failed %i, %s",
             rc, error);
         return NGX_ERROR;
     }
 
     if (json->type != NGX_JSON_OBJECT) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+        ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_kmp_push_parse_json_response: "
             "invalid type %d, expected object",
             json->type);

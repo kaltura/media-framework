@@ -30,7 +30,8 @@ struct ngx_kmp_push_track_s {
 
     ngx_kmp_push_track_state_e     state;
     ngx_queue_t                    upstreams;
-    size_t                         memory_limit;
+    size_t                         mem_left;
+    size_t                         mem_limit;
     ngx_http_call_ctx_t           *publish_call;
     ngx_uint_t                     timescale;
 
@@ -40,6 +41,7 @@ struct ngx_kmp_push_track_s {
 
     ngx_buf_queue_t                buf_queue;
     ngx_buf_t                      active_buf;
+    ngx_event_t                    flush;
 
     void                          *ctx;
     ngx_kmp_push_track_handler_pt  handler;
@@ -47,6 +49,7 @@ struct ngx_kmp_push_track_s {
     ngx_str_t                      unpublish_reason;
 
     unsigned                       detached:1;
+    unsigned                       write_error:1;
 };
 
 

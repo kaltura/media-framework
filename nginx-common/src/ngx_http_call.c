@@ -51,8 +51,8 @@ struct ngx_http_call_ctx_s {
 };
 
 
+static void ngx_http_call_free(ngx_http_call_ctx_t *ctx);
 static void ngx_http_call_done(ngx_http_call_ctx_t *ctx);
-static void ngx_http_call_detach(void *data);
 static ngx_int_t ngx_http_call_connect(ngx_http_call_ctx_t *ctx);
 static void ngx_http_call_write_handler(ngx_event_t *wev);
 static void ngx_http_call_read_handler(ngx_event_t *rev);
@@ -95,7 +95,7 @@ ngx_http_call_create(ngx_http_call_init_t *ci)
         ctx->arg = ngx_pcalloc(pool, ci->argsize);
         if (ctx->arg == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                "ngx_http_call_create: alloc arg failed, size=%uz",
+                "ngx_http_call_create: alloc arg failed, size: %uz",
                 ci->argsize);
             goto error;
         }
@@ -139,7 +139,8 @@ ngx_http_call_create(ngx_http_call_init_t *ci)
         ctx->handle = ci->handle;
 
         ctx->cln.data = ctx;
-        ctx->cln.handler = ngx_http_call_detach;
+        ctx->cln.handler = (ngx_pool_cleanup_pt) ngx_http_call_free;
+
         ctx->cln.next = ci->handler_pool->cleanup;
         ci->handler_pool->cleanup = &ctx->cln;
 
@@ -212,7 +213,7 @@ ngx_http_call_retry(ngx_event_t *ev)
     ngx_chain_t          *cl;
     ngx_int_t             rc;
 
-    // reset the state
+    /* reset the state */
     ctx->state = 0;
     ctx->code = 0;
     ctx->count = 0;
@@ -222,7 +223,7 @@ ngx_http_call_retry(ngx_event_t *ev)
     ctx->request = ctx->orig_request;
     ctx->request_body = ctx->orig_request_body;
 
-    // Note: assuming that pos was equal to start when the request was sent
+    /* Note: assuming that pos was equal to start when the request was sent */
     for (cl = ctx->request; cl != NULL; cl = cl->next) {
         cl->buf->pos = cl->buf->start;
     }
@@ -245,25 +246,42 @@ ngx_http_call_retry(ngx_event_t *ev)
 static void
 ngx_http_call_done(ngx_http_call_ctx_t *ctx)
 {
+    ngx_pool_t  *handler_pool;
+
     ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
         "http call done, code:%ui, content_type:%V, body_size:%uz",
             ctx->code, &ctx->content_type, ctx->response ?
             (size_t)(ctx->response->last - ctx->response->pos) : 0);
 
-    if (ctx->handler_pool &&
-        ctx->handle(ctx->pool, ctx->arg, ctx->code, &ctx->content_type,
+    handler_pool = ctx->handler_pool;
+    if (handler_pool) {
+
+        /* remove from handler pool, handler may destroy the pool */
+        ngx_pool_cleanup_remove(handler_pool, &ctx->cln);
+        ctx->handler_pool = NULL;
+
+        if (ctx->handle(ctx->pool, ctx->arg, ctx->code, &ctx->content_type,
             ctx->response) == NGX_AGAIN) {
 
-        ctx->log->connection = 0;
-        ngx_close_connection(ctx->peer.connection);
-        ctx->peer.connection = NULL;
+            ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
+                "http call retry");
 
-        ctx->retry.handler = ngx_http_call_retry;
-        ctx->retry.data = ctx;
-        ctx->retry.log = ctx->log;
+            /* add back to handler pool */
+            ctx->cln.next = handler_pool->cleanup;
+            handler_pool->cleanup = &ctx->cln;
+            ctx->handler_pool = handler_pool;
 
-        ngx_add_timer(&ctx->retry, ctx->retry_interval);
-        return;
+            ctx->log->connection = 0;
+            ngx_close_connection(ctx->peer.connection);
+            ctx->peer.connection = NULL;
+
+            ctx->retry.handler = ngx_http_call_retry;
+            ctx->retry.data = ctx;
+            ctx->retry.log = ctx->log;
+
+            ngx_add_timer(&ctx->retry, ctx->retry_interval);
+            return;
+        }
     }
 
     ngx_http_call_free(ctx);
@@ -278,22 +296,13 @@ ngx_http_call_cancel(ngx_http_call_ctx_t *ctx)
 
 
 static void
-ngx_http_call_error(ngx_http_call_ctx_t *ctx)
+ngx_http_call_error(ngx_http_call_ctx_t *ctx, ngx_uint_t code)
 {
     ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
         "http call error");
 
-    ctx->code = 0;
+    ctx->code = code;
     ctx->handler(ctx);
-}
-
-
-static void
-ngx_http_call_detach(void *data)
-{
-    ngx_http_call_ctx_t *ctx = data;
-
-    ctx->handler_pool = NULL;
 }
 
 
@@ -336,7 +345,7 @@ ngx_http_call_connect(ngx_http_call_ctx_t *ctx)
     rc = ngx_event_connect_peer(&ctx->peer);
     if (rc == NGX_ERROR || rc == NGX_BUSY || rc == NGX_DECLINED) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
-            "ngx_http_call_connect: connect peer failed %i, addr=%V",
+            "ngx_http_call_connect: connect peer failed %i, addr: %V",
             rc, &addr_text);
         return NGX_ERROR;
     }
@@ -354,7 +363,7 @@ ngx_http_call_connect(ngx_http_call_ctx_t *ctx)
     cc->addr_text = addr_text;
 
     ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
-        "ngx_http_call_connect: connecting to %V", &addr_text);
+        "ngx_http_call_connect: connecting to %V, ctx: %p", &addr_text, ctx);
 
 #if (NGX_DEBUG)
     ngx_http_call_log_request(ctx);
@@ -368,7 +377,7 @@ ngx_http_call_connect(ngx_http_call_ctx_t *ctx)
     }
 
     ngx_http_call_write_handler(ctx->peer.connection->write);
-    return rc;
+    return NGX_OK;
 }
 
 
@@ -388,7 +397,7 @@ ngx_http_call_write_handler(ngx_event_t *wev)
     if (wev->timedout) {
         ngx_log_error(NGX_LOG_ERR, wev->log, NGX_ETIMEDOUT,
             "ngx_http_call_write_handler: timed out");
-        ngx_http_call_error(ctx);
+        ngx_http_call_error(ctx, NGX_HTTP_CALL_TIME_OUT);
         return;
     }
 
@@ -399,7 +408,7 @@ ngx_http_call_write_handler(ngx_event_t *wev)
     if (cl == NGX_CHAIN_ERROR) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_http_call_write_handler: send_chain failed");
-        ngx_http_call_error(ctx);
+        ngx_http_call_error(ctx, NGX_HTTP_CALL_BAD_GATEWAY);
         return;
     }
 
@@ -418,7 +427,7 @@ ngx_http_call_write_handler(ngx_event_t *wev)
         if (ngx_handle_write_event(wev, 0) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                 "ngx_http_call_write_handler: ngx_handle_write_event failed");
-            ngx_http_call_error(ctx);
+            ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR);
         }
 
         return;
@@ -430,36 +439,26 @@ ngx_http_call_write_handler(ngx_event_t *wev)
 }
 
 
-static void
-ngx_http_call_body_write_handler(ngx_event_t *wev)
+static ngx_int_t
+ngx_http_call_write_request_body(ngx_http_call_ctx_t *ctx)
 {
-    ngx_connection_t     *c;
-    ngx_http_call_ctx_t  *ctx;
     ngx_chain_t          *cl;
+    ngx_event_t          *wev;
+    ngx_connection_t     *c;
 
-    c = wev->data;
-    ctx = c->data;
-
-    ngx_log_debug0(NGX_LOG_DEBUG_EVENT, wev->log, 0,
-        "ngx_http_call_body_write_handler: called");
-
-    if (wev->timedout) {
-        ngx_log_error(NGX_LOG_ERR, wev->log, NGX_ETIMEDOUT,
-            "ngx_http_call_body_write_handler: timed out");
-        ngx_http_call_error(ctx);
-        return;
-    }
+    c = ctx->peer.connection;
 
     cl = c->send_chain(c, ctx->request_body, 0);
 
     if (cl == NGX_CHAIN_ERROR) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
-            "ngx_http_call_body_write_handler: send_chain failed");
-        ngx_http_call_error(ctx);
-        return;
+            "ngx_http_call_write_request_body: send_chain failed");
+        return NGX_ERROR;
     }
 
     ctx->request_body = cl;
+
+    wev = c->write;
 
     if (cl == NULL) {
         wev->handler = ngx_http_call_dummy_handler;
@@ -471,18 +470,46 @@ ngx_http_call_body_write_handler(ngx_event_t *wev)
 
         ngx_add_timer(c->read, ctx->read_timeout);
 
-        if (ngx_handle_write_event(wev, 0) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
-                "ngx_http_call_body_write_handler: "
-                "ngx_handle_write_event failed");
-            ngx_http_call_error(ctx);
-        }
-
-        return;
+        return NGX_OK;
     }
 
     if (!wev->timer_set) {
         ngx_add_timer(wev, ctx->timeout);
+    }
+
+    return NGX_AGAIN;
+}
+
+static void
+ngx_http_call_body_write_handler(ngx_event_t *wev)
+{
+    ngx_connection_t     *c;
+    ngx_http_call_ctx_t  *ctx;
+
+    c = wev->data;
+    ctx = c->data;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_EVENT, wev->log, 0,
+        "ngx_http_call_body_write_handler: called");
+
+    if (wev->timedout) {
+        ngx_log_error(NGX_LOG_ERR, wev->log, NGX_ETIMEDOUT,
+            "ngx_http_call_body_write_handler: timed out");
+        ngx_http_call_error(ctx, NGX_HTTP_CALL_TIME_OUT);
+        return;
+    }
+
+    if (ngx_http_call_write_request_body(ctx) == NGX_ERROR) {
+        ngx_http_call_error(ctx, NGX_HTTP_CALL_BAD_GATEWAY);
+        return;
+    }
+
+    if (ngx_handle_write_event(wev, 0) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
+            "ngx_http_call_body_write_handler: "
+            "ngx_handle_write_event failed");
+        ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR);
+        return;
     }
 }
 
@@ -504,7 +531,7 @@ ngx_http_call_read_handler(ngx_event_t *rev)
     if (rev->timedout) {
         ngx_log_error(NGX_LOG_ERR, rev->log, NGX_ETIMEDOUT,
             "ngx_http_call_read_handler: timed out");
-        ngx_http_call_error(ctx);
+        ngx_http_call_error(ctx, NGX_HTTP_CALL_TIME_OUT);
         return;
     }
 
@@ -514,19 +541,19 @@ ngx_http_call_read_handler(ngx_event_t *rev)
         if (ctx->response == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                 "ngx_http_call_read_handler: create buf failed");
-            ngx_http_call_error(ctx);
+            ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR);
             return;
         }
     }
 
-    for (;; ) {
+    for ( ;; ) {
 
         size = ctx->response->end - ctx->response->last;
 
         if (size <= 0) {
-            ngx_log_error(NGX_LOG_ERR, rev->log, NGX_ETIMEDOUT,
+            ngx_log_error(NGX_LOG_ERR, rev->log, 0,
                 "response buffer size too small");
-            ngx_http_call_error(ctx);
+            ngx_http_call_error(ctx, NGX_HTTP_CALL_BAD_GATEWAY);
             return;
         }
 
@@ -540,7 +567,7 @@ ngx_http_call_read_handler(ngx_event_t *rev)
             if (rc == NGX_ERROR) {
                 ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                     "ngx_http_call_read_handler: process failed");
-                ngx_http_call_error(ctx);
+                ngx_http_call_error(ctx, NGX_HTTP_CALL_BAD_GATEWAY);
                 return;
             }
 
@@ -553,7 +580,7 @@ ngx_http_call_read_handler(ngx_event_t *rev)
                 ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                     "ngx_http_call_read_handler: "
                     "ngx_handle_read_event failed");
-                ngx_http_call_error(ctx);
+                ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR);
             }
 
             return;
@@ -573,7 +600,7 @@ ngx_http_call_read_handler(ngx_event_t *rev)
 
     ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
         "ngx_http_call_read_handler: prematurely closed connection");
-    ngx_http_call_error(ctx);
+    ngx_http_call_error(ctx, NGX_HTTP_CALL_BAD_GATEWAY);
 }
 
 
@@ -589,6 +616,9 @@ static ngx_int_t
 ngx_http_call_create_request(ngx_http_call_ctx_t *ctx, ngx_http_call_init_t *ci)
 {
     u_char       *end;
+#if (NGX_DEBUG)
+    ngx_chain_t  *cl;
+#endif
 
     ctx->request = ci->create(ci->arg, ctx->pool, &ctx->request_body);
     if (ctx->request == NULL) {
@@ -596,6 +626,26 @@ ngx_http_call_create_request(ngx_http_call_ctx_t *ctx, ngx_http_call_init_t *ci)
             "ngx_http_call_create_request: create failed");
         return NGX_ERROR;
     }
+
+#if (NGX_DEBUG)
+    for (cl = ctx->request; cl; cl = cl->next) {
+        if (cl->buf->pos != cl->buf->start) {
+            ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
+                "ngx_http_call_create_request: "
+                "request buffer pos is different from buffer start");
+            ngx_debug_point();
+        }
+    }
+
+    for (cl = ctx->request_body; cl; cl = cl->next) {
+        if (cl->buf->pos != cl->buf->start) {
+            ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
+                "ngx_http_call_create_request: "
+                "request buffer pos is different from buffer start");
+            ngx_debug_point();
+        }
+    }
+#endif
 
     ctx->orig_request = ctx->request;
     ctx->orig_request_body = ctx->request_body;
@@ -854,7 +904,7 @@ ngx_http_call_process_headers(ngx_http_call_ctx_t *ctx)
     ngx_log_debug0(NGX_LOG_DEBUG_EVENT, ctx->log, 0,
         "ngx_http_call_process_headers: called");
 
-    for (;; ) {
+    for ( ;; ) {
         rc = ngx_http_call_parse_header_line(ctx);
 
         if (rc == NGX_OK) {
@@ -1099,7 +1149,7 @@ ngx_http_call_process_body(ngx_http_call_ctx_t *ctx)
     ngx_log_debug0(NGX_LOG_DEBUG_EVENT, ctx->log, 0,
         "ngx_http_call_process_body: called");
 
-    if (ctx->code == 100 && ctx->request_body &&         // NGX_HTTP_CONTINUE
+    if (ctx->code == 100 && ctx->request_body &&     /* NGX_HTTP_CONTINUE */
         cc->write->handler == ngx_http_call_dummy_handler) {
         ctx->process = ngx_http_call_process_status_line;
         ctx->state = 0;
@@ -1113,7 +1163,10 @@ ngx_http_call_process_body(ngx_http_call_ctx_t *ctx)
         ctx->log->action = "sending request body to upstream";
 
         cc->write->handler = ngx_http_call_body_write_handler;
-        ngx_http_call_body_write_handler(cc->write);
+        if (ngx_http_call_write_request_body(ctx) == NGX_ERROR) {
+            return NGX_ERROR;
+        }
+
         return NGX_AGAIN;
     }
 

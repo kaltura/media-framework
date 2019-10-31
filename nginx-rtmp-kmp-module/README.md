@@ -224,8 +224,8 @@ Sets the number of buffers that are retained after received acks from the upstre
 
 Sets the size of the buffers used to send video data to the upstream server. A large value can be more efficient, but increases the latency (a buffer is sent only when full).
 
-#### kmp_video_memory_limit
-* **syntax**: `kmp_video_memory_limit size`
+#### kmp_video_mem_limit
+* **syntax**: `kmp_video_mem_limit size`
 * **default**: `16m`
 * **context**: `rtmp`, `server`, `application`
 
@@ -238,12 +238,20 @@ Sets the maximum total size of the buffers used to send video data to the upstre
 
 Sets the size of the buffers used to send audio data to the upstream server. A large value can be more efficient, but increases the latency (a buffer is sent only when full).
 
-#### kmp_audio_memory_limit
-* **syntax**: `kmp_audio_memory_limit size`
+#### kmp_audio_mem_limit
+* **syntax**: `kmp_audio_mem_limit size`
 * **default**: `16m`
 * **context**: `rtmp`, `server`, `application`
 
 Sets the maximum total size of the buffers used to send audio data to the upstream server. If the limit is hit, the module drops the RTMP connection.
+
+#### kmp_flush_timeout
+* **syntax**: `kmp_flush_timeout time`
+* **default**: `1s`
+* **context**: `rtmp`, `server`, `application`
+
+Sets the timeout for flushing buffered data to the upstream KMP server.
+KMP data is kept in buffers of size kmp_xxx_buffer_size, a buffer is sent when it becomes full, or when the flush timeout expires.
 
 #### rtmp_kmp_api
 * **syntax**: `rtmp_kmp_api [write=on|off]`

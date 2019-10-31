@@ -19,7 +19,7 @@ enum {
     NGX_KMP_TRACK_PARAM_COUNT
 };
 
-static json_object_key_def_t  ngx_kmp_track_json_params[] = {
+static ngx_json_object_key_def_t  ngx_kmp_track_json_params[] = {
     { ngx_string("channel_id"),  NGX_JSON_STRING,  NGX_KMP_TRACK_CHANNEL_ID },
     { ngx_string("track_id"),    NGX_JSON_STRING,  NGX_KMP_TRACK_TRACK_ID },
     { ngx_string("upstreams"),   NGX_JSON_ARRAY,   NGX_KMP_TRACK_UPSTREAMS },
@@ -74,9 +74,13 @@ ngx_kmp_push_track_init_conf(ngx_kmp_push_track_conf_t *conf)
     conf->timeout = NGX_CONF_UNSET_MSEC;
     conf->max_free_buffers = NGX_CONF_UNSET_UINT;
     conf->video_buffer_size = NGX_CONF_UNSET_SIZE;
-    conf->video_memory_limit = NGX_CONF_UNSET_SIZE;
+    conf->video_mem_limit = NGX_CONF_UNSET_SIZE;
     conf->audio_buffer_size = NGX_CONF_UNSET_SIZE;
-    conf->audio_memory_limit = NGX_CONF_UNSET_SIZE;
+    conf->audio_mem_limit = NGX_CONF_UNSET_SIZE;
+    conf->flush_timeout = NGX_CONF_UNSET_MSEC;
+
+    conf->republish_interval = NGX_CONF_UNSET;
+    conf->max_republishes = NGX_CONF_UNSET_UINT;
 }
 
 void
@@ -117,14 +121,22 @@ ngx_kmp_push_track_merge_conf(ngx_kmp_push_track_conf_t *conf,
     ngx_conf_merge_size_value(conf->video_buffer_size,
                               prev->video_buffer_size, 64 * 1024);
 
-    ngx_conf_merge_size_value(conf->video_memory_limit,
-                              prev->video_memory_limit, 16 * 1024 * 1024);
+    ngx_conf_merge_size_value(conf->video_mem_limit,
+                              prev->video_mem_limit, 16 * 1024 * 1024);
 
     ngx_conf_merge_size_value(conf->audio_buffer_size,
                               prev->audio_buffer_size, 4 * 1024);
 
-    ngx_conf_merge_size_value(conf->audio_memory_limit,
-                              prev->audio_memory_limit, 1 * 1024 * 1024);
+    ngx_conf_merge_size_value(conf->audio_mem_limit,
+                              prev->audio_mem_limit, 1 * 1024 * 1024);
+
+    ngx_conf_merge_msec_value(conf->flush_timeout, prev->flush_timeout, 1000);
+
+    ngx_conf_merge_value(conf->republish_interval,
+                         prev->republish_interval, 1);
+
+    ngx_conf_merge_uint_value(conf->max_republishes,
+                              prev->max_republishes, 10);
 }
 
 ngx_http_call_ctx_t *
@@ -202,9 +214,9 @@ ngx_kmp_push_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
     ngx_str_t                         channel_id;
     ngx_str_t                         track_id;
 
-    // parse and validate the json
-    if (ngx_kmp_push_parse_json_response(temp_pool, code, content_type, body,
-            &json) != NGX_OK) {
+    /* parse and validate the json */
+    if (ngx_kmp_push_parse_json_response(temp_pool, &track->log, code,
+        content_type, body, &json) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_kmp_push_publish_handle: parse response failed");
         goto retry;
@@ -245,7 +257,7 @@ ngx_kmp_push_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
         goto retry;
     }
 
-    // init the header
+    /* init the header */
     header = &track->connect;
     header->header.packet_type = KMP_PACKET_CONNECT;
     header->header.header_size = sizeof(*header);
@@ -257,7 +269,7 @@ ngx_kmp_push_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
     track->track_id.data = header->track_id;
     track->track_id.len = track_id.len;
 
-    // create the upstreams
+    /* create the upstreams */
     if (upstreams->count == 0) {
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
             "ngx_kmp_push_publish_handle: no upstreams");
@@ -418,6 +430,10 @@ ngx_kmp_push_track_unpublish(ngx_kmp_push_track_t *track)
 static void
 ngx_kmp_push_track_cleanup(ngx_kmp_push_track_t *track)
 {
+    if (track->flush.timer_set) {
+        ngx_del_timer(&track->flush);
+    }
+
     if (!ngx_queue_empty(&track->upstreams)) {
         return;
     }
@@ -436,7 +452,8 @@ ngx_kmp_push_track_cleanup(ngx_kmp_push_track_t *track)
 void
 ngx_kmp_push_track_error(ngx_kmp_push_track_t *track, char *code)
 {
-    ngx_uint_t  level;
+    ngx_uint_t                     level;
+    ngx_kmp_push_track_handler_pt  handler;
 
     level = track->state == NGX_KMP_TRACK_INACTIVE ? NGX_LOG_INFO :
         NGX_LOG_NOTICE;
@@ -454,9 +471,10 @@ ngx_kmp_push_track_error(ngx_kmp_push_track_t *track, char *code)
         return;
     }
 
-    if (track->handler) {
-        track->handler(track->ctx);
+    handler = track->handler;
+    if (handler) {
         track->handler = NULL;
+        handler(track->ctx);
     }
 }
 
@@ -507,10 +525,17 @@ ngx_kmp_push_track_detach(ngx_kmp_push_track_t *track, char *reason)
 static ngx_int_t
 ngx_kmp_push_track_append_all(ngx_kmp_push_track_t *track, ngx_flag_t *send)
 {
-    u_char                   *min_used_ptr = NULL;
-    uint64_t                  min_acked_frame_id = ULLONG_MAX;
+    u_char                   *min_used_ptr;
+    uint64_t                  min_acked_frame_id;
     ngx_queue_t              *q;
     ngx_kmp_push_upstream_t  *u;
+
+    if (track->active_buf.last <= track->active_buf.pos) {
+        return NGX_OK;
+    }
+
+    min_used_ptr = NULL;
+    min_acked_frame_id = ULLONG_MAX;
 
     for (q = ngx_queue_head(&track->upstreams);
         q != ngx_queue_sentinel(&track->upstreams);
@@ -534,6 +559,8 @@ ngx_kmp_push_track_append_all(ngx_kmp_push_track_t *track, ngx_flag_t *send)
             *send = 1;
         }
     }
+
+    track->active_buf.pos = track->active_buf.last;
 
     if (min_used_ptr != NULL) {
         ngx_buf_queue_free(&track->buf_queue, min_used_ptr);
@@ -566,6 +593,45 @@ ngx_kmp_push_track_send_all(ngx_kmp_push_track_t *track)
     return NGX_OK;
 }
 
+static ngx_int_t
+ngx_kmp_push_track_flush(ngx_kmp_push_track_t *track)
+{
+    ngx_flag_t  send = 0;
+
+    if (ngx_kmp_push_track_append_all(track, &send) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_kmp_push_track_send_end_of_stream: append failed");
+        return NGX_ERROR;
+    }
+
+    if (!send) {
+        return NGX_OK;
+    }
+
+    if (ngx_kmp_push_track_send_all(track) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_kmp_push_track_send_end_of_stream: send failed");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+static void
+ngx_kmp_push_track_flush_handler(ngx_event_t *ev)
+{
+    ngx_kmp_push_track_t  *track;
+
+    track = ev->data;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_KMP, &track->log, 0,
+        "ngx_kmp_push_track_flush_handler: called");
+
+    if (ngx_kmp_push_track_flush(track) != NGX_OK) {
+        ngx_kmp_push_track_error(track, "flush_failed");
+    }
+}
+
 ngx_int_t
 ngx_kmp_push_track_write_chain(ngx_kmp_push_track_t *track, ngx_chain_t *in,
     u_char *p)
@@ -573,8 +639,9 @@ ngx_kmp_push_track_write_chain(ngx_kmp_push_track_t *track, ngx_chain_t *in,
     size_t       size;
     ngx_buf_t   *active_buf = &track->active_buf;
     ngx_flag_t   send = 0;
+    ngx_flag_t   appended = 0;
 
-    for (;;) {
+    for ( ;; ) {
 
         while (p >= in->buf->last) {
 
@@ -586,23 +653,36 @@ ngx_kmp_push_track_write_chain(ngx_kmp_push_track_t *track, ngx_chain_t *in,
                     if (ngx_kmp_push_track_send_all(track) != NGX_OK) {
                         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                             "ngx_kmp_push_track_write_chain: send failed");
-                        return NGX_ERROR;
+                        goto error;
                     }
                 }
+
+                if (!track->flush.timer_set || appended) {
+                    ngx_log_debug0(NGX_LOG_DEBUG_KMP, &track->log, 0,
+                        "ngx_kmp_push_track_write_chain: "
+                        "resetting flush timer");
+
+                    ngx_add_timer(&track->flush, track->conf->flush_timeout);
+                }
+
                 return NGX_OK;
             }
             p = in->buf->pos;
         }
 
+        size = ngx_min(active_buf->end - active_buf->last, in->buf->last - p);
+        active_buf->last = ngx_copy(active_buf->last, p, size);
+
+        p += size;
+
         if (active_buf->last >= active_buf->end) {
 
-            if (active_buf->last > active_buf->pos) {
+            appended = 1;
 
-                if (ngx_kmp_push_track_append_all(track, &send) != NGX_OK) {
-                    ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                        "ngx_kmp_push_track_write_chain: append failed");
-                    return NGX_ERROR;
-                }
+            if (ngx_kmp_push_track_append_all(track, &send) != NGX_OK) {
+                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                    "ngx_kmp_push_track_write_chain: append failed");
+                goto error;
             }
 
             active_buf->start = ngx_buf_queue_get(&track->buf_queue);
@@ -610,19 +690,19 @@ ngx_kmp_push_track_write_chain(ngx_kmp_push_track_t *track, ngx_chain_t *in,
                 ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                     "ngx_kmp_push_track_write_chain: "
                     "ngx_buf_queue_get failed");
-                return NGX_ERROR;
+                goto error;
             }
 
             active_buf->end = active_buf->start + track->buf_queue.used_size;
 
             active_buf->pos = active_buf->last = active_buf->start;
         }
-
-        size = ngx_min(active_buf->end - active_buf->last, in->buf->last - p);
-        active_buf->last = ngx_copy(active_buf->last, p, size);
-
-        p += size;
     }
+
+error:
+
+    track->write_error = 1;
+    return NGX_ERROR;
 }
 
 ngx_int_t
@@ -644,9 +724,14 @@ static ngx_int_t
 ngx_kmp_push_track_send_end_of_stream(ngx_kmp_push_track_t *track)
 {
     kmp_packet_header_t       header;
-    ngx_flag_t                send;
     ngx_queue_t              *q;
     ngx_kmp_push_upstream_t  *u;
+
+    if (track->write_error) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_kmp_push_track_send_end_of_stream: error state");
+        return NGX_ERROR;
+    }
 
     track->state = NGX_KMP_TRACK_INACTIVE;
 
@@ -670,23 +755,8 @@ ngx_kmp_push_track_send_end_of_stream(ngx_kmp_push_track_t *track)
         u->sent_end = 1;
     }
 
-    // flush
-    if (track->active_buf.last > track->active_buf.pos) {
-
-        send = 0;
-        if (ngx_kmp_push_track_append_all(track, &send) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_kmp_push_track_send_end_of_stream: append failed");
-            return NGX_ERROR;
-        }
-
-        if (send) {
-            if (ngx_kmp_push_track_send_all(track) != NGX_OK) {
-                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                    "ngx_kmp_push_track_send_end_of_stream: send failed");
-                return NGX_ERROR;
-            }
-        }
+    if (ngx_kmp_push_track_flush(track) != NGX_OK) {
+        return NGX_ERROR;
     }
 
     return NGX_OK;
@@ -729,14 +799,13 @@ ngx_kmp_push_track_create(ngx_kmp_push_track_conf_t *conf,
         return NULL;
     }
 
-    track = ngx_palloc(pool, sizeof(*track));
+    track = ngx_pcalloc(pool, sizeof(*track));
     if (track == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_kmp_push_track_create: ngx_palloc failed");
         ngx_destroy_pool(pool);
         return NULL;
     }
-    ngx_memzero(track, sizeof(*track));
 
     track->log = *ngx_cycle->log;
     pool->log = &track->log;
@@ -746,15 +815,18 @@ ngx_kmp_push_track_create(ngx_kmp_push_track_conf_t *conf,
     track->log.action = NULL;
 
     if (media_type == KMP_MEDIA_VIDEO) {
-        track->memory_limit = conf->video_memory_limit;
+        track->mem_limit = conf->video_mem_limit;
         buffer_size = conf->video_buffer_size;
+
     } else {
-        track->memory_limit = conf->audio_memory_limit;
+        track->mem_limit = conf->audio_mem_limit;
         buffer_size = conf->audio_buffer_size;
     }
 
+    track->mem_left = track->mem_limit;
+
     if (ngx_buf_queue_init(&track->buf_queue, pool->log, buffer_size,
-        conf->max_free_buffers, &track->memory_limit) != NGX_OK) {
+        conf->max_free_buffers, &track->mem_left) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_kmp_push_track_create: ngx_buf_queue_init failed");
         ngx_destroy_pool(pool);
@@ -768,6 +840,10 @@ ngx_kmp_push_track_create(ngx_kmp_push_track_conf_t *conf,
     track->conf = conf;
     track->timescale = conf->timescale;
     track->connect.initial_frame_id = ngx_kmp_push_track_get_time(track);
+
+    track->flush.handler = ngx_kmp_push_track_flush_handler;
+    track->flush.data = track;
+    track->flush.log = &track->log;
 
     return track;
 }

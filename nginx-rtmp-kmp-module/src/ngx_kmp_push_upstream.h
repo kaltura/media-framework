@@ -12,8 +12,12 @@
 typedef struct {
     ngx_peer_connection_t      peer;
     u_char                     sockaddr_buf[NGX_SOCKADDRLEN];
-    u_char                     addr_text_buf[NGX_SOCKADDR_STRLEN];
-    ngx_str_t                  addr_text;
+
+    u_char                     remote_addr_buf[NGX_SOCKADDR_STRLEN];
+    ngx_str_t                  remote_addr;
+
+    u_char                     local_addr_buf[NGX_SOCKADDR_STRLEN];
+    ngx_str_t                  local_addr;
 
     ngx_str_t                  id;
     ngx_queue_t                queue;
@@ -22,6 +26,10 @@ typedef struct {
     ngx_log_t                  log;
     ngx_pool_t                *pool;
     ngx_msec_t                 timeout;
+
+    ngx_event_t                republish;
+    time_t                     republish_time;
+    ngx_uint_t                 republishes;
 
     ngx_chain_t              **last;
     ngx_chain_t               *free;
