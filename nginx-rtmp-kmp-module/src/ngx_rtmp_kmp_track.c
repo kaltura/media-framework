@@ -11,7 +11,7 @@
 #include "ngx_rtmp_kmp_track_json.h"
 
 
-// RTMP definitions
+/* RTMP definitions */
 #define NGX_RTMP_AAC_SEQUENCE_HEADER     (0)
 #define NGX_RTMP_AAC_RAW                 (1)
 
@@ -132,14 +132,14 @@ ngx_rtmp_kmp_track_create(
         return NULL;
     }
 
-    // init ctx
+    /* init ctx */
     ngx_memzero(ctx, sizeof(*ctx));
     ctx->s = s;
 
     track->ctx = ctx;
     track->handler = ngx_rtmp_kmp_track_error;
 
-    // set the input id
+    /* set the input id */
     track->input_id.data = (void*)(ctx + 1);
 
     p = ngx_copy(track->input_id.data, s->tc_url.data, s->tc_url.len);
@@ -151,7 +151,7 @@ ngx_rtmp_kmp_track_create(
 
     track->input_id.len = p - track->input_id.data;
 
-    // publish
+    /* publish */
     writer.get_size = ngx_rtmp_kmp_publish_get_size;
     writer.write = ngx_rtmp_kmp_publish_write;
     writer.arg = create_ctx;
@@ -182,10 +182,12 @@ ngx_rtmp_kmp_track_write_media_info(ngx_kmp_push_track_t *track,
     media_info.m.media_type = track->media_type;
     media_info.m.timescale = track->timescale;
 
+    ngx_memzero(&media_info.m.u, sizeof(media_info.m.u));
+
     switch (track->media_type) {
 
     case KMP_MEDIA_VIDEO:
-        // KMP video codec ids match NGX_RTMP_VIDEO_XXX
+        /* KMP video codec ids match NGX_RTMP_VIDEO_XXX */
         media_info.m.codec_id = codec_ctx->video_codec_id;
         media_info.m.bitrate = codec_ctx->video_data_rate * 1000;
 
@@ -199,13 +201,13 @@ ngx_rtmp_kmp_track_write_media_info(ngx_kmp_push_track_t *track,
         break;
 
     case KMP_MEDIA_AUDIO:
-        // KMP audio codec ids match NGX_RTMP_AUDIO_XXX + base
+        /* KMP audio codec ids match NGX_RTMP_AUDIO_XXX + base */
         media_info.m.codec_id = NGX_RTMP_KMP_AUDIO_CODEC_BASE +
             codec_ctx->audio_codec_id;
         media_info.m.bitrate = codec_ctx->audio_data_rate * 1000;
 
         media_info.m.u.audio.sample_rate = codec_ctx->sample_rate;
-        media_info.m.u.audio.bits_per_sample = codec_ctx->sample_size;
+        media_info.m.u.audio.bits_per_sample = codec_ctx->sample_size * 8;
         media_info.m.u.audio.channels = codec_ctx->audio_channels;
         break;
     }
@@ -233,7 +235,7 @@ ngx_rtmp_kmp_copy(ngx_log_t *log, void *dst, u_char **src, size_t n,
         return NGX_ERROR;
     }
 
-    for (;;) {
+    for ( ;; ) {
         last = (*in)->buf->last;
 
         if ((size_t)(last - *src) >= n) {
@@ -357,17 +359,17 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_push_track_t *track,
         return NGX_OK;
     }
 
-    // created
+    /* created */
     frame->f.created = ngx_kmp_push_track_get_time(track);
 
-    // dts
+    /* dts */
     if (!ctx->timestamps_synced) {
         ctx->timestamps_synced = 1;
         ctx->timestamp = h->timestamp;
         ctx->last_timestamp = h->timestamp;
     }
     else {
-        // handle 32 bit wrap around
+        /* handle 32 bit wrap around */
         ctx->timestamp += (int32_t)h->timestamp - ctx->last_timestamp;
         ctx->last_timestamp = h->timestamp;
     }
@@ -377,10 +379,27 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_push_track_t *track,
     return NGX_OK;
 }
 
+#if (NGX_DEBUG)
+static size_t
+ngx_rtmp_kmp_get_chain_size(ngx_chain_t *in)
+{
+    size_t  result = 0;
+
+    for (; in; in = in->next) {
+        result += in->buf->last - in->buf->pos;
+    }
+
+    return result;
+}
+#endif
+
 ngx_int_t
 ngx_rtmp_kmp_track_av(ngx_kmp_push_track_t *track, ngx_rtmp_header_t *h,
     ngx_chain_t *in)
 {
+#if (NGX_DEBUG)
+    size_t                     size;
+#endif
     u_char                    *p;
     ngx_flag_t                 sequence_header;
     kmp_frame_packet_t         frame;
@@ -390,6 +409,17 @@ ngx_rtmp_kmp_track_av(ngx_kmp_push_track_t *track, ngx_rtmp_header_t *h,
     if (track->state == NGX_KMP_TRACK_INACTIVE) {
         return NGX_OK;
     }
+
+#if (NGX_DEBUG)
+    size = ngx_rtmp_kmp_get_chain_size(in);
+    if (size != h->mlen) {
+        ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
+            "ngx_rtmp_kmp_track_av: "
+            "chain size %uz doesn't match packet size %uD",
+            size, h->mlen);
+        return NGX_ERROR;
+    }
+#endif
 
     ctx = track->ctx;
     p = in->buf->pos;
@@ -427,9 +457,9 @@ ngx_rtmp_kmp_track_av(ngx_kmp_push_track_t *track, ngx_rtmp_header_t *h,
 
     if (!sequence_header) {
         ngx_log_debug6(NGX_LOG_DEBUG_KMP, &track->log, 0,
-            "ngx_rtmp_kmp_track_av: mediaType=%ui, created=%L, size=%uD, "
-            "dts=%L, flags=%uD, ptsDelay=%uD",
-            track->media_type, frame.f.created, frame.header.data_size,
+            "ngx_rtmp_kmp_track_av: input: %V, created: %L, size: %uD, "
+            "dts: %L, flags: %uD, ptsDelay: %uD",
+            &track->input_id, frame.f.created, frame.header.data_size,
             frame.f.dts, frame.f.flags, frame.f.pts_delay);
 
         if (ngx_kmp_push_track_write(track, (u_char*)&frame, sizeof(frame))

@@ -12,7 +12,7 @@
 #define NGX_RTMP_TIMESCALE   (1000)
 
 
-// Note: an ngx_str_t version of ngx_rtmp_publish_t
+/* Note: an ngx_str_t version of ngx_rtmp_publish_t */
 typedef struct {
     ngx_str_t                name;
     ngx_str_t                args;

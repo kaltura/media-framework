@@ -139,14 +139,18 @@ ngx_http_api_body_handler(ngx_http_request_t *r)
     ctx = ngx_http_get_module_ctx(r, ngx_http_api_module);
 
     rc = ctx->handler(r, ctx->params, &json);
-    if (rc != NGX_OK) {
+    if (rc >= NGX_HTTP_OK && rc < NGX_HTTP_SPECIAL_RESPONSE) {
+        status = rc;
+
+    } else if (rc == NGX_OK) {
+        status = NGX_HTTP_NO_CONTENT;
+
+    } else {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_api_body_handler: handler failed %i", rc);
         goto done;
     }
 
-    status = r->method == NGX_HTTP_POST ? NGX_HTTP_CREATED :
-        NGX_HTTP_NO_CONTENT;
     response.len = 0;
     rc = ngx_http_api_send_response(r, status, &response);
 
@@ -235,6 +239,9 @@ ngx_http_api_handler(ngx_http_request_t *r, ngx_http_api_route_node_t *root)
     ngx_http_api_route_node_t           *node;
     ngx_http_api_route_handler_pt        handler;
     ngx_http_api_route_data_handler_pt   data_handler;
+
+    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+        "ngx_http_api_handler: called");
 
     node = ngx_http_api_get_route_node(r, root, params, &param_count);
     if (node == NULL) {
@@ -340,35 +347,57 @@ ngx_http_api_handler(ngx_http_request_t *r, ngx_http_api_route_node_t *root)
 }
 
 char *
-ngx_http_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf,
-    ngx_http_handler_pt handler, ngx_http_handler_pt ro_handler)
+ngx_http_api_parse_options(ngx_conf_t *cf, ngx_http_api_options_t *options)
 {
-    ngx_http_core_loc_conf_t *clcf;
-    ngx_uint_t                   i;
-    ngx_str_t                   *value;
-    u_char                      *s;
+    u_char                    *s;
+    ngx_str_t                 *value;
+    ngx_uint_t                 i;
 
     value = cf->args->elts;
 
-    clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
-    clcf->handler = ro_handler;
     for (i = 1; i < cf->args->nelts; i++) {
 
         if (ngx_strncmp(value[i].data, "write=", 6) == 0) {
 
             s = &value[i].data[6];
             if (ngx_strcmp(s, "on") == 0) {
-                clcf->handler = handler;
+                options->write = 1;
+
+            } else if (ngx_strcmp(s, "off") == 0) {
+                options->write = 0;
+
+            } else {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                    "invalid parameter: %V", &value[i]);
+                return NGX_CONF_ERROR;
+            }
+
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "upsert=", 7) == 0) {
+
+            s = &value[i].data[7];
+            if (ngx_strcmp(s, "on") == 0) {
+                options->upsert = 1;
+
             }
             else if (ngx_strcmp(s, "off") == 0) {
-                clcf->handler = ro_handler;
+                options->upsert = 0;
+
             }
             else {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                     "invalid parameter: %V", &value[i]);
                 return NGX_CONF_ERROR;
             }
+
+            continue;
         }
+
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "invalid parameter \"%V\"", &value[i]);
+        return NGX_CONF_ERROR;
     }
 
     return NGX_CONF_OK;

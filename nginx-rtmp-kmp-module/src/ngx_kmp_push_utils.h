@@ -22,7 +22,7 @@ ngx_chain_t *ngx_kmp_push_copy_chain(ngx_pool_t *pool, ngx_chain_t *src);
 ngx_chain_t *ngx_kmp_push_format_json_http_request(ngx_pool_t *pool,
     ngx_str_t *host, ngx_str_t *uri, ngx_chain_t *body);
 
-ngx_int_t ngx_kmp_push_parse_json_response(ngx_pool_t *pool,
+ngx_int_t ngx_kmp_push_parse_json_response(ngx_pool_t *pool, ngx_log_t *log,
     ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *body,
     ngx_json_value_t *json);
 

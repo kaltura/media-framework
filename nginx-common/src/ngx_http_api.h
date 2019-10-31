@@ -30,10 +30,17 @@ struct ngx_http_api_route_child_s {
 };
 
 
+typedef struct {
+    unsigned    write:1;
+    unsigned  upsert:1;
+} ngx_http_api_options_t;
+
+
 ngx_int_t ngx_http_api_handler(ngx_http_request_t *r,
     ngx_http_api_route_node_t *root);
 
-char *ngx_http_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf,
-    ngx_http_handler_pt handler, ngx_http_handler_pt ro_handler);
+char *ngx_http_api_parse_options(ngx_conf_t *cf,
+    ngx_http_api_options_t *options);
+
 
 #endif /* _NGX_HTTP_API_H_INCLUDED_ */

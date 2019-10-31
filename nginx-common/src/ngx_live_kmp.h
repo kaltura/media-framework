@@ -6,7 +6,7 @@
 #include <ngx_core.h>
 
 
-// constants
+/* constants */
 #define KMP_MAX_CHANNEL_ID_LEN  (32)
 #define KMP_MAX_TRACK_ID_LEN    (32)
 
@@ -15,16 +15,16 @@
 
 #define KMP_FRAME_FLAG_KEY      (0x01)
 
-// enums
+/* enums */
 enum {
-    // client -> server
-    KMP_PACKET_CONNECT              = 0x74636e63,   // cnct
-    KMP_PACKET_MEDIA_INFO           = 0x666e696d,   // minf
-    KMP_PACKET_FRAME                = 0x6d617266,   // fram
-    KMP_PACKET_END_OF_STREAM        = 0x74736f65,   // eost
+    /* client -> server */
+    KMP_PACKET_CONNECT              = 0x74636e63,   /* cnct */
+    KMP_PACKET_MEDIA_INFO           = 0x666e696d,   /* minf */
+    KMP_PACKET_FRAME                = 0x6d617266,   /* fram */
+    KMP_PACKET_END_OF_STREAM        = 0x74736f65,   /* eost */
 
-    // server -> client
-    KMP_PACKET_ACK_FRAMES           = 0x666b6361,   // ackf
+    /* server -> client */
+    KMP_PACKET_ACK_FRAMES           = 0x666b6361,   /* ackf */
 };
 
 enum {
@@ -34,7 +34,7 @@ enum {
 };
 
 enum {
-    // aligns with NGX_RTMP_VIDEO_XXX
+    /* aligns with NGX_RTMP_VIDEO_XXX */
     KMP_CODEC_VIDEO_JPEG            = 1,
     KMP_CODEC_VIDEO_SORENSON_H263   = 2,
     KMP_CODEC_VIDEO_SCREEN          = 3,
@@ -43,7 +43,7 @@ enum {
     KMP_CODEC_VIDEO_SCREEN2         = 6,
     KMP_CODEC_VIDEO_H264            = 7,
 
-    // NGX_RTMP_AUDIO_XXX + 1000
+    /* NGX_RTMP_AUDIO_XXX + 1000 */
     KMP_CODEC_AUDIO_UNCOMPRESSED    = 1016,
     KMP_CODEC_AUDIO_ADPCM           = 1001,
     KMP_CODEC_AUDIO_MP3             = 1002,
@@ -60,7 +60,7 @@ enum {
 };
 
 
-// basic types
+/* basic types */
 typedef struct {
     uint32_t             num;
     uint32_t             denom;
@@ -83,8 +83,8 @@ typedef struct kmp_media_info_s kmp_media_info_t;
 struct kmp_media_info_s {
     uint32_t             media_type;
     uint32_t             codec_id;
-    uint32_t             timescale;     // currently hardcoded to 90k
-    uint32_t             bitrate;       // bps
+    uint32_t             timescale;     /* currently hardcoded to 90k */
+    uint32_t             bitrate;       /* bps */
     union {
         kmp_video_media_info_t  video;
         kmp_audio_media_info_t  audio;
@@ -98,7 +98,7 @@ typedef struct {
     uint32_t             pts_delay;
 } kmp_frame_t;
 
-// packets
+/* packets */
 typedef struct {
     uint32_t             packet_type;
     uint32_t             header_size;

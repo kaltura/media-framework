@@ -2,9 +2,10 @@
 #include <ngx_core.h>
 #include "ngx_buf_queue.h"
 
+
 ngx_int_t
 ngx_buf_queue_init(ngx_buf_queue_t *buf_queue, ngx_log_t *log,
-    size_t buffer_size, ngx_uint_t max_free_buffers, size_t *memory_limit)
+    size_t buffer_size, ngx_uint_t max_free_buffers, size_t *mem_left)
 {
     if (buffer_size <= sizeof(ngx_buf_queue_node_t)) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -19,7 +20,9 @@ ngx_buf_queue_init(ngx_buf_queue_t *buf_queue, ngx_log_t *log,
     buf_queue->used_tail = &buf_queue->used_head;
     buf_queue->free = NULL;
     buf_queue->free_left = max_free_buffers;
-    buf_queue->memory_limit = memory_limit;
+    buf_queue->mem_left = mem_left;
+    buf_queue->nbuffers = 0;
+
     return NGX_OK;
 }
 
@@ -28,8 +31,6 @@ ngx_buf_queue_delete(ngx_buf_queue_t *buf_queue)
 {
     ngx_buf_queue_node_t  *node;
     ngx_buf_queue_node_t  *next;
-
-    // Note: not bothering to update memory_limit in this case
 
     for (node = buf_queue->free; node != NULL; node = next) {
         next = ngx_buf_queue_next(node);
@@ -42,6 +43,17 @@ ngx_buf_queue_delete(ngx_buf_queue_t *buf_queue)
         ngx_free(node);
     }
     buf_queue->used_head = NULL;
+
+    if (buf_queue->mem_left != NULL) {
+        *buf_queue->mem_left += buf_queue->alloc_size * buf_queue->nbuffers;
+    }
+    buf_queue->nbuffers = 0;
+}
+
+void
+ngx_buf_queue_detach(ngx_buf_queue_t *buf_queue)
+{
+    buf_queue->mem_left = NULL;
 }
 
 u_char*
@@ -55,7 +67,8 @@ ngx_buf_queue_get(ngx_buf_queue_t *buf_queue)
         buf_queue->free_left++;
 
     } else {
-        if (*buf_queue->memory_limit < buf_queue->alloc_size) {
+
+        if (*buf_queue->mem_left < buf_queue->alloc_size) {
             ngx_log_error(NGX_LOG_ERR, buf_queue->log, 0,
                 "ngx_buf_queue_get: memory limit exceeded");
             return NULL;
@@ -68,7 +81,8 @@ ngx_buf_queue_get(ngx_buf_queue_t *buf_queue)
             return NULL;
         }
 
-        *buf_queue->memory_limit -= buf_queue->alloc_size;
+        *buf_queue->mem_left -= buf_queue->alloc_size;
+        buf_queue->nbuffers++;
     }
 
     *buf_queue->used_tail = result;
@@ -84,27 +98,48 @@ ngx_buf_queue_free(ngx_buf_queue_t *buf_queue, u_char *limit)
     ngx_buf_queue_node_t  *next;
     ngx_buf_queue_node_t  *cur;
 
-    for (cur = ngx_buf_queue_head(buf_queue); cur != NULL; cur = next) {
+    cur = ngx_buf_queue_head(buf_queue);
+    if (cur == NULL) {
+        if (limit != NULL) {
+            ngx_log_error(NGX_LOG_ALERT, buf_queue->log, 0,
+                "ngx_buf_queue_free: called when empty");
+            ngx_debug_point();
+        }
+        return;
+    }
+
+    for ( ;; ) {
 
         if (limit >= ngx_buf_queue_start(cur) &&
             limit < ngx_buf_queue_end(buf_queue, cur)) {
-            break;      // the buffer contains the given ptr, stop
+            break;  /* the buffer contains the given ptr, stop */
         }
 
         next = ngx_buf_queue_next(cur);
         if (next == NULL) {
-            break;      // don't free the last buffer, may be used for reading
+            if (limit != NULL) {
+                ngx_log_error(NGX_LOG_ALERT, buf_queue->log, 0,
+                    "ngx_buf_queue_free: limit not found in queue");
+                ngx_debug_point();
+            }
+            break;  /* don't free the last buffer, may be used for reading */
         }
 
         if (buf_queue->free_left <= 0) {
             ngx_free(cur);
-            *buf_queue->memory_limit += buf_queue->alloc_size;
-            continue;
+            if (buf_queue->mem_left != NULL) {
+                *buf_queue->mem_left += buf_queue->alloc_size;
+            }
+            buf_queue->nbuffers--;
+
+        } else {
+
+            cur->next = buf_queue->free;
+            buf_queue->free = cur;
+            buf_queue->free_left--;
         }
 
-        cur->next = buf_queue->free;
-        buf_queue->free = cur;
-        buf_queue->free_left--;
+        cur = next;
     }
 
     buf_queue->used_head = cur;

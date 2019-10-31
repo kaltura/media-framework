@@ -32,7 +32,7 @@ enum {
     NGX_KMP_UPSTREAM_PARAM_COUNT
 };
 
-static json_object_key_def_t  ngx_kmp_upstream_json_params[] = {
+static ngx_json_object_key_def_t  ngx_kmp_upstream_json_params[] = {
     { ngx_string("url"),       NGX_JSON_STRING,  NGX_KMP_UPSTREAM_URL },
     { ngx_string("id"),        NGX_JSON_STRING,  NGX_KMP_UPSTREAM_ID },
     { ngx_string("auto_ack"),  NGX_JSON_BOOL,    NGX_KMP_UPSTREAM_AUTO_ACK },
@@ -133,15 +133,15 @@ ngx_kmp_push_upstream_connect(ngx_kmp_push_upstream_t *u, ngx_addr_t *addr)
         return NGX_ERROR;
     }
 
-    u->addr_text.data = u->addr_text_buf;
-    u->addr_text.len = ngx_sock_ntop(addr->sockaddr, addr->socklen,
-        u->addr_text_buf, sizeof(u->addr_text_buf), 1);
+    u->remote_addr.data = u->remote_addr_buf;
+    u->remote_addr.len = ngx_sock_ntop(addr->sockaddr, addr->socklen,
+        u->remote_addr_buf, sizeof(u->remote_addr_buf), 1);
 
     u->peer.socklen = addr->socklen;
     u->peer.sockaddr = (void*)u->sockaddr_buf;
     ngx_memcpy(u->peer.sockaddr, addr->sockaddr, u->peer.socklen);
 
-    u->peer.name = &u->addr_text;
+    u->peer.name = &u->remote_addr;
     u->peer.get = ngx_event_get_peer;
     u->peer.log = &u->log;
     u->peer.log_error = NGX_ERROR_ERR;
@@ -149,8 +149,8 @@ ngx_kmp_push_upstream_connect(ngx_kmp_push_upstream_t *u, ngx_addr_t *addr)
     rc = ngx_event_connect_peer(&u->peer);
     if (rc != NGX_OK && rc != NGX_AGAIN) {
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
-            "ngx_kmp_push_upstream_connect: connect failed %i, addr=%V",
-            rc, &u->addr_text);
+            "ngx_kmp_push_upstream_connect: connect failed %i, addr: %V",
+            rc, &u->remote_addr);
         return NGX_ERROR;
     }
 
@@ -158,7 +158,7 @@ ngx_kmp_push_upstream_connect(ngx_kmp_push_upstream_t *u, ngx_addr_t *addr)
     c->data = u;
     c->pool = u->pool;
 
-    c->addr_text = u->addr_text;
+    c->addr_text = u->remote_addr;
 
     c->log->connection = c->number;
 
@@ -171,7 +171,7 @@ ngx_kmp_push_upstream_connect(ngx_kmp_push_upstream_t *u, ngx_addr_t *addr)
     u->recv_pos = (void*)&u->ack_frames;
 
     ngx_log_error(NGX_LOG_INFO, &u->log, 0,
-        "ngx_kmp_push_upstream_connect: connecting to %V", &u->addr_text);
+        "ngx_kmp_push_upstream_connect: connecting to %V", &u->remote_addr);
 
     if (rc == NGX_OK) {
         ngx_kmp_push_upstream_write_handler(c->write);
@@ -203,7 +203,7 @@ ngx_kmp_push_upstream_parse_url(ngx_pool_t *pool, ngx_json_value_t *value,
 
     ngx_memzero(url, sizeof(*url));
     url->url = url_str;
-    url->no_resolve = 1;    // accept only ips
+    url->no_resolve = 1;    /* accept only ips */
 
     if (ngx_parse_url(pool, url) != NGX_OK) {
         if (url->err) {
@@ -231,6 +231,10 @@ ngx_kmp_push_upstream_free(ngx_kmp_push_upstream_t *u)
 
     if (u->peer.connection) {
         ngx_close_connection(u->peer.connection);
+    }
+
+    if (u->republish.timer_set) {
+        ngx_del_timer(&u->republish);
     }
 
     ngx_queue_remove(&u->queue);
@@ -340,8 +344,8 @@ ngx_kmp_push_upstream_republish_handle(ngx_pool_t *temp_pool, void *arg,
     ngx_json_value_t                    json;
     ngx_url_t                           url;
 
-    if (ngx_kmp_push_parse_json_response(temp_pool, code, content_type,
-            body, &json) != NGX_OK) {
+    if (ngx_kmp_push_parse_json_response(temp_pool, &u->log, code,
+        content_type, body, &json) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
             "ngx_kmp_push_upstream_republish_handle: parse response failed");
         goto retry;
@@ -379,35 +383,13 @@ retry:
 }
 
 static ngx_int_t
-ngx_kmp_push_upstream_republish(ngx_kmp_push_upstream_t *u)
+ngx_kmp_push_upstream_republish_send(ngx_kmp_push_upstream_t *u)
 {
     ngx_url_t                          *url;
-    ngx_chain_t                        *cl;
     ngx_http_call_init_t                ci;
-    ngx_kmp_push_track_t               *track = u->track;
     ngx_kmp_push_republish_call_ctx_t   ctx;
 
-    if (track->state != NGX_KMP_TRACK_ACTIVE ||
-        track->conf->ctrl_republish_url == NULL ||
-        u->no_republish) {
-        return NGX_DECLINED;
-    }
-
-   // close the connection
-    u->log.connection = 0;
-    ngx_close_connection(u->peer.connection);
-    u->peer.connection = NULL;
-    u->addr_text.len = 0;
-
-    for (cl = u->busy; cl; cl = cl->next) {
-        cl->next = u->free;
-        u->free = cl;
-    }
-
-    u->busy = NULL;
-    u->sent_buffered = 0;
-
-    // send the request
+    /* send the request */
     url = u->track->conf->ctrl_republish_url;
 
     ctx.u = u;
@@ -434,6 +416,72 @@ ngx_kmp_push_upstream_republish(ngx_kmp_push_upstream_t *u)
         return NGX_ERROR;
     }
 
+    u->republish_time = ngx_time() + u->track->conf->republish_interval;
+
+    return NGX_OK;
+}
+
+static void
+ngx_kmp_push_upstream_republish_timer_handler(ngx_event_t *ev)
+{
+    ngx_kmp_push_upstream_t  *u = ev->data;
+
+    if (ngx_kmp_push_upstream_republish_send(u) != NGX_OK) {
+        ngx_kmp_push_upstream_free_notify(u);
+    }
+}
+
+static ngx_int_t
+ngx_kmp_push_upstream_republish(ngx_kmp_push_upstream_t *u)
+{
+    ngx_chain_t           *cl;
+    ngx_kmp_push_track_t  *track = u->track;
+
+    if (track->state != NGX_KMP_TRACK_ACTIVE) {
+        return NGX_DECLINED;
+    }
+
+    if (track->conf->ctrl_republish_url == NULL ||
+        u->no_republish) {
+        ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+            "ngx_kmp_push_upstream_republish: cannot republish");
+        return NGX_DECLINED;
+    }
+
+    /* close the connection */
+    u->log.connection = 0;
+    ngx_close_connection(u->peer.connection);
+    u->peer.connection = NULL;
+    u->remote_addr.len = 0;
+    u->local_addr.len = 0;
+
+    if (u->busy) {
+        for (cl = u->busy; cl->next; cl = cl->next);
+
+        cl->next = u->free;
+        u->free = u->busy;
+        u->busy = NULL;
+    }
+
+    u->sent_buffered = 0;
+
+    if (ngx_time() >= u->republish_time) {
+        u->republishes = 0;
+        return ngx_kmp_push_upstream_republish_send(u);
+    }
+
+    u->republishes++;
+    if (u->republishes > u->track->conf->max_republishes) {
+        ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+            "ngx_kmp_push_upstream_republish: republishes limit reached");
+        return NGX_DECLINED;
+    }
+
+    u->republish.handler = ngx_kmp_push_upstream_republish_timer_handler;
+    u->republish.data = u;
+    u->republish.log = &u->log;
+
+    ngx_add_timer(&u->republish, (u->republish_time - ngx_time()) * 1000);
     return NGX_OK;
 }
 
@@ -484,38 +532,38 @@ ngx_kmp_push_upstream_ack_packet(ngx_kmp_push_upstream_t *u,
         p = ngx_copy(p, kmp_header, sizeof(*kmp_header));
         if (ngx_buf_queue_reader_copy(&u->acked_reader, p,
             size - sizeof(*kmp_header)) == NULL) {
-            ngx_log_error(NGX_LOG_ERR, &u->log, 0,
+            ngx_log_error(NGX_LOG_ALERT, &u->log, 0,
                 "ngx_kmp_push_upstream_ack_packet: "
-                "failed to read packet, size=%uz", size);
+                "failed to read media info packet, size: %uz", size);
             return NGX_ERROR;
         }
 
         ngx_log_error(NGX_LOG_INFO, &u->log, 0,
-            "ngx_kmp_push_upstream_ack_packet: saved media info, size=%uz",
+            "ngx_kmp_push_upstream_ack_packet: saved media info, size: %uz",
             size);
         break;
 
     case KMP_PACKET_FRAME:
         if (ngx_buf_queue_reader_skip(&u->acked_reader,
                 size - sizeof(*kmp_header)) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, &u->log, 0,
+            ngx_log_error(NGX_LOG_ALERT, &u->log, 0,
                 "ngx_kmp_push_upstream_ack_packet: "
-                "failed to skip packet, size=%uz", size);
+                "failed to skip frame packet, size: %uz", size);
             return NGX_ERROR;
         }
 
-        ngx_log_debug1(NGX_LOG_DEBUG_KMP, &u->log, 0,
-            "ngx_kmp_push_upstream_ack_packet: acked frame %uL",
-            u->acked_frame_id);
+        ngx_log_debug2(NGX_LOG_DEBUG_KMP, &u->log, 0,
+            "ngx_kmp_push_upstream_ack_packet: acked_frame_id: %uL, size: %uz",
+            u->acked_frame_id, kmp_header->data_size);
 
         u->acked_frame_id++;
         break;
 
-    case KMP_PACKET_END_OF_STREAM:      // can happen in case of auto push
+    case KMP_PACKET_END_OF_STREAM:      /* can happen in case of auto push */
         return NGX_DONE;
 
     default:
-        ngx_log_error(NGX_LOG_ERR, &u->log, 0,
+        ngx_log_error(NGX_LOG_ALERT, &u->log, 0,
             "ngx_kmp_push_upstream_ack_packet: "
             "invalid packet type 0x%uxD", kmp_header->packet_type);
         return NGX_ERROR;
@@ -528,25 +576,33 @@ ngx_kmp_push_upstream_ack_packet(ngx_kmp_push_upstream_t *u,
 static ngx_int_t
 ngx_kmp_push_upstream_auto_ack(ngx_kmp_push_upstream_t *u)
 {
+    off_t                    sent;
     size_t                   size;
     ngx_int_t                rc;
     kmp_packet_header_t      kmp_header_buf;
     kmp_packet_header_t     *kmp_header;
     ngx_buf_queue_reader_t   reader;
 
-    for (;;) {
+    sent = u->sent_base + u->peer.connection->sent;
+
+    for ( ;; ) {
+
+        if (u->acked_bytes + (off_t)sizeof(kmp_header_buf) > sent) {
+            break;
+        }
 
         reader = u->acked_reader;
         kmp_header = ngx_buf_queue_reader_read(&u->acked_reader,
             &kmp_header_buf, sizeof(kmp_header_buf));
         if (kmp_header == NULL) {
-            u->acked_reader = reader;
-            break;
+            ngx_log_error(NGX_LOG_ALERT, &u->log, 0,
+                "ngx_kmp_push_upstream_auto_ack: read header failed");
+            u->no_republish = 1;
+            return NGX_ERROR;
         }
 
         size = kmp_header->header_size + kmp_header->data_size;
-        if (u->acked_bytes + (off_t)size >
-            u->sent_base + u->peer.connection->sent) {
+        if (u->acked_bytes + (off_t)size > sent) {
             u->acked_reader = reader;
             break;
         }
@@ -570,17 +626,35 @@ ngx_kmp_push_upstream_auto_ack(ngx_kmp_push_upstream_t *u)
 static ngx_int_t
 ngx_kmp_push_upstream_ack_frames(ngx_kmp_push_upstream_t *u)
 {
-    uint64_t              frame_id = u->ack_frames.frame_id;
+    off_t                 sent;
+    size_t                size;
+    uint64_t              frame_id;
     ngx_int_t             rc;
     kmp_packet_header_t   kmp_header_buf;
     kmp_packet_header_t  *kmp_header;
 
+    sent = u->sent_base + u->peer.connection->sent;
+    frame_id = u->ack_frames.frame_id;
+
     while (u->acked_frame_id < frame_id) {
+        if (u->acked_bytes + (off_t)sizeof(kmp_header_buf) > sent) {
+            ngx_log_error(NGX_LOG_ERR, &u->log, 0,
+                "ngx_kmp_push_upstream_ack_frames: packet header exceed sent");
+            goto failed;
+        }
+
         kmp_header = ngx_buf_queue_reader_read(&u->acked_reader,
             &kmp_header_buf, sizeof(kmp_header_buf));
         if (kmp_header == NULL) {
-            ngx_log_error(NGX_LOG_ERR, &u->log, 0,
+            ngx_log_error(NGX_LOG_ALERT, &u->log, 0,
                 "ngx_kmp_push_upstream_ack_frames: read packet header failed");
+            goto failed;
+        }
+
+        size = kmp_header->header_size + kmp_header->data_size;
+        if (u->acked_bytes + (off_t)size > sent) {
+            ngx_log_error(NGX_LOG_ERR, &u->log, 0,
+                "ngx_kmp_push_upstream_ack_frames: packet data exceed sent");
             goto failed;
         }
 
@@ -590,12 +664,6 @@ ngx_kmp_push_upstream_ack_frames(ngx_kmp_push_upstream_t *u)
                 "ngx_kmp_push_upstream_ack_frames: ack packet failed %i", rc);
             goto failed;
         }
-    }
-
-    if (u->acked_bytes > u->sent_base + u->peer.connection->sent) {
-        ngx_log_error(NGX_LOG_ERR, &u->log, 0,
-            "ngx_kmp_push_upstream_ack_frames: acked bytes exceed sent");
-        goto failed;
     }
 
     u->acked_offset = u->ack_frames.offset;
@@ -672,7 +740,7 @@ ngx_kmp_push_upstream_read_handler(ngx_event_t *rev)
 
     recv_end = (u_char*)&u->ack_frames + sizeof(u->ack_frames);
 
-    for (;; ) {
+    for ( ;; ) {
 
         n = ngx_recv(c, u->recv_pos, recv_end - u->recv_pos);
 
@@ -704,7 +772,7 @@ ngx_kmp_push_upstream_read_handler(ngx_event_t *rev)
         break;
     }
 
-    level = u->sent_end ? NGX_LOG_INFO : NGX_LOG_ERR;
+    level = u->sent_end ? NGX_LOG_INFO : NGX_LOG_NOTICE;
     ngx_log_error(level, &u->log, 0,
         "ngx_kmp_push_upstream_read_handler: upstream closed connection");
     ngx_kmp_push_upstream_error(u);
@@ -740,7 +808,7 @@ ngx_kmp_push_upstream_send_chain(ngx_kmp_push_upstream_t *u)
         return NGX_ERROR;
     }
 
-    // move sent buffers to free
+    /* move sent buffers to free */
     for (cl = u->busy; cl && cl != chain; cl = next) {
         next = cl->next;
 
@@ -793,6 +861,11 @@ ngx_kmp_push_upstream_send(ngx_kmp_push_upstream_t *u)
 {
     ngx_int_t  rc;
 
+    if (u->peer.connection == NULL) {
+        /* republish in progress */
+        return NGX_AGAIN;
+    }
+
     rc = ngx_kmp_push_upstream_send_chain(u);
     if (rc != NGX_ERROR) {
         return rc;
@@ -808,15 +881,24 @@ ngx_kmp_push_upstream_send(ngx_kmp_push_upstream_t *u)
 static ngx_int_t
 ngx_kmp_push_upstream_send_buffered(ngx_kmp_push_upstream_t *u)
 {
+    ngx_connection_t      *c;
     ngx_buf_queue_node_t  *cur;
     ngx_chain_t           *cl;
     ngx_pool_t            *pool = u->pool;
     u_char                *start;
     u_char                *end;
 
-    u->sent_base = u->acked_bytes - u->peer.connection->sent;
+    c = u->peer.connection;
+    u->sent_base = u->acked_bytes - c->sent;
 
-    // connect header
+    u->local_addr.len = NGX_SOCKADDR_STRLEN;
+    u->local_addr.data = u->local_addr_buf;
+
+    if (ngx_connection_local_sockaddr(c, &u->local_addr, 1) != NGX_OK) {
+        u->local_addr.len = 0;
+    }
+
+    /* connect header */
     u->connect = u->track->connect;
     u->connect.initial_frame_id = u->acked_frame_id;
     u->connect.initial_offset = u->acked_offset;
@@ -832,7 +914,7 @@ ngx_kmp_push_upstream_send_buffered(ngx_kmp_push_upstream_t *u)
 
     u->sent_base -= sizeof(u->connect);
 
-    // initial media info
+    /* initial media info */
     if (u->acked_media_info.last > u->acked_media_info.pos) {
         cl = ngx_kmp_push_alloc_chain_buf(pool, u->acked_media_info.pos,
             u->acked_media_info.last);
@@ -848,19 +930,22 @@ ngx_kmp_push_upstream_send_buffered(ngx_kmp_push_upstream_t *u)
         u->sent_base -= (u->acked_media_info.last - u->acked_media_info.pos);
     }
 
-    // media info / frames
-    for (cur = u->acked_reader.node; ; cur = ngx_buf_queue_next(cur)) {
+    /* media info / frames */
+    for (cur = u->acked_reader.node; cur; cur = ngx_buf_queue_next(cur)) {
 
         start = ngx_buf_queue_start(cur);
+
         if (start == u->track->active_buf.start) {
-            break;
+            end = u->track->active_buf.pos;
+
+        } else {
+            end = ngx_buf_queue_end(&u->track->buf_queue, cur);
         }
 
         if (cur == u->acked_reader.node) {
             start = u->acked_reader.start;
         }
 
-        end = ngx_buf_queue_end(&u->track->buf_queue, cur);
         if (start >= end) {
             continue;
         }

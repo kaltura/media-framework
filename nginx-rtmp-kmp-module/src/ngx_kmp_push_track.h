@@ -27,9 +27,13 @@ typedef struct {
     ngx_msec_t       timeout;
     ngx_uint_t       max_free_buffers;
     size_t           video_buffer_size;
-    size_t           video_memory_limit;
+    size_t           video_mem_limit;
     size_t           audio_buffer_size;
-    size_t           audio_memory_limit;
+    size_t           audio_mem_limit;
+    ngx_msec_t       flush_timeout;
+
+    time_t           republish_interval;
+    ngx_uint_t       max_republishes;
 } ngx_kmp_push_track_conf_t;
 
 

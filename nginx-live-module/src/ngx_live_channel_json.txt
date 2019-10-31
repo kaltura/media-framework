@@ -1,0 +1,29 @@
+static ngx_live_track_json ngx_live_track_t
+    time %i (ngx_current_msec - obj->start_msec)
+    connection %uA obj->input.connection
+    remote_addr %V obj->input.remote_addr
+    opaque %bs
+    - %func-ngx_live_core_json obj, obj->channel, NGX_LIVE_JSON_CTX_TRACK
+
+noobject ngx_live_tracks_json ngx_live_channel_t
+    - %objQueue-ngx_live_track_json,ngx_live_track_t,queue,sn.str obj->tracks_queue
+
+static ngx_live_variant_json ngx_live_variant_t
+    track_ids %objFunc-ngx_live_variant_json_track_ids obj
+    opaque %bs
+
+noobject ngx_live_variants_json ngx_live_channel_t
+    - %objQueue-ngx_live_variant_json,ngx_live_variant_t,queue,sn.str obj->variants_queue
+
+ngx_live_channel_json ngx_live_channel_t
+    - %code ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj, ngx_live_core_module);
+    opaque %bs
+    preset_name %V cpcf->name
+    mem_left %uz
+    mem_limit %uz cpcf->mem_limit
+    tracks %func-ngx_live_tracks_json obj
+    variants %func-ngx_live_variants_json obj
+    - %func-ngx_live_core_json obj, obj, NGX_LIVE_JSON_CTX_CHANNEL
+
+noobject ngx_live_channels_json void
+    - %objQueue-ngx_live_channel_json,ngx_live_channel_t,queue,sn.str ngx_live_channels.queue

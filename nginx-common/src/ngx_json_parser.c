@@ -7,7 +7,7 @@
 // constants
 #define NGX_JSON_MAX_ELEMENTS           (524288)
 #define NGX_JSON_MAX_RECURSION_DEPTH    (32)
-#define NGX_JSON_PART_FIRST_COUNT       (1)     // XXXXX increase this!
+#define NGX_JSON_PART_FIRST_COUNT       (5)
 #define NGX_JSON_PART_MAX_SIZE          (65536)
 
 
@@ -158,7 +158,7 @@ ngx_json_parse_string(ngx_json_parser_state_t *state, ngx_str_t *result)
 
     result->data = state->cur_pos;
 
-    for (;;) {
+    for ( ;; ) {
 
         c = *state->cur_pos;
         if (!c) {
@@ -201,7 +201,7 @@ ngx_json_parse_object_key(ngx_json_parser_state_t *state,
 
     result->key.data = state->cur_pos;
 
-    for (;;) {
+    for ( ;; ) {
 
         c = *state->cur_pos;
         if (!c) {
@@ -374,7 +374,7 @@ ngx_json_parse_array(ngx_json_parser_state_t *state, ngx_json_array_t *result)
     part->first = cur_item;
     part->last = (u_char*)cur_item + part_size;
 
-    for (;;) {
+    for ( ;; ) {
         if (result->count >= NGX_JSON_MAX_ELEMENTS) {
             ngx_snprintf(state->error, state->error_size,
                 "array elements count exceeds the limit%Z");
@@ -471,7 +471,7 @@ ngx_json_parse_object(ngx_json_parser_state_t *state,
         return NGX_JSON_ALLOC_FAILED;
     }
 
-    for (;;) {
+    for ( ;; ) {
         if (result->nelts >= NGX_JSON_MAX_ELEMENTS) {
             ngx_snprintf(state->error, state->error_size,
                 "object elements count exceeds the limit%Z");
@@ -761,11 +761,11 @@ ngx_json_decode_string(ngx_str_t *dest, ngx_str_t *src)
 
 void
 ngx_json_get_object_values(ngx_json_object_t *object,
-    json_object_key_def_t *key_defs, ngx_json_value_t **result)
+    ngx_json_object_key_def_t *key_defs, ngx_json_value_t **result)
 {
-    ngx_json_key_value_t   *cur_element = object->elts;
-    ngx_json_key_value_t   *last_element = cur_element + object->nelts;
-    json_object_key_def_t  *key_def;
+    ngx_json_key_value_t       *cur_element = object->elts;
+    ngx_json_key_value_t       *last_element = cur_element + object->nelts;
+    ngx_json_object_key_def_t  *key_def;
 
     for (; cur_element < last_element; cur_element++) {
 
@@ -841,9 +841,9 @@ void
 ngx_json_get_object_values(ngx_json_object_t *object, ngx_hash_t *values_hash,
     ngx_json_value_t **result)
 {
-    ngx_json_key_value_t   *cur_element = object->elts;
-    ngx_json_key_value_t   *last_element = cur_element + object->nelts;
-    json_object_key_def_t  *key_def;
+    ngx_json_key_value_t       *cur_element = object->elts;
+    ngx_json_key_value_t       *last_element = cur_element + object->nelts;
+    ngx_json_object_key_def_t  *key_def;
 
     for (; cur_element < last_element; cur_element++) {
         key_def = ngx_hash_find(

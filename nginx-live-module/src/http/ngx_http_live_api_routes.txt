@@ -1,0 +1,27 @@
+GET    /
+
+GET    /channels
+POST   /channels
+
+GET    /channels/%
+PUT    /channels/%
+DELETE /channels/%
+
+GET    /channels/%/variants
+POST   /channels/%/variants
+
+DELETE /channels/%/variants/%
+
+GET    /channels/%/tracks
+POST   /channels/%/tracks
+
+DELETE /channels/%/tracks/%
+
+POST   /channels/%/variants/%/tracks
+
+GET    /channels/%/timelines
+POST   /channels/%/timelines
+
+GET    /channels/%/timelines/%
+PUT    /channels/%/timelines/%
+DELETE /channels/%/timelines/%

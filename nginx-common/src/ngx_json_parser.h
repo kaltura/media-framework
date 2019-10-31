@@ -76,9 +76,9 @@ typedef struct {
     ngx_str_t                 key;
     int                       type;
     int                       index;
-} json_object_key_def_t;
+} ngx_json_object_key_def_t;
 
 void ngx_json_get_object_values(ngx_json_object_t *object,
-    json_object_key_def_t *key_defs, ngx_json_value_t **result);
+    ngx_json_object_key_def_t *key_defs, ngx_json_value_t **result);
 
 #endif /*_NGX_JSON_PARSER_H_INCLUDED_ */

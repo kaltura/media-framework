@@ -6,6 +6,11 @@
 #include <ngx_core.h>
 
 
+#define NGX_HTTP_CALL_ERROR         1
+#define NGX_HTTP_CALL_BAD_GATEWAY   2
+#define NGX_HTTP_CALL_TIME_OUT      3
+
+
 typedef struct ngx_http_call_ctx_s ngx_http_call_ctx_t;
 
 typedef ngx_chain_t *(*ngx_http_call_create_pt)(void *arg, ngx_pool_t *pool,

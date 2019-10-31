@@ -26,6 +26,8 @@ typedef struct {
 typedef struct {
     ngx_queue_t                 queue;
     ngx_rtmp_session_t         *s;
+    ngx_str_t                   remote_addr;
+    u_char                      remote_addr_buf[NGX_SOCKADDR_STRLEN];
 } ngx_rtmp_kmp_ctx_t;
 
 
