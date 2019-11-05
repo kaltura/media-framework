@@ -105,6 +105,9 @@ ngx_live_syncer_track_reset(ngx_live_track_t *track)
 {
     ngx_live_syncer_track_ctx_t  *ctx;
 
+    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+        "ngx_live_syncer_track_reset: called");
+
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_syncer_module);
     ctx->last_pts = NGX_LIVE_SYNCER_INVALID_TIMESTAMP;
     ctx->force_sync_count = 0;

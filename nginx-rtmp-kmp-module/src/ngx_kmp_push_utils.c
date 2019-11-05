@@ -1,6 +1,10 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
+#include <ngx_http_call.h>
 #include "ngx_kmp_push_utils.h"
+
+
+#define NGX_HTTP_OK                        200
 
 
 static ngx_str_t ngx_kmp_push_json_type = ngx_string("application/json");
@@ -151,11 +155,15 @@ ngx_kmp_push_parse_json_response(ngx_pool_t *pool, ngx_log_t *log,
     ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *body,
     ngx_json_value_t *json)
 {
-    ngx_int_t  rc;
-    u_char     error[128];
+    ngx_int_t   rc;
+    ngx_uint_t  level;
+    u_char      error[128];
 
-    if (code != 200) {      /* NGX_HTTP_OK */
-        ngx_log_error(NGX_LOG_ERR, log, 0,
+    if (code != NGX_HTTP_OK) {
+        level = (code >= NGX_HTTP_CALL_ERROR_COUNT) ? NGX_LOG_ERR :
+            NGX_LOG_NOTICE;
+
+        ngx_log_error(level, log, 0,
             "ngx_kmp_push_parse_json_response: invalid http status %ui", code);
         return NGX_ERROR;
     }

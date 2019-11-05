@@ -225,11 +225,15 @@ ngx_live_dvr_http_read_finished(ngx_pool_t *temp_pool, void *arg,
     ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *response)
 {
     ngx_int_t                      rc;
+    ngx_uint_t                     level;
     ngx_live_dvr_http_read_ctx_t  *ctx = arg;
 
     if (code != NGX_HTTP_PARTIAL_CONTENT) {
 
-        ngx_log_error(NGX_LOG_ERR, temp_pool->log, 0,
+        level = (code >= NGX_HTTP_CALL_ERROR_COUNT) ? NGX_LOG_ERR :
+            NGX_LOG_NOTICE;
+
+        ngx_log_error(level, temp_pool->log, 0,
             "ngx_live_dvr_http_read_finished: request failed %ui", code);
 
         if (ctx->retries_left > 0) {
@@ -239,11 +243,11 @@ ngx_live_dvr_http_read_finished(ngx_pool_t *temp_pool, void *arg,
 
         switch (code) {
 
-        case NGX_HTTP_CALL_ERROR:
+        case NGX_HTTP_CALL_ERROR_INTERNAL:
             rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
             break;
 
-        case NGX_HTTP_CALL_TIME_OUT:
+        case NGX_HTTP_CALL_ERROR_TIME_OUT:
             rc = NGX_HTTP_GATEWAY_TIME_OUT;
             break;
 
@@ -388,11 +392,15 @@ ngx_live_dvr_http_save_complete(ngx_pool_t *temp_pool, void *arg,
     ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *response)
 {
     ngx_int_t                         rc;
+    ngx_uint_t                        level;
     ngx_live_dvr_http_save_ctx_t     *ctx = *(void **) arg;
 
     if (code != NGX_HTTP_OK) {
 
-        ngx_log_error(NGX_LOG_NOTICE, &ctx->channel->log, 0,
+        level = (code >= NGX_HTTP_CALL_ERROR_COUNT) ? NGX_LOG_ERR :
+            NGX_LOG_NOTICE;
+
+        ngx_log_error(level, &ctx->channel->log, 0,
             "ngx_live_dvr_http_save_complete: "
             "request failed %ui, bucket_id: %uD", code, ctx->bucket_id);
 

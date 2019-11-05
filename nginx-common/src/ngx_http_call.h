@@ -6,9 +6,13 @@
 #include <ngx_core.h>
 
 
-#define NGX_HTTP_CALL_ERROR         1
-#define NGX_HTTP_CALL_BAD_GATEWAY   2
-#define NGX_HTTP_CALL_TIME_OUT      3
+enum {
+    NGX_HTTP_CALL_ERROR_INTERNAL = 1,
+    NGX_HTTP_CALL_ERROR_BAD_GATEWAY,
+    NGX_HTTP_CALL_ERROR_TIME_OUT,
+
+    NGX_HTTP_CALL_ERROR_COUNT
+};
 
 
 typedef struct ngx_http_call_ctx_s ngx_http_call_ctx_t;

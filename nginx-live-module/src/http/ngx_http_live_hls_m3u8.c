@@ -365,6 +365,12 @@ ngx_http_live_hls_group_variants(ngx_http_request_t *r,
         *variant_ptr = variant;
     }
 
+    if (result->streams.nelts <= 0) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_hls_group_variants: no streams found");
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
     return NGX_OK;
 }
 

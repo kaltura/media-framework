@@ -158,8 +158,7 @@ ngx_live_segment_cache_free_input_bufs(ngx_live_track_t *track)
         ptr = first->data_head->data;
 
     } else {
-        segment_index = NGX_MAX_UINT32_VALUE;
-        ngx_live_segmenter_get_oldest_data_ptr(track, &ptr);
+        ngx_live_segmenter_get_min_used(track, &segment_index, &ptr);
     }
 
     ngx_live_input_bufs_set_min_used(track, segment_index, ptr);
@@ -327,7 +326,7 @@ ngx_live_segment_cache_source_init(
 
     state = ngx_palloc(pool, sizeof(*state));
     if (state == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pool->log, 0,
+        ngx_log_debug0(NGX_LOG_DEBUG_LIVE, pool->log, 0,
             "ngx_live_segment_cache_source_init: alloc failed");
         return NGX_ERROR;
     }
@@ -434,7 +433,7 @@ ngx_live_segment_cache_read(ngx_pool_t *pool, ngx_live_track_t **tracks,
         if (ngx_live_segment_cache_source_init(pool, segment->data_head,
             &dest_track->frames_source_context) != VOD_OK)
         {
-            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pool->log, 0,
+            ngx_log_debug0(NGX_LOG_DEBUG_LIVE, pool->log, 0,
                 "ngx_live_segment_cache_read: "
                 "frame source init failed");
             return NGX_ERROR;

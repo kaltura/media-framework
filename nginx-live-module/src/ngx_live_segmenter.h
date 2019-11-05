@@ -23,8 +23,8 @@ typedef void (*ngx_live_end_of_stream_pt)(ngx_live_track_t *track);
 ngx_int_t ngx_live_segmenter_force_split(ngx_live_track_t *track,
     uint32_t *segment_index);
 
-void ngx_live_segmenter_get_oldest_data_ptr(ngx_live_track_t *track,
-    u_char **ptr);
+void ngx_live_segmenter_get_min_used(ngx_live_track_t *track,
+    uint32_t *segment_index, u_char **ptr);
 
 
 extern ngx_live_add_frame_pt      ngx_live_add_frame;

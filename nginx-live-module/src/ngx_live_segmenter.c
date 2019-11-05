@@ -79,6 +79,7 @@ typedef struct {
     int64_t                           last_pts;
     int64_t                           last_key_pts;
     ngx_buf_chain_t                  *last_data_part;
+    u_char                           *last_data_ptr;
 
     uint32_t                          force_split_index;
     int64_t                           force_split_pts;
@@ -1211,14 +1212,14 @@ ngx_live_segmenter_get_target_pts(ngx_live_channel_t *channel)
     base_track = ngx_live_segmenter_get_base_track(channel);
     if (base_track == NULL) {
         ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
-            "ngx_live_segmenter_create_segments: no base track");
+            "ngx_live_segmenter_get_target_pts: no base track");
         return LLONG_MAX;
     }
 
     target_pts = ngx_live_segmenter_get_segment_end_pts(base_track);
     if (target_pts == LLONG_MAX) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_segmenter_create_segments: failed to get pts");
+            "ngx_live_segmenter_get_target_pts: failed to get pts");
         return LLONG_MAX;
     }
 
@@ -1226,9 +1227,6 @@ done:
 
     target_pts = ngx_max(target_pts, cctx->last_segment_end_pts +
         cctx->min_segment_duration);
-
-    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_segmenter_create_segments: boundary pts %L", target_pts);
 
     return target_pts;
 }
@@ -1264,8 +1262,7 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
         force_new_period = cctx->force_new_period;
         cctx->force_new_period = 0;
 
-        if (min_pts > cctx->last_segment_end_pts + cctx->segment_duration)
-        {
+        if (min_pts > cctx->last_segment_end_pts + cctx->segment_duration) {
             cctx->last_segment_end_pts = min_pts;
             force_new_period = 1;
         }
@@ -1274,6 +1271,12 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
         if (target_pts == LLONG_MAX) {
             return NGX_ERROR;
         }
+
+        segment_index = cctx->segment_index;
+
+        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+            "ngx_live_segmenter_create_segments: "
+            "boundary pts %L, index: %uD", target_pts, segment_index);
 
         /* calculate the split indexes */
         if (ngx_live_segmenter_set_split_indexes(channel, target_pts)
@@ -1285,8 +1288,6 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
         }
 
         /* create the segment on all tracks */
-        segment_index = cctx->segment_index;
-
         cctx->cur_ready_duration = cctx->ready_duration;
 
         if (ngx_live_segmenter_create_segment(channel, segment_index)
@@ -1412,6 +1413,7 @@ ngx_live_segmenter_add_frame(ngx_live_track_t *track, kmp_frame_t *frame_info,
         ctx->last_data_part->next = data_head;
     }
     ctx->last_data_part = data_tail;
+    ctx->last_data_ptr = data_tail->data;
 
     if (ctx->frame_count <= 0) {
         ctx->start_pts = frame->pts;
@@ -1478,17 +1480,18 @@ ngx_live_segmenter_end_of_stream(ngx_live_track_t *track)
 }
 
 void
-ngx_live_segmenter_get_oldest_data_ptr(ngx_live_track_t *track, u_char **ptr)
+ngx_live_segmenter_get_min_used(ngx_live_track_t *track,
+    uint32_t *segment_index, u_char **ptr)
 {
     ngx_live_segmenter_track_ctx_t    *ctx;
+    ngx_live_segmenter_channel_ctx_t  *cctx;
 
+    cctx = ngx_live_get_module_ctx(track->channel, ngx_live_segmenter_module);
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segmenter_module);
-    if (ctx->frames.part.nelts <= 0) {
-        *ptr = NULL;
-        return;
-    }
 
-    *ptr = ctx->frames.part.elts[0].data->data;
+    *segment_index = cctx->segment_index;
+    *ptr = (ctx->frames.part.nelts > 0) ? ctx->frames.part.elts[0].data->data :
+        ctx->last_data_ptr;
 }
 
 ngx_int_t

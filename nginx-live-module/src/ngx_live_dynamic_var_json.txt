@@ -1,0 +1,5 @@
+static noobject ngx_live_dynamic_var_json ngx_live_dynamic_var_t
+    - %V obj->value
+
+static noobject ngx_live_dynamic_vars_json ngx_live_dynamic_var_channel_ctx_t
+    vars %objQueue-ngx_live_dynamic_var_json,ngx_live_dynamic_var_t,queue,sn.str obj->queue

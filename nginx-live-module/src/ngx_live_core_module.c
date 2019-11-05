@@ -150,7 +150,7 @@ ngx_live_block_sizes_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     sizes = (ngx_array_t **)(p + cmd->offset);
 
-    if (*sizes == NGX_CONF_UNSET_PTR) {
+    if (*sizes == NULL) {
         *sizes = ngx_array_create(cf->pool, 5, sizeof(size_t));
         if (*sizes == NULL) {
             return NGX_CONF_ERROR;
@@ -329,7 +329,6 @@ ngx_live_core_create_preset_conf(ngx_conf_t *cf)
     conf->mem_limit = NGX_CONF_UNSET_SIZE;
     conf->mem_high_watermark = NGX_CONF_UNSET_UINT;
     conf->mem_low_watermark = NGX_CONF_UNSET_UINT;
-    conf->block_sizes = NGX_CONF_UNSET_PTR;
     conf->timescale = NGX_CONF_UNSET_UINT;
 
     return conf;
@@ -354,6 +353,10 @@ ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_uint_value(conf->timescale,
                               prev->timescale, 90000);
+
+    if (conf->block_sizes == NULL) {
+        conf->block_sizes = prev->block_sizes;
+    }
 
     if (conf->block_sizes == NULL) {
         conf->block_sizes = ngx_palloc(cf->pool, sizeof(ngx_array_t));

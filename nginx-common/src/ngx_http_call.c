@@ -397,7 +397,7 @@ ngx_http_call_write_handler(ngx_event_t *wev)
     if (wev->timedout) {
         ngx_log_error(NGX_LOG_ERR, wev->log, NGX_ETIMEDOUT,
             "ngx_http_call_write_handler: timed out");
-        ngx_http_call_error(ctx, NGX_HTTP_CALL_TIME_OUT);
+        ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_TIME_OUT);
         return;
     }
 
@@ -408,7 +408,7 @@ ngx_http_call_write_handler(ngx_event_t *wev)
     if (cl == NGX_CHAIN_ERROR) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_http_call_write_handler: send_chain failed");
-        ngx_http_call_error(ctx, NGX_HTTP_CALL_BAD_GATEWAY);
+        ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_BAD_GATEWAY);
         return;
     }
 
@@ -427,7 +427,7 @@ ngx_http_call_write_handler(ngx_event_t *wev)
         if (ngx_handle_write_event(wev, 0) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                 "ngx_http_call_write_handler: ngx_handle_write_event failed");
-            ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR);
+            ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_INTERNAL);
         }
 
         return;
@@ -495,12 +495,12 @@ ngx_http_call_body_write_handler(ngx_event_t *wev)
     if (wev->timedout) {
         ngx_log_error(NGX_LOG_ERR, wev->log, NGX_ETIMEDOUT,
             "ngx_http_call_body_write_handler: timed out");
-        ngx_http_call_error(ctx, NGX_HTTP_CALL_TIME_OUT);
+        ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_TIME_OUT);
         return;
     }
 
     if (ngx_http_call_write_request_body(ctx) == NGX_ERROR) {
-        ngx_http_call_error(ctx, NGX_HTTP_CALL_BAD_GATEWAY);
+        ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_BAD_GATEWAY);
         return;
     }
 
@@ -508,7 +508,7 @@ ngx_http_call_body_write_handler(ngx_event_t *wev)
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_http_call_body_write_handler: "
             "ngx_handle_write_event failed");
-        ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR);
+        ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_INTERNAL);
         return;
     }
 }
@@ -531,7 +531,7 @@ ngx_http_call_read_handler(ngx_event_t *rev)
     if (rev->timedout) {
         ngx_log_error(NGX_LOG_ERR, rev->log, NGX_ETIMEDOUT,
             "ngx_http_call_read_handler: timed out");
-        ngx_http_call_error(ctx, NGX_HTTP_CALL_TIME_OUT);
+        ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_TIME_OUT);
         return;
     }
 
@@ -541,7 +541,7 @@ ngx_http_call_read_handler(ngx_event_t *rev)
         if (ctx->response == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                 "ngx_http_call_read_handler: create buf failed");
-            ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR);
+            ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_INTERNAL);
             return;
         }
     }
@@ -553,7 +553,7 @@ ngx_http_call_read_handler(ngx_event_t *rev)
         if (size <= 0) {
             ngx_log_error(NGX_LOG_ERR, rev->log, 0,
                 "response buffer size too small");
-            ngx_http_call_error(ctx, NGX_HTTP_CALL_BAD_GATEWAY);
+            ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_BAD_GATEWAY);
             return;
         }
 
@@ -567,7 +567,7 @@ ngx_http_call_read_handler(ngx_event_t *rev)
             if (rc == NGX_ERROR) {
                 ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                     "ngx_http_call_read_handler: process failed");
-                ngx_http_call_error(ctx, NGX_HTTP_CALL_BAD_GATEWAY);
+                ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_BAD_GATEWAY);
                 return;
             }
 
@@ -580,7 +580,7 @@ ngx_http_call_read_handler(ngx_event_t *rev)
                 ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                     "ngx_http_call_read_handler: "
                     "ngx_handle_read_event failed");
-                ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR);
+                ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_INTERNAL);
             }
 
             return;
@@ -600,7 +600,7 @@ ngx_http_call_read_handler(ngx_event_t *rev)
 
     ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
         "ngx_http_call_read_handler: prematurely closed connection");
-    ngx_http_call_error(ctx, NGX_HTTP_CALL_BAD_GATEWAY);
+    ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_BAD_GATEWAY);
 }
 
 

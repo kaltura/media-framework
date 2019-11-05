@@ -394,19 +394,21 @@ ngx_live_input_bufs_channel_init(ngx_live_channel_t *channel,
 static ngx_int_t
 ngx_live_input_bufs_channel_free(ngx_live_channel_t *channel)
 {
-    ngx_queue_t                        *q;
+    ngx_queue_t                        *q, *next;
     ngx_live_input_bufs_t              *cur;
     ngx_live_input_bufs_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_input_bufs_module);
 
-    while (!ngx_queue_empty(&cctx->queue)) {
-        q = ngx_queue_head(&cctx->queue);
+    for (q = ngx_queue_head(&cctx->queue);
+        q != ngx_queue_sentinel(&cctx->queue);
+        q = next)
+    {
+        next = ngx_queue_next(q);
         cur = ngx_queue_data(q, ngx_live_input_bufs_t, queue);
 
         ngx_buf_queue_detach(&cur->buf_queue);
 
-        ngx_queue_remove(q);
         q->next = NULL;
     }
 

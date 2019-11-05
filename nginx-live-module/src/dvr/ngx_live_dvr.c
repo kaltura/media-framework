@@ -115,7 +115,7 @@ ngx_module_t  ngx_live_dvr_module = {
 };
 
 
-static ngx_live_variable_t  ngx_http_live_dvr_vars[] = {
+static ngx_live_variable_t  ngx_live_dvr_vars[] = {
 
     { ngx_string("dvr_bucket_id"), NULL,
       ngx_live_dvr_bucket_id_variable, 0, 0, 0 },
@@ -1183,7 +1183,7 @@ ngx_live_dvr_preconfiguration(ngx_conf_t *cf)
 
     ngx_live_read_segment = ngx_live_dvr_read;
 
-    for (v = ngx_http_live_dvr_vars; v->name.len; v++) {
+    for (v = ngx_live_dvr_vars; v->name.len; v++) {
         var = ngx_live_add_variable(cf, &v->name, v->flags);
         if (var == NULL) {
             return NGX_ERROR;

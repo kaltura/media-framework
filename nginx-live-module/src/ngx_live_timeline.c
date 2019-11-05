@@ -458,6 +458,10 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
 
     ngx_queue_insert_tail(&ctx->queue, &timeline->queue);
 
+    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+        "ngx_live_timeline_create: created %p, timeline: %V",
+        timeline, &timeline->sn.str);
+
     *result = timeline;
 
     return NGX_OK;

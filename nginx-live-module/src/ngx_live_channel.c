@@ -389,7 +389,8 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *variant_id,
     ngx_queue_insert_tail(&channel->variants_queue, &variant->queue);
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_variant_create: created %p", variant);
+        "ngx_live_variant_create: created %p, variant: %V",
+        variant, &variant->sn.str);
 
     channel->last_modified = ngx_time();
 
