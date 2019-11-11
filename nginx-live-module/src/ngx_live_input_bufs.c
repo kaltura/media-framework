@@ -16,8 +16,9 @@ enum {
 typedef struct {
     ngx_queue_t             queue;
     ngx_buf_queue_t         buf_queue;
-    ngx_queue_t             locks;
+    ngx_queue_t             locks;          /* sorted by index */
     uint32_t                ref_count;
+    uint32_t                lock_count;
     uint32_t                min_segment_index;
     u_char                 *min_ptr;
 } ngx_live_input_bufs_t;
@@ -34,6 +35,12 @@ struct ngx_live_input_bufs_lock_s {
 typedef struct {
     ngx_live_input_bufs_t  *input_bufs;
 } ngx_live_input_bufs_track_ctx_t;
+
+
+/* Note: the channel level queue points to all input bufs associated with the
+    channel. it is required in order to detach them when the channel is freed.
+    we can't use the tracks for this - when a track is freed, the input bufs
+    may still be linked to the channel if they are locked */
 
 typedef struct {
     ngx_queue_t             queue;
@@ -101,6 +108,7 @@ ngx_module_t  ngx_live_input_bufs_module = {
 
 static ngx_block_pool_t  *ngx_live_input_bufs_pool;
 static size_t             ngx_live_input_bufs_mem_left;
+static ngx_queue_t        ngx_live_input_bufs_zombie;
 
 
 static ngx_int_t
@@ -121,6 +129,8 @@ ngx_live_input_bufs_init_process(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
+    ngx_queue_init(&ngx_live_input_bufs_zombie);
+
     return NGX_OK;
 }
 
@@ -133,7 +143,7 @@ ngx_live_input_bufs_create(ngx_live_track_t *track)
     ngx_live_input_bufs_preset_conf_t  *conf;
     ngx_live_input_bufs_channel_ctx_t  *cctx;
 
-    result = ngx_block_pool_alloc(ngx_live_input_bufs_pool, NGX_LIVE_BP_OBJ);
+    result = ngx_block_pool_calloc(ngx_live_input_bufs_pool, NGX_LIVE_BP_OBJ);
     if (result == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_input_bufs_create: alloc failed");
@@ -150,13 +160,12 @@ ngx_live_input_bufs_create(ngx_live_track_t *track)
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_input_bufs_create: buf queue init failed %i", rc);
+        ngx_block_pool_free(ngx_live_input_bufs_pool, NGX_LIVE_BP_OBJ, result);
         return NULL;
     }
 
     ngx_queue_init(&result->locks);
     result->ref_count = 1;
-    result->min_ptr = NULL;
-    result->min_segment_index = 0;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_input_bufs_module);
 
@@ -180,10 +189,8 @@ ngx_live_input_bufs_free_bufs(ngx_live_input_bufs_t *input_bufs)
 
     ptr = input_bufs->min_ptr;
 
-    for (q = ngx_queue_head(&input_bufs->locks);
-        q != ngx_queue_sentinel(&input_bufs->locks);
-        q = ngx_queue_next(q))
-    {
+    if (!ngx_queue_empty(&input_bufs->locks)) {
+        q = ngx_queue_head(&input_bufs->locks);
         cur = ngx_queue_data(q, ngx_live_input_bufs_lock_t, queue);
 
         if (cur->segment_index < segment_index) {
@@ -213,15 +220,13 @@ ngx_live_input_bufs_free(ngx_live_input_bufs_t *input_bufs)
 
     if (!ngx_queue_empty(&input_bufs->locks)) {
         ngx_log_error(NGX_LOG_ALERT, input_bufs->buf_queue.log, 0,
-            "ngx_live_input_bufs_free: queue is not empty");
+            "ngx_live_input_bufs_free: locks queue is not empty");
         return;
     }
 
     ngx_buf_queue_delete(&input_bufs->buf_queue);
 
-    if (input_bufs->queue.next != NULL) {
-        ngx_queue_remove(&input_bufs->queue);
-    }
+    ngx_queue_remove(&input_bufs->queue);
 
     ngx_block_pool_free(ngx_live_input_bufs_pool, NGX_LIVE_BP_OBJ, input_bufs);
 }
@@ -273,14 +278,18 @@ ngx_live_input_bufs_lock(ngx_live_track_t *track, uint32_t segment_index,
     /* Note: the assumption here is that there aren't many locks, otherwise
         this can be inefficient */
 
-    for (q = ngx_queue_head(&input_bufs->locks);
+    for (q = ngx_queue_last(&input_bufs->locks);
         q != ngx_queue_sentinel(&input_bufs->locks);
-        q = ngx_queue_next(q))
+        q = ngx_queue_prev(q))
     {
         cur = ngx_queue_data(q, ngx_live_input_bufs_lock_t, queue);
 
-        if (cur->segment_index != segment_index) {
+        if (segment_index < cur->segment_index) {
             continue;
+        }
+
+        if (segment_index > cur->segment_index) {
+            break;
         }
 
         if (cur->ptr != ptr) {
@@ -302,7 +311,7 @@ ngx_live_input_bufs_lock(ngx_live_track_t *track, uint32_t segment_index,
         return NULL;
     }
 
-    ngx_queue_insert_head(&input_bufs->locks, &cur->queue);
+    ngx_queue_insert_head(q, &cur->queue);      /* used as 'insert after' */
     cur->input_bufs = input_bufs;
     input_bufs->ref_count++;
 
@@ -312,6 +321,7 @@ ngx_live_input_bufs_lock(ngx_live_track_t *track, uint32_t segment_index,
 
 done:
 
+    input_bufs->lock_count++;
     ngx_log_error(NGX_LOG_INFO, &track->log, 0,
         "ngx_live_input_bufs_lock: "
         "locked index: %uD, lock: %p, ref_count: %uD",
@@ -329,6 +339,7 @@ ngx_live_input_bufs_unlock(ngx_live_input_bufs_lock_t *lock)
     }
 
     lock->ref_count--;
+    lock->input_bufs->lock_count--;
 
     ngx_log_error(NGX_LOG_INFO, ngx_cycle->log, 0,
         "ngx_live_input_bufs_unlock: "
@@ -409,7 +420,7 @@ ngx_live_input_bufs_channel_free(ngx_live_channel_t *channel)
 
         ngx_buf_queue_detach(&cur->buf_queue);
 
-        q->next = NULL;
+        ngx_queue_insert_tail(&ngx_live_input_bufs_zombie, q);
     }
 
     return NGX_OK;
@@ -447,17 +458,68 @@ ngx_live_input_bufs_track_free(ngx_live_track_t *track)
 
 
 static size_t
-ngx_live_input_bufs_json_track_get_size(void *obj)
+ngx_live_input_bufs_global_json_get_size(void *obj)
 {
-    return sizeof("\"input_bufs_size\":") - 1 + NGX_SIZE_T_LEN;
+    return sizeof("\"zombie_input_bufs\":{\"size\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"count\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"lock_count\":") - 1 + NGX_INT32_LEN +
+        sizeof("}") - 1;
 }
 
 static u_char *
-ngx_live_input_bufs_json_track_write(u_char *p, void *obj)
+ngx_live_input_bufs_global_json_write(u_char *p, void *obj)
+{
+    size_t                  size;
+    uint32_t                count, lock_count;
+    ngx_queue_t            *q;
+    ngx_buf_queue_t        *buf_queue;
+    ngx_live_input_bufs_t  *cur;
+
+    size = 0;
+    count = 0;
+    lock_count = 0;
+
+    for (q = ngx_queue_head(&ngx_live_input_bufs_zombie);
+        q != ngx_queue_sentinel(&ngx_live_input_bufs_zombie);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_live_input_bufs_t, queue);
+
+        buf_queue = &cur->buf_queue;
+        size += buf_queue->nbuffers * buf_queue->alloc_size;
+        lock_count += cur->lock_count;
+        count++;
+    }
+
+    p = ngx_copy_fix(p, "\"zombie_input_bufs\":{\"size\":");
+    p = ngx_sprintf(p, "%uz", size);
+    p = ngx_copy_fix(p, ",\"count\":");
+    p = ngx_sprintf(p, "%uD", count);
+    p = ngx_copy_fix(p, ",\"lock_count\":");
+    p = ngx_sprintf(p, "%uD", lock_count);
+    *p++ = '}';
+
+    return p;
+}
+
+static size_t
+ngx_live_input_bufs_track_json_get_size(void *obj)
+{
+    return sizeof("\"input_bufs\":{\"size\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"min_used_index\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"lock_count\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"min_lock_index\":") - 1 + NGX_INT32_LEN +
+        sizeof("}") - 1;
+}
+
+static u_char *
+ngx_live_input_bufs_track_json_write(u_char *p, void *obj)
 {
     size_t                            size;
+    ngx_queue_t                      *q;
     ngx_buf_queue_t                  *buf_queue;
     ngx_live_track_t                 *track = obj;
+    ngx_live_input_bufs_lock_t       *first_lock;
     ngx_live_input_bufs_track_ctx_t  *ctx;
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_input_bufs_module);
@@ -465,8 +527,23 @@ ngx_live_input_bufs_json_track_write(u_char *p, void *obj)
     buf_queue = &ctx->input_bufs->buf_queue;
     size = buf_queue->nbuffers * buf_queue->alloc_size;
 
-    p = ngx_copy(p, "\"input_bufs_size\":", sizeof("\"input_bufs_size\":") - 1);
+    p = ngx_copy_fix(p, "\"input_bufs\":{\"size\":");
     p = ngx_sprintf(p, "%uz", size);
+
+    p = ngx_copy_fix(p, ",\"min_used_index\":");
+    p = ngx_sprintf(p, "%uD", ctx->input_bufs->min_segment_index);
+
+    p = ngx_copy_fix(p, ",\"lock_count\":");
+    p = ngx_sprintf(p, "%uD", ctx->input_bufs->lock_count);
+
+    if (!ngx_queue_empty(&ctx->input_bufs->locks)) {
+        q = ngx_queue_head(&ctx->input_bufs->locks);
+        first_lock = ngx_queue_data(q, ngx_live_input_bufs_lock_t, queue);
+
+        p = ngx_copy_fix(p, ",\"min_lock_index\":");
+        p = ngx_sprintf(p, "%uD", first_lock->segment_index);
+    }
+    *p++ = '}';
 
     return p;
 }
@@ -513,12 +590,19 @@ ngx_live_input_bufs_postconfiguration(ngx_conf_t *cf)
     }
     *th = ngx_live_input_bufs_track_free;
 
+    writer = ngx_array_push(&cmcf->json_writers[NGX_LIVE_JSON_CTX_GLOBAL]);
+    if (writer == NULL) {
+        return NGX_ERROR;
+    }
+    writer->get_size = ngx_live_input_bufs_global_json_get_size;
+    writer->write = ngx_live_input_bufs_global_json_write;
+
     writer = ngx_array_push(&cmcf->json_writers[NGX_LIVE_JSON_CTX_TRACK]);
     if (writer == NULL) {
         return NGX_ERROR;
     }
-    writer->get_size = ngx_live_input_bufs_json_track_get_size;
-    writer->write = ngx_live_input_bufs_json_track_write;
+    writer->get_size = ngx_live_input_bufs_track_json_get_size;
+    writer->write = ngx_live_input_bufs_track_json_write;
 
     return NGX_OK;
 }

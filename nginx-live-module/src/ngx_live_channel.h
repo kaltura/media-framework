@@ -26,7 +26,7 @@
     *total_size += size;
 
 #define ngx_live_channel_auto_free(channel, ptr)                            \
-    ngx_block_pool_free_auto((channel)->block_pool, ptr)
+    ngx_block_pool_auto_free((channel)->block_pool, ptr)
 
 
 typedef struct ngx_live_track_s  ngx_live_track_t;
@@ -198,5 +198,8 @@ ngx_live_track_t *ngx_live_track_get(ngx_live_channel_t *channel,
 size_t ngx_live_tracks_json_get_size(ngx_live_channel_t *obj);
 
 u_char *ngx_live_tracks_json_write(u_char *p, ngx_live_channel_t *obj);
+
+
+extern ngx_str_t  ngx_live_variant_role_names[];
 
 #endif /* _NGX_LIVE_CHANNEL_H_INCLUDED_ */

@@ -277,6 +277,47 @@ done:
     return next_add_frame(track, frame, data_head, data_tail, size);
 }
 
+static size_t
+ngx_live_syncer_channel_json_get_size(void *obj)
+{
+    return sizeof("\"syncer_correction\":") - 1 + NGX_INT64_LEN;
+}
+
+static u_char *
+ngx_live_syncer_channel_json_write(u_char *p, void *obj)
+{
+    ngx_live_channel_t             *channel = obj;
+    ngx_live_syncer_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_syncer_module);
+
+    p = ngx_copy_fix(p, "\"syncer_correction\":");
+    p = ngx_sprintf(p, "%L", cctx->correction);
+    return p;
+}
+
+
+static size_t
+ngx_live_syncer_track_json_get_size(void *obj)
+{
+    return sizeof("\"syncer_correction\":") - 1 + NGX_INT64_LEN;
+}
+
+static u_char *
+ngx_live_syncer_track_json_write(u_char *p, void *obj)
+{
+    ngx_live_track_t             *track = obj;
+    ngx_live_syncer_track_ctx_t  *ctx;
+
+    ctx = ngx_live_track_get_module_ctx(track, ngx_live_syncer_module);
+
+    p = ngx_copy_fix(p, "\"syncer_correction\":");
+    p = ngx_sprintf(p, "%L", ctx->correction);
+
+    return p;
+}
+
+
 static ngx_int_t
 ngx_live_syncer_channel_init(ngx_live_channel_t *channel,
     size_t *track_ctx_size)
@@ -346,6 +387,7 @@ ngx_live_syncer_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 static ngx_int_t
 ngx_live_syncer_postconfiguration(ngx_conf_t *cf)
 {
+    ngx_live_json_writer_t            *writer;
     ngx_live_core_main_conf_t         *cmcf;
     ngx_live_track_handler_pt         *th;
     ngx_live_channel_init_handler_pt  *cih;
@@ -369,6 +411,20 @@ ngx_live_syncer_postconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
     *th = ngx_live_syncer_track_reset;
+
+    writer = ngx_array_push(&cmcf->json_writers[NGX_LIVE_JSON_CTX_CHANNEL]);
+    if (writer == NULL) {
+        return NGX_ERROR;
+    }
+    writer->get_size = ngx_live_syncer_channel_json_get_size;
+    writer->write = ngx_live_syncer_channel_json_write;
+
+    writer = ngx_array_push(&cmcf->json_writers[NGX_LIVE_JSON_CTX_TRACK]);
+    if (writer == NULL) {
+        return NGX_ERROR;
+    }
+    writer->get_size = ngx_live_syncer_track_json_get_size;
+    writer->write = ngx_live_syncer_track_json_write;
 
     next_add_frame = ngx_live_add_frame;
     ngx_live_add_frame = ngx_live_syncer_add_frame;

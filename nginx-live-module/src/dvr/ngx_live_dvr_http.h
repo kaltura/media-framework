@@ -28,7 +28,7 @@ typedef ngx_int_t (*ngx_live_dvr_http_create_save_pt)(ngx_pool_t *pool,
     size_t content_length, ngx_buf_t **result);
 
 ngx_int_t ngx_live_dvr_http_save(ngx_live_channel_t *channel,
-    uint32_t bucket_id, ngx_url_t *url,
+    ngx_live_dvr_save_request_t *request, ngx_url_t *url,
     ngx_live_dvr_http_create_save_pt create, void *create_ctx);
 
 #endif /* _NGX_LIVE_DVR_HTTP_H_INCLUDED_ */

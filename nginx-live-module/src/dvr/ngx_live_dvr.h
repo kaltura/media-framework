@@ -14,6 +14,13 @@
 
 /* read + write */
 
+typedef struct {
+    uint32_t                   bucket_id;
+    size_t                     size;
+    ngx_msec_t                 start;
+} ngx_live_dvr_save_request_t;
+
+
 typedef ngx_int_t (*ngx_live_dvr_read_init_pt)(ngx_pool_t *pool,
     ngx_live_channel_t *channel, ngx_str_t *path, void *arg, ngx_str_t *name,
     void **result);
@@ -21,7 +28,7 @@ typedef ngx_int_t (*ngx_live_dvr_read_init_pt)(ngx_pool_t *pool,
 typedef ngx_int_t (*ngx_live_dvr_read_pt)(void *ctx, off_t offset, size_t size);
 
 typedef ngx_int_t (*ngx_live_dvr_save_pt)(ngx_live_channel_t *channel,
-    uint32_t bucket_id);
+    ngx_live_dvr_save_request_t *request);
 
 
 typedef struct {
@@ -50,10 +57,10 @@ void ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel,
     uint32_t segment_index, ngx_flag_t exists);
 
 ngx_chain_t *ngx_live_dvr_save_create_file(ngx_live_channel_t *channel,
-    ngx_pool_t *pool, uint32_t bucket_id, size_t *size);
+    ngx_pool_t *pool, ngx_live_dvr_save_request_t *request);
 
 void ngx_live_dvr_save_complete(ngx_live_channel_t *channel,
-    uint32_t bucket_id, ngx_int_t rc);
+    ngx_live_dvr_save_request_t *request, ngx_int_t rc);
 
 
 /* read */

@@ -1630,18 +1630,24 @@ ngx_live_segmenter_track_init(ngx_live_track_t *track)
 static ngx_int_t
 ngx_live_segmenter_track_free(ngx_live_track_t *track)
 {
-    ngx_live_channel_t                *channel = track->channel;
+    ngx_live_channel_t                *channel;
     ngx_live_segmenter_track_ctx_t    *ctx;
     ngx_live_segmenter_frame_part_t   *part, *next;
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segmenter_module);
+    if (ctx->inactive.data == NULL) {
+        /* init wasn't called */
+        return NGX_OK;
+    }
+
+    channel = track->channel;
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
     cctx->count[ctx->state]--;
 
     if (ctx->state != ngx_live_track_inactive &&
-        cctx->count[ngx_live_track_inactive] >= track->channel->track_count)
+        cctx->count[ngx_live_track_inactive] >= channel->track_count)
     {
         ngx_live_segmenter_channel_inactive(channel);
     }
@@ -1823,15 +1829,14 @@ ngx_live_segmenter_channel_json_write(u_char *p, void *obj)
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
-    p = ngx_copy(p, "\"segment_duration\":",
-        sizeof("\"segment_duration\":") - 1);
+    p = ngx_copy_fix(p, "\"segment_duration\":");
     p = ngx_sprintf(p, "%i", cctx->conf.segment_duration);
     return p;
 }
 
 
 static size_t
-ngx_live_segmenter_json_track_get_size(void *obj)
+ngx_live_segmenter_track_json_get_size(void *obj)
 {
     return sizeof("\"last_created\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"last_segment_bitrate\":") - 1 + NGX_INT32_LEN +
@@ -1841,31 +1846,27 @@ ngx_live_segmenter_json_track_get_size(void *obj)
 }
 
 static u_char *
-ngx_live_segmenter_json_track_write(u_char *p, void *obj)
+ngx_live_segmenter_track_json_write(u_char *p, void *obj)
 {
     ngx_live_track_t                *track = obj;
     ngx_live_segmenter_track_ctx_t  *ctx;
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segmenter_module);
 
-    p = ngx_copy(p, "\"last_created\":", sizeof("\"last_created\":") - 1);
+    p = ngx_copy_fix(p, "\"last_created\":");
     p = ngx_sprintf(p, "%L", ctx->last_created);
 
-    p = ngx_copy(p, ",\"last_segment_bitrate\":",
-        sizeof(",\"last_segment_bitrate\":") - 1);
+    p = ngx_copy_fix(p, ",\"last_segment_bitrate\":");
     p = ngx_sprintf(p, "%uD", ctx->last_segment_bitrate);
 
-    p = ngx_copy(p, ",\"pending_frames\":",
-        sizeof(",\"pending_frames\":") - 1);
+    p = ngx_copy_fix(p, ",\"pending_frames\":");
     p = ngx_sprintf(p, "%uD", ctx->frame_count);
 
-    p = ngx_copy(p, ",\"received_frames\":",
-        sizeof(",\"received_frames\":") - 1);
+    p = ngx_copy_fix(p, ",\"received_frames\":");
     p = ngx_sprintf(p, "%ui", ctx->received_frames);
 
     if (track->media_type == KMP_MEDIA_VIDEO) {
-        p = ngx_copy(p, ",\"received_key_frames\":",
-            sizeof(",\"received_key_frames\":") - 1);
+        p = ngx_copy_fix(p, ",\"received_key_frames\":");
         p = ngx_sprintf(p, "%ui", ctx->received_key_frames);
     }
 
@@ -1931,8 +1932,8 @@ ngx_live_segmenter_postconfiguration(ngx_conf_t *cf)
     if (writer == NULL) {
         return NGX_ERROR;
     }
-    writer->get_size = ngx_live_segmenter_json_track_get_size;
-    writer->write = ngx_live_segmenter_json_track_write;
+    writer->get_size = ngx_live_segmenter_track_json_get_size;
+    writer->write = ngx_live_segmenter_track_json_write;
 
     ngx_live_add_frame = ngx_live_segmenter_add_frame;
     ngx_live_end_of_stream = ngx_live_segmenter_end_of_stream;

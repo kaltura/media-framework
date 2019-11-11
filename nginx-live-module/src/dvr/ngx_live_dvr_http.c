@@ -318,20 +318,19 @@ typedef struct {
     void                              *create_ctx;
     ngx_url_t                         *url;
     ngx_live_channel_t                *channel;
-    uint32_t                           bucket_id;
+    ngx_live_dvr_save_request_t        request;
     ngx_uint_t                         retries_left;
 } ngx_live_dvr_http_save_ctx_t;
 
 ngx_chain_t *
 ngx_live_dvr_http_save_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
 {
-    size_t                         size;
     ngx_buf_t                     *b;
     ngx_str_t                      uri;
     ngx_chain_t                   *cl;
     ngx_live_dvr_http_save_ctx_t  *ctx = *(void **) arg;
 
-    cl = ngx_live_dvr_save_create_file(ctx->channel, pool, ctx->bucket_id, &size);
+    cl = ngx_live_dvr_save_create_file(ctx->channel, pool, &ctx->request);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_dvr_http_save_create: create file failed");
@@ -340,7 +339,7 @@ ngx_live_dvr_http_save_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
 
     *body = cl;
 
-    if (ngx_live_dvr_get_path(ctx->channel, pool, ctx->bucket_id, &uri)
+    if (ngx_live_dvr_get_path(ctx->channel, pool, ctx->request.bucket_id, &uri)
         != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
@@ -349,7 +348,7 @@ ngx_live_dvr_http_save_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
     }
 
     if (ctx->create(pool, ctx->create_ctx, &ctx->url->host, &uri, cl,
-        size, &b) != NGX_OK)
+        ctx->request.size, &b) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_dvr_http_save_create: create request failed");
@@ -380,7 +379,7 @@ ngx_live_dvr_http_save_free(ngx_live_dvr_http_save_ctx_t *ctx, ngx_int_t rc)
         ngx_http_call_cancel(ctx->call);
     }
 
-    ngx_live_dvr_save_complete(ctx->channel, ctx->bucket_id, rc);
+    ngx_live_dvr_save_complete(ctx->channel, &ctx->request, rc);
 
     ngx_queue_remove(&ctx->queue);
 
@@ -402,7 +401,8 @@ ngx_live_dvr_http_save_complete(ngx_pool_t *temp_pool, void *arg,
 
         ngx_log_error(level, &ctx->channel->log, 0,
             "ngx_live_dvr_http_save_complete: "
-            "request failed %ui, bucket_id: %uD", code, ctx->bucket_id);
+            "request failed %ui, bucket_id: %uD",
+            code, ctx->request.bucket_id);
 
         if (ctx->retries_left > 0) {
             ctx->retries_left--;
@@ -427,8 +427,9 @@ ngx_live_dvr_http_save_complete(ngx_pool_t *temp_pool, void *arg,
 }
 
 ngx_int_t
-ngx_live_dvr_http_save(ngx_live_channel_t *channel, uint32_t bucket_id,
-    ngx_url_t *url, ngx_live_dvr_http_create_save_pt create, void *create_ctx)
+ngx_live_dvr_http_save(ngx_live_channel_t *channel,
+    ngx_live_dvr_save_request_t *request, ngx_url_t *url,
+    ngx_live_dvr_http_create_save_pt create, void *create_ctx)
 {
     ngx_http_call_init_t              ci;
     ngx_live_dvr_http_save_ctx_t     *ctx;
@@ -469,7 +470,7 @@ ngx_live_dvr_http_save(ngx_live_channel_t *channel, uint32_t bucket_id,
 
     ctx->url = url;
     ctx->channel = channel;
-    ctx->bucket_id = bucket_id;
+    ctx->request = *request;
     ctx->create = create;
     ctx->create_ctx = create_ctx;
     ctx->retries_left = conf->save_retries;
@@ -542,12 +543,12 @@ ngx_live_dvr_http_channel_watermark(ngx_live_channel_t *channel)
         q = ngx_queue_head(&cctx->active);
         ctx = ngx_queue_data(q, ngx_live_dvr_http_save_ctx_t, queue);
 
-        if (ctx->bucket_id < min_bucket_id) {
-            min_bucket_id = ctx->bucket_id;
+        if (ctx->request.bucket_id < min_bucket_id) {
+            min_bucket_id = ctx->request.bucket_id;
         }
 
-        if (ctx->bucket_id > max_bucket_id) {
-            max_bucket_id = ctx->bucket_id;
+        if (ctx->request.bucket_id > max_bucket_id) {
+            max_bucket_id = ctx->request.bucket_id;
         }
 
         count++;

@@ -11,6 +11,9 @@
 #include "ngx_rtmp_kmp_track_json.h"
 
 
+#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
+
+
 /* RTMP definitions */
 #define NGX_RTMP_AAC_SEQUENCE_HEADER     (0)
 #define NGX_RTMP_AAC_RAW                 (1)
@@ -142,12 +145,11 @@ ngx_rtmp_kmp_track_create(
     /* set the input id */
     track->input_id.data = (void*)(ctx + 1);
 
-    p = ngx_copy(track->input_id.data, s->tc_url.data, s->tc_url.len);
+    p = ngx_copy_str(track->input_id.data, s->tc_url);
     *p++ = '/';
-    p = ngx_copy(p, create_ctx->publish->name.data,
-        create_ctx->publish->name.len);
+    p = ngx_copy_str(p, create_ctx->publish->name);
     *p++ = '/';
-    p = ngx_copy(p, media_type.data, media_type.len);
+    p = ngx_copy_str(p, media_type);
 
     track->input_id.len = p - track->input_id.data;
 

@@ -10,11 +10,12 @@ typedef struct {
     ngx_queue_t             queue;
     ngx_rbtree_t            tree;
     ngx_rbtree_node_t       sentinel;
+    uint32_t                count;
 } ngx_live_segment_cache_track_ctx_t;
 
 typedef struct {
-    size_t            frame_left;
-    ngx_buf_chain_t  *chain;
+    size_t                  frame_left;
+    ngx_buf_chain_t        *chain;
 } ngx_live_segment_cache_source_state_t;
 
 
@@ -104,6 +105,7 @@ ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
 
     ngx_rbtree_insert(&ctx->tree, &segment->node);
     ngx_queue_insert_tail(&ctx->queue, &segment->queue);
+    ctx->count++;
 
     return segment;
 }
@@ -182,6 +184,7 @@ ngx_live_segment_cache_free(ngx_live_track_t *track,
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
 
+    ctx->count--;
     ngx_queue_remove(&segment->queue);
     ngx_rbtree_delete(&ctx->tree, &segment->node);
 
@@ -485,6 +488,45 @@ ngx_live_segment_cache_read(ngx_pool_t *pool, ngx_live_track_t **tracks,
     return ngx_live_next_read(pool, tracks, flags, result, callback, arg);
 }
 
+static size_t
+ngx_live_segment_cache_track_json_get_size(void *obj)
+{
+    return sizeof("\"segment_cache\":{\"count\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"min_index\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"max_index\":") - 1 + NGX_INT32_LEN +
+        sizeof("}") - 1;
+}
+
+static u_char *
+ngx_live_segment_cache_track_json_write(u_char *p, void *obj)
+{
+    ngx_queue_t                         *q;
+    ngx_live_track_t                    *track = obj;
+    ngx_live_segment_t                  *segment;
+    ngx_live_segment_cache_track_ctx_t  *ctx;
+
+    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
+
+    p = ngx_copy_fix(p, "\"segment_cache\":{\"count\":");
+    p = ngx_sprintf(p, "%uD", ctx->count);
+
+    if (!ngx_queue_empty(&ctx->queue)) {
+
+        q = ngx_queue_head(&ctx->queue);
+        segment = ngx_queue_data(q, ngx_live_segment_t, queue);
+        p = ngx_copy_fix(p, ",\"min_index\":");
+        p = ngx_sprintf(p, "%uD", (uint32_t) segment->node.key);
+
+        q = ngx_queue_last(&ctx->queue);
+        segment = ngx_queue_data(q, ngx_live_segment_t, queue);
+        p = ngx_copy_fix(p, ",\"max_index\":");
+        p = ngx_sprintf(p, "%uD", (uint32_t) segment->node.key);
+    }
+    *p++ = '}';
+
+    return p;
+}
+
 
 static ngx_int_t
 ngx_live_segment_cache_channel_init(ngx_live_channel_t *channel,
@@ -558,6 +600,7 @@ ngx_live_segment_cache_track_channel_free(ngx_live_track_t *track)
 static ngx_int_t
 ngx_live_segment_cache_postconfiguration(ngx_conf_t *cf)
 {
+    ngx_live_json_writer_t            *writer;
     ngx_live_core_main_conf_t         *cmcf;
     ngx_live_track_handler_pt         *th;
     ngx_live_channel_init_handler_pt  *cih;
@@ -587,6 +630,13 @@ ngx_live_segment_cache_postconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
     *th = ngx_live_segment_cache_track_channel_free;
+
+    writer = ngx_array_push(&cmcf->json_writers[NGX_LIVE_JSON_CTX_TRACK]);
+    if (writer == NULL) {
+        return NGX_ERROR;
+    }
+    writer->get_size = ngx_live_segment_cache_track_json_get_size;
+    writer->write = ngx_live_segment_cache_track_json_write;
 
     ngx_live_next_read = ngx_live_read_segment;
     ngx_live_read_segment = ngx_live_segment_cache_read;

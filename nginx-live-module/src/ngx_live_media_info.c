@@ -24,6 +24,7 @@ struct ngx_live_media_info_node_s {
 
 typedef struct {
     ngx_queue_t         queue;    /* ngx_live_media_info_node_t */
+    uint32_t            count;
 } ngx_live_media_info_track_ctx_t;
 
 typedef struct {
@@ -310,6 +311,7 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
     node->start_segment_index = start_segment_index;
 
     track->channel->last_modified = ngx_time();
+    ctx->count++;
 
     return NGX_OK;
 }
@@ -341,6 +343,7 @@ ngx_live_media_info_queue_free(ngx_live_track_t *track,
 
         head_node = ngx_queue_data(head, ngx_live_media_info_node_t, queue);
         ngx_live_media_info_node_free(track->channel, head_node);
+        ctx->count--;
     }
 }
 
@@ -520,8 +523,6 @@ ngx_live_media_info_track_free(ngx_live_track_t *track)
     ngx_live_media_info_track_ctx_t    *ctx;
     ngx_live_media_info_channel_ctx_t  *cctx;
 
-    cctx = ngx_live_get_module_ctx(track->channel, ngx_live_media_info_module);
-
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
 
     q = ngx_queue_head(&ctx->queue);
@@ -529,6 +530,8 @@ ngx_live_media_info_track_free(ngx_live_track_t *track)
         /* init wasn't called */
         return NGX_OK;
     }
+
+    cctx = ngx_live_get_module_ctx(track->channel, ngx_live_media_info_module);
 
     while (q != ngx_queue_sentinel(&ctx->queue)) {
 
@@ -544,18 +547,20 @@ ngx_live_media_info_track_free(ngx_live_track_t *track)
 }
 
 static size_t
-ngx_live_media_info_json_track_get_size(void *obj)
+ngx_live_media_info_track_json_get_size(void *obj)
 {
     size_t             result;
     media_info_t      *media_info;
     ngx_live_track_t  *track = obj;
 
+    result = sizeof("\"media_info_count\":") - 1 + NGX_INT32_LEN;
+
     media_info = ngx_live_media_info_queue_get_last(track);
     if (media_info == NULL) {
-        return 0;
+        return result;
     }
 
-    result = sizeof("\"media_info\":") - 1;
+    result += sizeof(",\"media_info\":") - 1;
 
     switch (media_info->media_type) {
 
@@ -572,17 +577,28 @@ ngx_live_media_info_json_track_get_size(void *obj)
 }
 
 static u_char *
-ngx_live_media_info_json_track_write(u_char *p, void *obj)
+ngx_live_media_info_track_json_write(u_char *p, void *obj)
 {
-    media_info_t      *media_info;
-    ngx_live_track_t  *track = obj;
+    ngx_queue_t                      *q;
+    media_info_t                     *media_info;
+    ngx_live_track_t                 *track = obj;
+    ngx_live_media_info_node_t       *node;
+    ngx_live_media_info_track_ctx_t  *ctx;
 
-    media_info = ngx_live_media_info_queue_get_last(track);
-    if (media_info == NULL) {
+    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+
+    p = ngx_copy_fix(p, "\"media_info_count\":");
+    p = ngx_sprintf(p, "%uD", ctx->count);
+
+    if (ngx_queue_empty(&ctx->queue)) {
         return p;
     }
 
-    p = ngx_copy(p, "\"media_info\":", sizeof("\"media_info\":") - 1);
+    q = ngx_queue_last(&ctx->queue);
+    node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+    media_info = &node->media_info;
+
+    p = ngx_copy_fix(p, ",\"media_info\":");
 
     switch (media_info->media_type) {
 
@@ -630,8 +646,8 @@ ngx_live_media_info_postconfiguration(ngx_conf_t *cf)
     if (writer == NULL) {
         return NGX_ERROR;
     }
-    writer->get_size = ngx_live_media_info_json_track_get_size;
-    writer->write = ngx_live_media_info_json_track_write;
+    writer->get_size = ngx_live_media_info_track_json_get_size;
+    writer->write = ngx_live_media_info_track_json_write;
 
     return NGX_OK;
 }

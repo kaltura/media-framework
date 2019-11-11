@@ -6,9 +6,6 @@
 #include "../ngx_live_media_info.h"
 
 
-#define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
-#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
-
 /* master playlist */
 #define M3U8_MASTER_HEADER           "#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n"
 

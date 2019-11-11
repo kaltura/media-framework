@@ -153,12 +153,6 @@ static ngx_json_object_key_def_t  variant_params[] = {
     { vod_null_string, 0, 0 }
 };
 
-/* must match ngx_live_variant_role_e */
-static ngx_str_t  variant_role_names[] = {
-    ngx_string("main"),
-    ngx_string("alternate"),
-    ngx_null_string
-};
 
 /* track */
 enum {
@@ -512,7 +506,7 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
     }
 
     if (values[VARIANT_PARAM_ROLE] != NULL) {
-        role = ngx_http_live_find_string(variant_role_names,
+        role = ngx_http_live_find_string(ngx_live_variant_role_names,
             &values[VARIANT_PARAM_ROLE]->v.str);
         if (role < 0) {
             ngx_log_error(NGX_LOG_ERR, log, 0,

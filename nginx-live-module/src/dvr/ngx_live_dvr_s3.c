@@ -338,8 +338,8 @@ ngx_live_dvr_s3_init_ctx(ngx_conf_t *cf, ngx_live_dvr_s3_ctx_t *ctx)
         return NGX_CONF_ERROR;
     }
     p = ctx->secret_key_prefix.data;
-    p = ngx_copy(p, ngx_live_dvr_s3_aws4.data, ngx_live_dvr_s3_aws4.len);
-    p = ngx_copy(p, ctx->secret_key.data, ctx->secret_key.len);
+    p = ngx_copy_str(p, ngx_live_dvr_s3_aws4);
+    p = ngx_copy_str(p, ctx->secret_key);
     ctx->secret_key_prefix.len = p - ctx->secret_key_prefix.data;
 
     /* init key scope suffix */
@@ -351,12 +351,11 @@ ngx_live_dvr_s3_init_ctx(ngx_conf_t *cf, ngx_live_dvr_s3_ctx_t *ctx)
 
     p = ctx->key_scope_suffix.data;
     *p++ = '/';
-    p = ngx_copy(p, ctx->region.data, ctx->region.len);
+    p = ngx_copy_str(p, ctx->region);
     *p++ = '/';
-    p = ngx_copy(p, ctx->service.data, ctx->service.len);
+    p = ngx_copy_str(p, ctx->service);
     *p++ = '/';
-    p = ngx_copy(p, ngx_live_dvr_s3_aws4_request.data,
-        ngx_live_dvr_s3_aws4_request.len);
+    p = ngx_copy_str(p, ngx_live_dvr_s3_aws4_request);
     ctx->key_scope_suffix.len = p - ctx->key_scope_suffix.data;
 
     /* alloc additional buffers */
@@ -438,9 +437,8 @@ ngx_live_dvr_s3_generate_signing_key(ngx_live_dvr_s3_ctx_t *ctx,
     ctx->signing_key_date.len = date.len;
     ngx_memcpy(ctx->signing_key_date.data, date.data, date.len);
 
-    p = ngx_copy(ctx->key_scope.data, ctx->signing_key_date.data,
-        ctx->signing_key_date.len);
-    p = ngx_copy(p, ctx->key_scope_suffix.data, ctx->key_scope_suffix.len);
+    p = ngx_copy_str(ctx->key_scope.data, ctx->signing_key_date);
+    p = ngx_copy_str(p, ctx->key_scope_suffix);
     ctx->key_scope.len = p - ctx->key_scope.data;
 
     return NGX_OK;
@@ -876,7 +874,8 @@ ngx_live_dvr_s3_read_init(ngx_pool_t *pool, ngx_live_channel_t *channel,
 }
 
 static ngx_int_t
-ngx_live_dvr_s3_save(ngx_live_channel_t *channel, uint32_t bucket_id)
+ngx_live_dvr_s3_save(ngx_live_channel_t *channel,
+    ngx_live_dvr_save_request_t *request)
 {
     ngx_live_dvr_s3_ctx_t          *ctx;
     ngx_live_dvr_s3_preset_conf_t  *conf;
@@ -885,7 +884,7 @@ ngx_live_dvr_s3_save(ngx_live_channel_t *channel, uint32_t bucket_id)
 
     ctx = conf->ctx;
 
-    return ngx_live_dvr_http_save(channel, bucket_id, ctx->url,
+    return ngx_live_dvr_http_save(channel, request, ctx->url,
         ngx_live_dvr_s3_put_request, ctx);
 }
 

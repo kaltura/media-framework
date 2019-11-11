@@ -4,6 +4,7 @@
 #define NGX_BLOCK_POOL_MIN_ALLOC_COUNT  (4)
 
 #define ngx_block_pool_free_next(ptr)  (*(void**) ptr)
+#define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 
 
 #if !(NGX_BLOCK_POOL_SKIP)
@@ -68,6 +69,7 @@ ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
     if (slot->free_head) {
         ptr = slot->free_head;
         slot->free_head = ngx_block_pool_free_next(ptr);
+        slot->nalloc++;
         return ptr;
     }
 
@@ -92,7 +94,7 @@ ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
     }
 
     slot->pos = ptr + slot->size;
-
+    slot->nalloc++;
     return ptr;
 }
 
@@ -130,6 +132,7 @@ ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
         return NULL;
     }
 
+    slot->nalloc++;
     *ptr = slot;
     return ptr + 1;
 }
@@ -184,6 +187,8 @@ ngx_block_pool_create(ngx_pool_t *pool, size_t *sizes, ngx_uint_t count,
     for (; sizes < sizes_end; sizes++, cur_slot++) {
 
         cur_slot->size = *sizes;
+        cur_slot->nalloc = 0;
+        cur_slot->used = 0;
 
         ngx_block_pool_init_slot(cur_slot);
     }
@@ -272,10 +277,11 @@ ngx_block_pool_get_size(ngx_block_pool_t *block_pool, ngx_uint_t index)
 
 
 void *
-ngx_block_pool_alloc_auto(ngx_block_pool_t *block_pool, size_t size,
+ngx_block_pool_auto_alloc(ngx_block_pool_t *block_pool, size_t size,
     ngx_uint_t min_index, ngx_uint_t max_index)
 {
-    ngx_uint_t                     slot;
+    ngx_uint_t                     index;
+    ngx_block_pool_slot_t         *slot;
     ngx_block_pool_auto_header_t  *ptr;
 
     if (!max_index) {
@@ -286,34 +292,93 @@ ngx_block_pool_alloc_auto(ngx_block_pool_t *block_pool, size_t size,
         if the number of configured sizes will grow */
 
     size += sizeof(*ptr);
-    for (slot = min_index; ; slot++) {
-        if (slot >= max_index) {
+    for (index = min_index; ; index++) {
+        if (index >= max_index) {
             ngx_log_error(NGX_LOG_ERR, block_pool->pool->log, 0,
                 "ngx_block_pool_alloc_auto: no slot found matching size %uz",
                 size);
             return NULL;
         }
 
-        if (size <= block_pool->slots[slot].size) {
+        slot = &block_pool->slots[index];
+        if (size <= slot->size) {
             break;
         }
     }
 
-    ptr = ngx_block_pool_alloc(block_pool, slot);
+    ptr = ngx_block_pool_alloc_internal(block_pool, slot);
     if (ptr == NULL) {
         return NULL;
     }
 
-    ptr->slot = slot;
+    slot->used += size;
+    ptr->slot = index;
     return ptr + 1;
 }
 
 void
-ngx_block_pool_free_auto(ngx_block_pool_t *block_pool, void *ptr)
+ngx_block_pool_auto_free(ngx_block_pool_t *block_pool, void *ptr)
 {
     ngx_block_pool_auto_header_t  *p;
 
     p = (ngx_block_pool_auto_header_t*) ptr - 1;
 
     ngx_block_pool_free(block_pool, p->slot, p);
+}
+
+size_t
+ngx_block_pool_auto_json_get_size(ngx_block_pool_t *block_pool,
+    ngx_uint_t min_index, ngx_uint_t max_index)
+{
+    size_t  slot_size;
+
+    if (!max_index) {
+        max_index = block_pool->count;
+    }
+
+    slot_size = sizeof("{\"size\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"nalloc\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"used\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof("}") - 1;
+
+    return sizeof("[]") - 1 +
+        (max_index - min_index) * (slot_size + sizeof(",") - 1);
+}
+
+u_char *
+ngx_block_pool_auto_json_write(u_char *p, ngx_block_pool_t *block_pool,
+    ngx_uint_t min_index, ngx_uint_t max_index)
+{
+    ngx_flag_t              comma;
+    ngx_block_pool_slot_t  *cur, *end;
+
+    if (!max_index) {
+        max_index = block_pool->count;
+    }
+
+    *p++ = '[';
+
+    comma = 0;
+    end = &block_pool->slots[max_index];
+
+    for (cur = &block_pool->slots[min_index]; cur < end; cur++) {
+        if (comma) {
+            *p++ = ',';
+        } else {
+            comma = 1;
+        }
+
+        p = ngx_copy_fix(p, "{\"size\":");
+        p = ngx_sprintf(p, "%uz", cur->size -
+            sizeof(ngx_block_pool_auto_header_t));
+        p = ngx_copy_fix(p, ",\"nalloc\":");
+        p = ngx_sprintf(p, "%ui", cur->nalloc);
+        p = ngx_copy_fix(p, ",\"used\":");
+        p = ngx_sprintf(p, "%uz", cur->used);
+        *p++ = '}';
+    }
+
+    *p++ = ']';
+
+    return p;
 }

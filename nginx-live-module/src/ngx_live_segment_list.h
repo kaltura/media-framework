@@ -53,6 +53,13 @@ void ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
     uint32_t min_used_segment_index);
 
 
+size_t ngx_live_segment_list_json_get_size(
+    ngx_live_segment_list_t *segment_list);
+
+u_char *ngx_live_segment_list_json_write(u_char *p,
+    ngx_live_segment_list_t *segment_list);
+
+
 void ngx_live_segment_iterator_last(ngx_live_segment_list_t *segment_list,
     ngx_live_segment_iterator_t *iterator);
 

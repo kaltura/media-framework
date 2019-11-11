@@ -232,12 +232,12 @@ ngx_rtmp_kmp_api_tracks_json_write(u_char *p, ngx_kmp_push_track_t **tracks,
         switch (track->media_type) {
 
         case KMP_MEDIA_VIDEO:
-            p = ngx_copy(p, "\"video\":", sizeof("\"video\":") - 1);
+            p = ngx_copy_fix(p, "\"video\":");
             p = ngx_rtmp_kmp_api_video_track_json_write(p, track, codec_ctx);
             break;
 
         case KMP_MEDIA_AUDIO:
-            p = ngx_copy(p, "\"audio\":", sizeof("\"audio\":") - 1);
+            p = ngx_copy_fix(p, "\"audio\":");
             p = ngx_rtmp_kmp_api_audio_track_json_write(p, track, codec_ctx);
             break;
         }

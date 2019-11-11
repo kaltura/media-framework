@@ -11,6 +11,10 @@ noobject ngx_live_tracks_json ngx_live_channel_t
 static ngx_live_variant_json ngx_live_variant_t
     track_ids %objFunc-ngx_live_variant_json_track_ids obj
     opaque %bs
+    label %V
+    lang %V
+    role %enum-ngx_live_variant_role_names
+    is_default %b
 
 noobject ngx_live_variants_json ngx_live_channel_t
     - %objQueue-ngx_live_variant_json,ngx_live_variant_t,queue,sn.str obj->variants_queue
@@ -21,6 +25,7 @@ ngx_live_channel_json ngx_live_channel_t
     preset_name %V cpcf->name
     mem_left %uz
     mem_limit %uz cpcf->mem_limit
+    mem_blocks %func-ngx_block_pool_auto_json obj->block_pool, NGX_LIVE_BP_COUNT, 0
     tracks %func-ngx_live_tracks_json obj
     variants %func-ngx_live_variants_json obj
     - %func-ngx_live_core_json obj, obj, NGX_LIVE_JSON_CTX_CHANNEL

@@ -40,7 +40,7 @@ typedef struct ngx_live_core_preset_conf_s {
     size_t                          mem_limit;
     ngx_uint_t                      mem_high_watermark;
     ngx_uint_t                      mem_low_watermark;
-    ngx_array_t                    *block_sizes;
+    ngx_array_t                    *mem_block_sizes;
 
     ngx_uint_t                      timescale;
 } ngx_live_core_preset_conf_t;

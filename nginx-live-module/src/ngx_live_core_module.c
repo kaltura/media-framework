@@ -82,11 +82,11 @@ static ngx_command_t  ngx_live_core_commands[] = {
       offsetof(ngx_live_core_preset_conf_t, mem_low_watermark),
       &ngx_live_core_percent_bounds },
 
-    { ngx_string("block_sizes"),
+    { ngx_string("mem_block_sizes"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_1MORE,
       ngx_live_block_sizes_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
-      offsetof(ngx_live_core_preset_conf_t, block_sizes),
+      offsetof(ngx_live_core_preset_conf_t, mem_block_sizes),
       NULL },
 
     { ngx_string("timescale"),
@@ -339,6 +339,7 @@ ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 {
     size_t                       *elts;
     ngx_uint_t                    nelts;
+    ngx_array_t                  *block_sizes;
     ngx_live_core_preset_conf_t  *prev = parent;
     ngx_live_core_preset_conf_t  *conf = child;
 
@@ -354,24 +355,26 @@ ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_uint_value(conf->timescale,
                               prev->timescale, 90000);
 
-    if (conf->block_sizes == NULL) {
-        conf->block_sizes = prev->block_sizes;
+    if (conf->mem_block_sizes == NULL) {
+        conf->mem_block_sizes = prev->mem_block_sizes;
     }
 
-    if (conf->block_sizes == NULL) {
-        conf->block_sizes = ngx_palloc(cf->pool, sizeof(ngx_array_t));
-        if (conf->block_sizes == NULL) {
+    if (conf->mem_block_sizes == NULL) {
+        block_sizes = ngx_palloc(cf->pool, sizeof(ngx_array_t));
+        if (block_sizes == NULL) {
             return NGX_CONF_ERROR;
         }
 
-        conf->block_sizes->elts = ngx_live_core_default_block_sizes;
-        conf->block_sizes->nelts =
+        block_sizes->elts = ngx_live_core_default_block_sizes;
+        block_sizes->nelts =
             vod_array_entries(ngx_live_core_default_block_sizes);
-        conf->block_sizes->size = sizeof(size_t);
+        block_sizes->size = sizeof(size_t);
+
+        conf->mem_block_sizes = block_sizes;
 
     } else {
-        elts = (size_t*) conf->block_sizes->elts;
-        nelts = conf->block_sizes->nelts;
+        elts = (size_t*) conf->mem_block_sizes->elts;
+        nelts = conf->mem_block_sizes->nelts;
 
         ngx_qsort(elts, nelts, sizeof(size_t), ngx_live_core_compare_sizes);
     }
@@ -411,16 +414,12 @@ ngx_live_core_postconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
-
-ngx_live_conf_ctx_t*
-ngx_live_core_get_preset_conf(ngx_cycle_t *cycle, ngx_str_t *preset_name)
+static ngx_live_core_main_conf_t *
+ngx_live_core_get_main_conf(ngx_cycle_t *cycle)
 {
-    ngx_uint_t                    key;
-    ngx_live_conf_ctx_t          *live_conf;
-    ngx_live_core_main_conf_t    *cmcf;
-    ngx_live_core_preset_conf_t  *cpcf;
+    ngx_live_conf_ctx_t *live_conf;
 
-    live_conf = (ngx_live_conf_ctx_t *) ngx_get_conf(cycle->conf_ctx,
+    live_conf = (ngx_live_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx,
         ngx_live_module);
     if (live_conf == NULL) {
         ngx_log_error(NGX_LOG_CRIT, cycle->log, 0,
@@ -428,7 +427,20 @@ ngx_live_core_get_preset_conf(ngx_cycle_t *cycle, ngx_str_t *preset_name)
         return NULL;
     }
 
-    cmcf = ngx_live_get_module_main_conf(live_conf, ngx_live_core_module);
+    return ngx_live_get_module_main_conf(live_conf, ngx_live_core_module);
+}
+
+ngx_live_conf_ctx_t *
+ngx_live_core_get_preset_conf(ngx_cycle_t *cycle, ngx_str_t *preset_name)
+{
+    ngx_uint_t                    key;
+    ngx_live_core_main_conf_t    *cmcf;
+    ngx_live_core_preset_conf_t  *cpcf;
+
+    cmcf = ngx_live_core_get_main_conf(cycle);
+    if (cmcf == NULL) {
+        return NULL;
+    }
 
     key = ngx_hash_key_lc(preset_name->data, preset_name->len);
 
@@ -535,7 +547,13 @@ ngx_live_core_json_get_size(void *obj, ngx_live_channel_t *channel,
     ngx_live_json_writer_t     *elts;
     ngx_live_core_main_conf_t  *cmcf;
 
-    cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
+    if (channel == NULL) {
+        cmcf = ngx_live_core_get_main_conf((ngx_cycle_t*) ngx_cycle);
+
+    } else {
+        cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
+    }
+
     elts = cmcf->json_writers[ctx].elts;
     n = cmcf->json_writers[ctx].nelts;
 
@@ -556,7 +574,13 @@ ngx_live_core_json_write(u_char *p, void *obj, ngx_live_channel_t *channel,
     ngx_live_json_writer_t     *elts;
     ngx_live_core_main_conf_t  *cmcf;
 
-    cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
+    if (channel == NULL) {
+        cmcf = ngx_live_core_get_main_conf((ngx_cycle_t*) ngx_cycle);
+
+    } else {
+        cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
+    }
+
     elts = cmcf->json_writers[ctx].elts;
     n = cmcf->json_writers[ctx].nelts;
 

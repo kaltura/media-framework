@@ -22,3 +22,4 @@ static noobject ngx_live_timelines_json ngx_live_timeline_channel_ctx_t
 
 static noobject ngx_live_timelines_module_json ngx_live_timeline_channel_ctx_t
     timelines %func-ngx_live_timelines_json obj
+    segment_list %func-ngx_live_segment_list_json &obj->segment_list

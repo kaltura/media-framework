@@ -22,10 +22,12 @@ static size_t ngx_live_variant_json_track_ids_get_size(
 static u_char *ngx_live_variant_json_track_ids_write(u_char *p,
     ngx_live_variant_t *obj);
 
-#include "ngx_live_channel_json.h"
-
-
-void ngx_live_track_channel_free(ngx_live_track_t *track, ngx_uint_t event);
+/* must match ngx_live_variant_role_e */
+ngx_str_t  ngx_live_variant_role_names[] = {
+    ngx_string("main"),
+    ngx_string("alternate"),
+    ngx_null_string
+};
 
 
 enum {
@@ -36,6 +38,12 @@ enum {
 
     NGX_LIVE_BP_COUNT
 };
+
+
+#include "ngx_live_channel_json.h"
+
+
+void ngx_live_track_channel_free(ngx_live_track_t *track, ngx_uint_t event);
 
 
 ngx_int_t
@@ -158,7 +166,7 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
 
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
-    block_count = NGX_LIVE_BP_COUNT + cpcf->block_sizes->nelts;
+    block_count = NGX_LIVE_BP_COUNT + cpcf->mem_block_sizes->nelts;
 
     block_sizes = ngx_palloc(temp_pool, sizeof(block_sizes[0]) * block_count);
     if (block_sizes == NULL) {
@@ -173,8 +181,8 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
     block_sizes[NGX_LIVE_BP_BUF_CHAIN] = sizeof(ngx_buf_chain_t);
     block_sizes[NGX_LIVE_BP_STR] = NGX_LIVE_STR_BLOCK_SIZE;
 
-    ngx_memcpy(&block_sizes[NGX_LIVE_BP_COUNT], cpcf->block_sizes->elts,
-        sizeof(block_sizes[0]) * cpcf->block_sizes->nelts);
+    ngx_memcpy(&block_sizes[NGX_LIVE_BP_COUNT], cpcf->mem_block_sizes->elts,
+        sizeof(block_sizes[0]) * cpcf->mem_block_sizes->nelts);
 
     /* call handlers */
     rc = ngx_live_core_channel_init(channel, &block_sizes[NGX_LIVE_BP_TRACK]);
@@ -311,7 +319,7 @@ ngx_live_channel_auto_alloc(ngx_live_channel_t *channel, size_t size)
 {
     void  *result;
 
-    result = ngx_block_pool_alloc_auto(channel->block_pool, size,
+    result = ngx_block_pool_auto_alloc(channel->block_pool, size,
         NGX_LIVE_BP_COUNT, 0);
     if (result == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
@@ -477,11 +485,11 @@ ngx_live_variant_json_track_ids_write(u_char *p, ngx_live_variant_t *obj)
         switch (media_type) {
 
         case KMP_MEDIA_VIDEO:
-            p = ngx_copy(p, "\"video\":\"", sizeof("\"video\":\"") - 1);
+            p = ngx_copy_fix(p, "\"video\":\"");
             break;
 
         case KMP_MEDIA_AUDIO:
-            p = ngx_copy(p, "\"audio\":\"", sizeof("\"audio\":\"") - 1);
+            p = ngx_copy_fix(p, "\"audio\":\"");
             break;
         }
         p = (u_char *) ngx_escape_json(p, cur_track->sn.str.data,
