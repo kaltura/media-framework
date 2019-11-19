@@ -11,8 +11,9 @@ def fixedStringLen(fixed):
     return 'sizeof(%s) - 1' % fixed
 
 def fixedStringCopy(fixed):
-    if len(fixed) == 3 and fixed[0] == '"' and fixed[2] == '"':
-        return "*p++ = '%s';\n" % fixed[1]
+    if fixed[0] == '"' and fixed[-1] == '"' and \
+        (len(fixed) == 3 or (len(fixed) == 4 and fixed[1] == '\\')):
+        return "*p++ = '%s';\n" % fixed[1:-1]
 
     return 'p = ngx_copy_fix(p, %s);\n' % (fixed)
 

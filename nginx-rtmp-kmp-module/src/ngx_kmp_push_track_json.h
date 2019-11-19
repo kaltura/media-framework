@@ -22,7 +22,7 @@ ngx_kmp_push_track_publish_json_write(u_char *p, ngx_kmp_push_track_t *obj)
 {
     p = ngx_copy_fix(p, "\"event_type\":\"publish\",\"input_id\":\"");
     p = (u_char *) ngx_escape_json(p, obj->input_id.data, obj->input_id.len);
-    p = ngx_copy_fix(p, "\"");
+    *p++ = '\"';
 
     return p;
 }

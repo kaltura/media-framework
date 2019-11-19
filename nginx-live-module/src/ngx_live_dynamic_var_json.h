@@ -19,9 +19,9 @@ ngx_live_dynamic_var_json_get_size(ngx_live_dynamic_var_t *obj)
 static u_char *
 ngx_live_dynamic_var_json_write(u_char *p, ngx_live_dynamic_var_t *obj)
 {
-    p = ngx_copy_fix(p, "\"");
+    *p++ = '\"';
     p = (u_char *) ngx_escape_json(p, obj->value.data, obj->value.len);
-    p = ngx_copy_fix(p, "\"");
+    *p++ = '\"';
 
     return p;
 }
