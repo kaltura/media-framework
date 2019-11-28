@@ -425,7 +425,7 @@ ngx_http_live_hls_get_container_format(ngx_http_live_hls_loc_conf_t *conf,
     }
 
     media_info = ngx_live_media_info_queue_get_last(
-        objects->tracks[KMP_MEDIA_VIDEO]);
+        objects->tracks[KMP_MEDIA_VIDEO], NULL);
     if (media_info != NULL && media_info->codec_id == VOD_CODEC_ID_HEVC) {
         return NGX_HTTP_LIVE_HLS_CONTAINER_FMP4;
     }

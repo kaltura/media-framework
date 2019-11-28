@@ -579,6 +579,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
     track->log.handler = ngx_live_track_log_error;
     track->log.data = track;
     track->start_msec = ngx_current_msec;
+    track->media_type = media_type;
 
     track->ctx = (void*)(track + 1);
     for (i = 0; i < ngx_live_max_module; i++) {
@@ -600,7 +601,6 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
     track->sn.node.key = hash;
 
     track->id = channel->track_id++;
-    track->media_type = media_type;
 
     ngx_rbtree_insert(&channel->tracks_tree, &track->sn.node);
 

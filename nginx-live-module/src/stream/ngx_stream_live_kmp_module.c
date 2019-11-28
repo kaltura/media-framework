@@ -221,7 +221,7 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
         }
     }
 
-    rc = ngx_live_media_info_queue_push(ctx->track, media_info_ptr, data,
+    rc = ngx_live_add_media_info(ctx->track, media_info_ptr, data,
         ctx->packet_header.data_size);
     switch (rc) {
 
@@ -309,6 +309,8 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
     }
 
     /* add the frame */
+    frame_ptr->flags &= KMP_FRAME_FLAG_MASK;
+
     rc = ngx_live_add_frame(ctx->track, frame_ptr, data, ctx->packet_data_last,
         ctx->packet_header.data_size);
     switch (rc) {

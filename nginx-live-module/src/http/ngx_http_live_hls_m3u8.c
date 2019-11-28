@@ -234,7 +234,7 @@ ngx_http_live_hls_media_group_write(u_char *p,
 
         if (media_type == MEDIA_TYPE_AUDIO) {
             media_info = ngx_live_media_info_queue_get_last(
-                variant->tracks[media_type]);
+                variant->tracks[media_type], NULL);
             p = vod_sprintf(p, M3U8_MEDIA_CHANNELS,
                 (uint32_t) media_info->u.audio.channels);
         }
@@ -327,7 +327,7 @@ ngx_http_live_hls_group_variants(ngx_http_request_t *r,
             }
 
             media_info = ngx_live_media_info_queue_get_last(
-                variant->tracks[KMP_MEDIA_AUDIO]);
+                variant->tracks[KMP_MEDIA_AUDIO], NULL);
             if (media_info == NULL) {
                 continue;
             }
@@ -456,7 +456,7 @@ ngx_http_live_hls_m3u8_streams_write(u_char *p, ngx_array_t *streams,
         if (tracks[KMP_MEDIA_VIDEO] != NULL) {
 
             video = ngx_live_media_info_queue_get_last(
-                tracks[KMP_MEDIA_VIDEO]);
+                tracks[KMP_MEDIA_VIDEO], NULL);
             if (video == NULL) {
                 continue;
             }
@@ -468,7 +468,7 @@ ngx_http_live_hls_m3u8_streams_write(u_char *p, ngx_array_t *streams,
 
             } else if (tracks[KMP_MEDIA_AUDIO] != NULL) {
                 audio = ngx_live_media_info_queue_get_last(
-                    tracks[KMP_MEDIA_AUDIO]);
+                    tracks[KMP_MEDIA_AUDIO], NULL);
                 if (audio == NULL) {
                     continue;
                 }
@@ -500,7 +500,7 @@ ngx_http_live_hls_m3u8_streams_write(u_char *p, ngx_array_t *streams,
 
             } else {
                 audio = ngx_live_media_info_queue_get_last(
-                    tracks[KMP_MEDIA_AUDIO]);
+                    tracks[KMP_MEDIA_AUDIO], NULL);
                 if (audio == NULL) {
                     continue;
                 }
