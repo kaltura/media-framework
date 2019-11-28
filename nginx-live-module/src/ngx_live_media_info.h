@@ -28,19 +28,32 @@ ngx_int_t ngx_live_media_info_parse(ngx_log_t *log,
     ngx_buf_chain_t *extra_data, uint32_t extra_data_size, media_info_t *dest);
 
 
-ngx_int_t ngx_live_media_info_queue_push(ngx_live_track_t *track,
-    kmp_media_info_t *media_info_ptr, ngx_buf_chain_t *extra_data,
-    uint32_t extra_data_size);
+/* pending */
+ngx_int_t ngx_live_media_info_pending_add(ngx_live_track_t *track,
+    kmp_media_info_t *media_info, ngx_buf_chain_t *extra_data,
+    uint32_t extra_data_size, uint32_t frame_index);
 
+void ngx_live_media_info_pending_remove_frames(ngx_live_track_t *track,
+    ngx_uint_t frame_count);
+
+void ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
+    uint32_t segment_index);
+
+void ngx_live_media_info_pending_free_all(ngx_live_track_t *track);
+
+
+/* active */
 media_info_t *ngx_live_media_info_queue_get(ngx_live_track_t *track,
     uint32_t segment_index, kmp_media_info_t **kmp_media_info);
 
-media_info_t *ngx_live_media_info_queue_get_last(ngx_live_track_t *track);
+media_info_t *ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
+    kmp_media_info_t **kmp_media_info);
 
 void ngx_live_media_info_queue_free(ngx_live_track_t *track,
     uint32_t min_segment_index);
 
 
+/* iterator */
 ngx_flag_t ngx_live_media_info_iterator_init(
     ngx_live_media_info_iterator_t *iterator, ngx_live_track_t *track);
 

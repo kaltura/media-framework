@@ -59,19 +59,8 @@ ngx_live_segment_t *
 ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
 {
     ngx_live_segment_cache_track_ctx_t  *ctx;
-    media_info_t                        *media_info;
-    kmp_media_info_t                    *kmp_media_info;
     ngx_live_segment_t                  *segment;
     ngx_pool_t                          *pool;
-
-    media_info = ngx_live_media_info_queue_get(track, segment_index,
-        &kmp_media_info);
-    if (media_info == NULL) {
-        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
-            "ngx_live_segment_cache_create: "
-            "failed to get media info for segment %uD", segment_index);
-        return NULL;
-    }
 
     pool = ngx_create_pool(1024, &track->log);
     if (pool == NULL) {
@@ -84,7 +73,7 @@ ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
     if (segment == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_segment_cache_create: allocate segment failed");
-        return NULL;
+        goto error;
     }
 
     if (ngx_list_init(&segment->frames, pool, 10, sizeof(input_frame_t))
@@ -92,7 +81,7 @@ ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
     {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_segment_cache_create: init list failed");
-        return NULL;
+        goto error;
     }
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
@@ -100,14 +89,44 @@ ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
     segment->node.key = segment_index;
     segment->track = track;
     segment->pool = pool;
-    segment->media_info = media_info;
-    segment->kmp_media_info = kmp_media_info;
 
     ngx_rbtree_insert(&ctx->tree, &segment->node);
     ngx_queue_insert_tail(&ctx->queue, &segment->queue);
     ctx->count++;
 
     return segment;
+
+error:
+
+    ngx_destroy_pool(pool);
+    return NULL;
+}
+
+static void
+ngx_live_segment_cache_destroy(ngx_live_channel_t *channel,
+    ngx_live_segment_t *segment)
+{
+    if (segment->data_tail != NULL) {
+        ngx_live_channel_buf_chain_free_list(channel, segment->data_head,
+            segment->data_tail);
+    }
+
+    ngx_destroy_pool(segment->pool);
+}
+
+void
+ngx_live_segment_cache_free(ngx_live_track_t *track,
+    ngx_live_segment_t *segment)
+{
+    ngx_live_segment_cache_track_ctx_t  *ctx;
+
+    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
+
+    ctx->count--;
+    ngx_queue_remove(&segment->queue);
+    ngx_rbtree_delete(&ctx->tree, &segment->node);
+
+    ngx_live_segment_cache_destroy(track->channel, segment);
 }
 
 ngx_live_segment_t *
@@ -164,31 +183,6 @@ ngx_live_segment_cache_free_input_bufs(ngx_live_track_t *track)
     }
 
     ngx_live_input_bufs_set_min_used(track, segment_index, ptr);
-}
-
-static void
-ngx_live_segment_cache_destroy(ngx_live_channel_t *channel,
-    ngx_live_segment_t *segment)
-{
-    ngx_live_channel_buf_chain_free_list(channel, segment->data_head,
-        segment->data_tail);
-
-    ngx_destroy_pool(segment->pool);
-}
-
-static void
-ngx_live_segment_cache_free(ngx_live_track_t *track,
-    ngx_live_segment_t *segment)
-{
-    ngx_live_segment_cache_track_ctx_t  *ctx;
-
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
-
-    ctx->count--;
-    ngx_queue_remove(&segment->queue);
-    ngx_rbtree_delete(&ctx->tree, &segment->node);
-
-    ngx_live_segment_cache_destroy(track->channel, segment);
 }
 
 void

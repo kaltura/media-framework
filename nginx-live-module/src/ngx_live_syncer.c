@@ -253,11 +253,7 @@ ngx_live_syncer_add_frame(ngx_live_track_t *track, kmp_frame_t *frame,
 
 sync:
 
-    if (ngx_live_segmenter_force_split(track, NULL) != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_live_syncer_add_frame: force split failed");
-        return NGX_ERROR;
-    }
+    frame->flags |= NGX_LIVE_FRAME_FLAG_SPLIT;
 
     ngx_live_syncer_sync_track(track, pts, frame->created, &channel_synched);
     if (channel_synched && ctx->force_sync_count == 0) {

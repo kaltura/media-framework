@@ -42,6 +42,9 @@ typedef ngx_int_t (*ngx_live_read_segment_pt)(ngx_pool_t *pool,
 ngx_live_segment_t *ngx_live_segment_cache_create(ngx_live_track_t *track,
     uint32_t segment_index);
 
+void ngx_live_segment_cache_free(ngx_live_track_t *track,
+    ngx_live_segment_t *segment);
+
 ngx_live_segment_t *ngx_live_segment_cache_get(ngx_live_track_t *track,
     uint32_t segment_index);
 

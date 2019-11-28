@@ -14,6 +14,7 @@
 #define KMP_MAX_DATA_SIZE       (16 * 1024 * 1024)
 
 #define KMP_FRAME_FLAG_KEY      (0x01)
+#define KMP_FRAME_FLAG_MASK     (KMP_FRAME_FLAG_KEY)
 
 /* enums */
 enum {
