@@ -11,6 +11,7 @@
 
 
 typedef struct {
+    ngx_flag_t  enabled;
     time_t      jump_threshold;
     ngx_uint_t  jump_sync_frames;
     time_t      max_forward_drift;
@@ -23,10 +24,12 @@ typedef struct {
     int64_t     last_pts;
     int64_t     correction;
     uint32_t    force_sync_count;
+    uint32_t    count;
 } ngx_live_syncer_track_ctx_t;
 
 typedef struct {
     int64_t     correction;
+    uint32_t    count;
 } ngx_live_syncer_channel_ctx_t;
 
 
@@ -38,6 +41,13 @@ static ngx_int_t ngx_live_syncer_postconfiguration(ngx_conf_t *cf);
 
 
 static ngx_command_t  ngx_live_syncer_commands[] = {
+
+    { ngx_string("syncer"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_syncer_preset_conf_t, enabled),
+      NULL },
 
     { ngx_string("syncer_jump_threshold"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
@@ -152,6 +162,7 @@ ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
             "using channel, track: %L, channel_wrapped: %L, channel: %L",
             track_correction, channel_correction, cctx->correction);
         ctx->correction = channel_correction;
+        ctx->count++;
         *channel_synched = 0;
 
     } else {
@@ -160,6 +171,8 @@ ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
             "using track, track: %L, channel_wrapped: %L, channel: %L",
             track_correction, channel_correction, cctx->correction);
         ctx->correction = cctx->correction = track_correction;
+        ctx->count++;
+        cctx->count++;
         *channel_synched = 1;
     }
 }
@@ -276,7 +289,9 @@ done:
 static size_t
 ngx_live_syncer_channel_json_get_size(void *obj)
 {
-    return sizeof("\"syncer_correction\":") - 1 + NGX_INT64_LEN;
+    return sizeof("\"syncer\":{\"correction\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"count\":") - 1 + NGX_INT32_LEN +
+        sizeof("}") - 1;
 }
 
 static u_char *
@@ -287,8 +302,11 @@ ngx_live_syncer_channel_json_write(u_char *p, void *obj)
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_syncer_module);
 
-    p = ngx_copy_fix(p, "\"syncer_correction\":");
+    p = ngx_copy_fix(p, "\"syncer\":{\"correction\":");
     p = ngx_sprintf(p, "%L", cctx->correction);
+    p = ngx_copy_fix(p, ",\"count\":");
+    p = ngx_sprintf(p, "%uD", cctx->count);
+    *p++ = '}';
     return p;
 }
 
@@ -296,7 +314,9 @@ ngx_live_syncer_channel_json_write(u_char *p, void *obj)
 static size_t
 ngx_live_syncer_track_json_get_size(void *obj)
 {
-    return sizeof("\"syncer_correction\":") - 1 + NGX_INT64_LEN;
+    return sizeof("\"syncer\":{\"correction\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"count\":") - 1 + NGX_INT32_LEN +
+        sizeof("}") - 1;
 }
 
 static u_char *
@@ -307,9 +327,11 @@ ngx_live_syncer_track_json_write(u_char *p, void *obj)
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_syncer_module);
 
-    p = ngx_copy_fix(p, "\"syncer_correction\":");
+    p = ngx_copy_fix(p, "\"syncer\":{\"correction\":");
     p = ngx_sprintf(p, "%L", ctx->correction);
-
+    p = ngx_copy_fix(p, ",\"count\":");
+    p = ngx_sprintf(p, "%uD", ctx->count);
+    *p++ = '}';
     return p;
 }
 
@@ -345,6 +367,7 @@ ngx_live_syncer_create_preset_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    conf->enabled = NGX_CONF_UNSET;
     conf->jump_threshold = NGX_CONF_UNSET;
     conf->jump_sync_frames = NGX_CONF_UNSET_UINT;
     conf->max_forward_drift = NGX_CONF_UNSET;
@@ -359,6 +382,8 @@ ngx_live_syncer_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_live_core_preset_conf_t    *cpcf;
     ngx_live_syncer_preset_conf_t  *prev = parent;
     ngx_live_syncer_preset_conf_t  *conf = child;
+
+    ngx_conf_merge_value(conf->enabled, prev->enabled, 1);
 
     ngx_conf_merge_sec_value(conf->jump_threshold,
                              prev->jump_threshold, 10);

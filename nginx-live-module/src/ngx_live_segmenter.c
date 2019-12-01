@@ -179,7 +179,7 @@ static ngx_command_t  ngx_live_segmenter_commands[] = {
       NULL },
 
     { ngx_string("segmenter_back_shift_margin"),
-      NGX_LIVE_MAIN_CONF | NGX_LIVE_PRESET_CONF | NGX_CONF_TAKE1,
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_msec_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_segmenter_preset_conf_t, back_shift_margin),
