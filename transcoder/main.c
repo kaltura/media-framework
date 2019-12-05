@@ -105,7 +105,9 @@ int start()
     receiver.transcode_session=&ctx;
     receiver.port=listenPort;
     json_get_string(GetConfig(),"kmp.listenAddress","127.0.0.1",receiver.listenAddress,sizeof(receiver.listenAddress));
-    receiver_server_init(&receiver);
+    if (receiver_server_init(&receiver)<0) {
+        return -1;
+    }
     if (useDummyPackager) {
         pDummyPackager=malloc(sizeof(*pDummyPackager));
         pDummyPackager->port=10000;
@@ -184,7 +186,9 @@ int main(int argc, char **argv)
     
     avformat_network_init();
     
-    start();
+    if (!start()) {
+        return -1;
+    }
     
     stop();
     

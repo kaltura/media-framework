@@ -50,8 +50,10 @@ int KMP_init( KMP_session_t *context)
     context->socket=0;
     context->bindAddress[0]=0;
     context->listenPort=0;
+    context->non_blocking=true;
     memset(&context->address,0,sizeof(context->address));
     context->sessionName[0]=0;
+    context->input_is_annex_b=false;
     return 0;
 }
 
@@ -102,11 +104,12 @@ int KMP_connect( KMP_session_t *context,char* url)
         return -1;
     }
     
-    
-    int flags=0;
-    if (-1 == (flags = fcntl(fd, F_GETFL, 0)))
-        flags = 0;
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    if (context->non_blocking) {
+        int flags=0;
+        if (-1 == (flags = fcntl(fd, F_GETFL, 0)))
+            flags = 0;
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    }
     
     struct sockaddr_in address;
     socklen_t addrLen = sizeof(address);
@@ -169,6 +172,7 @@ int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo 
     header.packet_type=KMP_PACKET_MEDIA_INFO;
     header.header_size=sizeof(kmp_packet_header_t)+sizeof(media_info);
     header.data_size=codecpar->extradata_size;
+    header.reserved=0;
     media_info.bitrate=(uint32_t)codecpar->bit_rate;
     media_info.timescale=mediaInfo->timeScale.den;
     if (codecpar->codec_type==AVMEDIA_TYPE_VIDEO)
@@ -189,7 +193,7 @@ int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo 
         media_info.u.audio.channels=codecpar->channels;
     }
     
-    if (codecpar->extradata_size>0 && codecpar->extradata[0] != 1) { //convert to mp4 header
+    if (codecpar->codec_type==AVMEDIA_TYPE_VIDEO && codecpar->extradata_size>0 && codecpar->extradata[0] != 1) { //convert to mp4 header
         AVIOContext *extra = NULL;
         avio_open_dyn_buf(&extra);
         ff_isom_write_avcc(extra,codecpar->extradata , codecpar->extradata_size);
@@ -283,6 +287,25 @@ uint32_t kk_avc_parse_nal_units(KMP_session_t *context, const uint8_t *buf_in, i
 }
 
 
+void print_mp4_units(char* data,uint size) {
+    int pos=0;
+    bool annex_b=   AV_RB32(data) == 0x00000001 ||  AV_RB24(data) == 0x000001;
+    
+    printf ("packet (%d): ",annex_b);
+    
+    while(pos<size) {
+        uint32_t chunkSize=AV_RB32(data+pos);
+        printf("%d,",chunkSize);
+        pos+=chunkSize;
+        if (pos>size) {
+            printf("problem!!");
+            exit(-1);
+        }
+        pos+=4;
+    }
+    printf("\n");
+}
+
 
 int KMP_send_packet( KMP_session_t *context,AVPacket* packet)
 {
@@ -290,16 +313,14 @@ int KMP_send_packet( KMP_session_t *context,AVPacket* packet)
         return -1;
     }
     //LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send KMP_send_packet",context->sessionName);
-    bool annex_b=
-        AV_RB32(packet->data) == 0x00000001 ||
-        AV_RB24(packet->data) == 0x000001;
     
     kmp_packet_header_t packetHeader;
     kmp_frame_t sample;
     
     packetHeader.packet_type=KMP_PACKET_FRAME;
     packetHeader.header_size=sizeof(sample)+sizeof(packetHeader);
-    packetHeader.data_size = annex_b ? kk_avc_parse_nal_units(NULL,packet->data,packet->size) : packet->size;
+    packetHeader.reserved=0;
+    packetHeader.data_size = context->input_is_annex_b ? kk_avc_parse_nal_units(NULL,packet->data,packet->size) : packet->size;
     if (AV_NOPTS_VALUE!=packet->pts) {
         sample.pts_delay=(uint32_t)(packet->pts - packet->dts);
     } else {
@@ -311,14 +332,14 @@ int KMP_send_packet( KMP_session_t *context,AVPacket* packet)
     
     _S(KMP_send(context, &packetHeader, sizeof(packetHeader)));
     _S(KMP_send(context, &sample, sizeof(sample)));
-    if (annex_b) {
+    if (context->input_is_annex_b) {
         kk_avc_parse_nal_units(context,packet->data, packet->size);
     } else {
+        //print_mp4_units(packet->data,packet->size);
         _S(KMP_send(context, packet->data, packet->size));
     }
     return 0;
 }
-
 
 int KMP_send_eof( KMP_session_t *context)
 {
@@ -327,6 +348,7 @@ int KMP_send_eof( KMP_session_t *context)
     packetHeader.packet_type=KMP_PACKET_EOS;
     packetHeader.header_size=0;
     packetHeader.data_size=0;
+    packetHeader.reserved=0;
     _S(KMP_send(context, &packetHeader, sizeof(packetHeader)));
     return 0;
 }
@@ -337,6 +359,7 @@ int KMP_send_ack( KMP_session_t *context,uint64_t frame_id)
     kmp_ack_frames_packet_t pkt;
     pkt.header.packet_type=KMP_PACKET_ACK_FRAMES;
     pkt.header.data_size=0;
+    pkt.header.reserved=0;
     pkt.header.header_size=sizeof(kmp_ack_frames_packet_t);
     pkt.frame_id=frame_id;
     _S(KMP_send(context, &pkt, sizeof(kmp_ack_frames_packet_t)));
@@ -350,6 +373,7 @@ int KMP_send_handshake( KMP_session_t *context,const char* channel_id,const char
     connect.header.packet_type=KMP_PACKET_CONNECT;
     connect.header.header_size=sizeof(kmp_connect_header_t);
     connect.header.data_size=0;
+    connect.header.reserved=0;
     connect.initial_frame_id=initial_frame_id;
     strcpy((char*)connect.channel_id,channel_id);
     strcpy((char*)connect.track_id,track_id);
@@ -398,7 +422,7 @@ int KMP_listen( KMP_session_t *context)
     if ( (ret=listen(context->socket, 10)) < 0)
     {
         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"listen failed %d (%s)",ret,av_err2str(ret));
-        return ret;
+        return ret; 
     }
     
     socklen_t addrLen = sizeof(context->address);
@@ -465,7 +489,7 @@ int recvExact(int socket,char* buffer,int bytesToRead) {
     while (bytesToRead>0) {
         int valread = (int)recv(socket,buffer+bytesRead, bytesToRead, 0);
         if (valread<=0){
-            LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"incomplete recv, returned %d",valread);
+            LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"incomplete recv when reading offset %d-%d, returned %d (errno=%d)",bytesRead,bytesRead+bytesToRead,valread,errno);
             return valread;
         }
         bytesRead+=valread;
@@ -598,7 +622,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
     if (mediaInfo.media_type==KMP_MEDIA_AUDIO) {
         params->codec_type=AVMEDIA_TYPE_AUDIO;
         params->sample_rate=mediaInfo.u.audio.sample_rate;
-        params->bits_per_raw_sample=mediaInfo.u.audio.bits_per_sample;
+        params->bits_per_raw_sample=mediaInfo.u.audio.bits_per_sample*8;
         params->channels=mediaInfo.u.audio.channels;
         params->channel_layout=av_get_default_channel_layout(params->channels);
         set_audio_codec(mediaInfo.codec_id,params);
@@ -651,6 +675,7 @@ int KMP_read_packet( KMP_session_t *context,kmp_packet_header_t *header,AVPacket
     packet->flags=((sample.flags& KMP_FRAME_FLAG_KEY )==KMP_FRAME_FLAG_KEY)? AV_PKT_FLAG_KEY : 0;
     
     valread =recvExact(context->socket,(char*)packet->data,(int)header->data_size);
+
     return valread;
 }
 

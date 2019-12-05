@@ -34,6 +34,7 @@ void* thread_stream_from_kmp(void *vargp)
 
         send(context->kmp.socket,buf,nread,0);
         
+         av_usleep(10);//0.01ms
     }
 
     KMP_close(&context->kmp);
@@ -49,6 +50,7 @@ int kmp_streamer_start(kmp_streamer_t* context)
     context->file = fopen(context->source_file_name, "r");
 
     KMP_init(&context->kmp);
+    context->kmp.non_blocking=false;
     KMP_connect(&context->kmp,context->kmp_url);
                 
     context->stop=false;

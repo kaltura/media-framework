@@ -182,7 +182,9 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
         LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "Initialized video decoder \"%s\" color space: %s",dec->long_name, av_get_pix_fmt_name (codec_ctx->pix_fmt));
     }
     if (codec_ctx->codec_type==AVMEDIA_TYPE_AUDIO) {
-        LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "Initialized audio decoder \"%s\"",dec->long_name);
+        char temp[128];
+        av_get_channel_layout_string(temp,sizeof(temp),codec_ctx->channels,codec_ctx->channel_layout);
+        LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "Initialized audio decoder \"%s\" %dHz %d bits - %s",dec->long_name,codec_ctx->sample_rate,codec_ctx->bits_per_raw_sample,temp);
     }
     return 0;
 }

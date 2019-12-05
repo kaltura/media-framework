@@ -30,10 +30,14 @@ int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,
     if (dec_ctx->codec_type==AVMEDIA_TYPE_AUDIO) {
         buffersrc  = avfilter_get_by_name("abuffer");
         buffersink = avfilter_get_by_name("abuffersink");
+        uint64_t channelLayout=dec_ctx->channel_layout;
+        if (channelLayout<=0) {
+            channelLayout=av_get_default_channel_layout(dec_ctx->channels);
+        }
         snprintf(args, sizeof args,
                  "sample_rate=%d:sample_fmt=%d:channel_layout=0x%"PRIx64":channels=%d:"
                  "time_base=%d/%d",
-                 dec_ctx->sample_rate, dec_ctx->sample_fmt, dec_ctx->channel_layout,
+                 dec_ctx->sample_rate, dec_ctx->sample_fmt, channelLayout,
                  dec_ctx->channels, standard_timebase.num, standard_timebase.den);
     }
     

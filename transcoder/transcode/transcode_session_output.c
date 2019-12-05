@@ -74,8 +74,8 @@ int transcode_session_output_from_json(transcode_session_output_t* pOutput,const
     const json_value_t* pVideoParams,*pAudioParams;
     if (JSON_OK==json_get(json,"videoParams",&pVideoParams)) {
         pOutput->codec_type=AVMEDIA_TYPE_VIDEO;
-        pOutput->videoParams.width=-2;
-        json_get_int(pVideoParams,"height",-1,&pOutput->videoParams.height);
+        json_get_int(pVideoParams,"height",-2,&pOutput->videoParams.height);
+        json_get_int(pVideoParams,"width",-2,&pOutput->videoParams.width);
         json_get_string(pVideoParams,"profile","",pOutput->videoParams.profile,sizeof(pOutput->videoParams.profile));
         json_get_string(pVideoParams,"preset","",pOutput->videoParams.preset,sizeof(pOutput->videoParams.preset));
         json_get_int(pVideoParams,"skipFrame",1,&pOutput->videoParams.skipFrame);
@@ -167,6 +167,9 @@ int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,
     if (strlen(senderUrl)>0) {
         pOutput->sender=( KMP_session_t* )malloc(sizeof( KMP_session_t ));
         KMP_init(pOutput->sender);
+        
+        pOutput->sender->input_is_annex_b = pOutput->codec_type==AVMEDIA_TYPE_VIDEO && !pOutput->passthrough;
+        
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] connecting to %s",pOutput->track_id,senderUrl);
         _S(KMP_connect(pOutput->sender, senderUrl));
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending handshake (channelId: %s trackId: %s)",pOutput->track_id,pOutput->channel_id,pOutput->track_id);

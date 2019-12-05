@@ -20,6 +20,8 @@ typedef struct
     uint16_t listenPort;
     struct sockaddr_in address;
     char sessionName[MAX_URL_LENGTH];
+    bool_t non_blocking;
+    bool_t input_is_annex_b;
 } KMP_session_t;
 
 
