@@ -9,7 +9,6 @@
 #include "ngx_live.h"
 
 
-#define NGX_LIVE_INVALID_SEGMENT_INDEX      (NGX_MAX_UINT32_VALUE)
 #define NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT  (16384)
 
 /* KMP_FRAME_FLAG_KEY = 0x01 */

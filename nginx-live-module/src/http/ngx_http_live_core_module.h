@@ -9,6 +9,8 @@
 #include "../ngx_live_timeline.h"
 
 
+#define NGX_HTTP_GONE                      410
+
 #define NGX_HTTP_LIVE_PARSE_REQUIRE_INDEX           (0x1)
 #define NGX_HTTP_LIVE_PARSE_REQUIRE_SINGLE_VARIANT  (0x2)
 #define NGX_HTTP_LIVE_PARSE_OPTIONAL_VARIANTS       (0x4)
@@ -138,8 +140,8 @@ ngx_int_t ngx_http_live_core_parse_uri_file_name(ngx_http_request_t *r,
 u_char *ngx_http_live_write_media_type_mask(u_char *p,
     uint32_t media_type_mask);
 
-ngx_int_t ngx_http_live_find_string(ngx_str_t *arr, ngx_int_t count,
-    ngx_str_t *str);
+ngx_flag_t ngx_http_live_output_variant(ngx_http_live_core_ctx_t *ctx,
+    ngx_live_variant_t *variant);
 
 ngx_int_t ngx_http_live_generate_key(ngx_http_request_t *r, ngx_flag_t iv,
     ngx_str_t *salt, u_char *result);

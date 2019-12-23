@@ -81,7 +81,7 @@ enum {
     CHANNEL_PARAM_COUNT
 };
 
-static ngx_json_object_key_def_t  live_channel_params[] = {
+static ngx_json_object_key_def_t  ngx_live_channel_params[] = {
     { vod_string("id"),          NGX_JSON_STRING, CHANNEL_PARAM_ID },
     { vod_string("preset"),      NGX_JSON_STRING, CHANNEL_PARAM_PRESET },
     { vod_string("opaque"),      NGX_JSON_STRING, CHANNEL_PARAM_OPAQUE },
@@ -106,7 +106,7 @@ enum {
     TIMELINE_PARAM_COUNT
 };
 
-static ngx_json_object_key_def_t  timeline_params[] = {
+static ngx_json_object_key_def_t  ngx_live_timeline_params[] = {
     { vod_string("id"),                                 NGX_JSON_STRING,
         TIMELINE_PARAM_ID },
     { vod_string("source_id"),                          NGX_JSON_STRING,
@@ -129,6 +129,7 @@ static ngx_json_object_key_def_t  timeline_params[] = {
         TIMELINE_PARAM_MANIFEST_EXPIRY_THRESHOLD },
     { vod_string("manifest_target_duration_segments"),  NGX_JSON_INT,
         TIMELINE_PARAM_MANIFEST_TARGET_DURATION_SEGMENTS },
+    { vod_null_string, 0, 0 }
 };
 
 
@@ -143,7 +144,7 @@ enum {
     VARIANT_PARAM_COUNT
 };
 
-static ngx_json_object_key_def_t  variant_params[] = {
+static ngx_json_object_key_def_t  ngx_live_variant_params[] = {
     { vod_string("id"),          NGX_JSON_STRING, VARIANT_PARAM_ID },
     { vod_string("opaque"),      NGX_JSON_STRING, VARIANT_PARAM_OPAQUE },
     { vod_string("label"),       NGX_JSON_STRING, VARIANT_PARAM_LABEL },
@@ -162,7 +163,7 @@ enum {
     TRACK_PARAM_COUNT
 };
 
-static ngx_json_object_key_def_t  track_params[] = {
+static ngx_json_object_key_def_t  ngx_live_track_params[] = {
     { vod_string("id"),          NGX_JSON_STRING, TRACK_PARAM_ID },
     { vod_string("media_type"),  NGX_JSON_STRING, TRACK_PARAM_MEDIA_TYPE },
     { vod_string("opaque"),      NGX_JSON_STRING, TRACK_PARAM_OPAQUE },
@@ -267,7 +268,7 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
     }
 
     ngx_memzero(values, sizeof(values));
-    ngx_json_get_object_values(&body->v.obj, live_channel_params, values);
+    ngx_json_get_object_values(&body->v.obj, ngx_live_channel_params, values);
 
     if (values[CHANNEL_PARAM_ID] == NULL ||
         values[CHANNEL_PARAM_PRESET] == NULL)
@@ -379,6 +380,7 @@ ngx_http_live_api_channel_put(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t                   channel_id;
     ngx_log_t                  *log = r->connection->log;
     ngx_hash_t                 *json_cmds;
+    ngx_json_value_t           *values[CHANNEL_PARAM_COUNT];
     ngx_live_channel_t         *channel;
     ngx_live_core_main_conf_t  *cmcf;
 
@@ -389,6 +391,10 @@ ngx_http_live_api_channel_put(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
     }
 
+    ngx_memzero(values, sizeof(values));
+    ngx_json_get_object_values(&body->v.obj, ngx_live_channel_params, values);
+
+
     channel_id = params[0];
     channel = ngx_live_channel_get(&channel_id);
     if (channel == NULL) {
@@ -396,6 +402,16 @@ ngx_http_live_api_channel_put(ngx_http_request_t *r, ngx_str_t *params,
             "ngx_http_live_api_channel_put: unknown channel \"%V\"",
             &channel_id);
         return NGX_HTTP_NOT_FOUND;
+    }
+
+    if (values[CHANNEL_PARAM_OPAQUE] != NULL) {
+        rc = ngx_live_channel_block_str_set(channel, &channel->opaque,
+            &values[CHANNEL_PARAM_OPAQUE]->v.str);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_channel_put: failed to set opaque");
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
     }
 
     cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
@@ -479,7 +495,7 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
     }
 
     ngx_memzero(values, sizeof(values));
-    ngx_json_get_object_values(&body->v.obj, variant_params, values);
+    ngx_json_get_object_values(&body->v.obj, ngx_live_variant_params, values);
 
     if (values[VARIANT_PARAM_ID] == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -687,7 +703,7 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     }
 
     ngx_memzero(values, sizeof(values));
-    ngx_json_get_object_values(&body->v.obj, track_params, values);
+    ngx_json_get_object_values(&body->v.obj, ngx_live_track_params, values);
 
     if (values[TRACK_PARAM_ID] == NULL ||
         values[TRACK_PARAM_MEDIA_TYPE] == NULL)
@@ -827,7 +843,7 @@ ngx_http_live_api_variant_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     }
 
     ngx_memzero(values, sizeof(values));
-    ngx_json_get_object_values(&body->v.obj, track_params, values);
+    ngx_json_get_object_values(&body->v.obj, ngx_live_track_params, values);
 
     if (values[TRACK_PARAM_ID] == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -981,7 +997,7 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
     }
 
     ngx_memzero(values, sizeof(values));
-    ngx_json_get_object_values(&body->v.obj, timeline_params, values);
+    ngx_json_get_object_values(&body->v.obj, ngx_live_timeline_params, values);
 
     if (values[TIMELINE_PARAM_ID] == NULL)
     {
@@ -1129,7 +1145,7 @@ ngx_http_live_api_timeline_put(ngx_http_request_t *r, ngx_str_t *params,
     }
 
     ngx_memzero(values, sizeof(values));
-    ngx_json_get_object_values(&body->v.obj, timeline_params, values);
+    ngx_json_get_object_values(&body->v.obj, ngx_live_timeline_params, values);
 
 
     channel_id = params[0];
