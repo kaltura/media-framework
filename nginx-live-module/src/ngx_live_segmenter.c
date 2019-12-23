@@ -40,10 +40,12 @@ typedef enum {
 typedef struct {
     ngx_msec_t                        segment_duration;
     ngx_msec_t                        min_segment_duration;
+    ngx_msec_t                        back_shift_margin;
     ngx_msec_t                        inactive_timeout;
     ngx_uint_t                        ready_threshold;
     ngx_uint_t                        initial_ready_threshold;
-    ngx_msec_t                        back_shift_margin;
+    ngx_uint_t                        split_lower_bound;
+    ngx_uint_t                        split_upper_bound;
 } ngx_live_segmenter_preset_conf_t;
 
 typedef struct {
@@ -111,11 +113,13 @@ typedef struct {
     ngx_live_segmenter_dyn_conf_t     conf;
     uint32_t                          segment_duration;
     uint32_t                          min_segment_duration;
+    uint32_t                          back_shift_margin;
     uint32_t                          keyframe_alignment_margin;
     uint32_t                          ready_duration;
     uint32_t                          initial_ready_duration;
     uint32_t                          cur_ready_duration;
-    uint32_t                          back_shift_margin;
+    uint32_t                          split_lower_bound;
+    uint32_t                          split_upper_bound;
 
     ngx_block_pool_t                 *block_pool;
 
@@ -154,6 +158,13 @@ static ngx_command_t  ngx_live_segmenter_commands[] = {
       offsetof(ngx_live_segmenter_preset_conf_t, min_segment_duration),
       NULL },
 
+    { ngx_string("segmenter_back_shift_margin"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_segmenter_preset_conf_t, back_shift_margin),
+      NULL },
+
     { ngx_string("segmenter_inactive_timeout"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_msec_slot,
@@ -175,11 +186,18 @@ static ngx_command_t  ngx_live_segmenter_commands[] = {
       offsetof(ngx_live_segmenter_preset_conf_t, initial_ready_threshold),
       NULL },
 
-    { ngx_string("segmenter_back_shift_margin"),
+    { ngx_string("segmenter_split_lower_bound"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_msec_slot,
+      ngx_conf_set_num_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
-      offsetof(ngx_live_segmenter_preset_conf_t, back_shift_margin),
+      offsetof(ngx_live_segmenter_preset_conf_t, split_lower_bound),
+      NULL },
+
+    { ngx_string("segmenter_split_upper_bound"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_segmenter_preset_conf_t, split_upper_bound),
       NULL },
 
       ngx_null_command
@@ -1480,20 +1498,39 @@ ngx_live_segmenter_track_get_segment_end_pts(ngx_live_track_t *base_track,
 
 static int64_t
 ngx_live_segmenter_get_segment_end_pts(ngx_live_channel_t *channel,
-    int64_t boundary_pts)
+    int64_t min_pts)
 {
     int64_t                            target_pts;
-    int64_t                            min_target_pts;
+    int64_t                            boundary_pts;
     int64_t                            min_split_pts;
     int64_t                            max_split_pts;
+    int64_t                            min_target_pts;
     ngx_live_track_t                  *base_track;
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
-    /* consider only splits between 0.25 .. 1.5 x segment duration */
-    min_split_pts = boundary_pts - 3 * cctx->segment_duration / 4;
-    max_split_pts = boundary_pts + cctx->segment_duration / 2;
+    /* get the segment boundary pts */
+    boundary_pts = cctx->last_segment_end_pts + cctx->segment_duration;
+    if (min_pts > boundary_pts) {
+
+        if (cctx->last_segment_end_pts) {
+            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                "ngx_live_segmenter_create_segments: "
+                "pts forward jump, forcing new period, "
+                "min_pts: %L, boundary_pts: %L",
+                min_pts, boundary_pts);
+        }
+
+        cctx->last_segment_end_pts = min_pts;
+        cctx->force_new_period = 1;
+
+        boundary_pts = min_pts + cctx->segment_duration;
+    }
+
+    /* find the base track, consider only splits between the bounds */
+    min_split_pts = cctx->last_segment_end_pts + cctx->split_lower_bound;
+    max_split_pts = cctx->last_segment_end_pts + cctx->split_upper_bound;
 
     base_track = ngx_live_segmenter_get_base_track(channel,
         min_split_pts, max_split_pts, &target_pts);
@@ -1504,6 +1541,7 @@ ngx_live_segmenter_get_segment_end_pts(ngx_live_channel_t *channel,
     }
 
     if (target_pts == NGX_LIVE_INVALID_PTS) {
+        /* use the base track to determine the target pts */
         target_pts = ngx_live_segmenter_track_get_segment_end_pts(base_track,
             boundary_pts);
         if (target_pts == NGX_LIVE_INVALID_PTS) {
@@ -1784,7 +1822,6 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
 {
     int64_t                            min_pts;
     int64_t                            end_pts;
-    int64_t                            boundary_pts;
     uint32_t                           duration;
     uint32_t                           segment_index;
     ngx_int_t                          rc;
@@ -1811,25 +1848,7 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
             break;
         }
 
-        boundary_pts = cctx->last_segment_end_pts + cctx->segment_duration;
-        if (min_pts > boundary_pts) {
-
-            if (cctx->last_segment_end_pts) {
-                ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-                    "ngx_live_segmenter_create_segments: "
-                    "pts forward jump, forcing new period, "
-                    "min_pts: %L, boundary_pts: %L",
-                    min_pts, boundary_pts);
-            }
-
-            cctx->last_segment_end_pts = min_pts;
-            cctx->force_new_period = 1;
-
-            boundary_pts = min_pts + cctx->segment_duration;
-        }
-
-        end_pts = ngx_live_segmenter_get_segment_end_pts(channel,
-            boundary_pts);
+        end_pts = ngx_live_segmenter_get_segment_end_pts(channel, min_pts);
         if (end_pts == NGX_LIVE_INVALID_PTS) {
             return NGX_ERROR;
         }
@@ -2226,6 +2245,21 @@ ngx_live_segmenter_track_connect(ngx_live_track_t *track)
     return NGX_OK;
 }
 
+static void
+ngx_live_segmenter_update_segment_duration(
+    ngx_live_segmenter_channel_ctx_t *cctx,
+    ngx_live_segmenter_preset_conf_t *spcf)
+{
+    cctx->ready_duration = ((uint64_t) cctx->segment_duration *
+        spcf->ready_threshold) / 100;
+    cctx->initial_ready_duration = ((uint64_t) cctx->segment_duration *
+        spcf->initial_ready_threshold) / 100;
+    cctx->split_lower_bound = ((uint64_t) cctx->segment_duration *
+        spcf->split_lower_bound) / 100;
+    cctx->split_upper_bound = ((uint64_t) cctx->segment_duration *
+        spcf->split_upper_bound) / 100;
+}
+
 static ngx_int_t
 ngx_live_segmenter_channel_init(ngx_live_channel_t *channel,
     size_t *track_ctx_size)
@@ -2261,10 +2295,7 @@ ngx_live_segmenter_channel_init(ngx_live_channel_t *channel,
     cctx->conf.segment_duration = spcf->segment_duration;
     cctx->segment_duration = ngx_live_rescale_time(cctx->conf.segment_duration,
         1000, cpcf->timescale);
-    cctx->ready_duration = ((uint64_t) cctx->segment_duration *
-        spcf->ready_threshold) / 100;
-    cctx->initial_ready_duration = ((uint64_t) cctx->segment_duration *
-        spcf->initial_ready_threshold) / 100;
+    ngx_live_segmenter_update_segment_duration(cctx, spcf);
     cctx->cur_ready_duration = cctx->initial_ready_duration;
 
     cctx->min_segment_duration = ngx_live_rescale_time(
@@ -2324,10 +2355,7 @@ ngx_live_segmenter_set_segment_duration(void *ctx,
         1000, cpcf->timescale);
 
     initial = cctx->cur_ready_duration == cctx->initial_ready_duration;
-    cctx->ready_duration = ((uint64_t) cctx->segment_duration *
-        spcf->ready_threshold) / 100;
-    cctx->initial_ready_duration = ((uint64_t) cctx->segment_duration *
-        spcf->initial_ready_threshold) / 100;
+    ngx_live_segmenter_update_segment_duration(cctx, spcf);
     cctx->cur_ready_duration = initial ? cctx->initial_ready_duration :
         cctx->ready_duration;
 
@@ -2496,10 +2524,12 @@ ngx_live_segmenter_create_preset_conf(ngx_conf_t *cf)
 
     conf->segment_duration = NGX_CONF_UNSET_MSEC;
     conf->min_segment_duration = NGX_CONF_UNSET_MSEC;
+    conf->back_shift_margin = NGX_CONF_UNSET_MSEC;
     conf->inactive_timeout = NGX_CONF_UNSET_MSEC;
     conf->ready_threshold = NGX_CONF_UNSET_UINT;
     conf->initial_ready_threshold = NGX_CONF_UNSET_UINT;
-    conf->back_shift_margin = NGX_CONF_UNSET_MSEC;
+    conf->split_lower_bound = NGX_CONF_UNSET_UINT;
+    conf->split_upper_bound = NGX_CONF_UNSET_UINT;
 
     return conf;
 }
@@ -2516,6 +2546,9 @@ ngx_live_segmenter_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_msec_value(conf->min_segment_duration,
                               prev->min_segment_duration, 20);
 
+    ngx_conf_merge_msec_value(conf->back_shift_margin,
+                              prev->back_shift_margin, 0);
+
     ngx_conf_merge_msec_value(conf->inactive_timeout,
                               prev->inactive_timeout, 10000);
 
@@ -2525,8 +2558,11 @@ ngx_live_segmenter_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_uint_value(conf->initial_ready_threshold,
                               prev->initial_ready_threshold, 200);
 
-    ngx_conf_merge_msec_value(conf->back_shift_margin,
-                              prev->back_shift_margin, 0);
+    ngx_conf_merge_uint_value(conf->split_lower_bound,
+                              prev->split_lower_bound, 25);
+
+    ngx_conf_merge_uint_value(conf->split_upper_bound,
+                              prev->split_upper_bound, 150);
 
     return NGX_CONF_OK;
 }
