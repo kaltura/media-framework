@@ -211,6 +211,7 @@ ngx_rtmp_kmp_track_write_media_info(ngx_kmp_push_track_t *track,
         media_info.m.u.audio.sample_rate = codec_ctx->sample_rate;
         media_info.m.u.audio.bits_per_sample = codec_ctx->sample_size * 8;
         media_info.m.u.audio.channels = codec_ctx->audio_channels;
+        media_info.m.u.audio.padding = 0;
         break;
     }
 

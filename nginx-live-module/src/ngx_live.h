@@ -22,17 +22,23 @@ typedef struct ngx_live_channel_s     ngx_live_channel_t;
 
 #define ngx_array_entries(x)                    (sizeof(x) / sizeof(x[0]))
 
-#define ngx_round_to_multiple(num, mult)        \
+#define ngx_round_to_multiple(num, mult)                                    \
     ((((num) + (mult) / 2) / (mult)) * (mult))
 
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
 
+#define ngx_abs_diff(val1, val2)                                            \
+    ((val2) > (val1) ? (val2) - (val1) : (val1) - (val2))
+
+#define ngx_rbtree_data(n, type, node)                                      \
+    (type *) ((u_char *) n - offsetof(type, node))
+
 
 #define ngx_live_get_module_ctx(ch, module)     (ch)->ctx[module.ctx_index]
 #define ngx_live_set_ctx(ch, c, module)         ch->ctx[module.ctx_index] = c;
 
-#define ngx_live_track_get_module_ctx(ch, module)  (ch)->ctx[module.ctx_index]
+#define ngx_live_track_get_module_ctx(t, module)  (t)->ctx[module.ctx_index]
 
 #define ngx_live_rescale_time(time, cur_scale, new_scale)                   \
     ((((uint64_t)(time)) * (new_scale) + (cur_scale) / 2) / (cur_scale))

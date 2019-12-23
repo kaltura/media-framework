@@ -18,7 +18,9 @@
 #define NGX_LIVE_VARIANT_MAX_LABEL_LEN  (64)
 #define NGX_LIVE_VARIANT_MAX_LANG_LEN   (6)
 
-#define NGX_LIVE_TRACK_MAX_ID_LEN    KMP_MAX_TRACK_ID_LEN
+#define NGX_LIVE_TRACK_MAX_ID_LEN       KMP_MAX_TRACK_ID_LEN
+
+#define NGX_LIVE_INVALID_SEGMENT_INDEX  (NGX_MAX_UINT32_VALUE)
 
 
 #define ngx_live_reserve_track_ctx_size(channel, module, size, total_size)  \
@@ -60,12 +62,17 @@ struct ngx_live_channel_s {
     ngx_rbtree_node_t           variants_sentinel;
     ngx_queue_t                 variants_queue;
 
-    ngx_rbtree_t                tracks_tree;
+    ngx_rbtree_t                tracks_tree;        /* by string id */
     ngx_rbtree_node_t           tracks_sentinel;
+    ngx_rbtree_t                tracks_itree;       /* by int id */
+    ngx_rbtree_node_t           tracks_isentinel;
     ngx_queue_t                 tracks_queue;
     uint32_t                    track_count;
     uint32_t                    track_id;
     size_t                     *track_ctx_offset;
+
+    uint32_t                    next_segment_index;
+    uint32_t                    last_segment_media_types;
 
     unsigned                    active:1;
 };
@@ -82,12 +89,13 @@ typedef struct {
 
 struct ngx_live_track_s {
     ngx_str_node_t              sn;        /* must be first */
+    ngx_rbtree_node_t           in;
+
     ngx_queue_t                 queue;
     ngx_live_channel_t         *channel;
     u_char                      id_buf[NGX_LIVE_TRACK_MAX_ID_LEN];
     ngx_block_str_t             opaque;
 
-    uint32_t                    id;
     uint32_t                    media_type;
     ngx_msec_t                  start_msec;
 
@@ -95,7 +103,15 @@ struct ngx_live_track_s {
     ngx_log_t                   log;
 
     ngx_live_track_input_t      input;
+
+    unsigned                    has_last_segment:1;
 };
+
+
+typedef struct {
+    uint32_t                    id;
+    ngx_live_track_t           *track;
+} ngx_live_track_ref_t;
 
 
 typedef enum {
@@ -178,6 +194,8 @@ void ngx_live_variant_free(ngx_live_variant_t *variant);
 void ngx_live_variant_set_track(ngx_live_variant_t *variant,
     ngx_live_track_t *track);
 
+ngx_flag_t ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
+    uint32_t media_type_mask);
 
 size_t ngx_live_variants_json_get_size(ngx_live_channel_t *obj);
 
@@ -193,6 +211,9 @@ void ngx_live_track_free(ngx_live_track_t *track);
 
 ngx_live_track_t *ngx_live_track_get(ngx_live_channel_t *channel,
     ngx_str_t *track_id);
+
+ngx_live_track_t *ngx_live_track_get_by_int(ngx_live_channel_t *channel,
+    uint32_t track_id);
 
 
 size_t ngx_live_tracks_json_get_size(ngx_live_channel_t *obj);

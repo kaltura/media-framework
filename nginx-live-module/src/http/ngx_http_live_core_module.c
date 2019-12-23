@@ -10,8 +10,6 @@
 
 #define NGX_HTTP_LIVE_DEFAULT_LAST_MODIFIED  (1262304000)   /* 1/1/2010 */
 
-#define NGX_HTTP_GONE                      410
-
 
 static ngx_int_t ngx_http_live_add_variables(ngx_conf_t *cf);
 
@@ -380,7 +378,7 @@ ngx_http_live_write_media_type_mask(u_char *p, uint32_t media_type_mask)
     return p;
 }
 
-ngx_int_t
+static ngx_int_t
 ngx_http_live_find_string(ngx_str_t *arr, ngx_int_t count, ngx_str_t *str)
 {
     ngx_int_t  index;
@@ -394,6 +392,42 @@ ngx_http_live_find_string(ngx_str_t *arr, ngx_int_t count, ngx_str_t *str)
     }
 
     return -1;
+}
+
+ngx_flag_t
+ngx_http_live_output_variant(ngx_http_live_core_ctx_t *ctx,
+    ngx_live_variant_t *variant)
+{
+    ngx_uint_t  media_type;
+
+    /* included in the request variant ids list */
+    if (ctx->params.variant_ids_count > 0 &&
+        ngx_http_live_find_string(ctx->params.variant_ids,
+            ctx->params.variant_ids_count, &variant->sn.str) < 0)
+    {
+        return 0;
+    }
+
+    /* has tracks in the request media type list */
+    if (ctx->params.media_type_mask != (1 << KMP_MEDIA_COUNT) - 1) {
+
+        for (media_type = 0; ; media_type++) {
+
+            if (media_type >= KMP_MEDIA_COUNT) {
+                return 0;
+            }
+
+            if ((ctx->params.media_type_mask & (1 << media_type)) != 0
+                && variant->tracks[media_type] != NULL)
+            {
+                break;
+            }
+        }
+    }
+
+    /* main track has the last segment */
+    return ngx_live_variant_is_main_track_active(variant,
+        ctx->params.media_type_mask);
 }
 
 ngx_int_t
@@ -1329,17 +1363,50 @@ ngx_http_live_core_write_segment_async(void *arg, ngx_int_t rc)
     ngx_http_run_posted_requests(c);
 }
 
+static ngx_live_track_ref_t *
+ngx_http_live_core_get_segment_tracks(ngx_http_request_t *r,
+    ngx_http_live_request_objects_t *objects, uint32_t segment_index)
+{
+    uint32_t               i;
+    ngx_live_track_t      *cur_track;
+    ngx_live_track_ref_t  *result;
+    ngx_live_track_ref_t  *cur;
+
+    result = ngx_pcalloc(r->pool, sizeof(result[0]) * objects->track_count);
+    if (result == NULL) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            "ngx_http_live_core_get_segment_tracks: alloc failed");
+        return NULL;
+    }
+
+    cur = result;
+
+    for (i = 0; i < KMP_MEDIA_COUNT; i++) {
+
+        cur_track = objects->tracks[i];
+        if (cur_track == NULL) {
+            continue;
+        }
+
+        ngx_live_media_info_queue_get_segment_track(cur_track,
+            segment_index, cur);
+        cur++;
+    }
+
+    return result;
+}
+
 ngx_int_t
 ngx_http_live_core_segment_handler(ngx_http_request_t *r,
     ngx_http_live_request_objects_t *objects)
 {
-    ngx_int_t                  rc;
-    media_segment_t           *segment;
-    ngx_http_live_core_ctx_t  *ctx;
+    ngx_int_t                     rc;
+    media_segment_t              *segment;
+    ngx_http_live_core_ctx_t     *ctx;
+    ngx_live_segment_read_req_t   req;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_core_module);
 
-    /* validate the segment index and get the sequence */
     if (!ngx_live_timeline_contains_segment(objects->timeline,
         ctx->params.index))
     {
@@ -1348,6 +1415,14 @@ ngx_http_live_core_segment_handler(ngx_http_request_t *r,
             "segment %uD does not exist in timeline \"%V\"",
             ctx->params.index, &objects->timeline->sn.str);
         return NGX_HTTP_BAD_REQUEST;
+    }
+
+    req.tracks = ngx_http_live_core_get_segment_tracks(r, objects,
+        ctx->params.index);
+    if (req.tracks == NULL) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            "ngx_http_live_core_segment_handler: get tracks failed");
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     segment = ngx_pcalloc(r->pool, sizeof(*segment) +
@@ -1365,9 +1440,15 @@ ngx_http_live_core_segment_handler(ngx_http_request_t *r,
 
     ctx->segment = segment;
 
-    rc = ngx_live_read_segment(r->pool, objects->tracks,
-        ctx->params.read_flags, segment,
-        ngx_http_live_core_write_segment_async, r);
+    req.pool = r->pool;
+    req.channel = objects->channel;
+    req.track_count = objects->track_count;
+    req.flags = ctx->params.read_flags;
+    req.segment = segment;
+    req.callback = ngx_http_live_core_write_segment_async;
+    req.arg = r;
+
+    rc = ngx_live_read_segment(&req);
     switch (rc) {
 
     case NGX_OK:
@@ -1394,37 +1475,44 @@ ngx_http_live_core_get_init_segment(ngx_http_request_t *r,
     ngx_http_live_request_objects_t *objects,
     media_init_segment_t *result)
 {
-    uint32_t                   i;
-    media_info_t              *media_info;
-    ngx_live_track_t          *track;
-    kmp_media_info_t          *ignore;
-    ngx_http_live_core_ctx_t  *ctx;
+    uint32_t                     i;
+    media_info_t                *media_info;
+    ngx_live_track_t            *cur_track;
+    ngx_http_live_core_ctx_t    *ctx;
+    media_init_segment_track_t  *cur;
 
-    result->first = ngx_pcalloc(r->pool, sizeof(result->first[0]) *
-        objects->track_count);
-    if (result->first == NULL) {
+    cur = ngx_pcalloc(r->pool, sizeof(*cur) * objects->track_count);
+    if (cur == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_live_core_get_init_segment: alloc failed");
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
+
+    result->first = cur;
+    result->last = cur + objects->track_count;
     result->count = objects->track_count;
-    result->last = result->first + result->count;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_core_module);
 
-    for (i = 0; i < result->count; i++) {
-        track = objects->tracks[i];
+    for (i = 0; i < KMP_MEDIA_COUNT; i++) {
 
-        media_info = ngx_live_media_info_queue_get(track,
-            ctx->params.index, &ignore);
+        cur_track = objects->tracks[i];
+        if (cur_track == NULL) {
+            continue;
+        }
+
+        media_info = ngx_live_media_info_queue_get(cur_track,
+            ctx->params.index);
         if (media_info == NULL) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "ngx_http_live_core_get_init_segment: "
                 "media info not found, track: %V, index: %uD",
-                &track->sn.str, ctx->params.index);
+                &cur_track->sn.str, ctx->params.index);
             return NGX_HTTP_BAD_REQUEST;
         }
-        result->first[i].media_info = media_info;
+
+        cur->media_info = media_info;
+        cur++;
     }
 
     return NGX_OK;

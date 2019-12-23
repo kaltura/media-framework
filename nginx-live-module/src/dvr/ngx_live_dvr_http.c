@@ -436,12 +436,6 @@ ngx_live_dvr_http_save(ngx_live_channel_t *channel,
     ngx_live_dvr_http_preset_conf_t  *conf;
     ngx_live_dvr_http_channel_ctx_t  *cctx;
 
-    if (channel->mem_left < channel->mem_high_watermark) {
-        ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
-            "ngx_live_dvr_http_save: memory too low, aborting save");
-        return NGX_ERROR;
-    }
-
     cctx = ngx_live_get_module_ctx(channel, ngx_live_dvr_http_module);
 
     ctx = ngx_block_pool_alloc(cctx->block_pool, NGX_LIVE_BP_SAVE_CTX);

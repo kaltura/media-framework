@@ -241,7 +241,7 @@ ngx_live_syncer_add_frame(ngx_live_track_t *track, kmp_frame_t *frame,
             "ngx_live_syncer_add_frame: first time sync");
         goto sync;
 
-    } else if ((uint64_t) ngx_abs(pts - ctx->last_pts) >
+    } else if ((uint64_t) ngx_abs_diff(pts, ctx->last_pts) >
         spcf->jump_threshold * spcf->timescale)
     {
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
@@ -250,8 +250,8 @@ ngx_live_syncer_add_frame(ngx_live_track_t *track, kmp_frame_t *frame,
         sync_frames = spcf->jump_sync_frames;
         goto sync;
 
-    } else if (pts + ctx->correction > (ngx_time() + spcf->max_forward_drift) *
-        (ngx_int_t) spcf->timescale)
+    } else if (pts + ctx->correction > frame->created +
+        spcf->max_forward_drift * (ngx_int_t) spcf->timescale)
     {
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
             "ngx_live_syncer_add_frame: "

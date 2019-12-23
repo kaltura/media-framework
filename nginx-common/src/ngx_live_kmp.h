@@ -2,10 +2,6 @@
 #define _NGX_LIVE_KMP_H_INCLUDED_
 
 
-#include <ngx_config.h>
-#include <ngx_core.h>
-
-
 /* constants */
 #define KMP_MAX_CHANNEL_ID_LEN  (32)
 #define KMP_MAX_TRACK_ID_LEN    (32)
@@ -71,6 +67,7 @@ typedef struct {
     uint16_t             channels;
     uint16_t             bits_per_sample;
     uint32_t             sample_rate;
+    uint32_t             padding;
 } kmp_audio_media_info_t;
 
 typedef struct {
@@ -113,6 +110,7 @@ typedef struct {
     u_char               track_id[KMP_MAX_TRACK_ID_LEN];
     uint64_t             initial_frame_id;
     uint32_t             initial_offset;
+    uint32_t             padding;
 } kmp_connect_packet_t;
 
 typedef struct {

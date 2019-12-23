@@ -441,7 +441,17 @@ ngx_http_live_hls_handle_index_playlist(ngx_http_request_t *r,
     ngx_str_t                      result;
     ngx_uint_t                     container_format;
     hls_encryption_params_t        encryption_params;
+    ngx_http_live_core_ctx_t      *ctx;
     ngx_http_live_hls_loc_conf_t  *conf;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_live_core_module);
+
+    if (!ngx_live_variant_is_main_track_active(objects->variant,
+        ctx->params.media_type_mask)) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_hls_handle_index_playlist: main track is inactive");
+        return NGX_HTTP_GONE;
+    }
 
     conf = ngx_http_get_module_loc_conf(r, ngx_http_live_hls_module);
 

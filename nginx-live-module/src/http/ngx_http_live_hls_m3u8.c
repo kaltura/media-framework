@@ -256,7 +256,6 @@ static ngx_int_t
 ngx_http_live_hls_group_variants(ngx_http_request_t *r,
     ngx_live_channel_t *channel, ngx_http_live_hls_master_t *result)
 {
-    ngx_flag_t                         found;
     ngx_uint_t                         media_type;
     ngx_queue_t                       *q;
     ngx_array_t                       *variant_arr;
@@ -286,34 +285,8 @@ ngx_http_live_hls_group_variants(ngx_http_request_t *r,
     {
         variant = ngx_queue_data(q, ngx_live_variant_t, queue);
 
-        if (ctx->params.variant_ids_count > 0) {
-            if (ngx_http_live_find_string(ctx->params.variant_ids,
-                ctx->params.variant_ids_count, &variant->sn.str) < 0) {
-                continue;
-            }
-        }
-
-        if (ctx->params.media_type_mask == (1 << KMP_MEDIA_COUNT) - 1) {
-
-            if (variant->track_count <= 0) {
-                continue;
-            }
-
-        } else {
-
-            found = 0;
-            for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
-
-                if ((ctx->params.media_type_mask & (1 << media_type)) != 0
-                    && variant->tracks[media_type] != NULL)
-                {
-                    found = 1;
-                }
-            }
-
-            if (!found) {
-                continue;
-            }
+        if (!ngx_http_live_output_variant(ctx, variant)) {
+            continue;
         }
 
         switch (variant->role) {
@@ -816,21 +789,22 @@ ngx_http_live_hls_map_index_init(ngx_http_request_t *r,
     ngx_http_live_request_objects_t *objects)
 {
     uint32_t                         i;
+    ngx_live_track_t                *cur_track;
     ngx_live_media_info_iterator_t  *cur;
 
     cur = iterator->media_info_iters;
     for (i = 0; i < KMP_MEDIA_COUNT; i++) {
 
-        if (objects->tracks[i] == NULL) {
+        cur_track = objects->tracks[i];
+        if (cur_track == NULL) {
             continue;
         }
 
-        if (!ngx_live_media_info_iterator_init(cur,
-            objects->tracks[i])) {
+        if (!ngx_live_media_info_iterator_init(cur, cur_track)) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "ngx_http_live_hls_map_index_init: "
                 "no media info for track \"%V\"",
-                &objects->tracks[i]->sn.str);
+                &cur_track->sn.str);
             return NGX_HTTP_BAD_REQUEST;
         }
 

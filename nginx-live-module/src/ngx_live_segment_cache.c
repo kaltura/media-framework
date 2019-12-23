@@ -138,17 +138,24 @@ ngx_live_segment_cache_get(ngx_live_track_t *track, uint32_t segment_index)
     ngx_live_segment_cache_track_ctx_t  *ctx;
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
+
     rbtree = &ctx->tree;
     node = rbtree->root;
     sentinel = rbtree->sentinel;
 
     while (node != sentinel) {
 
-        if (segment_index == node->key) {
-            return (ngx_live_segment_t*) node;
+        if (segment_index < node->key) {
+            node = node->left;
+            continue;
         }
 
-        node = (segment_index < node->key) ? node->left : node->right;
+        if (segment_index > node->key) {
+            node = node->right;
+            continue;
+        }
+
+        return (ngx_live_segment_t*) node;
     }
 
     return NULL;
@@ -385,20 +392,19 @@ ngx_live_segment_cache_release_locks(void *data)
 }
 
 static ngx_int_t
-ngx_live_segment_cache_read(ngx_pool_t *pool, ngx_live_track_t **tracks,
-    uint32_t flags, media_segment_t *result,
-    ngx_live_read_segment_callback_pt callback, void *arg)
+ngx_live_segment_cache_read(ngx_live_segment_read_req_t *req)
 {
-    uint32_t                      media_type;
-    ngx_live_track_t             *cur_track;
+    ngx_pool_t                   *pool;
+    media_segment_t              *result;
     ngx_pool_cleanup_t           *cln;
     ngx_live_segment_t           *segment;
+    ngx_live_track_ref_t         *cur, *last;
     media_segment_track_t        *dest_track;
     ngx_live_input_bufs_lock_t  **locks;
 
-    dest_track = result->tracks;
+    pool = req->pool;
 
-    if (flags & NGX_LIVE_READ_FLAG_LOCK_DATA) {
+    if (req->flags & NGX_LIVE_READ_FLAG_LOCK_DATA) {
         cln = ngx_pool_cleanup_add(pool, sizeof(*locks) * KMP_MEDIA_COUNT);
         if (cln == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
@@ -415,16 +421,20 @@ ngx_live_segment_cache_read(ngx_pool_t *pool, ngx_live_track_t **tracks,
         locks = NULL;
     }
 
-    for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+    result = req->segment;
+    dest_track = result->tracks;
 
-        cur_track = tracks[media_type];
-        if (cur_track == NULL) {
-            continue;
+    last = req->tracks + req->track_count;
+    for (cur = req->tracks; cur < last; cur++) {
+
+        if (cur->track == NULL) {
+            goto next;
         }
 
-        segment = ngx_live_segment_cache_get(cur_track, result->segment_index);
+        segment = ngx_live_segment_cache_get(cur->track,
+            result->segment_index);
         if (segment == NULL) {
-            continue;
+            goto next;
         }
 
         if (ngx_live_segment_cache_source_init(pool, segment->data_head,
@@ -458,12 +468,12 @@ ngx_live_segment_cache_read(ngx_pool_t *pool, ngx_live_track_t **tracks,
         dest_track++;
     }
 
-    if (dest_track >= result->tracks_end) {
-        result->source = ngx_live_segment_cache_source_name;
-        return NGX_OK;
-    }
+    result->source = ngx_live_segment_cache_source_name;
+    return NGX_OK;
 
-    if (dest_track > result->tracks) {
+next:
+
+    if (ngx_live_next_read == NULL) {
         ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_live_segment_cache_read: "
             "segment %uD not found on some tracks",
@@ -471,15 +481,7 @@ ngx_live_segment_cache_read(ngx_pool_t *pool, ngx_live_track_t **tracks,
         return NGX_ABORT;
     }
 
-    if (ngx_live_next_read == NULL) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_segment_cache_read: "
-            "segment %uD not found on all tracks",
-            result->segment_index);
-        return NGX_ABORT;
-    }
-
-    return ngx_live_next_read(pool, tracks, flags, result, callback, arg);
+    return ngx_live_next_read(req);
 }
 
 static size_t

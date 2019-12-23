@@ -34,9 +34,19 @@ typedef struct {
 
 typedef void (*ngx_live_read_segment_callback_pt)(void *arg, ngx_int_t rc);
 
-typedef ngx_int_t (*ngx_live_read_segment_pt)(ngx_pool_t *pool,
-    ngx_live_track_t **tracks, uint32_t flags, media_segment_t *segment,
-    ngx_live_read_segment_callback_pt callback, void *arg);
+typedef struct {
+    ngx_pool_t                         *pool;
+    ngx_live_channel_t                 *channel;
+    ngx_live_track_ref_t               *tracks;
+    uint32_t                            track_count;
+    uint32_t                            flags;
+    media_segment_t                    *segment;
+    ngx_live_read_segment_callback_pt   callback;
+    void                               *arg;
+} ngx_live_segment_read_req_t;
+
+typedef ngx_int_t (*ngx_live_read_segment_pt)(
+    ngx_live_segment_read_req_t *req);
 
 
 ngx_live_segment_t *ngx_live_segment_cache_create(ngx_live_track_t *track,

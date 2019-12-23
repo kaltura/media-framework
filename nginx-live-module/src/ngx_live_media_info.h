@@ -44,13 +44,20 @@ void ngx_live_media_info_pending_free_all(ngx_live_track_t *track);
 
 /* active */
 media_info_t *ngx_live_media_info_queue_get(ngx_live_track_t *track,
-    uint32_t segment_index, kmp_media_info_t **kmp_media_info);
+    uint32_t segment_index);
 
 media_info_t *ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
     kmp_media_info_t **kmp_media_info);
 
 void ngx_live_media_info_queue_free(ngx_live_track_t *track,
     uint32_t min_segment_index);
+
+/* gap filling */
+ngx_int_t ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
+    uint32_t segment_index);
+
+void ngx_live_media_info_queue_get_segment_track(ngx_live_track_t *track,
+    uint32_t segment_index, ngx_live_track_ref_t *ref);
 
 
 /* iterator */
