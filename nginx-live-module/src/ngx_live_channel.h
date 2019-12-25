@@ -53,6 +53,7 @@ struct ngx_live_channel_s {
     size_t                      mem_low_watermark;
     time_t                      last_modified;
     ngx_event_t                 close;
+    ngx_msec_t                  start_msec;
 
     void                      **ctx;
     void                      **main_conf;
@@ -73,6 +74,7 @@ struct ngx_live_channel_s {
 
     uint32_t                    next_segment_index;
     uint32_t                    last_segment_media_types;
+    time_t                      last_segment_created;
 
     unsigned                    active:1;
 };

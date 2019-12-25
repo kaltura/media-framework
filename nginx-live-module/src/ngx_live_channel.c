@@ -164,6 +164,7 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
     channel->preset_conf = conf_ctx->preset_conf;
 
     channel->last_modified = ngx_time();
+    channel->start_msec = ngx_current_msec;
 
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 

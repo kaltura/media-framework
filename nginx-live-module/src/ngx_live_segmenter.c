@@ -42,10 +42,13 @@ typedef struct {
     ngx_msec_t                        min_segment_duration;
     ngx_msec_t                        back_shift_margin;
     ngx_msec_t                        inactive_timeout;
+
     ngx_uint_t                        ready_threshold;
     ngx_uint_t                        initial_ready_threshold;
     ngx_uint_t                        split_lower_bound;
     ngx_uint_t                        split_upper_bound;
+    ngx_uint_t                        track_add_margin;
+    ngx_uint_t                        track_remove_margin;
 } ngx_live_segmenter_preset_conf_t;
 
 typedef struct {
@@ -115,11 +118,14 @@ typedef struct {
     uint32_t                          min_segment_duration;
     uint32_t                          back_shift_margin;
     uint32_t                          keyframe_alignment_margin;
+
     uint32_t                          ready_duration;
     uint32_t                          initial_ready_duration;
     uint32_t                          cur_ready_duration;
     uint32_t                          split_lower_bound;
     uint32_t                          split_upper_bound;
+    uint32_t                          track_add_margin;
+    uint32_t                          track_remove_margin;
 
     ngx_block_pool_t                 *block_pool;
 
@@ -198,6 +204,20 @@ static ngx_command_t  ngx_live_segmenter_commands[] = {
       ngx_conf_set_num_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_segmenter_preset_conf_t, split_upper_bound),
+      NULL },
+
+    { ngx_string("segmenter_track_add_margin"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_segmenter_preset_conf_t, track_add_margin),
+      NULL },
+
+    { ngx_string("segmenter_track_remove_margin"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_segmenter_preset_conf_t, track_remove_margin),
       NULL },
 
       ngx_null_command
@@ -702,7 +722,7 @@ next:
     return index;
 }
 
-static ngx_flag_t
+static void
 ngx_live_segmenter_frame_list_find_nearest_key_pts(
     ngx_live_segmenter_frame_list_t *list, ngx_uint_t count, int64_t *target,
     int64_t *result)
@@ -723,7 +743,7 @@ ngx_live_segmenter_frame_list_find_nearest_key_pts(
 
         if (cur >= last) {
             if (part->next == NULL) {
-                return 0;
+                break;
             }
 
             part = part->next;
@@ -746,7 +766,7 @@ ngx_live_segmenter_frame_list_find_nearest_key_pts(
         }
 
         if (cur->flags & NGX_LIVE_FRAME_FLAG_SPLIT) {
-            return 1;
+            break;
         }
     }
 }
@@ -1278,14 +1298,14 @@ ngx_live_segmenter_get_base_track(ngx_live_channel_t *channel,
         {
             cur.split_pts = cur.ctx->start_pts;
 
+        } else if (cur.ctx->min_split_pts < max_split_pts) {
+            cur.split_pts = cur.ctx->min_split_pts;
+
         } else if (cur.ctx->state != ngx_live_track_ready &&
             cur.ctx->last_pts > min_split_pts &&
             cur.ctx->last_pts < max_split_pts)
         {
             cur.split_pts = cur.ctx->last_pts;
-
-        } else if (cur.ctx->min_split_pts < max_split_pts) {
-            cur.split_pts = cur.ctx->min_split_pts;
 
         } else {
             cur.split_pts = NGX_LIVE_INVALID_PTS;
@@ -1333,7 +1353,7 @@ ngx_live_segmenter_get_keyframe_pts(ngx_live_segmenter_track_ctx_t *ctx,
     index = ngx_live_segmenter_frame_list_get_key_pts(&ctx->frames, pts,
         ctx->start_pts, result, max_index);
 
-    if (ctx->state != ngx_live_track_inactive) {
+    if (ctx->state != ngx_live_track_inactive || ctx->split_count > 0) {
         return index;
     }
 
@@ -1358,12 +1378,10 @@ ngx_live_segmenter_find_nearest_keyframe_pts(
 {
     ngx_uint_t  j;
 
-    if (ngx_live_segmenter_frame_list_find_nearest_key_pts(&ctx->frames,
-        count, target, result)) {
-        return;
-    }
+    ngx_live_segmenter_frame_list_find_nearest_key_pts(&ctx->frames, count,
+        target, result);
 
-    if (ctx->state != ngx_live_track_inactive) {
+    if (ctx->state != ngx_live_track_inactive || ctx->split_count > 0) {
         return;
     }
 
@@ -1591,12 +1609,24 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
             continue;
         }
 
+        /* track removed + last pts before target -> use all frames */
         if (cur_ctx->state != ngx_live_track_ready &&
-            target_pts >= cur_ctx->last_pts) {
+            cur_ctx->split_count <= 0 &&
+            cur_ctx->last_pts <= target_pts + cctx->track_remove_margin)
+        {
             cur_ctx->split_index = cur_ctx->frame_count;
             continue;
         }
 
+        /* track added + start pts after target -> add it next time */
+        if (!cur_track->has_last_segment &&
+            cur_ctx->start_pts > target_pts - cctx->track_add_margin)
+        {
+            cur_ctx->split_index = 0;
+            continue;
+        }
+
+        /* find the key frame closest to target */
         if (cur_track->media_type == MEDIA_TYPE_VIDEO) {
             cur_ctx->split_index = ngx_live_segmenter_frame_list_get_key_index(
                 &cur_ctx->frames, target_pts, NGX_LIVE_FRAME_FLAG_SPLIT);
@@ -1610,7 +1640,8 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
             (cur_track->has_last_segment || cctx->force_new_period))
         {
             ngx_log_error(NGX_LOG_ERR, &cur_track->log, 0,
-                "ngx_live_segmenter_set_split_indexes: empty segment");
+                "ngx_live_segmenter_set_split_indexes: "
+                "empty segment, target_pts: %L", target_pts);
             rc = NGX_ERROR;
             continue;
         }
@@ -1908,6 +1939,8 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
         ngx_live_dvr_save_segment_created(channel, segment_index, exists);
 
         channel->next_segment_index = segment_index + 1;
+        channel->last_segment_created = ngx_time();
+
         cctx->last_segment_end_pts = end_pts;
         cctx->force_new_period = 0;
     }
@@ -2258,6 +2291,10 @@ ngx_live_segmenter_update_segment_duration(
         spcf->split_lower_bound) / 100;
     cctx->split_upper_bound = ((uint64_t) cctx->segment_duration *
         spcf->split_upper_bound) / 100;
+    cctx->track_add_margin = ((uint64_t) cctx->segment_duration *
+        spcf->track_add_margin) / 100;
+    cctx->track_remove_margin = ((uint64_t) cctx->segment_duration *
+        spcf->track_remove_margin) / 100;
 }
 
 static ngx_int_t
@@ -2530,6 +2567,8 @@ ngx_live_segmenter_create_preset_conf(ngx_conf_t *cf)
     conf->initial_ready_threshold = NGX_CONF_UNSET_UINT;
     conf->split_lower_bound = NGX_CONF_UNSET_UINT;
     conf->split_upper_bound = NGX_CONF_UNSET_UINT;
+    conf->track_add_margin = NGX_CONF_UNSET_UINT;
+    conf->track_remove_margin = NGX_CONF_UNSET_UINT;
 
     return conf;
 }
@@ -2563,6 +2602,12 @@ ngx_live_segmenter_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_uint_value(conf->split_upper_bound,
                               prev->split_upper_bound, 150);
+
+    ngx_conf_merge_uint_value(conf->track_add_margin,
+                              prev->track_add_margin, 10);
+
+    ngx_conf_merge_uint_value(conf->track_remove_margin,
+                              prev->track_remove_margin, 10);
 
     return NGX_CONF_OK;
 }
