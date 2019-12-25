@@ -165,30 +165,20 @@ static size_t
 ngx_rtmp_kmp_api_tracks_json_get_size(ngx_kmp_push_track_t **tracks)
 {
     size_t                 result = 0;
-    ngx_uint_t             i;
     ngx_kmp_push_track_t  *track;
 
-    for (i = 0; i < KMP_MEDIA_COUNT; i++) {
+    track = tracks[KMP_MEDIA_VIDEO];
+    if (track != NULL) {
+        result += sizeof("\"video\":") - 1;
+        result += ngx_rtmp_kmp_api_track_json_get_size(track);
+    }
 
-        track = tracks[i];
-        if (track == NULL) {
-            continue;
-        }
-
+    track = tracks[KMP_MEDIA_AUDIO];
+    if (track != NULL) {
         result++;      /* ',' */
 
-        switch (track->media_info.media_type) {
-
-        case KMP_MEDIA_VIDEO:
-            result += sizeof("\"video\":") - 1;
-            result += ngx_rtmp_kmp_api_track_json_get_size(track);
-            break;
-
-        case KMP_MEDIA_AUDIO:
-            result += sizeof("\"audio\":") - 1;
-            result += ngx_rtmp_kmp_api_track_json_get_size(track);
-            break;
-        }
+        result += sizeof("\"audio\":") - 1;
+        result += ngx_rtmp_kmp_api_track_json_get_size(track);
     }
 
     return result;
@@ -198,32 +188,22 @@ static u_char *
 ngx_rtmp_kmp_api_tracks_json_write(u_char *p, ngx_kmp_push_track_t **tracks)
 {
     u_char                *start = p;
-    ngx_uint_t             i;
     ngx_kmp_push_track_t  *track;
 
-    for (i = 0; i < KMP_MEDIA_COUNT; i++) {
+    track = tracks[KMP_MEDIA_VIDEO];
+    if (track != NULL) {
+        p = ngx_copy_fix(p, "\"video\":");
+        p = ngx_rtmp_kmp_api_track_json_write(p, track);
+    }
 
-        track = tracks[i];
-        if (track == NULL) {
-            continue;
-        }
-
+    track = tracks[KMP_MEDIA_AUDIO];
+    if (track != NULL) {
         if (p > start) {
             *p++ = ',';
         }
 
-        switch (track->media_info.media_type) {
-
-        case KMP_MEDIA_VIDEO:
-            p = ngx_copy_fix(p, "\"video\":");
-            p = ngx_rtmp_kmp_api_track_json_write(p, track);
-            break;
-
-        case KMP_MEDIA_AUDIO:
-            p = ngx_copy_fix(p, "\"audio\":");
-            p = ngx_rtmp_kmp_api_track_json_write(p, track);
-            break;
-        }
+        p = ngx_copy_fix(p, "\"audio\":");
+        p = ngx_rtmp_kmp_api_track_json_write(p, track);
     }
 
     return p;
