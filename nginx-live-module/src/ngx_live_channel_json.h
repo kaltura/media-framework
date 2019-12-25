@@ -9,7 +9,7 @@ static size_t
 ngx_live_track_json_get_size(ngx_live_track_t *obj)
 {
     size_t  result =
-        sizeof("{\"time\":") - 1 + NGX_INT_T_LEN +
+        sizeof("{\"uptime\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"connection\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"remote_addr\":\"") - 1 + obj->input.remote_addr.len +
             ngx_escape_json(NULL, obj->input.remote_addr.data,
@@ -26,7 +26,7 @@ static u_char *
 ngx_live_track_json_write(u_char *p, ngx_live_track_t *obj)
 {
     u_char  *next;
-    p = ngx_copy_fix(p, "{\"time\":");
+    p = ngx_copy_fix(p, "{\"uptime\":");
     p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - obj->start_msec));
     p = ngx_copy_fix(p, ",\"connection\":");
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->input.connection);
@@ -191,7 +191,8 @@ ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
     ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj,
         ngx_live_core_module);
     size_t  result =
-        sizeof("{\"opaque\":\"") - 1 + obj->opaque.len +
+        sizeof("{\"uptime\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"opaque\":\"") - 1 + obj->opaque.len +
         sizeof("\",\"preset_name\":\"") - 1 + cpcf->name.len +
             ngx_escape_json(NULL, cpcf->name.data, cpcf->name.len) +
         sizeof("\",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
@@ -199,6 +200,7 @@ ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
         sizeof(",\"mem_blocks\":") - 1 +
             ngx_block_pool_auto_json_get_size(obj->block_pool,
             NGX_LIVE_BP_COUNT, 0) +
+        sizeof(",\"last_segment_created\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"tracks\":") - 1 + ngx_live_tracks_json_get_size(obj) +
         sizeof(",\"variants\":") - 1 + ngx_live_variants_json_get_size(obj) +
         sizeof(",") - 1 + ngx_live_core_json_get_size(obj, obj,
@@ -214,7 +216,9 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
     ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj,
         ngx_live_core_module);
     u_char  *next;
-    p = ngx_copy_fix(p, "{\"opaque\":\"");
+    p = ngx_copy_fix(p, "{\"uptime\":");
+    p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - obj->start_msec));
+    p = ngx_copy_fix(p, ",\"opaque\":\"");
     p = ngx_block_str_write(p, &obj->opaque);
     p = ngx_copy_fix(p, "\",\"preset_name\":\"");
     p = (u_char *) ngx_escape_json(p, cpcf->name.data, cpcf->name.len);
@@ -225,6 +229,8 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
     p = ngx_copy_fix(p, ",\"mem_blocks\":");
     p = ngx_block_pool_auto_json_write(p, obj->block_pool, NGX_LIVE_BP_COUNT,
         0);
+    p = ngx_copy_fix(p, ",\"last_segment_created\":");
+    p = ngx_sprintf(p, "%T", (time_t) obj->last_segment_created);
     p = ngx_copy_fix(p, ",\"tracks\":");
     p = ngx_live_tracks_json_write(p, obj);
     p = ngx_copy_fix(p, ",\"variants\":");

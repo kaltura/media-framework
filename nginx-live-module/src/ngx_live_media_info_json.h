@@ -6,7 +6,8 @@
 
 
 static size_t
-ngx_live_media_info_json_video_get_size(media_info_t *obj)
+ngx_live_media_info_json_video_get_size(media_info_t *obj, kmp_media_info_t
+    *kmp_media_info)
 {
     size_t  result =
         sizeof("{\"media_type\":\"video\",\"format\":\"") - 1 +
@@ -26,7 +27,8 @@ ngx_live_media_info_json_video_get_size(media_info_t *obj)
 }
 
 static u_char *
-ngx_live_media_info_json_video_write(u_char *p, media_info_t *obj)
+ngx_live_media_info_json_video_write(u_char *p, media_info_t *obj,
+    kmp_media_info_t *kmp_media_info)
 {
     p = ngx_copy_fix(p, "{\"media_type\":\"video\",\"format\":\"");
     p = (u_char *) ngx_escape_json(p, (u_char *) &obj->format,
@@ -34,7 +36,7 @@ ngx_live_media_info_json_video_write(u_char *p, media_info_t *obj)
     p = ngx_copy_fix(p, "\",\"bitrate\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->bitrate);
     p = ngx_copy_fix(p, ",\"codec_id\":");
-    p = ngx_sprintf(p, "%uD", (uint32_t) obj->codec_id);
+    p = ngx_sprintf(p, "%uD", (uint32_t) kmp_media_info->codec_id);
     p = ngx_copy_fix(p, ",\"codec_name\":\"");
     p = (u_char *) ngx_escape_json(p, obj->codec_name.data,
         obj->codec_name.len);
@@ -53,7 +55,8 @@ ngx_live_media_info_json_video_write(u_char *p, media_info_t *obj)
 }
 
 static size_t
-ngx_live_media_info_json_audio_get_size(media_info_t *obj)
+ngx_live_media_info_json_audio_get_size(media_info_t *obj, kmp_media_info_t
+    *kmp_media_info)
 {
     size_t  result =
         sizeof("{\"media_type\":\"audio\",\"format\":\"") - 1 +
@@ -73,7 +76,8 @@ ngx_live_media_info_json_audio_get_size(media_info_t *obj)
 }
 
 static u_char *
-ngx_live_media_info_json_audio_write(u_char *p, media_info_t *obj)
+ngx_live_media_info_json_audio_write(u_char *p, media_info_t *obj,
+    kmp_media_info_t *kmp_media_info)
 {
     p = ngx_copy_fix(p, "{\"media_type\":\"audio\",\"format\":\"");
     p = (u_char *) ngx_escape_json(p, (u_char *) &obj->format,
@@ -81,7 +85,7 @@ ngx_live_media_info_json_audio_write(u_char *p, media_info_t *obj)
     p = ngx_copy_fix(p, "\",\"bitrate\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->bitrate);
     p = ngx_copy_fix(p, ",\"codec_id\":");
-    p = ngx_sprintf(p, "%uD", (uint32_t) obj->codec_id);
+    p = ngx_sprintf(p, "%uD", (uint32_t) kmp_media_info->codec_id);
     p = ngx_copy_fix(p, ",\"codec_name\":\"");
     p = (u_char *) ngx_escape_json(p, obj->codec_name.data,
         obj->codec_name.len);

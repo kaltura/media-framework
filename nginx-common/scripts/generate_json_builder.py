@@ -280,6 +280,9 @@ for (n = 0; n < %s.nelts; ++n) {
                 elif format == 'ui':
                     valueSize = 'NGX_INT_T_LEN'
                     cast = 'ngx_uint_t'
+                elif format == 'T':
+                    valueSize = 'NGX_TIME_T_LEN'
+                    cast = 'time_t'
                 elif format == 'uA':
                     valueSize = 'NGX_INT_T_LEN'
                     cast = 'ngx_atomic_uint_t'

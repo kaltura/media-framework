@@ -1,19 +1,19 @@
-static ngx_live_media_info_json_video media_info_t
+static ngx_live_media_info_json_video media_info_t kmp_media_info_t *kmp_media_info
     media_type video
     format %4cc
     bitrate %uD
-    codec_id %uD
+    codec_id %uD kmp_media_info->codec_id
     codec_name %V
     extra_data %xV
     width %uD obj->u.video.width
     height %uD obj->u.video.height
     frame_rate %.2f obj->u.video.frame_rate_num / obj->u.video.frame_rate_denom
 
-static ngx_live_media_info_json_audio media_info_t
+static ngx_live_media_info_json_audio media_info_t kmp_media_info_t *kmp_media_info
     media_type audio
     format %4cc
     bitrate %uD
-    codec_id %uD
+    codec_id %uD kmp_media_info->codec_id
     codec_name %V
     extra_data %xV
     channels %uD obj->u.audio.channels
