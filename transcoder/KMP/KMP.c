@@ -188,7 +188,7 @@ int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo 
     {
         media_info.media_type=KMP_MEDIA_AUDIO;
         media_info.codec_id=get_audio_codec(codecpar);
-        media_info.u.audio.bits_per_sample=codecpar->bits_per_raw_sample;
+        media_info.u.audio.bits_per_sample=codecpar->bits_per_coded_sample;
         media_info.u.audio.sample_rate=codecpar->sample_rate;
         media_info.u.audio.channels=codecpar->channels;
     }
@@ -622,7 +622,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
     if (mediaInfo.media_type==KMP_MEDIA_AUDIO) {
         params->codec_type=AVMEDIA_TYPE_AUDIO;
         params->sample_rate=mediaInfo.u.audio.sample_rate;
-        params->bits_per_raw_sample=mediaInfo.u.audio.bits_per_sample*8;
+        params->bits_per_coded_sample=mediaInfo.u.audio.bits_per_sample*8;
         params->channels=mediaInfo.u.audio.channels;
         params->channel_layout=av_get_default_channel_layout(params->channels);
         set_audio_codec(mediaInfo.codec_id,params);

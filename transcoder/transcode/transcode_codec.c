@@ -184,7 +184,7 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
     if (codec_ctx->codec_type==AVMEDIA_TYPE_AUDIO) {
         char temp[128];
         av_get_channel_layout_string(temp,sizeof(temp),codec_ctx->channels,codec_ctx->channel_layout);
-        LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "Initialized audio decoder \"%s\" %dHz %d bits - %s",dec->long_name,codec_ctx->sample_rate,codec_ctx->bits_per_raw_sample,temp);
+        LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "Initialized audio decoder \"%s\" %dHz %d bits - %s",dec->long_name,codec_ctx->sample_rate,codec_ctx->bits_per_coded_sample,temp);
     }
     return 0;
 }

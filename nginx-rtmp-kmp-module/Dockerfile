@@ -19,6 +19,7 @@ RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
 COPY nginx-rtmp-module nginx-rtmp-module
 COPY nginx-rtmp-kmp-module nginx-rtmp-kmp-module
 COPY nginx-common nginx-common
+
 ARG APP_VERSION=1.0
 
 ENV RTMP_KMP_VERSION="${APP_VERSION}"
@@ -39,8 +40,10 @@ RUN cd /tmp/build/nginx &&  \
 
 FROM alpine:$ALPINE_VER
 
+
+COPY --from=redis:5.0-alpine /usr/local/bin/redis-cli /usr/local/bin/redis-cli
 RUN apk add --update \
-    pcre gdb \
+    pcre  curl \
     && rm -rf /var/cache/apk/*
 
 COPY --from=builder /usr/local/nginx /usr/local/nginx
@@ -53,5 +56,8 @@ RUN mkdir /var/log/nginx
 RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
     ln -sf /dev/stderr /var/log/nginx/error.log
 
+
 WORKDIR /usr/local/nginx/conf/
+
+
 CMD ["/usr/local/nginx/sbin/nginx"]
