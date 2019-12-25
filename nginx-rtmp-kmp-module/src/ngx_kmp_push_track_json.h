@@ -6,6 +6,74 @@
 
 
 static size_t
+ngx_kmp_push_track_video_json_get_size(ngx_kmp_push_track_t *obj)
+{
+    size_t  result =
+        sizeof("\"media_type\":\"video\",\"bitrate\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"codec_id\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"extra_data\":\"") - 1 + obj->extra_data.len * 2 +
+        sizeof("\",\"width\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"height\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"frame_rate\":") - 1 + NGX_INT64_LEN + 3;
+
+    return result;
+}
+
+static u_char *
+ngx_kmp_push_track_video_json_write(u_char *p, ngx_kmp_push_track_t *obj)
+{
+    p = ngx_copy_fix(p, "\"media_type\":\"video\",\"bitrate\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->media_info.bitrate);
+    p = ngx_copy_fix(p, ",\"codec_id\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->media_info.codec_id);
+    p = ngx_copy_fix(p, ",\"extra_data\":\"");
+    p = ngx_hex_dump(p, obj->extra_data.data, obj->extra_data.len);
+    p = ngx_copy_fix(p, "\",\"width\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->media_info.u.video.width);
+    p = ngx_copy_fix(p, ",\"height\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->media_info.u.video.height);
+    p = ngx_copy_fix(p, ",\"frame_rate\":");
+    p = ngx_sprintf(p, "%.2f", (double) obj->media_info.u.video.frame_rate.num
+        / obj->media_info.u.video.frame_rate.denom);
+
+    return p;
+}
+
+static size_t
+ngx_kmp_push_track_audio_json_get_size(ngx_kmp_push_track_t *obj)
+{
+    size_t  result =
+        sizeof("\"media_type\":\"audio\",\"bitrate\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"codec_id\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"extra_data\":\"") - 1 + obj->extra_data.len * 2 +
+        sizeof("\",\"channels\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"bits_per_sample\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"sample_rate\":") - 1 + NGX_INT32_LEN;
+
+    return result;
+}
+
+static u_char *
+ngx_kmp_push_track_audio_json_write(u_char *p, ngx_kmp_push_track_t *obj)
+{
+    p = ngx_copy_fix(p, "\"media_type\":\"audio\",\"bitrate\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->media_info.bitrate);
+    p = ngx_copy_fix(p, ",\"codec_id\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->media_info.codec_id);
+    p = ngx_copy_fix(p, ",\"extra_data\":\"");
+    p = ngx_hex_dump(p, obj->extra_data.data, obj->extra_data.len);
+    p = ngx_copy_fix(p, "\",\"channels\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->media_info.u.audio.channels);
+    p = ngx_copy_fix(p, ",\"bits_per_sample\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t)
+        obj->media_info.u.audio.bits_per_sample);
+    p = ngx_copy_fix(p, ",\"sample_rate\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->media_info.u.audio.sample_rate);
+
+    return p;
+}
+
+static size_t
 ngx_kmp_push_track_publish_json_get_size(ngx_kmp_push_track_t *obj)
 {
     size_t  result =

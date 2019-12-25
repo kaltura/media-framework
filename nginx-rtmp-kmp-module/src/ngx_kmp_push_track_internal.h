@@ -26,14 +26,13 @@ struct ngx_kmp_push_track_s {
 
     ngx_kmp_push_track_conf_t     *conf;
     ngx_str_t                      input_id;
-    ngx_uint_t                     media_type;
+    ngx_str_t                      json_info;
 
     ngx_kmp_push_track_state_e     state;
     ngx_queue_t                    upstreams;
     size_t                         mem_left;
     size_t                         mem_limit;
     ngx_http_call_ctx_t           *publish_call;
-    ngx_uint_t                     timescale;
 
     kmp_connect_packet_t           connect;
     ngx_str_t                      channel_id;
@@ -42,6 +41,10 @@ struct ngx_kmp_push_track_s {
     ngx_buf_queue_t                buf_queue;
     ngx_buf_t                      active_buf;
     ngx_event_t                    flush;
+
+    kmp_media_info_t               media_info;
+    ngx_str_t                      extra_data;
+    size_t                         extra_data_size;
 
     void                          *ctx;
     ngx_kmp_push_track_handler_pt  handler;
@@ -63,5 +66,13 @@ ngx_int_t ngx_kmp_push_track_write_chain(ngx_kmp_push_track_t *track,
 
 ngx_int_t ngx_kmp_push_track_write(ngx_kmp_push_track_t *track, u_char *data,
     size_t size);
+
+ngx_int_t ngx_kmp_push_track_write_media_info(ngx_kmp_push_track_t *track);
+
+
+size_t ngx_kmp_push_track_media_info_json_get_size(ngx_kmp_push_track_t *track);
+
+u_char *ngx_kmp_push_track_media_info_json_write(u_char *p,
+    ngx_kmp_push_track_t *track);
 
 #endif /* _NGX_KMP_PUSH_TRACK_INTERNAL_H_INCLUDED_ */

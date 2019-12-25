@@ -89,8 +89,8 @@ default:
 }
 
 // parse the input params
-$streamName = $params['name'];
-$mediaType = $params['media_type'];
+$streamName = $params['rtmp']['name'];
+$mediaType = $params['media_info']['media_type'];
 $undPos = strrpos($streamName, '_');
 $channelId = substr($streamName, 0, $undPos);
 $variantId = substr($streamName, $undPos + 1);

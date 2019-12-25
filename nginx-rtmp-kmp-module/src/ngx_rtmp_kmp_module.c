@@ -243,8 +243,8 @@ static ngx_str_t  ngx_rtmp_kmp_code_ok = ngx_string("ok");
 static ngx_url_t *
 ngx_rtmp_kmp_parse_url(ngx_conf_t *cf, ngx_str_t *url)
 {
-    ngx_url_t  *u;
     size_t      add;
+    ngx_url_t  *u;
 
     u = ngx_pcalloc(cf->pool, sizeof(ngx_url_t));
     if (u == NULL) {
@@ -280,7 +280,7 @@ ngx_rtmp_kmp_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_str_t   *value;
     ngx_url_t  **u;
 
-    u = (ngx_url_t **)(p + cmd->offset);
+    u = (ngx_url_t **) (p + cmd->offset);
     if (*u != NGX_CONF_UNSET_PTR) {
         return "is duplicate";
     }
@@ -423,7 +423,7 @@ ngx_rtmp_kmp_connect_error(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v,
     }
 
     rc = ngx_rtmp_send_status(s, "NetStream.Play.Failed", "error",
-        (char*)desc);
+        (char *) desc);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
             "ngx_rtmp_kmp_connect_error: send status failed %i", rc);
@@ -468,11 +468,11 @@ ngx_rtmp_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
 
     b->last = ngx_rtmp_kmp_connect_json_write(b->last, &connect, s);
 
-    if ((size_t)(b->last - b->pos) > size) {
+    if ((size_t) (b->last - b->pos) > size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
             "ngx_rtmp_kmp_connect_create: "
             "result length %uz greater than allocated length %uz",
-            (size_t)(b->last - b->pos), size);
+            (size_t) (b->last - b->pos), size);
         return NULL;
     }
 
@@ -548,7 +548,7 @@ retry:
         return NGX_AGAIN;
     }
 
-    desc.data = (u_char*)"Internal server error";
+    desc.data = (u_char *) "Internal server error";
 
 error:
 
@@ -760,10 +760,9 @@ static ngx_int_t
 ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
 {
     ngx_uint_t                        media_type;
-    ngx_rtmp_kmp_stream_ctx_t        *ctx;
     ngx_kmp_push_track_t             *track;
     ngx_rtmp_kmp_app_conf_t          *kacf;
-    ngx_rtmp_kmp_track_create_ctx_t   create_ctx;
+    ngx_rtmp_kmp_stream_ctx_t        *ctx;
 
     ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_kmp_module);
     if (ctx == NULL) {
@@ -784,7 +783,7 @@ ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
 
     default:
         ngx_log_debug1(NGX_LOG_DEBUG_KMP, s->connection->log, 0,
-            "ngx_rtmp_kmp_av: unknown message type %uD", (uint32_t)h->type);
+            "ngx_rtmp_kmp_av: unknown message type %uD", (uint32_t) h->type);
         return NGX_OK;
     }
 
@@ -799,19 +798,7 @@ ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
             return NGX_ERROR;
         }
 
-        create_ctx.codec_ctx = ngx_rtmp_stream_get_module_ctx(s,
-            ngx_rtmp_codec_module);
-        if (create_ctx.codec_ctx == NULL) {
-            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                "ngx_rtmp_kmp_av: failed to get codec ctx");
-            return NGX_ERROR;
-        }
-
-        create_ctx.s = s;
-        create_ctx.publish = &ctx->publish;
-        create_ctx.media_type = media_type;
-
-        track = ngx_rtmp_kmp_track_create(&kacf->t, &create_ctx);
+        track = ngx_rtmp_kmp_track_create(&kacf->t, s, &ctx->publish, h, in);
         if (track == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
                 "ngx_rtmp_kmp_av: failed to create track");
@@ -819,10 +806,11 @@ ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
         }
 
         ctx->tracks[media_type] = track;
+        return NGX_OK;
     }
 
     /* forward to track */
-    return ngx_rtmp_kmp_track_av(track, h, in);
+    return ngx_rtmp_kmp_track_av(track, h, in, 0);
 }
 
 static ngx_int_t

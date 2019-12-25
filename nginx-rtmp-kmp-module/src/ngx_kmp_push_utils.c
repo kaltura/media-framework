@@ -13,8 +13,8 @@ static ngx_str_t ngx_kmp_push_json_type = ngx_string("application/json");
 ngx_chain_t *
 ngx_kmp_push_alloc_chain_temp_buf(ngx_pool_t *pool, size_t size)
 {
-    ngx_chain_t  *cl;
     ngx_buf_t    *b;
+    ngx_chain_t  *cl;
 
     cl = ngx_alloc_chain_link(pool);
     if (cl == NULL) {
@@ -40,8 +40,8 @@ ngx_kmp_push_alloc_chain_temp_buf(ngx_pool_t *pool, size_t size)
 ngx_chain_t *
 ngx_kmp_push_alloc_chain_buf(ngx_pool_t *pool, void *pos, void *last)
 {
-    ngx_chain_t  *cl;
     ngx_buf_t    *b;
+    ngx_chain_t  *cl;
 
     cl = ngx_alloc_chain_link(pool);
     if (cl == NULL) {
@@ -58,7 +58,7 @@ ngx_kmp_push_alloc_chain_buf(ngx_pool_t *pool, void *pos, void *last)
     }
 
     cl->buf = b;
-    b->tag = (ngx_buf_tag_t)&ngx_kmp_push_alloc_chain_buf;
+    b->tag = (ngx_buf_tag_t) &ngx_kmp_push_alloc_chain_buf;
     b->temporary = 1;
 
     b->start = b->pos = pos;
@@ -105,10 +105,10 @@ ngx_chain_t *
 ngx_kmp_push_format_json_http_request(ngx_pool_t *pool, ngx_str_t *host,
     ngx_str_t *uri, ngx_chain_t *body)
 {
-    ngx_chain_t  *cl;
-    ngx_buf_t    *b;
-    size_t        content_length;
     size_t        alloc_size;
+    size_t        content_length;
+    ngx_buf_t    *b;
+    ngx_chain_t  *cl;
 
     static const char rq_tmpl[] = "POST %V HTTP/1.0\r\n"
         "Host: %V\r\n"
@@ -137,11 +137,11 @@ ngx_kmp_push_format_json_http_request(ngx_pool_t *pool, ngx_str_t *host,
     b->last = ngx_sprintf(b->last, rq_tmpl,
         uri, host, &ngx_kmp_push_json_type, content_length);
 
-    if ((size_t)(b->last - b->pos) > alloc_size) {
+    if ((size_t) (b->last - b->pos) > alloc_size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
             "ngx_kmp_push_format_json_http_request: "
             "result length %uz greater than allocated length %uz",
-            (size_t)(b->last - b->pos), alloc_size);
+            (size_t) (b->last - b->pos), alloc_size);
         return NULL;
     }
 
@@ -218,7 +218,7 @@ ngx_kmp_push_float_to_rational(double f, int64_t md, int64_t *num,
 
     if (md <= 1) {
         *denom = 1;
-        *num = (int64_t)f;
+        *num = (int64_t) f;
         return;
     }
 
@@ -227,7 +227,7 @@ ngx_kmp_push_float_to_rational(double f, int64_t md, int64_t *num,
         f = -f;
     }
 
-    while (f != (int64_t)f) {
+    while (f != (int64_t) f) {
         n <<= 1;
         if (!n) {
             *num = 0;

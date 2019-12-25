@@ -26,9 +26,9 @@ static u_char * ngx_rtmp_kmp_api_streams_json_write(u_char *p,
     ngx_rtmp_session_t *s);
 
 static size_t ngx_rtmp_kmp_api_tracks_json_get_size(
-    ngx_kmp_push_track_t **tracks, ngx_rtmp_codec_ctx_t *codec_ctx);
+    ngx_kmp_push_track_t **tracks);
 static u_char * ngx_rtmp_kmp_api_tracks_json_write(u_char *p,
-    ngx_kmp_push_track_t **tracks, ngx_rtmp_codec_ctx_t *codec_ctx);
+    ngx_kmp_push_track_t **tracks);
 
 static ngx_str_t  ngx_rtmp_kmp_version = ngx_string(NGX_RTMP_KMP_VERSION);
 static ngx_str_t  ngx_rtmp_kmp_nginx_version = ngx_string(NGINX_VERSION);
@@ -93,7 +93,6 @@ ngx_rtmp_kmp_api_streams_json_get_size(ngx_rtmp_session_t *s)
     ngx_int_t                   i;
     ngx_rtmp_stream_t          *in_stream;
     ngx_rtmp_live_ctx_t        *live_ctx;
-    ngx_rtmp_codec_ctx_t       *codec_ctx;
     ngx_rtmp_core_srv_conf_t   *cscf;
     ngx_rtmp_kmp_stream_ctx_t  *kmp_ctx;
 
@@ -116,13 +115,8 @@ ngx_rtmp_kmp_api_streams_json_get_size(ngx_rtmp_session_t *s)
             continue;
         }
 
-        codec_ctx = ngx_rtmp_get_module_ctx(in_stream, ngx_rtmp_codec_module);
-        if (codec_ctx == NULL) {
-            continue;
-        }
-
         result += ngx_rtmp_kmp_api_stream_json_get_size(kmp_ctx,
-            live_ctx->stream, codec_ctx) + 1;
+            live_ctx->stream) + 1;
     }
 
     return result;
@@ -135,7 +129,6 @@ ngx_rtmp_kmp_api_streams_json_write(u_char *p, ngx_rtmp_session_t *s)
     ngx_int_t                   i;
     ngx_rtmp_stream_t          *in_stream;
     ngx_rtmp_live_ctx_t        *live_ctx;
-    ngx_rtmp_codec_ctx_t       *codec_ctx;
     ngx_rtmp_core_srv_conf_t   *cscf;
     ngx_rtmp_kmp_stream_ctx_t  *kmp_ctx;
 
@@ -158,89 +151,59 @@ ngx_rtmp_kmp_api_streams_json_write(u_char *p, ngx_rtmp_session_t *s)
             continue;
         }
 
-        codec_ctx = ngx_rtmp_get_module_ctx(in_stream, ngx_rtmp_codec_module);
-        if (codec_ctx == NULL) {
-            continue;
-        }
-
         if (p > start) {
             *p++ = ',';
         }
 
-        p = ngx_rtmp_kmp_api_stream_json_write(p, kmp_ctx, live_ctx->stream,
-            codec_ctx);
+        p = ngx_rtmp_kmp_api_stream_json_write(p, kmp_ctx, live_ctx->stream);
     }
 
     return p;
 }
 
 static size_t
-ngx_rtmp_kmp_api_tracks_json_get_size(ngx_kmp_push_track_t **tracks,
-    ngx_rtmp_codec_ctx_t *codec_ctx)
+ngx_rtmp_kmp_api_tracks_json_get_size(ngx_kmp_push_track_t **tracks)
 {
     size_t                 result = 0;
-    ngx_uint_t             i;
     ngx_kmp_push_track_t  *track;
 
-    for (i = 0; i < KMP_MEDIA_COUNT; i++) {
+    track = tracks[KMP_MEDIA_VIDEO];
+    if (track != NULL) {
+        result += sizeof("\"video\":") - 1;
+        result += ngx_rtmp_kmp_api_track_json_get_size(track);
+    }
 
-        track = tracks[i];
-        if (track == NULL) {
-            continue;
-        }
-
+    track = tracks[KMP_MEDIA_AUDIO];
+    if (track != NULL) {
         result++;      /* ',' */
 
-        switch (track->media_type) {
-
-        case KMP_MEDIA_VIDEO:
-            result += sizeof("\"video\":") - 1;
-            result += ngx_rtmp_kmp_api_video_track_json_get_size(track,
-                codec_ctx);
-            break;
-
-        case KMP_MEDIA_AUDIO:
-            result += sizeof("\"audio\":") - 1;
-            result += ngx_rtmp_kmp_api_audio_track_json_get_size(track,
-                codec_ctx);
-            break;
-        }
+        result += sizeof("\"audio\":") - 1;
+        result += ngx_rtmp_kmp_api_track_json_get_size(track);
     }
 
     return result;
 }
 
 static u_char *
-ngx_rtmp_kmp_api_tracks_json_write(u_char *p, ngx_kmp_push_track_t **tracks,
-    ngx_rtmp_codec_ctx_t *codec_ctx)
+ngx_rtmp_kmp_api_tracks_json_write(u_char *p, ngx_kmp_push_track_t **tracks)
 {
     u_char                *start = p;
-    ngx_uint_t             i;
     ngx_kmp_push_track_t  *track;
 
-    for (i = 0; i < KMP_MEDIA_COUNT; i++) {
+    track = tracks[KMP_MEDIA_VIDEO];
+    if (track != NULL) {
+        p = ngx_copy_fix(p, "\"video\":");
+        p = ngx_rtmp_kmp_api_track_json_write(p, track);
+    }
 
-        track = tracks[i];
-        if (track == NULL) {
-            continue;
-        }
-
+    track = tracks[KMP_MEDIA_AUDIO];
+    if (track != NULL) {
         if (p > start) {
             *p++ = ',';
         }
 
-        switch (track->media_type) {
-
-        case KMP_MEDIA_VIDEO:
-            p = ngx_copy_fix(p, "\"video\":");
-            p = ngx_rtmp_kmp_api_video_track_json_write(p, track, codec_ctx);
-            break;
-
-        case KMP_MEDIA_AUDIO:
-            p = ngx_copy_fix(p, "\"audio\":");
-            p = ngx_rtmp_kmp_api_audio_track_json_write(p, track, codec_ctx);
-            break;
-        }
+        p = ngx_copy_fix(p, "\"audio\":");
+        p = ngx_rtmp_kmp_api_track_json_write(p, track);
     }
 
     return p;
@@ -321,7 +284,7 @@ ngx_rtmp_kmp_api_server_get_session(ngx_uint_t connection,
     ngx_rtmp_core_app_conf_t   *cur;
 
     for (n = 0; n < srv_conf->applications.nelts; ++n) {
-        cur = ((ngx_rtmp_core_app_conf_t**)srv_conf->applications.elts)[n];
+        cur = ((ngx_rtmp_core_app_conf_t **) srv_conf->applications.elts)[n];
 
         s = ngx_rtmp_kmp_api_application_get_session(connection, cur);
         if (s != NULL) {
@@ -345,7 +308,7 @@ ngx_rtmp_kmp_api_get_session(ngx_uint_t connection)
     }
 
     for (n = 0; n < cmcf->servers.nelts; ++n) {
-        cur = ((ngx_rtmp_core_srv_conf_t**)cmcf->servers.elts)[n];
+        cur = ((ngx_rtmp_core_srv_conf_t **) cmcf->servers.elts)[n];
 
         s = ngx_rtmp_kmp_api_server_get_session(connection, cur);
         if (s != NULL) {
@@ -371,7 +334,7 @@ ngx_rtmp_kmp_api_session_delete(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_BAD_REQUEST;
     }
 
-    s = ngx_rtmp_kmp_api_get_session((ngx_uint_t)connection);
+    s = ngx_rtmp_kmp_api_get_session((ngx_uint_t) connection);
     if (s == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_rtmp_kmp_api_session_delete: connection %ui not found",
