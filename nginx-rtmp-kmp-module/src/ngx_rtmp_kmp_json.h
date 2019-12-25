@@ -6,12 +6,12 @@
 
 
 static size_t
-ngx_rtmp_kmp_connect_json_get_size(ngx_rtmp_kmp_connect_t *obj,
+ngx_rtmp_kmp_connect_rtmp_json_get_size(ngx_rtmp_kmp_connect_t *obj,
     ngx_rtmp_session_t *s)
 {
     size_t  result =
-        sizeof("{\"event_type\":\"connect\",\"app\":\"") - 1 + obj->app.len +
-            ngx_escape_json(NULL, obj->app.data, obj->app.len) +
+        sizeof("{\"app\":\"") - 1 + obj->app.len + ngx_escape_json(NULL,
+            obj->app.data, obj->app.len) +
         sizeof("\",\"flashver\":\"") - 1 + obj->flashver.len +
             ngx_escape_json(NULL, obj->flashver.data, obj->flashver.len) +
         sizeof("\",\"swf_url\":\"") - 1 + obj->swf_url.len +
@@ -30,10 +30,10 @@ ngx_rtmp_kmp_connect_json_get_size(ngx_rtmp_kmp_connect_t *obj,
 }
 
 static u_char *
-ngx_rtmp_kmp_connect_json_write(u_char *p, ngx_rtmp_kmp_connect_t *obj,
+ngx_rtmp_kmp_connect_rtmp_json_write(u_char *p, ngx_rtmp_kmp_connect_t *obj,
     ngx_rtmp_session_t *s)
 {
-    p = ngx_copy_fix(p, "{\"event_type\":\"connect\",\"app\":\"");
+    p = ngx_copy_fix(p, "{\"app\":\"");
     p = (u_char *) ngx_escape_json(p, obj->app.data, obj->app.len);
     p = ngx_copy_fix(p, "\",\"flashver\":\"");
     p = (u_char *) ngx_escape_json(p, obj->flashver.data, obj->flashver.len);
@@ -48,6 +48,30 @@ ngx_rtmp_kmp_connect_json_write(u_char *p, ngx_rtmp_kmp_connect_t *obj,
         s->connection->addr_text.len);
     p = ngx_copy_fix(p, "\",\"connection\":");
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) s->connection->number);
+    *p++ = '}';
+
+    return p;
+}
+
+static size_t
+ngx_rtmp_kmp_connect_json_get_size(ngx_rtmp_kmp_connect_t *obj,
+    ngx_rtmp_session_t *s)
+{
+    size_t  result =
+        sizeof("{\"event_type\":\"connect\",\"input_type\":\"rtmp\",\"rtmp\":")
+            - 1 + ngx_rtmp_kmp_connect_rtmp_json_get_size(obj, s) +
+        sizeof("}") - 1;
+
+    return result;
+}
+
+static u_char *
+ngx_rtmp_kmp_connect_json_write(u_char *p, ngx_rtmp_kmp_connect_t *obj,
+    ngx_rtmp_session_t *s)
+{
+    p = ngx_copy_fix(p,
+        "{\"event_type\":\"connect\",\"input_type\":\"rtmp\",\"rtmp\":");
+    p = ngx_rtmp_kmp_connect_rtmp_json_write(p, obj, s);
     *p++ = '}';
 
     return p;

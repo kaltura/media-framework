@@ -46,6 +46,11 @@ struct ngx_kmp_push_track_s {
     ngx_str_t                      extra_data;
     size_t                         extra_data_size;
 
+    int64_t                        last_created;
+    ngx_uint_t                     sent_frames;
+    ngx_uint_t                     sent_key_frames;
+    size_t                         written;
+
     void                          *ctx;
     ngx_kmp_push_track_handler_pt  handler;
 
@@ -64,10 +69,10 @@ ngx_http_call_ctx_t *ngx_kmp_push_track_http_call_create(
 ngx_int_t ngx_kmp_push_track_write_chain(ngx_kmp_push_track_t *track,
     ngx_chain_t *in, u_char *p);
 
-ngx_int_t ngx_kmp_push_track_write(ngx_kmp_push_track_t *track, u_char *data,
-    size_t size);
-
 ngx_int_t ngx_kmp_push_track_write_media_info(ngx_kmp_push_track_t *track);
+
+ngx_int_t ngx_kmp_push_track_write_frame(ngx_kmp_push_track_t *track,
+    kmp_frame_packet_t *frame);
 
 
 size_t ngx_kmp_push_track_media_info_json_get_size(ngx_kmp_push_track_t *track);

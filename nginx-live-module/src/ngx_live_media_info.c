@@ -558,6 +558,7 @@ ngx_live_media_info_source_get(ngx_live_track_t *track)
     target_media_info = &node->media_info;
 
     source = NULL;
+    source_media_info = NULL;   /* silence warning */
     channel = track->channel;
 
     for (q = ngx_queue_head(&channel->tracks_queue);

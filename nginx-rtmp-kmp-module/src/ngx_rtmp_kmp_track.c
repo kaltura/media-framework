@@ -391,8 +391,7 @@ ngx_rtmp_kmp_track_av(ngx_kmp_push_track_t *track, ngx_rtmp_header_t *h,
         &track->input_id, frame.f.created, frame.header.data_size,
         frame.f.dts, frame.f.flags, frame.f.pts_delay);
 
-    if (ngx_kmp_push_track_write(track, (u_char *) &frame, sizeof(frame))
-        != NGX_OK) {
+    if (ngx_kmp_push_track_write_frame(track, &frame) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_rtmp_kmp_track_av: write frame header failed");
         return NGX_ERROR;

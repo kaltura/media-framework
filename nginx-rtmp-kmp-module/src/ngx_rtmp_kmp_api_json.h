@@ -17,6 +17,10 @@ ngx_rtmp_kmp_api_upstream_json_get_size(ngx_kmp_push_upstream_t *obj)
         sizeof("\",\"local_addr\":\"") - 1 + obj->local_addr.len +
             ngx_escape_json(NULL, obj->local_addr.data, obj->local_addr.len) +
         sizeof("\",\"connection\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"sent\":") - 1 + NGX_OFF_T_LEN +
+        sizeof(",\"position\":") - 1 + NGX_OFF_T_LEN +
+        sizeof(",\"acked_frames\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"acked_bytes\":") - 1 + NGX_OFF_T_LEN +
         sizeof("}") - 1;
 
     return result;
@@ -35,6 +39,16 @@ ngx_rtmp_kmp_api_upstream_json_write(u_char *p, ngx_kmp_push_upstream_t *obj)
         obj->local_addr.len);
     p = ngx_copy_fix(p, "\",\"connection\":");
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->log.connection);
+    p = ngx_copy_fix(p, ",\"sent\":");
+    p = ngx_sprintf(p, "%O", (off_t) obj->peer.connection->sent);
+    p = ngx_copy_fix(p, ",\"position\":");
+    p = ngx_sprintf(p, "%O", (off_t) obj->sent_base +
+        obj->peer.connection->sent);
+    p = ngx_copy_fix(p, ",\"acked_frames\":");
+    p = ngx_sprintf(p, "%uL", (uint64_t) obj->acked_frame_id -
+        obj->track->connect.initial_frame_id);
+    p = ngx_copy_fix(p, ",\"acked_bytes\":");
+    p = ngx_sprintf(p, "%O", (off_t) obj->acked_bytes);
     *p++ = '}';
 
     return p;
@@ -53,6 +67,10 @@ ngx_rtmp_kmp_api_track_json_get_size(ngx_kmp_push_track_t *obj)
             ngx_escape_json(NULL, obj->track_id.data, obj->track_id.len) +
         sizeof("\",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"last_created\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"sent_frames\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"sent_key_frames\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"written\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",") - 1 + ngx_kmp_push_track_media_info_json_get_size(obj) +
         sizeof(",\"upstreams\":[") - 1 +
         sizeof("]}") - 1;
@@ -86,6 +104,14 @@ ngx_rtmp_kmp_api_track_json_write(u_char *p, ngx_kmp_push_track_t *obj)
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_left);
     p = ngx_copy_fix(p, ",\"mem_limit\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_limit);
+    p = ngx_copy_fix(p, ",\"last_created\":");
+    p = ngx_sprintf(p, "%L", (int64_t) obj->last_created);
+    p = ngx_copy_fix(p, ",\"sent_frames\":");
+    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->sent_frames);
+    p = ngx_copy_fix(p, ",\"sent_key_frames\":");
+    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->sent_key_frames);
+    p = ngx_copy_fix(p, ",\"written\":");
+    p = ngx_sprintf(p, "%uz", (size_t) obj->written);
     *p++ = ',';
     next = ngx_kmp_push_track_media_info_json_write(p, obj);
     p = next == p ? p - 1 : next;

@@ -21,7 +21,7 @@ static noobject ngx_kmp_push_track_publish_json ngx_kmp_push_track_t
     event_type publish
     input_id %V
 
-static ngx_kmp_push_track_unpublish_json ngx_kmp_push_track_t
+static noobject ngx_kmp_push_track_unpublish_json ngx_kmp_push_track_t
     event_type unpublish
     input_id %V
     reason %V obj->unpublish_reason

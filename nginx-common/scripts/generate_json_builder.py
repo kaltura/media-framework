@@ -289,6 +289,9 @@ for (n = 0; n < %s.nelts; ++n) {
                 elif format == 'uz':
                     valueSize = 'NGX_SIZE_T_LEN'
                     cast = 'size_t'
+                elif format == 'O':
+                    valueSize = 'NGX_OFF_T_LEN'
+                    cast = 'off_t'
                 else:
                     print 'Unknown format %s' % format
                     sys.exit(1)
