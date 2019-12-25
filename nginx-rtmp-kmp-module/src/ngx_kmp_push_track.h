@@ -8,12 +8,6 @@
 typedef struct ngx_kmp_push_track_s ngx_kmp_push_track_t;
 
 typedef struct {
-    size_t         (*get_size)(ngx_kmp_push_track_t *track, void *arg);
-    u_char        *(*write)(u_char *p, ngx_kmp_push_track_t *track, void *arg);
-    void            *arg;
-} ngx_kmp_push_track_publish_writer_t;
-
-typedef struct {
     ngx_url_t       *ctrl_publish_url;
     ngx_url_t       *ctrl_republish_url;
     ngx_url_t       *ctrl_unpublish_url;
@@ -46,8 +40,7 @@ void ngx_kmp_push_track_merge_conf(ngx_kmp_push_track_conf_t *conf,
 ngx_kmp_push_track_t *ngx_kmp_push_track_create(
     ngx_kmp_push_track_conf_t *conf, ngx_uint_t media_type);
 
-ngx_int_t ngx_kmp_push_track_publish(ngx_kmp_push_track_t *track,
-    ngx_kmp_push_track_publish_writer_t *writer);
+ngx_int_t ngx_kmp_push_track_publish(ngx_kmp_push_track_t *track);
 
 void ngx_kmp_push_track_detach(ngx_kmp_push_track_t *track, char *reason);
 

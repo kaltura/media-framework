@@ -1,3 +1,22 @@
+
+static noobject ngx_kmp_push_track_video_json ngx_kmp_push_track_t
+    media_type video
+    bitrate %uD obj->media_info.
+    codec_id %uD obj->media_info.
+    extra_data %xV
+    width %uD obj->media_info.u.video.
+    height %uD obj->media_info.u.video.
+    frame_rate %.2f obj->media_info.u.video.frame_rate.num / obj->media_info.u.video.frame_rate.denom
+
+static noobject ngx_kmp_push_track_audio_json ngx_kmp_push_track_t
+    media_type audio
+    bitrate %uD obj->media_info.
+    codec_id %uD obj->media_info.
+    extra_data %xV
+    channels %uD obj->media_info.u.audio.
+    bits_per_sample %uD obj->media_info.u.audio.
+    sample_rate %uD obj->media_info.u.audio.
+
 static noobject ngx_kmp_push_track_publish_json ngx_kmp_push_track_t
     event_type publish
     input_id %V

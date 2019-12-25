@@ -9,7 +9,7 @@ static size_t
 ngx_kmp_push_upstream_republish_json_get_size(ngx_kmp_push_upstream_t *obj)
 {
     size_t  result =
-        sizeof("{\"event_type\":\"republish\",\"id\":\"") - 1 + obj->id.len +
+        sizeof("\"event_type\":\"republish\",\"id\":\"") - 1 + obj->id.len +
             ngx_escape_json(NULL, obj->id.data, obj->id.len) +
         sizeof("\",\"input_id\":\"") - 1 + obj->track->input_id.len +
             ngx_escape_json(NULL, obj->track->input_id.data,
@@ -20,7 +20,7 @@ ngx_kmp_push_upstream_republish_json_get_size(ngx_kmp_push_upstream_t *obj)
         sizeof("\",\"track_id\":\"") - 1 + obj->track->track_id.len +
             ngx_escape_json(NULL, obj->track->track_id.data,
             obj->track->track_id.len) +
-        sizeof("\"}") - 1;
+        sizeof("\"") - 1;
 
     return result;
 }
@@ -29,7 +29,7 @@ static u_char *
 ngx_kmp_push_upstream_republish_json_write(u_char *p, ngx_kmp_push_upstream_t
     *obj)
 {
-    p = ngx_copy_fix(p, "{\"event_type\":\"republish\",\"id\":\"");
+    p = ngx_copy_fix(p, "\"event_type\":\"republish\",\"id\":\"");
     p = (u_char *) ngx_escape_json(p, obj->id.data, obj->id.len);
     p = ngx_copy_fix(p, "\",\"input_id\":\"");
     p = (u_char *) ngx_escape_json(p, obj->track->input_id.data,
@@ -40,7 +40,7 @@ ngx_kmp_push_upstream_republish_json_write(u_char *p, ngx_kmp_push_upstream_t
     p = ngx_copy_fix(p, "\",\"track_id\":\"");
     p = (u_char *) ngx_escape_json(p, obj->track->track_id.data,
         obj->track->track_id.len);
-    p = ngx_copy_fix(p, "\"}");
+    *p++ = '\"';
 
     return p;
 }

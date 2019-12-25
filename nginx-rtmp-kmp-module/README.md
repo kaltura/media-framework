@@ -86,21 +86,26 @@ Sample request:
     "event_type": "publish",
     "input_id": "rtmp://testserver:1935/live?arg=value/streamname_1/video",
     "input_type": "rtmp",
-    "app": "live",
-    "flashver": "FMLE/3.0 (compatible; FMSc/1.0)",
-    "swf_url": "rtmp://testserver:1935/live?arg=value",
-    "tc_url": "rtmp://testserver:1935/live?arg=value",
-    "page_url": "",
-    "addr": "5.6.7.8",
-    "connection": 983,
-    "name": "streamname_1",
-    "type": "live",
-    "args": "videoKeyframeFrequency=5&totalDatarate=200",
-    "media_type": "video",
-    "codec_info": {
-        "width": 320,
-        "height": 240,
-        ...
+    "rtmp": {
+        "app": "live",
+        "flashver": "FMLE/3.0 (compatible; FMSc/1.0)",
+        "swf_url": "rtmp://testserver:1935/live?arg=value",
+        "tc_url": "rtmp://testserver:1935/live?arg=value",
+        "page_url": "",
+        "addr": "5.6.7.8",
+        "connection": 983,
+        "name": "streamname_1",
+        "type": "live",
+        "args": "videoKeyframeFrequency=5&totalDatarate=200",
+    },
+    "media_info": {
+        "media_type": "video",
+        "bitrate": 82000,
+        "codec_id": 7,
+        "extra_data": "0164000bffe100196764000bacd942847e5c0440000003004000000783c50a658001000468efbcb0",
+        "width": 160,
+        "height": 120,
+        "frame_rate": 15.00
     }
 }
 ```
@@ -145,9 +150,32 @@ Sample request:
 ```
 {
     "event_type": "republish",
+    "id": "upstream_id",
     "input_id": "rtmp://testserver:1935/live?arg=value/streamname_1/video"
     "channel_id": "somechannel",
     "track_id": "sometrack"
+    "input_type": "rtmp",
+    "rtmp": {
+        "app": "live",
+        "flashver": "FMLE/3.0 (compatible; FMSc/1.0)",
+        "swf_url": "rtmp://testserver:1935/live?arg=value",
+        "tc_url": "rtmp://testserver:1935/live?arg=value",
+        "page_url": "",
+        "addr": "5.6.7.8",
+        "connection": 983,
+        "name": "streamname_1",
+        "type": "live",
+        "args": "videoKeyframeFrequency=5&totalDatarate=200",
+    },
+    "media_info": {
+        "media_type": "video",
+        "bitrate": 82000,
+        "codec_id": 7,
+        "extra_data": "0164000bffe100196764000bacd942847e5c0440000003004000000783c50a658001000468efbcb0",
+        "width": 160,
+        "height": 120,
+        "frame_rate": 15.00
+    }
 }
 ```
 
