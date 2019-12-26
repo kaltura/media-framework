@@ -1224,7 +1224,9 @@ ngx_live_dvr_channel_inactive(ngx_live_channel_t *channel)
     ngx_live_dvr_preset_conf_t  *dpcf;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_dvr_module);
-    if (cctx == NULL || cctx->last_bucket_id == NGX_LIVE_DVR_INVALID_BUCKET_ID) {
+    if (cctx == NULL ||
+        cctx->last_bucket_id == NGX_LIVE_DVR_INVALID_BUCKET_ID)
+    {
         return NGX_OK;
     }
 
@@ -1232,7 +1234,10 @@ ngx_live_dvr_channel_inactive(ngx_live_channel_t *channel)
 
     ngx_live_dvr_save_bucket(channel, cctx, dpcf, cctx->last_bucket_id);
 
-    // XXXXXX make the segmenter jump to the next bucket if the stream later becomes active
+    /* make sure the next segment will use a new bucket if the stream becomes
+        active later */
+    channel->next_segment_index = ngx_round_up_to_multiple(
+        channel->next_segment_index, dpcf->bucket_size);
 
     cctx->last_bucket_id = NGX_LIVE_DVR_INVALID_BUCKET_ID;
 

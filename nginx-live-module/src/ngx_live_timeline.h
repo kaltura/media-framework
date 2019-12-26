@@ -17,6 +17,7 @@ typedef struct {
     int64_t                            start;
     int64_t                            end;
     unsigned                           active:1;
+    unsigned                           no_truncate:1;
 } ngx_live_timeline_conf_t;
 
 typedef struct {

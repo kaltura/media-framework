@@ -979,6 +979,10 @@ static void
 ngx_live_timeline_truncate(ngx_live_timeline_t *timeline,
     uint32_t segment_index)
 {
+    if (timeline->conf.no_truncate) {
+        return;
+    }
+
     ngx_live_manifest_timeline_truncate(&timeline->manifest,
         segment_index);
 

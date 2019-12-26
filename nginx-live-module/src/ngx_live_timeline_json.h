@@ -36,7 +36,8 @@ ngx_live_timeline_json_get_size(ngx_live_timeline_t *obj)
 {
     ngx_live_period_t  *cur;
     size_t  result =
-        sizeof("{\"active\":") - 1 + NGX_INT32_LEN +
+        sizeof("{\"active\":") - 1 + sizeof("false") - 1 +
+        sizeof(",\"no_truncate\":") - 1 + sizeof("false") - 1 +
         sizeof(",\"max_segments\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"max_duration\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"start\":") - 1 + NGX_INT64_LEN +
@@ -62,7 +63,17 @@ ngx_live_timeline_json_write(u_char *p, ngx_live_timeline_t *obj)
 {
     ngx_live_period_t  *cur;
     p = ngx_copy_fix(p, "{\"active\":");
-    p = ngx_sprintf(p, "%uD", (uint32_t) obj->conf.active);
+    if (obj->conf.active) {
+        p = ngx_copy_fix(p, "true");
+    } else {
+        p = ngx_copy_fix(p, "false");
+    }
+    p = ngx_copy_fix(p, ",\"no_truncate\":");
+    if (obj->conf.no_truncate) {
+        p = ngx_copy_fix(p, "true");
+    } else {
+        p = ngx_copy_fix(p, "false");
+    }
     p = ngx_copy_fix(p, ",\"max_segments\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) (obj->conf.max_segments !=
         NGX_MAX_UINT32_VALUE ? obj->conf.max_segments : 0));

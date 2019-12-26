@@ -25,6 +25,9 @@ typedef struct ngx_live_channel_s     ngx_live_channel_t;
 #define ngx_round_to_multiple(num, mult)                                    \
     ((((num) + (mult) / 2) / (mult)) * (mult))
 
+#define ngx_round_up_to_multiple(num, mult)                                 \
+    ((((num) + (mult) - 1) / (mult)) * (mult))
+
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
 
