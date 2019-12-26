@@ -682,7 +682,7 @@ ngx_live_dvr_save_create_file(ngx_live_channel_t *channel, ngx_pool_t *pool,
 
     dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_module);
     bucket_size = dpcf->bucket_size;
-    max_segments = channel->track_count * bucket_size;
+    max_segments = channel->tracks.count * bucket_size;
 
     header_buf = ngx_create_temp_buf(pool, sizeof(*header) +
         max_segments * sizeof(*segment_entry));
@@ -727,8 +727,8 @@ ngx_live_dvr_save_create_file(ngx_live_channel_t *channel, ngx_pool_t *pool,
         segment_index < limit;
         segment_index++)
     {
-        for (q = ngx_queue_head(&channel->tracks_queue);
-            q != ngx_queue_sentinel(&channel->tracks_queue);
+        for (q = ngx_queue_head(&channel->tracks.queue);
+            q != ngx_queue_sentinel(&channel->tracks.queue);
             q = ngx_queue_next(q))
         {
             cur_track = ngx_queue_data(q, ngx_live_track_t, queue);

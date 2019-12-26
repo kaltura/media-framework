@@ -40,79 +40,88 @@ typedef void (*live_track_disconnect_pt)(ngx_live_track_t *track,
     ngx_uint_t rc);
 
 
+typedef struct {
+    ngx_rbtree_t                   tree;
+    ngx_rbtree_node_t              sentinel;
+    ngx_queue_t                    queue;
+} ngx_live_channel_variants_t;
+
+typedef struct {
+    ngx_rbtree_t                   tree;        /* by string id */
+    ngx_rbtree_node_t              sentinel;
+    ngx_rbtree_t                   itree;       /* by int id */
+    ngx_rbtree_node_t              isentinel;
+    ngx_queue_t                    queue;
+    uint32_t                       count;
+    uint32_t                       next_id;
+} ngx_live_channel_tracks_t;
+
 struct ngx_live_channel_s {
-    ngx_str_node_t              sn;        /* must be first */
-    ngx_queue_t                 queue;
-    ngx_block_str_t             opaque;
+    ngx_str_node_t                 sn;        /* must be first */
+    ngx_queue_t                    queue;
+    ngx_block_str_t                opaque;
 
-    ngx_block_pool_t           *block_pool;
-    ngx_pool_t                 *pool;
-    ngx_log_t                   log;
-    size_t                      mem_left;
-    size_t                      mem_high_watermark;
-    size_t                      mem_low_watermark;
-    time_t                      last_modified;
-    ngx_event_t                 close;
-    ngx_msec_t                  start_msec;
+    ngx_block_pool_t              *block_pool;
+    ngx_pool_t                    *pool;
+    ngx_log_t                      log;
+    size_t                         mem_left;
+    size_t                         mem_high_watermark;
+    size_t                         mem_low_watermark;
+    time_t                         last_modified;
+    ngx_event_t                    close;
+    ngx_msec_t                     start_msec;
 
-    void                      **ctx;
-    void                      **main_conf;
-    void                      **preset_conf;
+    void                         **ctx;
+    void                         **main_conf;
+    void                         **preset_conf;
 
-    ngx_rbtree_t                variants_tree;
-    ngx_rbtree_node_t           variants_sentinel;
-    ngx_queue_t                 variants_queue;
+    ngx_live_channel_variants_t    variants;
 
-    ngx_rbtree_t                tracks_tree;        /* by string id */
-    ngx_rbtree_node_t           tracks_sentinel;
-    ngx_rbtree_t                tracks_itree;       /* by int id */
-    ngx_rbtree_node_t           tracks_isentinel;
-    ngx_queue_t                 tracks_queue;
-    uint32_t                    track_count;
-    uint32_t                    track_id;
-    size_t                     *track_ctx_offset;
+    ngx_live_channel_tracks_t      tracks;
 
-    uint32_t                    next_segment_index;
-    uint32_t                    last_segment_media_types;
-    time_t                      last_segment_created;
+    size_t                        *track_ctx_offset;
 
-    unsigned                    active:1;
+    uint32_t                       next_segment_index;
+    uint32_t                       last_segment_media_types;
+    time_t                         last_segment_created;
+
+    unsigned                       active:1;
 };
 
 
 typedef struct {
-    void                       *data;
-    live_track_ack_frames_pt    ack_frames;
-    live_track_disconnect_pt    disconnect;
+    void                          *data;
+    live_track_ack_frames_pt       ack_frames;
+    live_track_disconnect_pt       disconnect;
 
-    ngx_atomic_uint_t           connection;
-    ngx_str_t                   remote_addr;
+    ngx_atomic_uint_t              connection;
+    ngx_str_t                      remote_addr;
 } ngx_live_track_input_t;
 
 struct ngx_live_track_s {
-    ngx_str_node_t              sn;        /* must be first */
-    ngx_rbtree_node_t           in;
+    ngx_str_node_t                 sn;        /* must be first */
+    ngx_rbtree_node_t              in;
 
-    ngx_queue_t                 queue;
-    ngx_live_channel_t         *channel;
-    u_char                      id_buf[NGX_LIVE_TRACK_MAX_ID_LEN];
-    ngx_block_str_t             opaque;
+    ngx_queue_t                    queue;
+    ngx_live_channel_t            *channel;
+    u_char                         id_buf[NGX_LIVE_TRACK_MAX_ID_LEN];
+    ngx_block_str_t                opaque;
 
-    uint32_t                    media_type;
-    ngx_msec_t                  start_msec;
+    uint32_t                       media_type;
+    ngx_msec_t                     start_msec;
 
-    void                      **ctx;
-    ngx_log_t                   log;
+    void                         **ctx;
+    ngx_log_t                      log;
 
-    ngx_live_track_input_t      input;
+    ngx_live_track_input_t         input;
 
-    unsigned                    has_last_segment:1;
+    unsigned                       has_last_segment:1;
 };
 
 
 typedef struct {
-    uint32_t                    id;
-    ngx_live_track_t           *track;
+    uint32_t                       id;
+    ngx_live_track_t              *track;
 } ngx_live_track_ref_t;
 
 
@@ -122,24 +131,24 @@ typedef enum {
 } ngx_live_variant_role_e;
 
 typedef struct {
-    ngx_str_node_t              sn;        /* must be first */
-    ngx_queue_t                 queue;
-    ngx_live_channel_t         *channel;
-    u_char                      id_buf[NGX_LIVE_VARIANT_MAX_ID_LEN];
-    ngx_block_str_t             opaque;
+    ngx_str_node_t                 sn;        /* must be first */
+    ngx_queue_t                    queue;
+    ngx_live_channel_t            *channel;
+    u_char                         id_buf[NGX_LIVE_VARIANT_MAX_ID_LEN];
+    ngx_block_str_t                opaque;
 
-    ngx_live_track_t           *tracks[KMP_MEDIA_COUNT];
-    uint32_t                    track_count;
+    ngx_live_track_t              *tracks[KMP_MEDIA_COUNT];
+    uint32_t                       track_count;
 
-    ngx_str_t                   label;
-    u_char                      label_buf[NGX_LIVE_VARIANT_MAX_LABEL_LEN];
+    ngx_str_t                      label;
+    u_char                         label_buf[NGX_LIVE_VARIANT_MAX_LABEL_LEN];
 
-    ngx_str_t                   lang;
-    u_char                      lang_buf[NGX_LIVE_VARIANT_MAX_LANG_LEN];
+    ngx_str_t                      lang;
+    u_char                         lang_buf[NGX_LIVE_VARIANT_MAX_LANG_LEN];
 
-    ngx_live_variant_role_e     role;
+    ngx_live_variant_role_e        role;
 
-    unsigned                    is_default:1;
+    unsigned                       is_default:1;
 } ngx_live_variant_t;
 
 

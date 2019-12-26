@@ -52,8 +52,8 @@ ngx_live_tracks_json_get_size(ngx_live_channel_t *obj)
         sizeof("{") - 1 +
         sizeof("}") - 1;
 
-    for (q = ngx_queue_head(&obj->tracks_queue);
-        q != ngx_queue_sentinel(&obj->tracks_queue);
+    for (q = ngx_queue_head(&obj->tracks.queue);
+        q != ngx_queue_sentinel(&obj->tracks.queue);
         q = ngx_queue_next(q))
     {
         ngx_live_track_t *cur = ngx_queue_data(q, ngx_live_track_t, queue);
@@ -71,13 +71,13 @@ ngx_live_tracks_json_write(u_char *p, ngx_live_channel_t *obj)
     ngx_queue_t  *q;
     *p++ = '{';
 
-    for (q = ngx_queue_head(&obj->tracks_queue);
-        q != ngx_queue_sentinel(&obj->tracks_queue);
+    for (q = ngx_queue_head(&obj->tracks.queue);
+        q != ngx_queue_sentinel(&obj->tracks.queue);
         q = ngx_queue_next(q))
     {
         ngx_live_track_t *cur = ngx_queue_data(q, ngx_live_track_t, queue);
 
-        if (q != ngx_queue_head(&obj->tracks_queue))
+        if (q != ngx_queue_head(&obj->tracks.queue))
         {
             *p++ = ',';
         }
@@ -144,8 +144,8 @@ ngx_live_variants_json_get_size(ngx_live_channel_t *obj)
         sizeof("{") - 1 +
         sizeof("}") - 1;
 
-    for (q = ngx_queue_head(&obj->variants_queue);
-        q != ngx_queue_sentinel(&obj->variants_queue);
+    for (q = ngx_queue_head(&obj->variants.queue);
+        q != ngx_queue_sentinel(&obj->variants.queue);
         q = ngx_queue_next(q))
     {
         ngx_live_variant_t *cur = ngx_queue_data(q, ngx_live_variant_t, queue);
@@ -163,13 +163,13 @@ ngx_live_variants_json_write(u_char *p, ngx_live_channel_t *obj)
     ngx_queue_t  *q;
     *p++ = '{';
 
-    for (q = ngx_queue_head(&obj->variants_queue);
-        q != ngx_queue_sentinel(&obj->variants_queue);
+    for (q = ngx_queue_head(&obj->variants.queue);
+        q != ngx_queue_sentinel(&obj->variants.queue);
         q = ngx_queue_next(q))
     {
         ngx_live_variant_t *cur = ngx_queue_data(q, ngx_live_variant_t, queue);
 
-        if (q != ngx_queue_head(&obj->variants_queue))
+        if (q != ngx_queue_head(&obj->variants.queue))
         {
             *p++ = ',';
         }

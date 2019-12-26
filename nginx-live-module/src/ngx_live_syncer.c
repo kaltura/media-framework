@@ -185,8 +185,8 @@ ngx_live_syncer_enable_sync_flag(ngx_live_channel_t *channel,
     ngx_live_track_t             *cur_track;
     ngx_live_syncer_track_ctx_t  *cur_ctx;
 
-    for (q = ngx_queue_head(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);

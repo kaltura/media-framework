@@ -1005,8 +1005,8 @@ ngx_live_timelines_free_old_segments(ngx_live_channel_t *channel,
     ngx_live_segment_list_free_nodes(&ctx->segment_list, min_segment_index);
 
     /* cleanup unused buffers / media info */
-    for (q = ngx_queue_head(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);

@@ -1076,8 +1076,8 @@ ngx_live_segmenter_validate_channel_ctx(ngx_live_channel_t *channel)
 
     ngx_memzero(count, sizeof(count));
 
-    for (q = ngx_queue_head(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
@@ -1212,8 +1212,8 @@ ngx_live_segmenter_prepare_create_segment(ngx_live_channel_t *channel,
 
     *min_pts = NGX_LIVE_INVALID_PTS;
 
-    for (q = ngx_queue_head(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
@@ -1274,8 +1274,8 @@ ngx_live_segmenter_get_base_track(ngx_live_channel_t *channel,
 
     ngx_memzero(&base, sizeof(base));
 
-    for (q = ngx_queue_head(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur.track = ngx_queue_data(q, ngx_live_track_t, queue);
@@ -1433,8 +1433,8 @@ ngx_live_segmenter_track_get_segment_end_pts(ngx_live_track_t *base_track,
     ngx_memcpy(kf_min, kf_pts, sizeof(kf_min));
     ngx_memcpy(kf_max, kf_pts, sizeof(kf_max));
 
-    for (q = ngx_queue_next(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_next(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
@@ -1596,8 +1596,8 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
 
     rc = NGX_OK;
 
-    for (q = ngx_queue_head(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
@@ -1660,8 +1660,8 @@ ngx_live_segmenter_dispose_segment(ngx_live_channel_t *channel)
 
     removed = 0;
 
-    for (q = ngx_queue_head(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
@@ -1773,8 +1773,8 @@ ngx_live_segmenter_create_segment(ngx_live_channel_t *channel,
     missing = 0;
     last_segment_media_types = 0;
 
-    for (q = ngx_queue_head(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
@@ -1945,7 +1945,7 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
         cctx->force_new_period = 0;
     }
 
-    if (cctx->count[ngx_live_track_inactive] >= channel->track_count) {
+    if (cctx->count[ngx_live_track_inactive] >= channel->tracks.count) {
         ngx_live_segmenter_channel_inactive(channel);
     }
 
@@ -2158,8 +2158,8 @@ ngx_live_segmenter_inactive_handler(ngx_event_t *ev)
         segmentation glitches when video becomes inactive slightly earlier
         than audio */
 
-    for (q = ngx_queue_head(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
@@ -2242,7 +2242,7 @@ ngx_live_segmenter_track_free(ngx_live_track_t *track)
     cctx->count[ctx->state]--;
 
     if (ctx->state != ngx_live_track_inactive &&
-        cctx->count[ngx_live_track_inactive] >= channel->track_count)
+        cctx->count[ngx_live_track_inactive] >= channel->tracks.count)
     {
         ngx_live_segmenter_channel_inactive(channel);
     }

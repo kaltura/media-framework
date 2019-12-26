@@ -561,8 +561,8 @@ ngx_live_media_info_source_get(ngx_live_track_t *track)
     source_media_info = NULL;   /* silence warning */
     channel = track->channel;
 
-    for (q = ngx_queue_head(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
@@ -721,8 +721,8 @@ ngx_live_media_info_source_remove_refs(ngx_live_track_t *track)
 
     channel = track->channel;
 
-    for (q = ngx_queue_head(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
@@ -987,8 +987,8 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
 
     updated = 0;
 
-    for (q = ngx_queue_head(&channel->tracks_queue);
-        q != ngx_queue_sentinel(&channel->tracks_queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);

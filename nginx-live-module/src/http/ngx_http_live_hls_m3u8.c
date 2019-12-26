@@ -279,8 +279,8 @@ ngx_http_live_hls_group_variants(ngx_http_request_t *r,
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_core_module);
 
-    for (q = ngx_queue_head(&channel->variants_queue);
-        q != ngx_queue_sentinel(&channel->variants_queue);
+    for (q = ngx_queue_head(&channel->variants.queue);
+        q != ngx_queue_sentinel(&channel->variants.queue);
         q = ngx_queue_next(q))
     {
         variant = ngx_queue_data(q, ngx_live_variant_t, queue);

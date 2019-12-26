@@ -6,7 +6,7 @@ static ngx_live_track_json ngx_live_track_t
     - %func-ngx_live_core_json obj, obj->channel, NGX_LIVE_JSON_CTX_TRACK
 
 noobject ngx_live_tracks_json ngx_live_channel_t
-    - %objQueue-ngx_live_track_json,ngx_live_track_t,queue,sn.str obj->tracks_queue
+    - %objQueue-ngx_live_track_json,ngx_live_track_t,queue,sn.str obj->tracks.queue
 
 static ngx_live_variant_json ngx_live_variant_t
     track_ids %objFunc-ngx_live_variant_json_track_ids obj
@@ -17,7 +17,7 @@ static ngx_live_variant_json ngx_live_variant_t
     is_default %b
 
 noobject ngx_live_variants_json ngx_live_channel_t
-    - %objQueue-ngx_live_variant_json,ngx_live_variant_t,queue,sn.str obj->variants_queue
+    - %objQueue-ngx_live_variant_json,ngx_live_variant_t,queue,sn.str obj->variants.queue
 
 ngx_live_channel_json ngx_live_channel_t
     - %code ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj, ngx_live_core_module);
