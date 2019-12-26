@@ -259,6 +259,17 @@ for (n = 0; n < %s.nelts; ++n) {
                 # Note: assuming that enum values do not require escaping
                 valueSize = '%s.len' % valueStr
                 valueWrite = 'p = ngx_sprintf(p, "%%V", &%s);' % valueStr
+            elif format.startswith('.') and format.endswith('F'):
+                precision = int(format[1:-1])
+                valueSize = 'NGX_INT32_LEN + %s' % (1 + precision)
+                format = '%uD.%0' + str(precision) + 'uD'
+                printParams = '(uint32_t) (n / d)'
+                printParams += ', (uint32_t) (n %% d * %d) / d''' %           \
+                    (10 ** precision)
+                writeDefs.add('uint32_t  n, d;')
+                valueWrite = '''n = %s.num;
+d = %s.denom;
+p = ngx_sprintf(p, "%s", %s);''' % (expr, expr, format, printParams)
             else:
                 match = re.match('^\.(\d+)f$', format)
                 if not match is None:

@@ -4,10 +4,10 @@ static ngx_live_period_json ngx_live_period_t
     segment_count %uD
 
 ngx_live_timeline_json ngx_live_timeline_t
-    active %uD obj->conf.active
+    active %uD obj->conf.
     max_segments %uD (obj->conf.max_segments != NGX_MAX_UINT32_VALUE ? obj->conf.max_segments : 0)
     max_duration %uL (obj->conf.max_duration != ULLONG_MAX ? obj->conf.max_duration : 0)
-    start %L obj->conf.start
+    start %L obj->conf.
     end %L (obj->conf.end != LLONG_MAX ? obj->conf.end : 0)
     manifest_max_segments %uD (obj->manifest.conf.max_segments != NGX_MAX_UINT32_VALUE ? obj->manifest.conf.max_segments : 0)
     manifest_max_duration %uL (obj->manifest.conf.max_duration != ULLONG_MAX ? obj->manifest.conf.max_duration : 0)

@@ -96,9 +96,9 @@ ngx_kmp_push_upstream_create(ngx_kmp_push_track_t *track, ngx_str_t *id)
         return NULL;
     }
 
-    u->id.data = (void *) (u + 1);
-
     ngx_memzero(u, sizeof(*u));
+
+    u->id.data = (void *) (u + 1);
 
     u->pool = pool;
     u->log = *log;
@@ -273,6 +273,7 @@ ngx_kmp_push_upstream_from_json(ngx_pool_t *temp_pool,
 
     if (values[NGX_KMP_UPSTREAM_ID] != NULL) {
         id = values[NGX_KMP_UPSTREAM_ID]->v.str;
+
     } else {
         id.len = 0;
     }
@@ -871,6 +872,7 @@ ngx_kmp_push_upstream_send_chain(ngx_kmp_push_upstream_t *u)
         if (!c->buffered) {
             return NGX_OK;
         }
+
     } else if (c->sent != sent) {
         ngx_add_timer(c->write, u->timeout);
     }

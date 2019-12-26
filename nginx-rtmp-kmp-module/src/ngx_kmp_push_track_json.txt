@@ -6,7 +6,7 @@ static noobject ngx_kmp_push_track_video_json ngx_kmp_push_track_t
     extra_data %xV
     width %uD obj->media_info.u.video.
     height %uD obj->media_info.u.video.
-    frame_rate %.2f obj->media_info.u.video.frame_rate.num / obj->media_info.u.video.frame_rate.denom
+    frame_rate %.2F obj->media_info.u.video.
 
 static noobject ngx_kmp_push_track_audio_json ngx_kmp_push_track_t
     media_type audio

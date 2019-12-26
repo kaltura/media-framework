@@ -1209,13 +1209,13 @@ ngx_live_media_info_track_json_get_size(void *obj)
     switch (node->media_info.media_type) {
 
     case KMP_MEDIA_VIDEO:
-        result += ngx_live_media_info_json_video_get_size(&node->media_info,
-            &node->kmp_media_info);
+        result += ngx_live_media_info_json_video_get_size(
+            &node->kmp_media_info, &node->media_info);
         break;
 
     case KMP_MEDIA_AUDIO:
-        result += ngx_live_media_info_json_audio_get_size(&node->media_info,
-            &node->kmp_media_info);
+        result += ngx_live_media_info_json_audio_get_size(
+            &node->kmp_media_info, &node->media_info);
         break;
     }
 
@@ -1255,13 +1255,13 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
     switch (node->media_info.media_type) {
 
     case KMP_MEDIA_VIDEO:
-        p = ngx_live_media_info_json_video_write(p, &node->media_info,
-            &node->kmp_media_info);
+        p = ngx_live_media_info_json_video_write(p, &node->kmp_media_info,
+            &node->media_info);
         break;
 
     case KMP_MEDIA_AUDIO:
-        p = ngx_live_media_info_json_audio_write(p, &node->media_info,
-            &node->kmp_media_info);
+        p = ngx_live_media_info_json_audio_write(p, &node->kmp_media_info,
+            &node->media_info);
         break;
     }
 

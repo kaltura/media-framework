@@ -1,7 +1,7 @@
 static ngx_live_track_json ngx_live_track_t
     uptime %i (ngx_current_msec - obj->start_msec)
-    connection %uA obj->input.connection
-    remote_addr %V obj->input.remote_addr
+    connection %uA obj->input.
+    remote_addr %V obj->input.
     opaque %bs
     - %func-ngx_live_core_json obj, obj->channel, NGX_LIVE_JSON_CTX_TRACK
 
@@ -25,7 +25,7 @@ ngx_live_channel_json ngx_live_channel_t
     opaque %bs
     preset_name %V cpcf->name
     mem_left %uz
-    mem_limit %uz cpcf->mem_limit
+    mem_limit %uz cpcf->
     mem_blocks %func-ngx_block_pool_auto_json obj->block_pool, NGX_LIVE_BP_COUNT, 0
     last_segment_created %T
     tracks %func-ngx_live_tracks_json obj

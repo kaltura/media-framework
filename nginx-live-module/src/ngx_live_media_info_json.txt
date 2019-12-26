@@ -1,21 +1,21 @@
-static ngx_live_media_info_json_video media_info_t kmp_media_info_t *kmp_media_info
+static ngx_live_media_info_json_video kmp_media_info_t media_info_t *media_info
     media_type video
-    format %4cc
+    codec_id %uD
     bitrate %uD
-    codec_id %uD kmp_media_info->codec_id
-    codec_name %V
-    extra_data %xV
-    width %uD obj->u.video.width
-    height %uD obj->u.video.height
-    frame_rate %.2f obj->u.video.frame_rate_num / obj->u.video.frame_rate_denom
+    format %4cc media_info->
+    codec_name %V media_info->
+    extra_data %xV media_info->
+    width %uD obj->u.video.
+    height %uD obj->u.video.
+    frame_rate %.2F obj->u.video.
 
-static ngx_live_media_info_json_audio media_info_t kmp_media_info_t *kmp_media_info
+static ngx_live_media_info_json_audio kmp_media_info_t media_info_t *media_info
     media_type audio
-    format %4cc
+    codec_id %uD
     bitrate %uD
-    codec_id %uD kmp_media_info->codec_id
-    codec_name %V
-    extra_data %xV
-    channels %uD obj->u.audio.channels
-    bits_per_sample %uD obj->u.audio.bits_per_sample
-    sample_rate %uD obj->u.audio.sample_rate
+    format %4cc media_info->
+    codec_name %V  media_info->
+    extra_data %xV media_info->
+    channels %uD obj->u.audio.
+    bits_per_sample %uD obj->u.audio.
+    sample_rate %uD obj->u.audio.

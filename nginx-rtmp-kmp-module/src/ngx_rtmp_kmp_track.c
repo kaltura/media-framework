@@ -124,8 +124,6 @@ ngx_rtmp_kmp_track_set_media_info(ngx_kmp_push_track_t *track,
     }
 
     /* copy the extra data */
-    media_info = &track->media_info;
-
     if (size > 0) {
 
         if (size > track->extra_data_size) {
@@ -162,6 +160,8 @@ ngx_rtmp_kmp_track_set_media_info(ngx_kmp_push_track_t *track,
     track->extra_data.len = size;
 
     /* Note: media_type and timescale were set by ngx_kmp_push_track_create */
+
+    media_info = &track->media_info;
 
     ngx_memzero(&media_info->u, sizeof(media_info->u));
 

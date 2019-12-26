@@ -14,7 +14,7 @@ ngx_kmp_push_track_video_json_get_size(ngx_kmp_push_track_t *obj)
         sizeof(",\"extra_data\":\"") - 1 + obj->extra_data.len * 2 +
         sizeof("\",\"width\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"height\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"frame_rate\":") - 1 + NGX_INT64_LEN + 3;
+        sizeof(",\"frame_rate\":") - 1 + NGX_INT32_LEN + 3;
 
     return result;
 }
@@ -22,6 +22,7 @@ ngx_kmp_push_track_video_json_get_size(ngx_kmp_push_track_t *obj)
 static u_char *
 ngx_kmp_push_track_video_json_write(u_char *p, ngx_kmp_push_track_t *obj)
 {
+    uint32_t  n, d;
     p = ngx_copy_fix(p, "\"media_type\":\"video\",\"bitrate\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->media_info.bitrate);
     p = ngx_copy_fix(p, ",\"codec_id\":");
@@ -33,8 +34,10 @@ ngx_kmp_push_track_video_json_write(u_char *p, ngx_kmp_push_track_t *obj)
     p = ngx_copy_fix(p, ",\"height\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->media_info.u.video.height);
     p = ngx_copy_fix(p, ",\"frame_rate\":");
-    p = ngx_sprintf(p, "%.2f", (double) obj->media_info.u.video.frame_rate.num
-        / obj->media_info.u.video.frame_rate.denom);
+    n = obj->media_info.u.video.frame_rate.num;
+    d = obj->media_info.u.video.frame_rate.denom;
+    p = ngx_sprintf(p, "%uD.%02uD", (uint32_t) (n / d), (uint32_t) (n % d *
+        100) / d);
 
     return p;
 }
