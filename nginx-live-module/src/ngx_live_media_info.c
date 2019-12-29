@@ -7,6 +7,9 @@
 #include "ngx_live_media_info_json.h"
 
 
+#define NGX_LIVE_TRACK_MAX_GROUP_ID_LEN  (32)
+
+
 enum {
     NGX_LIVE_BP_MEDIA_INFO_NODE,
     NGX_LIVE_BP_COUNT
@@ -34,6 +37,9 @@ typedef struct {
     ngx_queue_t         active;
     uint32_t            count;
 
+    ngx_str_t           group_id;
+    u_char              group_id_buf[NGX_LIVE_TRACK_MAX_GROUP_ID_LEN];
+
     ngx_live_track_t   *source;
     uint32_t            source_refs;
 } ngx_live_media_info_track_ctx_t;
@@ -45,11 +51,15 @@ typedef struct {
 
 static ngx_int_t ngx_live_media_info_queue_copy(ngx_live_track_t *track);
 
+static ngx_int_t ngx_live_media_info_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_media_info_postconfiguration(ngx_conf_t *cf);
+
+static ngx_int_t ngx_live_media_info_set_group_id(void *arg,
+    ngx_live_json_command_t *cmd, ngx_json_value_t *value);
 
 
 static ngx_live_module_t  ngx_live_media_info_module_ctx = {
-    NULL,                                     /* preconfiguration */
+    ngx_live_media_info_preconfiguration,     /* preconfiguration */
     ngx_live_media_info_postconfiguration,    /* postconfiguration */
 
     NULL,                                     /* create main configuration */
@@ -72,6 +82,15 @@ ngx_module_t  ngx_live_media_info_module = {
     NULL,                                     /* exit process */
     NULL,                                     /* exit master */
     NGX_MODULE_V1_PADDING
+};
+
+
+static ngx_live_json_command_t  ngx_live_media_info_dyn_cmds[] = {
+
+    { ngx_string("group_id"), NGX_JSON_STRING,
+      ngx_live_media_info_set_group_id },
+
+      ngx_live_null_json_command
 };
 
 
@@ -539,7 +558,7 @@ ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
 static ngx_live_track_t *
 ngx_live_media_info_source_get(ngx_live_track_t *track)
 {
-    ngx_queue_t                      *q;
+    ngx_queue_t                      *q, *cq;
     media_info_t                     *cur_media_info;
     media_info_t                     *target_media_info;
     media_info_t                     *source_media_info;
@@ -547,7 +566,7 @@ ngx_live_media_info_source_get(ngx_live_track_t *track)
     ngx_live_track_t                 *cur_track;
     ngx_live_channel_t               *channel;
     ngx_live_media_info_node_t       *node;
-    ngx_live_media_info_track_ctx_t  *ctx;
+    ngx_live_media_info_track_ctx_t  *ctx, *cur_ctx;
 
     /* Note: assuming pending queue is not empty */
 
@@ -572,12 +591,27 @@ ngx_live_media_info_source_get(ngx_live_track_t *track)
             continue;
         }
 
-        cur_media_info = ngx_live_media_info_queue_get_last(cur_track, NULL);
-        if (cur_media_info == NULL) {
+        /* if the group id matches, use current track */
+        cur_ctx = ngx_live_track_get_module_ctx(cur_track,
+            ngx_live_media_info_module);
+
+        if (ctx->group_id.len &&
+            ctx->group_id.len == cur_ctx->group_id.len &&
+            ngx_memcmp(ctx->group_id.data, cur_ctx->group_id.data,
+                ctx->group_id.len) == 0)
+        {
+            return cur_track;
+        }
+
+        cq = ngx_queue_last(&cur_ctx->active);
+        if (cq == ngx_queue_sentinel(&cur_ctx->active)) {
             ngx_log_error(NGX_LOG_ALERT, &cur_track->log, 0,
                 "ngx_live_media_info_source_get: no media info");
             continue;
         }
+
+        node = ngx_queue_data(cq, ngx_live_media_info_node_t, queue);
+        cur_media_info = &node->media_info;
 
         if (source == NULL) {
             source = cur_track;
@@ -1161,6 +1195,8 @@ ngx_live_media_info_track_init(ngx_live_track_t *track)
 
     ngx_queue_init(&ctx->active);
 
+    ctx->group_id.data = ctx->group_id_buf;
+
     return NGX_OK;
 }
 
@@ -1188,7 +1224,9 @@ ngx_live_media_info_track_json_get_size(void *obj)
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
 
-    result = sizeof("\"media_info_count\":") - 1 + NGX_INT32_LEN;
+    result = sizeof("\"group_id\":\"") - 1 +
+        ngx_escape_json(NULL, ctx->group_id.data, ctx->group_id.len) +
+        sizeof("\",\"media_info_count\":") - 1 + NGX_INT32_LEN;
 
     if (ngx_queue_empty(&ctx->active)) {
         return result;
@@ -1233,7 +1271,10 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
 
-    p = ngx_copy_fix(p, "\"media_info_count\":");
+    p = ngx_copy_fix(p, "\"group_id\":\"");
+    p = (u_char *) ngx_escape_json(p, ctx->group_id.data, ctx->group_id.len);
+
+    p = ngx_copy_fix(p, "\",\"media_info_count\":");
     p = ngx_sprintf(p, "%uD", ctx->count);
 
     if (ngx_queue_empty(&ctx->active)) {
@@ -1266,6 +1307,54 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
     }
 
     return p;
+}
+
+static ngx_int_t
+ngx_live_media_info_set_group_id(void *arg, ngx_live_json_command_t *cmd,
+    ngx_json_value_t *value)
+{
+    ngx_live_track_t                 *track = arg;
+    ngx_live_media_info_track_ctx_t  *ctx;
+
+    if (value->v.str.len > NGX_LIVE_TRACK_MAX_GROUP_ID_LEN) {
+        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
+            "ngx_live_media_info_set_group_id: group id \"%V\" too long",
+            &value->v.str);
+        return NGX_ERROR;
+    }
+
+    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+
+    ctx->group_id.len = value->v.str.len;
+    ngx_memcpy(ctx->group_id.data, value->v.str.data, ctx->group_id.len);
+
+    /* remove any source references to/from this track */
+    if (ctx->source) {
+        ngx_live_media_info_source_clear(ctx);
+    }
+
+    ngx_live_media_info_source_remove_refs(track);
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_media_info_preconfiguration(ngx_conf_t *cf)
+{
+    ngx_live_json_command_t  *cmd, *c;
+
+    for (c = ngx_live_media_info_dyn_cmds; c->name.len; c++) {
+        cmd = ngx_live_json_commands_add(cf, &c->name,
+            NGX_LIVE_JSON_CTX_TRACK);
+        if (cmd == NULL) {
+            return NGX_ERROR;
+        }
+
+        cmd->set_handler = c->set_handler;
+        cmd->type = c->type;
+    }
+
+    return NGX_OK;
 }
 
 static ngx_int_t

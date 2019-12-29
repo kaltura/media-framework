@@ -181,7 +181,8 @@ ngx_http_live_find_string(ngx_str_t *arr, ngx_str_t *str)
 
     for (index = 0; arr[index].len != 0; index++) {
         if (arr[index].len == str->len &&
-            ngx_strncasecmp(arr[index].data, str->data, str->len) == 0) {
+            ngx_strncasecmp(arr[index].data, str->data, str->len) == 0)
+        {
             return index;
         }
     }
@@ -508,7 +509,8 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
 
     if (values[VARIANT_PARAM_LABEL] != NULL &&
         values[VARIANT_PARAM_LABEL]->v.str.len >
-            NGX_LIVE_VARIANT_MAX_LABEL_LEN) {
+            NGX_LIVE_VARIANT_MAX_LABEL_LEN)
+    {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_http_live_api_variants_post: label \"%V\" too long",
             &values[VARIANT_PARAM_LABEL]->v.str);
@@ -517,7 +519,8 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
 
     if (values[VARIANT_PARAM_LANG] != NULL &&
         values[VARIANT_PARAM_LANG]->v.str.len >
-        NGX_LIVE_VARIANT_MAX_LANG_LEN) {
+        NGX_LIVE_VARIANT_MAX_LANG_LEN)
+    {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_http_live_api_variants_post: lang \"%V\" too long",
             &values[VARIANT_PARAM_LANG]->v.str);
@@ -536,7 +539,8 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
 
         if (role == ngx_live_variant_role_alternate &&
             (values[VARIANT_PARAM_LABEL] == NULL ||
-            values[VARIANT_PARAM_LABEL]->v.str.len == 0)) {
+            values[VARIANT_PARAM_LABEL]->v.str.len == 0))
+        {
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_http_live_api_variants_post: "
                 "missing label in alternate variant");
@@ -693,9 +697,11 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t                      media_type_str;
     ngx_log_t                     *log = r->connection->log;
     ngx_flag_t                     created;
+    ngx_hash_t                    *json_cmds;
     ngx_live_track_t              *track;
     ngx_json_value_t              *values[TRACK_PARAM_COUNT];
     ngx_live_channel_t            *channel;
+    ngx_live_core_main_conf_t     *cmcf;
     ngx_http_live_api_loc_conf_t  *llcf;
 
     if (body->type != NGX_JSON_OBJECT) {
@@ -710,7 +716,7 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
 
     if (values[TRACK_PARAM_ID] == NULL ||
         values[TRACK_PARAM_MEDIA_TYPE] == NULL)
-{
+    {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_http_live_api_tracks_post: missing mandatory params");
         return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
@@ -787,7 +793,87 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
         }
     }
 
+    cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
+    json_cmds = &cmcf->json_cmds[NGX_LIVE_JSON_CTX_TRACK].hash;
+
+    rc = ngx_live_json_commands_exec(&body->v.obj, json_cmds, track, log);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_http_live_api_tracks_post: json commands failed %i", rc);
+        if (created) {
+            ngx_live_track_free(track);
+        }
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
     return created ? NGX_HTTP_CREATED : NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_live_api_track_put(ngx_http_request_t *r, ngx_str_t *params,
+    ngx_json_value_t *body)
+{
+    ngx_int_t                   rc;
+    ngx_str_t                   track_id;
+    ngx_str_t                   channel_id;
+    ngx_log_t                  *log = r->connection->log;
+    ngx_hash_t                 *json_cmds;
+    ngx_live_track_t           *track;
+    ngx_json_value_t           *values[TRACK_PARAM_COUNT];
+    ngx_live_channel_t         *channel;
+    ngx_live_core_main_conf_t  *cmcf;
+
+    if (body->type != NGX_JSON_OBJECT) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_http_live_api_tracks_post: "
+            "invalid element type %d, expected object", body->type);
+        return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
+    }
+
+    ngx_memzero(values, sizeof(values));
+    ngx_json_get_object_values(&body->v.obj, ngx_live_track_params, values);
+
+    channel_id = params[0];
+    channel = ngx_live_channel_get(&channel_id);
+    if (channel == NULL) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_http_live_api_track_put: unknown channel \"%V\"",
+            &channel_id);
+        return NGX_HTTP_NOT_FOUND;
+    }
+
+    track_id = params[1];
+    track = ngx_live_track_get(channel, &track_id);
+    if (track == NULL) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_http_live_api_track_put: "
+            "unknown track \"%V\" in channel \"%V\"",
+            &track_id, &channel_id);
+        return NGX_HTTP_NOT_FOUND;
+    }
+
+
+    if (values[TRACK_PARAM_OPAQUE] != NULL) {
+        rc = ngx_live_channel_block_str_set(channel, &track->opaque,
+            &values[TRACK_PARAM_OPAQUE]->v.str);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_tracks_post: failed to set opaque");
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+    }
+
+    cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
+    json_cmds = &cmcf->json_cmds[NGX_LIVE_JSON_CTX_TRACK].hash;
+
+    rc = ngx_live_json_commands_exec(&body->v.obj, json_cmds, track, log);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_http_live_api_track_put: json commands failed %i", rc);
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
+    return NGX_OK;
 }
 
 static ngx_int_t
@@ -1006,8 +1092,7 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_memzero(values, sizeof(values));
     ngx_json_get_object_values(&body->v.obj, ngx_live_timeline_params, values);
 
-    if (values[TIMELINE_PARAM_ID] == NULL)
-    {
+    if (values[TIMELINE_PARAM_ID] == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_http_live_api_timelines_post: missing mandatory params");
         return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
