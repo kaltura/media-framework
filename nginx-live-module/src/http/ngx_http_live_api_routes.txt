@@ -15,6 +15,7 @@ DELETE /channels/%/variants/%
 GET    /channels/%/tracks
 POST   /channels/%/tracks
 
+PUT    /channels/%/tracks/%
 DELETE /channels/%/tracks/%
 
 POST   /channels/%/variants/%/tracks
