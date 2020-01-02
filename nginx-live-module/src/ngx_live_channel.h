@@ -96,6 +96,7 @@ typedef struct {
 
     ngx_atomic_uint_t              connection;
     ngx_str_t                      remote_addr;
+    ngx_msec_t                     start_msec;
 } ngx_live_track_input_t;
 
 struct ngx_live_track_s {

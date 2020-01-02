@@ -881,6 +881,7 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
     track->input.data = s;
 
     track->input.connection = c->number;
+    track->input.start_msec = ngx_current_msec;
 
     /* get the address name with port */
     track->input.remote_addr.data = ctx->remote_addr_buf;

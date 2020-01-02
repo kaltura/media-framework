@@ -46,7 +46,7 @@ def outputObject(objectInfo, properties):
     writeCode = ''
     funcDefs = set([])
     writeDefs = set([])
-    returnConds = set([])
+    returnConds = {}
     fixed = prefix
     nextFixed = ''
     firstField = True
@@ -55,8 +55,12 @@ def outputObject(objectInfo, properties):
             funcDefs.add(' '.join(property[2:]))
             continue
 
-        if property[1] == '%return':
-            returnConds.add(' '.join(property[2:]))
+        if property[1].startswith('%return'):
+            if '-' in property[1]:
+                value = cEscapeString(property[1].split('-', 1)[1])
+            else:
+                value = ''
+            returnConds[' '.join(property[2:])] = value
             continue
 
         fieldName, format = property[:2]
@@ -338,11 +342,16 @@ p = ngx_sprintf(p, "%s", %s);''' % (expr, expr, format, printParams)
     funcDefs = ''.join(map(lambda x: '    %s\n' % x, funcDefs))
     writeDefs = ''.join(map(lambda x: '    %s\n' % x, writeDefs))
 
-    checks = ''.join(map(lambda x:
-'''    if (%s) {
-        return 0;
+    checks = ''
+    for cond, value in returnConds.items():
+        if value != '':
+            size = fixedStringLen(value)
+        else:
+            size = 0
+        checks += '''    if (%s) {
+        return %s;
     }
-''' % x, returnConds))
+''' % (cond, size)
 
     result = '''
 %ssize_t
@@ -357,11 +366,16 @@ p = ngx_sprintf(p, "%s", %s);''' % (expr, expr, format, printParams)
 ''' % (static, outputBaseFunc, args, funcDefs + checks,
     sizeCalc.replace('\n', '\n        '), getSizeCode.replace('\n', '\n    '))
 
-    checks = ''.join(map(lambda x:
-'''    if (%s) {
-        return p;
+    checks = ''
+    for cond, value in returnConds.items():
+        if value != '':
+            write = '        ' + fixedStringCopy(value)
+        else:
+            write = ''
+        checks += '''    if (%s) {
+%s        return p;
     }
-''' % x, returnConds))
+''' % (cond, write)
 
     if len(args) > 0:
         args = ', %s' % args

@@ -6,16 +6,50 @@
 
 
 static size_t
+ngx_live_track_input_get_size(ngx_live_track_input_t *obj)
+{
+    if (!obj->connection) {
+        return sizeof("null") - 1;
+    }
+    size_t  result =
+        sizeof("{\"connection\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"remote_addr\":\"") - 1 + obj->remote_addr.len +
+            ngx_escape_json(NULL, obj->remote_addr.data, obj->remote_addr.len)
+            +
+        sizeof("\",\"uptime\":") - 1 + NGX_INT_T_LEN +
+        sizeof("}") - 1;
+
+    return result;
+}
+
+static u_char *
+ngx_live_track_input_write(u_char *p, ngx_live_track_input_t *obj)
+{
+    if (!obj->connection) {
+        p = ngx_copy_fix(p, "null");
+        return p;
+    }
+    p = ngx_copy_fix(p, "{\"connection\":");
+    p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->connection);
+    p = ngx_copy_fix(p, ",\"remote_addr\":\"");
+    p = (u_char *) ngx_escape_json(p, obj->remote_addr.data,
+        obj->remote_addr.len);
+    p = ngx_copy_fix(p, "\",\"uptime\":");
+    p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - obj->start_msec));
+    *p++ = '}';
+
+    return p;
+}
+
+static size_t
 ngx_live_track_json_get_size(ngx_live_track_t *obj)
 {
     size_t  result =
         sizeof("{\"uptime\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"connection\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"remote_addr\":\"") - 1 + obj->input.remote_addr.len +
-            ngx_escape_json(NULL, obj->input.remote_addr.data,
-            obj->input.remote_addr.len) +
-        sizeof("\",\"opaque\":\"") - 1 + obj->opaque.len +
-        sizeof("\",") - 1 + ngx_live_core_json_get_size(obj, obj->channel,
+        sizeof(",\"opaque\":\"") - 1 + obj->opaque.len +
+        sizeof("\",\"input\":") - 1 +
+            ngx_live_track_input_get_size(&obj->input) +
+        sizeof(",") - 1 + ngx_live_core_json_get_size(obj, obj->channel,
             NGX_LIVE_JSON_CTX_TRACK) +
         sizeof("}") - 1;
 
@@ -28,14 +62,11 @@ ngx_live_track_json_write(u_char *p, ngx_live_track_t *obj)
     u_char  *next;
     p = ngx_copy_fix(p, "{\"uptime\":");
     p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - obj->start_msec));
-    p = ngx_copy_fix(p, ",\"connection\":");
-    p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->input.connection);
-    p = ngx_copy_fix(p, ",\"remote_addr\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->input.remote_addr.data,
-        obj->input.remote_addr.len);
-    p = ngx_copy_fix(p, "\",\"opaque\":\"");
+    p = ngx_copy_fix(p, ",\"opaque\":\"");
     p = ngx_block_str_write(p, &obj->opaque);
-    p = ngx_copy_fix(p, "\",");
+    p = ngx_copy_fix(p, "\",\"input\":");
+    p = ngx_live_track_input_write(p, &obj->input);
+    *p++ = ',';
     next = ngx_live_core_json_write(p, obj, obj->channel,
         NGX_LIVE_JSON_CTX_TRACK);
     p = next == p ? p - 1 : next;
