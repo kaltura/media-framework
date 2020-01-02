@@ -41,10 +41,12 @@ RUN cd /tmp/build/nginx && \
 FROM alpine:$ALPINE_VER
 
 RUN apk add --update \
-    pcre gdb \
+    pcre gdb curl \
     && rm -rf /var/cache/apk/*
 
 COPY --from=builder /usr/local/nginx /usr/local/nginx
+COPY --from=redis:5.0-alpine /usr/local/bin/redis-cli /usr/local/bin/redis-cli
+
 EXPOSE 6543
 EXPOSE 8003
 EXPOSE 80
