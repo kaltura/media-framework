@@ -23,9 +23,11 @@ ngx_http_live_api_json_get_size(void *obj)
             ngx_escape_json(NULL, ngx_http_live_built.data,
             ngx_http_live_built.len) +
         sizeof("\",\"pid\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"uptime\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"time\":") - 1 + NGX_TIME_T_LEN +
+        sizeof(",\"uptime\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",") - 1 + ngx_live_core_json_get_size(NULL, NULL,
             NGX_LIVE_JSON_CTX_GLOBAL) +
+        sizeof(",\"channels\":") - 1 + ngx_live_channels_json_get_size(NULL) +
         sizeof("}") - 1;
 
     return result;
@@ -49,12 +51,16 @@ ngx_http_live_api_json_write(u_char *p, void *obj)
         ngx_http_live_built.len);
     p = ngx_copy_fix(p, "\",\"pid\":");
     p = ngx_sprintf(p, "%ui", (ngx_uint_t) ngx_getpid());
+    p = ngx_copy_fix(p, ",\"time\":");
+    p = ngx_sprintf(p, "%T", (time_t) ngx_cached_time->sec);
     p = ngx_copy_fix(p, ",\"uptime\":");
-    p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_cached_time->sec -
+    p = ngx_sprintf(p, "%T", (time_t) (ngx_cached_time->sec -
         ngx_http_live_start_time));
     *p++ = ',';
     next = ngx_live_core_json_write(p, NULL, NULL, NGX_LIVE_JSON_CTX_GLOBAL);
     p = next == p ? p - 1 : next;
+    p = ngx_copy_fix(p, ",\"channels\":");
+    p = ngx_live_channels_json_write(p, NULL);
     *p++ = '}';
 
     return p;
