@@ -20,8 +20,6 @@ static void ngx_kmp_push_upstream_write_handler(ngx_event_t *wev);
 
 typedef struct {
     ngx_kmp_push_upstream_t  *u;
-    ngx_str_t                 host;
-    ngx_str_t                 uri;
     ngx_uint_t                retries_left;
 } ngx_kmp_push_republish_call_ctx_t;
 
@@ -310,6 +308,7 @@ ngx_kmp_push_upstream_republish_create(void *arg, ngx_pool_t *pool,
     ngx_chain_t                        *cl;
     ngx_kmp_push_track_t               *track;
     ngx_kmp_push_upstream_t            *u;
+    ngx_kmp_push_track_conf_t          *conf;
     ngx_kmp_push_republish_call_ctx_t  *ctx = arg;
 
     u = ctx->u;
@@ -350,8 +349,11 @@ ngx_kmp_push_upstream_republish_create(void *arg, ngx_pool_t *pool,
 
     b->last = p;
 
-    return ngx_kmp_push_format_json_http_request(pool, &ctx->host,
-        &ctx->uri, cl);
+    conf = track->conf;
+
+    return ngx_kmp_push_format_json_http_request(pool,
+        &conf->ctrl_republish_url->host, &conf->ctrl_republish_url->uri,
+        conf->ctrl_headers, cl);
 }
 
 static ngx_int_t
@@ -415,8 +417,6 @@ ngx_kmp_push_upstream_republish_send(ngx_kmp_push_upstream_t *u)
     url = u->track->conf->ctrl_republish_url;
 
     ctx.u = u;
-    ctx.host = url->host;
-    ctx.uri = url->uri;
     ctx.retries_left = u->track->conf->ctrl_retries;
 
     ngx_memzero(&ci, sizeof(ci));
