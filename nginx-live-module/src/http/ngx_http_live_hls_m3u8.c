@@ -27,8 +27,9 @@
 
 /* index playlist */
 #define M3U8_INDEX_HEADER            "#EXTM3U\n#EXT-X-TARGETDURATION:%uD\n" \
-    "#EXT-X-VERSION:%d\n#EXT-X-MEDIA-SEQUENCE:%uD\n"                        \
-    "#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-ALLOW-CACHE:YES\n"
+    "#EXT-X-VERSION:%uD\n#EXT-X-MEDIA-SEQUENCE:%uD\n"                       \
+    "#EXT-X-DISCONTINUITY-SEQUENCE:%uD\n#EXT-X-INDEPENDENT-SEGMENTS\n"      \
+    "#EXT-X-ALLOW-CACHE:YES\n"
 #define M3U8_EXTINF                  "#EXTINF:"
 #define M3U8_DISCONTINUITY           "#EXT-X-DISCONTINUITY\n"
 #define M3U8_PROGRAM_DATE_TIME                                              \
@@ -879,6 +880,7 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
     size_t                          period_size;
     size_t                          segment_size;
     ngx_tm_t                        gmt;
+    uint32_t                        version;
     uint32_t                        timescale;
     uint32_t                        milliscale;
     uint32_t                        map_index;
@@ -953,7 +955,7 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
     }
 
     result_size =
-        sizeof(M3U8_INDEX_HEADER) + NGX_INT64_LEN + 2 * NGX_INT32_LEN +
+        sizeof(M3U8_INDEX_HEADER) + 4 * NGX_INT32_LEN +
         segment_size * timeline->manifest.segment_count +
         period_size * timeline->manifest.period_count +
         sizeof(M3U8_END_LIST) - 1;
@@ -986,10 +988,16 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
     target_duration = (timeline->manifest.target_duration + timescale / 2)
         / timescale;
 
-    p = ngx_sprintf(p, M3U8_INDEX_HEADER, target_duration,
-        container_format == NGX_HTTP_LIVE_HLS_CONTAINER_FMP4 ?
-            6 : conf->m3u8_version,
-        timeline->manifest.sequence - timeline->manifest.segment_count);
+    version = conf->m3u8_version;
+    if (container_format == NGX_HTTP_LIVE_HLS_CONTAINER_FMP4 &&
+        version < 6)
+    {
+        version = 6;
+    }
+
+    p = ngx_sprintf(p, M3U8_INDEX_HEADER, target_duration, version,
+        timeline->manifest.sequence - timeline->manifest.segment_count,
+        timeline->manifest.first_period_index);
 
     if (encryption_params->type != HLS_ENC_NONE) {
         p = ngx_http_live_hls_m3u8_enc_key_write(p, conf, &ctx->params,
