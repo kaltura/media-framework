@@ -186,6 +186,14 @@ Sample response:
 }
 ```
 
+#### kmp_ctrl_add_header
+* **syntax**: `kmp_ctrl_add_header name value`
+* **default**: `none`
+* **context**: `rtmp`, `server`, `application`
+
+Adds a request header to all control requests (publish, unpublish etc.).
+There could be several kmp_ctrl_add_header directives. These directives are inherited from the previous level if and only if there are no kmp_ctrl_add_header directives defined on the current level.
+
 #### kmp_ctrl_timeout
 * **syntax**: `kmp_ctrl_timeout time`
 * **default**: `2s`

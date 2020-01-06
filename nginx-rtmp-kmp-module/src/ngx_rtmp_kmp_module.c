@@ -40,6 +40,8 @@ typedef struct {
 
 static char *ngx_rtmp_kmp_url_slot(ngx_conf_t *cf, ngx_command_t *cmd,
        void *conf);
+static char *ngx_rtmp_kmp_headers_add(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
 
 static ngx_int_t ngx_rtmp_kmp_postconfiguration(ngx_conf_t *cf);
 static void *ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf);
@@ -48,11 +50,10 @@ static char *ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent,
 
 
 typedef struct {
-    ngx_rtmp_session_t      *s;
-    ngx_str_t                host;
-    ngx_str_t                uri;
-    ngx_rtmp_connect_t       connect;
-    ngx_uint_t               retries_left;
+    ngx_rtmp_session_t       *s;
+    ngx_rtmp_kmp_app_conf_t  *kacf;
+    ngx_rtmp_connect_t        connect;
+    ngx_uint_t                retries_left;
 } ngx_rtmp_kmp_connect_call_ctx_t;
 
 
@@ -84,6 +85,13 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
       ngx_rtmp_kmp_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_republish_url),
+      NULL },
+
+    { ngx_string("kmp_ctrl_add_header"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE2,
+      ngx_rtmp_kmp_headers_add,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_headers),
       NULL },
 
     { ngx_string("kmp_ctrl_timeout"),
@@ -295,6 +303,35 @@ ngx_rtmp_kmp_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
+static char *
+ngx_rtmp_kmp_headers_add(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_str_t      *value;
+    ngx_array_t   **headers;
+    ngx_keyval_t   *kv;
+
+    value = cf->args->elts;
+
+    headers = (ngx_array_t **) ((char *) conf + cmd->offset);
+
+    if (*headers == NULL) {
+        *headers = ngx_array_create(cf->pool, 1, sizeof(ngx_keyval_t));
+        if (*headers == NULL) {
+            return NGX_CONF_ERROR;
+        }
+    }
+
+    kv = ngx_array_push(*headers);
+    if (kv == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    kv->key = value[1];
+    kv->value = value[2];
+
+    return NGX_CONF_OK;
+}
+
 
 static void *
 ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf)
@@ -449,6 +486,7 @@ ngx_rtmp_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
     ngx_chain_t                      *cl;
     ngx_rtmp_session_t               *s;
     ngx_rtmp_kmp_connect_t            connect;
+    ngx_rtmp_kmp_app_conf_t          *kacf;
     ngx_rtmp_kmp_connect_call_ctx_t  *ctx = arg;
 
     s = ctx->s;
@@ -476,8 +514,10 @@ ngx_rtmp_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
         return NULL;
     }
 
-    return ngx_kmp_push_format_json_http_request(pool, &ctx->host,
-        &ctx->uri, cl);
+    kacf = ctx->kacf;
+    return ngx_kmp_push_format_json_http_request(pool,
+        &kacf->ctrl_connect_url->host, &kacf->ctrl_connect_url->uri,
+        kacf->t.ctrl_headers, cl);
 }
 
 static ngx_int_t
@@ -615,8 +655,7 @@ ngx_rtmp_kmp_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 
     create_ctx.s = s;
     create_ctx.connect = *v;
-    create_ctx.host = kacf->ctrl_connect_url->host;
-    create_ctx.uri = kacf->ctrl_connect_url->uri;
+    create_ctx.kacf = kacf;
     create_ctx.retries_left = kacf->t.ctrl_retries;
 
     ngx_memzero(&ci, sizeof(ci));

@@ -27,16 +27,12 @@ static ngx_json_object_key_def_t  ngx_kmp_track_json_params[] = {
 };
 
 typedef struct {
-    ngx_kmp_push_track_t                 *track;
-    ngx_str_t                             host;
-    ngx_str_t                             uri;
-    ngx_uint_t                            retries_left;
+    ngx_kmp_push_track_t  *track;
+    ngx_uint_t             retries_left;
 } ngx_kmp_push_publish_call_ctx_t;
 
 typedef struct {
     ngx_kmp_push_track_t  *track;
-    ngx_str_t              host;
-    ngx_str_t              uri;
 } ngx_kmp_push_unpublish_call_ctx_t;
 
 
@@ -94,6 +90,10 @@ ngx_kmp_push_track_merge_conf(ngx_kmp_push_track_conf_t *conf,
 
     ngx_conf_merge_ptr_value(conf->ctrl_republish_url,
                              prev->ctrl_republish_url, NULL);
+
+    if (conf->ctrl_headers == NULL) {
+        conf->ctrl_headers = prev->ctrl_headers;
+    }
 
     ngx_conf_merge_msec_value(conf->ctrl_timeout,
                               prev->ctrl_timeout, 2000);
@@ -198,12 +198,13 @@ static ngx_chain_t *
 ngx_kmp_push_track_publish_create(void *arg, ngx_pool_t *pool,
     ngx_chain_t **body)
 {
-    size_t                                size;
-    u_char                               *p;
-    ngx_buf_t                            *b;
-    ngx_chain_t                          *cl;
-    ngx_kmp_push_track_t                 *track;
-    ngx_kmp_push_publish_call_ctx_t      *ctx = arg;
+    size_t                            size;
+    u_char                           *p;
+    ngx_buf_t                        *b;
+    ngx_chain_t                      *cl;
+    ngx_kmp_push_track_t             *track;
+    ngx_kmp_push_track_conf_t        *conf;
+    ngx_kmp_push_publish_call_ctx_t  *ctx = arg;
 
     track = ctx->track;
 
@@ -242,8 +243,11 @@ ngx_kmp_push_track_publish_create(void *arg, ngx_pool_t *pool,
 
     b->last = p;
 
-    return ngx_kmp_push_format_json_http_request(pool, &ctx->host,
-        &ctx->uri, cl);
+    conf = ctx->track->conf;
+
+    return ngx_kmp_push_format_json_http_request(pool,
+        &conf->ctrl_publish_url->host, &conf->ctrl_publish_url->uri,
+        conf->ctrl_headers, cl);
 }
 
 static ngx_int_t
@@ -378,8 +382,6 @@ ngx_kmp_push_track_publish(ngx_kmp_push_track_t *track)
     url = track->conf->ctrl_publish_url;
 
     ctx.track = track;
-    ctx.host = url->host;
-    ctx.uri = url->uri;
     ctx.retries_left = track->conf->ctrl_retries;
 
     ngx_memzero(&ci, sizeof(ci));
@@ -414,6 +416,7 @@ ngx_kmp_push_unpublish_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
     ngx_buf_t                          *b;
     ngx_chain_t                        *pl;
     ngx_kmp_push_track_t               *track;
+    ngx_kmp_push_track_conf_t          *conf;
     ngx_kmp_push_unpublish_call_ctx_t  *ctx = arg;
 
     track = ctx->track;
@@ -450,8 +453,11 @@ ngx_kmp_push_unpublish_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
 
     b->last = p;
 
-    return ngx_kmp_push_format_json_http_request(pool, &ctx->host,
-        &ctx->uri, pl);
+    conf = ctx->track->conf;
+
+    return ngx_kmp_push_format_json_http_request(pool,
+        &conf->ctrl_unpublish_url->host, &conf->ctrl_unpublish_url->uri,
+        conf->ctrl_headers, pl);
 }
 
 static void
@@ -466,8 +472,6 @@ ngx_kmp_push_track_unpublish(ngx_kmp_push_track_t *track)
         return;
     }
 
-    ctx.host = url->host;
-    ctx.uri = url->uri;
     ctx.track = track;
 
     ngx_memzero(&ci, sizeof(ci));
@@ -870,8 +874,8 @@ ngx_kmp_push_track_send_end_of_stream(ngx_kmp_push_track_t *track)
 static u_char *
 ngx_kmp_push_track_log_error(ngx_log_t *log, u_char *buf, size_t len)
 {
-    u_char                  *p;
-    ngx_kmp_push_track_t    *track;
+    u_char                *p;
+    ngx_kmp_push_track_t  *track;
 
     p = buf;
 

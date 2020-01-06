@@ -103,19 +103,21 @@ ngx_kmp_push_copy_chain(ngx_pool_t *pool, ngx_chain_t *src)
 
 ngx_chain_t *
 ngx_kmp_push_format_json_http_request(ngx_pool_t *pool, ngx_str_t *host,
-    ngx_str_t *uri, ngx_chain_t *body)
+    ngx_str_t *uri, ngx_array_t *headers, ngx_chain_t *body)
 {
-    size_t        alloc_size;
-    size_t        content_length;
-    ngx_buf_t    *b;
-    ngx_chain_t  *cl;
+    size_t         alloc_size;
+    size_t         content_length;
+    u_char        *p;
+    ngx_buf_t     *b;
+    ngx_uint_t     i;
+    ngx_chain_t   *cl;
+    ngx_keyval_t  *kv;
 
-    static const char rq_tmpl[] = "POST %V HTTP/1.0\r\n"
+    static const char  rq_tmpl[] = "POST %V HTTP/1.0\r\n"
         "Host: %V\r\n"
         "Content-Type: %V\r\n"
         "Connection: Close\r\n"
-        "Content-Length: %uz\r\n"
-        "\r\n";
+        "Content-Length: %uz\r\n";
 
     content_length = 0;
     for (cl = body; cl; cl = cl->next) {
@@ -123,7 +125,17 @@ ngx_kmp_push_format_json_http_request(ngx_pool_t *pool, ngx_str_t *host,
     }
 
     alloc_size = sizeof(rq_tmpl) + uri->len + host->len +
-        ngx_kmp_push_json_type.len + NGX_SIZE_T_LEN;
+        ngx_kmp_push_json_type.len + NGX_SIZE_T_LEN + sizeof(CRLF) - 1;
+
+    if (headers) {
+        kv = headers->elts;
+        for (i = 0; i < headers->nelts; i++) {
+
+            alloc_size += kv[i].key.len + sizeof(": ") - 1 + kv[i].value.len
+                + sizeof(CRLF) - 1;
+        }
+    }
+
     cl = ngx_kmp_push_alloc_chain_temp_buf(pool, alloc_size);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
@@ -133,17 +145,34 @@ ngx_kmp_push_format_json_http_request(ngx_pool_t *pool, ngx_str_t *host,
     }
 
     b = cl->buf;
+    p = b->last;
 
-    b->last = ngx_sprintf(b->last, rq_tmpl,
-        uri, host, &ngx_kmp_push_json_type, content_length);
+    p = ngx_sprintf(p, rq_tmpl, uri, host, &ngx_kmp_push_json_type,
+        content_length);
 
-    if ((size_t) (b->last - b->pos) > alloc_size) {
+    if (headers) {
+        kv = headers->elts;
+        for (i = 0; i < headers->nelts; i++) {
+
+            p = ngx_copy(p, kv[i].key.data, kv[i].key.len);
+            *p++ = ':'; *p++ = ' ';
+
+            p = ngx_copy(p, kv[i].value.data, kv[i].value.len);
+            *p++ = CR; *p++ = LF;
+        }
+    }
+
+    *p++ = CR; *p++ = LF;
+
+    if ((size_t) (p - b->pos) > alloc_size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
             "ngx_kmp_push_format_json_http_request: "
             "result length %uz greater than allocated length %uz",
-            (size_t) (b->last - b->pos), alloc_size);
+            (size_t) (p - b->pos), alloc_size);
         return NULL;
     }
+
+    b->last = p;
 
     cl->next = body;
 

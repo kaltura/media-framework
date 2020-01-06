@@ -11,6 +11,7 @@ typedef struct {
     ngx_url_t       *ctrl_publish_url;
     ngx_url_t       *ctrl_republish_url;
     ngx_url_t       *ctrl_unpublish_url;
+    ngx_array_t     *ctrl_headers;
     ngx_msec_t       ctrl_timeout;
     ngx_msec_t       ctrl_read_timeout;
     size_t           ctrl_buffer_size;
