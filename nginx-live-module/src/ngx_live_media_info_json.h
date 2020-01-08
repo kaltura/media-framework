@@ -10,7 +10,7 @@ ngx_live_media_info_json_video_get_size(kmp_media_info_t *obj, media_info_t
     *media_info)
 {
     size_t  result =
-        sizeof("{\"media_type\":\"video\",\"codec_id\":") - 1 + NGX_INT32_LEN +
+        sizeof("{\"codec_id\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"bitrate\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"format\":\"") - 1 + sizeof(uint32_t) +
             ngx_escape_json(NULL, (u_char *) &media_info->format,
@@ -32,7 +32,7 @@ ngx_live_media_info_json_video_write(u_char *p, kmp_media_info_t *obj,
     media_info_t *media_info)
 {
     uint32_t  n, d;
-    p = ngx_copy_fix(p, "{\"media_type\":\"video\",\"codec_id\":");
+    p = ngx_copy_fix(p, "{\"codec_id\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->codec_id);
     p = ngx_copy_fix(p, ",\"bitrate\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->bitrate);
@@ -64,7 +64,7 @@ ngx_live_media_info_json_audio_get_size(kmp_media_info_t *obj, media_info_t
     *media_info)
 {
     size_t  result =
-        sizeof("{\"media_type\":\"audio\",\"codec_id\":") - 1 + NGX_INT32_LEN +
+        sizeof("{\"codec_id\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"bitrate\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"format\":\"") - 1 + sizeof(uint32_t) +
             ngx_escape_json(NULL, (u_char *) &media_info->format,
@@ -85,7 +85,7 @@ static u_char *
 ngx_live_media_info_json_audio_write(u_char *p, kmp_media_info_t *obj,
     media_info_t *media_info)
 {
-    p = ngx_copy_fix(p, "{\"media_type\":\"audio\",\"codec_id\":");
+    p = ngx_copy_fix(p, "{\"codec_id\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->codec_id);
     p = ngx_copy_fix(p, ",\"bitrate\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->bitrate);

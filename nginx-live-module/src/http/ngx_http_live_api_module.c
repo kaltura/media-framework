@@ -690,11 +690,10 @@ static ngx_int_t
 ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
 {
-    uint32_t                       media_type;
+    int32_t                        media_type;
     ngx_int_t                      rc;
     ngx_str_t                      track_id;
     ngx_str_t                      channel_id;
-    ngx_str_t                      media_type_str;
     ngx_log_t                     *log = r->connection->log;
     ngx_flag_t                     created;
     ngx_hash_t                    *json_cmds;
@@ -722,22 +721,13 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
     }
 
-    media_type_str = values[TRACK_PARAM_MEDIA_TYPE]->v.str;
-    if (media_type_str.len == sizeof("video") - 1 &&
-        ngx_memcmp(media_type_str.data, "video", sizeof("video") - 1) == 0)
-    {
-        media_type = KMP_MEDIA_VIDEO;
-    }
-    else if (media_type_str.len == sizeof("audio") - 1 &&
-        ngx_memcmp(media_type_str.data, "audio", sizeof("audio") - 1) == 0)
-    {
-        media_type = KMP_MEDIA_AUDIO;
-
-    } else {
+    media_type = ngx_http_live_find_string(ngx_live_track_media_type_names,
+        &values[TRACK_PARAM_MEDIA_TYPE]->v.str);
+    if (media_type < 0) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_http_live_api_tracks_post: invalid media type \"%V\"",
-            &media_type_str);
-        return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
+            &values[TRACK_PARAM_MEDIA_TYPE]->v.str);
+        return NGX_HTTP_BAD_REQUEST;
     }
 
 

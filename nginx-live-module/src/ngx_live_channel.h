@@ -235,4 +235,6 @@ u_char *ngx_live_tracks_json_write(u_char *p, ngx_live_channel_t *obj);
 
 extern ngx_str_t  ngx_live_variant_role_names[];
 
+extern ngx_str_t  ngx_live_track_media_type_names[];
+
 #endif /* _NGX_LIVE_CHANNEL_H_INCLUDED_ */
