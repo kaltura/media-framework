@@ -30,6 +30,14 @@ ngx_str_t  ngx_live_variant_role_names[] = {
 };
 
 
+/* must match KMP_MEDIA_XXX */
+ngx_str_t  ngx_live_track_media_type_names[] = {
+    ngx_string("video"),
+    ngx_string("audio"),
+    ngx_null_string
+};
+
+
 enum {
     NGX_LIVE_BP_TRACK,
     NGX_LIVE_BP_VARIANT,

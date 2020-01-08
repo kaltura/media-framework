@@ -2236,9 +2236,8 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
         segment_index = channel->next_segment_index;
 
         /* calculate the split indexes */
-        if (ngx_live_segmenter_set_split_indexes(channel, end_pts)
-            != NGX_OK)
-        {
+        if (ngx_live_segmenter_set_split_indexes(channel, end_pts) != NGX_OK) {
+
             if (ngx_live_segmenter_dispose_segment(channel) != NGX_OK) {
                 return NGX_ERROR;
             }
