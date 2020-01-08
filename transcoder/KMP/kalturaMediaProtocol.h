@@ -34,6 +34,7 @@ typedef struct {
     uint16_t channels;
     uint16_t bits_per_sample;
     uint32_t sample_rate;
+    uint32_t padding;
 } kmp_audio_media_info_t;
 
 typedef struct {
@@ -95,6 +96,7 @@ typedef struct {
     u_char track_id[KMP_MAX_TRACK_ID];
     uint64_t initial_frame_id;
     uint32_t initial_offset;
+    uint32_t padding;
 } kmp_connect_header_t;
 
 typedef struct {
