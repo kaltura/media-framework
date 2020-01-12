@@ -41,11 +41,12 @@ RUN cd /tmp/build/nginx && \
 FROM alpine:$ALPINE_VER
 
 RUN apk add --update \
-    pcre gdb curl \
+    pcre gdb curl python3 \
     && rm -rf /var/cache/apk/*
 
 COPY --from=builder /usr/local/nginx /usr/local/nginx
-COPY --from=redis:5.0-alpine /usr/local/bin/redis-cli /usr/local/bin/redis-cli
+
+RUN pip3 install redis
 
 EXPOSE 6543
 EXPOSE 8003

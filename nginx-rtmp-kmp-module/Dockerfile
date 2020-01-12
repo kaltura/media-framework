@@ -40,16 +40,18 @@ RUN cd /tmp/build/nginx &&  \
 
 FROM alpine:$ALPINE_VER
 
-
-COPY --from=redis:5.0-alpine /usr/local/bin/redis-cli /usr/local/bin/redis-cli
 RUN apk add --update \
-    pcre  curl gdb\
+    pcre  curl gdb python3\
     && rm -rf /var/cache/apk/*
 
 COPY --from=builder /usr/local/nginx /usr/local/nginx
+RUN pip3 install redis
+
+
 EXPOSE 1935
 EXPOSE 8001
 STOPSIGNAL SIGTERM
+
 
 RUN mkdir /var/log/nginx
 # Forward logs to Docker
