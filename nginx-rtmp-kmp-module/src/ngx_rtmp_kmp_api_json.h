@@ -40,10 +40,11 @@ ngx_rtmp_kmp_api_upstream_json_write(u_char *p, ngx_kmp_push_upstream_t *obj)
     p = ngx_copy_fix(p, "\",\"connection\":");
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->log.connection);
     p = ngx_copy_fix(p, ",\"sent\":");
-    p = ngx_sprintf(p, "%O", (off_t) obj->peer.connection->sent);
+    p = ngx_sprintf(p, "%O", (off_t) (obj->peer.connection ?
+        obj->peer.connection->sent : 0));
     p = ngx_copy_fix(p, ",\"position\":");
-    p = ngx_sprintf(p, "%O", (off_t) obj->sent_base +
-        obj->peer.connection->sent);
+    p = ngx_sprintf(p, "%O", (off_t) (obj->peer.connection ? obj->sent_base +
+        obj->peer.connection->sent : 0));
     p = ngx_copy_fix(p, ",\"acked_frames\":");
     p = ngx_sprintf(p, "%uL", (uint64_t) obj->acked_frame_id -
         obj->track->connect.initial_frame_id);
