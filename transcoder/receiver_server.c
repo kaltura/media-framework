@@ -11,7 +11,18 @@
 #include "transcode_session.h"
 
 
-
+int atomFileWrite (char* fileName,char* content,size_t size)
+{
+    FILE * fp;
+    char tmpFileName[1000];
+    sprintf(tmpFileName,"%s.tmp",fileName);
+    /* open the file for writing*/
+    fp = fopen (tmpFileName,"w");
+    fwrite(content,size,1,fp);
+    fclose (fp);
+    rename(tmpFileName,fileName);
+    return 0;
+}
 
 int processedFrameCB(receiver_server_session_t *session,bool completed)
 {
@@ -30,11 +41,13 @@ int processedFrameCB(receiver_server_session_t *session,bool completed)
         pthread_mutex_unlock(&server->diagnostics_locker);  // lock the critical section
 
         JSON_SERIALIZE_OBJECT("receiver", tmpBuf2)
+        JSON_SERIALIZE_INT64("time",(uint64_t)time(NULL));
         JSON_SERIALIZE_END()
         
         char* oldDiag=server->lastDiagnsotics;
         pthread_mutex_lock(&server->diagnostics_locker);  // lock the critical section
         server->lastDiagnsotics=tmpBuf;
+        atomFileWrite("lastState.json",tmpBuf,strlen(tmpBuf));
         pthread_mutex_unlock(&server->diagnostics_locker); // unlock once you are done
         av_free(oldDiag);
         

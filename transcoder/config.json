@@ -3,7 +3,7 @@
         "file1": "/Users/guyjacubovski/Sample_video/bbb_sunflower_1080p_30fps_normal.mp4",
         "file11": "/Users/guyjacubovski/Sample_video/flas_dupa_s4e01_hdfr_1_2_60sec.mp4",
         "file2": "/Users/guyjacubovski/Sample_video/subtitles.mp4",
-        "fileש": "/Users/guyjacubovski/Sample_video/900.mp4",
+        "file": "/Users/guyjacubovski/Sample_video/900.mp4",
         "filea": "/Users/guyjacubovski/dev/live/controller/logs/my_file.kmp",
         "filea": "/Users/guyjacubovski/Downloads/audio.kmp",
         "filea": "/Users/guyjacubovski/v33.kmp",
@@ -39,9 +39,9 @@
         "diagnosticsIntervalInSeconds": 1
     },
     "output": {
-        "saveFile": false,
+        "saveFile": true,
         "outputFileNamePattern": "./output_%s.ts",
-        "streamingUrl": "kmp://localhost:6543",
+        "streamingUrla": "kmp://localhost:6543",
         "streamingUrl12": "kmp://192.168.11.59:6543",
         "streamingUrl1": ""
     },

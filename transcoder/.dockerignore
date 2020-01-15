@@ -9,3 +9,4 @@ obj
 .vscode
 build
 live-transcoder.xcodeproj
+lastState.json
