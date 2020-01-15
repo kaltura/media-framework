@@ -33,7 +33,7 @@ RUN cd /tmp/build/nginx && \
             --with-http_dav_module \
             --with-stream \
             --with-http_ssl_module \
-            --with-cc-opt="-Wimplicit-fallthrough=0" \
+            --with-cc-opt="-Wimplicit-fallthrough=0 -O0" \
             --with-threads && \
     make -j $(getconf _NPROCESSORS_ONLN) && \
     make install
