@@ -43,7 +43,7 @@ typedef struct
         int width,height;
     } actualVideoParams;
     
-    struct
+    struct AudioParams
     {
         int samplingRate, channels;
     } audioParams;
