@@ -31,6 +31,7 @@ class Stream:
 class Csctx:
     def __init__(self):
         self.msg = ''
+        self.msid = -1
 
 if len(sys.argv) < 2:
     print 'Usage:\n\t%s <input file>' % os.path.basename(__file__)

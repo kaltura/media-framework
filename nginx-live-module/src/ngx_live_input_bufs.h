@@ -15,6 +15,8 @@ ngx_int_t ngx_live_input_bufs_get(ngx_live_track_t *track, ngx_buf_t *b);
 void ngx_live_input_bufs_set_min_used(ngx_live_track_t *track,
     uint32_t segment_index, u_char *ptr);
 
+void ngx_live_input_bufs_link(ngx_live_track_t *dst, ngx_live_track_t *src);
+
 
 ngx_live_input_bufs_lock_t *ngx_live_input_bufs_lock(ngx_live_track_t *track,
     uint32_t segment_index, u_char *ptr);

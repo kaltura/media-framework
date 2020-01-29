@@ -36,7 +36,7 @@ ngx_int_t ngx_live_media_info_pending_add(ngx_live_track_t *track,
 void ngx_live_media_info_pending_remove_frames(ngx_live_track_t *track,
     ngx_uint_t frame_count);
 
-void ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
+ngx_flag_t ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
     uint32_t segment_index);
 
 void ngx_live_media_info_pending_free_all(ngx_live_track_t *track);
@@ -49,12 +49,15 @@ media_info_t *ngx_live_media_info_queue_get(ngx_live_track_t *track,
 media_info_t *ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
     kmp_media_info_t **kmp_media_info);
 
+ngx_int_t ngx_live_media_info_queue_copy_last(ngx_live_track_t *dst,
+    ngx_live_track_t *src, uint32_t segment_index);
+
 void ngx_live_media_info_queue_free(ngx_live_track_t *track,
     uint32_t min_segment_index);
 
 /* gap filling */
 ngx_int_t ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
-    uint32_t segment_index);
+    uint32_t media_types_mask);
 
 void ngx_live_media_info_queue_get_segment_track(ngx_live_track_t *track,
     uint32_t segment_index, ngx_live_track_ref_t *ref);

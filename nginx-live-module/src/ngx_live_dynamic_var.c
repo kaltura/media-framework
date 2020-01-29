@@ -44,6 +44,9 @@ static char *ngx_live_dynamic_var_merge_preset_conf(ngx_conf_t *cf,
 static ngx_int_t ngx_live_dynamic_var_get(ngx_live_channel_t *ch,
     ngx_pool_t *pool, ngx_live_variable_value_t *v, uintptr_t data);
 
+static ngx_int_t ngx_live_dynamic_var_set_vars(void *ctx,
+    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log);
+
 
 static ngx_command_t  ngx_live_dynamic_var_commands[] = {
     { ngx_string("dynamic_var_max_size"),
@@ -91,13 +94,18 @@ static ngx_live_variable_t  ngx_live_dynamic_var_vars[] = {
       ngx_live_null_variable
 };
 
+static ngx_live_json_command_t  ngx_live_dynamic_var_dyn_cmds[] = {
 
-static ngx_str_t  ngx_live_dynamic_var_vars_name = ngx_string("vars");
+    { ngx_string("vars"), NGX_JSON_OBJECT,
+      ngx_live_dynamic_var_set_vars },
+
+      ngx_live_null_json_command
+};
 
 
 static ngx_int_t
 ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_command_t *cmd,
-    ngx_json_value_t *value)
+    ngx_json_value_t *value, ngx_log_t *log)
 {
     uint32_t                             hash;
     ngx_queue_t                         *q, *next;
@@ -123,14 +131,14 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_command_t *cmd,
     for (; cur < last; cur++) {
 
         if (cur->value.type != NGX_JSON_STRING) {
-            ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
+            ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_dynamic_var_set_vars: "
                 "invalid value type for key \"%V\"", &cur->key);
             goto failed;
         }
 
         if (cur->key.len + cur->value.v.str.len > dpcf->max_size) {
-            ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
+            ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_dynamic_var_set_vars: "
                 "key \"%V\" exceeds max size", &cur->key);
             goto failed;
@@ -138,7 +146,7 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_command_t *cmd,
 
         var = ngx_block_pool_alloc(cctx->block_pool, NGX_LIVE_BP_VAR);
         if (var == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_dynamic_var_set_vars: alloc failed");
             goto failed;
         }
@@ -149,7 +157,7 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_command_t *cmd,
         var->sn.str.len = 0;
 
         if (ngx_json_decode_string(&var->sn.str, &cur->key) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
+            ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_dynamic_var_set_vars: "
                 "failed to decode key \"%V\"", &cur->key);
             goto failed;
@@ -159,7 +167,7 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_command_t *cmd,
         var->value.len = 0;
 
         if (ngx_json_decode_string(&var->value, &cur->value.v.str) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
+            ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_dynamic_var_set_vars: "
                 "failed to decode the value of key \"%V\"", &cur->key);
             goto failed;
@@ -309,7 +317,7 @@ static ngx_int_t
 ngx_live_dynamic_var_preconfiguration(ngx_conf_t *cf)
 {
     ngx_live_variable_t      *var, *v;
-    ngx_live_json_command_t  *cmd;
+    ngx_live_json_command_t  *cmd, *c;
 
     for (v = ngx_live_dynamic_var_vars; v->name.len; v++) {
         var = ngx_live_add_variable(cf, &v->name, v->flags);
@@ -321,14 +329,16 @@ ngx_live_dynamic_var_preconfiguration(ngx_conf_t *cf)
         var->data = v->data;
     }
 
-    cmd = ngx_live_json_commands_add(cf, &ngx_live_dynamic_var_vars_name,
-        NGX_LIVE_JSON_CTX_CHANNEL);
-    if (cmd == NULL) {
-        return NGX_ERROR;
-    }
+    for (c = ngx_live_dynamic_var_dyn_cmds; c->name.len; c++) {
+        cmd = ngx_live_json_commands_add(cf, &c->name,
+            NGX_LIVE_JSON_CTX_CHANNEL);
+        if (cmd == NULL) {
+            return NGX_ERROR;
+        }
 
-    cmd->set_handler = ngx_live_dynamic_var_set_vars;
-    cmd->type = NGX_JSON_OBJECT;
+        cmd->set_handler = c->set_handler;
+        cmd->type = c->type;
+    }
 
     return NGX_OK;
 }

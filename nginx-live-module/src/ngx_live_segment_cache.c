@@ -250,7 +250,9 @@ ngx_live_segment_cache_free_old(ngx_live_track_t *track,
 void
 ngx_live_segment_cache_validate(ngx_live_segment_t *segment)
 {
+    int64_t           end_dts;
     uint32_t          data_size;
+    uint32_t          frame_count;
     uint32_t          frames_size;
     ngx_uint_t        i;
     input_frame_t    *frames;
@@ -261,27 +263,26 @@ ngx_live_segment_cache_validate(ngx_live_segment_t *segment)
     data_size = 0;
     data = segment->data_head;
 
-    if (data != NULL) {
+    for ( ;; ) {
 
-        for ( ;; ) {
-
-            data_size += data->size;
-            if (data->next == NULL) {
-                break;
-            }
-
-            data = data->next;
+        data_size += data->size;
+        if (data->next == NULL) {
+            break;
         }
 
-        if (segment->data_tail != data) {
-            ngx_log_error(NGX_LOG_ALERT, segment->pool->log, 0,
-                "ngx_live_segment_cache_validate: data tail mismatch");
-            ngx_debug_point();
-        }
+        data = data->next;
+    }
+
+    if (segment->data_tail != data) {
+        ngx_log_error(NGX_LOG_ALERT, segment->pool->log, 0,
+            "ngx_live_segment_cache_validate: data tail mismatch");
+        ngx_debug_point();
     }
 
     /* get the frames size */
     frames_size = 0;
+    frame_count = 0;
+    end_dts = segment->start_dts;
 
     part = &segment->frames.part;
     frames = part->elts;
@@ -299,6 +300,24 @@ ngx_live_segment_cache_validate(ngx_live_segment_t *segment)
         }
 
         frames_size += frames[i].size;
+        end_dts += frames[i].duration;
+        frame_count++;
+    }
+
+    if (frame_count != segment->frame_count) {
+        ngx_log_error(NGX_LOG_ALERT, segment->pool->log, 0,
+            "ngx_live_segment_cache_validate: "
+            "actual frame count %uD doesn't match segment frame count %uD",
+            frame_count, segment->frame_count);
+        ngx_debug_point();
+    }
+
+    if (segment->end_dts != end_dts) {
+        ngx_log_error(NGX_LOG_ALERT, segment->pool->log, 0,
+            "ngx_live_segment_cache_validate: "
+            "actual end dts %L doesn't match segment end dts %L",
+            end_dts, segment->end_dts);
+        ngx_debug_point();
     }
 
     if (data_size != segment->data_size) {

@@ -456,12 +456,25 @@ ngx_flag_t
 ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
     uint32_t media_type_mask)
 {
-    ngx_uint_t         media_type;
-    ngx_live_track_t  *cur_track;
+    uint32_t             media_type_flag;
+    ngx_uint_t           media_type;
+    ngx_live_track_t    *cur_track;
+    ngx_live_channel_t  *channel;
+
+    channel = variant->channel;
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
-        if (!(media_type_mask & (1 << media_type))) {
+        media_type_flag = 1 << media_type;
+
+        if (!(media_type_mask & media_type_flag)) {
+            continue;
+        }
+
+        if (!(channel->last_segment_media_types & media_type_flag)) {
+            if (channel->filler_media_types & media_type_flag) {
+                return 1;
+            }
             continue;
         }
 

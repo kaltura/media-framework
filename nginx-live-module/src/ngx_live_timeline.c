@@ -1026,9 +1026,9 @@ ngx_live_timelines_free_old_segments(ngx_live_channel_t *channel,
 
 ngx_int_t
 ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
-    uint32_t segment_index, int64_t time, uint32_t duration,
-    ngx_flag_t force_new_period)
+    int64_t time, uint32_t duration, ngx_flag_t force_new_period)
 {
+    uint32_t                          segment_index;
     uint32_t                          min_segment_index;
     ngx_int_t                         rc;
     ngx_flag_t                        added;
@@ -1038,6 +1038,8 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
     ngx_live_timeline_channel_ctx_t  *ctx;
 
     ctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
+
+    segment_index = channel->next_segment_index;
 
     rc = ngx_live_segment_list_add(&ctx->segment_list, segment_index, time,
         duration);

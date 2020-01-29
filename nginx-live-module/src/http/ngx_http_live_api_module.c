@@ -960,6 +960,14 @@ ngx_http_live_api_variant_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_NOT_FOUND;
     }
 
+    if (track->type == ngx_live_track_type_filler) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_http_live_api_variant_tracks_post: "
+            "track \"%V\" in channel \"%V\" is a filler track",
+            &track_id, &channel_id);
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
     if (variant->tracks[track->media_type] == track) {
         return NGX_OK;
     }

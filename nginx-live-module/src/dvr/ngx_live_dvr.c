@@ -861,13 +861,14 @@ ngx_live_dvr_save_bucket(ngx_live_channel_t *channel,
 
 void
 ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel,
-    uint32_t segment_index, ngx_flag_t exists)
+    ngx_flag_t exists)
 {
     uint32_t                     i;
     uint32_t                     count;
     uint32_t                     bucket_id;
     uint32_t                     cur_index;
     uint32_t                     segment_flag;
+    uint32_t                     segment_index;
     uint32_t                     new_mask_start;
     uint32_t                     max_failed_index;
     ngx_live_dvr_channel_ctx_t  *cctx;
@@ -879,6 +880,8 @@ ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel,
     }
 
     dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_module);
+
+    segment_index = channel->next_segment_index;
 
     if (segment_index >= cctx->segments_mask_start +
         dpcf->force_memory_segments)
