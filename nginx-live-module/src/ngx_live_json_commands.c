@@ -135,7 +135,7 @@ ngx_live_json_commands_exec(ngx_json_object_t *obj, ngx_hash_t *commands_hash,
             continue;
         }
 
-        rc = cmd->set_handler(ctx, cmd, &cur->value);
+        rc = cmd->set_handler(ctx, cmd, &cur->value, log);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_json_commands_exec: handler failed %i", rc);

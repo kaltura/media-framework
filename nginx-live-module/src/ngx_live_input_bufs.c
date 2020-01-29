@@ -21,6 +21,7 @@ typedef struct {
     uint32_t                lock_count;
     uint32_t                min_segment_index;
     u_char                 *min_ptr;
+    unsigned                no_partial_free:1;
 } ngx_live_input_bufs_t;
 
 struct ngx_live_input_bufs_lock_s {
@@ -181,6 +182,10 @@ ngx_live_input_bufs_free_bufs(ngx_live_input_bufs_t *input_bufs)
     uint32_t                     segment_index;
     ngx_queue_t                 *q;
     ngx_live_input_bufs_lock_t  *cur;
+
+    if (input_bufs->no_partial_free) {
+        return;
+    }
 
     segment_index = input_bufs->min_segment_index;
     if (segment_index <= 0) {
@@ -376,6 +381,26 @@ ngx_live_input_bufs_set_min_used(ngx_live_track_t *track,
     input_bufs->min_ptr = ptr;
 
     ngx_live_input_bufs_free_bufs(input_bufs);
+}
+
+void
+ngx_live_input_bufs_link(ngx_live_track_t *dst, ngx_live_track_t *src)
+{
+    ngx_live_input_bufs_t            *input_bufs;
+    ngx_live_input_bufs_track_ctx_t  *ctx;
+
+    ctx = ngx_live_track_get_module_ctx(src, ngx_live_input_bufs_module);
+
+    input_bufs = ctx->input_bufs;
+
+    ctx = ngx_live_track_get_module_ctx(dst, ngx_live_input_bufs_module);
+
+    ngx_live_input_bufs_free(ctx->input_bufs);
+
+    ctx->input_bufs = input_bufs;
+
+    input_bufs->ref_count++;
+    input_bufs->no_partial_free = 1;
 }
 
 

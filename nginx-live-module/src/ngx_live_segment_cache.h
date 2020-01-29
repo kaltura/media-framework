@@ -25,6 +25,7 @@ typedef struct {
     ngx_list_t              frames;        /* input_frame_t */
     ngx_uint_t              frame_count;
     int64_t                 start_dts;
+    int64_t                 end_dts;
 
     ngx_buf_chain_t        *data_head;
     ngx_buf_chain_t        *data_tail;

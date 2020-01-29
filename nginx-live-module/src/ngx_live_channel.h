@@ -78,6 +78,7 @@ struct ngx_live_channel_s {
     ngx_live_channel_variants_t    variants;
 
     ngx_live_channel_tracks_t      tracks;
+    uint32_t                       filler_media_types;
 
     size_t                        *track_ctx_offset;
 
@@ -88,6 +89,11 @@ struct ngx_live_channel_s {
     unsigned                       active:1;
 };
 
+
+typedef enum {
+    ngx_live_track_type_regular,
+    ngx_live_track_type_filler,
+} ngx_live_track_type_e;
 
 typedef struct {
     void                          *data;
@@ -110,6 +116,7 @@ struct ngx_live_track_s {
 
     uint32_t                       media_type;
     ngx_msec_t                     start_msec;
+    ngx_live_track_type_e          type;
 
     void                         **ctx;
     ngx_log_t                      log;

@@ -824,6 +824,14 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
         return NGX_STREAM_BAD_REQUEST;
     }
 
+    if (track->type == ngx_live_track_type_filler) {
+        ngx_log_error(NGX_LOG_ERR, c->log, 0,
+            "ngx_stream_live_kmp_read_header: "
+            "track \"%V\" in channel \"%V\" is a filler track",
+            &track_id, &channel_id);
+        return NGX_STREAM_BAD_REQUEST;
+    }
+
     if (track->input.data != NULL) {
         ngx_log_error(NGX_LOG_ERR, c->log, 0,
             "ngx_stream_live_kmp_read_header: "
