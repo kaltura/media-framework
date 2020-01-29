@@ -958,8 +958,8 @@ static void
 ngx_live_filler_setup_validate_segment(ngx_live_filler_segment_t *segment,
     uint64_t *duration, ngx_log_t *log)
 {
-    uint32_t          data_size;
-    uint32_t          frames_size;
+    size_t            data_size;
+    size_t            frames_size;
     input_frame_t    *cur, *last;
     ngx_buf_chain_t  *data;
     ngx_list_part_t  *part;
@@ -1004,7 +1004,7 @@ ngx_live_filler_setup_validate_segment(ngx_live_filler_segment_t *segment,
     if (data_size != frames_size) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_filler_setup_validate_segment: "
-            "data size %uD doesn't match frames size %uD",
+            "data size %uz doesn't match frames size %uz",
             data_size, frames_size);
         ngx_debug_point();
     }
@@ -1074,10 +1074,10 @@ ngx_live_filler_setup_validate(ngx_live_channel_t *channel)
         filler_media_types |= (1 << cur_track->media_type);
     }
 
-    if (filler_media_types != channel->filler_media_types) {
+    if (channel->filler_media_types != filler_media_types) {
         ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
             "ngx_live_filler_setup_validate: "
-            "invalid channel media types 0x%uxD expected 0x%uxD",
+            "invalid channel media types mask 0x%uxD expected 0x%uxD",
             channel->filler_media_types, filler_media_types);
         ngx_debug_point();
     }

@@ -173,10 +173,10 @@ ngx_live_period_validate(ngx_live_period_t *period, ngx_log_t *log)
             segment_duration.repeat_count;
     }
 
-    if (duration != period->duration) {
+    if (period->duration != duration) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_period_validate: "
-            "period duration %uL doesn't match actual %uL",
+            "invalid period duration %uL expected %uL",
             period->duration, duration);
         ngx_debug_point();
     }
@@ -631,7 +631,7 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
     if (timeline->duration != duration) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_timeline_validate: "
-            "timeline duration %uL doesn't match actual %uL",
+            "invalid timeline duration %uL expected %uL",
             timeline->duration, duration);
         ngx_debug_point();
     }
@@ -639,7 +639,7 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
     if (timeline->segment_count != segment_count) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_timeline_validate: "
-            "timeline segment count %uD doesn't match actual %uD",
+            "invalid timeline segment count %uD expected %uD",
             timeline->segment_count, segment_count);
         ngx_debug_point();
     }
@@ -647,7 +647,7 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
     if (timeline->last_period != prev_period) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_timeline_validate: "
-            "last period %p doesn't match actual %p",
+            "invalid last period %p expected %p",
             timeline->last_period, prev_period);
         ngx_debug_point();
     }
@@ -676,7 +676,7 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
     if (timeline->manifest.duration != duration) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_timeline_validate: "
-            "manifest timeline duration %uL doesn't match actual %uL",
+            "invalid manifest timeline duration %uL expected %uL",
             timeline->manifest.duration, duration);
         ngx_debug_point();
     }
@@ -684,7 +684,7 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
     if (timeline->manifest.segment_count != segment_count) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_timeline_validate: "
-            "manifest timeline segment count %uD doesn't match actual %uD",
+            "invalid manifest timeline segment count %uD expected %uD",
             timeline->manifest.segment_count, segment_count);
         ngx_debug_point();
     }
@@ -692,7 +692,7 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
     if (timeline->manifest.period_count != period_count) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_timeline_validate: "
-            "manifest period count %uD doesn't match actual %uD",
+            "invalid manifest period count %uD expected %uD",
             timeline->manifest.period_count, period_count);
         ngx_debug_point();
     }
@@ -700,7 +700,7 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
     if (period_count > 1 && timeline->last_period != prev_period) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_timeline_validate: "
-            "manifest last period %p doesn't match actual %p",
+            "invalid manifest last period %p expected %p",
             timeline->last_period, prev_period);
         ngx_debug_point();
     }
