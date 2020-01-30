@@ -2477,21 +2477,26 @@ ngx_live_segmenter_add_frame(ngx_live_track_t *track, kmp_frame_t *frame_info,
         &track->sn.str, frame_info->created, size, frame_info->dts,
         frame_info->flags, frame_info->pts_delay);
 
-    channel = track->channel;
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segmenter_module);
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
-
-    ctx->received_frames++;
-
-    if (frame_info->flags & KMP_FRAME_FLAG_KEY) {
-        ctx->received_key_frames++;
-    }
 
     if (ctx->frame_count >= NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_live_segmenter_add_frame: frame count exceeds limit");
         return NGX_ERROR;
     }
+
+    if (frame_info->flags & KMP_FRAME_FLAG_KEY) {
+        ctx->received_key_frames++;
+
+    } else if (ctx->frame_count <= 0 && track->media_type == KMP_MEDIA_VIDEO) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_segmenter_add_frame: "
+            "skipping non-key frame, created: %L, dts: %L",
+            frame_info->created, frame_info->dts);
+        return NGX_DONE;
+    }
+
+    ctx->received_frames++;
 
     frame = ngx_live_segmenter_frame_list_push(&ctx->frames, data_head,
         data_tail);
@@ -2500,6 +2505,9 @@ ngx_live_segmenter_add_frame(ngx_live_track_t *track, kmp_frame_t *frame_info,
             "ngx_live_segmenter_add_frame: push frame failed");
         return NGX_ABORT;
     }
+
+    channel = track->channel;
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
     frame->dts = frame_info->dts;
     frame->pts = frame_info->dts + frame_info->pts_delay;

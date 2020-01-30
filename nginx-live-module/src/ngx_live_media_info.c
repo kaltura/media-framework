@@ -204,8 +204,8 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
 
         dest->media_type = MEDIA_TYPE_VIDEO;
         dest->codec_id = VOD_CODEC_ID_AVC;
-
         dest->format = FORMAT_AVC1;
+
         dest->u.video.width = src->u.video.width;
         dest->u.video.height = src->u.video.height;
         dest->u.video.frame_rate_num = src->u.video.frame_rate.num;

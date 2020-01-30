@@ -319,6 +319,9 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         ctx->packet_header.data_size);
     switch (rc) {
 
+    case NGX_DONE:
+        return NGX_OK;
+
     case NGX_OK:
         break;
 
