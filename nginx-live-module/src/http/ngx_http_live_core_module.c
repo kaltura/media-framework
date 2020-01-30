@@ -314,11 +314,11 @@ ngx_http_live_core_parse_uri_file_name(ngx_http_request_t *r,
             switch (*start_pos) {
 
             case 'v':
-                media_type = MEDIA_TYPE_VIDEO;
+                media_type = KMP_MEDIA_VIDEO;
                 break;
 
             case 'a':
-                media_type = MEDIA_TYPE_AUDIO;
+                media_type = KMP_MEDIA_AUDIO;
                 break;
 
             default:

@@ -233,7 +233,7 @@ ngx_http_live_hls_media_group_write(u_char *p,
             p = ngx_copy_fix(p, M3U8_MEDIA_NON_DEFAULT);
         }
 
-        if (media_type == MEDIA_TYPE_AUDIO) {
+        if (media_type == KMP_MEDIA_AUDIO) {
             media_info = ngx_live_media_info_queue_get_last(
                 variant->tracks[media_type], NULL);
             p = vod_sprintf(p, M3U8_MEDIA_CHANNELS,

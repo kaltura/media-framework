@@ -149,13 +149,9 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
         dest->extra_data.data = NULL;
     }
 
-    dest->media_type = src->media_type;
-    dest->bitrate = src->bitrate;
-    dest->timescale = src->timescale;
-    dest->frames_timescale = src->timescale;
     dest->parsed_extra_data.data = NULL;
 
-    switch (dest->media_type) {
+    switch (src->media_type) {
 
     case KMP_MEDIA_VIDEO:
         if (src->codec_id != KMP_CODEC_VIDEO_H264) {
@@ -170,14 +166,6 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
                 "ngx_live_media_info_parse: invalid video frame rate");
             return NGX_ERROR;
         }
-
-        dest->codec_id = VOD_CODEC_ID_AVC;
-
-        dest->format = FORMAT_AVC1;
-        dest->u.video.width = src->u.video.width;
-        dest->u.video.height = src->u.video.height;
-        dest->u.video.frame_rate_num = src->u.video.frame_rate.num;
-        dest->u.video.frame_rate_denom = src->u.video.frame_rate.denom;
 
         // XXXX initial pts delay
 
@@ -214,6 +202,15 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
             "ngx_live_media_info_parse: parsed extra data ",
             dest->parsed_extra_data.data, dest->parsed_extra_data.len);
 
+        dest->media_type = MEDIA_TYPE_VIDEO;
+        dest->codec_id = VOD_CODEC_ID_AVC;
+
+        dest->format = FORMAT_AVC1;
+        dest->u.video.width = src->u.video.width;
+        dest->u.video.height = src->u.video.height;
+        dest->u.video.frame_rate_num = src->u.video.frame_rate.num;
+        dest->u.video.frame_rate_denom = src->u.video.frame_rate.denom;
+
         if (codec_config_get_video_codec_name(log, dest) != VOD_OK) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_media_info_parse: failed to get video codec name");
@@ -222,12 +219,10 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
         break;
 
     case KMP_MEDIA_AUDIO:
+
         switch (src->codec_id) {
 
         case KMP_CODEC_AUDIO_AAC:
-            dest->codec_id = VOD_CODEC_ID_AAC;
-            dest->format = FORMAT_MP4A;
-            dest->u.audio.object_type_id = 0x40;
 
             rc = codec_config_mp4a_config_parse(log, &dest->extra_data,
                 &dest->u.audio.codec_config);
@@ -237,6 +232,9 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
                 return NGX_ERROR;
             }
 
+            dest->codec_id = VOD_CODEC_ID_AAC;
+            dest->format = FORMAT_MP4A;
+            dest->u.audio.object_type_id = 0x40;
             break;
 
         case KMP_CODEC_AUDIO_MP3:
@@ -253,6 +251,7 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
             return NGX_ERROR;
         }
 
+        dest->media_type = MEDIA_TYPE_AUDIO;
         dest->u.audio.channels = src->u.audio.channels;
         dest->u.audio.bits_per_sample = src->u.audio.bits_per_sample;
         dest->u.audio.packet_size = 0;
@@ -268,9 +267,13 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
     default:
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_media_info_parse: invalid media type %uD",
-            dest->media_type);
+            src->media_type);
         return NGX_ERROR;
     }
+
+    dest->bitrate = src->bitrate;
+    dest->timescale = src->timescale;
+    dest->frames_timescale = src->timescale;
 
     return NGX_OK;
 }

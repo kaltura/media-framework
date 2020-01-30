@@ -1606,7 +1606,7 @@ ngx_live_segmenter_prepare_create_segment(ngx_live_channel_t *channel,
                 starting a new period, remove any frames before the segment
                 start pts */
 
-            if (cur_track->media_type == MEDIA_TYPE_VIDEO) {
+            if (cur_track->media_type == KMP_MEDIA_VIDEO) {
                 split_index = ngx_live_segmenter_frame_list_get_key_index(
                     &cur_ctx->frames, cctx->last_segment_end_pts, 0);
 
@@ -1991,7 +1991,7 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
         }
 
         /* find the key frame closest to target */
-        if (cur_track->media_type == MEDIA_TYPE_VIDEO) {
+        if (cur_track->media_type == KMP_MEDIA_VIDEO) {
             cur_ctx->split_index = ngx_live_segmenter_frame_list_get_key_index(
                 &cur_ctx->frames, cur_target_pts, NGX_LIVE_FRAME_FLAG_SPLIT);
 
