@@ -1009,14 +1009,13 @@ ngx_live_timelines_free_old_segments(ngx_live_channel_t *channel,
     ngx_live_segment_list_free_nodes(&ctx->segment_list, min_segment_index);
 
     /* cleanup unused buffers / media info */
+    ngx_live_segment_cache_free_old(channel, min_segment_index);
+
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
-
-        /* free unused segments */
-        ngx_live_segment_cache_free_old(cur_track, min_segment_index);
 
         // XXXX no need to do this every time, will rarely free anything
         /* free unused media info nodes */

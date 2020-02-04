@@ -36,6 +36,11 @@ typedef struct {
 typedef void (*ngx_live_read_segment_callback_pt)(void *arg, ngx_int_t rc);
 
 typedef struct {
+    uint32_t                            id;
+    ngx_live_track_t                   *track;
+} ngx_live_track_ref_t;
+
+typedef struct {
     ngx_pool_t                         *pool;
     ngx_live_channel_t                 *channel;
     ngx_live_track_ref_t               *tracks;
@@ -45,6 +50,13 @@ typedef struct {
     ngx_live_read_segment_callback_pt   callback;
     void                               *arg;
 } ngx_live_segment_read_req_t;
+
+/*
+ * NGX_OK - operation completed synchronously
+ * NGX_DONE - started asynchronous read, the callback will be called once done
+ * NGX_ABORT - no tracks were found
+ * NGX_ERROR - error
+*/
 
 typedef ngx_int_t (*ngx_live_read_segment_pt)(
     ngx_live_segment_read_req_t *req);
@@ -59,7 +71,7 @@ void ngx_live_segment_cache_free(ngx_live_track_t *track,
 ngx_live_segment_t *ngx_live_segment_cache_get(ngx_live_track_t *track,
     uint32_t segment_index);
 
-void ngx_live_segment_cache_free_old(ngx_live_track_t *track,
+void ngx_live_segment_cache_free_old(ngx_live_channel_t *channel,
     uint32_t min_segment_index);
 
 void ngx_live_segment_cache_free_by_index(ngx_live_channel_t *channel,
