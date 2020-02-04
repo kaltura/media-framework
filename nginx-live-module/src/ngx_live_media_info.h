@@ -23,9 +23,7 @@ typedef struct {
 typedef void *(*ngx_live_media_info_alloc_pt)(void *ctx, size_t size);
 
 
-ngx_int_t ngx_live_media_info_parse(ngx_log_t *log,
-    ngx_live_media_info_alloc_pt alloc, void *alloc_ctx, kmp_media_info_t *src,
-    ngx_buf_chain_t *extra_data, uint32_t extra_data_size, media_info_t *dest);
+media_info_t *ngx_live_media_info_clone(ngx_pool_t *pool, media_info_t *src);
 
 
 /* pending */
@@ -44,7 +42,7 @@ void ngx_live_media_info_pending_free_all(ngx_live_track_t *track);
 
 /* active */
 media_info_t *ngx_live_media_info_queue_get(ngx_live_track_t *track,
-    uint32_t segment_index);
+    uint32_t segment_index, uint32_t *track_id);
 
 media_info_t *ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
     kmp_media_info_t **kmp_media_info);
@@ -58,9 +56,6 @@ void ngx_live_media_info_queue_free(ngx_live_track_t *track,
 /* gap filling */
 ngx_int_t ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
     uint32_t media_types_mask);
-
-void ngx_live_media_info_queue_get_segment_track(ngx_live_track_t *track,
-    uint32_t segment_index, ngx_live_track_ref_t *ref);
 
 
 /* iterator */

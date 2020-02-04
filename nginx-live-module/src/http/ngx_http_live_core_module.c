@@ -122,6 +122,13 @@ static ngx_command_t  ngx_http_live_core_commands[] = {
       offsetof(ngx_http_live_core_loc_conf_t, segment_metadata),
       NULL },
 
+    { ngx_string("live_empty_segments"),
+      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_live_core_loc_conf_t, empty_segments),
+      NULL},
+
       ngx_null_command
 };
 
@@ -1329,11 +1336,13 @@ ngx_http_live_core_write_segment(ngx_http_request_t *r)
         }
     }
 
-    rc = processor(processor_state);
-    if (rc != VOD_OK) {
-        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "ngx_http_live_core_write_segment: processor failed %i", rc);
-        return ngx_http_live_status_to_ngx_error(r, rc);
+    if (processor_state != NULL) {
+        rc = processor(processor_state);
+        if (rc != VOD_OK) {
+            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                "ngx_http_live_core_write_segment: processor failed %i", rc);
+            return ngx_http_live_status_to_ngx_error(r, rc);
+        }
     }
 
     rc = ngx_http_live_finalize_segment_response(ctx);
@@ -1349,11 +1358,26 @@ ngx_http_live_core_write_segment(ngx_http_request_t *r)
 static void
 ngx_http_live_core_write_segment_async(void *arg, ngx_int_t rc)
 {
-    ngx_connection_t    *c;
-    ngx_http_request_t  *r = arg;
+    ngx_connection_t               *c;
+    ngx_http_request_t             *r = arg;
+    ngx_http_live_core_loc_conf_t  *conf;
 
-    if (rc == NGX_OK) {
+    switch (rc) {
+
+    case NGX_ABORT:
+        conf = ngx_http_get_module_loc_conf(r, ngx_http_live_core_module);
+
+        if (!conf->empty_segments) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_live_core_write_segment_async: segment not found");
+            rc = NGX_HTTP_NOT_FOUND;
+            break;
+        }
+        /* fall through */
+
+    case NGX_OK:
         rc = ngx_http_live_core_write_segment(r);
+        break;
     }
 
     c = r->connection;
@@ -1364,21 +1388,24 @@ ngx_http_live_core_write_segment_async(void *arg, ngx_int_t rc)
 }
 
 static ngx_live_track_ref_t *
-ngx_http_live_core_get_segment_tracks(ngx_http_request_t *r,
-    ngx_http_live_request_objects_t *objects, uint32_t segment_index)
+ngx_http_live_core_get_track_refs(ngx_http_request_t *r,
+    ngx_http_live_request_objects_t *objects, uint32_t segment_index,
+    media_segment_t *segment)
 {
-    uint32_t               i;
-    ngx_live_track_t      *cur_track;
-    ngx_live_track_ref_t  *result;
-    ngx_live_track_ref_t  *cur;
+    uint32_t                i;
+    ngx_live_track_t       *cur_track;
+    ngx_live_track_ref_t   *result;
+    ngx_live_track_ref_t   *cur;
+    media_segment_track_t  *seg_track;
 
-    result = ngx_pcalloc(r->pool, sizeof(result[0]) * objects->track_count);
+    result = ngx_palloc(r->pool, sizeof(result[0]) * objects->track_count);
     if (result == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "ngx_http_live_core_get_segment_tracks: alloc failed");
+            "ngx_http_live_core_get_track_refs: alloc failed");
         return NULL;
     }
 
+    seg_track = segment->tracks;
     cur = result;
 
     for (i = 0; i < KMP_MEDIA_COUNT; i++) {
@@ -1388,8 +1415,23 @@ ngx_http_live_core_get_segment_tracks(ngx_http_request_t *r,
             continue;
         }
 
-        ngx_live_media_info_queue_get_segment_track(cur_track,
-            segment_index, cur);
+        seg_track->media_info = ngx_live_media_info_queue_get(
+            cur_track, segment_index, &cur->id);
+        if (seg_track->media_info == NULL) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_live_core_get_track_refs: "
+                "media info for segment %uD not found in track \"%V\"",
+                segment_index, &cur_track->sn.str);
+            return NULL;
+        }
+        seg_track++;
+
+        if (cur->id == cur_track->in.key) {
+            cur->track = cur_track;
+
+        } else {
+            cur->track = ngx_live_track_get_by_int(objects->channel, cur->id);
+        }
         cur++;
     }
 
@@ -1400,10 +1442,11 @@ ngx_int_t
 ngx_http_live_core_segment_handler(ngx_http_request_t *r,
     ngx_http_live_request_objects_t *objects)
 {
-    ngx_int_t                     rc;
-    media_segment_t              *segment;
-    ngx_http_live_core_ctx_t     *ctx;
-    ngx_live_segment_read_req_t   req;
+    ngx_int_t                       rc;
+    media_segment_t                *segment;
+    ngx_http_live_core_ctx_t       *ctx;
+    ngx_live_segment_read_req_t     req;
+    ngx_http_live_core_loc_conf_t  *conf;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_core_module);
 
@@ -1415,14 +1458,6 @@ ngx_http_live_core_segment_handler(ngx_http_request_t *r,
             "segment %uD does not exist in timeline \"%V\"",
             ctx->params.index, &objects->timeline->sn.str);
         return NGX_HTTP_BAD_REQUEST;
-    }
-
-    req.tracks = ngx_http_live_core_get_segment_tracks(r, objects,
-        ctx->params.index);
-    if (req.tracks == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "ngx_http_live_core_segment_handler: get tracks failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     segment = ngx_pcalloc(r->pool, sizeof(*segment) +
@@ -1438,6 +1473,14 @@ ngx_http_live_core_segment_handler(ngx_http_request_t *r,
     segment->segment_index = ctx->params.index;
     segment->track_count = objects->track_count;
 
+    req.tracks = ngx_http_live_core_get_track_refs(r, objects,
+        ctx->params.index, segment);
+    if (req.tracks == NULL) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            "ngx_http_live_core_segment_handler: failed to get track refs");
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
     ctx->segment = segment;
 
     req.pool = r->pool;
@@ -1451,17 +1494,23 @@ ngx_http_live_core_segment_handler(ngx_http_request_t *r,
     rc = ngx_live_read_segment(&req);
     switch (rc) {
 
-    case NGX_OK:
-        return ngx_http_live_core_write_segment(r);
-
-    case NGX_AGAIN:
+    case NGX_DONE:
         r->main->count++;
         return NGX_DONE;
 
     case NGX_ABORT:
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "ngx_http_live_core_segment_handler: segment not found");
-        return NGX_HTTP_NOT_FOUND;
+        conf = ngx_http_get_module_loc_conf(r, ngx_http_live_core_module);
+
+        if (!conf->empty_segments) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_live_core_segment_handler: "
+                "segment %uD not found", ctx->params.index);
+            return NGX_HTTP_NOT_FOUND;
+        }
+        /* fall through */
+
+    case NGX_OK:
+        return ngx_http_live_core_write_segment(r);
 
     default:
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -1476,6 +1525,7 @@ ngx_http_live_core_get_init_segment(ngx_http_request_t *r,
     media_init_segment_t *result)
 {
     uint32_t                     i;
+    uint32_t                     ignore;
     media_info_t                *media_info;
     ngx_live_track_t            *cur_track;
     ngx_http_live_core_ctx_t    *ctx;
@@ -1502,7 +1552,7 @@ ngx_http_live_core_get_init_segment(ngx_http_request_t *r,
         }
 
         media_info = ngx_live_media_info_queue_get(cur_track,
-            ctx->params.index);
+            ctx->params.index, &ignore);
         if (media_info == NULL) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "ngx_http_live_core_get_init_segment: "
@@ -1635,6 +1685,8 @@ ngx_http_live_create_loc_conf(ngx_conf_t *cf)
     }
     conf->last_modified_static = NGX_CONF_UNSET;
 
+    conf->empty_segments = NGX_CONF_UNSET;
+
     return conf;
 }
 
@@ -1670,6 +1722,9 @@ ngx_http_live_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->encryption_iv_seed == NULL) {
         conf->encryption_iv_seed = prev->encryption_iv_seed;
     }
+
+    ngx_conf_merge_value(conf->empty_segments,
+                         prev->empty_segments, 0);
 
     return NGX_CONF_OK;
 }

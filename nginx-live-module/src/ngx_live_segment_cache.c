@@ -6,12 +6,20 @@
 #include "ngx_live_segmenter.h"
 
 
+#define NGX_MAX_INT32_BIT  31
+
+
 typedef struct {
     ngx_queue_t             queue;
     ngx_rbtree_t            tree;
     ngx_rbtree_node_t       sentinel;
     uint32_t                count;
 } ngx_live_segment_cache_track_ctx_t;
+
+typedef struct {
+    uint32_t                segment_mask_base;
+    uint32_t                segment_mask;
+} ngx_live_segment_cache_channel_ctx_t;
 
 typedef struct {
     size_t                  frame_left;
@@ -58,9 +66,22 @@ static ngx_str_t  ngx_live_segment_cache_source_name = ngx_string("cache");
 ngx_live_segment_t *
 ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
 {
-    ngx_live_segment_cache_track_ctx_t  *ctx;
-    ngx_live_segment_t                  *segment;
-    ngx_pool_t                          *pool;
+    uint32_t                               segment_mask_base;
+    ngx_pool_t                            *pool;
+    ngx_live_segment_t                    *segment;
+    ngx_live_segment_cache_track_ctx_t    *ctx;
+    ngx_live_segment_cache_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(track->channel,
+        ngx_live_segment_cache_module);
+
+    if (segment_index < cctx->segment_mask_base) {
+        ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
+            "ngx_live_segment_cache_create: "
+            "segment index %uD smaller than base %uD",
+            segment_index, cctx->segment_mask_base);
+        return NULL;
+    }
 
     pool = ngx_create_pool(1024, &track->log);
     if (pool == NULL) {
@@ -93,6 +114,14 @@ ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
     ngx_rbtree_insert(&ctx->tree, &segment->node);
     ngx_queue_insert_tail(&ctx->queue, &segment->queue);
     ctx->count++;
+
+    if (segment_index > cctx->segment_mask_base + NGX_MAX_INT32_BIT) {
+        segment_mask_base = segment_index - NGX_MAX_INT32_BIT;
+        cctx->segment_mask >>= segment_mask_base - cctx->segment_mask_base;
+        cctx->segment_mask_base = segment_mask_base;
+    }
+
+    cctx->segment_mask |= 1 << (segment_index - cctx->segment_mask_base);
 
     return segment;
 
@@ -196,9 +225,10 @@ void
 ngx_live_segment_cache_free_by_index(ngx_live_channel_t *channel,
     uint32_t segment_index)
 {
-    ngx_queue_t         *q;
-    ngx_live_track_t    *cur_track;
-    ngx_live_segment_t  *segment;
+    ngx_queue_t                           *q;
+    ngx_live_track_t                      *cur_track;
+    ngx_live_segment_t                    *segment;
+    ngx_live_segment_cache_channel_ctx_t  *cctx;
 
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
@@ -215,10 +245,17 @@ ngx_live_segment_cache_free_by_index(ngx_live_channel_t *channel,
 
         ngx_live_segment_cache_free_input_bufs(cur_track);
     }
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_cache_module);
+
+    if (segment_index - cctx->segment_mask_base <= NGX_MAX_INT32_BIT) {
+        cctx->segment_mask &=
+            ~(1 << (segment_index - cctx->segment_mask_base));
+    }
 }
 
-void
-ngx_live_segment_cache_free_old(ngx_live_track_t *track,
+static void
+ngx_live_segment_cache_track_free_old(ngx_live_track_t *track,
     uint32_t min_segment_index)
 {
     ngx_flag_t                           free;
@@ -243,6 +280,31 @@ ngx_live_segment_cache_free_old(ngx_live_track_t *track,
 
     if (free) {
         ngx_live_segment_cache_free_input_bufs(track);
+    }
+}
+
+void
+ngx_live_segment_cache_free_old(ngx_live_channel_t *channel,
+    uint32_t min_segment_index)
+{
+    ngx_queue_t                           *q;
+    ngx_live_track_t                      *cur_track;
+    ngx_live_segment_cache_channel_ctx_t  *cctx;
+
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
+        q = ngx_queue_next(q))
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+
+        ngx_live_segment_cache_track_free_old(cur_track, min_segment_index);
+    }
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_cache_module);
+
+    if (min_segment_index > cctx->segment_mask_base) {
+        cctx->segment_mask >>= min_segment_index - cctx->segment_mask_base;
+        cctx->segment_mask_base = min_segment_index;
     }
 }
 
@@ -413,13 +475,16 @@ ngx_live_segment_cache_release_locks(void *data)
 static ngx_int_t
 ngx_live_segment_cache_read(ngx_live_segment_read_req_t *req)
 {
-    ngx_pool_t                   *pool;
-    media_segment_t              *result;
-    ngx_pool_cleanup_t           *cln;
-    ngx_live_segment_t           *segment;
-    ngx_live_track_ref_t         *cur, *last;
-    media_segment_track_t        *dest_track;
-    ngx_live_input_bufs_lock_t  **locks;
+    uint32_t                               segment_index;
+    ngx_flag_t                             found;
+    ngx_pool_t                            *pool;
+    media_segment_t                       *result;
+    ngx_pool_cleanup_t                    *cln;
+    ngx_live_segment_t                    *segment;
+    ngx_live_track_ref_t                  *cur, *last;
+    media_segment_track_t                 *dest_track;
+    ngx_live_input_bufs_lock_t           **locks;
+    ngx_live_segment_cache_channel_ctx_t  *cctx;
 
     pool = req->pool;
 
@@ -441,19 +506,29 @@ ngx_live_segment_cache_read(ngx_live_segment_read_req_t *req)
     }
 
     result = req->segment;
-    dest_track = result->tracks;
+    segment_index = result->segment_index;
+    found = 0;
 
     last = req->tracks + req->track_count;
-    for (cur = req->tracks; cur < last; cur++) {
-
+    for (cur = req->tracks, dest_track = result->tracks;
+        cur < last;
+        cur++, dest_track++)
+    {
         if (cur->track == NULL) {
-            goto next;
+            if (ngx_live_next_read != NULL) {
+                goto next;
+            }
+
+            ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+                "ngx_live_segment_cache_read: "
+                "segment %uD refers to a missing track id %uD",
+                segment_index, cur->id);
+            return NGX_ERROR;
         }
 
-        segment = ngx_live_segment_cache_get(cur->track,
-            result->segment_index);
+        segment = ngx_live_segment_cache_get(cur->track, segment_index);
         if (segment == NULL) {
-            goto next;
+            continue;
         }
 
         if (ngx_live_segment_cache_source_init(pool, segment->data_head,
@@ -477,28 +552,42 @@ ngx_live_segment_cache_read(ngx_live_segment_read_req_t *req)
 
         dest_track->frames_source = &ngx_live_segment_cache_source;
 
-        dest_track->media_info = segment->media_info;
-
         /* Note: copying only the frames part since dest is immutable */
         dest_track->frames.part = segment->frames.part;
         dest_track->frame_count = segment->frame_count;
         dest_track->start_dts = segment->start_dts;
 
-        dest_track++;
+        found = 1;
     }
 
-    result->source = ngx_live_segment_cache_source_name;
-    return NGX_OK;
-
-next:
+    if (found) {
+        result->source = ngx_live_segment_cache_source_name;
+        return NGX_OK;
+    }
 
     if (ngx_live_next_read == NULL) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_segment_cache_read: "
-            "segment %uD not found on some tracks",
-            result->segment_index);
+            "segment %uD not found on any track (1)", segment_index);
         return NGX_ABORT;
     }
+
+    cctx = ngx_live_get_module_ctx(req->channel,
+        ngx_live_segment_cache_module);
+
+    /* if we have the segment in mask, no need to forward to the next reader.
+        this can happen when requesting a single media type that does not exist
+        in this segment */
+    if (segment_index - cctx->segment_mask_base <= NGX_MAX_INT32_BIT &&
+        cctx->segment_mask & (1 << (segment_index - cctx->segment_mask_base)))
+    {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_segment_cache_read: "
+            "segment %uD not found on any track (2)", segment_index);
+        return NGX_ABORT;
+    }
+
+next:
 
     return ngx_live_next_read(req);
 }
@@ -547,6 +636,17 @@ static ngx_int_t
 ngx_live_segment_cache_channel_init(ngx_live_channel_t *channel,
     size_t *track_ctx_size)
 {
+    ngx_live_segment_cache_channel_ctx_t  *cctx;
+
+    cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
+    if (cctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_segment_cache_channel_init: alloc failed");
+        return NGX_ERROR;
+    }
+
+    ngx_live_set_ctx(channel, cctx, ngx_live_segment_cache_module);
+
     ngx_live_reserve_track_ctx_size(channel, ngx_live_segment_cache_module,
         sizeof(ngx_live_segment_cache_track_ctx_t), track_ctx_size);
 

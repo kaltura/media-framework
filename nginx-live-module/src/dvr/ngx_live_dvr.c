@@ -218,212 +218,55 @@ static frames_source_t  ngx_live_dvr_source = {
 };
 
 
-/* Returns: NGX_ERROR = bad data, NGX_ABORT = alloc error */
 static ngx_int_t
-ngx_live_dvr_read_init_track(ngx_pool_t *pool, ngx_str_t *buf,
-    media_segment_track_t *track)
+ngx_live_dvr_read_parse_header(ngx_live_dvr_read_ctx_t *ctx,
+    ngx_str_t *buf)
 {
-    uint32_t                        frames_size;
-    ngx_int_t                       rc;
-    ngx_str_t                       frame_data;
-    ngx_buf_chain_t                 extra_data;
-    ngx_live_dvr_segment_header_t  *header;
+    uint64_t                       offset;
+    uint32_t                       i;
+    uint32_t                       found_tracks;
+    ngx_live_dvr_file_header_t    *header;
+    ngx_live_dvr_segment_entry_t  *cur_entry;
+    ngx_live_dvr_segment_entry_t  *last_entry;
 
-    /* validate the header */
     if (buf->len < sizeof(*header)) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_dvr_read_init_track: read size %uz too small",
-            buf->len);
-        return NGX_ERROR;
-    }
-
-    header = (void*)buf->data;
-    if (header->magic != NGX_LIVE_DVR_SEGMENT_MAGIC) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_dvr_read_init_track: invalid magic 0x%uxD",
-            header->magic);
-        return NGX_ERROR;
-    }
-
-    if (buf->len < header->header_size) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_dvr_read_init_track: "
-            "read size %uz smaller than header size %uD",
-            buf->len, header->header_size);
-        return NGX_ERROR;
-    }
-
-
-    if (header->extra_data_len > NGX_LIVE_MEDIA_INFO_MAX_EXTRA_DATA_LEN) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_dvr_read_init_track: extra data len %uD too big",
-            header->extra_data_len);
-        return NGX_ERROR;
-    }
-
-    if (header->frame_count > NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_dvr_read_init_track: frame count %uD too big",
-            header->frame_count);
-        return NGX_ERROR;
-    }
-
-    if (header->frames_start < sizeof(*header) + header->extra_data_len) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_dvr_read_init_track: frame start offset %uD too small",
-            header->frames_start);
-        return NGX_ERROR;
-    }
-
-    frames_size = header->frame_count * sizeof(input_frame_t);
-    if (header->frames_start > NGX_MAX_INT32_VALUE - frames_size) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_dvr_read_init_track: frame start offset %uD too big",
-            header->frames_start);
-        return NGX_ERROR;
-    }
-
-    if (header->header_size < header->frames_start + frames_size) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_dvr_read_init_track: header size %uD too small",
-            header->header_size);
-        return NGX_ERROR;
-    }
-
-    /* allocate and parse the media info */
-    track->media_info = ngx_palloc(pool, sizeof(*track->media_info) +
-        MAX_CODEC_NAME_SIZE);
-    if (track->media_info == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_read_init_track: alloc failed");
-        return NGX_ABORT;
-    }
-
-    track->media_info->codec_name.data = (void*)(track->media_info + 1);
-
-    extra_data.size = header->extra_data_len;
-    extra_data.data = buf->data + header->frames_start - extra_data.size;
-    extra_data.next = NULL;
-
-    rc = ngx_live_media_info_parse(pool->log,
-        (ngx_live_media_info_alloc_pt) ngx_palloc, pool, &header->media_info,
-        &extra_data, extra_data.size, track->media_info);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_read_init_track: failed to parse media info");
-        return rc;
-    }
-
-    /* initialize the frames */
-    frame_data.data = buf->data + header->header_size;
-    frame_data.len = buf->len - header->header_size;
-
-    rc = ngx_live_dvr_source_init(pool, &frame_data,
-        &track->frames_source_context);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_read_init_track: frame source init failed");
-        return NGX_ABORT;
-    }
-
-    track->frames_source = &ngx_live_dvr_source;
-
-    ngx_memzero(&track->frames, sizeof(track->frames));
-    track->frames.part.elts = (void*)(buf->data + header->frames_start);
-    track->frames.part.nelts = header->frame_count;
-    track->frames.part.next = NULL;
-
-    track->start_dts = header->start_dts;
-    track->frame_count = header->frame_count;
-
-    return NGX_OK;
-}
-
-void
-ngx_live_dvr_read_complete(void *arg, ngx_int_t rc, ngx_buf_t *response)
-{
-    uint64_t                        offset;
-    uint32_t                        i;
-    uint32_t                        found_tracks;
-    ngx_int_t                       code;
-    ngx_str_t                       buf;
-    ngx_live_dvr_read_ctx_t        *ctx = arg;
-    ngx_live_dvr_file_header_t     *header;
-    ngx_live_dvr_segment_entry_t   *cur_entry;
-    ngx_live_dvr_segment_entry_t   *last_entry;
-    ngx_live_dvr_read_track_ctx_t  *tctx;
-
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_dvr_read_complete: read failed %i", rc);
-        code = rc;
-        goto failed;
-    }
-
-    buf.data = response->pos;
-    buf.len = response->last - response->pos;
-
-    if (ctx->read_tracks > 0) {
-
-        rc = ngx_live_dvr_read_init_track(ctx->pool, &buf,
-            &ctx->segment->tracks[ctx->read_tracks - 1]);
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-                "ngx_live_dvr_read_complete: init track failed %i", rc);
-            code = rc == NGX_ABORT ? NGX_HTTP_INTERNAL_SERVER_ERROR :
-                NGX_HTTP_BAD_GATEWAY;
-            goto failed;
-        }
-
-        if (ctx->read_tracks < ctx->segment->track_count) {
-            goto read_next;
-        }
-
-        ctx->callback(ctx->arg, NGX_OK);
-        return;
-    }
-
-    if (buf.len < sizeof(*header)) {
         ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
-            "ngx_live_dvr_read_complete: read size %uz too small", buf.len);
-        code = NGX_HTTP_BAD_GATEWAY;
-        goto failed;
+            "ngx_live_dvr_read_parse_header: "
+            "read size %uz too small", buf->len);
+        return NGX_HTTP_BAD_GATEWAY;
     }
 
-    header = (void*) buf.data;
+    header = (void*) buf->data;
 
     if (header->magic != NGX_LIVE_DVR_FILE_MAGIC) {
         ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
-            "ngx_live_dvr_read_complete: invalid magic 0x%uxD", header->magic);
-        code = NGX_HTTP_BAD_GATEWAY;
-        goto failed;
+            "ngx_live_dvr_read_parse_header: "
+            "invalid magic 0x%uxD", header->magic);
+        return NGX_HTTP_BAD_GATEWAY;
     }
 
-    if (buf.len < header->header_size) {
+    if (buf->len < header->header_size) {
         ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
-            "ngx_live_dvr_read_complete: "
+            "ngx_live_dvr_read_parse_header: "
             "read size %uz smaller than header size %uD",
-            buf.len, header->header_size);
-        code = NGX_HTTP_BAD_GATEWAY;
-        goto failed;
+            buf->len, header->header_size);
+        return NGX_HTTP_BAD_GATEWAY;
     }
 
     if (header->header_size < sizeof(*header)) {
         ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
-            "ngx_live_dvr_read_complete: header size %uD too small",
-            header->header_size);
-        code = NGX_HTTP_BAD_GATEWAY;
-        goto failed;
+            "ngx_live_dvr_read_parse_header: "
+            "header size %uD too small", header->header_size);
+        return NGX_HTTP_BAD_GATEWAY;
     }
 
     if (header->segment_count > (header->header_size - sizeof(*header)) /
         sizeof(*cur_entry))
     {
         ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
-            "ngx_live_dvr_read_complete: segment count %uD too big",
-            header->segment_count);
-        code = NGX_HTTP_BAD_GATEWAY;
-        goto failed;
+            "ngx_live_dvr_read_parse_header: "
+            "segment count %uD too big", header->segment_count);
+        return NGX_HTTP_BAD_GATEWAY;
     }
 
     found_tracks = 0;
@@ -446,11 +289,9 @@ ngx_live_dvr_read_complete(void *arg, ngx_int_t rc, ngx_buf_t *response)
 
             if (found_tracks & (1 << i)) {
                 ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
-                    "ngx_live_dvr_read_complete: "
-                    "track %uD found more than once",
-                    cur_entry->track_id);
-                code = NGX_HTTP_BAD_GATEWAY;
-                goto failed;
+                    "ngx_live_dvr_read_parse_header: "
+                    "track %uD found more than once", cur_entry->track_id);
+                return NGX_HTTP_BAD_GATEWAY;
             }
 
             ctx->tracks[i].offset = offset;
@@ -459,34 +300,173 @@ ngx_live_dvr_read_complete(void *arg, ngx_int_t rc, ngx_buf_t *response)
         }
     }
 
-    if (found_tracks != (uint32_t)(1 << ctx->segment->track_count) - 1) {
-        ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
-            "ngx_live_dvr_read_complete: "
-            "some tracks are missing, found 0x%uxD",
-            found_tracks);
-        code = NGX_HTTP_NOT_FOUND;
-        goto failed;
+    if (!found_tracks) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_dvr_read_parse_header: "
+            "segment %uD not found on any track",
+            ctx->segment->segment_index);
+        return NGX_ABORT;
     }
 
-read_next:
+    return NGX_OK;
+}
 
-    tctx = &ctx->tracks[ctx->read_tracks];
+static ngx_int_t
+ngx_live_dvr_read_init_track(ngx_pool_t *pool, ngx_str_t *buf,
+    media_segment_track_t *track)
+{
+    uint32_t                        frames_size;
+    ngx_int_t                       rc;
+    ngx_str_t                       frame_data;
+    ngx_live_dvr_segment_header_t  *header;
 
-    rc = ctx->read(ctx->read_ctx, tctx->offset, tctx->size);
-    if (rc != NGX_AGAIN) {
-        ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
+    /* validate the header */
+    if (buf->len < sizeof(*header)) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_live_dvr_read_init_track: read size %uz too small",
+            buf->len);
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    header = (void*)buf->data;
+    if (header->magic != NGX_LIVE_DVR_SEGMENT_MAGIC) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_live_dvr_read_init_track: invalid magic 0x%uxD",
+            header->magic);
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    if (buf->len < header->header_size) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_live_dvr_read_init_track: "
+            "read size %uz smaller than header size %uD",
+            buf->len, header->header_size);
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+
+    if (header->extra_data_len > NGX_LIVE_MEDIA_INFO_MAX_EXTRA_DATA_LEN) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_live_dvr_read_init_track: extra data len %uD too big",
+            header->extra_data_len);
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    if (header->frame_count > NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_live_dvr_read_init_track: frame count %uD too big",
+            header->frame_count);
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    if (header->frames_start < sizeof(*header) + header->extra_data_len) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_live_dvr_read_init_track: frame start offset %uD too small",
+            header->frames_start);
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    frames_size = header->frame_count * sizeof(input_frame_t);
+    if (header->frames_start > NGX_MAX_INT32_VALUE - frames_size) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_live_dvr_read_init_track: frame start offset %uD too big",
+            header->frames_start);
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    if (header->header_size < header->frames_start + frames_size) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_live_dvr_read_init_track: header size %uD too small",
+            header->header_size);
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    /* initialize the frames */
+    frame_data.data = buf->data + header->header_size;
+    frame_data.len = buf->len - header->header_size;
+
+    rc = ngx_live_dvr_source_init(pool, &frame_data,
+        &track->frames_source_context);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_dvr_read_init_track: frame source init failed");
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    track->frames_source = &ngx_live_dvr_source;
+
+    track->frames.part.elts = (void*)(buf->data + header->frames_start);
+    track->frames.part.nelts = header->frame_count;
+    track->frame_count = header->frame_count;
+
+    track->start_dts = header->start_dts;
+
+    return NGX_OK;
+}
+
+void
+ngx_live_dvr_read_complete(void *arg, ngx_int_t rc, ngx_buf_t *response)
+{
+    ngx_str_t                       buf;
+    ngx_live_dvr_read_ctx_t        *ctx = arg;
+    ngx_live_dvr_read_track_ctx_t  *tctx;
+
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
             "ngx_live_dvr_read_complete: read failed %i", rc);
-        code = NGX_HTTP_INTERNAL_SERVER_ERROR;
-        goto failed;
+        goto done;
     }
 
-    ctx->read_tracks++;
+    buf.data = response->pos;
+    buf.len = response->last - response->pos;
 
-    return;
+    if (ctx->read_tracks <= 0) {
 
-failed:
+        rc = ngx_live_dvr_read_parse_header(ctx, &buf);
+        if (rc != NGX_OK) {
+            if (rc != NGX_ABORT) {
+                ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+                    "ngx_live_dvr_read_complete: parse header failed %i", rc);
+            }
+            goto done;
+        }
 
-    ctx->callback(ctx->arg, code);
+    } else {
+
+        rc = ngx_live_dvr_read_init_track(ctx->pool, &buf,
+            &ctx->segment->tracks[ctx->read_tracks - 1]);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+                "ngx_live_dvr_read_complete: init track failed %i", rc);
+            goto done;
+        }
+    }
+
+    while (ctx->read_tracks < ctx->segment->track_count) {
+
+        tctx = &ctx->tracks[ctx->read_tracks];
+        ctx->read_tracks++;
+
+        if (tctx->size <= 0) {
+            continue;
+        }
+
+        rc = ctx->read(ctx->read_ctx, tctx->offset, tctx->size);
+        if (rc != NGX_DONE) {
+            ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
+                "ngx_live_dvr_read_complete: read failed %i", rc);
+            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            goto done;
+        }
+
+        return;
+    }
+
+    rc = NGX_OK;
+
+done:
+
+    ctx->callback(ctx->arg, rc);
 }
 
 static ngx_int_t
@@ -499,6 +479,7 @@ ngx_live_dvr_read(ngx_live_segment_read_req_t *req)
     ngx_pool_t                  *pool;
     media_segment_t             *segment;
     ngx_live_channel_t          *channel;
+    media_segment_track_t       *cur_track;
     ngx_live_dvr_read_ctx_t     *ctx;
     ngx_live_dvr_preset_conf_t  *dpcf;
     ngx_live_dvr_channel_ctx_t  *cctx;
@@ -544,13 +525,22 @@ ngx_live_dvr_read(ngx_live_segment_read_req_t *req)
     ctx->segment = segment;
     for (i = 0; i < segment->track_count; i++) {
         ctx->tracks[i].id = req->tracks[i].id;
+
+        cur_track = &req->segment->tracks[i];
+        cur_track->media_info = ngx_live_media_info_clone(pool,
+            cur_track->media_info);
+        if (cur_track->media_info == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                "ngx_live_dvr_read: failed to clone media info");
+            return NGX_ERROR;
+        }
     }
 
     ctx->callback = req->callback;
     ctx->arg = req->arg;
 
     rc = ctx->read(ctx->read_ctx, 0, dpcf->initial_read_size);
-    if (rc != NGX_AGAIN) {
+    if (rc != NGX_DONE) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_dvr_read: read failed %i", rc);
         return NGX_ERROR;
@@ -560,7 +550,7 @@ ngx_live_dvr_read(ngx_live_segment_read_req_t *req)
 
     cctx->read_segments++;
 
-    return NGX_AGAIN;
+    return NGX_DONE;
 }
 
 

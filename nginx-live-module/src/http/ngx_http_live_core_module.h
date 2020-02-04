@@ -55,6 +55,8 @@ typedef struct {
     buffer_pool_t             *output_buffer_pool;
 
     ngx_http_complex_value_t  *segment_metadata;
+
+    ngx_flag_t                 empty_segments;
 } ngx_http_live_core_loc_conf_t;
 
 

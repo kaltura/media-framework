@@ -127,12 +127,6 @@ struct ngx_live_track_s {
 };
 
 
-typedef struct {
-    uint32_t                       id;
-    ngx_live_track_t              *track;
-} ngx_live_track_ref_t;
-
-
 typedef enum {
     ngx_live_variant_role_main,
     ngx_live_variant_role_alternate,

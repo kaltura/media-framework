@@ -305,7 +305,7 @@ ngx_live_dvr_http_read(void *arg, off_t offset, size_t size)
         return NGX_ERROR;
     }
 
-    return NGX_AGAIN;
+    return NGX_DONE;
 }
 
 
