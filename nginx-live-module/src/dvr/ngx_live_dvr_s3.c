@@ -1,6 +1,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <openssl/sha.h>
+#include <openssl/hmac.h>
 #include "ngx_live_dvr_http.h"
 
 

@@ -44,7 +44,6 @@ typedef struct {
     ngx_pool_t                         *pool;
     ngx_live_channel_t                 *channel;
     ngx_live_track_ref_t               *tracks;
-    uint32_t                            track_count;
     uint32_t                            flags;
     media_segment_t                    *segment;
     ngx_live_read_segment_callback_pt   callback;

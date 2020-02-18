@@ -533,8 +533,6 @@ ngx_live_filler_fill(ngx_live_channel_t *channel, uint32_t media_type_mask,
             break;
 
         case NGX_ABORT:
-            ngx_live_segment_cache_free_by_index(channel,
-                channel->next_segment_index);
             cctx->reset = 1;
             cctx->dts_offset = 0;
             /* fall through */
@@ -813,8 +811,17 @@ ngx_live_filler_setup_track(ngx_live_channel_t *dst,
     rc = ngx_live_track_create(dst, &src_track->sn.str, src_track->media_type,
         log, &dst_track);
     if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_live_filler_setup_track: create track failed %i", rc);
+        if (rc == NGX_BUSY) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_live_filler_setup_track: "
+                "track \"%V\" already exists in channel \"%V\"",
+                &src_track->sn.str, &dst->sn.str);
+
+        } else {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_live_filler_setup_track: create track failed %i", rc);
+        }
+
         return NGX_ERROR;
     }
 

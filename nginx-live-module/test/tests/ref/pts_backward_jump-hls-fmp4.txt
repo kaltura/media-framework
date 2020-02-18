@@ -1,0 +1,93 @@
+URL: /master.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-INDEPENDENT-SEGMENTS
+
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=100768,RESOLUTION=160x120,FRAME-RATE=15.000,CODECS="avc1.64000b,mp4a.40.2"
+index-svar1.m3u8
+
+URL: /index-svar1.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:6
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:00:00.000+00:00
+#EXT-X-MAP:URI="init-1-svar1.mp4"
+#EXTINF:4.066,
+seg-1-svar1.m4s
+#EXTINF:3.934,
+seg-2-svar1.m4s
+#EXTINF:4.066,
+seg-3-svar1.m4s
+#EXTINF:3.934,
+seg-4-svar1.m4s
+#EXTINF:4.000,
+seg-5-svar1.m4s
+#EXTINF:4.000,
+seg-6-svar1.m4s
+#EXTINF:3.759,
+seg-7-svar1.m4s
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:00:27.759+00:00
+#EXTINF:4.041,
+seg-8-svar1.m4s
+#EXTINF:3.933,
+seg-9-svar1.m4s
+#EXTINF:4.067,
+seg-10-svar1.m4s
+#EXTINF:3.962,
+seg-11-svar1.m4s
+#EXT-X-ENDLIST
+
+URL: /init-1-svar1.mp4
+HEADERS: 200 video/mp4
+BODYMD5: 978f6ef4759df9fc21e7c50844616b80
+
+URL: /seg-1-svar1.m4s
+HEADERS: 200 video/mp4
+BODYMD5: 7b4446e32858121c112ebbb27c5e8fad
+
+URL: /seg-2-svar1.m4s
+HEADERS: 200 video/mp4
+BODYMD5: c12c19004ec15d42a857e8e6f7a1d552
+
+URL: /seg-3-svar1.m4s
+HEADERS: 200 video/mp4
+BODYMD5: de995c8746d818589efe6e59f789dd18
+
+URL: /seg-4-svar1.m4s
+HEADERS: 200 video/mp4
+BODYMD5: 67699a14e92ceb1324c55ed106f8f8e6
+
+URL: /seg-5-svar1.m4s
+HEADERS: 200 video/mp4
+BODYMD5: 9b32be421d85de07dacc4dcda7b09b88
+
+URL: /seg-6-svar1.m4s
+HEADERS: 200 video/mp4
+BODYMD5: 10be6b2e385018d9c30b4b2929304889
+
+URL: /seg-7-svar1.m4s
+HEADERS: 200 video/mp4
+BODYMD5: 09a6737d1bd6ea64b16ab5cb3bc7d223
+
+URL: /seg-8-svar1.m4s
+HEADERS: 200 video/mp4
+BODYMD5: f0b1078a23a4510f50b9ad1713baced1
+
+URL: /seg-9-svar1.m4s
+HEADERS: 200 video/mp4
+BODYMD5: c58fb9ae505327efce0c11ead04a678f
+
+URL: /seg-10-svar1.m4s
+HEADERS: 200 video/mp4
+BODYMD5: f190ae555bc16094f63708ea9574deee
+
+URL: /seg-11-svar1.m4s
+HEADERS: 200 video/mp4
+BODYMD5: e46370e4fc6d8cd71115734f9d4f15a1
+

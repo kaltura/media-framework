@@ -43,9 +43,11 @@ typedef enum {
 typedef struct {
     ngx_msec_t                        segment_duration;
     ngx_msec_t                        min_segment_duration;
+    ngx_msec_t                        forward_skip_threshold;
     ngx_msec_t                        forward_jump_threshold;
     ngx_msec_t                        backward_jump_threshold;
     ngx_msec_t                        inactive_timeout;
+    ngx_msec_t                        start_truncate_limit;
 
     ngx_msec_t                        track_add_snap_range;
     ngx_msec_t                        track_remove_snap_range;
@@ -111,6 +113,7 @@ typedef struct {
 /* key frame list */
 typedef struct {
     int64_t                           pts;
+    int64_t                           prev_pts;
     uint32_t                          flags;
     uint32_t                          index_delta;
 } ngx_live_segmenter_kf_t;
@@ -170,8 +173,10 @@ typedef struct {
     ngx_live_segmenter_dyn_conf_t     conf;
     uint32_t                          segment_duration;
     uint32_t                          min_segment_duration;
+    uint32_t                          forward_skip_threshold;
     uint32_t                          forward_jump_threshold;
     uint32_t                          backward_jump_threshold;
+    uint32_t                          start_truncate_limit;
 
     uint32_t                          track_add_snap_range;
     uint32_t                          track_remove_snap_range;
@@ -221,6 +226,13 @@ static ngx_command_t  ngx_live_segmenter_commands[] = {
       offsetof(ngx_live_segmenter_preset_conf_t, min_segment_duration),
       NULL },
 
+    { ngx_string("segmenter_forward_skip_threshold"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_segmenter_preset_conf_t, forward_skip_threshold),
+      NULL },
+
     { ngx_string("segmenter_forward_jump_threshold"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_msec_slot,
@@ -240,6 +252,13 @@ static ngx_command_t  ngx_live_segmenter_commands[] = {
       ngx_conf_set_msec_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_segmenter_preset_conf_t, inactive_timeout),
+      NULL },
+
+    { ngx_string("segmenter_start_truncate_limit"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_segmenter_preset_conf_t, start_truncate_limit),
       NULL },
 
     { ngx_string("segmenter_track_add_snap_range"),
@@ -707,6 +726,7 @@ static ngx_uint_t
 ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
     int64_t target_pts, uint32_t stop_flags)
 {
+    int64_t                           prev_pts;
     int64_t                           diff, cur_diff;
     ngx_uint_t                        index;
     ngx_uint_t                        cur_index;
@@ -718,12 +738,13 @@ ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
     last = cur + part->nelts;
 
     /* handle first frame */
-    if (target_pts <= cur->pts) {
+    prev_pts = cur->pts;
+    if (target_pts <= prev_pts) {
         return 0;
     }
 
     index = 0;
-    diff = ngx_abs_diff(cur->pts, target_pts);
+    diff = ngx_abs_diff(prev_pts, target_pts);
     cur++;
 
     for (cur_index = 1 ;; cur++, cur_index++) {
@@ -738,7 +759,7 @@ ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
             last = cur + part->nelts;
         }
 
-        cur_diff = ngx_abs_diff(cur->pts, target_pts);
+        cur_diff = ngx_abs_diff(prev_pts, target_pts);
         if (cur_diff <= diff) {
             index = cur_index;
             diff = cur_diff;
@@ -747,13 +768,11 @@ ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
         if (stop_flags && (cur->flags & stop_flags) == stop_flags) {
             break;
         }
+
+        prev_pts = cur->pts;
     }
 
-    /* Note: as in 'get_key_index' each frame is considered to have its own
-        pts as well as the previous pts. we prefer later frames ('<=' above)
-        so also need to + 1 here */
-
-    return index + 1;
+    return index;
 }
 
 static ngx_uint_t
@@ -782,10 +801,9 @@ ngx_live_segmenter_frame_list_get_key_index(
     diff = ngx_abs_diff(prev_pts, target_pts);
     cur++;
 
-    /* Note: when comparing key frame pts, we're using the pts of the frame
-        itself AND the pts of the previous frame. when we split on some frame,
-        the first segment ends on the pts preceeding the key, while the second
-        segment starts with the pts of the key */
+    /* Note: when comparing key frame pts, we're using the pts of the previous
+        frame since the key frame pts may jump forward/backward compared to
+        the current gop */
 
     for (cur_index = 1 ;; cur++, cur_index++) {
 
@@ -810,16 +828,11 @@ ngx_live_segmenter_frame_list_get_key_index(
             diff = cur_diff;
         }
 
-        prev_pts = cur->pts;
-        cur_diff = ngx_abs_diff(prev_pts, target_pts);
-        if (cur_diff <= diff) {
-            index = cur_index;
-            diff = cur_diff;
-        }
-
         if (stop_flags && (cur->flags & stop_flags) == stop_flags) {
             break;
         }
+
+        prev_pts = cur->pts;
     }
 
     return index;
@@ -1047,6 +1060,10 @@ ngx_live_segmenter_kf_list_add_candidates(ngx_live_segmenter_kf_list_t *list,
     cur = part->elts;
     last = cur + part->nelts;
 
+    if (cur >= last) {
+        return;
+    }
+
     cur++;      /* skip the first frame */
 
     for (; ; cur++) {
@@ -1061,12 +1078,8 @@ ngx_live_segmenter_kf_list_add_candidates(ngx_live_segmenter_kf_list_t *list,
             last = cur + part->nelts;
         }
 
-        if (cur->pts >= max_pts) {
-            break;
-        }
-
-        if (cur->pts >= min_pts) {
-            ngx_live_segmenter_candidate_list_add(candidates, cur->pts);
+        if (cur->prev_pts >= min_pts && cur->prev_pts < max_pts) {
+            ngx_live_segmenter_candidate_list_add(candidates, cur->prev_pts);
         }
 
         if (cur->flags & NGX_LIVE_FRAME_FLAG_SPLIT) {
@@ -1088,6 +1101,25 @@ ngx_live_segmenter_kf_list_find_nearest_pts(ngx_live_segmenter_kf_list_t *list,
     cur = part->elts;
     last = cur + part->nelts;
 
+    if (cur >= last) {
+        return;
+    }
+
+    /* handle first frame */
+    for (i = 0; i < candidates->nelts; i++) {
+
+        target = candidates->elts[i].pts;
+
+        if (result[i] == NGX_LIVE_INVALID_PTS ||
+            ngx_abs_diff(cur->pts, target) <
+            ngx_abs_diff(result[i], target))
+        {
+            result[i] = cur->pts;
+        }
+    }
+
+    cur++;
+
     for (; ; cur++) {
 
         if (cur >= last) {
@@ -1103,17 +1135,16 @@ ngx_live_segmenter_kf_list_find_nearest_pts(ngx_live_segmenter_kf_list_t *list,
         for (i = 0; i < candidates->nelts; i++) {
 
             target = candidates->elts[i].pts;
+
             if (result[i] == NGX_LIVE_INVALID_PTS ||
-                ngx_abs_diff(cur->pts, target) <
+                ngx_abs_diff(cur->prev_pts, target) <
                 ngx_abs_diff(result[i], target))
             {
-                result[i] = cur->pts;
+                result[i] = cur->prev_pts;
             }
         }
 
-        if (cur->flags & NGX_LIVE_FRAME_FLAG_SPLIT &&
-            cur != list->part.elts)
-        {
+        if (cur->flags & NGX_LIVE_FRAME_FLAG_SPLIT) {
             break;
         }
     }
@@ -1324,6 +1355,16 @@ ngx_live_segmenter_validate_track_ctx(ngx_live_track_t *track)
                     ngx_debug_point();
                 }
 
+                if (kf_cur != ctx->key_frames.part.elts &&
+                    kf_cur->prev_pts != prev_pts)
+                {
+                    ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
+                        "ngx_live_segmenter_validate_track_ctx: "
+                        "invalid kf prev pts %L expected %L",
+                        kf_cur->prev_pts, prev_pts);
+                    ngx_debug_point();
+                }
+
                 if (kf_cur->flags != cur->flags) {
                     ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
                         "ngx_live_segmenter_validate_track_ctx: "
@@ -1517,29 +1558,42 @@ ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
         ngx_live_segmenter_set_state(track, ngx_live_track_pending);
     }
 
-    /* if splits were removed, enable split on the next frame */
+    /* if splits were removed or frames were disposed,
+        enable split on the next frame */
     if (ctx->split_count != initial_split_count) {
 
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
             "ngx_live_segmenter_remove_frames: "
             "splits removed, enabling split on next frame");
 
-        if (ctx->frames.part.nelts > 0) {
-            ctx->frames.part.elts[0].flags |= NGX_LIVE_FRAME_FLAG_SPLIT;
-
-        } else {
-            ctx->force_split = 1;
-        }
-    }
-
-    /* update split pts */
-    if (ctx->split_count != initial_split_count) {
         ctx->min_split_pts = ctx->split_count > 0 ?
             ngx_live_segmenter_frame_list_get_min_split_pts(&ctx->frames) :
             NGX_LIVE_INVALID_PTS;
+
+    } else if (free_data_chains) {
+
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+            "ngx_live_segmenter_remove_frames: "
+            "frames disposed, enabling split on next frame");
+
+    } else {
+        goto done;
     }
 
-    /* update ready status */
+    if (ctx->frames.part.nelts > 0) {
+        ctx->frames.part.elts[0].flags |= NGX_LIVE_FRAME_FLAG_SPLIT;
+
+        if (ctx->key_frames.part.nelts > 0 &&
+            ctx->key_frames.part.elts[0].index_delta == 0)
+        {
+            ctx->key_frames.part.elts[0].flags |= NGX_LIVE_FRAME_FLAG_SPLIT;
+        }
+
+    } else {
+        ctx->force_split = 1;
+    }
+
+done:
 
     ngx_live_segmenter_validate_track_ctx(track);
 }
@@ -1636,16 +1690,15 @@ ngx_live_segmenter_prepare_create_segment(ngx_live_channel_t *channel,
 }
 
 static void
-ngx_live_segmenter_find_nearest_keyframe_pts(ngx_live_track_t *track,
-    ngx_live_segmenter_candidate_list_t *candidates, int64_t *result)
+ngx_live_segmenter_find_nearest_keyframe_pts(
+    ngx_live_segmenter_track_ctx_t *ctx,
+    ngx_live_segmenter_candidate_list_t *candidates,
+    ngx_flag_t has_last_segment, int64_t *result)
 {
     int64_t                          target;
     ngx_uint_t                       i;
-    ngx_live_segmenter_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segmenter_module);
-
-    if (!track->has_last_segment) {
+    if (!has_last_segment) {
 
         /* Note: this track is being added, candidates before its start
             position are considered perfect */
@@ -1688,6 +1741,9 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
 {
     int64_t                               min_target_pts;
     int64_t                               cur_split_pts;
+    uint32_t                              media_types;
+    uint32_t                              min_snap_range;
+    uint32_t                              cur_snap_range;
     ngx_queue_t                          *q;
     ngx_live_track_t                     *cur_track;
     ngx_live_segmenter_track_ctx_t       *cur_ctx;
@@ -1700,6 +1756,9 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
     candidates->margin = cctx->candidate_margin;
     candidates->nelts = 0;
 
+    media_types = 0;
+    min_snap_range = 0;
+    cur_snap_range = 0;
     *min_split_pts = NGX_LIVE_INVALID_PTS;
     min_target_pts = cctx->last_segment_end_pts + cctx->min_segment_duration;
 
@@ -1716,11 +1775,12 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
         }
 
         /* check for track add/remove/split */
-        if (!cur_track->has_last_segment &&
+        if ((!cur_track->has_last_segment || cctx->force_new_period) &&
             cur_ctx->start_pts > cctx->last_segment_end_pts +
             cctx->track_add_snap_range)
         {
             cur_split_pts = cur_ctx->start_pts;
+            cur_snap_range = cctx->track_add_snap_range;
 
             ngx_log_debug3(NGX_LOG_DEBUG_LIVE, &cur_track->log, 0,
                 "ngx_live_segmenter_candidates_get: "
@@ -1730,6 +1790,8 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
 
         } else if (cur_ctx->min_split_pts != NGX_LIVE_INVALID_PTS) {
             cur_split_pts = cur_ctx->min_split_pts;
+            cur_snap_range = cctx->split_snap_range;
+            media_types |= 1 << cur_track->media_type;
 
             ngx_log_debug3(NGX_LOG_DEBUG_LIVE, &cur_track->log, 0,
                 "ngx_live_segmenter_candidates_get: "
@@ -1739,6 +1801,8 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
 
         } else if (cur_ctx->state != ngx_live_track_ready) {
             cur_split_pts = cur_ctx->last_pts;
+            cur_snap_range = cctx->track_remove_snap_range;
+            media_types |= 1 << cur_track->media_type;
 
             ngx_log_debug3(NGX_LOG_DEBUG_LIVE, &cur_track->log, 0,
                 "ngx_live_segmenter_candidates_get: "
@@ -1748,10 +1812,12 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
 
         } else {
             cur_split_pts = NGX_LIVE_INVALID_PTS;
+            media_types |= 1 << cur_track->media_type;
         }
 
         if (cur_split_pts < *min_split_pts) {
             *min_split_pts = cur_split_pts;
+            min_snap_range = cur_snap_range;
 
             ngx_live_segmenter_candidate_list_truncate(candidates,
                 *min_split_pts);
@@ -1770,6 +1836,12 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
     if (*min_split_pts != NGX_LIVE_INVALID_PTS) {
         ngx_live_segmenter_candidate_list_add(candidates, *min_split_pts);
     }
+
+    if (!(media_types & (1 << KMP_MEDIA_VIDEO)) &&
+        boundary_pts + min_snap_range < *min_split_pts)
+    {
+        ngx_live_segmenter_candidate_list_add(candidates, boundary_pts);
+    }
 }
 
 static void
@@ -1777,12 +1849,15 @@ ngx_live_segmenter_candidates_get_span(ngx_live_channel_t *channel,
     ngx_live_segmenter_candidate_list_t *candidates,
     int64_t *min, int64_t *max)
 {
-    uint32_t                         i;
-    ngx_queue_t                     *q;
-    ngx_live_track_t                *cur_track;
-    ngx_live_segmenter_track_ctx_t  *cur_ctx;
+    uint32_t                           i;
+    ngx_queue_t                       *q;
+    ngx_live_track_t                  *cur_track;
+    ngx_live_segmenter_track_ctx_t    *cur_ctx;
+    ngx_live_segmenter_channel_ctx_t  *cctx;
 
     int64_t  nearest[NGX_LIVE_SEGMENTER_CANDIDATE_COUNT];
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
     for (i = 0; i < candidates->nelts; i++) {
         min[i] = max[i] = candidates->elts[i].pts;
@@ -1812,8 +1887,8 @@ ngx_live_segmenter_candidates_get_span(ngx_live_channel_t *channel,
 
         /* for each base track keyframe, find the pts of the closest keyframe
             in the current track */
-        ngx_live_segmenter_find_nearest_keyframe_pts(cur_track, candidates,
-            nearest);
+        ngx_live_segmenter_find_nearest_keyframe_pts(cur_ctx, candidates,
+            cur_track->has_last_segment && !cctx->force_new_period, nearest);
 
         /* update the min / max ptss */
         for (i = 0; i < candidates->nelts; i++) {
@@ -1847,12 +1922,12 @@ ngx_live_segmenter_get_segment_end_pts(ngx_live_channel_t *channel,
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
     /* get the segment boundary pts */
-    if (min_pts > cctx->last_segment_end_pts + cctx->forward_jump_threshold) {
+    if (min_pts > cctx->last_segment_end_pts + cctx->forward_skip_threshold) {
 
         if (cctx->last_segment_end_pts) {
             ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
                 "ngx_live_segmenter_get_segment_end_pts: "
-                "pts forward jump, forcing new period, "
+                "pts forward skip, forcing new period, "
                 "min_pts: %L, last_segment_pts: %L, delta: %L",
                 min_pts, cctx->last_segment_end_pts,
                 min_pts - cctx->last_segment_end_pts);
@@ -1895,11 +1970,12 @@ ngx_live_segmenter_get_segment_end_pts(ngx_live_channel_t *channel,
 
         cur_diff = max[i] - min[i];
 
-        ngx_log_debug4(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
+        ngx_log_debug5(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
             "ngx_live_segmenter_get_segment_end_pts: "
-            "candidate, channel: %V, pts: %L, delta: %L, diff: %L",
-            &channel->sn.str, candidates.elts[i].pts,
-            candidates.elts[i].pts - cctx->last_segment_end_pts, cur_diff);
+            "candidate, pts: %L, delta: %L, diff: %L, nsi: %uD, channel: %V",
+            candidates.elts[i].pts,
+            candidates.elts[i].pts - cctx->last_segment_end_pts, cur_diff,
+            channel->next_segment_index, &channel->sn.str);
 
         if (cur_diff > min_diff) {
             continue;
@@ -1939,6 +2015,7 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
     int64_t target_pts, uint32_t *media_types_mask)
 {
     int64_t                            cur_target_pts;
+    uint32_t                           split_index;
     ngx_int_t                          rc;
     ngx_flag_t                         force_new_period;
     ngx_queue_t                       *q;
@@ -1967,40 +2044,50 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
             continue;
         }
 
-        /* track removed + last pts before target -> use all frames */
         if (cur_ctx->state != ngx_live_track_ready &&
             cur_ctx->split_count <= 0 &&
             cur_ctx->last_pts <= target_pts + cctx->track_remove_snap_range)
         {
-            cur_ctx->split_index = cur_ctx->frame_count;
-            goto exists;
-        }
+            /* track removed + last pts before target -> use all frames */
+            split_index = cur_ctx->frame_count;
 
-        /* track added + start pts after target -> add it next time */
-        if (!cur_track->has_last_segment &&
+        } else if ((!cur_track->has_last_segment || force_new_period) &&
             cur_ctx->start_pts > target_pts - cctx->track_add_snap_range)
         {
-            cur_ctx->split_index = 0;
-            continue;
-        }
-
-        /* target pts is close to a split -> increase it to reach the split */
-        cur_target_pts = target_pts + cctx->split_snap_range;
-        if (cur_target_pts < cur_ctx->min_split_pts) {
-            cur_target_pts = target_pts;
-        }
-
-        /* find the key frame closest to target */
-        if (cur_track->media_type == KMP_MEDIA_VIDEO) {
-            cur_ctx->split_index = ngx_live_segmenter_frame_list_get_key_index(
-                &cur_ctx->frames, cur_target_pts, NGX_LIVE_FRAME_FLAG_SPLIT);
+            /* track added + start pts after target -> add it next time */
+            split_index = 0;
 
         } else {
-            cur_ctx->split_index = ngx_live_segmenter_frame_list_get_index(
-                &cur_ctx->frames, cur_target_pts, NGX_LIVE_FRAME_FLAG_SPLIT);
+            /* if target is close to a split -> increase it up to the split */
+            cur_target_pts = target_pts + cctx->split_snap_range;
+            if (cur_target_pts < cur_ctx->min_split_pts) {
+                cur_target_pts = target_pts;
+            }
+
+            /* find the key frame closest to target */
+            if (cur_track->media_type == KMP_MEDIA_VIDEO) {
+                split_index = ngx_live_segmenter_frame_list_get_key_index(
+                    &cur_ctx->frames, cur_target_pts,
+                    NGX_LIVE_FRAME_FLAG_SPLIT);
+
+            } else {
+                split_index = ngx_live_segmenter_frame_list_get_index(
+                    &cur_ctx->frames, cur_target_pts,
+                    NGX_LIVE_FRAME_FLAG_SPLIT);
+            }
         }
 
-        if (cur_ctx->split_index <= 0) {
+        cur_ctx->split_index = split_index;
+
+        if (split_index <= 0) {
+
+            if (force_new_period &&
+                cur_ctx->start_pts > cctx->last_segment_end_pts +
+                cctx->start_truncate_limit)
+            {
+                continue;
+            }
+
             if (cur_track->has_last_segment || force_new_period) {
                 ngx_log_error(NGX_LOG_ERR, &cur_track->log, 0,
                     "ngx_live_segmenter_set_split_indexes: "
@@ -2011,11 +2098,11 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
             continue;
         }
 
-exists:
-
         *media_types_mask |= (1 << cur_track->media_type);
 
-        if (cur_ctx->frames.part.elts[0].flags & NGX_LIVE_FRAME_FLAG_SPLIT) {
+        if (cur_ctx->frames.part.elts[0].flags & NGX_LIVE_FRAME_FLAG_SPLIT &&
+            cur_track->has_last_segment)
+        {
             ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
                 "ngx_live_segmenter_set_split_indexes: "
                 "split enabled, forcing new period");
@@ -2088,12 +2175,14 @@ ngx_live_segmenter_dispose_segment(ngx_live_channel_t *channel,
     int64_t end_pts)
 {
     ngx_flag_t                         removed;
+    ngx_flag_t                         force_new_period;
     ngx_queue_t                       *q;
     ngx_live_track_t                  *cur_track;
     ngx_live_segmenter_track_ctx_t    *cur_ctx;
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
     removed = 0;
+    force_new_period = 0;
 
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
@@ -2112,9 +2201,14 @@ ngx_live_segmenter_dispose_segment(ngx_live_channel_t *channel,
             "removing %uD frames, track: %V",
             cur_ctx->split_index, &cur_track->sn.str);
 
-        ngx_live_segmenter_remove_frames(cur_track, cur_ctx->split_index, 1);
-
         removed = 1;
+
+        /* start a new period only if an active track was removed */
+        if (cur_ctx->state == ngx_live_track_ready) {
+            force_new_period = 1;
+        }
+
+        ngx_live_segmenter_remove_frames(cur_track, cur_ctx->split_index, 1);
     }
 
     if (!removed) {
@@ -2123,14 +2217,18 @@ ngx_live_segmenter_dispose_segment(ngx_live_channel_t *channel,
         return NGX_ERROR;
     }
 
+    if (!force_new_period) {
+        return NGX_OK;
+    }
+
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
         "ngx_live_segmenter_dispose_segment: "
         "empty segment, forcing new period");
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
-    cctx->force_new_period = 1;
     cctx->last_segment_end_pts = end_pts;
+    cctx->force_new_period = 1;
 
     return NGX_OK;
 }
@@ -2140,6 +2238,7 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
 {
     uint32_t                           segment_index;
     ngx_int_t                          rc;
+    ngx_flag_t                         changed;
     media_info_t                      *media_info;
     kmp_media_info_t                  *kmp_media_info;
     ngx_live_segment_t                *segment;
@@ -2153,7 +2252,8 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segmenter_module);
 
     /* get the media info */
-    if (ngx_live_media_info_pending_create_segment(track, segment_index)) {
+    ngx_live_media_info_pending_create_segment(track, segment_index, &changed);
+    if (changed) {
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
             "ngx_live_segmenter_track_create_segment: "
             "media info changed, forcing new period");
@@ -2214,6 +2314,7 @@ static ngx_int_t
 ngx_live_segmenter_create_segment(ngx_live_channel_t *channel)
 {
     uint32_t                           media_types_mask;
+    uint32_t                           last_media_types_mask;
     uint32_t                           missing_media_types_mask;
     ngx_int_t                          rc;
     ngx_queue_t                       *q;
@@ -2244,7 +2345,8 @@ ngx_live_segmenter_create_segment(ngx_live_channel_t *channel)
 
             if (cur_track->has_last_segment) {
                 ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
-                    "ngx_live_segmenter_create_segment: track removed");
+                    "ngx_live_segmenter_create_segment: "
+                    "track removed, enabling split on next frame");
 
                 cur_track->has_last_segment = 0;
                 channel->last_modified = ngx_time();
@@ -2259,14 +2361,35 @@ ngx_live_segmenter_create_segment(ngx_live_channel_t *channel)
         }
 
         if (!cur_track->has_last_segment) {
-            ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
-                "ngx_live_segmenter_create_segment: track added");
+
+            last_media_types_mask = channel->last_segment_media_types |
+                channel->filler_media_types;
+            if (last_media_types_mask & (1 << cur_track->media_type)) {
+
+                /* this track used a filler in the last segment */
+                ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
+                    "ngx_live_segmenter_create_segment: "
+                    "track added, forcing new period");
+
+                cctx->force_new_period = 1;
+
+            } else {
+                ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
+                    "ngx_live_segmenter_create_segment: track added");
+            }
 
             cur_track->has_last_segment = 1;
             channel->last_modified = ngx_time();
         }
 
         media_types_mask |= 1 << cur_track->media_type;
+    }
+
+    if (!media_types_mask) {
+        ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
+            "ngx_live_segmenter_create_segment: "
+            "segment does not exist on any track");
+        return NGX_ERROR;
     }
 
     channel->last_segment_media_types = media_types_mask;
@@ -2312,8 +2435,8 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
-    while (cctx->count[ngx_live_track_pending] <= 0)
-    {
+    while (cctx->count[ngx_live_track_pending] <= 0) {
+
         /* get the min pts of all tracks */
         ngx_live_segmenter_prepare_create_segment(channel, &media_types_mask,
             &min_pts);
@@ -2379,6 +2502,10 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
         }
 
         if (rc == NGX_ABORT) {
+            /* free any segments that the filler may have created */
+            ngx_live_segment_cache_free_by_index(channel,
+                channel->next_segment_index);
+
             if (ngx_live_segmenter_dispose_segment(channel, end_pts)
                 != NGX_OK)
             {
@@ -2446,12 +2573,26 @@ ngx_live_segmenter_add_media_info(ngx_live_track_t *track,
     kmp_media_info_t *media_info, ngx_buf_chain_t *extra_data,
     uint32_t extra_data_size)
 {
+    ngx_int_t                        rc;
     ngx_live_segmenter_track_ctx_t  *ctx;
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segmenter_module);
 
-    return ngx_live_media_info_pending_add(track, media_info, extra_data,
+    rc = ngx_live_media_info_pending_add(track, media_info, extra_data,
         extra_data_size, ctx->frame_count);
+    switch (rc) {
+
+    case NGX_OK:
+        ctx->force_split = 1;   /* force a split on the next frame to arrive */
+
+        /* fall through */
+
+    case NGX_DONE:
+        return NGX_OK;
+
+    default:
+        return rc;
+    }
 }
 
 static ngx_int_t
@@ -2465,17 +2606,17 @@ ngx_live_segmenter_add_frame(ngx_live_track_t *track, kmp_frame_t *frame_info,
     ngx_live_segmenter_preset_conf_t  *spcf;
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
-    if (frame_info->dts >= NGX_LIVE_INVALID_PTS - frame_info->pts_delay) {
-        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
-            "ngx_live_segmenter_add_frame: invalid dts %L", frame_info->dts);
-        return NGX_ERROR;
-    }
-
     ngx_log_debug6(NGX_LOG_DEBUG_LIVE, &track->log, 0,
         "ngx_live_segmenter_add_frame: track: %V, created: %L, size: %uz, "
         "dts: %L, flags: 0x%uxD, ptsDelay: %uD",
         &track->sn.str, frame_info->created, size, frame_info->dts,
         frame_info->flags, frame_info->pts_delay);
+
+    if (frame_info->dts >= NGX_LIVE_INVALID_PTS - frame_info->pts_delay) {
+        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
+            "ngx_live_segmenter_add_frame: invalid dts %L", frame_info->dts);
+        return NGX_ERROR;
+    }
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segmenter_module);
 
@@ -2526,13 +2667,27 @@ ngx_live_segmenter_add_frame(ngx_live_track_t *track, kmp_frame_t *frame_info,
     if (track->media_type != KMP_MEDIA_VIDEO ||
         (frame->flags & KMP_FRAME_FLAG_KEY))
     {
-        if (frame->pts < ctx->last_pts - cctx->backward_jump_threshold) {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_live_segmenter_add_frame: "
-                "pts backward jump, pts: %L, last_pts: %L, delta: %L",
-                frame->pts, ctx->last_pts, ctx->last_pts - frame->pts);
+        if (ctx->frame_count > 0) {
+            if (frame->pts < ctx->last_pts - cctx->backward_jump_threshold) {
+                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                    "ngx_live_segmenter_add_frame: "
+                    "enabling split due to pts backward jump, "
+                    "pts: %L, last_pts: %L, delta: %L",
+                    frame->pts, ctx->last_pts, ctx->last_pts - frame->pts);
 
-            frame->flags |= NGX_LIVE_FRAME_FLAG_SPLIT;
+                frame->flags |= NGX_LIVE_FRAME_FLAG_SPLIT;
+
+            } else if (frame->pts > ctx->last_pts +
+                cctx->forward_jump_threshold)
+            {
+                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                    "ngx_live_segmenter_add_frame: "
+                    "enabling split due to pts forward jump, "
+                    "pts: %L, last_pts: %L, delta: %L",
+                    frame->pts, ctx->last_pts, frame->pts - ctx->last_pts);
+
+                frame->flags |= NGX_LIVE_FRAME_FLAG_SPLIT;
+            }
         }
 
         ctx->last_key_pts = frame->pts;
@@ -2547,6 +2702,7 @@ ngx_live_segmenter_add_frame(ngx_live_track_t *track, kmp_frame_t *frame_info,
             }
 
             kf->pts = frame->pts;
+            kf->prev_pts = ctx->last_pts;
             kf->flags = frame->flags;
         }
     }
@@ -2829,10 +2985,14 @@ ngx_live_segmenter_channel_init(ngx_live_channel_t *channel,
 
     cctx->min_segment_duration = ngx_live_rescale_time(
         spcf->min_segment_duration, 1000, cpcf->timescale);
+    cctx->forward_skip_threshold = ngx_live_rescale_time(
+        spcf->forward_skip_threshold, 1000, cpcf->timescale);
     cctx->forward_jump_threshold = ngx_live_rescale_time(
         spcf->forward_jump_threshold, 1000, cpcf->timescale);
     cctx->backward_jump_threshold = ngx_live_rescale_time(
         spcf->backward_jump_threshold, 1000, cpcf->timescale);
+    cctx->start_truncate_limit = ngx_live_rescale_time(
+        spcf->start_truncate_limit, 1000, cpcf->timescale);
 
     cctx->track_add_snap_range = ngx_live_rescale_time(
         spcf->track_add_snap_range, 1000, cpcf->timescale);
@@ -2849,6 +3009,8 @@ ngx_live_segmenter_channel_init(ngx_live_channel_t *channel,
     cctx->create.data = channel;
     cctx->create.handler = ngx_live_segmenter_create_handler;
     cctx->create.log = &channel->log;
+
+    cctx->force_new_period = 1;
 
     ngx_live_reserve_track_ctx_size(channel, ngx_live_segmenter_module,
         sizeof(ngx_live_segmenter_track_ctx_t), track_ctx_size);
@@ -3066,9 +3228,11 @@ ngx_live_segmenter_create_preset_conf(ngx_conf_t *cf)
 
     conf->segment_duration = NGX_CONF_UNSET_MSEC;
     conf->min_segment_duration = NGX_CONF_UNSET_MSEC;
+    conf->forward_skip_threshold = NGX_CONF_UNSET_MSEC;
     conf->forward_jump_threshold = NGX_CONF_UNSET_MSEC;
     conf->backward_jump_threshold = NGX_CONF_UNSET_MSEC;
     conf->inactive_timeout = NGX_CONF_UNSET_MSEC;
+    conf->start_truncate_limit = NGX_CONF_UNSET_MSEC;
 
     conf->track_add_snap_range = NGX_CONF_UNSET_MSEC;
     conf->track_remove_snap_range = NGX_CONF_UNSET_MSEC;
@@ -3095,6 +3259,9 @@ ngx_live_segmenter_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_msec_value(conf->min_segment_duration,
                               prev->min_segment_duration, 100);
 
+    ngx_conf_merge_msec_value(conf->forward_skip_threshold,
+                              prev->forward_skip_threshold, 1000);
+
     ngx_conf_merge_msec_value(conf->forward_jump_threshold,
                               prev->forward_jump_threshold, 1000);
 
@@ -3103,6 +3270,9 @@ ngx_live_segmenter_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_msec_value(conf->inactive_timeout,
                               prev->inactive_timeout, 10000);
+
+    ngx_conf_merge_msec_value(conf->start_truncate_limit,
+                              prev->start_truncate_limit, 5000);
 
     ngx_conf_merge_msec_value(conf->track_add_snap_range,
                               prev->track_add_snap_range, 500);

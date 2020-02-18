@@ -210,6 +210,13 @@ ngx_live_syncer_add_frame(ngx_live_track_t *track, kmp_frame_t *frame,
     ngx_live_syncer_track_ctx_t    *ctx;
     ngx_live_syncer_preset_conf_t  *spcf;
 
+    spcf = ngx_live_get_module_preset_conf(track->channel,
+        ngx_live_syncer_module);
+
+    if (!spcf->enabled) {
+        return next_add_frame(track, frame, data_head, data_tail, size);
+    }
+
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_syncer_module);
 
     if (ctx->force_sync_count > 1) {
@@ -223,9 +230,6 @@ ngx_live_syncer_add_frame(ngx_live_track_t *track, kmp_frame_t *frame,
     {
         goto done;
     }
-
-    spcf = ngx_live_get_module_preset_conf(track->channel,
-        ngx_live_syncer_module);
 
     sync_frames = 1;
 
