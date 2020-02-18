@@ -867,7 +867,7 @@ ngx_live_media_info_pending_add(ngx_live_track_t *track,
         if (ngx_live_media_info_node_compare(node, media_info, extra_data,
             extra_data_size)) {
             /* no change - ignore */
-            return NGX_OK;
+            return NGX_DONE;
         }
 
     } else {
@@ -878,7 +878,7 @@ ngx_live_media_info_pending_add(ngx_live_track_t *track,
             if (ngx_live_media_info_node_compare(node, media_info, extra_data,
                 extra_data_size)) {
                 /* no change - ignore */
-                return NGX_OK;
+                return NGX_DONE;
             }
 
         } else {
@@ -946,9 +946,9 @@ ngx_live_media_info_pending_remove_frames(ngx_live_track_t *track,
     }
 }
 
-ngx_flag_t
+void
 ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
-    uint32_t segment_index)
+    uint32_t segment_index, ngx_flag_t *changed)
 {
     ngx_queue_t                      *q;
     ngx_live_media_info_node_t       *node;
@@ -987,14 +987,15 @@ ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
     }
 
     if (node == NULL) {
-        return 0;
+        *changed = 0;
+        return;
     }
 
     ngx_live_media_info_queue_push(track, node, segment_index);
 
     ngx_live_media_info_source_remove_refs(track);
 
-    return 1;
+    *changed = 1;
 }
 
 void
@@ -1171,6 +1172,10 @@ ngx_live_media_info_iterator_next(ngx_live_media_info_iterator_t *iterator,
 {
     ngx_queue_t                 *q;
     ngx_live_media_info_node_t  *next;
+
+    if (segment_index < iterator->cur->u.start_segment_index) {
+        return 0;
+    }
 
     for ( ;; ) {
 

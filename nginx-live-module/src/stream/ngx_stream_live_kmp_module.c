@@ -285,6 +285,12 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
     }
 
+    ngx_log_debug6(NGX_LOG_DEBUG_LIVE, &ctx->track->log, 0,
+        "ngx_stream_live_kmp_frame: track: %V, created: %L, size: %uD, "
+        "dts: %L, flags: 0x%uxD, ptsDelay: %uD",
+        &ctx->track->sn.str, frame_ptr->created, ctx->packet_header.data_size,
+        frame_ptr->dts, frame_ptr->flags, frame_ptr->pts_delay);
+
     if (ctx->wait_key) {
 
         /* ignore frames that arrive before the first key */

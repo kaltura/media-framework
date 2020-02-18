@@ -6,6 +6,7 @@
 
 #define NGX_HTTP_OK                        200
 #define NGX_HTTP_PARTIAL_CONTENT           206
+#define NGX_HTTP_SPECIAL_RESPONSE          300
 
 
 enum {
@@ -394,7 +395,7 @@ ngx_live_dvr_http_save_complete(ngx_pool_t *temp_pool, void *arg,
     ngx_uint_t                        level;
     ngx_live_dvr_http_save_ctx_t     *ctx = *(void **) arg;
 
-    if (code != NGX_HTTP_OK) {
+    if (code < NGX_HTTP_OK || code >= NGX_HTTP_SPECIAL_RESPONSE) {
 
         level = (code >= NGX_HTTP_CALL_ERROR_COUNT) ? NGX_LOG_ERR :
             NGX_LOG_NOTICE;

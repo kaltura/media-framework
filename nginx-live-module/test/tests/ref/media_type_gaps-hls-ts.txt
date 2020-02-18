@@ -1,0 +1,218 @@
+URL: /master.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-INDEPENDENT-SEGMENTS
+
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=100768,RESOLUTION=160x120,FRAME-RATE=15.000,CODECS="avc1.64000b,mp4a.40.2"
+index-svar1.m3u8
+
+URL: /index-svar1.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:2019-12-31T23:59:59.976+00:00
+#EXTINF:3.957,
+seg-1-svar1.ts
+#EXTINF:3.933,
+seg-2-svar1.ts
+#EXTINF:4.067,
+seg-3-svar1.ts
+#EXTINF:3.933,
+seg-4-svar1.ts
+#EXTINF:4.000,
+seg-5-svar1.ts
+#EXTINF:4.000,
+seg-6-svar1.ts
+#EXTINF:1.356,
+seg-7-svar1.ts
+#EXTINF:4.444,
+seg-8-svar1.ts
+#EXTINF:3.934,
+seg-9-svar1.ts
+#EXTINF:4.066,
+seg-10-svar1.ts
+#EXTINF:4.000,
+seg-11-svar1.ts
+#EXTINF:3.934,
+seg-12-svar1.ts
+#EXTINF:4.119,
+seg-13-svar1.ts
+#EXTINF:3.947,
+seg-14-svar1.ts
+#EXTINF:3.934,
+seg-15-svar1.ts
+#EXTINF:3.800,
+seg-16-svar1.ts
+#EXTINF:4.000,
+seg-17-svar1.ts
+#EXTINF:4.066,
+seg-18-svar1.ts
+#EXTINF:3.934,
+seg-19-svar1.ts
+#EXTINF:1.533,
+seg-20-svar1.ts
+#EXTINF:4.000,
+seg-21-svar1.ts
+#EXTINF:4.000,
+seg-22-svar1.ts
+#EXTINF:4.000,
+seg-23-svar1.ts
+#EXTINF:4.000,
+seg-24-svar1.ts
+#EXTINF:4.000,
+seg-25-svar1.ts
+#EXTINF:4.000,
+seg-26-svar1.ts
+#EXTINF:2.467,
+seg-27-svar1.ts
+#EXTINF:3.866,
+seg-28-svar1.ts
+#EXTINF:4.000,
+seg-29-svar1.ts
+#EXTINF:4.067,
+seg-30-svar1.ts
+#EXTINF:4.000,
+seg-31-svar1.ts
+#EXTINF:3.933,
+seg-32-svar1.ts
+#EXTINF:3.739,
+seg-33-svar1.ts
+#EXT-X-ENDLIST
+
+URL: /seg-1-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 69c512a14daa59082ebb85e612371e42
+
+URL: /seg-2-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 350759e3ccdd2a0c7d5bd1b36c6080f9
+
+URL: /seg-3-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: be9413a814885f47c0f29ef3dfa7824d
+
+URL: /seg-4-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: ba07c6fd7c69debc926dc8ff68b7b6d7
+
+URL: /seg-5-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 4b60253b4c86f82c994adcf6636db42e
+
+URL: /seg-6-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: c057e783af3067840620287cdfe5f089
+
+URL: /seg-7-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 52de4ed82a4b6607af6c5f313704d0b7
+
+URL: /seg-8-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 5718fc04b83dc1c5440bb40624e0dacd
+
+URL: /seg-9-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: db3a781f9c61e185dc6cd81f9cbadaa9
+
+URL: /seg-10-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 34a9a33c23fbd72d26fcd35783f914c9
+
+URL: /seg-11-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: ea60b21650a8608928c2c7f3a5feeb69
+
+URL: /seg-12-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: a4587055bbac335a61cbdf860f8037ff
+
+URL: /seg-13-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 26234ea3b133114dbc92a485a1595e4f
+
+URL: /seg-14-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: c2fa9dbad59c86e3e463f96a6f0067dc
+
+URL: /seg-15-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 8c897345de0cfa837ec8bf6e0b66830d
+
+URL: /seg-16-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 8d7e56d6d089d750dc8d4c861e690691
+
+URL: /seg-17-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: aec4ca04334a9ec5f2fefbed92cb89ea
+
+URL: /seg-18-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 8110b46cdba8664b258ea692bdc92704
+
+URL: /seg-19-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 506a296be750a7eb5888fcd6fe07ccdc
+
+URL: /seg-20-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: d001fe02b1317c03352fd98b7de73479
+
+URL: /seg-21-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: f2a039010594984d72326ece9c703aca
+
+URL: /seg-22-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 638e81e915c336b39e84c73b5254083e
+
+URL: /seg-23-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: f4db8e3a792f8ec6446d9e8fc1b0b140
+
+URL: /seg-24-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 7258c55ef9761d5a4713d53bdacf3a6f
+
+URL: /seg-25-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 28fed7879b1f454e73017cec073e12d3
+
+URL: /seg-26-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 2f5cf89b737448d8b4971bce69332482
+
+URL: /seg-27-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: ea03c35daab924f06eef4b410a64dd92
+
+URL: /seg-28-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: fbc3335a4ffffb5fa048e60e79d70054
+
+URL: /seg-29-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 4b19173cdb4cd4225bd9390cce93bbc1
+
+URL: /seg-30-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 4bac38a33e268277bafae45bd066d555
+
+URL: /seg-31-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 9a40911062a8b01f344df7b4da4bc980
+
+URL: /seg-32-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 6f6a69aaf572163f10bcf24c966e5ee0
+
+URL: /seg-33-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: ebb8a757f4a4071717f2f84639d3f1d8
+

@@ -1,0 +1,792 @@
+URL: /master.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-INDEPENDENT-SEGMENTS
+
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=100768,RESOLUTION=160x120,FRAME-RATE=15.000,CODECS="avc1.64000b,mp4a.40.2"
+index-svar1.m3u8
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=463256,RESOLUTION=480x256,FRAME-RATE=25.000,CODECS="avc1.42c01e,mp4a.40.2"
+index-svar2.m3u8
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=100768,RESOLUTION=160x120,FRAME-RATE=15.000,CODECS="avc1.64000b,mp4a.40.2"
+index-svar3.m3u8
+
+URL: /index-svar1.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:2019-12-31T23:59:59.976+00:00
+#EXTINF:3.970,
+seg-1-svar1.ts
+#EXTINF:3.967,
+seg-2-svar1.ts
+#EXTINF:4.033,
+seg-3-svar1.ts
+#EXTINF:3.967,
+seg-4-svar1.ts
+#EXTINF:4.000,
+seg-5-svar1.ts
+#EXTINF:4.000,
+seg-6-svar1.ts
+#EXTINF:3.900,
+seg-7-svar1.ts
+#EXTINF:1.940,
+seg-8-svar1.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:29.753+00:00
+#EXTINF:4.207,
+seg-9-svar1.ts
+#EXTINF:3.966,
+seg-10-svar1.ts
+#EXTINF:4.034,
+seg-11-svar1.ts
+#EXTINF:3.966,
+seg-12-svar1.ts
+#EXTINF:4.000,
+seg-13-svar1.ts
+#EXTINF:4.000,
+seg-14-svar1.ts
+#EXTINF:3.900,
+seg-15-svar1.ts
+#EXTINF:1.940,
+seg-16-svar1.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:59.766+00:00
+#EXTINF:4.207,
+seg-17-svar1.ts
+#EXTINF:3.967,
+seg-18-svar1.ts
+#EXTINF:4.033,
+seg-19-svar1.ts
+#EXTINF:3.967,
+seg-20-svar1.ts
+#EXTINF:4.000,
+seg-21-svar1.ts
+#EXTINF:4.000,
+seg-22-svar1.ts
+#EXTINF:3.900,
+seg-23-svar1.ts
+#EXTINF:1.940,
+seg-24-svar1.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:01:29.780+00:00
+#EXTINF:4.206,
+seg-25-svar1.ts
+#EXTINF:3.967,
+seg-26-svar1.ts
+#EXTINF:4.033,
+seg-27-svar1.ts
+#EXTINF:3.967,
+seg-28-svar1.ts
+#EXTINF:4.000,
+seg-29-svar1.ts
+#EXTINF:4.000,
+seg-30-svar1.ts
+#EXTINF:3.900,
+seg-31-svar1.ts
+#EXTINF:2.073,
+seg-32-svar1.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:01:59.926+00:00
+#EXTINF:4.074,
+seg-33-svar1.ts
+#EXTINF:3.966,
+seg-34-svar1.ts
+#EXTINF:4.034,
+seg-35-svar1.ts
+#EXTINF:3.966,
+seg-36-svar1.ts
+#EXTINF:4.000,
+seg-37-svar1.ts
+#EXTINF:4.000,
+seg-38-svar1.ts
+#EXTINF:3.900,
+seg-39-svar1.ts
+#EXTINF:1.940,
+seg-40-svar1.ts
+#EXT-X-ENDLIST
+
+URL: /index-svar2.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:2019-12-31T23:59:59.976+00:00
+#EXTINF:3.970,
+seg-1-svar2.ts
+#EXTINF:3.967,
+seg-2-svar2.ts
+#EXTINF:4.033,
+seg-3-svar2.ts
+#EXTINF:3.967,
+seg-4-svar2.ts
+#EXTINF:4.000,
+seg-5-svar2.ts
+#EXTINF:4.000,
+seg-6-svar2.ts
+#EXTINF:3.900,
+seg-7-svar2.ts
+#EXTINF:1.940,
+seg-8-svar2.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:29.753+00:00
+#EXTINF:4.207,
+seg-9-svar2.ts
+#EXTINF:3.966,
+seg-10-svar2.ts
+#EXTINF:4.034,
+seg-11-svar2.ts
+#EXTINF:3.966,
+seg-12-svar2.ts
+#EXTINF:4.000,
+seg-13-svar2.ts
+#EXTINF:4.000,
+seg-14-svar2.ts
+#EXTINF:3.900,
+seg-15-svar2.ts
+#EXTINF:1.940,
+seg-16-svar2.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:59.766+00:00
+#EXTINF:4.207,
+seg-17-svar2.ts
+#EXTINF:3.967,
+seg-18-svar2.ts
+#EXTINF:4.033,
+seg-19-svar2.ts
+#EXTINF:3.967,
+seg-20-svar2.ts
+#EXTINF:4.000,
+seg-21-svar2.ts
+#EXTINF:4.000,
+seg-22-svar2.ts
+#EXTINF:3.900,
+seg-23-svar2.ts
+#EXTINF:1.940,
+seg-24-svar2.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:01:29.780+00:00
+#EXTINF:4.206,
+seg-25-svar2.ts
+#EXTINF:3.967,
+seg-26-svar2.ts
+#EXTINF:4.033,
+seg-27-svar2.ts
+#EXTINF:3.967,
+seg-28-svar2.ts
+#EXTINF:4.000,
+seg-29-svar2.ts
+#EXTINF:4.000,
+seg-30-svar2.ts
+#EXTINF:3.900,
+seg-31-svar2.ts
+#EXTINF:2.073,
+seg-32-svar2.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:01:59.926+00:00
+#EXTINF:4.074,
+seg-33-svar2.ts
+#EXTINF:3.966,
+seg-34-svar2.ts
+#EXTINF:4.034,
+seg-35-svar2.ts
+#EXTINF:3.966,
+seg-36-svar2.ts
+#EXTINF:4.000,
+seg-37-svar2.ts
+#EXTINF:4.000,
+seg-38-svar2.ts
+#EXTINF:3.900,
+seg-39-svar2.ts
+#EXTINF:1.940,
+seg-40-svar2.ts
+#EXT-X-ENDLIST
+
+URL: /index-svar3.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:2019-12-31T23:59:59.976+00:00
+#EXTINF:3.970,
+seg-1-svar3.ts
+#EXTINF:3.967,
+seg-2-svar3.ts
+#EXTINF:4.033,
+seg-3-svar3.ts
+#EXTINF:3.967,
+seg-4-svar3.ts
+#EXTINF:4.000,
+seg-5-svar3.ts
+#EXTINF:4.000,
+seg-6-svar3.ts
+#EXTINF:3.900,
+seg-7-svar3.ts
+#EXTINF:1.940,
+seg-8-svar3.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:29.753+00:00
+#EXTINF:4.207,
+seg-9-svar3.ts
+#EXTINF:3.966,
+seg-10-svar3.ts
+#EXTINF:4.034,
+seg-11-svar3.ts
+#EXTINF:3.966,
+seg-12-svar3.ts
+#EXTINF:4.000,
+seg-13-svar3.ts
+#EXTINF:4.000,
+seg-14-svar3.ts
+#EXTINF:3.900,
+seg-15-svar3.ts
+#EXTINF:1.940,
+seg-16-svar3.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:59.766+00:00
+#EXTINF:4.207,
+seg-17-svar3.ts
+#EXTINF:3.967,
+seg-18-svar3.ts
+#EXTINF:4.033,
+seg-19-svar3.ts
+#EXTINF:3.967,
+seg-20-svar3.ts
+#EXTINF:4.000,
+seg-21-svar3.ts
+#EXTINF:4.000,
+seg-22-svar3.ts
+#EXTINF:3.900,
+seg-23-svar3.ts
+#EXTINF:1.940,
+seg-24-svar3.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:01:29.780+00:00
+#EXTINF:4.206,
+seg-25-svar3.ts
+#EXTINF:3.967,
+seg-26-svar3.ts
+#EXTINF:4.033,
+seg-27-svar3.ts
+#EXTINF:3.967,
+seg-28-svar3.ts
+#EXTINF:4.000,
+seg-29-svar3.ts
+#EXTINF:4.000,
+seg-30-svar3.ts
+#EXTINF:3.900,
+seg-31-svar3.ts
+#EXTINF:2.073,
+seg-32-svar3.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:01:59.926+00:00
+#EXTINF:4.074,
+seg-33-svar3.ts
+#EXTINF:3.966,
+seg-34-svar3.ts
+#EXTINF:4.034,
+seg-35-svar3.ts
+#EXTINF:3.966,
+seg-36-svar3.ts
+#EXTINF:4.000,
+seg-37-svar3.ts
+#EXTINF:4.000,
+seg-38-svar3.ts
+#EXTINF:3.900,
+seg-39-svar3.ts
+#EXTINF:1.940,
+seg-40-svar3.ts
+#EXT-X-ENDLIST
+
+URL: /seg-1-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 77714d28255349019dbd5df5f318a581
+
+URL: /seg-2-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 9f36dc344cafa751b11e63bb1f445ebf
+
+URL: /seg-3-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 5c693de58abc73471206521e1738a8ca
+
+URL: /seg-4-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: bad2d3768e23ef8064a2b23e6cf4db51
+
+URL: /seg-5-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 6c6ea3691ced8cedfeeffa0d48739b08
+
+URL: /seg-6-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 81d55d44dc5bdd3d617d0a494ef0e8d4
+
+URL: /seg-7-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: e45f876b253c9177f2b47b86cccb4135
+
+URL: /seg-8-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: ef12e1bc06a9129b16eebc7741ca1f94
+
+URL: /seg-9-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 9e8c31687f5133e88497c3ef30969b1a
+
+URL: /seg-10-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 5c23e41944f86ad3816554f8ec8c1038
+
+URL: /seg-11-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: d4c4703e656813e58ae33f74ea2c0d7a
+
+URL: /seg-12-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: cf33e1cabdd601900965df829b0fdbb5
+
+URL: /seg-13-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 6f59194b821e75513bde0f81fe7b4e27
+
+URL: /seg-14-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: dc3b6eb3ddbc45bf955bad39b0f9a927
+
+URL: /seg-15-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 9c71d52530f7a38b52a9053361013832
+
+URL: /seg-16-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: dbfc8ef3ca09c5624a90b35c8a827776
+
+URL: /seg-17-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 410b165708580c95573ed8a36151df0d
+
+URL: /seg-18-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 07d7479469f125e337be474a84d6dfcd
+
+URL: /seg-19-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 383675d85ca4a221dfbbb5d65544fcfb
+
+URL: /seg-20-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 9396261305232b8fbf667131227ed06f
+
+URL: /seg-21-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 86681429bdfe2b011aa8cfa323606fc7
+
+URL: /seg-22-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: d3adbacc2f0c4fcd4bbfa70d1a83c6f0
+
+URL: /seg-23-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: e5ad04775fbf9a1a4e0f27dba08c39c8
+
+URL: /seg-24-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 1c0b39cfcfdb6f6d070c2225f02854f7
+
+URL: /seg-25-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 2a4ebc27f8ec29398852565bdddb83a7
+
+URL: /seg-26-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 20d866af981805dcd7ae24fd7ea9db82
+
+URL: /seg-27-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 6e0772a9c5f797bd7b1508fed7169ba7
+
+URL: /seg-28-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 14c3adf8963d4a562da070050b00acba
+
+URL: /seg-29-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: e5018fc5e6dec775e7a56fdf23db0703
+
+URL: /seg-30-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: a8ada8e36562d22999659ab9463177bc
+
+URL: /seg-31-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 4a7daa1a4c3d1925cd21855fd527b072
+
+URL: /seg-32-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: db342c005357024c18d7380b3ce45ae4
+
+URL: /seg-33-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 8b842f4ad01854c6e56b2d3fc3abc33c
+
+URL: /seg-34-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 719ce7c37517fc7530c41b1d1170a64d
+
+URL: /seg-35-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: a4c056982070831366b8180342d98ace
+
+URL: /seg-36-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: f4ef9c132da3d65f3286fa84f9d372aa
+
+URL: /seg-37-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 0b3853afb6fe4347aef5dd2106c96f04
+
+URL: /seg-38-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 137f3bea04238ed34ec183d546fdad46
+
+URL: /seg-39-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: cddd88941214e504b5c285bd0520b9a0
+
+URL: /seg-40-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: c70c27c62dacb32e9ac401c8305c8724
+
+URL: /seg-1-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: d71e272d0820632ac20cdc3027a30e2a
+
+URL: /seg-2-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 33e2b6f3ff0c201261245d93379a421d
+
+URL: /seg-3-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: ec0ecb7bd2455d0a32c97d1d5f1f0f73
+
+URL: /seg-4-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 6e3b0bfe176812f265e8b7ad346872a7
+
+URL: /seg-5-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 41969925a6dfb4186a6f07428e491239
+
+URL: /seg-6-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: a0c8865dd816d1d1afd9db9001fa8863
+
+URL: /seg-7-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 3ef22a5fd3ea3c1a945e52f12d519775
+
+URL: /seg-8-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 4fd2eedc024a8ebe3b3b8b3cd468f321
+
+URL: /seg-9-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: efa6e22e67678488c5abf5585292b7a8
+
+URL: /seg-10-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: c309ce5ef14cdcb2a0c05d66dfbebbdc
+
+URL: /seg-11-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 7281a453f91a8deb88d1b7940c2048c8
+
+URL: /seg-12-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: d643652696ce605313774e9f774ef0a0
+
+URL: /seg-13-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 2988e124e82af4235055e311191aa8b3
+
+URL: /seg-14-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 8c64557a219d0fd19e0cab1dea3805d2
+
+URL: /seg-15-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: c56f09eb9bb29a6693bd9d3abfd7da96
+
+URL: /seg-16-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 62d8298a2cca77cc0ffa08491245fd53
+
+URL: /seg-17-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 93cd491ffacb6cc4420c802a1201d3f4
+
+URL: /seg-18-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 7cfebad8f72d93662873eaacefab20cc
+
+URL: /seg-19-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: d8634c58d6da18302b8a8b14699a2d65
+
+URL: /seg-20-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 44a220c8bda4c7c7c9a13903f9078603
+
+URL: /seg-21-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: e411f550ef18c896365e1f77dad0b766
+
+URL: /seg-22-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 28a904b156db730f1cef6892674e1a6d
+
+URL: /seg-23-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 741e073b713fe3fc54bd82761bb99240
+
+URL: /seg-24-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: f5f8d7442ce63880cdc223b5a9fb8d1e
+
+URL: /seg-25-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 0ccff2c36bbe146e56640478c2111679
+
+URL: /seg-26-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 6042af12ea28c980263d3c1862b9bcc4
+
+URL: /seg-27-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: cda49b62f60bd8a00f303e7c160579dd
+
+URL: /seg-28-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 2776c005f009cdb3b4a8843a6b6d633c
+
+URL: /seg-29-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: fb868ae12902f6f5054025c23df01c70
+
+URL: /seg-30-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 9de34c5bc8e99caca1c52666287c6b5e
+
+URL: /seg-31-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: f3b62d48ea866f60ab8447ad8872c3fa
+
+URL: /seg-32-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: b20c1425ea8fd0284646a7da38351476
+
+URL: /seg-33-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 7d5d6de3f33d0dbf130e10e270d919d8
+
+URL: /seg-34-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 60cc92fa5b20c4c4e49d7b9fab4446c2
+
+URL: /seg-35-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 61559732bcc3840394c896fcacb68b66
+
+URL: /seg-36-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: defc88aa9bcecb40bd7e29d65531be29
+
+URL: /seg-37-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 3b49e3c7aa08ada02ae880f500c0a450
+
+URL: /seg-38-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: e3e7385f747dc83d63704406d15e783b
+
+URL: /seg-39-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 9e9a757c15d948a351cc9de9dab9e7ec
+
+URL: /seg-40-svar2.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 716aec0ee7b602a0edd147cf10c22aa9
+
+URL: /seg-1-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 77714d28255349019dbd5df5f318a581
+
+URL: /seg-2-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 9f36dc344cafa751b11e63bb1f445ebf
+
+URL: /seg-3-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 5c693de58abc73471206521e1738a8ca
+
+URL: /seg-4-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: bad2d3768e23ef8064a2b23e6cf4db51
+
+URL: /seg-5-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 6c6ea3691ced8cedfeeffa0d48739b08
+
+URL: /seg-6-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 81d55d44dc5bdd3d617d0a494ef0e8d4
+
+URL: /seg-7-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: e45f876b253c9177f2b47b86cccb4135
+
+URL: /seg-8-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 750eaa94706a3c6815d16634e0e586d7
+
+URL: /seg-9-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 9e8c31687f5133e88497c3ef30969b1a
+
+URL: /seg-10-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 5c23e41944f86ad3816554f8ec8c1038
+
+URL: /seg-11-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: d4c4703e656813e58ae33f74ea2c0d7a
+
+URL: /seg-12-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: cf33e1cabdd601900965df829b0fdbb5
+
+URL: /seg-13-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 6f59194b821e75513bde0f81fe7b4e27
+
+URL: /seg-14-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: dc3b6eb3ddbc45bf955bad39b0f9a927
+
+URL: /seg-15-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 9c71d52530f7a38b52a9053361013832
+
+URL: /seg-16-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: dbfc8ef3ca09c5624a90b35c8a827776
+
+URL: /seg-17-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 93cd491ffacb6cc4420c802a1201d3f4
+
+URL: /seg-18-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 7cfebad8f72d93662873eaacefab20cc
+
+URL: /seg-19-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: d8634c58d6da18302b8a8b14699a2d65
+
+URL: /seg-20-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 44a220c8bda4c7c7c9a13903f9078603
+
+URL: /seg-21-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: e411f550ef18c896365e1f77dad0b766
+
+URL: /seg-22-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 28a904b156db730f1cef6892674e1a6d
+
+URL: /seg-23-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 741e073b713fe3fc54bd82761bb99240
+
+URL: /seg-24-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: f5f8d7442ce63880cdc223b5a9fb8d1e
+
+URL: /seg-25-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 2a4ebc27f8ec29398852565bdddb83a7
+
+URL: /seg-26-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 20d866af981805dcd7ae24fd7ea9db82
+
+URL: /seg-27-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 6e0772a9c5f797bd7b1508fed7169ba7
+
+URL: /seg-28-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 14c3adf8963d4a562da070050b00acba
+
+URL: /seg-29-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: e5018fc5e6dec775e7a56fdf23db0703
+
+URL: /seg-30-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: a8ada8e36562d22999659ab9463177bc
+
+URL: /seg-31-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 4a7daa1a4c3d1925cd21855fd527b072
+
+URL: /seg-32-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: db342c005357024c18d7380b3ce45ae4
+
+URL: /seg-33-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 8b842f4ad01854c6e56b2d3fc3abc33c
+
+URL: /seg-34-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 719ce7c37517fc7530c41b1d1170a64d
+
+URL: /seg-35-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: a4c056982070831366b8180342d98ace
+
+URL: /seg-36-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: f4ef9c132da3d65f3286fa84f9d372aa
+
+URL: /seg-37-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 0b3853afb6fe4347aef5dd2106c96f04
+
+URL: /seg-38-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 137f3bea04238ed34ec183d546fdad46
+
+URL: /seg-39-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: cddd88941214e504b5c285bd0520b9a0
+
+URL: /seg-40-svar3.ts
+HEADERS: 200 video/MP2T
+BODYMD5: c70c27c62dacb32e9ac401c8305c8724
+

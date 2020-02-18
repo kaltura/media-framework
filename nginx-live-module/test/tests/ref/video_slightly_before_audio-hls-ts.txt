@@ -1,0 +1,104 @@
+URL: /master.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-INDEPENDENT-SEGMENTS
+
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=100768,RESOLUTION=160x120,FRAME-RATE=15.000,CODECS="avc1.64000b,mp4a.40.2"
+index-svar1.m3u8
+
+URL: /index-svar1.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:03.905+00:00
+#EXTINF:3.961,
+seg-1-svar1.ts
+#EXTINF:4.067,
+seg-2-svar1.ts
+#EXTINF:3.933,
+seg-3-svar1.ts
+#EXTINF:4.000,
+seg-4-svar1.ts
+#EXTINF:4.000,
+seg-5-svar1.ts
+#EXTINF:3.800,
+seg-6-svar1.ts
+#EXTINF:1.467,
+seg-7-svar1.ts
+#EXTINF:4.000,
+seg-8-svar1.ts
+#EXTINF:4.000,
+seg-9-svar1.ts
+#EXTINF:4.000,
+seg-10-svar1.ts
+#EXTINF:4.000,
+seg-11-svar1.ts
+#EXTINF:4.000,
+seg-12-svar1.ts
+#EXTINF:4.000,
+seg-13-svar1.ts
+#EXTINF:0.737,
+seg-14-svar1.ts
+#EXT-X-ENDLIST
+
+URL: /seg-1-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 3124dac4bdd50772d3a93460fab48ce1
+
+URL: /seg-2-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 670dd942c4e97acacdaeae1d602e5be6
+
+URL: /seg-3-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: d8694c2458abf66f2f7fdae1da1276cb
+
+URL: /seg-4-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 1e2dbc523c221e578acc87eef7697118
+
+URL: /seg-5-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: f6436267c803d5317d7915379cac80e4
+
+URL: /seg-6-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 0aa923257a908e6456d8537d3657d46d
+
+URL: /seg-7-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 40738f63379b381b2cbbfcbd8ef39d00
+
+URL: /seg-8-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 594b5da000c315b60ede8cff175033a2
+
+URL: /seg-9-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: b76db09604ff86b86e544ed2c903fa4d
+
+URL: /seg-10-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 37bea0de3a35e0ed71f87d0be13a0cfd
+
+URL: /seg-11-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 6e8269585735ebcddf4d43fafad23958
+
+URL: /seg-12-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 6c69b0cf0d5456d5a22ed78ea7d0ff6f
+
+URL: /seg-13-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: c1cd3e46468bd11da803c4586db65cf7
+
+URL: /seg-14-svar1.ts
+HEADERS: 200 video/MP2T
+BODYMD5: 030745d983b6f18dcdd39c7604008700
+

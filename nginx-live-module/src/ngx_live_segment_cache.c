@@ -509,7 +509,7 @@ ngx_live_segment_cache_read(ngx_live_segment_read_req_t *req)
     segment_index = result->segment_index;
     found = 0;
 
-    last = req->tracks + req->track_count;
+    last = req->tracks + result->track_count;
     for (cur = req->tracks, dest_track = result->tracks;
         cur < last;
         cur++, dest_track++)

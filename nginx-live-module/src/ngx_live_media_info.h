@@ -34,8 +34,8 @@ ngx_int_t ngx_live_media_info_pending_add(ngx_live_track_t *track,
 void ngx_live_media_info_pending_remove_frames(ngx_live_track_t *track,
     ngx_uint_t frame_count);
 
-ngx_flag_t ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
-    uint32_t segment_index);
+void ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
+    uint32_t segment_index, ngx_flag_t *changed);
 
 void ngx_live_media_info_pending_free_all(ngx_live_track_t *track);
 
