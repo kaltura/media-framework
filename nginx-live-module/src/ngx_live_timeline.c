@@ -507,6 +507,7 @@ ngx_live_timeline_get(ngx_live_channel_t *channel, ngx_str_t *id)
     }
 
     if (!timeline->conf.active || !channel->active) {
+        ignore = 0;
         ngx_live_timeline_inactive_remove_segments(timeline, &ignore);
     }
 
@@ -959,6 +960,7 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
 
     ngx_live_timeline_manifest_copy(dest, source, period_count, max_duration);
 
+    ignore = 0;
     if (dest->conf.active) {
         ngx_live_timeline_remove_segments(dest, 0, 0, &ignore);
 

@@ -109,6 +109,9 @@ class KmpTcpSender(object):
     def recv(self, bufsize):
         return self.s.recv(bufsize)
 
+    def setsockopt(self, level, optname, value):
+        return self.s.setsockopt(level, optname, value)
+
 class FilteredSender(object):
     def __init__(self, sender, filter):
         self.sender = sender

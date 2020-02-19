@@ -113,8 +113,7 @@ void
 ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
     uint32_t min_used_segment_index)
 {
-    ngx_queue_t                   *next;
-    ngx_queue_t                   *queue;
+    ngx_queue_t                   *q, *next;
     ngx_live_segment_list_node_t  *node;
     ngx_live_segment_list_node_t  *next_node;
 
@@ -122,9 +121,9 @@ ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
         return;
     }
 
-    for (queue = ngx_queue_head(&segment_list->queue); ; queue = next) {
+    for (q = ngx_queue_head(&segment_list->queue); ; q = next) {
 
-        next = ngx_queue_next(queue);
+        next = ngx_queue_next(q);
         if (next == ngx_queue_sentinel(&segment_list->queue)) {
             break;
         }
@@ -139,7 +138,7 @@ ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
             break;
         }
 
-        node = ngx_queue_data(queue, ngx_live_segment_list_node_t, queue);
+        node = ngx_queue_data(q, ngx_live_segment_list_node_t, queue);
         ngx_queue_remove(&node->queue);
         ngx_rbtree_delete(&segment_list->rbtree, &node->node);
 
