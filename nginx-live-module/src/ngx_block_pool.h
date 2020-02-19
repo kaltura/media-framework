@@ -6,10 +6,9 @@
 #include <ngx_core.h>
 
 
-/* Note: enabling the macro below makes the block pool use ngx_palloc/ngx_pfree
+/* Note: NGX_BLOCK_POOL_SKIP makes the block pool use ngx_palloc/ngx_pfree
     directly. It is intended for testing with valgrind along with:
     https://github.com/openresty/no-pool-nginx */
-#define NGX_BLOCK_POOL_SKIP  0
 
 #define ngx_block_pool_auto(size) (size + sizeof(ngx_block_pool_auto_header_t))
 

@@ -14,13 +14,9 @@ def updateConf(conf):
     getConfBlock(conf, ['stream', 'server']).append(['live_kmp_read_timeout', '1000000'])
 
 def test(channelId=CHANNEL_ID):
-    nl = NginxLive(NGINX_LIVE_API_URL)
-
 
     # create filler channel
-    nl.channel.create(NginxLiveChannel(id=FILLER_CHANNEL_ID, preset='main'))
-    nl.setChannelId(FILLER_CHANNEL_ID)
-    nl.timeline.create(NginxLiveTimeline(id=FILLER_TIMELINE_ID, active=True))
+    nl = setupChannelTimeline(FILLER_CHANNEL_ID, FILLER_TIMELINE_ID)
 
     sv = createTrack(nl, 'fv1', 'video')
     sa = createTrack(nl, 'fa1', 'audio')
@@ -35,7 +31,7 @@ def test(channelId=CHANNEL_ID):
     kmpSendEndOfStream([sv, sa])
 
     # create main channel
-    nl = NginxLive(NGINX_LIVE_API_URL)
+    nl = nginxLiveClient()
     filler = NginxLiveFiller(channel_id=FILLER_CHANNEL_ID, timeline_id=FILLER_TIMELINE_ID)
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main', filler=filler))
     nl.setChannelId(channelId)
@@ -74,3 +70,8 @@ def test(channelId=CHANNEL_ID):
     nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, active=False))
 
     testDefaultStreams(channelId, __file__)
+
+def cleanup(channelId=CHANNEL_ID):
+    nl = nginxLiveClient()
+    nl.channel.delete(FILLER_CHANNEL_ID)
+    nl.channel.delete(channelId)

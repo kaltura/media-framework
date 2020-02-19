@@ -75,9 +75,12 @@ ngx_http_api_send_response(ngx_http_request_t *r, ngx_uint_t status,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    b->pos = response->data;
-    b->last = response->data + response->len;
-    b->memory = response->len ? 1 : 0;
+    if (response->len) {
+        b->pos = response->data;
+        b->last = response->data + response->len;
+        b->memory = 1;
+    }
+
     b->last_buf = (r == r->main) ? 1 : 0;
     b->last_in_chain = 1;
 

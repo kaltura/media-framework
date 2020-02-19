@@ -74,6 +74,7 @@ typedef struct {
 typedef struct {
     ngx_live_channel_t               *channel;
     int64_t                           boundary_pts;
+    int64_t                           min_pts;
     uint32_t                          margin;
 
     ngx_uint_t                        nelts;
@@ -1050,8 +1051,7 @@ ngx_live_segmenter_kf_list_remove(ngx_live_segmenter_kf_list_t *list,
 
 static void
 ngx_live_segmenter_kf_list_add_candidates(ngx_live_segmenter_kf_list_t *list,
-    ngx_live_segmenter_candidate_list_t *candidates, int64_t min_pts,
-    int64_t max_pts)
+    ngx_live_segmenter_candidate_list_t *candidates, int64_t max_pts)
 {
     ngx_live_segmenter_kf_t       *cur, *last;
     ngx_live_segmenter_kf_part_t  *part;
@@ -1078,7 +1078,7 @@ ngx_live_segmenter_kf_list_add_candidates(ngx_live_segmenter_kf_list_t *list,
             last = cur + part->nelts;
         }
 
-        if (cur->prev_pts >= min_pts && cur->prev_pts < max_pts) {
+        if (cur->prev_pts >= candidates->min_pts && cur->prev_pts < max_pts) {
             ngx_live_segmenter_candidate_list_add(candidates, cur->prev_pts);
         }
 
@@ -1739,7 +1739,6 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
     int64_t boundary_pts, ngx_live_segmenter_candidate_list_t *candidates,
     int64_t *min_split_pts)
 {
-    int64_t                               min_target_pts;
     int64_t                               cur_split_pts;
     uint32_t                              media_types;
     uint32_t                              min_snap_range;
@@ -1753,6 +1752,8 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
 
     candidates->channel = channel;
     candidates->boundary_pts = boundary_pts;
+    candidates->min_pts = cctx->last_segment_end_pts +
+        cctx->min_segment_duration;
     candidates->margin = cctx->candidate_margin;
     candidates->nelts = 0;
 
@@ -1760,7 +1761,6 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
     min_snap_range = 0;
     cur_snap_range = 0;
     *min_split_pts = NGX_LIVE_INVALID_PTS;
-    min_target_pts = cctx->last_segment_end_pts + cctx->min_segment_duration;
 
     for (q = ngx_queue_next(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
@@ -1830,7 +1830,7 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
         }
 
         ngx_live_segmenter_kf_list_add_candidates(&cur_ctx->key_frames,
-            candidates, min_target_pts, *min_split_pts);
+            candidates, *min_split_pts);
     }
 
     if (*min_split_pts != NGX_LIVE_INVALID_PTS) {

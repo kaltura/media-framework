@@ -22,18 +22,26 @@ VARIANT_ID = 'var1'
 FILLER_CHANNEL_ID = '__filler'
 FILLER_TIMELINE_ID = 'main'
 
-def setupChannelTimeline(channelId):
-    nl = NginxLive(NGINX_LIVE_API_URL)
+def nginxLiveClient():
+    return NginxLive(NGINX_LIVE_API_URL)
+
+def setupChannelTimeline(channelId, timelineId=TIMELINE_ID):
+    nl = nginxLiveClient()
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
     nl.setChannelId(channelId)
-    nl.timeline.create(NginxLiveTimeline(id=TIMELINE_ID, active=True))
+    nl.timeline.create(NginxLiveTimeline(id=timelineId, active=True))
     return nl
 
 def createTrack(nl, trackName, mediaType, varName=None):
     nl.track.create(NginxLiveTrack(id=trackName, media_type=mediaType))
     if varName is not None:
         nl.variant.addTrack(variantId=varName, trackId=trackName)
-    return KmpTcpSender(NGINX_LIVE_KMP_ADDR, nl.channelId, trackName)
+    s = KmpTcpSender(NGINX_LIVE_KMP_ADDR, nl.channelId, trackName)
+
+    # reduce send buffer size for audio
+    if mediaType == 'audio':
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024)
+    return s
 
 def createVariant(nl, varName, tracks):
     nl.variant.create(NginxLiveVariant(id=varName))
@@ -60,12 +68,14 @@ def testStream(url, basePath, streamName):
     filePath = os.path.join(splittedPath[0], 'ref', fileName)
 
     info = manifest_utils.getStreamInfo(url)
+    info = info.replace('\r\n', '\n')
     if not os.path.isfile(filePath):
         print 'Info: saving stream, url: %s, file: %s' % (url, filePath)
         file(filePath, 'w').write(info)
         return
 
     expected = file(filePath, 'r').read()
+    expected = expected.replace('\r\n', '\n')
     if expected == info:
         return
 
