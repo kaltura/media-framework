@@ -83,13 +83,13 @@ typedef struct {
 
 
 typedef struct {
-    ngx_live_segment_info_iter_t    iters[KMP_MEDIA_COUNT];
-    uint32_t                        track_count;
+    ngx_live_segment_info_iter_t  iters[KMP_MEDIA_COUNT];
+    uint32_t                      track_count;
 } ngx_http_live_hls_bitrate_iter_t;
 
 typedef struct {
-    ngx_live_media_info_iterator_t  iters[KMP_MEDIA_COUNT];
-    uint32_t                        track_count;
+    ngx_live_media_info_iter_t    iters[KMP_MEDIA_COUNT];
+    uint32_t                      track_count;
 } ngx_http_live_hls_map_index_iter_t;
 
 
@@ -691,9 +691,9 @@ ngx_http_live_hls_map_index_iter_init(ngx_http_request_t *r,
     ngx_http_live_hls_map_index_iter_t *iter,
     ngx_http_live_request_objects_t *objects)
 {
-    uint32_t                         i;
-    ngx_live_track_t                *cur_track;
-    ngx_live_media_info_iterator_t  *cur;
+    uint32_t                     i;
+    ngx_live_track_t            *cur_track;
+    ngx_live_media_info_iter_t  *cur;
 
     cur = iter->iters;
     for (i = 0; i < KMP_MEDIA_COUNT; i++) {
@@ -703,7 +703,7 @@ ngx_http_live_hls_map_index_iter_init(ngx_http_request_t *r,
             continue;
         }
 
-        if (!ngx_live_media_info_iterator_init(cur, cur_track)) {
+        if (!ngx_live_media_info_iter_init(cur, cur_track)) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "ngx_http_live_hls_map_index_iter_init: "
                 "no media info for track \"%V\"",
@@ -730,8 +730,8 @@ ngx_http_live_hls_map_index_iter_get(ngx_http_live_hls_map_index_iter_t *iter,
     max_index = 0;
     for (i = 0; i < iter->track_count; i++) {
 
-        cur_index = ngx_live_media_info_iterator_next(
-            &iter->iters[i], segment_index);
+        cur_index = ngx_live_media_info_iter_next(&iter->iters[i],
+            segment_index);
         if (cur_index > max_index) {
             max_index = cur_index;
         }
@@ -920,17 +920,17 @@ ngx_http_live_hls_write_period_segments(u_char *p, ngx_live_period_t *period,
     ngx_str_t *seg_suffix, uint32_t milliscale,
     ngx_http_live_hls_bitrate_iter_t *bitrate_iter)
 {
-    int64_t                      time;
-    int64_t                      start, end;
-    uint32_t                     bitrate;
-    uint32_t                     last_bitrate;
-    uint32_t                     segment_count;
-    uint32_t                     segment_index;
-    uint32_t                     last_segment_index;
-    ngx_live_segment_repeat_t    segment_duration;
-    ngx_live_segment_iterator_t  iterator;
+    int64_t                    time;
+    int64_t                    start, end;
+    uint32_t                   bitrate;
+    uint32_t                   last_bitrate;
+    uint32_t                   segment_count;
+    uint32_t                   segment_index;
+    uint32_t                   last_segment_index;
+    ngx_live_segment_iter_t    iter;
+    ngx_live_segment_repeat_t  segment_duration;
 
-    iterator = period->segment_iterator;
+    iter = period->segment_iter;
     segment_count = period->segment_count;
     segment_index = period->node.key;
 
@@ -941,7 +941,7 @@ ngx_http_live_hls_write_period_segments(u_char *p, ngx_live_period_t *period,
 
     while (segment_count > 0) {
 
-        ngx_live_segment_iterator_get_element(&iterator, &segment_duration);
+        ngx_live_segment_iter_get_element(&iter, &segment_duration);
 
         if (segment_duration.repeat_count > segment_count) {
             segment_duration.repeat_count = segment_count;
@@ -1043,7 +1043,7 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
     ngx_http_live_core_ctx_t            *ctx;
     ngx_live_core_preset_conf_t         *cpcf;
     ngx_http_live_hls_bitrate_iter_t     bitrate_iter;
-    ngx_http_live_hls_map_index_iter_t   map_iterator;
+    ngx_http_live_hls_map_index_iter_t   map_iter;
 
     /* build the segment track selector */
     rc = ngx_http_live_hls_m3u8_get_selector(r, &selector);
@@ -1094,8 +1094,7 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
             ngx_http_live_hls_prefix_init_seg.len + segment_index_size +
             selector.len + ngx_http_live_hls_ext_init_seg.len;
 
-        rc = ngx_http_live_hls_map_index_iter_init(r, &map_iterator,
-            objects);
+        rc = ngx_http_live_hls_map_index_iter_init(r, &map_iter, objects);
         if (rc != NGX_OK) {
             return rc;
         }
@@ -1172,7 +1171,7 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
 
         if (container_format == NGX_HTTP_LIVE_HLS_CONTAINER_FMP4) {
 
-            map_index = ngx_http_live_hls_map_index_iter_get(&map_iterator,
+            map_index = ngx_http_live_hls_map_index_iter_get(&map_iter,
                 period->node.key);
 
             if (map_index != last_map_index) {

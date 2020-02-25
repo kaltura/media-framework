@@ -932,20 +932,20 @@ static void
 ngx_live_filler_get_durations(ngx_live_filler_channel_ctx_t *cctx,
     ngx_live_timeline_t *timeline, uint64_t cycle_duration)
 {
-    int64_t                       delta;
-    int32_t                       index, count;
-    uint64_t                      duration;
-    uint32_t                     *cur, *end;
-    ngx_live_segment_iterator_t   iterator;
+    int64_t                   delta;
+    int32_t                   index, count;
+    uint64_t                  duration;
+    uint32_t                 *cur, *end;
+    ngx_live_segment_iter_t   iter;
 
     /* get the segment durations */
-    iterator = timeline->head_period->segment_iterator;
+    iter = timeline->head_period->segment_iter;
     duration = 0;
 
     cur = cctx->durations;
     end = cur + cctx->count;
     for (; cur < end; cur++) {
-        ngx_live_segment_iterator_get_one(&iterator, cur);
+        ngx_live_segment_iter_get_one(&iter, cur);
         duration += *cur;
     }
 

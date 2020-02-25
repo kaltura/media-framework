@@ -18,7 +18,7 @@ typedef struct ngx_live_media_info_node_s  ngx_live_media_info_node_t;
 typedef struct {
     ngx_live_media_info_node_t  *cur;
     ngx_queue_t                 *sentinel;
-} ngx_live_media_info_iterator_t;
+} ngx_live_media_info_iter_t;
 
 typedef void *(*ngx_live_media_info_alloc_pt)(void *ctx, size_t size);
 
@@ -57,10 +57,10 @@ ngx_int_t ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
 
 
 /* iterator */
-ngx_flag_t ngx_live_media_info_iterator_init(
-    ngx_live_media_info_iterator_t *iterator, ngx_live_track_t *track);
+ngx_flag_t ngx_live_media_info_iter_init(
+    ngx_live_media_info_iter_t *iter, ngx_live_track_t *track);
 
-uint32_t ngx_live_media_info_iterator_next(
-    ngx_live_media_info_iterator_t *iterator, uint32_t segment_index);
+uint32_t ngx_live_media_info_iter_next(
+    ngx_live_media_info_iter_t *iter, uint32_t segment_index);
 
 #endif /* _NGX_LIVE_MEDIA_INFO_H_INCLUDED_ */

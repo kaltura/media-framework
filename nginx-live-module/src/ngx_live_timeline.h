@@ -34,7 +34,7 @@ struct ngx_live_period_s {
     ngx_rbtree_node_t                  node;          /* key = segment_index */
     ngx_live_period_t                 *next;
 
-    ngx_live_segment_iterator_t        segment_iterator;
+    ngx_live_segment_iter_t            segment_iter;
     int64_t                            time;
     uint64_t                           duration;
     uint32_t                           segment_count;

@@ -83,8 +83,7 @@ ngx_live_period_create(ngx_live_channel_t *channel)
     period->duration = 0;
     period->segment_count = 0;
 
-    ngx_live_segment_iterator_last(&ctx->segment_list,
-        &period->segment_iterator);
+    ngx_live_segment_iter_last(&ctx->segment_list, &period->segment_iter);
 
     return period;
 }
@@ -111,7 +110,7 @@ ngx_live_period_pop_segment(ngx_live_period_t *period, uint32_t *duration)
         return;
     }
 
-    ngx_live_segment_iterator_get_one(&period->segment_iterator, duration);
+    ngx_live_segment_iter_get_one(&period->segment_iter, duration);
 
     period->segment_count--;
     period->time += *duration;
@@ -125,15 +124,15 @@ static void
 ngx_live_period_get_max_duration(ngx_live_period_t *period,
     uint32_t *max_duration)
 {
-    uint32_t                     i;
-    ngx_live_segment_repeat_t    segment_duration;
-    ngx_live_segment_iterator_t  iterator;
+    uint32_t                   i;
+    ngx_live_segment_iter_t    iter;
+    ngx_live_segment_repeat_t  segment_duration;
 
-    iterator = period->segment_iterator;
+    iter = period->segment_iter;
 
     for (i = period->segment_count; ; i -= segment_duration.repeat_count) {
 
-        ngx_live_segment_iterator_get_element(&iterator, &segment_duration);
+        ngx_live_segment_iter_get_element(&iter, &segment_duration);
 
         if (segment_duration.duration > *max_duration) {
             *max_duration = segment_duration.duration;
@@ -149,19 +148,19 @@ ngx_live_period_get_max_duration(ngx_live_period_t *period,
 static void
 ngx_live_period_validate(ngx_live_period_t *period, ngx_log_t *log)
 {
-    uint32_t                     i;
-    uint64_t                     duration;
-    ngx_live_segment_repeat_t    segment_duration;
-    ngx_live_segment_iterator_t  iterator;
+    uint32_t                   i;
+    uint64_t                   duration;
+    ngx_live_segment_iter_t    iter;
+    ngx_live_segment_repeat_t  segment_duration;
 
-    iterator = period->segment_iterator;
+    iter = period->segment_iter;
     duration = 0;
 
     for (i = period->segment_count;
         i > 0;
         i -= segment_duration.repeat_count)
     {
-        ngx_live_segment_iterator_get_element(&iterator, &segment_duration);
+        ngx_live_segment_iter_get_element(&iter, &segment_duration);
 
         if (segment_duration.repeat_count > i) {
             segment_duration.repeat_count = i;
@@ -248,8 +247,8 @@ ngx_live_manifest_timeline_add_first_period(
     period->duration = 0;
     period->segment_count = 0;
 
-    ngx_live_segment_iterator_last(&ctx->segment_list,
-        &period->segment_iterator);
+    ngx_live_segment_iter_last(&ctx->segment_list,
+        &period->segment_iter);
 
     if (timeline->availability_start_time == 0) {
         timeline->availability_start_time = time;
@@ -861,7 +860,7 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
     ngx_live_period_t                *src_period;
     ngx_live_period_t                *dest_period;
     ngx_live_channel_t               *channel = dest->channel;
-    ngx_live_segment_iterator_t       dummy_iterator;
+    ngx_live_segment_iter_t           dummy_iter;
     ngx_live_timeline_channel_ctx_t  *ctx;
 
     /* Note: assuming dest is an empty, freshly-created timeline */
@@ -891,12 +890,12 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
         if (dest->conf.start <= src_period->time) {
             dest_period->node.key = src_period->node.key;
             dest_period->time = src_period->time;
-            dest_period->segment_iterator = src_period->segment_iterator;
+            dest_period->segment_iter = src_period->segment_iter;
 
         } else {
             if (ngx_live_segment_list_get_closest_segment(&ctx->segment_list,
                 dest->conf.start, &segment_index, &dest_period->time,
-                &dest_period->segment_iterator) != NGX_OK) {
+                &dest_period->segment_iter) != NGX_OK) {
                 ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
                     "ngx_live_timeline_copy: "
                     "get closest segment failed (1)");
@@ -914,7 +913,7 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
         } else {
             if (ngx_live_segment_list_get_closest_segment(&ctx->segment_list,
                 dest->conf.end, &segment_index, &segment_time,
-                &dummy_iterator) != NGX_OK) {
+                &dummy_iter) != NGX_OK) {
                 ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
                     "ngx_live_timeline_copy: "
                     "get closest segment failed (2)");

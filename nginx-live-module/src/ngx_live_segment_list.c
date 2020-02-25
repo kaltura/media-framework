@@ -216,7 +216,7 @@ ngx_int_t
 ngx_live_segment_list_get_closest_segment(
     ngx_live_segment_list_t *segment_list, int64_t time,
     uint32_t *segment_index, int64_t *segment_time,
-    ngx_live_segment_iterator_t *iterator)
+    ngx_live_segment_iter_t *iter)
 {
     int64_t                        elt_duration;
     ngx_queue_t                   *prev;
@@ -273,13 +273,13 @@ ngx_live_segment_list_get_closest_segment(
             continue;
         }
 
-        iterator->node = node;
-        iterator->elt = elt;
-        iterator->offset = (time - *segment_time + elt->duration / 2) /
+        iter->node = node;
+        iter->elt = elt;
+        iter->offset = (time - *segment_time + elt->duration / 2) /
             elt->duration;
 
-        *segment_index += iterator->offset;
-        *segment_time += (int64_t) iterator->offset * elt->duration;
+        *segment_index += iter->offset;
+        *segment_time += (int64_t) iter->offset * elt->duration;
 
         return NGX_OK;
     }
@@ -331,8 +331,8 @@ ngx_live_segment_list_json_write(u_char *p,
 
 
 void
-ngx_live_segment_iterator_last(ngx_live_segment_list_t *segment_list,
-    ngx_live_segment_iterator_t *iterator)
+ngx_live_segment_iter_last(ngx_live_segment_list_t *segment_list,
+    ngx_live_segment_iter_t *iter)
 {
     ngx_queue_t                   *q;
     ngx_live_segment_list_node_t  *last;
@@ -340,52 +340,52 @@ ngx_live_segment_iterator_last(ngx_live_segment_list_t *segment_list,
     /* Note: must not be called when empty */
     q = ngx_queue_last(&segment_list->queue);
     last = ngx_queue_data(q, ngx_live_segment_list_node_t, queue);
-    iterator->node = last;
-    iterator->elt = &last->elts[last->nelts - 1];
-    iterator->offset = iterator->elt->repeat_count - 1;
+    iter->node = last;
+    iter->elt = &last->elts[last->nelts - 1];
+    iter->offset = iter->elt->repeat_count - 1;
 }
 
 static void
-ngx_live_segment_iterator_move_next(ngx_live_segment_iterator_t *iterator)
+ngx_live_segment_iter_move_next(ngx_live_segment_iter_t *iter)
 {
     ngx_queue_t  *next;
 
-    if (iterator->offset < iterator->elt->repeat_count) {
+    if (iter->offset < iter->elt->repeat_count) {
         return;
     }
 
-    iterator->elt++;
-    iterator->offset = 0;
+    iter->elt++;
+    iter->offset = 0;
 
-    if (iterator->elt < iterator->node->elts + iterator->node->nelts) {
+    if (iter->elt < iter->node->elts + iter->node->nelts) {
         return;
     }
 
-    next = ngx_queue_next(&iterator->node->queue);
-    iterator->node = ngx_queue_data(next, ngx_live_segment_list_node_t, queue);
-    iterator->elt = iterator->node->elts;
+    next = ngx_queue_next(&iter->node->queue);
+    iter->node = ngx_queue_data(next, ngx_live_segment_list_node_t, queue);
+    iter->elt = iter->node->elts;
 }
 
 void
-ngx_live_segment_iterator_get_one(ngx_live_segment_iterator_t *iterator,
+ngx_live_segment_iter_get_one(ngx_live_segment_iter_t *iter,
     uint32_t *duration)
 {
-    ngx_live_segment_iterator_move_next(iterator);
+    ngx_live_segment_iter_move_next(iter);
 
-    *duration = iterator->elt->duration;
-    iterator->offset++;
+    *duration = iter->elt->duration;
+    iter->offset++;
 }
 
 void
-ngx_live_segment_iterator_get_element(ngx_live_segment_iterator_t *iterator,
+ngx_live_segment_iter_get_element(ngx_live_segment_iter_t *iter,
     ngx_live_segment_repeat_t *segment_duration)
 {
     ngx_live_segment_repeat_t  *elt;
 
-    ngx_live_segment_iterator_move_next(iterator);
+    ngx_live_segment_iter_move_next(iter);
 
-    elt = iterator->elt;
+    elt = iter->elt;
     segment_duration->duration = elt->duration;
-    segment_duration->repeat_count = elt->repeat_count - iterator->offset;
-    iterator->offset = elt->repeat_count;
+    segment_duration->repeat_count = elt->repeat_count - iter->offset;
+    iter->offset = elt->repeat_count;
 }
