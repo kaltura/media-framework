@@ -911,7 +911,7 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
 
     ngx_stream_set_ctx(s, ctx, ngx_stream_live_kmp_module);
 
-    rc = ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_CONNECT);
+    rc = ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_CONNECT, NULL);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, c->log, 0,
             "ngx_stream_live_kmp_read_header: failed to send connect event");

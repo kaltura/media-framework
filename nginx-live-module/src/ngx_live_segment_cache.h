@@ -64,26 +64,18 @@ typedef ngx_int_t (*ngx_live_read_segment_pt)(
 ngx_live_segment_t *ngx_live_segment_cache_create(ngx_live_track_t *track,
     uint32_t segment_index);
 
-void ngx_live_segment_cache_free(ngx_live_track_t *track,
-    ngx_live_segment_t *segment);
+void ngx_live_segment_cache_free(ngx_live_segment_t *segment);
+
+void ngx_live_segment_cache_finalize(ngx_live_segment_t *segment);
 
 ngx_live_segment_t *ngx_live_segment_cache_get(ngx_live_track_t *track,
     uint32_t segment_index);
-
-void ngx_live_segment_cache_free_old(ngx_live_channel_t *channel,
-    uint32_t min_segment_index);
 
 void ngx_live_segment_cache_free_by_index(ngx_live_channel_t *channel,
     uint32_t segment_index);
 
 ngx_live_input_bufs_lock_t *ngx_live_segment_cache_lock_data(
     ngx_live_segment_t *segment);
-
-#if (NGX_LIVE_VALIDATIONS)
-void ngx_live_segment_cache_validate(ngx_live_segment_t *segment);
-#else
-#define ngx_live_segment_cache_validate(segment)
-#endif
 
 
 extern ngx_live_read_segment_pt  ngx_live_read_segment;

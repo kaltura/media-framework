@@ -261,7 +261,7 @@ ngx_live_input_bufs_get(ngx_live_track_t *track, ngx_buf_t *b)
     channel = track->channel;
     if (channel->mem_left < channel->mem_high_watermark) {
         (void) ngx_live_core_channel_event(channel,
-            NGX_LIVE_EVENT_CHANNEL_WATERMARK);
+            NGX_LIVE_EVENT_CHANNEL_WATERMARK, NULL);
     }
 
     return NGX_OK;
@@ -405,9 +405,9 @@ ngx_live_input_bufs_link(ngx_live_track_t *dst, ngx_live_track_t *src)
 
 
 static ngx_int_t
-ngx_live_input_bufs_channel_init(ngx_live_channel_t *channel,
-    size_t *track_ctx_size)
+ngx_live_input_bufs_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
+    size_t                             *track_ctx_size = ectx;
     ngx_live_input_bufs_channel_ctx_t  *cctx;
 
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
@@ -428,7 +428,7 @@ ngx_live_input_bufs_channel_init(ngx_live_channel_t *channel,
 }
 
 static ngx_int_t
-ngx_live_input_bufs_channel_free(ngx_live_channel_t *channel)
+ngx_live_input_bufs_channel_free(ngx_live_channel_t *channel, void *ectx)
 {
     ngx_queue_t                        *q, *next;
     ngx_live_input_bufs_t              *cur;
@@ -452,7 +452,7 @@ ngx_live_input_bufs_channel_free(ngx_live_channel_t *channel)
 }
 
 static ngx_int_t
-ngx_live_input_bufs_track_init(ngx_live_track_t *track)
+ngx_live_input_bufs_track_init(ngx_live_track_t *track, void *ectx)
 {
     ngx_live_input_bufs_track_ctx_t  *ctx;
 
@@ -467,7 +467,7 @@ ngx_live_input_bufs_track_init(ngx_live_track_t *track)
 }
 
 static ngx_int_t
-ngx_live_input_bufs_track_free(ngx_live_track_t *track)
+ngx_live_input_bufs_track_free(ngx_live_track_t *track, void *ectx)
 {
     ngx_live_input_bufs_track_ctx_t  *ctx;
 
@@ -574,60 +574,48 @@ ngx_live_input_bufs_track_json_write(u_char *p, void *obj)
 }
 
 
+static ngx_live_channel_event_t    ngx_live_input_bufs_channel_events[] = {
+    { ngx_live_input_bufs_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
+    { ngx_live_input_bufs_channel_free, NGX_LIVE_EVENT_CHANNEL_FREE },
+      ngx_live_null_event
+};
+
+static ngx_live_track_event_t      ngx_live_input_bufs_track_events[] = {
+    { ngx_live_input_bufs_track_init, NGX_LIVE_EVENT_TRACK_INIT },
+    { ngx_live_input_bufs_track_free, NGX_LIVE_EVENT_TRACK_FREE },
+    { ngx_live_input_bufs_track_free, NGX_LIVE_EVENT_TRACK_CHANNEL_FREE },
+      ngx_live_null_event
+};
+
+static ngx_live_json_writer_def_t  ngx_live_input_bufs_json_writers[] = {
+    { { ngx_live_input_bufs_global_json_get_size,
+        ngx_live_input_bufs_global_json_write},
+      NGX_LIVE_JSON_CTX_GLOBAL },
+
+    { { ngx_live_input_bufs_track_json_get_size,
+        ngx_live_input_bufs_track_json_write},
+      NGX_LIVE_JSON_CTX_TRACK },
+
+      ngx_live_null_json_writer
+};
+
 static ngx_int_t
 ngx_live_input_bufs_postconfiguration(ngx_conf_t *cf)
 {
-    ngx_live_json_writer_t            *writer;
-    ngx_live_core_main_conf_t         *cmcf;
-    ngx_live_track_handler_pt         *th;
-    ngx_live_channel_handler_pt       *ch;
-    ngx_live_channel_init_handler_pt  *cih;
-
-    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
-
-    cih = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_CHANNEL_INIT]);
-    if (cih == NULL) {
+    if (ngx_live_core_channel_events_add(cf,
+        ngx_live_input_bufs_channel_events) != NGX_OK) {
         return NGX_ERROR;
     }
-    *cih = ngx_live_input_bufs_channel_init;
 
-    ch = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_CHANNEL_FREE]);
-    if (ch == NULL) {
+    if (ngx_live_core_track_events_add(cf, ngx_live_input_bufs_track_events)
+        != NGX_OK) {
         return NGX_ERROR;
     }
-    *ch = ngx_live_input_bufs_channel_free;
 
-    th = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_TRACK_INIT]);
-    if (th == NULL) {
+    if (ngx_live_core_json_writers_add(cf,
+        ngx_live_input_bufs_json_writers) != NGX_OK) {
         return NGX_ERROR;
     }
-    *th = ngx_live_input_bufs_track_init;
-
-    th = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_TRACK_FREE]);
-    if (th == NULL) {
-        return NGX_ERROR;
-    }
-    *th = ngx_live_input_bufs_track_free;
-
-    th = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_TRACK_CHANNEL_FREE]);
-    if (th == NULL) {
-        return NGX_ERROR;
-    }
-    *th = ngx_live_input_bufs_track_free;
-
-    writer = ngx_array_push(&cmcf->json_writers[NGX_LIVE_JSON_CTX_GLOBAL]);
-    if (writer == NULL) {
-        return NGX_ERROR;
-    }
-    writer->get_size = ngx_live_input_bufs_global_json_get_size;
-    writer->write = ngx_live_input_bufs_global_json_write;
-
-    writer = ngx_array_push(&cmcf->json_writers[NGX_LIVE_JSON_CTX_TRACK]);
-    if (writer == NULL) {
-        return NGX_ERROR;
-    }
-    writer->get_size = ngx_live_input_bufs_track_json_get_size;
-    writer->write = ngx_live_input_bufs_track_json_write;
 
     return NGX_OK;
 }

@@ -50,8 +50,6 @@ media_info_t *ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
 ngx_int_t ngx_live_media_info_queue_copy_last(ngx_live_track_t *dst,
     ngx_live_track_t *src, uint32_t segment_index);
 
-void ngx_live_media_info_queue_free(ngx_live_track_t *track,
-    uint32_t min_segment_index);
 
 /* gap filling */
 ngx_int_t ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,

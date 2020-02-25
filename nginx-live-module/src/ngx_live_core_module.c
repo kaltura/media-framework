@@ -453,40 +453,23 @@ ngx_live_core_get_preset_conf(ngx_cycle_t *cycle, ngx_str_t *preset_name)
     return cpcf->ctx;
 }
 
-ngx_int_t
-ngx_live_core_channel_init(ngx_live_channel_t *channel, size_t *track_ctx_size)
+void
+ngx_live_core_channel_init(ngx_live_channel_t *channel)
 {
-    ngx_int_t                          rc;
-    ngx_uint_t                         i, n;
-    ngx_live_core_main_conf_t         *cmcf;
-    ngx_live_core_preset_conf_t       *cpcf;
-    ngx_live_channel_init_handler_pt  *handler;
+    ngx_live_core_preset_conf_t  *cpcf;
 
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
+
     channel->mem_left = cpcf->mem_limit;
     channel->mem_high_watermark = (100 - cpcf->mem_high_watermark) *
         cpcf->mem_limit / 100;
     channel->mem_low_watermark = (100 - cpcf->mem_low_watermark) *
         cpcf->mem_limit / 100;
-
-    cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
-    handler = cmcf->events[NGX_LIVE_EVENT_CHANNEL_INIT].elts;
-    n = cmcf->events[NGX_LIVE_EVENT_CHANNEL_INIT].nelts;
-
-    for (i = 0; i < n; i++) {
-        rc = handler[i](channel, track_ctx_size);
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-                "ngx_live_core_channel_init: handler %ui failed", i);
-            return rc;
-        }
-    }
-
-    return NGX_OK;
 }
 
 ngx_int_t
-ngx_live_core_channel_event(ngx_live_channel_t *channel, ngx_uint_t event)
+ngx_live_core_channel_event(ngx_live_channel_t *channel, ngx_uint_t event,
+    void *ectx)
 {
     ngx_int_t                     rc;
     ngx_uint_t                    i, n;
@@ -499,7 +482,7 @@ ngx_live_core_channel_event(ngx_live_channel_t *channel, ngx_uint_t event)
     n = cmcf->events[event].nelts;
 
     for (i = 0; i < n; i++) {
-        rc = handler[i](channel);
+        rc = handler[i](channel, ectx);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
                 "ngx_live_core_channel_event: event %ui, handler %ui failed",
@@ -512,7 +495,8 @@ ngx_live_core_channel_event(ngx_live_channel_t *channel, ngx_uint_t event)
 }
 
 ngx_int_t
-ngx_live_core_track_event(ngx_live_track_t *track, ngx_uint_t event)
+ngx_live_core_track_event(ngx_live_track_t *track, ngx_uint_t event,
+    void *ectx)
 {
     ngx_int_t                   rc;
     ngx_uint_t                  i, n;
@@ -526,13 +510,82 @@ ngx_live_core_track_event(ngx_live_track_t *track, ngx_uint_t event)
 
     for (i = 0; i < n; i++) {
 
-        rc = handler[i](track);
+        rc = handler[i](track, ectx);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_live_core_track_event: event %ui, handler %ui failed",
                 event, i);
             return rc;
         }
+    }
+
+    return NGX_OK;
+}
+
+ngx_int_t
+ngx_live_core_channel_events_add(ngx_conf_t *cf,
+    ngx_live_channel_event_t *events)
+{
+    ngx_live_channel_event_t     *cur;
+    ngx_live_core_main_conf_t    *cmcf;
+    ngx_live_channel_handler_pt  *ch;
+
+    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
+
+    for (cur = events; cur->handler != NULL; cur++) {
+
+        ch = ngx_array_push(&cmcf->events[cur->event]);
+        if (ch == NULL) {
+            return NGX_ERROR;
+        }
+
+        *ch = cur->handler;
+    }
+
+    return NGX_OK;
+}
+
+ngx_int_t
+ngx_live_core_track_events_add(ngx_conf_t *cf,
+    ngx_live_track_event_t *events)
+{
+    ngx_live_track_event_t     *cur;
+    ngx_live_core_main_conf_t  *cmcf;
+    ngx_live_track_handler_pt  *th;
+
+    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
+
+    for (cur = events; cur->handler != NULL; cur++) {
+
+        th = ngx_array_push(&cmcf->events[cur->event]);
+        if (th == NULL) {
+            return NGX_ERROR;
+        }
+
+        *th = cur->handler;
+    }
+
+    return NGX_OK;
+}
+
+ngx_int_t
+ngx_live_core_json_writers_add(ngx_conf_t *cf,
+    ngx_live_json_writer_def_t *writers)
+{
+    ngx_live_json_writer_t      *writer;
+    ngx_live_core_main_conf_t   *cmcf;
+    ngx_live_json_writer_def_t  *cur;
+
+    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
+
+    for (cur = writers; cur->writer.get_size != NULL; cur++) {
+
+        writer = ngx_array_push(&cmcf->json_writers[cur->ctx]);
+        if (writer == NULL) {
+            return NGX_ERROR;
+        }
+
+        *writer = cur->writer;
     }
 
     return NGX_OK;

@@ -18,10 +18,11 @@
 #define NGX_LIVE_VARIANT_MAX_LABEL_LEN  (64)
 #define NGX_LIVE_VARIANT_MAX_LANG_LEN   (6)
 
-#define NGX_LIVE_TRACK_MAX_ID_LEN       KMP_MAX_TRACK_ID_LEN
+#define NGX_LIVE_TRACK_MAX_ID_LEN       (KMP_MAX_TRACK_ID_LEN)
 
 #define NGX_LIVE_INVALID_SEGMENT_INDEX  (NGX_MAX_UINT32_VALUE)
 
+#define NGX_LIVE_SEGMENT_NO_BITRATE     (1)
 
 #define ngx_live_reserve_track_ctx_size(channel, module, size, total_size)  \
     channel->track_ctx_offset[module.ctx_index] = *total_size;              \
@@ -123,6 +124,9 @@ struct ngx_live_track_s {
 
     ngx_live_track_input_t         input;
 
+    /* Note: when a track gets a segment from another track (gap filling),
+        has_last_segment = 0 while last_segment_bitrate != 0 */
+    uint32_t                       last_segment_bitrate;
     unsigned                       has_last_segment:1;
 };
 

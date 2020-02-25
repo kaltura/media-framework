@@ -46,11 +46,6 @@ typedef struct ngx_live_channel_s     ngx_live_channel_t;
 #define ngx_live_rescale_time(time, cur_scale, new_scale)                   \
     ((((uint64_t)(time)) * (new_scale) + (cur_scale) / 2) / (cur_scale))
 
-typedef ngx_int_t (*ngx_live_channel_init_handler_pt)(
-    ngx_live_channel_t *channel, size_t *track_ctx_size);
-typedef ngx_int_t (*ngx_live_channel_handler_pt)(ngx_live_channel_t *channel);
-typedef ngx_int_t (*ngx_live_track_handler_pt)(ngx_live_track_t *track);
-
 
 typedef struct {
     ngx_conf_t     *cf;

@@ -195,7 +195,10 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
         sizeof(block_sizes[0]) * cpcf->mem_block_sizes->nelts);
 
     /* call handlers */
-    rc = ngx_live_core_channel_init(channel, &block_sizes[NGX_LIVE_BP_TRACK]);
+    ngx_live_core_channel_init(channel);
+
+    rc = ngx_live_core_channel_event(channel, NGX_LIVE_EVENT_CHANNEL_INIT,
+        &block_sizes[NGX_LIVE_BP_TRACK]);
     if (rc != NGX_OK) {
         goto error;
     }
@@ -255,7 +258,8 @@ ngx_live_channel_free(ngx_live_channel_t *channel)
             NGX_LIVE_EVENT_TRACK_CHANNEL_FREE);
     }
 
-    (void) ngx_live_core_channel_event(channel, NGX_LIVE_EVENT_CHANNEL_FREE);
+    (void) ngx_live_core_channel_event(channel, NGX_LIVE_EVENT_CHANNEL_FREE,
+        NULL);
 
     ngx_rbtree_delete(&ngx_live_channels.rbtree, &channel->sn.node);
     ngx_queue_remove(&channel->queue);
@@ -677,7 +681,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
         track->ctx[i] = (u_char *) track + channel->track_ctx_offset[i];
     }
 
-    rc = ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_INIT);
+    rc = ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_INIT, NULL);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_track_create: track init failed %i", rc);
@@ -717,7 +721,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
 void
 ngx_live_track_channel_free(ngx_live_track_t *track, ngx_uint_t event)
 {
-    (void) ngx_live_core_track_event(track, event);
+    (void) ngx_live_core_track_event(track, event, NULL);
 
     if (track->input.data != NULL) {
         track->input.disconnect(track, NGX_OK);

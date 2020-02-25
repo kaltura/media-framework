@@ -849,9 +849,8 @@ ngx_live_dvr_save_bucket(ngx_live_channel_t *channel,
     }
 }
 
-void
-ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel,
-    ngx_flag_t exists)
+static ngx_int_t
+ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel, void *ectx)
 {
     uint32_t                     i;
     uint32_t                     count;
@@ -861,14 +860,16 @@ ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel,
     uint32_t                     segment_index;
     uint32_t                     new_mask_start;
     uint32_t                     max_failed_index;
+    ngx_flag_t                   exists;
     ngx_live_dvr_channel_ctx_t  *cctx;
     ngx_live_dvr_preset_conf_t  *dpcf;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_dvr_module);
     if (cctx == NULL) {
-        return;
+        return NGX_OK;
     }
 
+    exists = (intptr_t) ectx;
     dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_module);
 
     segment_index = channel->next_segment_index;
@@ -925,17 +926,19 @@ ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel,
         if (exists) {
             cctx->last_bucket_id = bucket_id;
         }
-        return;
+        return NGX_OK;
     }
 
     /* last segment in the bucket, save it */
     if (!exists && cctx->last_bucket_id == NGX_LIVE_DVR_INVALID_BUCKET_ID) {
-        return;
+        return NGX_OK;
     }
 
     ngx_live_dvr_save_bucket(channel, cctx, dpcf, bucket_id);
 
     cctx->last_bucket_id = NGX_LIVE_DVR_INVALID_BUCKET_ID;
+
+    return NGX_OK;
 }
 
 
@@ -1185,7 +1188,7 @@ ngx_live_dvr_channel_json_write(u_char *p, void *obj)
 
 
 static ngx_int_t
-ngx_live_dvr_channel_init(ngx_live_channel_t *channel, size_t *track_ctx_size)
+ngx_live_dvr_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
     ngx_live_dvr_channel_ctx_t  *cctx;
     ngx_live_dvr_preset_conf_t  *dpcf;
@@ -1211,7 +1214,7 @@ ngx_live_dvr_channel_init(ngx_live_channel_t *channel, size_t *track_ctx_size)
 }
 
 static ngx_int_t
-ngx_live_dvr_channel_inactive(ngx_live_channel_t *channel)
+ngx_live_dvr_channel_inactive(ngx_live_channel_t *channel, void *ectx)
 {
     ngx_live_dvr_channel_ctx_t  *cctx;
     ngx_live_dvr_preset_conf_t  *dpcf;
@@ -1304,34 +1307,35 @@ ngx_live_dvr_preconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
+static ngx_live_channel_event_t    ngx_live_dvr_channel_events[] = {
+    { ngx_live_dvr_channel_init,     NGX_LIVE_EVENT_CHANNEL_INIT },
+    { ngx_live_dvr_channel_inactive, NGX_LIVE_EVENT_CHANNEL_INACTIVE },
+    { ngx_live_dvr_save_segment_created,
+        NGX_LIVE_EVENT_CHANNEL_SEGMENT_CREATED },
+      ngx_live_null_event
+};
+
+static ngx_live_json_writer_def_t  ngx_live_dvr_json_writers[] = {
+    { { ngx_live_dvr_channel_json_get_size,
+        ngx_live_dvr_channel_json_write },
+      NGX_LIVE_JSON_CTX_CHANNEL },
+
+      ngx_live_null_json_writer
+};
+
 static ngx_int_t
 ngx_live_dvr_postconfiguration(ngx_conf_t *cf)
 {
-    ngx_live_json_writer_t            *writer;
-    ngx_live_core_main_conf_t         *cmcf;
-    ngx_live_channel_handler_pt       *ch;
-    ngx_live_channel_init_handler_pt  *cih;
-
-    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
-
-    cih = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_CHANNEL_INIT]);
-    if (cih == NULL) {
+    if (ngx_live_core_channel_events_add(cf,
+        ngx_live_dvr_channel_events) != NGX_OK) {
         return NGX_ERROR;
     }
-    *cih = ngx_live_dvr_channel_init;
 
-    ch = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_CHANNEL_INACTIVE]);
-    if (ch == NULL) {
+    if (ngx_live_core_json_writers_add(cf,
+        ngx_live_dvr_json_writers) != NGX_OK) {
         return NGX_ERROR;
     }
-    *ch = ngx_live_dvr_channel_inactive;
-
-    writer = ngx_array_push(&cmcf->json_writers[NGX_LIVE_JSON_CTX_CHANNEL]);
-    if (writer == NULL) {
-        return NGX_ERROR;
-    }
-    writer->get_size = ngx_live_dvr_channel_json_get_size;
-    writer->write = ngx_live_dvr_channel_json_write;
 
     return NGX_OK;
 }

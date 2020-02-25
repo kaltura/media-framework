@@ -67,6 +67,11 @@ class KmpReader(object):
         self.readPacket()
         return res
 
+class KmpFileReader(KmpReader):
+    def __init__(self, inputFile):
+        self.inputFile = inputFile
+        super(KmpFileReader, self).__init__(file(inputFile, 'rb'), inputFile)
+
 class KmpMediaFileReader(KmpReader):
     def __init__(self, inputFile, streamId, createdBase=DEFAULT_CREATED):
         self.inputFile = inputFile
