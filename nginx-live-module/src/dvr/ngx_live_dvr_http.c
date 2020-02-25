@@ -485,8 +485,7 @@ ngx_live_dvr_http_save(ngx_live_channel_t *channel,
 
 
 static ngx_int_t
-ngx_live_dvr_http_channel_init(ngx_live_channel_t *channel,
-    size_t *track_ctx_size)
+ngx_live_dvr_http_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
     size_t                            block_sizes[NGX_LIVE_BP_COUNT];
     ngx_live_dvr_http_channel_ctx_t  *cctx;
@@ -517,7 +516,7 @@ ngx_live_dvr_http_channel_init(ngx_live_channel_t *channel,
 }
 
 static ngx_int_t
-ngx_live_dvr_http_channel_watermark(ngx_live_channel_t *channel)
+ngx_live_dvr_http_channel_watermark(ngx_live_channel_t *channel, void *ectx)
 {
     uint32_t                          count = 0;
     uint32_t                          min_bucket_id;
@@ -565,26 +564,19 @@ ngx_live_dvr_http_channel_watermark(ngx_live_channel_t *channel)
 
 /* read + write */
 
+static ngx_live_channel_event_t  ngx_live_dvr_http_channel_events[] = {
+    { ngx_live_dvr_http_channel_init,      NGX_LIVE_EVENT_CHANNEL_INIT },
+    { ngx_live_dvr_http_channel_watermark, NGX_LIVE_EVENT_CHANNEL_WATERMARK },
+      ngx_live_null_event
+};
+
 static ngx_int_t
 ngx_live_dvr_http_postconfiguration(ngx_conf_t *cf)
 {
-    ngx_live_core_main_conf_t         *cmcf;
-    ngx_live_channel_handler_pt       *ch;
-    ngx_live_channel_init_handler_pt  *cih;
-
-    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
-
-    cih = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_CHANNEL_INIT]);
-    if (cih == NULL) {
+    if (ngx_live_core_channel_events_add(cf,
+        ngx_live_dvr_http_channel_events) != NGX_OK) {
         return NGX_ERROR;
     }
-    *cih = ngx_live_dvr_http_channel_init;
-
-    ch = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_CHANNEL_WATERMARK]);
-    if (ch == NULL) {
-        return NGX_ERROR;
-    }
-    *ch = ngx_live_dvr_http_channel_watermark;
 
     return NGX_OK;
 }

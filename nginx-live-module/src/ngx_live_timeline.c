@@ -1,9 +1,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include "ngx_live_timeline.h"
-#include "ngx_live_segment_cache.h"
-#include "ngx_live_media_info.h"
 #include "ngx_live.h"
+#include "ngx_live_timeline.h"
 
 
 #define NGX_LIVE_TIMELINE_CLEANUP_INTERVAL  60000
@@ -1002,27 +1000,15 @@ static void
 ngx_live_timelines_free_old_segments(ngx_live_channel_t *channel,
     uint32_t min_segment_index)
 {
-    ngx_queue_t                      *q;
-    ngx_live_track_t                 *cur_track;
     ngx_live_timeline_channel_ctx_t  *ctx;
 
     ctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     ngx_live_segment_list_free_nodes(&ctx->segment_list, min_segment_index);
 
-    /* cleanup unused buffers / media info */
-    ngx_live_segment_cache_free_old(channel, min_segment_index);
-
-    for (q = ngx_queue_head(&channel->tracks.queue);
-        q != ngx_queue_sentinel(&channel->tracks.queue);
-        q = ngx_queue_next(q))
-    {
-        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
-
-        // XXXX no need to do this every time, will rarely free anything
-        /* free unused media info nodes */
-        ngx_live_media_info_queue_free(cur_track, min_segment_index);
-    }
+    (void) ngx_live_core_channel_event(channel,
+        NGX_LIVE_EVENT_CHANNEL_SEGMENT_FREE,
+        (void*) (uintptr_t) min_segment_index);
 }
 
 ngx_int_t
@@ -1136,7 +1122,16 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
 
     ngx_live_timelines_free_old_segments(channel, min_segment_index);
 
-    return added ? NGX_OK : NGX_DONE;
+    /* notify the creation */
+    rc = ngx_live_core_channel_event(channel,
+        NGX_LIVE_EVENT_CHANNEL_SEGMENT_CREATED, (void *) added);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_timeline_add_segment: event failed");
+        return rc;
+    }
+
+    return NGX_OK;
 }
 
 void
@@ -1218,8 +1213,7 @@ ngx_live_timelines_cleanup_handler(ngx_event_t *ev)
 }
 
 static ngx_int_t
-ngx_live_timeline_channel_init(ngx_live_channel_t *channel,
-    size_t *track_ctx_size)
+ngx_live_timeline_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
     size_t                            block_sizes[NGX_LIVE_BP_COUNT];
     ngx_live_timeline_channel_ctx_t  *ctx;
@@ -1261,7 +1255,7 @@ ngx_live_timeline_channel_init(ngx_live_channel_t *channel,
 }
 
 static ngx_int_t
-ngx_live_timeline_channel_free(ngx_live_channel_t *channel)
+ngx_live_timeline_channel_free(ngx_live_channel_t *channel, void *ectx)
 {
     ngx_live_timeline_channel_ctx_t  *ctx;
 
@@ -1275,7 +1269,7 @@ ngx_live_timeline_channel_free(ngx_live_channel_t *channel)
 }
 
 static ngx_int_t
-ngx_live_timeline_channel_inactive(ngx_live_channel_t *channel)
+ngx_live_timeline_channel_inactive(ngx_live_channel_t *channel, void *ectx)
 {
     ngx_live_timeline_channel_ctx_t  *ctx;
 
@@ -1328,40 +1322,34 @@ ngx_live_timeline_json_writer_write(u_char *p, void *obj)
     return ngx_live_timelines_module_json_write(p, ctx);
 }
 
+
+static ngx_live_channel_event_t    ngx_live_timeline_channel_events[] = {
+    { ngx_live_timeline_channel_init,     NGX_LIVE_EVENT_CHANNEL_INIT },
+    { ngx_live_timeline_channel_free,     NGX_LIVE_EVENT_CHANNEL_FREE },
+    { ngx_live_timeline_channel_inactive, NGX_LIVE_EVENT_CHANNEL_INACTIVE },
+      ngx_live_null_event
+};
+
+static ngx_live_json_writer_def_t  ngx_live_timeline_json_writers[] = {
+    { { ngx_live_timeline_json_writer_get_size,
+        ngx_live_timeline_json_writer_write},
+      NGX_LIVE_JSON_CTX_CHANNEL },
+
+      ngx_live_null_json_writer
+};
+
 static ngx_int_t
 ngx_live_timeline_postconfiguration(ngx_conf_t *cf)
 {
-    ngx_live_json_writer_t            *writer;
-    ngx_live_core_main_conf_t         *cmcf;
-    ngx_live_channel_handler_pt       *ch;
-    ngx_live_channel_init_handler_pt  *cih;
-
-    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
-
-    cih = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_CHANNEL_INIT]);
-    if (cih == NULL) {
+    if (ngx_live_core_channel_events_add(cf,
+        ngx_live_timeline_channel_events) != NGX_OK) {
         return NGX_ERROR;
     }
-    *cih = ngx_live_timeline_channel_init;
 
-    ch = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_CHANNEL_FREE]);
-    if (ch == NULL) {
+    if (ngx_live_core_json_writers_add(cf,
+        ngx_live_timeline_json_writers) != NGX_OK) {
         return NGX_ERROR;
     }
-    *ch = ngx_live_timeline_channel_free;
-
-    ch = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_CHANNEL_INACTIVE]);
-    if (ch == NULL) {
-        return NGX_ERROR;
-    }
-    *ch = ngx_live_timeline_channel_inactive;
-
-    writer = ngx_array_push(&cmcf->json_writers[NGX_LIVE_JSON_CTX_CHANNEL]);
-    if (writer == NULL) {
-        return NGX_ERROR;
-    }
-    writer->get_size = ngx_live_timeline_json_writer_get_size;
-    writer->write =  ngx_live_timeline_json_writer_write;
 
     return NGX_OK;
 }

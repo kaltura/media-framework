@@ -56,9 +56,6 @@ ngx_int_t ngx_live_dvr_get_path(ngx_live_channel_t *channel, ngx_pool_t *pool,
 
 /* write */
 
-void ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel,
-    ngx_flag_t exists);
-
 ngx_chain_t *ngx_live_dvr_save_create_file(ngx_live_channel_t *channel,
     ngx_pool_t *pool, ngx_live_dvr_save_request_t *request);
 

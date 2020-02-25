@@ -14,6 +14,7 @@ NGINX_CONF = 'nginx.conf'
 TEMP_NGINX_CONF = 'temp.conf'
 
 NGINX_BIN = '/usr/local/nginx/sbin/nginx'
+NGINX_PID = '/usr/local/nginx/logs/nginx.pid'
 VALGRIND_BIN = 'valgrind'
 
 def downloadTestVideos():
@@ -123,8 +124,13 @@ def run(tests):
         cleanupFunc = getattr(curMod, 'cleanup', defaultTestCleanup)
         cleanupFunc()
 
-        os.kill(nginxProc.pid, signal.SIGTERM)
-        nginxProc.wait()
+        if options.setup:
+            if options.valgrind:
+                nginxPid = nginxProc.pid    # daemon off
+            else:
+                nginxPid = int(file(NGINX_PID).read().strip())
+            os.kill(nginxPid, signal.SIGTERM)
+            nginxProc.wait()
 
 if __name__ == '__main__':
     parser = OptionParser()

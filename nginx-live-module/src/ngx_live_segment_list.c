@@ -4,7 +4,7 @@
 
 
 /* sizeof ngx_live_segment_list_node_t = 512 */
-#define SEGMENT_LIST_NODE_ELEMENTS  (55)
+#define NGX_LIVE_SEGMENT_LIST_NODE_ELTS  (55)
 
 
 enum {
@@ -19,7 +19,7 @@ struct ngx_live_segment_list_node_s {
     ngx_queue_t                 queue;
     int64_t                     time;
     ngx_uint_t                  nelts;
-    ngx_live_segment_repeat_t   elts[SEGMENT_LIST_NODE_ELEMENTS];
+    ngx_live_segment_repeat_t   elts[NGX_LIVE_SEGMENT_LIST_NODE_ELTS];
 };
 
 
@@ -72,7 +72,7 @@ ngx_live_segment_list_add(ngx_live_segment_list_t *segment_list,
                 goto add;
             }
 
-            if (last->nelts < SEGMENT_LIST_NODE_ELEMENTS) {
+            if (last->nelts < NGX_LIVE_SEGMENT_LIST_NODE_ELTS) {
 
                 last_elt = &last->elts[last->nelts];
                 last->nelts++;
@@ -180,9 +180,9 @@ ngx_live_segment_list_get_segment_time(ngx_live_segment_list_t *segment_list,
         rbnode = next_node;
     }
 
-    node = (ngx_live_segment_list_node_t*) rbnode;
-    if (segment_index < node->node.key)
-    {
+    node = (ngx_live_segment_list_node_t *) rbnode;
+    if (segment_index < node->node.key) {
+
         /* Note: since we don't know the end index of each node, it is possible
             that we made a wrong right turn, in that case, we need to go back
             one node */
@@ -238,7 +238,7 @@ ngx_live_segment_list_get_closest_segment(
 
     for (;; ) {
 
-        node = (ngx_live_segment_list_node_t*) rbnode;
+        node = (ngx_live_segment_list_node_t *) rbnode;
         next_node = (time < node->time) ? rbnode->left : rbnode->right;
         if (next_node == sentinel) {
             break;

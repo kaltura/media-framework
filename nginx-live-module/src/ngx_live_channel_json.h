@@ -51,6 +51,7 @@ ngx_live_track_json_get_size(ngx_live_track_t *obj)
         sizeof(",\"opaque\":\"") - 1 + obj->opaque.len +
         sizeof("\",\"input\":") - 1 +
             ngx_live_track_input_get_size(&obj->input) +
+        sizeof(",\"last_segment_bitrate\":") - 1 + NGX_INT32_LEN +
         sizeof(",") - 1 + ngx_live_core_json_get_size(obj, obj->channel,
             NGX_LIVE_JSON_CTX_TRACK) +
         sizeof("}") - 1;
@@ -71,6 +72,8 @@ ngx_live_track_json_write(u_char *p, ngx_live_track_t *obj)
     p = ngx_block_str_write(p, &obj->opaque);
     p = ngx_copy_fix(p, "\",\"input\":");
     p = ngx_live_track_input_write(p, &obj->input);
+    p = ngx_copy_fix(p, ",\"last_segment_bitrate\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->last_segment_bitrate);
     *p++ = ',';
     next = ngx_live_core_json_write(p, obj, obj->channel,
         NGX_LIVE_JSON_CTX_TRACK);

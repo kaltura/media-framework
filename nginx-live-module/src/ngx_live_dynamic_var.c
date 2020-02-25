@@ -276,8 +276,7 @@ ngx_live_dynamic_var_channel_json_write(u_char *p, void *obj)
 }
 
 static ngx_int_t
-ngx_live_dynamic_var_channel_init(ngx_live_channel_t *channel,
-    size_t *track_ctx_size)
+ngx_live_dynamic_var_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
     size_t                               block_sizes[NGX_LIVE_BP_COUNT];
     ngx_live_dynamic_var_preset_conf_t  *dpcf;
@@ -343,27 +342,32 @@ ngx_live_dynamic_var_preconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
+static ngx_live_channel_event_t    ngx_live_dynamic_var_channel_events[] = {
+    { ngx_live_dynamic_var_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
+      ngx_live_null_event
+};
+
+static ngx_live_json_writer_def_t  ngx_live_dynamic_var_json_writers[] = {
+    { { ngx_live_dynamic_var_channel_json_get_size,
+        ngx_live_dynamic_var_channel_json_write},
+      NGX_LIVE_JSON_CTX_CHANNEL },
+
+      ngx_live_null_json_writer
+};
+
 static ngx_int_t
 ngx_live_dynamic_var_postconfiguration(ngx_conf_t *cf)
 {
-    ngx_live_json_writer_t            *writer;
-    ngx_live_core_main_conf_t         *cmcf;
-    ngx_live_channel_init_handler_pt  *cih;
-
-    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
-
-    cih = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_CHANNEL_INIT]);
-    if (cih == NULL) {
+    if (ngx_live_core_channel_events_add(cf,
+        ngx_live_dynamic_var_channel_events) != NGX_OK) {
         return NGX_ERROR;
     }
-    *cih = ngx_live_dynamic_var_channel_init;
 
-    writer = ngx_array_push(&cmcf->json_writers[NGX_LIVE_JSON_CTX_CHANNEL]);
-    if (writer == NULL) {
+    if (ngx_live_core_json_writers_add(cf,
+        ngx_live_dynamic_var_json_writers) != NGX_OK) {
         return NGX_ERROR;
     }
-    writer->get_size = ngx_live_dynamic_var_channel_json_get_size;
-    writer->write = ngx_live_dynamic_var_channel_json_write;
 
     return NGX_OK;
 }

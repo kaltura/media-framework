@@ -344,7 +344,7 @@ ngx_live_filler_track_fill(ngx_live_track_t *track, uint32_t segment_count,
     if (segment->frame_count <= 0) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_live_filler_track_fill: empty segment");
-        ngx_live_segment_cache_free(track, segment);
+        ngx_live_segment_cache_free(segment);
         return NGX_ABORT;
     }
 
@@ -353,13 +353,13 @@ ngx_live_filler_track_fill(ngx_live_track_t *track, uint32_t segment_count,
         goto error;
     }
 
-    ngx_live_segment_cache_validate(segment);
+    ngx_live_segment_cache_finalize(segment);
 
     return NGX_OK;
 
 error:
 
-    ngx_live_segment_cache_free(track, segment);
+    ngx_live_segment_cache_free(segment);
     return NGX_ERROR;
 }
 
@@ -398,6 +398,55 @@ ngx_live_filler_align_to_next(ngx_live_filler_channel_ctx_t *cctx,
     }
 }
 
+static void
+ngx_live_filler_set_last_media_types(ngx_live_channel_t *channel,
+    uint32_t media_type_mask)
+{
+    ngx_queue_t                    *q;
+    ngx_live_track_t               *cur_track;
+    ngx_live_filler_track_ctx_t    *cur_ctx;
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+
+    /* update has_last_segment */
+    for (q = ngx_queue_head(&cctx->queue);
+        q != ngx_queue_sentinel(&cctx->queue);
+        q = ngx_queue_next(q))
+    {
+        cur_ctx = ngx_queue_data(q, ngx_live_filler_track_ctx_t, queue);
+        cur_track = cur_ctx->track;
+
+        if (!(media_type_mask & (1 << cur_track->media_type))) {
+
+            if (!cur_track->has_last_segment) {
+                continue;
+            }
+
+            ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
+                "ngx_live_filler_set_last_media_types: track removed");
+
+            cur_track->last_segment_bitrate = 0;
+            cur_track->has_last_segment = 0;
+
+        } else {
+
+            if (cur_track->has_last_segment) {
+                continue;
+            }
+
+            ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
+                "ngx_live_filler_set_last_media_types: track added");
+
+            cur_track->has_last_segment = 1;
+        }
+
+        channel->last_modified = ngx_time();
+    }
+
+    cctx->last_media_type_mask = media_type_mask;
+}
+
 ngx_int_t
 ngx_live_filler_fill(ngx_live_channel_t *channel, uint32_t media_type_mask,
     int64_t start_pts, ngx_flag_t force_new_period, uint32_t min_duration,
@@ -424,28 +473,9 @@ ngx_live_filler_fill(ngx_live_channel_t *channel, uint32_t media_type_mask,
     if (media_type_mask == 0) {
 
         /* nothing to fill */
-        if (cctx->last_media_type_mask == 0) {
-            return NGX_DONE;
+        if (cctx->last_media_type_mask != 0) {
+            ngx_live_filler_set_last_media_types(channel, 0);
         }
-
-        /* clear 'has last segment' on all filler tracks */
-        for (q = ngx_queue_head(&cctx->queue);
-            q != ngx_queue_sentinel(&cctx->queue);
-            q = ngx_queue_next(q))
-        {
-            cur_ctx = ngx_queue_data(q, ngx_live_filler_track_ctx_t, queue);
-            cur_track = cur_ctx->track;
-
-            if (cur_track->has_last_segment) {
-                ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
-                    "ngx_live_filler_fill: track removed (1)");
-
-                cur_track->has_last_segment = 0;
-                channel->last_modified = ngx_time();
-            }
-        }
-
-        cctx->last_media_type_mask = 0;
 
         return NGX_DONE;
     }
@@ -544,42 +574,11 @@ ngx_live_filler_fill(ngx_live_channel_t *channel, uint32_t media_type_mask,
         }
     }
 
-    /* update has_last_segment */
-    for (q = ngx_queue_head(&cctx->queue);
-        q != ngx_queue_sentinel(&cctx->queue);
-        q = ngx_queue_next(q))
-    {
-        cur_ctx = ngx_queue_data(q, ngx_live_filler_track_ctx_t, queue);
-        cur_track = cur_ctx->track;
-
-        if (!(media_type_mask & (1 << cur_track->media_type))) {
-
-            if (!cur_track->has_last_segment) {
-                continue;
-            }
-
-            ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
-                "ngx_live_filler_fill: track removed (2)");
-
-            cur_track->has_last_segment = 0;
-
-        } else {
-
-            if (cur_track->has_last_segment) {
-                continue;
-            }
-
-            ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
-                "ngx_live_filler_fill: track added");
-
-            cur_track->has_last_segment = 1;
-        }
-
-        channel->last_modified = ngx_time();
+    /* update channel ctx */
+    if (cctx->last_media_type_mask != media_type_mask) {
+        ngx_live_filler_set_last_media_types(channel, media_type_mask);
     }
 
-    /* update channel ctx */
-    cctx->last_media_type_mask = media_type_mask;
     cctx->index = index;
     cctx->dts_offset = dts_offset;
     cctx->last_pts = last_pts;
@@ -1216,9 +1215,9 @@ ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
 }
 
 static ngx_int_t
-ngx_live_filler_channel_init(ngx_live_channel_t *channel,
-    size_t *track_ctx_size)
+ngx_live_filler_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
+    size_t                         *track_ctx_size = ectx;
     ngx_live_filler_channel_ctx_t  *cctx;
 
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
@@ -1260,7 +1259,7 @@ ngx_live_filler_recalc_media_type_mask(ngx_live_channel_t *channel)
 }
 
 static ngx_int_t
-ngx_live_filler_track_free(ngx_live_track_t *track)
+ngx_live_filler_track_free(ngx_live_track_t *track, void *ectx)
 {
     ngx_live_filler_track_ctx_t  *ctx;
 
@@ -1280,7 +1279,7 @@ ngx_live_filler_track_free(ngx_live_track_t *track)
 }
 
 static ngx_int_t
-ngx_live_filler_track_channel_free(ngx_live_track_t *track)
+ngx_live_filler_track_channel_free(ngx_live_track_t *track, void *ectx)
 {
     ngx_live_filler_track_ctx_t  *ctx;
 
@@ -1312,32 +1311,30 @@ ngx_live_filler_preconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
+static ngx_live_channel_event_t  ngx_live_filler_channel_events[] = {
+    { ngx_live_filler_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
+      ngx_live_null_event
+};
+
+static ngx_live_track_event_t    ngx_live_filler_track_events[] = {
+    { ngx_live_filler_track_free,         NGX_LIVE_EVENT_TRACK_FREE },
+    { ngx_live_filler_track_channel_free, NGX_LIVE_EVENT_TRACK_CHANNEL_FREE },
+      ngx_live_null_event
+};
+
 static ngx_int_t
 ngx_live_filler_postconfiguration(ngx_conf_t *cf)
 {
-    ngx_live_core_main_conf_t         *cmcf;
-    ngx_live_track_handler_pt         *th;
-    ngx_live_channel_init_handler_pt  *cih;
-
-    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
-
-    cih = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_CHANNEL_INIT]);
-    if (cih == NULL) {
+    if (ngx_live_core_channel_events_add(cf, ngx_live_filler_channel_events)
+        != NGX_OK) {
         return NGX_ERROR;
     }
-    *cih = ngx_live_filler_channel_init;
 
-    th = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_TRACK_FREE]);
-    if (th == NULL) {
+    if (ngx_live_core_track_events_add(cf, ngx_live_filler_track_events)
+        != NGX_OK) {
         return NGX_ERROR;
     }
-    *th = ngx_live_filler_track_free;
-
-    th = ngx_array_push(&cmcf->events[NGX_LIVE_EVENT_TRACK_CHANNEL_FREE]);
-    if (th == NULL) {
-        return NGX_ERROR;
-    }
-    *th = ngx_live_filler_track_channel_free;
 
     return NGX_OK;
 }

@@ -9,6 +9,7 @@ static ngx_live_track_json ngx_live_track_t
     uptime %i (ngx_current_msec - obj->start_msec)
     opaque %bs
     input %func-ngx_live_track_input &obj->input
+    last_segment_bitrate %uD
     - %func-ngx_live_core_json obj, obj->channel, NGX_LIVE_JSON_CTX_TRACK
 
 noobject ngx_live_tracks_json ngx_live_channel_t
