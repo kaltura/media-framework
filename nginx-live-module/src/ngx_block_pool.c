@@ -3,7 +3,7 @@
 
 #define NGX_BLOCK_POOL_MIN_ALLOC_COUNT  (4)
 
-#define ngx_block_pool_free_next(ptr)  (*(void**) ptr)
+#define ngx_block_pool_free_next(ptr)  (*(void **) ptr)
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 
 
@@ -47,9 +47,9 @@ ngx_block_pool_validate(ngx_block_pool_t *block_pool)
 static void
 ngx_block_pool_init_slot(ngx_block_pool_slot_t *slot)
 {
-    if (slot->size < sizeof(void*)) {
+    if (slot->size < sizeof(void *)) {
         /* must be large enough to hold the free list ptr */
-        slot->size = sizeof(void*);
+        slot->size = sizeof(void *);
     }
 
     slot->alloc = (slot->size * NGX_BLOCK_POOL_MIN_ALLOC_COUNT
@@ -127,7 +127,7 @@ ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
 {
     void  **ptr;
 
-    ptr = ngx_palloc(block_pool->pool, sizeof(void*) + slot->size);
+    ptr = ngx_palloc(block_pool->pool, sizeof(void *) + slot->size);
     if (ptr == NULL) {
         return NULL;
     }
@@ -321,7 +321,7 @@ ngx_block_pool_auto_free(ngx_block_pool_t *block_pool, void *ptr)
 {
     ngx_block_pool_auto_header_t  *p;
 
-    p = (ngx_block_pool_auto_header_t*) ptr - 1;
+    p = (ngx_block_pool_auto_header_t *) ptr - 1;
 
     ngx_block_pool_free(block_pool, p->slot, p);
 }

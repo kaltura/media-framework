@@ -1472,7 +1472,7 @@ ngx_http_live_core_segment_handler(ngx_http_request_t *r,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    segment->tracks = (void*)(segment + 1);
+    segment->tracks = (void *) (segment + 1);
     segment->segment_index = ctx->params.index;
 
     req.tracks = ngx_http_live_core_get_track_refs(r, objects,

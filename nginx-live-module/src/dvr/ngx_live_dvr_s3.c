@@ -505,7 +505,7 @@ ngx_live_dvr_s3_auth_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     cf->ctx = &conf_ctx;
     cf->handler = ngx_live_block_command_handler;
-    cf->handler_conf = (void*) ctx;
+    cf->handler_conf = (void *) ctx;
 
     rv = ngx_conf_parse(cf, NULL);
 

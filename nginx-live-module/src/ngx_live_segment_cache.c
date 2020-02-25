@@ -324,7 +324,7 @@ ngx_live_segment_cache_get(ngx_live_track_t *track, uint32_t segment_index)
             continue;
         }
 
-        return (ngx_live_segment_t*) node;
+        return (ngx_live_segment_t *) node;
     }
 
     return NULL;

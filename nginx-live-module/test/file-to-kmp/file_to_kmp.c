@@ -25,8 +25,8 @@ typedef struct {
 } kmp_write_frame_ctx_t;
 
 
-static char*  program_name;
-static int    show_help = 0;
+static char *  program_name;
+static int     show_help = 0;
 
 static char const           short_options[] = "s:c:";
 static struct option const  long_options[] =
@@ -85,7 +85,7 @@ ff_avc_find_startcode_internal(const uint8_t *p, const uint8_t *end)
     }
 
     for (end -= 3; p < end; p += 4) {
-        uint32_t x = *(const uint32_t*)p;
+        uint32_t x = *(const uint32_t *)p;
         //      if ((x - 0x01000100) & (~x) & 0x80008000) // little endian
         //      if ((x - 0x00010001) & (~x) & 0x00800080) // big endian
         if ((x - 0x01010101) & (~x) & 0x80808080) { // generic
@@ -412,7 +412,7 @@ kmp_write_media_info(AVIOContext *pb, AVStream *stream, int *annex_b)
     mi.header.header_size = sizeof(mi);
     mi.header.data_size = extra_data.len;
     mi.header.reserved = 0;
-    avio_write(pb, (u_char*)&mi, sizeof(mi));
+    avio_write(pb, (u_char *)&mi, sizeof(mi));
     avio_write(pb, extra_data.data, extra_data.len);
     av_free(extra_data.data);
 
@@ -425,7 +425,7 @@ kmp_write_media_info(AVIOContext *pb, AVStream *stream, int *annex_b)
 }
 
 static int
-kmp_write_frame(AVIOContext *pb, AVPacket* packet, kmp_write_frame_ctx_t *ctx)
+kmp_write_frame(AVIOContext *pb, AVPacket *packet, kmp_write_frame_ctx_t *ctx)
 {
     kmp_frame_packet_t  frame;
 
@@ -446,7 +446,7 @@ kmp_write_frame(AVIOContext *pb, AVPacket* packet, kmp_write_frame_ctx_t *ctx)
     frame.f.flags = ((packet->flags & AV_PKT_FLAG_KEY) == AV_PKT_FLAG_KEY) ?
         KMP_FRAME_FLAG_KEY : 0;
 
-    avio_write(pb, (u_char*) &frame, sizeof(frame));
+    avio_write(pb, (u_char *) &frame, sizeof(frame));
     if (ctx->annex_b) {
         ff_avc_parse_nal_units(pb, packet->data, packet->size);
 

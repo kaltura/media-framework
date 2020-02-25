@@ -153,7 +153,7 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_command_t *cmd,
 
         ngx_queue_insert_tail(&new_vars, &var->queue);
 
-        var->sn.str.data = (void*) (var + 1);
+        var->sn.str.data = (void *) (var + 1);
         var->sn.str.len = 0;
 
         if (ngx_json_decode_string(&var->sn.str, &cur->key) != NGX_OK) {
@@ -237,7 +237,7 @@ ngx_live_dynamic_var_get(ngx_live_channel_t *ch, ngx_pool_t *pool,
     name.len -= sizeof("var_") - 1;
 
     hash = ngx_crc32_short(name.data, name.len);
-    var = (ngx_live_dynamic_var_t*) ngx_str_rbtree_lookup(&cctx->rbtree,
+    var = (ngx_live_dynamic_var_t *) ngx_str_rbtree_lookup(&cctx->rbtree,
         &name, hash);
     if (var == NULL) {
         v->not_found = 1;

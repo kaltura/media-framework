@@ -72,7 +72,7 @@ ngx_live_channel_get(ngx_str_t *channel_id)
     uint32_t  hash;
 
     hash = ngx_crc32_short(channel_id->data, channel_id->len);
-    return (ngx_live_channel_t*) ngx_str_rbtree_lookup(
+    return (ngx_live_channel_t *) ngx_str_rbtree_lookup(
         &ngx_live_channels.rbtree, channel_id, hash);
 }
 
@@ -115,7 +115,7 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
     }
 
     hash = ngx_crc32_short(channel_id->data, channel_id->len);
-    channel = (ngx_live_channel_t*) ngx_str_rbtree_lookup(
+    channel = (ngx_live_channel_t *) ngx_str_rbtree_lookup(
         &ngx_live_channels.rbtree, channel_id, hash);
     if (channel != NULL) {
         *result = channel;
@@ -157,7 +157,7 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
     /* initialize */
     channel->pool = pool;
 
-    channel->sn.str.data = (void*)(channel + 1);
+    channel->sn.str.data = (void *) (channel + 1);
     channel->sn.str.len = channel_id->len;
     ngx_memcpy(channel->sn.str.data, channel_id->data, channel->sn.str.len);
     channel->sn.node.key = hash;
@@ -369,8 +369,8 @@ ngx_live_variant_get(ngx_live_channel_t *channel, ngx_str_t *variant_id)
     uint32_t  hash;
 
     hash = ngx_crc32_short(variant_id->data, variant_id->len);
-    return (ngx_live_variant_t*) ngx_str_rbtree_lookup(&channel->variants.tree,
-        variant_id, hash);
+    return (ngx_live_variant_t *) ngx_str_rbtree_lookup(
+        &channel->variants.tree, variant_id, hash);
 }
 
 ngx_int_t
@@ -387,7 +387,7 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *variant_id,
     }
 
     hash = ngx_crc32_short(variant_id->data, variant_id->len);
-    variant = (ngx_live_variant_t*) ngx_str_rbtree_lookup(
+    variant = (ngx_live_variant_t *) ngx_str_rbtree_lookup(
         &channel->variants.tree, variant_id, hash);
     if (variant != NULL) {
         *result = variant;
@@ -566,7 +566,7 @@ ngx_live_track_get(ngx_live_channel_t *channel, ngx_str_t *track_id)
     uint32_t  hash;
 
     hash = ngx_crc32_short(track_id->data, track_id->len);
-    return (ngx_live_track_t*) ngx_str_rbtree_lookup(&channel->tracks.tree,
+    return (ngx_live_track_t *) ngx_str_rbtree_lookup(&channel->tracks.tree,
         track_id, hash);
 }
 
@@ -641,7 +641,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
     }
 
     hash = ngx_crc32_short(track_id->data, track_id->len);
-    track = (ngx_live_track_t*) ngx_str_rbtree_lookup(&channel->tracks.tree,
+    track = (ngx_live_track_t *) ngx_str_rbtree_lookup(&channel->tracks.tree,
         track_id, hash);
     if (track != NULL) {
 
@@ -676,7 +676,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
     track->start_msec = ngx_current_msec;
     track->media_type = media_type;
 
-    track->ctx = (void*)(track + 1);
+    track->ctx = (void *) (track + 1);
     for (i = 0; i < ngx_live_max_module; i++) {
         track->ctx[i] = (u_char *) track + channel->track_ctx_offset[i];
     }

@@ -498,7 +498,7 @@ ngx_live_timeline_get(ngx_live_channel_t *channel, ngx_str_t *id)
     ctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     hash = ngx_crc32_short(id->data, id->len);
-    timeline = (void*) ngx_str_rbtree_lookup(&ctx->tree, id, hash);
+    timeline = (void *) ngx_str_rbtree_lookup(&ctx->tree, id, hash);
     if (timeline == NULL) {
         return NULL;
     }
@@ -529,7 +529,7 @@ ngx_live_timeline_contains_segment(ngx_live_timeline_t *timeline,
             node = node->left;
 
         } else {
-            period = (ngx_live_period_t*) node;
+            period = (ngx_live_period_t *) node;
             if (segment_index < node->key + period->segment_count) {
                 return 1;
             }
@@ -829,7 +829,7 @@ ngx_live_timeline_get_period_by_time(ngx_live_timeline_t *timeline,
 
     for ( ;; ) {
 
-        period = (ngx_live_period_t*) node;
+        period = (ngx_live_period_t *) node;
         if (time < period->time) {
             if (node->left == sentinel) {
                 return period;
@@ -1007,7 +1007,7 @@ ngx_live_timelines_free_old_segments(ngx_live_channel_t *channel,
 
     (void) ngx_live_core_channel_event(channel,
         NGX_LIVE_EVENT_CHANNEL_SEGMENT_FREE,
-        (void*) (uintptr_t) min_segment_index);
+        (void *) (uintptr_t) min_segment_index);
 }
 
 ngx_int_t

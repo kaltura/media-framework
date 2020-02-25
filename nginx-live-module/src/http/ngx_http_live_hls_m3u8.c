@@ -147,7 +147,7 @@ ngx_http_live_hls_media_group_get(ngx_http_request_t *r,
         return NULL;
     }
 
-    group->id.data = (void*)(group + 1);
+    group->id.data = (void *) (group + 1);
     group->id.len = ngx_sprintf(group->id.data, "%V%uD", group_id,
         media_info->codec_id) - group->id.data;
 
@@ -204,7 +204,7 @@ ngx_http_live_hls_media_group_get_size(ngx_http_live_hls_media_group_t *group,
 
     for (i = 0; i < group->variants.nelts; i++) {
 
-        variant = ((ngx_live_variant_t**) group->variants.elts)[i];
+        variant = ((ngx_live_variant_t **) group->variants.elts)[i];
 
         result += variant->label.len + variant->lang.len + variant->sn.str.len;
     }
@@ -224,7 +224,7 @@ ngx_http_live_hls_media_group_write(u_char *p,
 
     for (i = 0; i < group->variants.nelts; i++) {
 
-        variant = ((ngx_live_variant_t**) group->variants.elts)[i];
+        variant = ((ngx_live_variant_t **) group->variants.elts)[i];
         p = vod_sprintf(p, M3U8_MEDIA_BASE,
             &ngx_http_live_hls_media_type_name[media_type],
             &group->id,

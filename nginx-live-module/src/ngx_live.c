@@ -162,7 +162,7 @@ ngx_live_init_events(ngx_conf_t *cf, ngx_live_core_main_conf_t *cmcf)
 
     for (n = 0; n < NGX_LIVE_EVENT_MAX; n++) {
 
-        if (ngx_array_init(&cmcf->events[n], cf->pool, 1, sizeof(void*))
+        if (ngx_array_init(&cmcf->events[n], cf->pool, 1, sizeof(void *))
             != NGX_OK)
         {
             return NGX_ERROR;

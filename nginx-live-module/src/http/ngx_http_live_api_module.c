@@ -285,7 +285,7 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
 
     preset_name = values[CHANNEL_PARAM_PRESET]->v.str;
 
-    conf_ctx = ngx_live_core_get_preset_conf((ngx_cycle_t*) ngx_cycle,
+    conf_ctx = ngx_live_core_get_preset_conf((ngx_cycle_t *) ngx_cycle,
         &preset_name);
     if (conf_ctx == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,

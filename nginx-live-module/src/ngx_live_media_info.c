@@ -599,7 +599,7 @@ ngx_live_media_info_queue_get(ngx_live_track_t *track, uint32_t segment_index,
     return NULL;
 }
 
-media_info_t*
+media_info_t *
 ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
     kmp_media_info_t **kmp_media_info)
 {

@@ -55,7 +55,7 @@ typedef struct {
  * NGX_DONE - started asynchronous read, the callback will be called once done
  * NGX_ABORT - no tracks were found
  * NGX_ERROR - error
-*/
+ */
 
 typedef ngx_int_t (*ngx_live_read_segment_pt)(
     ngx_live_segment_read_req_t *req);
