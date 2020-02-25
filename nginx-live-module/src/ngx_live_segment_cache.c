@@ -12,7 +12,7 @@
 
 typedef struct {
     ngx_queue_t             queue;
-    ngx_rbtree_t            tree;
+    ngx_rbtree_t            rbtree;
     ngx_rbtree_node_t       sentinel;
     uint32_t                count;
 } ngx_live_segment_cache_track_ctx_t;
@@ -112,7 +112,7 @@ ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
     segment->track = track;
     segment->pool = pool;
 
-    ngx_rbtree_insert(&ctx->tree, &segment->node);
+    ngx_rbtree_insert(&ctx->rbtree, &segment->node);
     ngx_queue_insert_tail(&ctx->queue, &segment->queue);
     ctx->count++;
 
@@ -157,7 +157,7 @@ ngx_live_segment_cache_free(ngx_live_segment_t *segment)
 
     ctx->count--;
     ngx_queue_remove(&segment->queue);
-    ngx_rbtree_delete(&ctx->tree, &segment->node);
+    ngx_rbtree_delete(&ctx->rbtree, &segment->node);
 
     ngx_live_segment_cache_destroy(segment);
 }
@@ -308,7 +308,7 @@ ngx_live_segment_cache_get(ngx_live_track_t *track, uint32_t segment_index)
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
 
-    rbtree = &ctx->tree;
+    rbtree = &ctx->rbtree;
     node = rbtree->root;
     sentinel = rbtree->sentinel;
 
@@ -712,7 +712,7 @@ ngx_live_segment_cache_track_init(ngx_live_track_t *track, void *ectx)
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
 
-    ngx_rbtree_init(&ctx->tree, &ctx->sentinel, ngx_rbtree_insert_value);
+    ngx_rbtree_init(&ctx->rbtree, &ctx->sentinel, ngx_rbtree_insert_value);
     ngx_queue_init(&ctx->queue);
 
     return NGX_OK;

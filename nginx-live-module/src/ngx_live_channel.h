@@ -42,15 +42,15 @@ typedef void (*live_track_disconnect_pt)(ngx_live_track_t *track,
 
 
 typedef struct {
-    ngx_rbtree_t                   tree;
+    ngx_rbtree_t                   rbtree;
     ngx_rbtree_node_t              sentinel;
     ngx_queue_t                    queue;
 } ngx_live_channel_variants_t;
 
 typedef struct {
-    ngx_rbtree_t                   tree;        /* by string id */
+    ngx_rbtree_t                   rbtree;        /* by string id */
     ngx_rbtree_node_t              sentinel;
-    ngx_rbtree_t                   itree;       /* by int id */
+    ngx_rbtree_t                   irbtree;       /* by int id */
     ngx_rbtree_node_t              isentinel;
     ngx_queue_t                    queue;
     uint32_t                       count;

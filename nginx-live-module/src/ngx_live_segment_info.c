@@ -37,7 +37,7 @@ struct ngx_live_segment_info_node_s {
 };
 
 typedef struct {
-    ngx_rbtree_t                   tree;
+    ngx_rbtree_t                   rbtree;
     ngx_rbtree_node_t              sentinel;
     ngx_queue_t                    queue;
     uint64_t                       last_segment_bitrate;    /* bitrate * 100 */
@@ -149,7 +149,7 @@ ngx_live_segment_info_push(ngx_live_segment_info_track_ctx_t *ctx,
     last->node.key = segment_index;
 
     ngx_queue_insert_tail(&ctx->queue, &last->queue);
-    ngx_rbtree_insert(&ctx->tree, &last->node);
+    ngx_rbtree_insert(&ctx->rbtree, &last->node);
 
     elt = &last->elts[0];
     last->nelts = 1;
@@ -257,7 +257,7 @@ ngx_live_segment_info_track_copy(ngx_live_track_t *dst, void *ectx)
             sizeof(src_node->elts[0]) * src_node->nelts);
 
         ngx_queue_insert_tail(&dst_ctx->queue, &dst_node->queue);
-        ngx_rbtree_insert(&dst_ctx->tree, &dst_node->node);
+        ngx_rbtree_insert(&dst_ctx->rbtree, &dst_node->node);
     }
 
     dst_ctx->last_segment_bitrate = src_ctx->last_segment_bitrate;
@@ -345,7 +345,7 @@ ngx_live_segment_info_lookup(ngx_live_segment_info_track_ctx_t *ctx,
     ngx_rbtree_node_t             *next_node;
     ngx_live_segment_info_node_t  *node;
 
-    rbtree = &ctx->tree;
+    rbtree = &ctx->rbtree;
     rbnode = rbtree->root;
     sentinel = rbtree->sentinel;
 
@@ -553,7 +553,7 @@ ngx_live_segment_info_track_init(ngx_live_track_t *track, void *ectx)
     sipcf = ngx_live_get_module_preset_conf(track->channel,
         ngx_live_segment_info_module);
 
-    ngx_rbtree_init(&ctx->tree, &ctx->sentinel, ngx_rbtree_insert_value);
+    ngx_rbtree_init(&ctx->rbtree, &ctx->sentinel, ngx_rbtree_insert_value);
     ngx_queue_init(&ctx->queue);
 
     if (!sipcf->gaps) {

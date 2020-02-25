@@ -18,7 +18,7 @@ enum {
 typedef struct {
     ngx_block_pool_t         *block_pool;
     ngx_live_segment_list_t   segment_list;
-    ngx_rbtree_t              tree;
+    ngx_rbtree_t              rbtree;
     ngx_rbtree_node_t         sentinel;
     ngx_queue_t               queue;        /* ngx_live_timeline_t */
     ngx_event_t               cleanup;
@@ -419,7 +419,7 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
 
     ctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
     hash = ngx_crc32_short(id->data, id->len);
-    timeline = (ngx_live_timeline_t *) ngx_str_rbtree_lookup(&ctx->tree, id,
+    timeline = (ngx_live_timeline_t *) ngx_str_rbtree_lookup(&ctx->rbtree, id,
         hash);
     if (timeline != NULL) {
         *result = timeline;
@@ -451,7 +451,7 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
     ngx_rbtree_init(&timeline->rbtree, &timeline->sentinel,
         ngx_rbtree_insert_value);
 
-    ngx_rbtree_insert(&ctx->tree, &timeline->sn.node);
+    ngx_rbtree_insert(&ctx->rbtree, &timeline->sn.node);
 
     ngx_queue_insert_tail(&ctx->queue, &timeline->queue);
 
@@ -478,7 +478,7 @@ ngx_live_timeline_free(ngx_live_timeline_t *timeline)
         ngx_live_period_free(ctx, period);
     }
 
-    ngx_rbtree_delete(&ctx->tree, &timeline->sn.node);
+    ngx_rbtree_delete(&ctx->rbtree, &timeline->sn.node);
     ngx_queue_remove(&timeline->queue);
     ngx_block_pool_free(ctx->block_pool, NGX_LIVE_BP_TIMELINE, timeline);
 
@@ -498,7 +498,7 @@ ngx_live_timeline_get(ngx_live_channel_t *channel, ngx_str_t *id)
     ctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     hash = ngx_crc32_short(id->data, id->len);
-    timeline = (void *) ngx_str_rbtree_lookup(&ctx->tree, id, hash);
+    timeline = (void *) ngx_str_rbtree_lookup(&ctx->rbtree, id, hash);
     if (timeline == NULL) {
         return NULL;
     }
@@ -1243,7 +1243,7 @@ ngx_live_timeline_channel_init(ngx_live_channel_t *channel, void *ectx)
 
     ngx_live_set_ctx(channel, ctx, ngx_live_timeline_module);
 
-    ngx_rbtree_init(&ctx->tree, &ctx->sentinel, ngx_str_rbtree_insert_value);
+    ngx_rbtree_init(&ctx->rbtree, &ctx->sentinel, ngx_str_rbtree_insert_value);
     ngx_queue_init(&ctx->queue);
 
     ctx->cleanup.handler = ngx_live_timelines_cleanup_handler;
