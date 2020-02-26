@@ -927,10 +927,10 @@ ngx_http_live_hls_write_period_segments(u_char *p, ngx_live_period_t *period,
     uint32_t                   segment_count;
     uint32_t                   segment_index;
     uint32_t                   last_segment_index;
-    ngx_live_segment_iter_t    iter;
+    ngx_live_segment_iter_t    segment_iter;
     ngx_live_segment_repeat_t  segment_duration;
 
-    iter = period->segment_iter;
+    segment_iter = period->segment_iter;
     segment_count = period->segment_count;
     segment_index = period->node.key;
 
@@ -941,7 +941,7 @@ ngx_http_live_hls_write_period_segments(u_char *p, ngx_live_period_t *period,
 
     while (segment_count > 0) {
 
-        ngx_live_segment_iter_get_element(&iter, &segment_duration);
+        ngx_live_segment_iter_get_element(&segment_iter, &segment_duration);
 
         if (segment_duration.repeat_count > segment_count) {
             segment_duration.repeat_count = segment_count;
