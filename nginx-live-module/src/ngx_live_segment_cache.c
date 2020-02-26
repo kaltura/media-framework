@@ -721,7 +721,7 @@ ngx_live_segment_cache_track_init(ngx_live_track_t *track, void *ectx)
 static ngx_int_t
 ngx_live_segment_cache_track_free(ngx_live_track_t *track, void *ectx)
 {
-    ngx_queue_t                         *q, *next;
+    ngx_queue_t                         *q;
     ngx_live_segment_t                  *segment;
     ngx_live_segment_cache_track_ctx_t  *ctx;
 
@@ -733,10 +733,11 @@ ngx_live_segment_cache_track_free(ngx_live_track_t *track, void *ectx)
         return NGX_OK;
     }
 
-    for (; q != ngx_queue_sentinel(&ctx->queue); q = next) {
+    while (q != ngx_queue_sentinel(&ctx->queue)) {
 
         segment = ngx_queue_data(q, ngx_live_segment_t, queue);
-        next = ngx_queue_next(q);
+
+        q = ngx_queue_next(q);      /* move to next before freeing */
 
         ngx_live_segment_cache_destroy(segment);
     }
@@ -747,18 +748,18 @@ ngx_live_segment_cache_track_free(ngx_live_track_t *track, void *ectx)
 static ngx_int_t
 ngx_live_segment_cache_track_channel_free(ngx_live_track_t *track, void *ectx)
 {
-    ngx_queue_t                         *q, *next;
+    ngx_queue_t                         *q;
     ngx_live_segment_t                  *segment;
     ngx_live_segment_cache_track_ctx_t  *ctx;
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
 
-    for (q = ngx_queue_head(&ctx->queue);
-        q != ngx_queue_sentinel(&ctx->queue);
-        q = next)
-    {
+    q = ngx_queue_head(&ctx->queue);
+    while (q != ngx_queue_sentinel(&ctx->queue)) {
+
         segment = ngx_queue_data(q, ngx_live_segment_t, queue);
-        next = ngx_queue_next(q);
+
+        q = ngx_queue_next(q);      /* move to next before freeing */
 
         ngx_destroy_pool(segment->pool);
     }

@@ -293,6 +293,9 @@ ngx_live_segment_info_track_segment_free(ngx_live_track_t *track,
         }
 
         node = ngx_queue_data(q, ngx_live_segment_info_node_t, queue);
+        ngx_queue_remove(q);
+        ngx_rbtree_delete(&ctx->rbtree, &node->node);
+
         ngx_block_pool_free(cctx->block_pool,
             NGX_LIVE_BP_SEGMENT_INFO_NODE, node);
 

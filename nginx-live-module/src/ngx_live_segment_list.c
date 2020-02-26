@@ -111,17 +111,14 @@ add:
 
 void
 ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
-    uint32_t min_used_segment_index)
+    uint32_t min_segment_index)
 {
     ngx_queue_t                   *q, *next;
     ngx_live_segment_list_node_t  *node;
     ngx_live_segment_list_node_t  *next_node;
 
-    if (ngx_queue_empty(&segment_list->queue)) {
-        return;
-    }
-
-    for (q = ngx_queue_head(&segment_list->queue); ; q = next) {
+    q = ngx_queue_head(&segment_list->queue);
+    for ( ;; ) {
 
         next = ngx_queue_next(q);
         if (next == ngx_queue_sentinel(&segment_list->queue)) {
@@ -130,20 +127,22 @@ ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
 
         next_node = ngx_queue_data(next, ngx_live_segment_list_node_t, queue);
 
-        /* Note: when next_node->node.key == min_used_segment_index the
+        /* Note: when next_node->node.key == min_segment_index the
             the current node doesn't have any used segments, but there may
             still be iterators pointing to it, so it should not be freed */
 
-        if (next_node->node.key >= min_used_segment_index) {
+        if (min_segment_index <= next_node->node.key) {
             break;
         }
 
         node = ngx_queue_data(q, ngx_live_segment_list_node_t, queue);
-        ngx_queue_remove(&node->queue);
+        ngx_queue_remove(q);
         ngx_rbtree_delete(&segment_list->rbtree, &node->node);
 
         ngx_block_pool_free(segment_list->block_pool,
             NGX_LIVE_BP_SEGMENT_LIST_NODE, node);
+
+        q = next;
     }
 }
 

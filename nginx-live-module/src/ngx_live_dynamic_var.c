@@ -175,12 +175,12 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_command_t *cmd,
     }
 
     /* remove existing vars */
-    for (q = ngx_queue_head(&cctx->queue);
-        q != ngx_queue_sentinel(&cctx->queue);
-        q = next)
-    {
-        next = ngx_queue_next(q);
+    q = ngx_queue_head(&cctx->queue);
+    while (q != ngx_queue_sentinel(&cctx->queue)) {
+
         var = ngx_queue_data(q, ngx_live_dynamic_var_t, queue);
+
+        q = ngx_queue_next(q);      /* move to next before freeing */
 
         ngx_block_pool_free(cctx->block_pool, NGX_LIVE_BP_VAR, var);
     }
@@ -209,12 +209,12 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_command_t *cmd,
 failed:
 
     /* free temp queue */
-    for (q = ngx_queue_head(&new_vars);
-        q != ngx_queue_sentinel(&new_vars);
-        q = next)
-    {
-        next = ngx_queue_next(q);
+    q = ngx_queue_head(&new_vars);
+    while (q != ngx_queue_sentinel(&new_vars)) {
+
         var = ngx_queue_data(q, ngx_live_dynamic_var_t, queue);
+
+        q = ngx_queue_next(q);      /* move to next before freeing */
 
         ngx_block_pool_free(cctx->block_pool, NGX_LIVE_BP_VAR, var);
     }

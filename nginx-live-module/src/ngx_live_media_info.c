@@ -1008,7 +1008,7 @@ ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
             break;
         }
 
-        q = ngx_queue_next(q);
+        q = ngx_queue_next(q);		/* move to next before remove */
 
         ngx_queue_remove(&cur->queue);
 
