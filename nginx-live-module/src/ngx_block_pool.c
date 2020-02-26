@@ -74,7 +74,7 @@ ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
     }
 
     ptr = slot->pos;
-    if ((size_t)(slot->end - ptr) < slot->size) {
+    if ((size_t) (slot->end - ptr) < slot->size) {
 
         if (*block_pool->mem_limit < slot->alloc) {
             ngx_log_error(NGX_LOG_ERR, block_pool->pool->log, 0,

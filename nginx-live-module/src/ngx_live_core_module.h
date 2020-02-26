@@ -41,8 +41,8 @@ typedef struct {
 } ngx_live_json_writer_t;
 
 typedef struct {
-    ngx_live_json_writer_t  writer;
-    ngx_uint_t              ctx;
+    ngx_live_json_writer_t          writer;
+    ngx_uint_t                      ctx;
 } ngx_live_json_writer_def_t;
 
 

@@ -419,7 +419,7 @@ ngx_live_core_get_main_conf(ngx_cycle_t *cycle)
 {
     ngx_live_conf_ctx_t *live_conf;
 
-    live_conf = (ngx_live_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx,
+    live_conf = (ngx_live_conf_ctx_t *) ngx_get_conf(cycle->conf_ctx,
         ngx_live_module);
     if (live_conf == NULL) {
         ngx_log_error(NGX_LOG_CRIT, cycle->log, 0,

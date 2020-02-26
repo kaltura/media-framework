@@ -14,9 +14,9 @@
 typedef struct ngx_block_str_node_s  ngx_block_str_node_t;
 
 typedef struct {
-    ngx_block_str_node_t *data;
-    size_t len;
-    size_t block_len;
+    ngx_block_str_node_t  *data;
+    size_t                 len;
+    size_t                 block_len;
 } ngx_block_str_t;
 
 

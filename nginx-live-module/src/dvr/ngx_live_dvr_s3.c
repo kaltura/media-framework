@@ -638,11 +638,11 @@ ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 
     string_to_sign.len = p - string_to_sign.data;
 
-    if ((size_t)(p - temp_buf) > temp_size) {
+    if ((size_t) (p - temp_buf) > temp_size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
             "ngx_live_dvr_s3_get_request: "
             "temp size %uz greater than allocated length %uz",
-            (size_t)(p - temp_buf), temp_size);
+            (size_t) (p - temp_buf), temp_size);
         return NGX_ERROR;
     }
 
@@ -676,11 +676,11 @@ ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         uri, host, range_start, range_end, &date,
         &ctx->access_key, &ctx->key_scope, &signature);
 
-    if ((size_t)(b->last - b->pos) > size) {
+    if ((size_t) (b->last - b->pos) > size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
             "ngx_live_dvr_s3_get_request: "
             "buffer size %uz greater than allocated length %uz",
-            (size_t)(b->last - b->pos), size);
+            (size_t) (b->last - b->pos), size);
         return NGX_ERROR;
     }
 
@@ -805,11 +805,11 @@ ngx_live_dvr_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 
     string_to_sign.len = p - string_to_sign.data;
 
-    if ((size_t)(p - temp_buf) > temp_size) {
+    if ((size_t) (p - temp_buf) > temp_size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
             "ngx_live_dvr_s3_put_request: "
             "temp size %uz greater than allocated length %uz",
-            (size_t)(p - temp_buf), temp_size);
+            (size_t) (p - temp_buf), temp_size);
         return NGX_ERROR;
     }
 
@@ -843,11 +843,11 @@ ngx_live_dvr_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         uri, content_length, host, &content_sha, &date,
         &ctx->access_key, &ctx->key_scope, &signature);
 
-    if ((size_t)(b->last - b->pos) > size) {
+    if ((size_t) (b->last - b->pos) > size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
             "ngx_live_dvr_s3_put_request: "
             "buffer size %uz greater than allocated length %uz",
-            (size_t)(b->last - b->pos), size);
+            (size_t) (b->last - b->pos), size);
         return NGX_ERROR;
     }
 

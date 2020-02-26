@@ -17,6 +17,8 @@ enum {
 };
 
 
+typedef void *(*ngx_live_media_info_alloc_pt)(void *ctx, size_t size);
+
 struct ngx_live_media_info_node_s {
     ngx_queue_t         queue;
     kmp_media_info_t    kmp_media_info;
