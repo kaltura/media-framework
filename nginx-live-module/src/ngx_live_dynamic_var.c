@@ -315,28 +315,14 @@ ngx_live_dynamic_var_channel_init(ngx_live_channel_t *channel, void *ectx)
 static ngx_int_t
 ngx_live_dynamic_var_preconfiguration(ngx_conf_t *cf)
 {
-    ngx_live_variable_t      *var, *v;
-    ngx_live_json_command_t  *cmd, *c;
-
-    for (v = ngx_live_dynamic_var_vars; v->name.len; v++) {
-        var = ngx_live_add_variable(cf, &v->name, v->flags);
-        if (var == NULL) {
-            return NGX_ERROR;
-        }
-
-        var->get_handler = v->get_handler;
-        var->data = v->data;
+    if (ngx_live_variable_add_multi(cf, ngx_live_dynamic_var_vars) != NGX_OK) {
+        return NGX_ERROR;
     }
 
-    for (c = ngx_live_dynamic_var_dyn_cmds; c->name.len; c++) {
-        cmd = ngx_live_json_commands_add(cf, &c->name,
-            NGX_LIVE_JSON_CTX_CHANNEL);
-        if (cmd == NULL) {
-            return NGX_ERROR;
-        }
-
-        cmd->set_handler = c->set_handler;
-        cmd->type = c->type;
+    if (ngx_live_json_commands_add_multi(cf, ngx_live_dynamic_var_dyn_cmds,
+        NGX_LIVE_JSON_CTX_CHANNEL) != NGX_OK)
+    {
+        return NGX_ERROR;
     }
 
     return NGX_OK;
@@ -360,12 +346,14 @@ static ngx_int_t
 ngx_live_dynamic_var_postconfiguration(ngx_conf_t *cf)
 {
     if (ngx_live_core_channel_events_add(cf,
-        ngx_live_dynamic_var_channel_events) != NGX_OK) {
+        ngx_live_dynamic_var_channel_events) != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
     if (ngx_live_core_json_writers_add(cf,
-        ngx_live_dynamic_var_json_writers) != NGX_OK) {
+        ngx_live_dynamic_var_json_writers) != NGX_OK)
+    {
         return NGX_ERROR;
     }
 

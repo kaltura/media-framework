@@ -182,6 +182,23 @@ ngx_live_add_prefix_variable(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t flags)
     return v;
 }
 
+ngx_int_t
+ngx_live_variable_add_multi(ngx_conf_t *cf, ngx_live_variable_t *vars)
+{
+    ngx_live_variable_t  *var, *v;
+
+    for (v = vars; v->name.len; v++) {
+        var = ngx_live_add_variable(cf, &v->name, v->flags);
+        if (var == NULL) {
+            return NGX_ERROR;
+        }
+
+        var->get_handler = v->get_handler;
+        var->data = v->data;
+    }
+
+    return NGX_OK;
+}
 
 
 ngx_int_t
@@ -486,7 +503,6 @@ ngx_live_variable_channel(ngx_live_channel_t *ch, ngx_pool_t *pool,
 ngx_int_t
 ngx_live_variables_add_core_vars(ngx_conf_t *cf)
 {
-    ngx_live_variable_t        *cv, *v;
     ngx_live_core_main_conf_t  *cmcf;
 
     cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
@@ -513,13 +529,8 @@ ngx_live_variables_add_core_vars(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    for (cv = ngx_live_core_variables; cv->name.len; cv++) {
-        v = ngx_live_add_variable(cf, &cv->name, cv->flags);
-        if (v == NULL) {
-            return NGX_ERROR;
-        }
-
-        *v = *cv;
+    if (ngx_live_variable_add_multi(cf, ngx_live_core_variables) != NGX_OK) {
+        return NGX_ERROR;
     }
 
     return NGX_OK;

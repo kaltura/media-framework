@@ -40,6 +40,9 @@ ngx_int_t ngx_live_json_commands_prepare(ngx_conf_t *cf);
 ngx_live_json_command_t *ngx_live_json_commands_add(ngx_conf_t *cf,
     ngx_str_t *name, ngx_uint_t context);
 
+ngx_int_t ngx_live_json_commands_add_multi(ngx_conf_t *cf,
+    ngx_live_json_command_t *cmds, ngx_uint_t context);
+
 ngx_int_t ngx_live_json_commands_init(ngx_conf_t *cf);
 
 

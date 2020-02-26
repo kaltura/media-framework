@@ -1008,7 +1008,7 @@ ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
             break;
         }
 
-        q = ngx_queue_next(q);		/* move to next before remove */
+        q = ngx_queue_next(q);      /* move to next before remove */
 
         ngx_queue_remove(&cur->queue);
 
@@ -1425,17 +1425,10 @@ ngx_live_media_info_set_group_id(void *arg, ngx_live_json_command_t *cmd,
 static ngx_int_t
 ngx_live_media_info_preconfiguration(ngx_conf_t *cf)
 {
-    ngx_live_json_command_t  *cmd, *c;
-
-    for (c = ngx_live_media_info_dyn_cmds; c->name.len; c++) {
-        cmd = ngx_live_json_commands_add(cf, &c->name,
-            NGX_LIVE_JSON_CTX_TRACK);
-        if (cmd == NULL) {
-            return NGX_ERROR;
-        }
-
-        cmd->set_handler = c->set_handler;
-        cmd->type = c->type;
+    if (ngx_live_json_commands_add_multi(cf, ngx_live_media_info_dyn_cmds,
+        NGX_LIVE_JSON_CTX_TRACK) != NGX_OK)
+    {
+        return NGX_ERROR;
     }
 
     return NGX_OK;
@@ -1467,17 +1460,20 @@ static ngx_int_t
 ngx_live_media_info_postconfiguration(ngx_conf_t *cf)
 {
     if (ngx_live_core_channel_events_add(cf,
-        ngx_live_media_info_channel_events) != NGX_OK) {
+        ngx_live_media_info_channel_events) != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
     if (ngx_live_core_track_events_add(cf, ngx_live_media_info_track_events)
-        != NGX_OK) {
+        != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
     if (ngx_live_core_json_writers_add(cf,
-        ngx_live_media_info_json_writers) != NGX_OK) {
+        ngx_live_media_info_json_writers) != NGX_OK)
+    {
         return NGX_ERROR;
     }
 

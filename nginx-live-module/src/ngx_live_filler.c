@@ -1295,17 +1295,10 @@ ngx_live_filler_track_channel_free(ngx_live_track_t *track, void *ectx)
 static ngx_int_t
 ngx_live_filler_preconfiguration(ngx_conf_t *cf)
 {
-    ngx_live_json_command_t  *cmd, *c;
-
-    for (c = ngx_live_filler_dyn_cmds; c->name.len; c++) {
-        cmd = ngx_live_json_commands_add(cf, &c->name,
-            NGX_LIVE_JSON_CTX_CHANNEL);
-        if (cmd == NULL) {
-            return NGX_ERROR;
-        }
-
-        cmd->set_handler = c->set_handler;
-        cmd->type = c->type;
+    if (ngx_live_json_commands_add_multi(cf, ngx_live_filler_dyn_cmds,
+        NGX_LIVE_JSON_CTX_CHANNEL) != NGX_OK)
+    {
+        return NGX_ERROR;
     }
 
     return NGX_OK;
@@ -1327,12 +1320,14 @@ static ngx_int_t
 ngx_live_filler_postconfiguration(ngx_conf_t *cf)
 {
     if (ngx_live_core_channel_events_add(cf, ngx_live_filler_channel_events)
-        != NGX_OK) {
+        != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
     if (ngx_live_core_track_events_add(cf, ngx_live_filler_track_events)
-        != NGX_OK) {
+        != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
