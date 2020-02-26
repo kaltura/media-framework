@@ -1341,12 +1341,14 @@ static ngx_int_t
 ngx_live_timeline_postconfiguration(ngx_conf_t *cf)
 {
     if (ngx_live_core_channel_events_add(cf,
-        ngx_live_timeline_channel_events) != NGX_OK) {
+        ngx_live_timeline_channel_events) != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
     if (ngx_live_core_json_writers_add(cf,
-        ngx_live_timeline_json_writers) != NGX_OK) {
+        ngx_live_timeline_json_writers) != NGX_OK)
+    {
         return NGX_ERROR;
     }
 

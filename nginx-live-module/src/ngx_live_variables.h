@@ -41,6 +41,8 @@ struct ngx_live_variable_s {
 
 ngx_live_variable_t *ngx_live_add_variable(ngx_conf_t *cf, ngx_str_t *name,
     ngx_uint_t flags);
+ngx_int_t ngx_live_variable_add_multi(ngx_conf_t *cf,
+    ngx_live_variable_t *vars);
 ngx_int_t ngx_live_get_variable_index(ngx_conf_t *cf, ngx_str_t *name);
 ngx_live_variable_value_t *ngx_live_get_indexed_variable(
     ngx_live_channel_t *ch, ngx_pool_t *pool,

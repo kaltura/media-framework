@@ -574,7 +574,8 @@ static ngx_int_t
 ngx_live_dvr_http_postconfiguration(ngx_conf_t *cf)
 {
     if (ngx_live_core_channel_events_add(cf,
-        ngx_live_dvr_http_channel_events) != NGX_OK) {
+        ngx_live_dvr_http_channel_events) != NGX_OK)
+    {
         return NGX_ERROR;
     }
 

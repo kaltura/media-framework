@@ -1289,18 +1289,10 @@ ngx_live_dvr_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 static ngx_int_t
 ngx_live_dvr_preconfiguration(ngx_conf_t *cf)
 {
-    ngx_live_variable_t  *var, *v;
-
     ngx_live_read_segment = ngx_live_dvr_read;
 
-    for (v = ngx_live_dvr_vars; v->name.len; v++) {
-        var = ngx_live_add_variable(cf, &v->name, v->flags);
-        if (var == NULL) {
-            return NGX_ERROR;
-        }
-
-        var->get_handler = v->get_handler;
-        var->data = v->data;
+    if (ngx_live_variable_add_multi(cf, ngx_live_dvr_vars) != NGX_OK) {
+        return NGX_ERROR;
     }
 
     return NGX_OK;
@@ -1327,12 +1319,14 @@ static ngx_int_t
 ngx_live_dvr_postconfiguration(ngx_conf_t *cf)
 {
     if (ngx_live_core_channel_events_add(cf,
-        ngx_live_dvr_channel_events) != NGX_OK) {
+        ngx_live_dvr_channel_events) != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
     if (ngx_live_core_json_writers_add(cf,
-        ngx_live_dvr_json_writers) != NGX_OK) {
+        ngx_live_dvr_json_writers) != NGX_OK)
+    {
         return NGX_ERROR;
     }
 

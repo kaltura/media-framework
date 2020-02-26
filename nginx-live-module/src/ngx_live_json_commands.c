@@ -79,6 +79,25 @@ ngx_live_json_commands_add(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t context)
 }
 
 ngx_int_t
+ngx_live_json_commands_add_multi(ngx_conf_t *cf,
+    ngx_live_json_command_t *cmds, ngx_uint_t context)
+{
+    ngx_live_json_command_t  *cmd, *c;
+
+    for (c = cmds; c->name.len; c++) {
+        cmd = ngx_live_json_commands_add(cf, &c->name, context);
+        if (cmd == NULL) {
+            return NGX_ERROR;
+        }
+
+        cmd->set_handler = c->set_handler;
+        cmd->type = c->type;
+    }
+
+    return NGX_OK;
+}
+
+ngx_int_t
 ngx_live_json_commands_init(ngx_conf_t *cf)
 {
     ngx_hash_init_t                 hash;
