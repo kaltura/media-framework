@@ -100,6 +100,7 @@ ngx_http_call_create(ngx_http_call_init_t *ci)
             goto error;
         }
         ngx_memcpy(ctx->arg, ci->arg, ci->argsize);
+
     } else {
         ctx->arg = ci->arg;
     }

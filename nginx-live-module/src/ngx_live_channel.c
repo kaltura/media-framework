@@ -535,6 +535,7 @@ ngx_live_variant_json_track_ids_write(u_char *p, ngx_live_variant_t *obj)
 
         if (first_time) {
             first_time = 0;
+
         } else {
             *p++ = ',';
         }

@@ -1111,14 +1111,13 @@ ngx_live_dvr_bucket_time(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             ngx_strncasecmp(zone.data, (u_char *) "gmt", 3) == 0)
         {
             ctx->gmt = 1;
-        }
-        else if (zone.len == 5 &&
+
+        } else if (zone.len == 5 &&
             ngx_strncasecmp(zone.data, (u_char *) "local", 5) == 0)
         {
             ctx->gmt = 0;
-        }
-        else
-        {
+
+        } else {
             return "invalid timezone";
         }
     }

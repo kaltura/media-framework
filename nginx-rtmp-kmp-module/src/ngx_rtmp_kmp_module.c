@@ -561,6 +561,7 @@ ngx_rtmp_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
         if (values[CONNECT_JSON_MESSAGE] != NULL) {
             desc = values[CONNECT_JSON_MESSAGE]->v.str;
             desc.data[desc.len] = '\0';
+
         } else {
             desc.len = 0;
             desc.data = NULL;

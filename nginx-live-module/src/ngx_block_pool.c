@@ -362,8 +362,10 @@ ngx_block_pool_auto_json_write(u_char *p, ngx_block_pool_t *block_pool,
     end = &block_pool->slots[max_index];
 
     for (cur = &block_pool->slots[min_index]; cur < end; cur++) {
+
         if (comma) {
             *p++ = ',';
+
         } else {
             comma = 1;
         }

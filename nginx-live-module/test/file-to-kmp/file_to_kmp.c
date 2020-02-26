@@ -207,8 +207,8 @@ ff_isom_write_avcc(AVIOContext *pb, const uint8_t *data, int len)
             }
             avio_wb16(sps_pb, size);
             avio_write(sps_pb, buf, size);
-        }
-        else if (nal_type == 8) { /* PPS */
+
+        } else if (nal_type == 8) { /* PPS */
             nb_pps++;
             if (size > UINT16_MAX || nb_pps >= H264_MAX_PPS_COUNT) {
                 ret = AVERROR_INVALIDDATA;
@@ -437,8 +437,8 @@ kmp_write_frame(AVIOContext *pb, AVPacket *packet, kmp_write_frame_ctx_t *ctx)
 
     if (AV_NOPTS_VALUE != packet->pts) {
         frame.f.pts_delay = (uint32_t)(packet->pts - packet->dts);
-    }
-    else {
+
+    } else {
         frame.f.pts_delay = 0;
     }
     frame.f.dts = packet->dts;

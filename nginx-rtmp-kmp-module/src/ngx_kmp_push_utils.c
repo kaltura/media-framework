@@ -279,6 +279,7 @@ ngx_kmp_push_float_to_rational(double f, int64_t md, int64_t *num,
             x = (md - k[0]) / k[1];
             if (x * 2 >= a || k[1] >= md) {
                 i = 65;
+
             } else {
                 break;
             }

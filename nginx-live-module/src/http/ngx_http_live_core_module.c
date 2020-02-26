@@ -454,8 +454,7 @@ ngx_http_live_generate_key(ngx_http_request_t *r, ngx_flag_t iv,
     if (iv && conf->encryption_iv_seed != NULL) {
         value = conf->encryption_iv_seed;
 
-    }
-    else if (conf->encryption_key_seed != NULL) {
+    } else if (conf->encryption_key_seed != NULL) {
         value = conf->encryption_key_seed;
 
     } else {

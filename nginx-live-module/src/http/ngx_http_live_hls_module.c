@@ -603,13 +603,15 @@ ngx_http_live_hls_init_fmp4_frame_processor(ngx_http_request_t *r,
             return ngx_http_live_status_to_ngx_error(r, rc);
         }
         per_stream_writer = TRUE;
-    }
-    else
-#endif /* NGX_HAVE_OPENSSL_EVP */
-    {
+
+    } else {
         segment_writers = &ctx->segment_writer;
         per_stream_writer = FALSE;
     }
+#else
+    segment_writers = &ctx->segment_writer;
+    per_stream_writer = FALSE;
+#endif /* NGX_HAVE_OPENSSL_EVP */
 
 #if (NGX_HAVE_OPENSSL_EVP)
     if (encryption_params.type == HLS_ENC_SAMPLE_AES_CENC &&
@@ -701,8 +703,8 @@ ngx_http_live_hls_parse_uri_file_name(ngx_http_request_t *r, u_char *start_pos,
         flags = NGX_HTTP_LIVE_PARSE_REQUIRE_INDEX |
             NGX_HTTP_LIVE_PARSE_REQUIRE_SINGLE_VARIANT |
             NGX_HTTP_LIVE_PARSE_OPTIONAL_MEDIA_TYPE;
-    }
-    else if (ngx_http_live_match_file_name(start_pos, end_pos,
+
+    } else if (ngx_http_live_match_file_name(start_pos, end_pos,
         ngx_http_live_hls_prefix_seg, ngx_http_live_hls_ext_seg_m4s))
     {
         start_pos += ngx_http_live_hls_prefix_seg.len;
@@ -719,8 +721,8 @@ ngx_http_live_hls_parse_uri_file_name(ngx_http_request_t *r, u_char *start_pos,
         flags = NGX_HTTP_LIVE_PARSE_REQUIRE_INDEX |
             NGX_HTTP_LIVE_PARSE_REQUIRE_SINGLE_VARIANT |
             NGX_HTTP_LIVE_PARSE_OPTIONAL_MEDIA_TYPE;
-    }
-    else if (ngx_http_live_match_file_name(start_pos, end_pos,
+
+    } else if (ngx_http_live_match_file_name(start_pos, end_pos,
         ngx_http_live_hls_prefix_index, ngx_http_live_hls_ext_m3u8))
     {
         start_pos += ngx_http_live_hls_prefix_index.len;
@@ -731,8 +733,8 @@ ngx_http_live_hls_parse_uri_file_name(ngx_http_request_t *r, u_char *start_pos,
 
         flags = NGX_HTTP_LIVE_PARSE_REQUIRE_SINGLE_VARIANT |
             NGX_HTTP_LIVE_PARSE_OPTIONAL_MEDIA_TYPE;
-    }
-    else if (ngx_http_live_match_file_name(start_pos, end_pos,
+
+    } else if (ngx_http_live_match_file_name(start_pos, end_pos,
         ngx_http_live_hls_prefix_master, ngx_http_live_hls_ext_m3u8))
     {
         start_pos += ngx_http_live_hls_prefix_master.len;
@@ -741,8 +743,8 @@ ngx_http_live_hls_parse_uri_file_name(ngx_http_request_t *r, u_char *start_pos,
         result->handler = &ngx_http_live_hls_master_handler;
         flags = NGX_HTTP_LIVE_PARSE_OPTIONAL_VARIANTS |
             NGX_HTTP_LIVE_PARSE_OPTIONAL_MEDIA_TYPE;
-    }
-    else if (ngx_http_live_match_file_name(start_pos, end_pos,
+
+    } else if (ngx_http_live_match_file_name(start_pos, end_pos,
         ngx_http_live_hls_prefix_enc_key, ngx_http_live_hls_ext_enc_key))
     {
         start_pos += ngx_http_live_hls_prefix_enc_key.len;
@@ -751,8 +753,8 @@ ngx_http_live_hls_parse_uri_file_name(ngx_http_request_t *r, u_char *start_pos,
         result->handler = &ngx_http_live_hls_enc_key_handler;
         flags = NGX_HTTP_LIVE_PARSE_REQUIRE_SINGLE_VARIANT |
             NGX_HTTP_LIVE_PARSE_OPTIONAL_MEDIA_TYPE;
-    }
-    else if (ngx_http_live_match_file_name(start_pos, end_pos,
+
+    } else if (ngx_http_live_match_file_name(start_pos, end_pos,
         ngx_http_live_hls_prefix_init_seg, ngx_http_live_hls_ext_init_seg))
     {
         start_pos += ngx_http_live_hls_prefix_init_seg.len;

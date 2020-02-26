@@ -387,27 +387,23 @@ ngx_live_block_command_handler(ngx_conf_t *cf, ngx_command_t *dummy,
                     goto invalid;
                 }
 
-            }
-            else if (cmd->type & NGX_CONF_1MORE) {
+            } else if (cmd->type & NGX_CONF_1MORE) {
 
                 if (cf->args->nelts < 2) {
                     goto invalid;
                 }
 
-            }
-            else if (cmd->type & NGX_CONF_2MORE) {
+            } else if (cmd->type & NGX_CONF_2MORE) {
 
                 if (cf->args->nelts < 3) {
                     goto invalid;
                 }
 
-            }
-            else if (cf->args->nelts > NGX_CONF_MAX_ARGS) {
+            } else if (cf->args->nelts > NGX_CONF_MAX_ARGS) {
 
                 goto invalid;
 
-            }
-            else if (!(cmd->type & argument_number[cf->args->nelts - 1]))
+            } else if (!(cmd->type & argument_number[cf->args->nelts - 1]))
             {
                 goto invalid;
             }

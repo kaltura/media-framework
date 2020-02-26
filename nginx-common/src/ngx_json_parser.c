@@ -136,6 +136,7 @@ ngx_json_get_value_type(ngx_json_parser_state_t *state,
 
     if (*cur_pos == '.') {
         *result = &ngx_json_frac;
+
     } else {
         *result = &ngx_json_int;
     }
@@ -249,6 +250,7 @@ ngx_json_parse_int(ngx_json_parser_state_t *state, int64_t *result,
     if (*state->cur_pos == '-') {
         *negative = 1;
         state->cur_pos++;
+
     } else {
         *negative = 0;
     }
@@ -673,18 +675,22 @@ ngx_json_unicode_hex_to_utf8(u_char *dest, u_char *src)
 
     if (ch < 0x80) {
         *dest++ = (u_char)ch;
+
     } else if (ch < 0x800) {
         *dest++ = (ch >> 6) | 0xC0;
         *dest++ = (ch & 0x3F) | 0x80;
+
     } else if (ch < 0x10000) {
         *dest++ = (ch >> 12) | 0xE0;
         *dest++ = ((ch >> 6) & 0x3F) | 0x80;
         *dest++ = (ch & 0x3F) | 0x80;
+
     } else if (ch < 0x110000) {
         *dest++ = (ch >> 18) | 0xF0;
         *dest++ = ((ch >> 12) & 0x3F) | 0x80;
         *dest++ = ((ch >> 6) & 0x3F) | 0x80;
         *dest++ = (ch & 0x3F) | 0x80;
+
     } else {
         return NULL;
     }
