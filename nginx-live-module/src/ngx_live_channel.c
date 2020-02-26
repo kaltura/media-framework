@@ -433,6 +433,8 @@ ngx_live_variant_free(ngx_live_variant_t *variant)
 
     channel->last_modified = ngx_time();
 
+    ngx_live_channel_block_str_free(channel, &variant->opaque);
+
     ngx_rbtree_delete(&channel->variants.rbtree, &variant->sn.node);
     ngx_queue_remove(&variant->queue);
 
@@ -686,7 +688,8 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_track_create: track init failed %i", rc);
-        ngx_live_track_channel_free(track, NGX_LIVE_EVENT_TRACK_FREE);
+        (void) ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_FREE,
+            NULL);
         ngx_block_pool_free(channel->block_pool, NGX_LIVE_BP_TRACK, track);
         return rc;
     }
@@ -759,6 +762,8 @@ ngx_live_track_free(ngx_live_track_t *track)
     channel->tracks.count--;
 
     ngx_live_track_channel_free(track, NGX_LIVE_EVENT_TRACK_FREE);
+
+    ngx_live_channel_block_str_free(channel, &track->opaque);
 
     ngx_rbtree_delete(&channel->tracks.rbtree, &track->sn.node);
     ngx_rbtree_delete(&channel->tracks.irbtree, &track->in);
