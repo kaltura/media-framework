@@ -1761,7 +1761,7 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
     cur_snap_range = 0;
     *min_split_pts = NGX_LIVE_INVALID_PTS;
 
-    for (q = ngx_queue_next(&channel->tracks.queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
@@ -1862,7 +1862,7 @@ ngx_live_segmenter_candidates_get_span(ngx_live_channel_t *channel,
         min[i] = max[i] = candidates->elts[i].pts;
     }
 
-    for (q = ngx_queue_next(&channel->tracks.queue);
+    for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
     {
