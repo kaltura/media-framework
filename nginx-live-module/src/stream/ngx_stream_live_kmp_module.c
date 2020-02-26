@@ -285,7 +285,7 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
     }
 
-    ngx_log_debug6(NGX_LOG_DEBUG_LIVE, &ctx->track->log, 0,
+    ngx_log_debug6(NGX_LOG_DEBUG_STREAM, &ctx->track->log, 0,
         "ngx_stream_live_kmp_frame: track: %V, created: %L, size: %uD, "
         "dts: %L, flags: 0x%uxD, ptsDelay: %uD",
         &ctx->track->sn.str, frame_ptr->created, ctx->packet_header.data_size,
@@ -589,7 +589,7 @@ ngx_stream_live_kmp_read_packets(ngx_stream_live_kmp_ctx_t *ctx)
 static void
 ngx_stream_live_kmp_dummy_handler(ngx_event_t *wev)
 {
-    ngx_log_debug0(NGX_LOG_DEBUG_EVENT, wev->log, 0,
+    ngx_log_debug0(NGX_LOG_DEBUG_STREAM, wev->log, 0,
         "ngx_stream_live_kmp_dummy_handler: called");
 }
 
@@ -605,7 +605,7 @@ ngx_stream_live_kmp_write_handler(ngx_event_t *wev)
     c = wev->data;
     s = c->data;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_EVENT, wev->log, 0,
+    ngx_log_debug0(NGX_LOG_DEBUG_STREAM, wev->log, 0,
         "ngx_stream_live_kmp_write_handler: called");
 
     if (wev->timedout) {

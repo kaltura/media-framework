@@ -20,8 +20,6 @@ typedef struct {
     ngx_queue_t                 *sentinel;
 } ngx_live_media_info_iter_t;
 
-typedef void *(*ngx_live_media_info_alloc_pt)(void *ctx, size_t size);
-
 
 media_info_t *ngx_live_media_info_clone(ngx_pool_t *pool, media_info_t *src);
 
@@ -31,11 +29,11 @@ ngx_int_t ngx_live_media_info_pending_add(ngx_live_track_t *track,
     kmp_media_info_t *media_info, ngx_buf_chain_t *extra_data,
     uint32_t extra_data_size, uint32_t frame_index);
 
-void ngx_live_media_info_pending_remove_frames(ngx_live_track_t *track,
-    ngx_uint_t frame_count);
-
 void ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
     uint32_t segment_index, ngx_flag_t *changed);
+
+void ngx_live_media_info_pending_remove_frames(ngx_live_track_t *track,
+    ngx_uint_t frame_count);
 
 void ngx_live_media_info_pending_free_all(ngx_live_track_t *track);
 

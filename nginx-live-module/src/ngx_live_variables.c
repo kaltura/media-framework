@@ -598,7 +598,7 @@ ngx_live_variables_init_vars(ngx_conf_t *cf)
 
         if (av) {
             v[i].get_handler = av->get_handler;
-            v[i].data = (uintptr_t)&v[i].name;
+            v[i].data = (uintptr_t) &v[i].name;
             v[i].flags = av->flags;
 
             goto next;

@@ -77,7 +77,7 @@ enum {
 static const uint8_t *
 ff_avc_find_startcode_internal(const uint8_t *p, const uint8_t *end)
 {
-    const uint8_t *a = p + 4 - ((intptr_t)p & 3);
+    const uint8_t *a = p + 4 - ((intptr_t) p & 3);
 
     for (end -= 3; p < a && p < end; p++) {
         if (p[0] == 0 && p[1] == 0 && p[2] == 1)
@@ -85,7 +85,7 @@ ff_avc_find_startcode_internal(const uint8_t *p, const uint8_t *end)
     }
 
     for (end -= 3; p < end; p += 4) {
-        uint32_t x = *(const uint32_t *)p;
+        uint32_t x = *(const uint32_t *) p;
         //      if ((x - 0x01000100) & (~x) & 0x80008000) // little endian
         //      if ((x - 0x00010001) & (~x) & 0x00800080) // big endian
         if ((x - 0x01010101) & (~x) & 0x80808080) { // generic
@@ -325,7 +325,7 @@ kmp_get_mediainfo(AVStream *stream, kmp_media_info_t *media_info,
     extra_data->data = NULL;
     extra_data->len = codecpar->extradata_size;
 
-    media_info->bitrate = (uint32_t)codecpar->bit_rate;
+    media_info->bitrate = (uint32_t) codecpar->bit_rate;
     media_info->timescale = OUTPUT_TIMESCALE;
 
     switch (codecpar->codec_type) {
@@ -412,7 +412,7 @@ kmp_write_media_info(AVIOContext *pb, AVStream *stream, int *annex_b)
     mi.header.header_size = sizeof(mi);
     mi.header.data_size = extra_data.len;
     mi.header.reserved = 0;
-    avio_write(pb, (u_char *)&mi, sizeof(mi));
+    avio_write(pb, (u_char *) &mi, sizeof(mi));
     avio_write(pb, extra_data.data, extra_data.len);
     av_free(extra_data.data);
 
@@ -436,7 +436,7 @@ kmp_write_frame(AVIOContext *pb, AVPacket *packet, kmp_write_frame_ctx_t *ctx)
     frame.header.reserved = 0;
 
     if (AV_NOPTS_VALUE != packet->pts) {
-        frame.f.pts_delay = (uint32_t)(packet->pts - packet->dts);
+        frame.f.pts_delay = (uint32_t) (packet->pts - packet->dts);
 
     } else {
         frame.f.pts_delay = 0;

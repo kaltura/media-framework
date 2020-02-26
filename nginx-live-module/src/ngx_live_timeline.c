@@ -569,7 +569,7 @@ ngx_live_timeline_is_expired(ngx_live_timeline_t *timeline)
 
     expiry = ((uint64_t) max * expiry_threshold) / (cpcf->timescale * 100);
 
-    return ngx_time() > (time_t)(timeline->last_segment_created + expiry);
+    return ngx_time() > (time_t) (timeline->last_segment_created + expiry);
 }
 
 ngx_int_t
@@ -783,7 +783,7 @@ ngx_live_timeline_inactive_remove_segments(ngx_live_timeline_t *timeline,
     cpcf = ngx_live_get_module_preset_conf(timeline->channel,
         ngx_live_core_module);
 
-    base_duration = (uint64_t)(ngx_time() - timeline->last_segment_created) *
+    base_duration = (uint64_t) (ngx_time() - timeline->last_segment_created) *
         cpcf->timescale;
 
     base_count = (base_duration * timeline->segment_count) /
@@ -836,7 +836,7 @@ ngx_live_timeline_get_period_by_time(ngx_live_timeline_t *timeline,
             }
             node = node->left;
 
-        } else if (time >= (int64_t)(period->time + period->duration)) {
+        } else if (time >= (int64_t) (period->time + period->duration)) {
             if (node->right == sentinel) {
                 return period->next;
             }
@@ -1064,7 +1064,7 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
 
         period = timeline->last_period;
         if (period == NULL ||
-            time != (int64_t)(period->time + period->duration) ||
+            time != (int64_t) (period->time + period->duration) ||
             segment_index != period->node.key + period->segment_count ||
             force_new_period)
         {

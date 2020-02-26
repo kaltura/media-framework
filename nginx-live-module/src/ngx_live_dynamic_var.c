@@ -227,7 +227,7 @@ ngx_live_dynamic_var_get(ngx_live_channel_t *ch, ngx_pool_t *pool,
     ngx_live_variable_value_t *v, uintptr_t data)
 {
     uint32_t                             hash;
-    ngx_str_t                            name = *(ngx_str_t *)data;
+    ngx_str_t                            name = *(ngx_str_t *) data;
     ngx_live_dynamic_var_t              *var;
     ngx_live_dynamic_var_channel_ctx_t  *cctx;
 

@@ -35,7 +35,7 @@ typedef struct {
 
 
 typedef struct {
-    uint32_t slot;
+    uint32_t                slot;
 } ngx_block_pool_auto_header_t;
 
 

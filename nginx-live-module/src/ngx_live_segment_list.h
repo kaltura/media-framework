@@ -50,7 +50,7 @@ ngx_int_t ngx_live_segment_list_get_closest_segment(
     ngx_live_segment_iter_t *iter);
 
 void ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
-    uint32_t min_used_segment_index);
+    uint32_t min_segment_index);
 
 
 size_t ngx_live_segment_list_json_get_size(

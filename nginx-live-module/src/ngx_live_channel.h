@@ -162,13 +162,13 @@ ngx_int_t ngx_live_channel_init_process(ngx_cycle_t *cycle);
 
 
 /* channel */
-ngx_live_channel_t *ngx_live_channel_get(ngx_str_t *channel_id);
-
 ngx_int_t ngx_live_channel_create(ngx_str_t *channel_id,
     ngx_live_conf_ctx_t *conf_ctx, ngx_pool_t *temp_pool,
     ngx_live_channel_t **result);
 
 void ngx_live_channel_free(ngx_live_channel_t *channel);
+
+ngx_live_channel_t *ngx_live_channel_get(ngx_str_t *channel_id);
 
 void ngx_live_channel_finalize(ngx_live_channel_t *channel);
 
@@ -200,13 +200,13 @@ u_char *ngx_live_channels_json_write(u_char *p, void *obj);
 
 
 /* variant */
-ngx_live_variant_t *ngx_live_variant_get(ngx_live_channel_t *channel,
-    ngx_str_t *variant_id);
-
 ngx_int_t ngx_live_variant_create(ngx_live_channel_t *channel,
     ngx_str_t *variant_id, ngx_log_t *log, ngx_live_variant_t **result);
 
 void ngx_live_variant_free(ngx_live_variant_t *variant);
+
+ngx_live_variant_t *ngx_live_variant_get(ngx_live_channel_t *channel,
+    ngx_str_t *variant_id);
 
 void ngx_live_variant_set_track(ngx_live_variant_t *variant,
     ngx_live_track_t *track);
