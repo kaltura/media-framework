@@ -384,12 +384,10 @@ ngx_http_api_parse_options(ngx_conf_t *cf, ngx_http_api_options_t *options)
             if (ngx_strcmp(s, "on") == 0) {
                 options->upsert = 1;
 
-            }
-            else if (ngx_strcmp(s, "off") == 0) {
+            } else if (ngx_strcmp(s, "off") == 0) {
                 options->upsert = 0;
 
-            }
-            else {
+            } else {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                     "invalid parameter: %V", &value[i]);
                 return NGX_CONF_ERROR;

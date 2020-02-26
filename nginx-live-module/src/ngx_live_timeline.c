@@ -18,7 +18,7 @@ enum {
 typedef struct {
     ngx_block_pool_t         *block_pool;
     ngx_live_segment_list_t   segment_list;
-    ngx_rbtree_t              tree;
+    ngx_rbtree_t              rbtree;
     ngx_rbtree_node_t         sentinel;
     ngx_queue_t               queue;        /* ngx_live_timeline_t */
     ngx_event_t               cleanup;
@@ -83,8 +83,7 @@ ngx_live_period_create(ngx_live_channel_t *channel)
     period->duration = 0;
     period->segment_count = 0;
 
-    ngx_live_segment_iterator_last(&ctx->segment_list,
-        &period->segment_iterator);
+    ngx_live_segment_iter_last(&ctx->segment_list, &period->segment_iter);
 
     return period;
 }
@@ -111,7 +110,7 @@ ngx_live_period_pop_segment(ngx_live_period_t *period, uint32_t *duration)
         return;
     }
 
-    ngx_live_segment_iterator_get_one(&period->segment_iterator, duration);
+    ngx_live_segment_iter_get_one(&period->segment_iter, duration);
 
     period->segment_count--;
     period->time += *duration;
@@ -125,15 +124,15 @@ static void
 ngx_live_period_get_max_duration(ngx_live_period_t *period,
     uint32_t *max_duration)
 {
-    uint32_t                     i;
-    ngx_live_segment_repeat_t    segment_duration;
-    ngx_live_segment_iterator_t  iterator;
+    uint32_t                   i;
+    ngx_live_segment_iter_t    iter;
+    ngx_live_segment_repeat_t  segment_duration;
 
-    iterator = period->segment_iterator;
+    iter = period->segment_iter;
 
     for (i = period->segment_count; ; i -= segment_duration.repeat_count) {
 
-        ngx_live_segment_iterator_get_element(&iterator, &segment_duration);
+        ngx_live_segment_iter_get_element(&iter, &segment_duration);
 
         if (segment_duration.duration > *max_duration) {
             *max_duration = segment_duration.duration;
@@ -149,19 +148,19 @@ ngx_live_period_get_max_duration(ngx_live_period_t *period,
 static void
 ngx_live_period_validate(ngx_live_period_t *period, ngx_log_t *log)
 {
-    uint32_t                     i;
-    uint64_t                     duration;
-    ngx_live_segment_repeat_t    segment_duration;
-    ngx_live_segment_iterator_t  iterator;
+    uint32_t                   i;
+    uint64_t                   duration;
+    ngx_live_segment_iter_t    iter;
+    ngx_live_segment_repeat_t  segment_duration;
 
-    iterator = period->segment_iterator;
+    iter = period->segment_iter;
     duration = 0;
 
     for (i = period->segment_count;
         i > 0;
         i -= segment_duration.repeat_count)
     {
-        ngx_live_segment_iterator_get_element(&iterator, &segment_duration);
+        ngx_live_segment_iter_get_element(&iter, &segment_duration);
 
         if (segment_duration.repeat_count > i) {
             segment_duration.repeat_count = i;
@@ -248,8 +247,8 @@ ngx_live_manifest_timeline_add_first_period(
     period->duration = 0;
     period->segment_count = 0;
 
-    ngx_live_segment_iterator_last(&ctx->segment_list,
-        &period->segment_iterator);
+    ngx_live_segment_iter_last(&ctx->segment_list,
+        &period->segment_iter);
 
     if (timeline->availability_start_time == 0) {
         timeline->availability_start_time = time;
@@ -420,7 +419,7 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
 
     ctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
     hash = ngx_crc32_short(id->data, id->len);
-    timeline = (ngx_live_timeline_t *) ngx_str_rbtree_lookup(&ctx->tree, id,
+    timeline = (ngx_live_timeline_t *) ngx_str_rbtree_lookup(&ctx->rbtree, id,
         hash);
     if (timeline != NULL) {
         *result = timeline;
@@ -452,7 +451,7 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
     ngx_rbtree_init(&timeline->rbtree, &timeline->sentinel,
         ngx_rbtree_insert_value);
 
-    ngx_rbtree_insert(&ctx->tree, &timeline->sn.node);
+    ngx_rbtree_insert(&ctx->rbtree, &timeline->sn.node);
 
     ngx_queue_insert_tail(&ctx->queue, &timeline->queue);
 
@@ -479,7 +478,7 @@ ngx_live_timeline_free(ngx_live_timeline_t *timeline)
         ngx_live_period_free(ctx, period);
     }
 
-    ngx_rbtree_delete(&ctx->tree, &timeline->sn.node);
+    ngx_rbtree_delete(&ctx->rbtree, &timeline->sn.node);
     ngx_queue_remove(&timeline->queue);
     ngx_block_pool_free(ctx->block_pool, NGX_LIVE_BP_TIMELINE, timeline);
 
@@ -499,7 +498,7 @@ ngx_live_timeline_get(ngx_live_channel_t *channel, ngx_str_t *id)
     ctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     hash = ngx_crc32_short(id->data, id->len);
-    timeline = (void*) ngx_str_rbtree_lookup(&ctx->tree, id, hash);
+    timeline = (void *) ngx_str_rbtree_lookup(&ctx->rbtree, id, hash);
     if (timeline == NULL) {
         return NULL;
     }
@@ -530,7 +529,7 @@ ngx_live_timeline_contains_segment(ngx_live_timeline_t *timeline,
             node = node->left;
 
         } else {
-            period = (ngx_live_period_t*) node;
+            period = (ngx_live_period_t *) node;
             if (segment_index < node->key + period->segment_count) {
                 return 1;
             }
@@ -830,7 +829,7 @@ ngx_live_timeline_get_period_by_time(ngx_live_timeline_t *timeline,
 
     for ( ;; ) {
 
-        period = (ngx_live_period_t*) node;
+        period = (ngx_live_period_t *) node;
         if (time < period->time) {
             if (node->left == sentinel) {
                 return period;
@@ -861,7 +860,7 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
     ngx_live_period_t                *src_period;
     ngx_live_period_t                *dest_period;
     ngx_live_channel_t               *channel = dest->channel;
-    ngx_live_segment_iterator_t       dummy_iterator;
+    ngx_live_segment_iter_t           dummy_iter;
     ngx_live_timeline_channel_ctx_t  *ctx;
 
     /* Note: assuming dest is an empty, freshly-created timeline */
@@ -891,12 +890,12 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
         if (dest->conf.start <= src_period->time) {
             dest_period->node.key = src_period->node.key;
             dest_period->time = src_period->time;
-            dest_period->segment_iterator = src_period->segment_iterator;
+            dest_period->segment_iter = src_period->segment_iter;
 
         } else {
             if (ngx_live_segment_list_get_closest_segment(&ctx->segment_list,
                 dest->conf.start, &segment_index, &dest_period->time,
-                &dest_period->segment_iterator) != NGX_OK) {
+                &dest_period->segment_iter) != NGX_OK) {
                 ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
                     "ngx_live_timeline_copy: "
                     "get closest segment failed (1)");
@@ -914,7 +913,7 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
         } else {
             if (ngx_live_segment_list_get_closest_segment(&ctx->segment_list,
                 dest->conf.end, &segment_index, &segment_time,
-                &dummy_iterator) != NGX_OK) {
+                &dummy_iter) != NGX_OK) {
                 ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
                     "ngx_live_timeline_copy: "
                     "get closest segment failed (2)");
@@ -1008,7 +1007,7 @@ ngx_live_timelines_free_old_segments(ngx_live_channel_t *channel,
 
     (void) ngx_live_core_channel_event(channel,
         NGX_LIVE_EVENT_CHANNEL_SEGMENT_FREE,
-        (void*) (uintptr_t) min_segment_index);
+        (void *) (uintptr_t) min_segment_index);
 }
 
 ngx_int_t
@@ -1244,7 +1243,7 @@ ngx_live_timeline_channel_init(ngx_live_channel_t *channel, void *ectx)
 
     ngx_live_set_ctx(channel, ctx, ngx_live_timeline_module);
 
-    ngx_rbtree_init(&ctx->tree, &ctx->sentinel, ngx_str_rbtree_insert_value);
+    ngx_rbtree_init(&ctx->rbtree, &ctx->sentinel, ngx_str_rbtree_insert_value);
     ngx_queue_init(&ctx->queue);
 
     ctx->cleanup.handler = ngx_live_timelines_cleanup_handler;

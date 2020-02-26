@@ -454,8 +454,7 @@ ngx_http_live_generate_key(ngx_http_request_t *r, ngx_flag_t iv,
     if (iv && conf->encryption_iv_seed != NULL) {
         value = conf->encryption_iv_seed;
 
-    }
-    else if (conf->encryption_key_seed != NULL) {
+    } else if (conf->encryption_key_seed != NULL) {
         value = conf->encryption_key_seed;
 
     } else {
@@ -1472,7 +1471,7 @@ ngx_http_live_core_segment_handler(ngx_http_request_t *r,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    segment->tracks = (void*)(segment + 1);
+    segment->tracks = (void *) (segment + 1);
     segment->segment_index = ctx->params.index;
 
     req.tracks = ngx_http_live_core_get_track_refs(r, objects,

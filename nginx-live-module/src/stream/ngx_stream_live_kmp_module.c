@@ -725,7 +725,7 @@ ngx_stream_live_kmp_open_dump_file(ngx_stream_session_t *s)
         &lscf->dump_folder, NGX_STREAM_ISO8601_DATE_LEN,
         ngx_cached_http_log_iso8601.data, ngx_pid, s->connection->number);
 
-    fd = ngx_open_file((char*) name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
+    fd = ngx_open_file((char *) name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
         NGX_FILE_DEFAULT_ACCESS);
     if (fd == NGX_INVALID_FILE) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
@@ -786,7 +786,7 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
     }
 
     /* validate connect packet */
-    header = (void*) b->pos;
+    header = (void *) b->pos;
     if (header->header.packet_type != KMP_PACKET_CONNECT) {
         ngx_log_error(NGX_LOG_ERR, c->log, 0,
             "ngx_stream_live_kmp_read_header: invalid packet type 0x%uxD",

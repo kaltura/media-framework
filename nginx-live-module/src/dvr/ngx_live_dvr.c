@@ -236,7 +236,7 @@ ngx_live_dvr_read_parse_header(ngx_live_dvr_read_ctx_t *ctx,
         return NGX_HTTP_BAD_GATEWAY;
     }
 
-    header = (void*) buf->data;
+    header = (void *) buf->data;
 
     if (header->magic != NGX_LIVE_DVR_FILE_MAGIC) {
         ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
@@ -270,7 +270,7 @@ ngx_live_dvr_read_parse_header(ngx_live_dvr_read_ctx_t *ctx,
     }
 
     found_tracks = 0;
-    cur_entry = (void*)(header + 1);
+    cur_entry = (void *) (header + 1);
     last_entry = cur_entry + header->segment_count;
 
     for (offset = header->header_size;
@@ -328,7 +328,7 @@ ngx_live_dvr_read_init_track(ngx_pool_t *pool, ngx_str_t *buf,
         return NGX_HTTP_BAD_GATEWAY;
     }
 
-    header = (void*)buf->data;
+    header = (void *) buf->data;
     if (header->magic != NGX_LIVE_DVR_SEGMENT_MAGIC) {
         ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_live_dvr_read_init_track: invalid magic 0x%uxD",
@@ -395,7 +395,7 @@ ngx_live_dvr_read_init_track(ngx_pool_t *pool, ngx_str_t *buf,
 
     track->frames_source = &ngx_live_dvr_source;
 
-    track->frames.part.elts = (void*)(buf->data + header->frames_start);
+    track->frames.part.elts = (void *) (buf->data + header->frames_start);
     track->frames.part.nelts = header->frame_count;
     track->frame_count = header->frame_count;
 
@@ -701,7 +701,7 @@ ngx_live_dvr_save_create_file(ngx_live_channel_t *channel, ngx_pool_t *pool,
     ll = &out;
     request->size = 0;
 
-    header = (void*) header_buf->last;
+    header = (void *) header_buf->last;
     header_buf->last += sizeof(*header);
 
     header->magic = NGX_LIVE_DVR_FILE_MAGIC;
@@ -728,7 +728,7 @@ ngx_live_dvr_save_create_file(ngx_live_channel_t *channel, ngx_pool_t *pool,
                 continue;
             }
 
-            segment_entry = (void*) header_buf->last;
+            segment_entry = (void *) header_buf->last;
             header_buf->last += sizeof(*segment_entry);
 
             ll = ngx_live_dvr_save_append_segment(pool, ll, cur_track, segment,
@@ -1010,7 +1010,7 @@ ngx_live_dvr_bucket_time_variable(ngx_live_channel_t *channel,
     ngx_live_dvr_channel_ctx_t      *cctx;
     ngx_live_dvr_preset_conf_t      *dpcf;
     ngx_live_core_preset_conf_t     *cpcf;
-    ngx_live_dvr_bucket_time_ctx_t  *var = (void*) data;
+    ngx_live_dvr_bucket_time_ctx_t  *var = (void *) data;
 
     char  buf[NGX_LIVE_DVR_DATE_LEN];
 
@@ -1111,14 +1111,13 @@ ngx_live_dvr_bucket_time(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             ngx_strncasecmp(zone.data, (u_char *) "gmt", 3) == 0)
         {
             ctx->gmt = 1;
-        }
-        else if (zone.len == 5 &&
+
+        } else if (zone.len == 5 &&
             ngx_strncasecmp(zone.data, (u_char *) "local", 5) == 0)
         {
             ctx->gmt = 0;
-        }
-        else
-        {
+
+        } else {
             return "invalid timezone";
         }
     }

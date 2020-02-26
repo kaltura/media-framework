@@ -599,7 +599,7 @@ ngx_live_media_info_queue_get(ngx_live_track_t *track, uint32_t segment_index,
     return NULL;
 }
 
-media_info_t*
+media_info_t *
 ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
     kmp_media_info_t **kmp_media_info)
 {
@@ -1008,7 +1008,7 @@ ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
             break;
         }
 
-        q = ngx_queue_next(q);
+        q = ngx_queue_next(q);		/* move to next before remove */
 
         ngx_queue_remove(&cur->queue);
 
@@ -1185,7 +1185,7 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
 /* iterator */
 
 ngx_flag_t
-ngx_live_media_info_iterator_init(ngx_live_media_info_iterator_t *iterator,
+ngx_live_media_info_iter_init(ngx_live_media_info_iter_t *iter,
     ngx_live_track_t *track)
 {
     ngx_queue_t                      *q;
@@ -1198,27 +1198,27 @@ ngx_live_media_info_iterator_init(ngx_live_media_info_iterator_t *iterator,
         return 0;
     }
 
-    iterator->cur = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-    iterator->sentinel = ngx_queue_sentinel(&ctx->active);
+    iter->cur = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+    iter->sentinel = ngx_queue_sentinel(&ctx->active);
 
     return 1;
 }
 
 uint32_t
-ngx_live_media_info_iterator_next(ngx_live_media_info_iterator_t *iterator,
+ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
     uint32_t segment_index)
 {
     ngx_queue_t                 *q;
     ngx_live_media_info_node_t  *next;
 
-    if (segment_index < iterator->cur->u.start_segment_index) {
+    if (segment_index < iter->cur->u.start_segment_index) {
         return 0;
     }
 
     for ( ;; ) {
 
-        q = ngx_queue_next(&iterator->cur->queue);
-        if (q == iterator->sentinel) {
+        q = ngx_queue_next(&iter->cur->queue);
+        if (q == iter->sentinel) {
             break;
         }
 
@@ -1228,10 +1228,10 @@ ngx_live_media_info_iterator_next(ngx_live_media_info_iterator_t *iterator,
             break;
         }
 
-        iterator->cur = next;
+        iter->cur = next;
     }
 
-    return iterator->cur->u.start_segment_index;
+    return iter->cur->u.start_segment_index;
 }
 
 

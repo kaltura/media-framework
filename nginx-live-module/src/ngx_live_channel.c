@@ -72,7 +72,7 @@ ngx_live_channel_get(ngx_str_t *channel_id)
     uint32_t  hash;
 
     hash = ngx_crc32_short(channel_id->data, channel_id->len);
-    return (ngx_live_channel_t*) ngx_str_rbtree_lookup(
+    return (ngx_live_channel_t *) ngx_str_rbtree_lookup(
         &ngx_live_channels.rbtree, channel_id, hash);
 }
 
@@ -115,7 +115,7 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
     }
 
     hash = ngx_crc32_short(channel_id->data, channel_id->len);
-    channel = (ngx_live_channel_t*) ngx_str_rbtree_lookup(
+    channel = (ngx_live_channel_t *) ngx_str_rbtree_lookup(
         &ngx_live_channels.rbtree, channel_id, hash);
     if (channel != NULL) {
         *result = channel;
@@ -157,7 +157,7 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
     /* initialize */
     channel->pool = pool;
 
-    channel->sn.str.data = (void*)(channel + 1);
+    channel->sn.str.data = (void *) (channel + 1);
     channel->sn.str.len = channel_id->len;
     ngx_memcpy(channel->sn.str.data, channel_id->data, channel->sn.str.len);
     channel->sn.node.key = hash;
@@ -214,13 +214,13 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
 
     /* initialize trees/queues */
     ngx_queue_init(&channel->tracks.queue);
-    ngx_rbtree_init(&channel->tracks.tree, &channel->tracks.sentinel,
+    ngx_rbtree_init(&channel->tracks.rbtree, &channel->tracks.sentinel,
         ngx_str_rbtree_insert_value);
-    ngx_rbtree_init(&channel->tracks.itree, &channel->tracks.isentinel,
+    ngx_rbtree_init(&channel->tracks.irbtree, &channel->tracks.isentinel,
         ngx_rbtree_insert_value);
 
     ngx_queue_init(&channel->variants.queue);
-    ngx_rbtree_init(&channel->variants.tree, &channel->variants.sentinel,
+    ngx_rbtree_init(&channel->variants.rbtree, &channel->variants.sentinel,
         ngx_str_rbtree_insert_value);
 
     ngx_rbtree_insert(&ngx_live_channels.rbtree, &channel->sn.node);
@@ -369,8 +369,8 @@ ngx_live_variant_get(ngx_live_channel_t *channel, ngx_str_t *variant_id)
     uint32_t  hash;
 
     hash = ngx_crc32_short(variant_id->data, variant_id->len);
-    return (ngx_live_variant_t*) ngx_str_rbtree_lookup(&channel->variants.tree,
-        variant_id, hash);
+    return (ngx_live_variant_t *) ngx_str_rbtree_lookup(
+        &channel->variants.rbtree, variant_id, hash);
 }
 
 ngx_int_t
@@ -387,8 +387,8 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *variant_id,
     }
 
     hash = ngx_crc32_short(variant_id->data, variant_id->len);
-    variant = (ngx_live_variant_t*) ngx_str_rbtree_lookup(
-        &channel->variants.tree, variant_id, hash);
+    variant = (ngx_live_variant_t *) ngx_str_rbtree_lookup(
+        &channel->variants.rbtree, variant_id, hash);
     if (variant != NULL) {
         *result = variant;
         return NGX_BUSY;
@@ -409,7 +409,7 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *variant_id,
     ngx_memcpy(variant->sn.str.data, variant_id->data, variant->sn.str.len);
     variant->sn.node.key = hash;
 
-    ngx_rbtree_insert(&channel->variants.tree, &variant->sn.node);
+    ngx_rbtree_insert(&channel->variants.rbtree, &variant->sn.node);
     ngx_queue_insert_tail(&channel->variants.queue, &variant->queue);
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
@@ -433,7 +433,9 @@ ngx_live_variant_free(ngx_live_variant_t *variant)
 
     channel->last_modified = ngx_time();
 
-    ngx_rbtree_delete(&channel->variants.tree, &variant->sn.node);
+    ngx_live_channel_block_str_free(channel, &variant->opaque);
+
+    ngx_rbtree_delete(&channel->variants.rbtree, &variant->sn.node);
     ngx_queue_remove(&variant->queue);
 
     ngx_block_pool_free(channel->block_pool, NGX_LIVE_BP_VARIANT, variant);
@@ -535,6 +537,7 @@ ngx_live_variant_json_track_ids_write(u_char *p, ngx_live_variant_t *obj)
 
         if (first_time) {
             first_time = 0;
+
         } else {
             *p++ = ',';
         }
@@ -566,7 +569,7 @@ ngx_live_track_get(ngx_live_channel_t *channel, ngx_str_t *track_id)
     uint32_t  hash;
 
     hash = ngx_crc32_short(track_id->data, track_id->len);
-    return (ngx_live_track_t*) ngx_str_rbtree_lookup(&channel->tracks.tree,
+    return (ngx_live_track_t *) ngx_str_rbtree_lookup(&channel->tracks.rbtree,
         track_id, hash);
 }
 
@@ -576,7 +579,7 @@ ngx_live_track_get_by_int(ngx_live_channel_t *channel, uint32_t track_id)
     ngx_rbtree_t       *rbtree;
     ngx_rbtree_node_t  *node, *sentinel;
 
-    rbtree = &channel->tracks.itree;
+    rbtree = &channel->tracks.irbtree;
 
     node = rbtree->root;
     sentinel = rbtree->sentinel;
@@ -641,7 +644,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
     }
 
     hash = ngx_crc32_short(track_id->data, track_id->len);
-    track = (ngx_live_track_t*) ngx_str_rbtree_lookup(&channel->tracks.tree,
+    track = (ngx_live_track_t *) ngx_str_rbtree_lookup(&channel->tracks.rbtree,
         track_id, hash);
     if (track != NULL) {
 
@@ -676,7 +679,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
     track->start_msec = ngx_current_msec;
     track->media_type = media_type;
 
-    track->ctx = (void*)(track + 1);
+    track->ctx = (void *) (track + 1);
     for (i = 0; i < ngx_live_max_module; i++) {
         track->ctx[i] = (u_char *) track + channel->track_ctx_offset[i];
     }
@@ -685,15 +688,16 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_track_create: track init failed %i", rc);
-        ngx_live_track_channel_free(track, NGX_LIVE_EVENT_TRACK_FREE);
+        (void) ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_FREE,
+            NULL);
         ngx_block_pool_free(channel->block_pool, NGX_LIVE_BP_TRACK, track);
         return rc;
     }
 
     track->in.key = channel->tracks.next_id++;
 
-    ngx_rbtree_insert(&channel->tracks.tree, &track->sn.node);
-    ngx_rbtree_insert(&channel->tracks.itree, &track->in);
+    ngx_rbtree_insert(&channel->tracks.rbtree, &track->sn.node);
+    ngx_rbtree_insert(&channel->tracks.irbtree, &track->in);
 
     /* insert to queue in media type order */
     for (q = ngx_queue_head(&channel->tracks.queue);
@@ -759,8 +763,10 @@ ngx_live_track_free(ngx_live_track_t *track)
 
     ngx_live_track_channel_free(track, NGX_LIVE_EVENT_TRACK_FREE);
 
-    ngx_rbtree_delete(&channel->tracks.tree, &track->sn.node);
-    ngx_rbtree_delete(&channel->tracks.itree, &track->in);
+    ngx_live_channel_block_str_free(channel, &track->opaque);
+
+    ngx_rbtree_delete(&channel->tracks.rbtree, &track->sn.node);
+    ngx_rbtree_delete(&channel->tracks.irbtree, &track->in);
     ngx_queue_remove(&track->queue);
 
     ngx_block_pool_free(channel->block_pool, NGX_LIVE_BP_TRACK, track);

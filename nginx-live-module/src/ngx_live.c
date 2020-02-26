@@ -162,7 +162,7 @@ ngx_live_init_events(ngx_conf_t *cf, ngx_live_core_main_conf_t *cmcf)
 
     for (n = 0; n < NGX_LIVE_EVENT_MAX; n++) {
 
-        if (ngx_array_init(&cmcf->events[n], cf->pool, 1, sizeof(void*))
+        if (ngx_array_init(&cmcf->events[n], cf->pool, 1, sizeof(void *))
             != NGX_OK)
         {
             return NGX_ERROR;
@@ -387,27 +387,23 @@ ngx_live_block_command_handler(ngx_conf_t *cf, ngx_command_t *dummy,
                     goto invalid;
                 }
 
-            }
-            else if (cmd->type & NGX_CONF_1MORE) {
+            } else if (cmd->type & NGX_CONF_1MORE) {
 
                 if (cf->args->nelts < 2) {
                     goto invalid;
                 }
 
-            }
-            else if (cmd->type & NGX_CONF_2MORE) {
+            } else if (cmd->type & NGX_CONF_2MORE) {
 
                 if (cf->args->nelts < 3) {
                     goto invalid;
                 }
 
-            }
-            else if (cf->args->nelts > NGX_CONF_MAX_ARGS) {
+            } else if (cf->args->nelts > NGX_CONF_MAX_ARGS) {
 
                 goto invalid;
 
-            }
-            else if (!(cmd->type & argument_number[cf->args->nelts - 1]))
+            } else if (!(cmd->type & argument_number[cf->args->nelts - 1]))
             {
                 goto invalid;
             }
