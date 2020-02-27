@@ -28,6 +28,8 @@ typedef struct {
     ngx_rtmp_session_t         *s;
     ngx_str_t                   remote_addr;
     u_char                      remote_addr_buf[NGX_SOCKADDR_STRLEN];
+    ngx_msec_t                  idle_timeout;
+    ngx_event_t                 idle;
 } ngx_rtmp_kmp_ctx_t;
 
 

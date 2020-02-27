@@ -25,6 +25,11 @@ static ngx_rtmp_close_stream_pt  next_close_stream;
 static ngx_rtmp_disconnect_pt    next_disconnect;
 
 
+typedef struct {
+    ngx_msec_t                  idle_timeout;
+} ngx_rtmp_kmp_srv_conf_t;
+
+
 /* Note: an ngx_str_t version of ngx_rtmp_connect_t */
 typedef struct {
     ngx_str_t  app;
@@ -44,6 +49,11 @@ static char *ngx_rtmp_kmp_headers_add(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 
 static ngx_int_t ngx_rtmp_kmp_postconfiguration(ngx_conf_t *cf);
+
+static void *ngx_rtmp_kmp_create_srv_conf(ngx_conf_t *cf);
+static char *ngx_rtmp_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent,
+    void *child);
+
 static void *ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf);
 static char *ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent,
     void *child);
@@ -58,6 +68,13 @@ typedef struct {
 
 
 static ngx_command_t  ngx_rtmp_kmp_commands[] = {
+
+    { ngx_string("kmp_idle_timeout"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_RTMP_SRV_CONF_OFFSET,
+      offsetof(ngx_rtmp_kmp_srv_conf_t, idle_timeout),
+      NULL },
 
     { ngx_string("kmp_ctrl_connect_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
@@ -209,8 +226,8 @@ static ngx_rtmp_module_t  ngx_rtmp_kmp_module_ctx = {
     ngx_rtmp_kmp_postconfiguration,         /* postconfiguration */
     NULL,                                   /* create main configuration */
     NULL,                                   /* init main configuration */
-    NULL,                                   /* create server configuration */
-    NULL,                                   /* merge server configuration */
+    ngx_rtmp_kmp_create_srv_conf,           /* create server configuration */
+    ngx_rtmp_kmp_merge_srv_conf,            /* merge server configuration */
     ngx_rtmp_kmp_create_app_conf,           /* create app configuration */
     ngx_rtmp_kmp_merge_app_conf             /* merge app configuration */
 };
@@ -238,7 +255,7 @@ enum {
     CONNECT_JSON_PARAM_COUNT
 };
 
-static ngx_json_object_key_def_t connect_json_params[] = {
+static ngx_json_object_key_def_t  connect_json_params[] = {
     { ngx_string("code"),       NGX_JSON_STRING,    CONNECT_JSON_CODE },
     { ngx_string("message"),    NGX_JSON_STRING,    CONNECT_JSON_MESSAGE },
     { ngx_null_string, 0, 0 }
@@ -334,6 +351,34 @@ ngx_rtmp_kmp_headers_add(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
 
 static void *
+ngx_rtmp_kmp_create_srv_conf(ngx_conf_t *cf)
+{
+    ngx_rtmp_kmp_srv_conf_t  *kscf;
+
+    kscf = ngx_pcalloc(cf->pool, sizeof(ngx_rtmp_kmp_srv_conf_t));
+    if (kscf == NULL) {
+        return NULL;
+    }
+
+    kscf->idle_timeout = NGX_CONF_UNSET_MSEC;
+
+    return kscf;
+}
+
+static char *
+ngx_rtmp_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
+{
+    ngx_rtmp_kmp_srv_conf_t  *prev = parent;
+    ngx_rtmp_kmp_srv_conf_t  *conf = child;
+
+    ngx_conf_merge_msec_value(conf->idle_timeout,
+                              prev->idle_timeout, 30000);
+
+    return NGX_CONF_OK;
+}
+
+
+static void *
 ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf)
 {
     ngx_rtmp_kmp_app_conf_t  *kacf;
@@ -350,7 +395,6 @@ ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf)
 
     return kacf;
 }
-
 
 static char *
 ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
@@ -395,10 +439,75 @@ ngx_rtmp_kmp_get_connect_info(ngx_rtmp_kmp_connect_t *kc,
 }
 
 
+static void
+ngx_rtmp_kmp_idle(ngx_event_t *ev)
+{
+    ngx_connection_t    *c;
+    ngx_rtmp_session_t  *s;
+
+    c = ev->data;
+    s = c->data;
+
+    ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                  "ngx_rtmp_kmp_idle: closing idle connection");
+
+    ngx_rtmp_finalize_session(s);
+}
+
+static ngx_int_t
+ngx_rtmp_kmp_socket_connect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
+    ngx_chain_t *in)
+{
+    ngx_event_t              *e;
+    ngx_rtmp_kmp_ctx_t       *ctx;
+    ngx_rtmp_kmp_srv_conf_t  *kscf;
+
+    kscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_kmp_module);
+    if (kscf == NULL) {
+        ngx_log_error(NGX_LOG_ALERT, s->connection->log, 0,
+            "ngx_rtmp_kmp_socket_connect: failed to get srv conf");
+        return NGX_ERROR;
+    }
+
+    ctx = ngx_pcalloc(s->connection->pool, sizeof(*ctx));
+    if (ctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+            "ngx_rtmp_kmp_socket_connect: alloc failed");
+        return NGX_ERROR;
+    }
+
+    ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_kmp_module);
+
+    ctx->s = s;
+
+    /* get the address name with port */
+    ctx->remote_addr.data = ctx->remote_addr_buf;
+    ctx->remote_addr.len = ngx_sock_ntop(s->connection->sockaddr,
+        s->connection->socklen, ctx->remote_addr_buf,
+        NGX_SOCKADDR_STRLEN, 1);
+    if (ctx->remote_addr.len == 0) {
+        ctx->remote_addr = s->connection->addr_text;
+    }
+
+    /* start the idle timeout */
+    ctx->idle_timeout = kscf->idle_timeout;
+    if (ctx->idle_timeout) {
+        e = &ctx->idle;
+
+        e->data = s->connection;
+        e->log = s->connection->log;
+        e->handler = ngx_rtmp_kmp_idle;
+
+        ngx_add_timer(e, ctx->idle_timeout);
+    }
+
+    return NGX_OK;
+}
+
 static ngx_int_t
 ngx_rtmp_kmp_send_error(ngx_rtmp_session_t *s, double in_trans)
 {
-    static double               trans;
+    static double              trans;
 
     static ngx_rtmp_amf_elt_t  out_inf[] = {
 
@@ -530,10 +639,10 @@ ngx_rtmp_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
     ngx_json_value_t                  json;
     ngx_json_value_t                 *values[CONNECT_JSON_PARAM_COUNT];
     ngx_rtmp_session_t               *s;
-    ngx_rtmp_kmp_connect_call_ctx_t  *ctx;
+    ngx_rtmp_kmp_connect_call_ctx_t  *cctx;
 
-    ctx = arg;
-    s = ctx->s;
+    cctx = arg;
+    s = cctx->s;
 
     log = s->connection->log;
 
@@ -574,7 +683,7 @@ ngx_rtmp_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
         goto error;
     }
 
-    if (next_connect(s, &ctx->connect) != NGX_OK) {
+    if (next_connect(s, &cctx->connect) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_rtmp_kmp_connect_handle: next connect failed");
         ngx_rtmp_finalize_session(s);
@@ -584,8 +693,8 @@ ngx_rtmp_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
 
 retry:
 
-    if (ctx->retries_left > 0) {
-        ctx->retries_left--;
+    if (cctx->retries_left > 0) {
+        cctx->retries_left--;
         return NGX_AGAIN;
     }
 
@@ -593,7 +702,7 @@ retry:
 
 error:
 
-    if (ngx_rtmp_kmp_connect_error(s, &ctx->connect, desc.data) != NGX_OK) {
+    if (ngx_rtmp_kmp_connect_error(s, &cctx->connect, desc.data) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_rtmp_kmp_connect_handle: failed to send error");
         ngx_rtmp_finalize_session(s);
@@ -615,35 +724,21 @@ ngx_rtmp_kmp_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         goto next;
     }
 
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_kmp_module);
+    if (ctx == NULL) {
+        ngx_log_error(NGX_LOG_ALERT, s->connection->log, 0,
+            "ngx_rtmp_kmp_connect: failed to get module ctx");
+        return NGX_ERROR;
+    }
+
     kacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_kmp_module);
     if (kacf == NULL) {
-        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+        ngx_log_error(NGX_LOG_ALERT, s->connection->log, 0,
             "ngx_rtmp_kmp_connect: failed to get app conf");
         return NGX_ERROR;
     }
 
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_kmp_module);
-    if (ctx == NULL) {
-        ctx = ngx_pcalloc(s->connection->pool, sizeof(*ctx));
-        if (ctx == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
-                "ngx_rtmp_kmp_connect: alloc failed");
-            return NGX_ERROR;
-        }
-
-        ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_kmp_module);
-
-        ctx->s = s;
-
-        /* get the address name with port */
-        ctx->remote_addr.data = ctx->remote_addr_buf;
-        ctx->remote_addr.len = ngx_sock_ntop(s->connection->sockaddr,
-            s->connection->socklen, ctx->remote_addr_buf,
-            NGX_SOCKADDR_STRLEN, 1);
-        if (ctx->remote_addr.len == 0) {
-            ctx->remote_addr = s->connection->addr_text;
-        }
-
+    if (ngx_queue_next(&ctx->queue) == NULL) {
         ngx_queue_insert_tail(&kacf->sessions, &ctx->queue);
     }
 
@@ -694,7 +789,15 @@ ngx_rtmp_kmp_disconnect(ngx_rtmp_session_t *s)
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_kmp_module);
     if (ctx != NULL) {
-        ngx_queue_remove(&ctx->queue);
+
+        if (ngx_queue_next(&ctx->queue) != NULL) {
+            ngx_queue_remove(&ctx->queue);
+        }
+
+        if (ctx->idle.timer_set) {
+            ngx_del_timer(&ctx->idle);
+        }
+
         ngx_rtmp_delete_ctx(s, ngx_rtmp_kmp_module);
     }
 
@@ -704,8 +807,9 @@ ngx_rtmp_kmp_disconnect(ngx_rtmp_session_t *s)
 static ngx_int_t
 ngx_rtmp_kmp_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 {
+    ngx_rtmp_kmp_ctx_t         *ctx;
     ngx_rtmp_kmp_app_conf_t    *kacf;
-    ngx_rtmp_kmp_stream_ctx_t  *ctx;
+    ngx_rtmp_kmp_stream_ctx_t  *sctx;
 
     if (s->auto_pushed || s->relay) {
         goto next;
@@ -713,7 +817,7 @@ ngx_rtmp_kmp_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     kacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_kmp_module);
     if (kacf == NULL) {
-        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+        ngx_log_error(NGX_LOG_ALERT, s->connection->log, 0,
             "ngx_rtmp_kmp_publish: failed to get app conf");
         return NGX_ERROR;
     }
@@ -730,44 +834,51 @@ ngx_rtmp_kmp_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
         return NGX_ERROR;
     }
 
-    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_kmp_module);
-    if (ctx == NULL) {
+    sctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_kmp_module);
+    if (sctx == NULL) {
 
-        ctx = ngx_pcalloc(s->connection->pool, sizeof(*ctx));
+        ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_kmp_module);
         if (ctx == NULL) {
+            ngx_log_error(NGX_LOG_ALERT, s->connection->log, 0,
+                "ngx_rtmp_kmp_publish: failed to get module ctx");
+            return NGX_ERROR;
+        }
+
+        sctx = ngx_pcalloc(s->connection->pool, sizeof(*sctx));
+        if (sctx == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
                 "ngx_rtmp_kmp_publish: alloc failed");
             return NGX_ERROR;
         }
 
-        ngx_rtmp_stream_set_ctx(s, ctx, ngx_rtmp_kmp_module);
+        ngx_rtmp_stream_set_ctx(s, sctx, ngx_rtmp_kmp_module);
     }
 
-    ctx->publish_buf = *v;
-    ngx_rtmp_kmp_get_publish_info(&ctx->publish, &ctx->publish_buf);
+    sctx->publish_buf = *v;
+    ngx_rtmp_kmp_get_publish_info(&sctx->publish, &sctx->publish_buf);
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
         "ngx_rtmp_kmp_publish: called, name: %V, args: %V, type: %V",
-        &ctx->publish.name, &ctx->publish.args, &ctx->publish.type);
+        &sctx->publish.name, &sctx->publish.args, &sctx->publish.type);
 
 next:
     return next_publish(s, v);
 }
 
 static void
-ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_stream_ctx_t *ctx, char *reason)
+ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_stream_ctx_t *sctx, char *reason)
 {
     ngx_uint_t             media_type;
     ngx_kmp_push_track_t  *track;
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
-        track = ctx->tracks[media_type];
+        track = sctx->tracks[media_type];
         if (track == NULL) {
             continue;
         }
 
-        ctx->tracks[media_type] = NULL;
+        sctx->tracks[media_type] = NULL;
 
         ngx_kmp_push_track_detach(track, reason);
     }
@@ -776,20 +887,20 @@ ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_stream_ctx_t *ctx, char *reason)
 static ngx_int_t
 ngx_rtmp_kmp_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
 {
-    ngx_rtmp_kmp_stream_ctx_t  *ctx;
+    ngx_rtmp_kmp_stream_ctx_t  *sctx;
 
-    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_kmp_module);
-    if (ctx == NULL) {
+    sctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_kmp_module);
+    if (sctx == NULL) {
         goto next;
     }
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
         "ngx_rtmp_kmp_close_stream: called, name: %V, args: %V, type: %V",
-        &ctx->publish.name, &ctx->publish.args, &ctx->publish.type);
+        &sctx->publish.name, &sctx->publish.args, &sctx->publish.type);
 
-    ngx_memzero(&ctx->publish, sizeof(ctx->publish));
+    ngx_memzero(&sctx->publish, sizeof(sctx->publish));
 
-    ngx_rtmp_kmp_detach_tracks(ctx, v->disconnect ? "rtmp_disconnect" :
+    ngx_rtmp_kmp_detach_tracks(sctx, v->disconnect ? "rtmp_disconnect" :
         "rtmp_close");
 
 next:
@@ -799,13 +910,14 @@ next:
 static ngx_int_t
 ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
 {
-    ngx_uint_t                        media_type;
-    ngx_kmp_push_track_t             *track;
-    ngx_rtmp_kmp_app_conf_t          *kacf;
-    ngx_rtmp_kmp_stream_ctx_t        *ctx;
+    ngx_uint_t                  media_type;
+    ngx_rtmp_kmp_ctx_t         *ctx;
+    ngx_kmp_push_track_t       *track;
+    ngx_rtmp_kmp_app_conf_t    *kacf;
+    ngx_rtmp_kmp_stream_ctx_t  *sctx;
 
-    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_kmp_module);
-    if (ctx == NULL) {
+    sctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_kmp_module);
+    if (sctx == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_KMP, s->connection->log, 0,
             "ngx_rtmp_kmp_av: no context");
         return NGX_OK;
@@ -827,25 +939,31 @@ ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
         return NGX_OK;
     }
 
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_kmp_module);
+
+    if (ctx->idle_timeout) {
+        ngx_add_timer(&ctx->idle, ctx->idle_timeout);
+    }
+
     /* get track */
-    track = ctx->tracks[media_type];
+    track = sctx->tracks[media_type];
     if (track == NULL) {
 
         kacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_kmp_module);
         if (kacf == NULL) {
-            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+            ngx_log_error(NGX_LOG_ALERT, s->connection->log, 0,
                 "ngx_rtmp_kmp_av: failed to get app conf");
             return NGX_ERROR;
         }
 
-        track = ngx_rtmp_kmp_track_create(&kacf->t, s, &ctx->publish, h, in);
+        track = ngx_rtmp_kmp_track_create(&kacf->t, s, &sctx->publish, h, in);
         if (track == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
                 "ngx_rtmp_kmp_av: failed to create track");
             return NGX_ERROR;
         }
 
-        ctx->tracks[media_type] = track;
+        sctx->tracks[media_type] = track;
         return NGX_OK;
     }
 
@@ -872,6 +990,9 @@ ngx_rtmp_kmp_postconfiguration(ngx_conf_t *cf)
 
     next_close_stream = ngx_rtmp_close_stream;
     ngx_rtmp_close_stream = ngx_rtmp_kmp_close_stream;
+
+    h = ngx_array_push(&cmcf->events[NGX_RTMP_CONNECT]);
+    *h = ngx_rtmp_kmp_socket_connect;
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_MSG_VIDEO]);
     *h = ngx_rtmp_kmp_av;

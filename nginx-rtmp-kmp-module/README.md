@@ -289,6 +289,15 @@ Sets the maximum total size of the buffers used to send audio data to the upstre
 Sets the timeout for flushing buffered data to the upstream KMP server.
 KMP data is kept in buffers of size kmp_xxx_buffer_size, a buffer is sent when it becomes full, or when the flush timeout expires.
 
+#### kmp_idle_timeout
+* **syntax**: `kmp_idle_timeout time`
+* **default**: `30s`
+* **context**: `rtmp`, `server`
+
+Sets the idle time for the RTMP connection.
+The idle timer starts when the RTMP socket is connected, and gets reset on every incoming video/audio frame.
+If the idle timer expires, the RTMP connection is dropped.
+
 #### rtmp_kmp_api
 * **syntax**: `rtmp_kmp_api [write=on|off]`
 * **default**: `none`
