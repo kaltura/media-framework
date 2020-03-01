@@ -393,6 +393,8 @@ ngx_kmp_push_upstream_republish_handle(ngx_pool_t *temp_pool, void *arg,
         return NGX_OK;
     }
 
+    u->republish_call = NULL;
+
     return NGX_OK;
 
 retry:
@@ -432,7 +434,8 @@ ngx_kmp_push_upstream_republish_send(ngx_kmp_push_upstream_t *u)
         "ngx_kmp_push_upstream_connect: sending republish request to \"%V\"",
         &url->url);
 
-    if (ngx_kmp_push_track_http_call_create(u->track, &ci) == NULL) {
+    u->republish_call = ngx_kmp_push_track_http_call_create(u->track, &ci);
+    if (u->republish_call == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
             "ngx_kmp_push_upstream_republish: failed to create http call");
         return NGX_ERROR;
@@ -477,15 +480,18 @@ ngx_kmp_push_upstream_republish(ngx_kmp_push_upstream_t *u)
     u->remote_addr.len = 0;
     u->local_addr.len = 0;
 
-    if (u->busy) {
-        for (cl = u->busy; cl->next; cl = cl->next);
+    u->sent_buffered = 0;
 
-        cl->next = u->free;
-        u->free = u->busy;
-        u->busy = NULL;
+    if (!u->busy) {
+        /* nothing to send, republish once more data is available */
+        return NGX_OK;
     }
 
-    u->sent_buffered = 0;
+    for (cl = u->busy; cl->next; cl = cl->next);
+
+    cl->next = u->free;
+    u->free = u->busy;
+    u->busy = NULL;
 
     if (ngx_time() >= u->republish_time) {
         u->republishes = 0;
@@ -1067,6 +1073,14 @@ ngx_kmp_push_upstream_append_buffer(ngx_kmp_push_upstream_t *u,
     cl->next = NULL;
     *u->last = cl;
     u->last = &cl->next;
+
+    if (u->peer.connection == NULL &&
+        u->republish_call == NULL &&
+        !u->republish.timer_set)
+    {
+        /* start a republish */
+        return ngx_kmp_push_upstream_republish_send(u);
+    }
 
     return NGX_OK;
 }

@@ -27,6 +27,7 @@ typedef struct {
     ngx_pool_t                *pool;
     ngx_msec_t                 timeout;
 
+    ngx_http_call_ctx_t       *republish_call;
     ngx_event_t                republish;
     time_t                     republish_time;
     ngx_uint_t                 republishes;
