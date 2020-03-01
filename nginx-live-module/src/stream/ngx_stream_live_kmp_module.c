@@ -996,7 +996,9 @@ again:
 
     lscf = ngx_stream_get_module_srv_conf(s, ngx_stream_live_kmp_module);
 
-    ngx_add_timer(rev, lscf->read_timeout);
+    if (lscf->read_timeout) {
+        ngx_add_timer(rev, lscf->read_timeout);
+    }
 }
 
 
