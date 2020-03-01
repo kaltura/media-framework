@@ -2329,10 +2329,16 @@ ngx_live_segmenter_create_segment(ngx_live_channel_t *channel)
             missing_media_types_mask |= 1 << cur_track->media_type;
 
             if (cur_track->has_last_segment) {
+
+                /* Note: if the iPhone player stops getting audio, it stalls
+                    playback, keeps downloading segments waiting for audio to
+                    arrive. starting a new period prevents this stall */
+
                 ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
                     "ngx_live_segmenter_create_segment: "
-                    "track removed, enabling split on next frame");
+                    "track removed, forcing new period");
 
+                cctx->force_new_period = 1;
                 cur_track->has_last_segment = 0;
                 channel->last_modified = ngx_time();
             }
@@ -3216,7 +3222,7 @@ ngx_live_segmenter_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
                               prev->backward_jump_threshold, 0);
 
     ngx_conf_merge_msec_value(conf->inactive_timeout,
-                              prev->inactive_timeout, 10000);
+                              prev->inactive_timeout, 2000);
 
     ngx_conf_merge_msec_value(conf->start_truncate_limit,
                               prev->start_truncate_limit, 5000);
