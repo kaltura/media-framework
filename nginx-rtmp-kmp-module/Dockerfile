@@ -1,13 +1,13 @@
 #docker run  -it --name live-rtmp --rm  --cap-add=SYS_PTRACE --security-opt seccomp=unconfined   -v /Users/guyjacubovski/dev/live/nginx-rtmp.conf:/usr/local/nginx/conf/nginx.conf -p 1935:1935 -p 8001:8001 kaltura/live-nginx-rtmp 
 #for debug: add gdb ../sbin/nginx
-ARG ALPINE_VER=3.9.4
+ARG ALPINE_VER=3.11.3
 FROM alpine:$ALPINE_VER as builder
 
 RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base libaio-dev linux-headers
 
 WORKDIR /tmp/build
 
-ARG NGINX_VERSION=1.17.0
+ARG NGINX_VERSION=1.17.8
 
 #echo "pulling nginx source code"
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \

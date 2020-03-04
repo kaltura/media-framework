@@ -1,13 +1,13 @@
 # docker run   --name live-packager --rm   --cap-add=SYS_PTRACE --security-opt seccomp=unconfined   -v /Users/guyjacubovski/dev/live/nginx-packager.conf:/usr/local/nginx/conf/nginx.conf -v /Users/guyjacubovski/dev/live/s3/:/s3/ -p 6543:6543 -p 8003:8003 -p 20000:80 kaltura/live-packager 
 # add  for debug:   gdb ../sbin/nginx
-ARG ALPINE_VER=3.9.4
+ARG ALPINE_VER=3.11.3
 FROM alpine:$ALPINE_VER as builder
 
 RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base libaio-dev linux-headers
 
 WORKDIR /tmp/build
 
-ARG NGINX_VERSION=1.17.0
+ARG NGINX_VERSION=1.17.8
 
 #echo "pulling nginx source code"
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
