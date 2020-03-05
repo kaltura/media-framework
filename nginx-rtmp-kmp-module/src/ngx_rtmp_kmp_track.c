@@ -310,7 +310,7 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_push_track_t *track,
         ctx->timestamp += (int32_t) h->timestamp - ctx->last_timestamp;
         ctx->last_timestamp = h->timestamp;
     }
-
+    track->last_timestamp = ctx->timestamp;
     frame->f.dts = ctx->timestamp * rtmpscale;
 
     return NGX_OK;
