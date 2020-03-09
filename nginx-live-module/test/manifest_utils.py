@@ -370,5 +370,5 @@ def getStreamInfo(url, headers={}):
         else:
             m = hashlib.md5()
             m.update(urlContent)
-            result += 'BODYMD5: %s\n\n' %  m.hexdigest()
+            result += 'BODY: SIZE: %s, MD5: %s\n\n' % (len(urlContent), m.hexdigest())
     return result

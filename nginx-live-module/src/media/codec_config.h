@@ -90,6 +90,8 @@ vod_status_t codec_config_mp4a_config_parse(
     vod_str_t* extra_data,
     mp4a_config_t* result);
 
+uint32_t codec_config_get_audio_frame_size(struct media_info_s* media_info);
+
 vod_status_t codec_config_hevc_config_parse(
     vod_log_t* log,
     vod_str_t* extra_data,

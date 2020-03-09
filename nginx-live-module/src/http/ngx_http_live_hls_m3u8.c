@@ -3,6 +3,9 @@
 #include <ngx_http.h>
 
 #include "ngx_http_live_hls_m3u8.h"
+#include "ngx_http_live_hls_module.h"
+#include "../media/hls/hls_muxer.h"
+#include "../media/mp4/mp4_muxer.h"
 #include "../ngx_live_media_info.h"
 #include "../ngx_live_segment_info.h"
 
@@ -84,13 +87,14 @@ typedef struct {
 
 typedef struct {
     ngx_live_segment_info_iter_t  iters[KMP_MEDIA_COUNT];
+    media_bitrate_estimator_t     estimators[KMP_MEDIA_COUNT];
     uint32_t                      track_count;
 } ngx_http_live_hls_bitrate_iter_t;
 
 typedef struct {
     ngx_live_media_info_iter_t    iters[KMP_MEDIA_COUNT];
     uint32_t                      track_count;
-} ngx_http_live_hls_map_index_iter_t;
+} ngx_http_live_hls_media_info_iter_t;
 
 
 static ngx_str_t  ngx_http_live_hls_media_group_id[KMP_MEDIA_COUNT] = {
@@ -104,7 +108,77 @@ static ngx_str_t  ngx_http_live_hls_media_type_name[KMP_MEDIA_COUNT] = {
 };
 
 
+/* shared */
+
+static ngx_uint_t
+ngx_http_live_hls_get_container_format(ngx_http_live_hls_loc_conf_t *conf,
+    ngx_live_track_t **tracks)
+{
+    ngx_uint_t     container_format;
+    media_info_t  *media_info;
+
+    container_format = conf->m3u8_config.container_format;
+    if (container_format != NGX_HTTP_LIVE_HLS_CONTAINER_AUTO) {
+        return container_format;
+    }
+
+    if (conf->encryption_method == HLS_ENC_SAMPLE_AES_CENC) {
+        return NGX_HTTP_LIVE_HLS_CONTAINER_FMP4;
+    }
+
+    if (tracks[KMP_MEDIA_VIDEO] == NULL) {
+        return NGX_HTTP_LIVE_HLS_CONTAINER_MPEGTS;
+    }
+
+    media_info = ngx_live_media_info_queue_get_last(
+        tracks[KMP_MEDIA_VIDEO], NULL);
+    if (media_info != NULL && media_info->codec_id == VOD_CODEC_ID_HEVC) {
+        return NGX_HTTP_LIVE_HLS_CONTAINER_FMP4;
+    }
+
+    return NGX_HTTP_LIVE_HLS_CONTAINER_MPEGTS;
+}
+
+static void
+ngx_http_live_hls_get_bitrate_estimator(ngx_http_live_hls_loc_conf_t *conf,
+    ngx_uint_t container_format, media_info_t **media_infos, uint32_t count,
+    media_bitrate_estimator_t *result)
+{
+    if (container_format == NGX_HTTP_LIVE_HLS_CONTAINER_MPEGTS) {
+        hls_muxer_get_bitrate_estimator(&conf->mpegts_muxer, media_infos,
+            count, result);
+
+    } else {
+        mp4_muxer_get_bitrate_estimator(media_infos, count, result);
+    }
+}
+
+
 /* master */
+
+static uint32_t
+ngx_http_live_hls_estimate_bitrate(ngx_http_live_hls_loc_conf_t *conf,
+    ngx_uint_t container_format, media_info_t **media_infos, uint32_t count,
+    uint32_t segment_duration)
+{
+    uint32_t                    i;
+    uint32_t                    result;
+    media_bitrate_estimator_t  *est;
+    media_bitrate_estimator_t   estimators[KMP_MEDIA_COUNT];
+
+    ngx_http_live_hls_get_bitrate_estimator(conf, container_format,
+        media_infos, count, estimators);
+
+    result = 0;
+    for (i = 0; i < count; i++) {
+
+        est = &estimators[i];
+        result += media_bitrate_estimate(*est, media_infos[i]->bitrate,
+            segment_duration);
+    }
+
+    return result;
+}
 
 static ngx_http_live_hls_media_group_t *
 ngx_http_live_hls_media_group_get(ngx_http_request_t *r,
@@ -355,7 +429,7 @@ ngx_http_live_hls_group_variants(ngx_http_request_t *r,
 
 static u_char *
 ngx_http_live_hls_write_video_range(u_char *p,
-    uint8_t transfer_characteristics)
+    u_char transfer_characteristics)
 {
     switch (transfer_characteristics) {
 
@@ -405,16 +479,19 @@ ngx_http_live_hls_m3u8_streams_get_size(ngx_array_t *streams,
 }
 
 static u_char *
-ngx_http_live_hls_m3u8_streams_write(u_char *p, ngx_array_t *streams,
+ngx_http_live_hls_m3u8_streams_write(u_char *p,
+    ngx_http_live_hls_loc_conf_t *conf, ngx_array_t *streams,
     ngx_http_live_request_params_t *params,
-    ngx_http_live_hls_media_group_t *audio_group)
+    ngx_http_live_hls_media_group_t *audio_group, uint32_t segment_duration)
 {
     uint32_t              i;
     uint32_t              bitrate;
     uint32_t              frame_rate;
     uint32_t              frame_rate_frac;
+    ngx_uint_t            container_format;
     media_info_t         *video;
     media_info_t         *audio;
+    media_info_t         *media_infos[KMP_MEDIA_COUNT];
     ngx_live_track_t     *tracks[KMP_MEDIA_COUNT];
     ngx_live_variant_t  **cur;
     ngx_live_variant_t  **last;
@@ -435,6 +512,9 @@ ngx_http_live_hls_m3u8_streams_write(u_char *p, ngx_array_t *streams,
             }
         }
 
+        container_format = ngx_http_live_hls_get_container_format(conf,
+            tracks);
+
         if (tracks[KMP_MEDIA_VIDEO] != NULL) {
 
             video = ngx_live_media_info_queue_get_last(
@@ -443,10 +523,13 @@ ngx_http_live_hls_m3u8_streams_write(u_char *p, ngx_array_t *streams,
                 continue;
             }
 
-            bitrate = video->bitrate;
             if (audio_group != NULL) {
                 audio = audio_group->media_info;
-                bitrate += audio->bitrate;
+
+                bitrate = ngx_http_live_hls_estimate_bitrate(conf,
+                    container_format, &video, 1, segment_duration) +
+                    ngx_http_live_hls_estimate_bitrate(conf,
+                    container_format, &audio, 1, segment_duration);
 
             } else if (tracks[KMP_MEDIA_AUDIO] != NULL) {
                 audio = ngx_live_media_info_queue_get_last(
@@ -455,10 +538,16 @@ ngx_http_live_hls_m3u8_streams_write(u_char *p, ngx_array_t *streams,
                     continue;
                 }
 
-                bitrate += audio->bitrate;
+                media_infos[0] = video;
+                media_infos[1] = audio;
+                bitrate = ngx_http_live_hls_estimate_bitrate(conf,
+                    container_format, media_infos, 2, segment_duration);
 
             } else {
                 audio = NULL;
+
+                bitrate = ngx_http_live_hls_estimate_bitrate(conf,
+                    container_format, &video, 1, segment_duration);
             }
 
             frame_rate = video->u.video.frame_rate_num /
@@ -490,7 +579,10 @@ ngx_http_live_hls_m3u8_streams_write(u_char *p, ngx_array_t *streams,
 
             video = NULL;
 
-            p = ngx_sprintf(p, M3U8_STREAM_AUDIO, audio->bitrate,
+            bitrate = ngx_http_live_hls_estimate_bitrate(conf,
+                container_format, &audio, 1, segment_duration);
+
+            p = ngx_sprintf(p, M3U8_STREAM_AUDIO, bitrate,
                 &audio->codec_name);
 
         } else {
@@ -523,16 +615,23 @@ ngx_http_live_hls_m3u8_streams_write(u_char *p, ngx_array_t *streams,
 
 ngx_int_t
 ngx_http_live_hls_m3u8_build_master(ngx_http_request_t *r,
-    ngx_live_channel_t *channel, ngx_str_t *result)
+    ngx_http_live_request_objects_t *objects, ngx_str_t *result)
 {
     u_char                           *p;
     size_t                            size;
     uint32_t                          media_type;
+    uint32_t                          segment_duration;
     ngx_int_t                         rc;
     ngx_queue_t                      *q;
+    ngx_live_channel_t               *channel;
+    ngx_live_timeline_t              *timeline;
     ngx_http_live_core_ctx_t         *ctx;
     ngx_http_live_hls_master_t        master;
+    ngx_live_core_preset_conf_t      *cpcf;
+    ngx_http_live_hls_loc_conf_t     *conf;
     ngx_http_live_hls_media_group_t  *group;
+
+    channel = objects->channel;
 
     /* group the variants */
     rc = ngx_http_live_hls_group_variants(r, channel, &master);
@@ -599,6 +698,13 @@ ngx_http_live_hls_m3u8_build_master(ngx_http_request_t *r,
 
     /* write streams */
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_core_module);
+    conf = ngx_http_get_module_loc_conf(r, ngx_http_live_hls_module);
+
+    cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
+
+    timeline = objects->timeline;
+    segment_duration = rescale_time(timeline->manifest.target_duration,
+        cpcf->timescale, 1000);
 
     if (!ngx_queue_empty(&master.media_groups[KMP_MEDIA_AUDIO])) {
 
@@ -608,13 +714,13 @@ ngx_http_live_hls_m3u8_build_master(ngx_http_request_t *r,
         {
             group = ngx_queue_data(q, ngx_http_live_hls_media_group_t, queue);
 
-            p = ngx_http_live_hls_m3u8_streams_write(p, &master.streams,
-                &ctx->params, group);
+            p = ngx_http_live_hls_m3u8_streams_write(p, conf,
+                &master.streams, &ctx->params, group, segment_duration);
         }
 
     } else {
-        p = ngx_http_live_hls_m3u8_streams_write(p, &master.streams,
-            &ctx->params, NULL);
+        p = ngx_http_live_hls_m3u8_streams_write(p, conf,
+            &master.streams, &ctx->params, NULL, segment_duration);
     }
 
     result->len = p - result->data;
@@ -660,22 +766,30 @@ ngx_http_live_hls_bitrate_iter_init(ngx_http_request_t *r,
 
 static uint32_t
 ngx_http_live_hls_bitrate_iter_get(ngx_http_live_hls_bitrate_iter_t *iter,
-    uint32_t segment_index)
+    uint32_t segment_index, uint32_t duration)
 {
-    uint32_t  i;
-    uint32_t  cur_bitrate;
-    uint32_t  result;
+    uint32_t                    i;
+    uint32_t                    cur_bitrate;
+    uint32_t                    result;
+    media_bitrate_estimator_t  *est;
 
     result = 0;
     for (i = 0; i < iter->track_count; i++) {
 
         cur_bitrate = ngx_live_segment_info_iter_next(
             &iter->iters[i], segment_index);
-        if (cur_bitrate == NGX_LIVE_SEGMENT_NO_BITRATE) {
+
+        switch (cur_bitrate) {
+
+        case NGX_LIVE_SEGMENT_NO_BITRATE:
             return NGX_LIVE_SEGMENT_NO_BITRATE;
+
+        case 0:
+            continue;
         }
 
-        result += cur_bitrate;
+        est = &iter->estimators[i];
+        result += media_bitrate_estimate(*est, cur_bitrate, duration);
     }
 
     if (result == 0) {
@@ -687,8 +801,8 @@ ngx_http_live_hls_bitrate_iter_get(ngx_http_live_hls_bitrate_iter_t *iter,
 
 
 static ngx_int_t
-ngx_http_live_hls_map_index_iter_init(ngx_http_request_t *r,
-    ngx_http_live_hls_map_index_iter_t *iter,
+ngx_http_live_hls_media_info_iter_init(ngx_http_request_t *r,
+    ngx_http_live_hls_media_info_iter_t *iter,
     ngx_http_live_request_objects_t *objects)
 {
     uint32_t                     i;
@@ -705,7 +819,7 @@ ngx_http_live_hls_map_index_iter_init(ngx_http_request_t *r,
 
         if (!ngx_live_media_info_iter_init(cur, cur_track)) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "ngx_http_live_hls_map_index_iter_init: "
+                "ngx_http_live_hls_media_info_iter_init: "
                 "no media info for track \"%V\"",
                 &cur_track->sn.str);
             return NGX_HTTP_BAD_REQUEST;
@@ -719,25 +833,24 @@ ngx_http_live_hls_map_index_iter_init(ngx_http_request_t *r,
     return NGX_OK;
 }
 
-static uint32_t
-ngx_http_live_hls_map_index_iter_get(ngx_http_live_hls_map_index_iter_t *iter,
-    uint32_t segment_index)
+static void
+ngx_http_live_hls_media_info_iter_get(
+    ngx_http_live_hls_media_info_iter_t *iter, uint32_t segment_index,
+    media_info_t **media_infos, uint32_t *max_index)
 {
     uint32_t  i;
     uint32_t  cur_index;
-    uint32_t  max_index;
 
-    max_index = 0;
+    *max_index = 0;
     for (i = 0; i < iter->track_count; i++) {
 
         cur_index = ngx_live_media_info_iter_next(&iter->iters[i],
-            segment_index);
-        if (cur_index > max_index) {
-            max_index = cur_index;
+            segment_index, media_infos + i);
+
+        if (*max_index < cur_index) {
+            *max_index = cur_index;
         }
     }
-
-    return max_index;
 }
 
 
@@ -923,6 +1036,7 @@ ngx_http_live_hls_write_period_segments(u_char *p, ngx_live_period_t *period,
     int64_t                    time;
     int64_t                    start, end;
     uint32_t                   bitrate;
+    uint32_t                   duration;
     uint32_t                   last_bitrate;
     uint32_t                   segment_count;
     uint32_t                   segment_index;
@@ -954,11 +1068,12 @@ ngx_http_live_hls_write_period_segments(u_char *p, ngx_live_period_t *period,
         {
             time += segment_duration.duration;
             end = time / milliscale;
+            duration = end - start;
 
-            p = ngx_http_live_hls_append_extinf_tag(p, end - start);
+            p = ngx_http_live_hls_append_extinf_tag(p, duration);
 
             bitrate = ngx_http_live_hls_bitrate_iter_get(bitrate_iter,
-                segment_index);
+                segment_index, duration);
             if (bitrate == 0) {
                 p = ngx_copy_fix(p, M3U8_GAP);
 
@@ -1016,34 +1131,41 @@ ngx_http_live_hls_m3u8_get_selector(ngx_http_request_t *r, ngx_str_t *result)
 
 ngx_int_t
 ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
-    ngx_http_live_hls_m3u8_config_t *conf,
     ngx_http_live_request_objects_t *objects,
-    hls_encryption_params_t *encryption_params, ngx_uint_t container_format,
-    ngx_str_t *result)
+    hls_encryption_params_t *encryption_params, ngx_str_t *result)
 {
-    u_char                              *p;
-    size_t                               result_size;
-    size_t                               period_size;
-    size_t                               segment_size;
-    ngx_tm_t                             gmt;
-    uint32_t                             version;
-    uint32_t                             timescale;
-    uint32_t                             milliscale;
-    uint32_t                             map_index;
-    uint32_t                             last_map_index;
-    uint32_t                             target_duration;
-    uint32_t                             segment_index_size;
-    ngx_int_t                            rc;
-    ngx_str_t                           *seg_ext;
-    ngx_str_t                            selector;
-    ngx_str_t                            seg_suffix;
-    ngx_live_period_t                   *period;
-    ngx_live_period_t                   *first_period;
-    ngx_live_timeline_t                 *timeline;
-    ngx_http_live_core_ctx_t            *ctx;
-    ngx_live_core_preset_conf_t         *cpcf;
-    ngx_http_live_hls_bitrate_iter_t     bitrate_iter;
-    ngx_http_live_hls_map_index_iter_t   map_iter;
+    u_char                               *p;
+    size_t                                result_size;
+    size_t                                period_size;
+    size_t                                segment_size;
+    ngx_tm_t                              gmt;
+    uint32_t                              version;
+    uint32_t                              timescale;
+    uint32_t                              milliscale;
+    uint32_t                              map_index;
+    uint32_t                              last_map_index;
+    uint32_t                              target_duration;
+    uint32_t                              segment_index_size;
+    ngx_int_t                             rc;
+    ngx_str_t                            *seg_ext;
+    ngx_str_t                             selector;
+    ngx_str_t                             seg_suffix;
+    ngx_uint_t                            container_format;
+    media_info_t                         *media_infos[KMP_MEDIA_COUNT];
+    ngx_live_period_t                    *period;
+    ngx_live_period_t                    *first_period;
+    ngx_live_timeline_t                  *timeline;
+    ngx_http_live_core_ctx_t             *ctx;
+    ngx_live_core_preset_conf_t          *cpcf;
+    ngx_http_live_hls_loc_conf_t         *conf;
+    ngx_http_live_hls_bitrate_iter_t      bitrate_iter;
+    ngx_http_live_hls_media_info_iter_t   media_info_iter;
+
+    /* get the container format */
+    conf = ngx_http_get_module_loc_conf(r, ngx_http_live_hls_module);
+
+    container_format = ngx_http_live_hls_get_container_format(
+        conf, objects->tracks);
 
     /* build the segment track selector */
     rc = ngx_http_live_hls_m3u8_get_selector(r, &selector);
@@ -1093,11 +1215,6 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
             sizeof(M3U8_MAP_BASE) - 1 + sizeof("\"\n") - 1 +
             ngx_http_live_hls_prefix_init_seg.len + segment_index_size +
             selector.len + ngx_http_live_hls_ext_init_seg.len;
-
-        rc = ngx_http_live_hls_map_index_iter_init(r, &map_iter, objects);
-        if (rc != NGX_OK) {
-            return rc;
-        }
     }
 
     first_period = &timeline->manifest.first_period;
@@ -1111,8 +1228,8 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
         sizeof(M3U8_END_LIST) - 1;
 
     if (encryption_params->type != HLS_ENC_NONE) {
-        result_size += ngx_http_live_hls_m3u8_enc_key_get_size(conf,
-            &ctx->params, encryption_params);
+        result_size += ngx_http_live_hls_m3u8_enc_key_get_size(
+            &conf->m3u8_config, &ctx->params, encryption_params);
     }
 
     /* allocate the buffer */
@@ -1138,7 +1255,7 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
     target_duration = (timeline->manifest.target_duration + timescale / 2)
         / timescale;
 
-    version = conf->m3u8_version;
+    version = conf->m3u8_config.m3u8_version;
     if (container_format == NGX_HTTP_LIVE_HLS_CONTAINER_FMP4 &&
         version < 6)
     {
@@ -1150,11 +1267,17 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
         timeline->manifest.first_period_index);
 
     if (encryption_params->type != HLS_ENC_NONE) {
-        p = ngx_http_live_hls_m3u8_enc_key_write(p, conf, &ctx->params,
-            encryption_params);
+        p = ngx_http_live_hls_m3u8_enc_key_write(p, &conf->m3u8_config,
+            &ctx->params, encryption_params);
     }
 
     last_map_index = NGX_MAX_UINT32_VALUE;
+
+    rc = ngx_http_live_hls_media_info_iter_init(r, &media_info_iter,
+        objects);
+    if (rc != NGX_OK) {
+        return rc;
+    }
 
     for (period = first_period; period != NULL; period = period->next) {
 
@@ -1169,23 +1292,25 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
             gmt.ngx_tm_hour, gmt.ngx_tm_min, gmt.ngx_tm_sec,
             (int) ((period->time / milliscale) % 1000));
 
-        if (container_format == NGX_HTTP_LIVE_HLS_CONTAINER_FMP4) {
+        ngx_http_live_hls_media_info_iter_get(&media_info_iter,
+            period->node.key, media_infos, &map_index);
 
-            map_index = ngx_http_live_hls_map_index_iter_get(&map_iter,
-                period->node.key);
+        if (container_format == NGX_HTTP_LIVE_HLS_CONTAINER_FMP4 &&
+            map_index != last_map_index)
+        {
+            p = ngx_copy_fix(p, M3U8_MAP_BASE);
+            p = ngx_copy_str(p, ngx_http_live_hls_prefix_init_seg);
+            p = ngx_sprintf(p, "-%uD", map_index + 1);
+            p = ngx_copy_str(p, selector);
+            p = ngx_copy_str(p, ngx_http_live_hls_ext_init_seg);
+            *p++ = '"';
+            *p++ = '\n';
 
-            if (map_index != last_map_index) {
-                p = ngx_copy_fix(p, M3U8_MAP_BASE);
-                p = ngx_copy_str(p, ngx_http_live_hls_prefix_init_seg);
-                p = ngx_sprintf(p, "-%uD", map_index + 1);
-                p = ngx_copy_str(p, selector);
-                p = ngx_copy_str(p, ngx_http_live_hls_ext_init_seg);
-                *p++ = '"';
-                *p++ = '\n';
-
-                last_map_index = map_index;
-            }
+            last_map_index = map_index;
         }
+
+        ngx_http_live_hls_get_bitrate_estimator(conf, container_format,
+            media_infos, objects->track_count, bitrate_iter.estimators);
 
         ngx_http_live_hls_bitrate_iter_init(r, &bitrate_iter, objects,
             period->node.key);

@@ -20,6 +20,7 @@
 #define SIZEOF_PES_HEADER (6)
 #define SIZEOF_PES_OPTIONAL_HEADER (3)
 #define SIZEOF_PES_PTS (5)
+#define SIZEOF_PES (SIZEOF_PES_HEADER + SIZEOF_PES_OPTIONAL_HEADER + SIZEOF_PES_PTS)
 
 #define NO_TIMESTAMP ((uint64_t)-1)
 
@@ -238,7 +239,7 @@ mpegts_get_pes_header_size(mpegts_stream_info_t* stream_info)
     size_t result;
     bool_t write_dts = stream_info->media_type == MEDIA_TYPE_VIDEO;
 
-    result = SIZEOF_PES_HEADER + SIZEOF_PES_OPTIONAL_HEADER + SIZEOF_PES_PTS;
+    result = SIZEOF_PES;
 
     if (stream_info->pid == PCR_PID)
     {
@@ -1365,4 +1366,89 @@ mpegts_encoder_init(
     }
 
     return VOD_OK;
+}
+
+
+void
+mpegts_encoder_get_bitrate_estimator(
+    bool_t align_frames,
+    uint32_t audio_buffer_size,
+    media_info_t** media_infos,
+    uint32_t count,
+    media_bitrate_estimator_t* result)
+{
+    media_info_t* cur;
+    uint32_t base_size, pcr_size;
+    uint32_t frame_samples;
+    uint32_t avg_padding;
+    uint32_t i;
+
+    pcr_size = SIZEOF_MPEGTS_ADAPTATION_FIELD + SIZEOF_PCR;
+    avg_padding = align_frames ? MPEGTS_PACKET_USABLE_SIZE / 2 : 0;
+
+    base_size = 3 * MPEGTS_PACKET_SIZE;        // PAT + PMT + ID3
+
+    for (i = 0; i < count; i++, result++)
+    {
+        cur = media_infos[i];
+
+        result->k1.num = MPEGTS_PACKET_SIZE;
+        result->k1.den = MPEGTS_PACKET_USABLE_SIZE;
+
+        if (cur == NULL)
+        {
+            result->k2 = 0;
+            result->k3 = 0;
+            continue;
+        }
+
+        base_size += 8 * MPEGTS_PACKET_SIZE;        // 8 null packets on average
+
+        switch (cur->media_type)
+        {
+        case MEDIA_TYPE_VIDEO:
+            result->k2 = 8 * base_size;
+            base_size = 0;
+
+            result->k3 =
+                ((uint64_t)8 * (SIZEOF_PES + SIZEOF_PES_PTS + pcr_size + avg_padding) * MPEGTS_PACKET_SIZE * cur->u.video.frame_rate_num) /
+                (MPEGTS_PACKET_USABLE_SIZE * cur->u.video.frame_rate_denom);
+            pcr_size = 0;
+            break;
+
+        case MEDIA_TYPE_AUDIO:
+
+            if (audio_buffer_size)
+            {
+                result->k1.num *= (audio_buffer_size + SIZEOF_PES + pcr_size + avg_padding);
+                result->k1.den *= audio_buffer_size;
+            }
+            else
+            {
+                base_size += SIZEOF_PES + pcr_size + MPEGTS_PACKET_USABLE_SIZE / 2;
+            }
+            pcr_size = 0;
+
+            result->k2 = 8 * base_size;
+            base_size = 0;
+
+            if (cur->codec_id != VOD_CODEC_ID_AAC)
+            {
+                result->k3 = 0;
+                break;
+            }
+
+            frame_samples = codec_config_get_audio_frame_size(cur);
+            if (frame_samples == 0)
+            {
+                result->k3 = 0;
+                break;
+            }
+
+            result->k3 =
+                ((uint64_t)8 * sizeof_adts_frame_header * MPEGTS_PACKET_SIZE * cur->u.audio.sample_rate) /
+                (MPEGTS_PACKET_USABLE_SIZE * frame_samples);
+            break;
+        }
+    }
 }

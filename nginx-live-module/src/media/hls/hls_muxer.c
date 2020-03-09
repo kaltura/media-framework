@@ -880,3 +880,18 @@ hls_muxer_simulation_reset(hls_muxer_state_t* state)
 
     state->cur_frame = NULL;
 }
+
+void
+hls_muxer_get_bitrate_estimator(
+    hls_mpegts_muxer_conf_t* conf,
+    media_info_t** media_infos,
+    uint32_t count,
+    media_bitrate_estimator_t* result)
+{
+    mpegts_encoder_get_bitrate_estimator(
+        conf->align_frames,
+        conf->interleave_frames ? 0 : DEFAULT_PES_PAYLOAD_SIZE,
+        media_infos,
+        count,
+        result);
+}
