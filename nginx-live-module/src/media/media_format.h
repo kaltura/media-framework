@@ -9,6 +9,9 @@
 #define rescale_time(time, cur_scale, new_scale) ((((uint64_t)(time)) * (new_scale) + (cur_scale) / 2) / (cur_scale))
 #define rescale_time_neg(time, cur_scale, new_scale) ((time) >= 0 ? rescale_time(time, cur_scale, new_scale) : -rescale_time(-(time), cur_scale, new_scale))
 
+#define media_bitrate_estimate(est, bitrate, segment_duration) \
+    (uint64_t)(bitrate) * (est).k1.num / (est).k1.den + (uint64_t)(est).k2 * 1000 / (segment_duration) + (est).k3
+
 // constants
 #define MAX_CODEC_NAME_SIZE (64)
 
@@ -119,5 +122,17 @@ typedef struct {
     media_init_segment_track_t* last;
     uint32_t count;
 } media_init_segment_t;
+
+typedef struct {
+    uint32_t num;
+    uint32_t den;
+} media_rational_t;
+
+/* final_bitrate = k1 * net_bitrate + k2 / segment_duration + k3 */
+typedef struct {
+    media_rational_t k1;
+    uint32_t k2;
+    uint32_t k3;
+} media_bitrate_estimator_t;
 
 #endif //__MEDIA_FORMAT_H__

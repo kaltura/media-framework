@@ -87,4 +87,10 @@ vod_status_t hls_muxer_init_segment(
 
 vod_status_t hls_muxer_process(hls_muxer_state_t* state);
 
+void hls_muxer_get_bitrate_estimator(
+    hls_mpegts_muxer_conf_t* conf,
+    media_info_t** media_infos,
+    uint32_t count,
+    media_bitrate_estimator_t* result);
+
 #endif // __HLS_MUXER_H__

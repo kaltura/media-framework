@@ -100,4 +100,11 @@ vod_status_t mpegts_encoder_start_sub_frame(
 
 void mpegts_encoder_simulated_start_segment(write_buffer_queue_t* queue);
 
+void mpegts_encoder_get_bitrate_estimator(
+    bool_t align_frames,
+    uint32_t audio_buffer_size,
+    media_info_t** media_infos,
+    uint32_t count,
+    media_bitrate_estimator_t* result);
+
 #endif // __MPEGTS_ENCODER_FILTER_H__

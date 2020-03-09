@@ -27,13 +27,11 @@ typedef struct {
 
 
 ngx_int_t ngx_http_live_hls_m3u8_build_master(ngx_http_request_t *r,
-    ngx_live_channel_t *channel, ngx_str_t *result);
+    ngx_http_live_request_objects_t *objects, ngx_str_t *result);
 
 ngx_int_t ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
-    ngx_http_live_hls_m3u8_config_t *conf,
     ngx_http_live_request_objects_t *objects,
-    hls_encryption_params_t *encryption_params, ngx_uint_t container_format,
-    ngx_str_t *result);
+    hls_encryption_params_t *encryption_params, ngx_str_t *result);
 
 
 extern ngx_str_t  ngx_http_live_hls_prefix_seg;

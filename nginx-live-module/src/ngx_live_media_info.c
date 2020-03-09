@@ -1208,12 +1208,13 @@ ngx_live_media_info_iter_init(ngx_live_media_info_iter_t *iter,
 
 uint32_t
 ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
-    uint32_t segment_index)
+    uint32_t segment_index, media_info_t **media_info)
 {
     ngx_queue_t                 *q;
     ngx_live_media_info_node_t  *next;
 
     if (segment_index < iter->cur->u.start_segment_index) {
+        *media_info = NULL;
         return 0;
     }
 
@@ -1233,6 +1234,7 @@ ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
         iter->cur = next;
     }
 
+    *media_info = &iter->cur->media_info;
     return iter->cur->u.start_segment_index;
 }
 

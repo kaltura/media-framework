@@ -2,12 +2,12 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
+#include "ngx_http_live_hls_module.h"
 #include "ngx_http_live_core_module.h"
 #include "ngx_http_live_hls_m3u8.h"
 #include "../ngx_live_media_info.h"
 #include "../ngx_live_segment_cache.h"
 
-#include "../media/hls/hls_muxer.h"
 #include "../media/mp4/mp4_init_segment.h"
 #include "../media/mp4/mp4_cbcs_encrypt.h"
 #include "../media/mp4/mp4_fragment.h"
@@ -25,13 +25,6 @@ static ngx_int_t ngx_http_live_hls_handler(ngx_http_request_t *r);
 static void *ngx_http_live_hls_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_live_hls_merge_loc_conf(ngx_conf_t *cf, void *parent,
     void *child);
-
-
-typedef struct {
-    ngx_uint_t                       encryption_method;
-    ngx_http_live_hls_m3u8_config_t  m3u8_config;
-    hls_mpegts_muxer_conf_t          mpegts_muxer;
-} ngx_http_live_hls_loc_conf_t;
 
 
 #if (NGX_HAVE_OPENSSL_EVP)
@@ -165,7 +158,7 @@ static ngx_str_t  ngx_http_live_hls_iv_salt =
 
 static ngx_int_t
 ngx_http_live_hls_init_encryption_params(ngx_http_request_t *r,
-    hls_encryption_params_t *encryption_params, ngx_uint_t container_format)
+    hls_encryption_params_t *encryption_params)
 {
     ngx_int_t                      rc;
     ngx_http_live_hls_loc_conf_t  *conf;
@@ -211,8 +204,7 @@ ngx_http_live_hls_init_segment_encryption(ngx_http_request_t *r,
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_core_module);
 
-    rc = ngx_http_live_hls_init_encryption_params(r, encryption_params,
-        container_format);
+    rc = ngx_http_live_hls_init_encryption_params(r, encryption_params);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -307,8 +299,7 @@ ngx_http_live_hls_handle_init_segment(ngx_http_request_t *r,
     hls_encryption_params_t     encryption_params;
     aes_cbc_encrypt_context_t  *encrypted_write_context;
 
-    rc = ngx_http_live_hls_init_encryption_params(r, &encryption_params,
-        NGX_HTTP_LIVE_HLS_CONTAINER_FMP4);
+    rc = ngx_http_live_hls_init_encryption_params(r, &encryption_params);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -389,7 +380,7 @@ ngx_http_live_hls_handle_master_playlist(ngx_http_request_t *r,
     ngx_str_t            response;
     ngx_live_channel_t  *channel = objects->channel;
 
-    rc = ngx_http_live_hls_m3u8_build_master(r, channel, &response);
+    rc = ngx_http_live_hls_m3u8_build_master(r, objects, &response);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -404,42 +395,12 @@ ngx_http_live_hls_handle_master_playlist(ngx_http_request_t *r,
     return ngx_http_live_send_response(r, &response);
 }
 
-static ngx_uint_t
-ngx_http_live_hls_get_container_format(ngx_http_live_hls_loc_conf_t *conf,
-    ngx_http_live_request_objects_t *objects)
-{
-    ngx_uint_t     container_format;
-    media_info_t  *media_info;
-
-    container_format = conf->m3u8_config.container_format;
-    if (container_format != NGX_HTTP_LIVE_HLS_CONTAINER_AUTO) {
-        return container_format;
-    }
-
-    if (conf->encryption_method == HLS_ENC_SAMPLE_AES_CENC) {
-        return NGX_HTTP_LIVE_HLS_CONTAINER_FMP4;
-    }
-
-    if (objects->tracks[KMP_MEDIA_VIDEO] == NULL) {
-        return NGX_HTTP_LIVE_HLS_CONTAINER_MPEGTS;
-    }
-
-    media_info = ngx_live_media_info_queue_get_last(
-        objects->tracks[KMP_MEDIA_VIDEO], NULL);
-    if (media_info != NULL && media_info->codec_id == VOD_CODEC_ID_HEVC) {
-        return NGX_HTTP_LIVE_HLS_CONTAINER_FMP4;
-    }
-
-    return NGX_HTTP_LIVE_HLS_CONTAINER_MPEGTS;
-}
-
 static ngx_int_t
 ngx_http_live_hls_handle_index_playlist(ngx_http_request_t *r,
     ngx_http_live_request_objects_t *objects)
 {
     ngx_int_t                      rc;
     ngx_str_t                      result;
-    ngx_uint_t                     container_format;
     hls_encryption_params_t        encryption_params;
     ngx_http_live_core_ctx_t      *ctx;
     ngx_http_live_hls_loc_conf_t  *conf;
@@ -455,12 +416,8 @@ ngx_http_live_hls_handle_index_playlist(ngx_http_request_t *r,
 
     conf = ngx_http_get_module_loc_conf(r, ngx_http_live_hls_module);
 
-    container_format = ngx_http_live_hls_get_container_format(conf,
-        objects);
-
 #if (NGX_HAVE_OPENSSL_EVP)
-    rc = ngx_http_live_hls_init_encryption_params(r, &encryption_params,
-        container_format);
+    rc = ngx_http_live_hls_init_encryption_params(r, &encryption_params);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -486,15 +443,16 @@ ngx_http_live_hls_handle_index_playlist(ngx_http_request_t *r,
     encryption_params.type = HLS_ENC_NONE;
 #endif /* NGX_HAVE_OPENSSL_EVP */
 
-    rc = ngx_http_live_hls_m3u8_build_index(r, &conf->m3u8_config,
-        objects, &encryption_params, container_format, &result);
+    rc = ngx_http_live_hls_m3u8_build_index(r, objects, &encryption_params,
+        &result);
     if (rc != NGX_OK) {
         return rc;
     }
 
     rc = ngx_http_live_send_header(r, result.len,
         &ngx_http_live_hls_content_type_m3u8,
-        objects->timeline->manifest.last_modified, NGX_HTTP_LIVE_EXPIRES_INDEX);
+        objects->timeline->manifest.last_modified,
+        NGX_HTTP_LIVE_EXPIRES_INDEX);
     if (rc != NGX_OK) {
         return rc;
     }

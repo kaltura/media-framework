@@ -497,3 +497,26 @@ codec_config_mp4a_config_parse(
 
     return VOD_OK;
 }
+
+uint32_t
+codec_config_get_audio_frame_size(media_info_t* media_info)
+{
+    switch (media_info->codec_id)
+    {
+    case VOD_CODEC_ID_AAC:
+        /* TODO: identify short frames (960) from extra data
+            decode_audio_specific_config_gb -> decode_ga_specific_config */
+        return 1024;
+
+    case VOD_CODEC_ID_AC3:
+        return 1536;
+
+    case VOD_CODEC_ID_MP3:
+        return media_info->u.audio.sample_rate <= 24000 ? 576 : 1152;
+
+        /* TODO: support additional codecs */
+
+    default:
+        return 0;
+    }
+}

@@ -813,3 +813,72 @@ mp4_muxer_process_frames(mp4_muxer_state_t* state)
 
     return VOD_OK;
 }
+
+void
+mp4_muxer_get_bitrate_estimator(
+    media_info_t** media_infos,
+    uint32_t count,
+    media_bitrate_estimator_t* result)
+{
+    media_info_t* cur;
+    uint32_t samples_per_frame;
+    uint32_t muxing_overhead;
+    uint32_t base_size;
+    uint32_t i;
+
+    base_size = ATOM_HEADER_SIZE +        // moof
+        ATOM_HEADER_SIZE + sizeof(mfhd_atom_t) +
+        ATOM_HEADER_SIZE;                 // mdat
+
+    if (count > 1 && media_infos[0] != NULL && media_infos[1] != NULL)
+    {
+        // Note: 4 truns per second since the muxing delay is 0.25 sec
+        muxing_overhead = 8 * 4 * (ATOM_HEADER_SIZE + sizeof(trun_atom_t));
+    }
+    else
+    {
+        muxing_overhead = 0;
+    }
+
+    for (i = 0; i < count; i++, result++)
+    {
+        cur = media_infos[i];
+
+        result->k1.num = 1;
+        result->k1.den = 1;
+
+        base_size += ATOM_HEADER_SIZE +        // traf
+            ATOM_HEADER_SIZE + sizeof(tfhd_atom_t) +
+            ATOM_HEADER_SIZE + sizeof(tfdt64_atom_t) +
+            ATOM_HEADER_SIZE + sizeof(trun_atom_t);
+
+        result->k2 = 8 * base_size;
+        base_size = 0;
+
+        result->k3 = muxing_overhead;
+
+        if (cur == NULL)
+        {
+            continue;
+        }
+
+        switch (cur->media_type)
+        {
+        case MEDIA_TYPE_VIDEO:
+            result->k3 += (uint64_t)8 * sizeof(trun_video_frame_t) * cur->u.video.frame_rate_num /
+                cur->u.video.frame_rate_denom;
+            break;
+
+        case MEDIA_TYPE_AUDIO:
+            samples_per_frame = codec_config_get_audio_frame_size(cur);
+            if (samples_per_frame == 0)
+            {
+                break;
+            }
+
+            result->k3 += (uint64_t)8 * sizeof(trun_audio_frame_t) * cur->u.audio.sample_rate /
+                samples_per_frame;
+            break;
+        }
+    }
+}
