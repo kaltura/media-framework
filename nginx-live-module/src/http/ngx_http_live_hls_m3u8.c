@@ -516,36 +516,41 @@ ngx_http_live_hls_m3u8_streams_write(u_char *p,
             tracks);
 
         if (tracks[KMP_MEDIA_VIDEO] != NULL) {
-
             video = ngx_live_media_info_queue_get_last(
                 tracks[KMP_MEDIA_VIDEO], NULL);
-            if (video == NULL) {
-                continue;
-            }
 
-            if (audio_group != NULL) {
-                audio = audio_group->media_info;
+        } else {
+            video = NULL;
+        }
 
-                bitrate = ngx_http_live_hls_estimate_bitrate(conf,
-                    container_format, &video, 1, segment_duration) +
-                    ngx_http_live_hls_estimate_bitrate(conf,
-                    container_format, &audio, 1, segment_duration);
+        if (audio_group != NULL) {
+            audio = audio_group->media_info;
 
-            } else if (tracks[KMP_MEDIA_AUDIO] != NULL) {
-                audio = ngx_live_media_info_queue_get_last(
-                    tracks[KMP_MEDIA_AUDIO], NULL);
-                if (audio == NULL) {
-                    continue;
+        } else if (tracks[KMP_MEDIA_AUDIO] != NULL) {
+            audio = ngx_live_media_info_queue_get_last(
+                tracks[KMP_MEDIA_AUDIO], NULL);
+
+        } else {
+            audio = NULL;
+        }
+
+        if (video != NULL) {
+
+            if (audio != NULL) {
+                if (audio_group != NULL) {
+                    bitrate = ngx_http_live_hls_estimate_bitrate(conf,
+                        container_format, &video, 1, segment_duration) +
+                        ngx_http_live_hls_estimate_bitrate(conf,
+                        container_format, &audio, 1, segment_duration);
+
+                } else {
+                    media_infos[0] = video;
+                    media_infos[1] = audio;
+                    bitrate = ngx_http_live_hls_estimate_bitrate(conf,
+                        container_format, media_infos, 2, segment_duration);
                 }
 
-                media_infos[0] = video;
-                media_infos[1] = audio;
-                bitrate = ngx_http_live_hls_estimate_bitrate(conf,
-                    container_format, media_infos, 2, segment_duration);
-
             } else {
-                audio = NULL;
-
                 bitrate = ngx_http_live_hls_estimate_bitrate(conf,
                     container_format, &video, 1, segment_duration);
             }
@@ -564,20 +569,7 @@ ngx_http_live_hls_m3u8_streams_write(u_char *p,
                 p = ngx_copy_str(p, audio->codec_name);
             }
 
-        } else if (tracks[KMP_MEDIA_AUDIO] != NULL) {
-
-            if (audio_group != NULL) {
-                audio = audio_group->media_info;
-
-            } else {
-                audio = ngx_live_media_info_queue_get_last(
-                    tracks[KMP_MEDIA_AUDIO], NULL);
-                if (audio == NULL) {
-                    continue;
-                }
-            }
-
-            video = NULL;
+        } else if (audio != NULL) {
 
             bitrate = ngx_http_live_hls_estimate_bitrate(conf,
                 container_format, &audio, 1, segment_duration);
@@ -805,9 +797,11 @@ ngx_http_live_hls_media_info_iter_init(ngx_http_request_t *r,
     ngx_http_live_hls_media_info_iter_t *iter,
     ngx_http_live_request_objects_t *objects)
 {
-    uint32_t                     i;
+    uint32_t                     i, count;
     ngx_live_track_t            *cur_track;
     ngx_live_media_info_iter_t  *cur;
+
+    count = 0;
 
     cur = iter->iters;
     for (i = 0; i < KMP_MEDIA_COUNT; i++) {
@@ -817,15 +811,16 @@ ngx_http_live_hls_media_info_iter_init(ngx_http_request_t *r,
             continue;
         }
 
-        if (!ngx_live_media_info_iter_init(cur, cur_track)) {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "ngx_http_live_hls_media_info_iter_init: "
-                "no media info for track \"%V\"",
-                &cur_track->sn.str);
-            return NGX_HTTP_BAD_REQUEST;
-        }
+        count += ngx_live_media_info_iter_init(cur, cur_track);
 
         cur++;
+    }
+
+    if (!count) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_hls_media_info_iter_init: "
+            "no media info found");
+        return NGX_HTTP_BAD_REQUEST;
     }
 
     iter->track_count = objects->track_count;
