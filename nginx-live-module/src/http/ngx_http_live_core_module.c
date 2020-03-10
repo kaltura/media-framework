@@ -405,7 +405,8 @@ ngx_flag_t
 ngx_http_live_output_variant(ngx_http_live_core_ctx_t *ctx,
     ngx_live_variant_t *variant)
 {
-    ngx_uint_t  media_type;
+    ngx_uint_t         media_type;
+    ngx_live_track_t  *cur_track;
 
     /* included in the request variant ids list */
     if (ctx->params.variant_ids_count > 0 &&
@@ -416,19 +417,21 @@ ngx_http_live_output_variant(ngx_http_live_core_ctx_t *ctx,
     }
 
     /* has tracks in the request media type list */
-    if (ctx->params.media_type_mask != (1 << KMP_MEDIA_COUNT) - 1) {
+    for (media_type = 0; ; media_type++) {
 
-        for (media_type = 0; ; media_type++) {
+        if (media_type >= KMP_MEDIA_COUNT) {
+            return 0;
+        }
 
-            if (media_type >= KMP_MEDIA_COUNT) {
-                return 0;
-            }
+        if ((ctx->params.media_type_mask & (1 << media_type)) == 0) {
+            continue;
+        }
 
-            if ((ctx->params.media_type_mask & (1 << media_type)) != 0
-                && variant->tracks[media_type] != NULL)
-            {
-                break;
-            }
+        cur_track = variant->tracks[media_type];
+        if (cur_track != NULL &&
+            ngx_live_media_info_queue_get_last(cur_track, NULL) != NULL)
+        {
+            break;
         }
     }
 
