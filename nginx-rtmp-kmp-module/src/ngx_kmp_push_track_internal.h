@@ -45,7 +45,7 @@ struct ngx_kmp_push_track_s {
     kmp_media_info_t               media_info;
     ngx_str_t                      extra_data;
     size_t                         extra_data_size;
-
+    int64_t                        last_timestamp;
     int64_t                        last_created;
     ngx_uint_t                     sent_frames;
     ngx_uint_t                     sent_key_frames;

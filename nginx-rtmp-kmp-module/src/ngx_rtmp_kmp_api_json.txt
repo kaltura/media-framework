@@ -17,6 +17,7 @@ static ngx_rtmp_kmp_api_track_json ngx_kmp_push_track_t
     mem_left %uz
     mem_limit %uz
 
+    last_timestamp %L
     last_created %L
     sent_frames %ui
     sent_key_frames %ui
