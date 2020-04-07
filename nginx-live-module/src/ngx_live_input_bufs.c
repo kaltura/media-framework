@@ -435,6 +435,9 @@ ngx_live_input_bufs_channel_free(ngx_live_channel_t *channel, void *ectx)
     ngx_live_input_bufs_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_input_bufs_module);
+    if (cctx == NULL) {
+        return NGX_OK;
+    }
 
     for (q = ngx_queue_head(&cctx->queue);
         q != ngx_queue_sentinel(&cctx->queue);

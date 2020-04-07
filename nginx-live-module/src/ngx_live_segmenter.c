@@ -3,6 +3,7 @@
 #include <ngx_event.h>
 #include "ngx_live.h"
 #include "ngx_live_segment_cache.h"
+#include "ngx_live_segment_index.h"
 #include "ngx_live_timeline.h"
 #include "ngx_live_segmenter.h"
 #include "ngx_live_media_info.h"
@@ -723,7 +724,7 @@ ngx_live_segmenter_frame_list_get_min_split_pts(
 
 static ngx_uint_t
 ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
-    int64_t target_pts, uint32_t stop_flags)
+    int64_t target_pts)
 {
     int64_t                           prev_pts;
     int64_t                           diff, cur_diff;
@@ -738,7 +739,7 @@ ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
 
     /* handle first frame */
     prev_pts = cur->pts;
-    if (target_pts <= prev_pts) {
+    if (prev_pts >= target_pts) {
         return 0;
     }
 
@@ -764,7 +765,7 @@ ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
             diff = cur_diff;
         }
 
-        if (stop_flags && (cur->flags & stop_flags) == stop_flags) {
+        if (cur->flags & NGX_LIVE_FRAME_FLAG_SPLIT) {
             break;
         }
 
@@ -775,14 +776,11 @@ ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
 }
 
 static ngx_uint_t
-ngx_live_segmenter_frame_list_get_key_index(
-    ngx_live_segmenter_frame_list_t *list, int64_t target_pts,
-    uint32_t stop_flags)
+ngx_live_segmenter_frame_list_get_truncate_index(
+    ngx_live_segmenter_frame_list_t *list, int64_t target_pts)
 {
     int64_t                           prev_pts;
-    int64_t                           diff, cur_diff;
     ngx_uint_t                        index;
-    ngx_uint_t                        cur_index;
     ngx_live_segmenter_frame_t       *cur, *last;
     ngx_live_segmenter_frame_part_t  *part;
 
@@ -792,19 +790,13 @@ ngx_live_segmenter_frame_list_get_key_index(
 
     /* handle first frame */
     prev_pts = cur->pts;
-    if (target_pts <= prev_pts) {
+    if (prev_pts >= target_pts) {
         return 0;
     }
 
-    index = 0;
-    diff = ngx_abs_diff(prev_pts, target_pts);
     cur++;
 
-    /* Note: when comparing key frame pts, we're using the pts of the previous
-        frame since the key frame pts may jump forward/backward compared to
-        the current gop */
-
-    for (cur_index = 1 ;; cur++, cur_index++) {
+    for (index = 1 ;; cur++, index++) {
 
         if (cur >= last) {
             if (part->next == NULL) {
@@ -816,18 +808,7 @@ ngx_live_segmenter_frame_list_get_key_index(
             last = cur + part->nelts;
         }
 
-        if (!(cur->flags & KMP_FRAME_FLAG_KEY)) {
-            prev_pts = cur->pts;
-            continue;
-        }
-
-        cur_diff = ngx_abs_diff(prev_pts, target_pts);
-        if (cur_diff <= diff) {
-            index = cur_index;
-            diff = cur_diff;
-        }
-
-        if (stop_flags && (cur->flags & stop_flags) == stop_flags) {
+        if (prev_pts >= target_pts) {
             break;
         }
 
@@ -1146,6 +1127,99 @@ ngx_live_segmenter_kf_list_find_nearest_pts(ngx_live_segmenter_kf_list_t *list,
             break;
         }
     }
+}
+
+static ngx_uint_t
+ngx_live_segmenter_kf_list_get_index(ngx_live_segmenter_kf_list_t *list,
+    int64_t target_pts)
+{
+    int64_t                        diff, cur_diff;
+    ngx_uint_t                     index;
+    ngx_uint_t                     cur_index;
+    ngx_live_segmenter_kf_t       *cur, *last;
+    ngx_live_segmenter_kf_part_t  *part;
+
+    part = &list->part;
+    cur = part->elts;
+    last = cur + part->nelts;
+
+    /* handle first frame */
+    if (cur >= last || cur->pts >= target_pts) {
+        return 0;
+    }
+
+    cur_index = index = cur->index_delta;
+    diff = ngx_abs_diff(cur->pts, target_pts);
+    cur++;
+
+    for (; ; cur++) {
+
+        if (cur >= last) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            cur = part->elts;
+            last = cur + part->nelts;
+        }
+
+        cur_index += cur->index_delta;
+
+        cur_diff = ngx_abs_diff(cur->prev_pts, target_pts);
+        if (cur_diff <= diff) {
+            index = cur_index;
+            diff = cur_diff;
+        }
+
+        if (cur->flags & NGX_LIVE_FRAME_FLAG_SPLIT) {
+            break;
+        }
+    }
+
+    return index;
+}
+
+static ngx_uint_t
+ngx_live_segmenter_kf_list_get_truncate_index(
+    ngx_live_segmenter_kf_list_t *list, int64_t target_pts)
+{
+    ngx_uint_t                     index;
+    ngx_live_segmenter_kf_t       *cur, *last;
+    ngx_live_segmenter_kf_part_t  *part;
+
+    part = &list->part;
+    cur = part->elts;
+    last = cur + part->nelts;
+
+    /* handle first frame */
+    if (cur >= last || cur->pts >= target_pts) {
+        return 0;
+    }
+
+    index = cur->index_delta;
+    cur++;
+
+    for (; ; cur++) {
+
+        if (cur >= last) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            cur = part->elts;
+            last = cur + part->nelts;
+        }
+
+        if (cur->prev_pts >= target_pts) {
+            break;
+        }
+
+        index += cur->index_delta;
+    }
+
+    return index;
 }
 
 
@@ -1594,6 +1668,10 @@ ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
 
 done:
 
+    if (free_data_chains) {
+        ngx_live_segment_cache_free_input_bufs(track);
+    }
+
     ngx_live_segmenter_validate_track_ctx(track);
 }
 
@@ -1660,12 +1738,13 @@ ngx_live_segmenter_prepare_create_segment(ngx_live_channel_t *channel,
                 start pts */
 
             if (cur_track->media_type == KMP_MEDIA_VIDEO) {
-                split_index = ngx_live_segmenter_frame_list_get_key_index(
-                    &cur_ctx->frames, cctx->last_segment_end_pts, 0);
+                split_index = ngx_live_segmenter_kf_list_get_truncate_index(
+                    &cur_ctx->key_frames, cctx->last_segment_end_pts +
+                    cctx->track_add_snap_range);
 
             } else {
-                split_index = ngx_live_segmenter_frame_list_get_index(
-                    &cur_ctx->frames, cctx->last_segment_end_pts, 0);
+                split_index = ngx_live_segmenter_frame_list_get_truncate_index(
+                    &cur_ctx->frames, cctx->last_segment_end_pts);
             }
 
             if (split_index > 0) {
@@ -2014,6 +2093,8 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
     int64_t target_pts, uint32_t *media_types_mask)
 {
     int64_t                            cur_target_pts;
+    int64_t                            track_add_max_pts;
+    uint32_t                           duration;
     uint32_t                           split_index;
     ngx_int_t                          rc;
     ngx_flag_t                         force_new_period;
@@ -2029,6 +2110,10 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
     force_new_period = cctx->force_new_period;
 
     rc = NGX_OK;
+
+    duration = target_pts - cctx->last_segment_end_pts;
+    track_add_max_pts = ngx_max(target_pts - cctx->track_add_snap_range,
+        target_pts - duration / 4);
 
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
@@ -2051,7 +2136,7 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
             split_index = cur_ctx->frame_count;
 
         } else if ((!cur_track->has_last_segment || force_new_period) &&
-            cur_ctx->start_pts > target_pts - cctx->track_add_snap_range)
+            cur_ctx->start_pts > track_add_max_pts)
         {
             /* track added + start pts after target -> add it next time */
             split_index = 0;
@@ -2065,14 +2150,12 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
 
             /* find the key frame closest to target */
             if (cur_track->media_type == KMP_MEDIA_VIDEO) {
-                split_index = ngx_live_segmenter_frame_list_get_key_index(
-                    &cur_ctx->frames, cur_target_pts,
-                    NGX_LIVE_FRAME_FLAG_SPLIT);
+                split_index = ngx_live_segmenter_kf_list_get_index(
+                    &cur_ctx->key_frames, cur_target_pts);
 
             } else {
                 split_index = ngx_live_segmenter_frame_list_get_index(
-                    &cur_ctx->frames, cur_target_pts,
-                    NGX_LIVE_FRAME_FLAG_SPLIT);
+                    &cur_ctx->frames, cur_target_pts);
             }
         }
 
@@ -2514,6 +2597,13 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
         if (ngx_live_segmenter_create_segment(channel) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
                 "ngx_live_segmenter_create_segments: create failed");
+            return NGX_ERROR;
+        }
+
+        if (ngx_live_segment_index_create(channel) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                "ngx_live_segmenter_create_segments: "
+                "failed to create segment index");
             return NGX_ERROR;
         }
 

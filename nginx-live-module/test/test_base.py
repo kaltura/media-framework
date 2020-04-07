@@ -4,16 +4,19 @@ import manifest_utils
 import os
 
 NGINX_LIVE_HOST = 'localhost'
-NGINX_LIVE_URL = 'http://%s:8001' % NGINX_LIVE_HOST
-NGINX_LIVE_API_URL = 'http://%s:8001/control' % NGINX_LIVE_HOST
+NGINX_LIVE_PORT = 8001
+NGINX_LIVE_URL = 'http://%s:%s' % (NGINX_LIVE_HOST, NGINX_LIVE_PORT)
+NGINX_LIVE_API_URL = '%s/control' % NGINX_LIVE_URL
 NGINX_LIVE_KMP_ADDR = (NGINX_LIVE_HOST, 6543)
 
 TEST_VIDEO1 = 'video1.mp4'
 TEST_VIDEO2 = 'video2.mp4'
+TEST_VIDEO_HIGH = 'video-high.mp4'
 
 TEST_VIDEO_URLS = {
     TEST_VIDEO1: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_k13xaap6/flavorId/0_4c84uq72/format/download/a.mp4',
     TEST_VIDEO2: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_w4l3m87h/flavorId/0_vsu1xutk/format/download/a.mp4',
+    TEST_VIDEO_HIGH: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_g0nj9w94/flavorId/0_0smocyms/format/download/a.mp4',
 }
 
 CHANNEL_ID = 'test'
@@ -61,6 +64,11 @@ def getConfBlock(c, path):
         if len(path) == 1:
             return cur[1]
         return getConfBlock(cur[1], path[1:])
+
+def getConfParam(c, key):
+    for cur in c:
+        if cur[0] == key:
+            return cur
 
 def testStream(url, basePath, streamName):
     splittedPath = os.path.split(basePath)

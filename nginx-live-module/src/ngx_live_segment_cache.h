@@ -6,7 +6,6 @@
 #include <ngx_core.h>
 #include "ngx_live.h"
 #include "ngx_buf_chain.h"
-#include "ngx_live_input_bufs.h"
 
 
 #define NGX_LIVE_READ_FLAG_LOCK_DATA  (0x01)
@@ -33,6 +32,8 @@ typedef struct {
 } ngx_live_segment_t;
 
 
+typedef void (*ngx_live_segment_cleanup_pt)(void *data);
+
 typedef void (*ngx_live_read_segment_callback_pt)(void *arg, ngx_int_t rc);
 
 typedef struct {
@@ -47,8 +48,10 @@ typedef struct {
     uint32_t                            flags;
     media_segment_t                    *segment;
     ngx_live_read_segment_callback_pt   callback;
+    ngx_live_segment_cleanup_pt         cleanup;
     void                               *arg;
 } ngx_live_segment_read_req_t;
+
 
 /*
  * NGX_OK - operation completed synchronously
@@ -66,16 +69,15 @@ ngx_live_segment_t *ngx_live_segment_cache_create(ngx_live_track_t *track,
 
 void ngx_live_segment_cache_free(ngx_live_segment_t *segment);
 
+void ngx_live_segment_cache_free_by_index(ngx_live_channel_t *channel,
+    uint32_t segment_index);
+
 void ngx_live_segment_cache_finalize(ngx_live_segment_t *segment);
 
 ngx_live_segment_t *ngx_live_segment_cache_get(ngx_live_track_t *track,
     uint32_t segment_index);
 
-void ngx_live_segment_cache_free_by_index(ngx_live_channel_t *channel,
-    uint32_t segment_index);
-
-ngx_live_input_bufs_lock_t *ngx_live_segment_cache_lock_data(
-    ngx_live_segment_t *segment);
+void ngx_live_segment_cache_free_input_bufs(ngx_live_track_t *track);
 
 
 extern ngx_live_read_segment_pt  ngx_live_read_segment;

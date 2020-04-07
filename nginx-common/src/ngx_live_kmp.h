@@ -127,6 +127,7 @@ typedef struct {
     kmp_packet_header_t  header;
     uint64_t             frame_id;
     uint32_t             offset;
+    uint32_t             padding;
 } kmp_ack_frames_packet_t;
 
 #endif /* _NGX_LIVE_KMP_H_INCLUDED_ */

@@ -60,7 +60,7 @@ def valgrindUpdateConf(conf):
 
 def getTests(testsDir, start, end, only):
     if only is not None:
-        return [only]
+        return only.split(',')
 
     result = []
     for cur in sorted(os.listdir(testsDir)):
@@ -88,6 +88,12 @@ def defaultTestCleanup():
 def run(tests):
     for fileName in tests:
         curMod = __import__(fileName)
+        if options.only is None:
+            longTest = getattr(curMod, 'LONG_TEST', False)
+            if longTest:
+                print '>>> %s - skipped' % fileName
+                continue
+
         testFunc = getattr(curMod, 'test', None)
         if not callable(testFunc):
             continue

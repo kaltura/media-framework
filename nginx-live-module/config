@@ -81,6 +81,7 @@ LIVE_CORE_MODULES="                                           \
     ngx_live_timeline_module                                  \
     ngx_live_input_bufs_module                                \
     ngx_live_segment_cache_module                             \
+    ngx_live_segment_index_module                             \
     ngx_live_segment_info_module                              \
     ngx_live_syncer_module                                    \
     ngx_live_filler_module                                    \
@@ -176,6 +177,7 @@ LIVE_CORE_SRCS="                                              \
     $ngx_addon_dir/src/ngx_live_media_info.c                  \
     $ngx_addon_dir/src/ngx_live_script.c                      \
     $ngx_addon_dir/src/ngx_live_segment_cache.c               \
+    $ngx_addon_dir/src/ngx_live_segment_index.c               \
     $ngx_addon_dir/src/ngx_live_segment_info.c                \
     $ngx_addon_dir/src/ngx_live_segment_list.c                \
     $ngx_addon_dir/src/ngx_live_segmenter.c                   \
@@ -225,6 +227,7 @@ LIVE_DEPS="$LIVE_DEPS                                         \
     $ngx_addon_dir/src/ngx_live_script.h                      \
     $ngx_addon_dir/src/ngx_live_segmenter.h                   \
     $ngx_addon_dir/src/ngx_live_segment_cache.h               \
+    $ngx_addon_dir/src/ngx_live_segment_index.h               \
     $ngx_addon_dir/src/ngx_live_segment_info.h                \
     $ngx_addon_dir/src/ngx_live_segment_list.h                \
     $ngx_addon_dir/src/ngx_live_timeline.h                    \

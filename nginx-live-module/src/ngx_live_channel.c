@@ -200,6 +200,8 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
     rc = ngx_live_core_channel_event(channel, NGX_LIVE_EVENT_CHANNEL_INIT,
         &block_sizes[NGX_LIVE_BP_TRACK]);
     if (rc != NGX_OK) {
+        (void) ngx_live_core_channel_event(channel,
+            NGX_LIVE_EVENT_CHANNEL_FREE, NULL);
         goto error;
     }
 
@@ -209,6 +211,8 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
     if (channel->block_pool == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
             "ngx_live_channel_create: create block pool failed");
+        (void) ngx_live_core_channel_event(channel,
+            NGX_LIVE_EVENT_CHANNEL_FREE, NULL);
         goto error;
     }
 
