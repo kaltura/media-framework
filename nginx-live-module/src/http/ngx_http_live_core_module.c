@@ -1444,6 +1444,22 @@ ngx_http_live_core_get_track_refs(ngx_http_request_t *r,
     return result;
 }
 
+static void
+ngx_http_live_core_cleanup(void *data)
+{
+    ngx_connection_t    *c;
+    ngx_http_request_t  *r = data;
+
+    c = r->connection;
+
+    ngx_log_error(NGX_LOG_ERR, c->log, 0,
+        "ngx_http_live_core_cleanup: request cleaned up");
+
+    ngx_http_finalize_request(r, NGX_ERROR);
+
+    ngx_http_run_posted_requests(c);
+}
+
 ngx_int_t
 ngx_http_live_core_segment_handler(ngx_http_request_t *r,
     ngx_http_live_request_objects_t *objects)
@@ -1499,6 +1515,7 @@ ngx_http_live_core_segment_handler(ngx_http_request_t *r,
     req.flags = ctx->params.read_flags;
     req.segment = segment;
     req.callback = ngx_http_live_core_write_segment_async;
+    req.cleanup = ngx_http_live_core_cleanup;
     req.arg = r;
 
     rc = ngx_live_read_segment(&req);

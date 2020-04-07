@@ -1001,6 +1001,9 @@ ngx_live_timelines_free_old_segments(ngx_live_channel_t *channel,
 {
     ngx_live_timeline_channel_ctx_t  *ctx;
 
+    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+        "ngx_live_timelines_free_old_segments: index: %uD", min_segment_index);
+
     ctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     ngx_live_segment_list_free_nodes(&ctx->segment_list, min_segment_index);
@@ -1143,6 +1146,9 @@ ngx_live_timelines_truncate(ngx_live_channel_t *channel,
 
     ctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
+    ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+        "ngx_live_timelines_truncate: index: %uD", segment_index);
+
     for (q = ngx_queue_head(&ctx->queue);
         q != ngx_queue_sentinel(&ctx->queue);
         q = ngx_queue_next(q))
@@ -1260,7 +1266,7 @@ ngx_live_timeline_channel_free(ngx_live_channel_t *channel, void *ectx)
 
     ctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
-    if (ctx->cleanup.timer_set) {
+    if (ctx != NULL && ctx->cleanup.timer_set) {
         ngx_del_timer(&ctx->cleanup);
     }
 

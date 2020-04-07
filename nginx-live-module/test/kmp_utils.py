@@ -13,6 +13,8 @@ KMP_PACKET_MEDIA_INFO           = 0x666e696d   # minf
 KMP_PACKET_FRAME                = 0x6d617266   # fram
 KMP_PACKET_END_OF_STREAM        = 0x74736f65   # eost
 
+KMP_PACKET_ACK_FRAMES           = 0x666b6361   # ackf
+
 KMP_MAX_CHANNEL_ID_LEN  = (32)
 KMP_MAX_TRACK_ID_LEN    = (32)
 
@@ -28,7 +30,19 @@ KMP_FRAME_HEADER_SIZE = 24
 VERBOSITY = 0
 
 
-class KmpReader(object):
+class KmpReaderBase(object):
+    def getPacketType(self):
+        return self.packetType
+
+    def getPacketData(self):
+        return self.packetData
+
+    def next(self):
+        res = self.packetData
+        self.readPacket()
+        return res
+
+class KmpReader(KmpReaderBase):
     def __init__(self, input, name = ''):
         self.mediaInfo = None
         self.timescale = None
@@ -44,7 +58,7 @@ class KmpReader(object):
         if len(header) < KMP_PACKET_HEADER_SIZE:
             return
 
-        type, header_size, data_size, reserved = struct.unpack('<LLLL', header)
+        type, header_size, data_size, reserved = kmpGetHeader(header)
         size = header_size + data_size - KMP_PACKET_HEADER_SIZE
         data = self.input.read(size)
         if len(data) < size:
@@ -56,16 +70,6 @@ class KmpReader(object):
             self.mediaInfo = self.packetData
             self.timescale = struct.unpack('<L', data[8:12])[0]
 
-    def getPacketType(self):
-        return self.packetType
-
-    def getPacketData(self):
-        return self.packetData
-
-    def next(self):
-        res = self.packetData
-        self.readPacket()
-        return res
 
 class KmpFileReader(KmpReader):
     def __init__(self, inputFile):
@@ -132,6 +136,9 @@ class KmpTypeFilteredSender(FilteredSender):
         super(KmpTypeFilteredSender, self).__init__(sender, lambda data: struct.unpack('<L', data[:4])[0] in types)
 
 
+def kmpGetHeader(data):
+    return struct.unpack('<LLLL', data[:KMP_PACKET_HEADER_SIZE])
+
 def kmpCreatePacket(type, header, data, reserved = 0):
     return struct.pack('<LLLL', type, KMP_PACKET_HEADER_SIZE + len(header), len(data), reserved) + header + data
 
@@ -151,7 +158,7 @@ def kmpSetFrameHeader(data, frame):
     return data[:KMP_PACKET_HEADER_SIZE] + struct.pack('<qqLL', *frame) + data[(KMP_PACKET_HEADER_SIZE + KMP_FRAME_HEADER_SIZE):]
 
 def kmpPacketToStr(data):
-    type, headerSize, dataSize, reserved = struct.unpack('<LLLL', data[:KMP_PACKET_HEADER_SIZE])
+    type, headerSize, dataSize, reserved = kmpGetHeader(data)
     data = data[KMP_PACKET_HEADER_SIZE:]
     result = '%s, hs=%d, ds=%s' % (struct.pack('<L', type), headerSize, dataSize)
     if type == KMP_PACKET_CONNECT:

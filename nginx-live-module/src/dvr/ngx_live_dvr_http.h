@@ -14,7 +14,7 @@ typedef ngx_int_t (*ngx_live_dvr_http_create_read_pt)(ngx_pool_t *pool,
     off_t range_end, ngx_buf_t **result);
 
 ngx_int_t ngx_live_dvr_http_read_init(ngx_pool_t *pool,
-    ngx_live_channel_t *channel, ngx_str_t *path, ngx_url_t *url,
+    ngx_live_channel_t *channel, ngx_url_t *url, ngx_str_t *path,
     ngx_live_dvr_http_create_read_pt create, void *create_ctx,
     void *complete_ctx, void **result);
 

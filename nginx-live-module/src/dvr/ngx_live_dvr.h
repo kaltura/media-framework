@@ -5,6 +5,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "../ngx_live.h"
+#include "../ngx_live_segment_index.h"
 
 
 #ifndef NGX_HTTP_NOT_FOUND
@@ -19,6 +20,8 @@
 
 typedef struct {
     uint32_t                   bucket_id;
+    uint32_t                   min_segment_index;
+    uint32_t                   max_segment_index;
     size_t                     size;
     ngx_msec_t                 start;
 } ngx_live_dvr_save_request_t;
@@ -28,7 +31,8 @@ typedef ngx_int_t (*ngx_live_dvr_read_init_pt)(ngx_pool_t *pool,
     ngx_live_channel_t *channel, ngx_str_t *path, void *arg, ngx_str_t *name,
     void **result);
 
-typedef ngx_int_t (*ngx_live_dvr_read_pt)(void *ctx, off_t offset, size_t size);
+typedef ngx_int_t (*ngx_live_dvr_read_pt)(void *ctx, off_t offset,
+    size_t size);
 
 typedef ngx_int_t (*ngx_live_dvr_save_pt)(ngx_live_channel_t *channel,
     ngx_live_dvr_save_request_t *request);
@@ -45,7 +49,6 @@ typedef struct {
     ngx_live_dvr_store_t      *store;
     ngx_live_complex_value_t  *path;
     ngx_uint_t                 bucket_size;
-    ngx_uint_t                 force_memory_segments;
     size_t                     initial_read_size;
 } ngx_live_dvr_preset_conf_t;
 
@@ -57,7 +60,8 @@ ngx_int_t ngx_live_dvr_get_path(ngx_live_channel_t *channel, ngx_pool_t *pool,
 /* write */
 
 ngx_chain_t *ngx_live_dvr_save_create_file(ngx_live_channel_t *channel,
-    ngx_pool_t *pool, ngx_live_dvr_save_request_t *request);
+    ngx_pool_t *pool, ngx_live_dvr_save_request_t *request,
+    ngx_live_segment_cleanup_t **pcln);
 
 void ngx_live_dvr_save_complete(ngx_live_channel_t *channel,
     ngx_live_dvr_save_request_t *request, ngx_int_t rc);

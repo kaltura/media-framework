@@ -81,7 +81,7 @@ static ngx_command_t  ngx_live_segment_info_commands[] = {
       NULL },
 
     { ngx_string("segment_info_bitrate_upper_bound"),
-      NGX_LIVE_MAIN_CONF | NGX_LIVE_PRESET_CONF | NGX_CONF_TAKE1,
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_segment_info_preset_conf_t, bitrate_upper_bound),

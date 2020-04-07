@@ -3,6 +3,7 @@
 #include "ngx_live.h"
 #include "ngx_live_segment_cache.h"
 #include "ngx_live_media_info.h"
+#include "ngx_live_input_bufs.h"
 #include "ngx_live_timeline.h"
 #include "ngx_live_filler.h"
 
@@ -729,6 +730,9 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
 
     segment_index = timeline->head_period->node.key;
     timeline_pts = timeline->head_period->time;
+
+    /* suppress warning */
+    initial_pts_delay = 0;
 
     for (i = 0 ;; i++) {
 

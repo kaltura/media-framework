@@ -139,7 +139,7 @@ class NginxLiveTrackService:
             track.__dict__)
 
 class NginxLiveTimeline:
-    def __init__(self, id=None, source_id=None, active=None, max_segments=None, max_duration=None, start=None, end=None, manifest_max_segments=None, manifest_max_duration=None, manifest_expiry_threshold=None, manifest_target_duration_segments=None):
+    def __init__(self, id=None, source_id=None, active=None, max_segments=None, max_duration=None, start=None, end=None, manifest_max_segments=None, manifest_max_duration=None, manifest_expiry_threshold=None, manifest_target_duration_segments=None, no_truncate=None):
         self.id = id
         self.source_id = source_id
         self.active = active
@@ -151,6 +151,7 @@ class NginxLiveTimeline:
         self.manifest_max_duration = manifest_max_duration
         self.manifest_expiry_threshold = manifest_expiry_threshold
         self.manifest_target_duration_segments = manifest_target_duration_segments
+        self.no_truncate = no_truncate
 
 class NginxLiveTimelineService:
     def __init__(self, base):

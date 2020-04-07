@@ -870,7 +870,7 @@ ngx_live_dvr_s3_read_init(ngx_pool_t *pool, ngx_live_channel_t *channel,
 
     *name = ctx->name;
 
-    return ngx_live_dvr_http_read_init(pool, channel, path, ctx->url,
+    return ngx_live_dvr_http_read_init(pool, channel, ctx->url, path,
         ngx_live_dvr_s3_get_request, ctx, arg, result);
 }
 

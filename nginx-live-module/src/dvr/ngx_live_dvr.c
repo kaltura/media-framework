@@ -2,11 +2,9 @@
 #include <ngx_core.h>
 #include "ngx_live_dvr.h"
 #include "ngx_live_dvr_format.h"
-#include "../ngx_live_segment_cache.h"
 #include "../ngx_live_media_info.h"
 #include "../ngx_live_segmenter.h"
 #include "../ngx_live_timeline.h"
-#include "../ngx_live_input_bufs.h"
 
 
 #define NGX_LIVE_DVR_INVALID_BUCKET_ID  NGX_MAX_INT32_VALUE
@@ -28,9 +26,6 @@ static char *ngx_live_dvr_bucket_time(ngx_conf_t *cf, ngx_command_t *cmd,
 
 
 typedef struct {
-    uint32_t    segments_mask_start;
-    uint32_t    saved_segments_mask;
-    uint32_t    failed_segments_mask;
     uint32_t    last_bucket_id;
     uint32_t    bucket_id;
 
@@ -42,19 +37,12 @@ typedef struct {
     uint32_t    read_segments;
 } ngx_live_dvr_channel_ctx_t;
 
+
 typedef struct {
     ngx_uint_t  gmt;
     ngx_str_t   timefmt;
 } ngx_live_dvr_bucket_time_ctx_t;
 
-
-static ngx_conf_num_bounds_t  ngx_live_dvr_bucket_size_bounds = {
-    ngx_conf_check_num_bounds, 1, 32
-};
-
-static ngx_conf_num_bounds_t  ngx_live_dvr_force_memory_segments_bounds = {
-    ngx_conf_check_num_bounds, 1, 32
-};
 
 static ngx_command_t  ngx_live_dvr_commands[] = {
     { ngx_string("dvr_path"),
@@ -69,14 +57,7 @@ static ngx_command_t  ngx_live_dvr_commands[] = {
       ngx_conf_set_num_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_dvr_preset_conf_t, bucket_size),
-      &ngx_live_dvr_bucket_size_bounds },
-
-    { ngx_string("dvr_force_memory_segments"),
-      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_num_slot,
-      NGX_LIVE_PRESET_CONF_OFFSET,
-      offsetof(ngx_live_dvr_preset_conf_t, force_memory_segments),
-      &ngx_live_dvr_force_memory_segments_bounds },
+      NULL },
 
     { ngx_string("dvr_initial_read_size"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
@@ -135,9 +116,9 @@ static ngx_live_variable_t  ngx_live_dvr_vars[] = {
 
 typedef struct {
     ngx_log_t  *log;
-    size_t      frame_size;
     u_char     *pos;
     size_t      left;
+    size_t      frame_size;
 } ngx_live_dvr_source_state_t;
 
 typedef struct {
@@ -219,8 +200,7 @@ static frames_source_t  ngx_live_dvr_source = {
 
 
 static ngx_int_t
-ngx_live_dvr_read_parse_header(ngx_live_dvr_read_ctx_t *ctx,
-    ngx_str_t *buf)
+ngx_live_dvr_read_parse_header(ngx_live_dvr_read_ctx_t *ctx, ngx_str_t *buf)
 {
     uint64_t                       offset;
     uint32_t                       i;
@@ -556,16 +536,6 @@ ngx_live_dvr_read(ngx_live_segment_read_req_t *req)
 
 /* write */
 
-static void
-ngx_live_dvr_save_release_locks(void *data)
-{
-    ngx_live_input_bufs_lock_t  **cur;
-
-    for (cur = data; *cur; cur++) {
-        ngx_live_input_bufs_unlock(*cur);
-    }
-}
-
 static ngx_chain_t **
 ngx_live_dvr_save_append_segment(ngx_pool_t *pool, ngx_chain_t **ll,
     ngx_live_track_t *cur_track, ngx_live_segment_t *segment,
@@ -651,10 +621,8 @@ ngx_live_dvr_save_append_segment(ngx_pool_t *pool, ngx_chain_t **ll,
 
 ngx_chain_t *
 ngx_live_dvr_save_create_file(ngx_live_channel_t *channel, ngx_pool_t *pool,
-    ngx_live_dvr_save_request_t *request)
+    ngx_live_dvr_save_request_t *request, ngx_live_segment_cleanup_t **pcln)
 {
-    uint32_t                        limit;
-    uint32_t                        bucket_size;
     uint32_t                        max_segments;
     uint32_t                        segment_index;
     ngx_buf_t                      *header_buf;
@@ -664,15 +632,14 @@ ngx_live_dvr_save_create_file(ngx_live_channel_t *channel, ngx_pool_t *pool,
     ngx_chain_t                   **ll;
     ngx_live_track_t               *cur_track;
     ngx_live_segment_t             *segment;
-    ngx_pool_cleanup_t             *cln;
+    ngx_live_segment_index_t       *index;
+    ngx_live_segment_cleanup_t     *cln;
     ngx_live_dvr_file_header_t     *header;
     ngx_live_dvr_preset_conf_t     *dpcf;
-    ngx_live_input_bufs_lock_t    **locks;
     ngx_live_dvr_segment_entry_t   *segment_entry;
 
     dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_module);
-    bucket_size = dpcf->bucket_size;
-    max_segments = channel->tracks.count * bucket_size;
+    max_segments = channel->tracks.count * dpcf->bucket_size;
 
     header_buf = ngx_create_temp_buf(pool, sizeof(*header) +
         max_segments * sizeof(*segment_entry));
@@ -689,17 +656,9 @@ ngx_live_dvr_save_create_file(ngx_live_channel_t *channel, ngx_pool_t *pool,
         return NULL;
     }
 
-    cln = ngx_pool_cleanup_add(pool, sizeof(*locks) * (max_segments + 1));
-    if (cln == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_create_file: failed to add cleanup item");
-        return NULL;
-    }
-    locks = cln->data;
-    cln->handler = ngx_live_dvr_save_release_locks;
-
     ll = &out;
     request->size = 0;
+    cln = NULL;
 
     header = (void *) header_buf->last;
     header_buf->last += sizeof(*header);
@@ -712,9 +671,8 @@ ngx_live_dvr_save_create_file(ngx_live_channel_t *channel, ngx_pool_t *pool,
     *ll = cl;
     ll = &cl->next;
 
-    limit = (request->bucket_id + 1) * bucket_size;
-    for (segment_index = request->bucket_id * bucket_size;
-        segment_index < limit;
+    for (segment_index = request->min_segment_index;
+        segment_index < request->max_segment_index;
         segment_index++)
     {
         for (q = ngx_queue_head(&channel->tracks.queue);
@@ -736,29 +694,43 @@ ngx_live_dvr_save_create_file(ngx_live_channel_t *channel, ngx_pool_t *pool,
             if (ll == NULL) {
                 ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
                     "ngx_live_dvr_create_file: append segment failed");
-                *locks = NULL;
                 return NULL;
             }
 
-            *locks = ngx_live_segment_cache_lock_data(segment);
-            if (*locks == NULL) {
+            if (cln == NULL) {
+                index = ngx_live_segment_index_get(channel, segment_index);
+                if (index == NULL) {
+                    ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
+                        "ngx_live_dvr_create_file: "
+                        "failed to get index %uD", segment_index);
+                    return NULL;
+                }
+
+                cln = ngx_live_segment_index_cleanup_add(pool, index,
+                    max_segments);
+                if (cln == NULL) {
+                    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                        "ngx_live_dvr_create_file: add cleanup item failed");
+                    return NULL;
+                }
+            }
+
+            if (ngx_live_segment_index_lock(cln, segment) != NGX_OK) {
                 ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
                     "ngx_live_dvr_create_file: lock segment failed");
                 return NULL;
             }
-            locks++;
 
             header->segment_count++;
             request->size += segment_entry->size;
         }
     }
 
-    *locks = NULL;
-
     header->header_size = header_buf->last - header_buf->pos;
     request->size += header->header_size;
 
     *ll = NULL;
+    *pcln = cln;
 
     return out;
 }
@@ -767,14 +739,8 @@ void
 ngx_live_dvr_save_complete(ngx_live_channel_t *channel,
     ngx_live_dvr_save_request_t *request, ngx_int_t rc)
 {
-    uint32_t                     limit;
-    uint32_t                     segment_flag;
-    uint32_t                     segment_index;
-    uint32_t                     max_failed_index;
     ngx_live_dvr_channel_ctx_t  *cctx;
-    ngx_live_dvr_preset_conf_t  *dpcf;
 
-    dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_module);
     cctx = ngx_live_get_module_ctx(channel, ngx_live_dvr_module);
 
     if (rc != NGX_OK) {
@@ -789,36 +755,8 @@ ngx_live_dvr_save_complete(ngx_live_channel_t *channel,
         cctx->save_success_size += request->size;
     }
 
-    limit = (request->bucket_id + 1) * dpcf->bucket_size;
-    max_failed_index = NGX_LIVE_INVALID_SEGMENT_INDEX;
-
-    for (segment_index = request->bucket_id * dpcf->bucket_size;
-        segment_index < limit;
-        segment_index++)
-    {
-        if (segment_index >= cctx->segments_mask_start) {
-
-            /* segment forced to memory, mark it as saved */
-            segment_flag = 1 << (segment_index - cctx->segments_mask_start);
-            cctx->saved_segments_mask |= segment_flag;
-
-            if (rc != NGX_OK) {
-                cctx->failed_segments_mask |= segment_flag;
-            }
-            continue;
-        }
-
-        /* segment not forced into memory, free it */
-        ngx_live_segment_cache_free_by_index(channel, segment_index);
-
-        if (rc != NGX_OK) {
-            max_failed_index = segment_index;
-        }
-    }
-
-    if (max_failed_index != NGX_LIVE_INVALID_SEGMENT_INDEX) {
-        ngx_live_timelines_truncate(channel, max_failed_index);
-    }
+    ngx_live_segment_index_persisted(channel, request->min_segment_index,
+        request->max_segment_index, rc);
 }
 
 static ngx_inline void
@@ -830,6 +768,8 @@ ngx_live_dvr_save_bucket(ngx_live_channel_t *channel,
     ngx_live_dvr_save_request_t  request;
 
     request.bucket_id = bucket_id;
+    request.min_segment_index = bucket_id * dpcf->bucket_size;
+    request.max_segment_index = request.min_segment_index + dpcf->bucket_size;
     request.start = ngx_current_msec;
     request.size = 0;
 
@@ -852,14 +792,8 @@ ngx_live_dvr_save_bucket(ngx_live_channel_t *channel,
 static ngx_int_t
 ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel, void *ectx)
 {
-    uint32_t                     i;
-    uint32_t                     count;
     uint32_t                     bucket_id;
-    uint32_t                     cur_index;
-    uint32_t                     segment_flag;
     uint32_t                     segment_index;
-    uint32_t                     new_mask_start;
-    uint32_t                     max_failed_index;
     ngx_flag_t                   exists;
     ngx_live_dvr_channel_ctx_t  *cctx;
     ngx_live_dvr_preset_conf_t  *dpcf;
@@ -873,42 +807,6 @@ ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel, void *ectx)
     dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_module);
 
     segment_index = channel->next_segment_index;
-
-    if (segment_index >= cctx->segments_mask_start +
-        dpcf->force_memory_segments)
-    {
-        new_mask_start = segment_index + 1 - dpcf->force_memory_segments;
-
-        count = ngx_min(new_mask_start - cctx->segments_mask_start,
-            dpcf->force_memory_segments);
-
-        max_failed_index = NGX_LIVE_INVALID_SEGMENT_INDEX;
-
-        for (i = 0; i < count; i++) {
-
-            segment_flag = 1 << i;
-
-            if ((cctx->saved_segments_mask & segment_flag) == 0) {
-                continue;
-            }
-
-            cur_index = cctx->segments_mask_start + i;
-
-            ngx_live_segment_cache_free_by_index(channel, cur_index);
-
-            if (cctx->failed_segments_mask & segment_flag) {
-                max_failed_index = cur_index;
-            }
-        }
-
-        if (max_failed_index != NGX_LIVE_INVALID_SEGMENT_INDEX) {
-            ngx_live_timelines_truncate(channel, max_failed_index);
-        }
-
-        cctx->saved_segments_mask >>= count;
-        cctx->failed_segments_mask >>= count;
-        cctx->segments_mask_start = new_mask_start;
-    }
 
     bucket_id = segment_index / dpcf->bucket_size;
 
@@ -1023,11 +921,10 @@ ngx_live_dvr_bucket_time_variable(ngx_live_channel_t *channel,
 
     dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_module);
 
-    limit = (cctx->bucket_id + 1) * dpcf->bucket_size;
-    for (segment_index = cctx->bucket_id * dpcf->bucket_size;
-        segment_index < limit;
-        segment_index++)
-    {
+    segment_index = cctx->bucket_id * dpcf->bucket_size;
+    limit = segment_index + dpcf->bucket_size;
+    for ( ;; ) {
+
         if (segment_index >= limit) {
             ngx_log_error(NGX_LOG_ERR, pool->log, 0,
                 "ngx_live_dvr_bucket_time_variable: "
@@ -1037,9 +934,12 @@ ngx_live_dvr_bucket_time_variable(ngx_live_channel_t *channel,
         }
 
         if (ngx_live_timelines_get_segment_time(channel, segment_index, &time)
-            == NGX_OK) {
+            == NGX_OK)
+        {
             break;
         }
+
+        segment_index++;
     }
 
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
@@ -1251,7 +1151,6 @@ ngx_live_dvr_create_preset_conf(ngx_conf_t *cf)
 
     conf->store = NGX_CONF_UNSET_PTR;
     conf->bucket_size = NGX_CONF_UNSET_UINT;
-    conf->force_memory_segments = NGX_CONF_UNSET_UINT;
     conf->initial_read_size = NGX_CONF_UNSET_SIZE;
 
     return conf;
@@ -1270,9 +1169,6 @@ ngx_live_dvr_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     }
 
     ngx_conf_merge_uint_value(conf->bucket_size, prev->bucket_size, 2);
-
-    ngx_conf_merge_uint_value(conf->force_memory_segments,
-                              prev->force_memory_segments, 5);
 
     ngx_conf_merge_size_value(conf->initial_read_size,
                               prev->initial_read_size, 4 * 1024);
