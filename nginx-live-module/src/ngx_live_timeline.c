@@ -4,7 +4,8 @@
 #include "ngx_live_timeline.h"
 
 
-#define NGX_LIVE_TIMELINE_CLEANUP_INTERVAL  60000
+#define NGX_LIVE_TIMELINE_CLEANUP_INTERVAL  (60000)
+#define NGX_LIVE_TIMELINE_JSON_MAX_PERIODS  (5)
 
 
 enum {
@@ -25,6 +26,11 @@ typedef struct {
     int64_t                   last_segment_middle;
 } ngx_live_timeline_channel_ctx_t;
 
+
+static size_t ngx_live_timeline_last_periods_json_get_size(
+    ngx_live_timeline_t *obj);
+static u_char *ngx_live_timeline_last_periods_json_write(u_char *p,
+    ngx_live_timeline_t *obj);
 
 #include "ngx_live_timeline_json.h"
 
@@ -320,7 +326,7 @@ ngx_live_manifest_timeline_truncate(
 
 static void
 ngx_live_timeline_manifest_copy(ngx_live_timeline_t *dest,
-    ngx_live_timeline_t *source, uint32_t period_count, uint32_t max_duration)
+    ngx_live_timeline_t *source, uint32_t max_duration)
 {
     dest->manifest.first_period = *dest->head_period;
     dest->manifest.availability_start_time = dest->manifest.first_period.time;
@@ -332,7 +338,7 @@ ngx_live_timeline_manifest_copy(ngx_live_timeline_t *dest,
 
     dest->manifest.duration = dest->duration;
     dest->manifest.segment_count = dest->segment_count;
-    dest->manifest.period_count = period_count;
+    dest->manifest.period_count = dest->period_count;
 
     dest->manifest.target_duration = max_duration;
 
@@ -613,6 +619,7 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
     ngx_live_period_t  *prev_period;
 
     duration = 0;
+    period_count = 0;
     segment_count = 0;
     prev_period = NULL;
 
@@ -622,6 +629,7 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
 
         duration += period->duration;
         segment_count += period->segment_count;
+        period_count++;
 
         prev_period = period;
     }
@@ -639,6 +647,14 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
             "ngx_live_timeline_validate: "
             "invalid timeline segment count %uD expected %uD",
             timeline->segment_count, segment_count);
+        ngx_debug_point();
+    }
+
+    if (timeline->period_count != period_count) {
+        ngx_log_error(NGX_LOG_ALERT, log, 0,
+            "ngx_live_timeline_validate: "
+            "invalid period count %uD expected %uD",
+            timeline->period_count, period_count);
         ngx_debug_point();
     }
 
@@ -729,6 +745,7 @@ ngx_live_timeline_remove_segment(ngx_live_timeline_t *timeline)
     if (timeline->head_period == NULL) {
         timeline->last_period = NULL;
     }
+    timeline->period_count--;
 
     ctx = ngx_live_get_module_ctx(timeline->channel, ngx_live_timeline_module);
 
@@ -855,7 +872,6 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
     int64_t                           src_period_end;
     uint32_t                          ignore;
     uint32_t                          max_duration;
-    uint32_t                          period_count;
     uint32_t                          segment_index;
     ngx_live_period_t                *src_period;
     ngx_live_period_t                *dest_period;
@@ -870,7 +886,6 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
     src_period = ngx_live_timeline_get_period_by_time(source,
         dest->conf.start);
 
-    period_count = 0;
     max_duration = 0;
 
     for ( ; src_period; src_period = src_period->next) {
@@ -939,23 +954,23 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
         } else {
             dest->last_period->next = dest_period;
         }
+        dest->period_count++;
 
         dest->last_period = dest_period;
 
         dest->segment_count += dest_period->segment_count;
         dest->duration += dest_period->duration;
 
-        period_count++;
         ngx_live_period_get_max_duration(dest_period, &max_duration);
     }
 
-    if (period_count <= 0) {
+    if (dest->period_count <= 0) {
         return NGX_OK;
     }
 
     dest->last_segment_created = source->last_segment_created;
 
-    ngx_live_timeline_manifest_copy(dest, source, period_count, max_duration);
+    ngx_live_timeline_manifest_copy(dest, source, max_duration);
 
     ignore = 0;
     if (dest->conf.active) {
@@ -1090,6 +1105,7 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
             } else {
                 timeline->last_period->next = period;
             }
+            timeline->period_count++;
 
             timeline->last_period = period;
 
@@ -1283,6 +1299,59 @@ ngx_live_timeline_channel_inactive(ngx_live_channel_t *channel, void *ectx)
     ngx_add_timer(&ctx->cleanup, NGX_LIVE_TIMELINE_CLEANUP_INTERVAL);
 
     return NGX_OK;
+}
+
+static size_t
+ngx_live_timeline_last_periods_json_get_size(ngx_live_timeline_t *obj)
+{
+    uint32_t  count;
+
+    count = obj->period_count;
+    if (count > NGX_LIVE_TIMELINE_JSON_MAX_PERIODS) {
+        count = NGX_LIVE_TIMELINE_JSON_MAX_PERIODS;
+    }
+
+    return sizeof("[]") - 1 +
+        (ngx_live_period_json_get_size(NULL) + sizeof(",") - 1) * count;
+}
+
+static u_char *
+ngx_live_timeline_last_periods_json_write(u_char *p, ngx_live_timeline_t *obj)
+{
+    uint32_t            count, skip;
+    ngx_flag_t          comma;
+    ngx_live_period_t  *cur;
+
+    cur = obj->head_period;
+    count = obj->period_count;
+    if (count > NGX_LIVE_TIMELINE_JSON_MAX_PERIODS) {
+
+        skip = count - NGX_LIVE_TIMELINE_JSON_MAX_PERIODS;
+        count = NGX_LIVE_TIMELINE_JSON_MAX_PERIODS;
+
+        for (; cur && skip > 0; cur = cur->next) {
+            skip--;
+        }
+    }
+
+    *p++ = '[';
+
+    comma = 0;
+    for (; cur && count > 0; cur = cur->next, count--) {
+
+        if (comma) {
+            *p++ = ',';
+
+        } else {
+            comma = 1;
+        }
+
+        p = ngx_live_period_json_write(p, cur);
+    }
+
+    *p++ = ']';
+
+    return p;
 }
 
 size_t

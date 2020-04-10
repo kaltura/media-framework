@@ -17,6 +17,7 @@ ngx_live_track_input_get_size(ngx_live_track_input_t *obj)
             ngx_escape_json(NULL, obj->remote_addr.data, obj->remote_addr.len)
             +
         sizeof("\",\"uptime\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"received_bytes\":") - 1 + NGX_OFF_T_LEN +
         sizeof("}") - 1;
 
     return result;
@@ -36,6 +37,8 @@ ngx_live_track_input_write(u_char *p, ngx_live_track_input_t *obj)
         obj->remote_addr.len);
     p = ngx_copy_fix(p, "\",\"uptime\":");
     p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - obj->start_msec));
+    p = ngx_copy_fix(p, ",\"received_bytes\":");
+    p = ngx_sprintf(p, "%O", (off_t) obj->received_bytes);
     *p++ = '}';
 
     return p;

@@ -469,9 +469,9 @@ ngx_live_dvr_read(ngx_live_segment_read_req_t *req)
 
     dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_module);
     if (dpcf->store == NULL) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_dvr_read: dvr not enabled");
-        return NGX_ERROR;
+        return NGX_ABORT;
     }
 
     ctx = ngx_pcalloc(pool, sizeof(*ctx));

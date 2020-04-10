@@ -5,6 +5,9 @@
 #include "ngx_live_timeline.h"
 
 
+#define NGX_LIVE_SEGMENT_INDEX_FREE_CYCLES  (5)
+
+
 enum {
     NGX_LIVE_BP_SEGMENT_INDEX,
 
@@ -124,6 +127,7 @@ ngx_live_segment_index_free(ngx_live_channel_t *channel,
 static void
 ngx_live_segment_index_free_non_forced(ngx_live_channel_t *channel)
 {
+    uint32_t                               cycles;
     uint32_t                               truncate;
     ngx_queue_t                           *q;
     ngx_live_segment_index_t              *index;
@@ -135,6 +139,9 @@ ngx_live_segment_index_free_non_forced(ngx_live_channel_t *channel)
     spcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_segment_index_module);
 
+    /* Note: if many segments are not persisted (dvr is off or slow)
+        limit the number of freed segments */
+    cycles = NGX_LIVE_SEGMENT_INDEX_FREE_CYCLES;
     truncate = 0;
 
     q = ngx_queue_head(&cctx->queue);
@@ -152,6 +159,11 @@ ngx_live_segment_index_free_non_forced(ngx_live_channel_t *channel)
 
         if (index->persist != ngx_live_segment_persist_none) {
             ngx_live_segment_index_free(channel, index, &truncate);
+        }
+
+        cycles--;
+        if (cycles <= 0) {
+            break;
         }
     }
 

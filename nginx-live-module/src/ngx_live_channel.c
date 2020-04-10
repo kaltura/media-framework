@@ -529,9 +529,10 @@ static u_char *
 ngx_live_variant_json_track_ids_write(u_char *p, ngx_live_variant_t *obj)
 {
     uint32_t           media_type;
-    ngx_flag_t         first_time = 1;
+    ngx_flag_t         comma;
     ngx_live_track_t  *cur_track;
 
+    comma = 0;
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
         cur_track = obj->tracks[media_type];
@@ -539,11 +540,11 @@ ngx_live_variant_json_track_ids_write(u_char *p, ngx_live_variant_t *obj)
             continue;
         }
 
-        if (first_time) {
-            first_time = 0;
+        if (comma) {
+            *p++ = ',';
 
         } else {
-            *p++ = ',';
+            comma = 1;
         }
 
         switch (media_type) {
