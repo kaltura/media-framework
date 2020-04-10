@@ -161,6 +161,7 @@ typedef struct {
 
     /* stats */
     int64_t                           last_created;
+    off_t                             received_bytes;
     ngx_uint_t                        received_frames;
     ngx_uint_t                        received_key_frames;
 
@@ -726,7 +727,6 @@ static ngx_uint_t
 ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
     int64_t target_pts)
 {
-    int64_t                           prev_pts;
     int64_t                           diff, cur_diff;
     ngx_uint_t                        index;
     ngx_uint_t                        cur_index;
@@ -738,16 +738,15 @@ ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
     last = cur + part->nelts;
 
     /* handle first frame */
-    prev_pts = cur->pts;
-    if (prev_pts >= target_pts) {
+    if (cur->pts >= target_pts) {
         return 0;
     }
 
-    index = 0;
-    diff = ngx_abs_diff(prev_pts, target_pts);
+    cur_index = index = 1;
+    diff = ngx_abs_diff(cur->pts, target_pts);
     cur++;
 
-    for (cur_index = 1 ;; cur++, cur_index++) {
+    for (; ; cur++) {
 
         if (cur >= last) {
             if (part->next == NULL) {
@@ -759,17 +758,17 @@ ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
             last = cur + part->nelts;
         }
 
-        cur_diff = ngx_abs_diff(prev_pts, target_pts);
-        if (cur_diff <= diff) {
-            index = cur_index;
-            diff = cur_diff;
-        }
-
         if (cur->flags & NGX_LIVE_FRAME_FLAG_SPLIT) {
             break;
         }
 
-        prev_pts = cur->pts;
+        cur_index++;
+
+        cur_diff = ngx_abs_diff(cur->pts, target_pts);
+        if (cur_diff <= diff) {
+            index = cur_index;
+            diff = cur_diff;
+        }
     }
 
     return index;
@@ -779,7 +778,6 @@ static ngx_uint_t
 ngx_live_segmenter_frame_list_get_truncate_index(
     ngx_live_segmenter_frame_list_t *list, int64_t target_pts)
 {
-    int64_t                           prev_pts;
     ngx_uint_t                        index;
     ngx_live_segmenter_frame_t       *cur, *last;
     ngx_live_segmenter_frame_part_t  *part;
@@ -789,8 +787,7 @@ ngx_live_segmenter_frame_list_get_truncate_index(
     last = cur + part->nelts;
 
     /* handle first frame */
-    prev_pts = cur->pts;
-    if (prev_pts >= target_pts) {
+    if (cur->pts >= target_pts) {
         return 0;
     }
 
@@ -808,11 +805,9 @@ ngx_live_segmenter_frame_list_get_truncate_index(
             last = cur + part->nelts;
         }
 
-        if (prev_pts >= target_pts) {
+        if (cur->pts >= target_pts) {
             break;
         }
-
-        prev_pts = cur->pts;
     }
 
     return index;
@@ -2705,6 +2700,7 @@ ngx_live_segmenter_add_frame(ngx_live_track_t *track, kmp_frame_t *frame_info,
     }
 
     ctx->received_frames++;
+    ctx->received_bytes += size;
 
     frame = ngx_live_segmenter_frame_list_push(&ctx->frames, data_head,
         data_tail);
@@ -3174,6 +3170,7 @@ ngx_live_segmenter_track_json_get_size(void *obj)
 {
     return sizeof("\"last_created\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"pending_frames\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"received_bytes\":") - 1 + NGX_OFF_T_LEN +
         sizeof(",\"received_frames\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"received_key_frames\":") - 1 + NGX_INT_T_LEN;
 }
@@ -3191,6 +3188,9 @@ ngx_live_segmenter_track_json_write(u_char *p, void *obj)
 
     p = ngx_copy_fix(p, ",\"pending_frames\":");
     p = ngx_sprintf(p, "%uD", ctx->frame_count);
+
+    p = ngx_copy_fix(p, ",\"received_bytes\":");
+    p = ngx_sprintf(p, "%O", ctx->received_bytes);
 
     p = ngx_copy_fix(p, ",\"received_frames\":");
     p = ngx_sprintf(p, "%ui", ctx->received_frames);

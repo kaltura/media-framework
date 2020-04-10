@@ -22,7 +22,7 @@ typedef struct {
 typedef struct {
     ngx_pool_cleanup_t        cln;
     ngx_stream_session_t     *s;
-    ngx_log_t                 log;
+    ngx_log_t                *log;
     ngx_live_track_t         *track;
     ngx_live_channel_t       *channel;
     u_char                    remote_addr_buf[NGX_SOCKADDR_STRLEN];
@@ -196,7 +196,7 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
     kmp_media_info_t  *media_info_ptr;
 
     if (ctx->packet_header.header_size < sizeof(kmp_media_info_packet_t)) {
-        ngx_log_error(NGX_LOG_ERR, &ctx->log, 0,
+        ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
             "ngx_stream_live_kmp_media_info: invalid header size %uD",
             ctx->packet_header.header_size);
         return NGX_STREAM_BAD_REQUEST;
@@ -205,7 +205,7 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
     media_info_ptr = ngx_buf_chain_read(&data, &media_info,
         sizeof(media_info));
     if (media_info_ptr == NULL) {
-        ngx_log_error(NGX_LOG_ALERT, &ctx->log, 0,
+        ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
             "ngx_stream_live_kmp_media_info: read header failed");
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
     }
@@ -215,7 +215,7 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
         if (ngx_buf_chain_skip(&data, ctx->packet_header.header_size -
             sizeof(kmp_media_info_packet_t)) != NGX_OK)
         {
-            ngx_log_error(NGX_LOG_ALERT, &ctx->log, 0,
+            ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
                 "ngx_stream_live_kmp_media_info: skip failed");
             return NGX_STREAM_INTERNAL_SERVER_ERROR;
         }
@@ -233,13 +233,13 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
         break;
 
     case NGX_ABORT:
-        ngx_log_error(NGX_LOG_NOTICE, &ctx->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_stream_live_kmp_media_info: push returned abort");
         ngx_live_channel_finalize(ctx->channel);
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
 
     default:
-        ngx_log_error(NGX_LOG_NOTICE, &ctx->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_stream_live_kmp_media_info: push failed");
         return NGX_STREAM_BAD_REQUEST;
     }
@@ -260,27 +260,27 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
 
     /* get the frame metadata */
     if (ctx->packet_header.header_size < sizeof(kmp_frame_packet_t)) {
-        ngx_log_error(NGX_LOG_ERR, &ctx->log, 0,
+        ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
             "ngx_stream_live_kmp_frame: invalid header size %uD",
             ctx->packet_header.header_size);
         return NGX_STREAM_BAD_REQUEST;
     }
 
     if (!ctx->got_media_info) {
-        ngx_log_error(NGX_LOG_NOTICE, &ctx->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_stream_live_kmp_frame: no media info, skipping frame");
         return NGX_OK;
     }
 
     if (ctx->packet_header.data_size == 0) {
-        ngx_log_error(NGX_LOG_NOTICE, &ctx->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_stream_live_kmp_frame: skipping empty frame");
         return NGX_OK;
     }
 
     frame_ptr = ngx_buf_chain_read(&data, &frame, sizeof(frame));
     if (frame_ptr == NULL) {
-        ngx_log_error(NGX_LOG_ALERT, &ctx->log, 0,
+        ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
             "ngx_stream_live_kmp_frame: read header failed");
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
     }
@@ -297,7 +297,7 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         if (ctx->track->media_type == KMP_MEDIA_VIDEO &&
             (frame_ptr->flags & KMP_FRAME_FLAG_KEY) == 0)
         {
-            ngx_log_error(NGX_LOG_NOTICE, &ctx->log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                 "ngx_stream_live_kmp_frame: "
                 "skipping non-key frame, created: %L, dts: %L",
                 frame_ptr->created, frame_ptr->dts);
@@ -312,7 +312,7 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         if (ngx_buf_chain_skip(&data, ctx->packet_header.header_size -
             sizeof(kmp_frame_packet_t)) != NGX_OK)
         {
-            ngx_log_error(NGX_LOG_ALERT, &ctx->log, 0,
+            ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
                 "ngx_stream_live_kmp_frame: skip failed");
             return NGX_STREAM_INTERNAL_SERVER_ERROR;
         }
@@ -332,13 +332,13 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         break;
 
     case NGX_ABORT:
-        ngx_log_error(NGX_LOG_NOTICE, &ctx->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_stream_live_kmp_frame: add frame returned abort");
         ngx_live_channel_finalize(ctx->channel);
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
 
     default:
-        ngx_log_error(NGX_LOG_NOTICE, &ctx->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_stream_live_kmp_frame: add frame failed");
         return NGX_STREAM_BAD_REQUEST;
     }
@@ -400,7 +400,7 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
                 break;
 
             default:
-                ngx_log_error(NGX_LOG_ERR, &ctx->log, 0,
+                ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
                     "ngx_stream_live_kmp_process_buffer: "
                     "unknown kmp packet 0x%uxD",
                     ctx->packet_header.packet_type);
@@ -409,14 +409,14 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
 
             if (ctx->packet_header.header_size < sizeof(ctx->packet_header) ||
                 ctx->packet_header.header_size > KMP_MAX_HEADER_SIZE) {
-                ngx_log_error(NGX_LOG_ERR, &ctx->log, 0,
+                ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
                     "ngx_stream_live_kmp_process_buffer: "
                     "invalid header size %uD", ctx->packet_header.header_size);
                 return NGX_STREAM_BAD_REQUEST;
             }
 
             if (ctx->packet_header.data_size > KMP_MAX_DATA_SIZE) {
-                ngx_log_error(NGX_LOG_ERR, &ctx->log, 0,
+                ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
                     "ngx_stream_live_kmp_process_buffer: "
                     "invalid data size %uD", ctx->packet_header.data_size);
                 return NGX_STREAM_BAD_REQUEST;
@@ -441,7 +441,7 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
 
                 part = ngx_live_channel_buf_chain_alloc(ctx->channel);
                 if (part == NULL) {
-                    ngx_log_error(NGX_LOG_NOTICE, &ctx->log, 0,
+                    ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                         "ngx_stream_live_kmp_process_buffer: "
                         "alloc chain failed");
                     ngx_live_channel_finalize(ctx->channel);
@@ -466,7 +466,7 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
         }
 
         if (ctx->packet_left > 0) {
-            ngx_log_debug1(NGX_LOG_DEBUG_STREAM, &ctx->log, 0,
+            ngx_log_debug1(NGX_LOG_DEBUG_STREAM, ctx->log, 0,
                 "ngx_stream_live_kmp_process_buffer: packet left: %uD",
                 ctx->packet_left);
             break;
@@ -480,7 +480,7 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
             ctx->packet_data_first = NULL;
         }
 
-        ngx_log_debug3(NGX_LOG_DEBUG_STREAM, &ctx->log, 0,
+        ngx_log_debug3(NGX_LOG_DEBUG_STREAM, ctx->log, 0,
             "ngx_stream_live_kmp_process_buffer: "
             "packet_type: 0x%uxD, header: %uD, data: %uD",
             ctx->packet_header.packet_type, ctx->packet_header.header_size,
@@ -494,7 +494,7 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
         case KMP_PACKET_MEDIA_INFO:
             rc = ngx_stream_live_kmp_media_info(ctx);
             if (rc != NGX_OK) {
-                ngx_log_error(NGX_LOG_NOTICE, &ctx->log, 0,
+                ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                     "ngx_stream_live_kmp_process_buffer: "
                     "handle media info failed %i", rc);
                 return rc;
@@ -504,7 +504,7 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
         case KMP_PACKET_FRAME:
             rc = ngx_stream_live_kmp_frame(ctx);
             if (rc != NGX_OK) {
-                ngx_log_error(NGX_LOG_NOTICE, &ctx->log, 0,
+                ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                     "ngx_stream_live_kmp_process_buffer: "
                     "handle frame failed %i", rc);
                 return rc;
@@ -512,14 +512,14 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
             break;
 
         case KMP_PACKET_END_OF_STREAM:
-            ngx_log_error(NGX_LOG_INFO, &ctx->log, 0,
+            ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
                 "ngx_stream_live_kmp_process_buffer: "
                 "got end of stream");
             ngx_live_end_of_stream(ctx->track);
             return NGX_STREAM_OK;
 
         default:
-            ngx_log_error(NGX_LOG_ALERT, &ctx->log, 0,
+            ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
                 "ngx_stream_live_kmp_process_buffer: "
                 "unknown kmp packet 0x%uxD", ctx->packet_header.packet_type);
             return NGX_STREAM_BAD_REQUEST;
@@ -550,7 +550,7 @@ ngx_stream_live_kmp_read_packets(ngx_stream_live_kmp_ctx_t *ctx)
 
             rc = ngx_live_input_bufs_get(ctx->track, b);
             if (rc != NGX_OK) {
-                ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+                ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                     "ngx_stream_live_kmp_read_packets: failed to get buffer");
                 ngx_live_channel_finalize(ctx->channel);
                 return NGX_STREAM_INTERNAL_SERVER_ERROR;
@@ -561,17 +561,19 @@ ngx_stream_live_kmp_read_packets(ngx_stream_live_kmp_ctx_t *ctx)
         if (rc != NGX_OK) {
 
             if (rc != NGX_AGAIN) {
-                ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+                ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                     "ngx_stream_live_kmp_read_packets: recv failed");
             }
             return rc;
         }
 
+        ctx->track->input.received_bytes += b->last - b->pos;
+
         if (ctx->dump_fd != NGX_INVALID_FILE) {
             if (ngx_write_fd(ctx->dump_fd, b->pos, b->last - b->pos)
                 == NGX_ERROR)
             {
-                ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
+                ngx_log_error(NGX_LOG_ERR, ctx->log, ngx_errno,
                     "ngx_stream_live_kmp_read_packets: "
                     "dump file write failed");
                 ngx_close_file(ctx->dump_fd);
@@ -605,17 +607,17 @@ ngx_stream_live_kmp_write_handler(ngx_event_t *wev)
     c = wev->data;
     s = c->data;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_STREAM, wev->log, 0,
+    ctx = ngx_stream_get_module_ctx(s, ngx_stream_live_kmp_module);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_STREAM, ctx->log, 0,
         "ngx_stream_live_kmp_write_handler: called");
 
     if (wev->timedout) {
-        ngx_log_error(NGX_LOG_ERR, wev->log, NGX_ETIMEDOUT,
+        ngx_log_error(NGX_LOG_ERR, ctx->log, NGX_ETIMEDOUT,
             "ngx_stream_live_kmp_write_handler: timed out");
         ngx_stream_finalize_session(s, NGX_STREAM_OK);
         return;
     }
-
-    ctx = ngx_stream_get_module_ctx(s, ngx_stream_live_kmp_module);
 
     for ( ;; ) {
 
@@ -625,7 +627,7 @@ ngx_stream_live_kmp_write_handler(ngx_event_t *wev)
         n = ngx_send(c, ctx->ack_packet_pos, size);
 
         if (n == NGX_ERROR) {
-            ngx_log_error(NGX_LOG_NOTICE, &ctx->log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                 "ngx_stream_live_kmp_write_handler: send failed");
             ngx_stream_finalize_session(s, NGX_STREAM_OK);
             return;
@@ -644,7 +646,7 @@ ngx_stream_live_kmp_write_handler(ngx_event_t *wev)
 
             if (ctx->ack_packet.frame_id != ctx->acked_frame_id) {
                 /* got another ack while sending */
-                ngx_log_error(NGX_LOG_INFO, &ctx->log, 0,
+                ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
                     "ngx_stream_live_kmp_write_handler: sending ack %uL",
                     ctx->acked_frame_id);
                 ctx->ack_packet.frame_id = ctx->acked_frame_id;
@@ -659,7 +661,7 @@ ngx_stream_live_kmp_write_handler(ngx_event_t *wev)
     }
 
     if (ngx_handle_write_event(wev, 0) != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, &ctx->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_stream_live_kmp_write_handler: "
             "handle write event failed");
         ngx_stream_finalize_session(s, NGX_STREAM_INTERNAL_SERVER_ERROR);
@@ -691,7 +693,7 @@ ngx_stream_live_kmp_ack_frames(ngx_live_track_t *track, ngx_uint_t count)
         return;
     }
 
-    ngx_log_error(NGX_LOG_INFO, &ctx->log, 0,
+    ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
         "ngx_stream_live_kmp_ack_frames: sending ack %uL",
         ctx->acked_frame_id);
     ctx->ack_packet.frame_id = ctx->acked_frame_id;
@@ -737,6 +739,33 @@ ngx_stream_live_kmp_open_dump_file(ngx_stream_session_t *s)
 
     ngx_free(name.data);
     return fd;
+}
+
+static u_char *
+ngx_stream_live_kmp_log_error(ngx_log_t *log, u_char *buf, size_t len)
+{
+    u_char                     *p;
+    ngx_live_channel_t         *channel;
+    ngx_stream_session_t       *s;
+    ngx_stream_live_kmp_ctx_t  *ctx;
+
+    s = log->data;
+
+    ctx = ngx_stream_get_module_ctx(s, ngx_stream_live_kmp_module);
+
+    p = buf;
+
+    if (ctx != NULL) {
+        channel = ctx->channel;
+
+        p = ngx_snprintf(buf, len, ", nsi: %uD, track: %V, channel: %V",
+            channel->next_segment_index, &ctx->track->sn.str,
+            &channel->sn.str);
+        len -= p - buf;
+        buf = p;
+    }
+
+    return p;
 }
 
 static ngx_int_t
@@ -867,9 +896,7 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
     ctx->s = s;
     ctx->track = track;
     ctx->channel = track->channel;
-    ctx->log = *c->log;
-    ctx->log.handler = track->log.handler;
-    ctx->log.data = track->log.data;
+    ctx->log = c->log;
 
     ctx->packet_header_pos = (u_char *) &ctx->packet_header;
     ctx->packet_left = header->header.header_size + header->header.data_size -
@@ -899,6 +926,7 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
 
     track->input.connection = c->number;
     track->input.start_msec = ngx_current_msec;
+    track->input.received_bytes = sizeof(*header);
 
     /* get the address name with port */
     track->input.remote_addr.data = ctx->remote_addr_buf;
@@ -918,7 +946,7 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
     }
 
-    ngx_log_error(NGX_LOG_INFO, &ctx->log, 0,
+    ngx_log_error(NGX_LOG_INFO, c->log, 0,
         "ngx_stream_live_kmp_read_header: connected, initial frame id: %uL",
         ctx->acked_frame_id);
 
@@ -948,7 +976,7 @@ ngx_stream_live_kmp_read_handler(ngx_event_t *rev)
     }
 
     if (rev->timedout) {
-        ngx_log_error(NGX_LOG_ERR, rev->log, NGX_ETIMEDOUT,
+        ngx_log_error(NGX_LOG_ERR, c->log, NGX_ETIMEDOUT,
             "ngx_stream_live_kmp_read_handler: timed out");
 
         ngx_stream_finalize_session(s, NGX_STREAM_REQUEST_TIME_OUT);
@@ -964,7 +992,7 @@ ngx_stream_live_kmp_read_handler(ngx_event_t *rev)
                 goto again;
             }
 
-            ngx_log_error(NGX_LOG_NOTICE, rev->log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, c->log, 0,
                 "ngx_stream_live_kmp_read_handler: read header failed %i", rc);
             ngx_stream_finalize_session(s, rc);
             return;
@@ -979,7 +1007,7 @@ ngx_stream_live_kmp_read_handler(ngx_event_t *rev)
     }
 
     if (rc != NGX_STREAM_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, rev->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, c->log, 0,
             "ngx_stream_live_kmp_read_handler: read packets failed %i", rc);
     }
     ngx_stream_finalize_session(s, rc);
@@ -988,7 +1016,7 @@ ngx_stream_live_kmp_read_handler(ngx_event_t *rev)
 again:
 
     if (ngx_handle_read_event(rev, 0) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, rev->log, 0,
+        ngx_log_error(NGX_LOG_ERR, c->log, 0,
             "ngx_stream_live_kmp_read_handler: handle read event failed");
         ngx_stream_finalize_session(s, NGX_STREAM_INTERNAL_SERVER_ERROR);
         return;
@@ -1008,6 +1036,8 @@ ngx_stream_live_kmp_handler(ngx_stream_session_t *s)
     ngx_connection_t  *c;
 
     c = s->connection;
+
+    s->log_handler = ngx_stream_live_kmp_log_error;
 
     c->read->handler = ngx_stream_live_kmp_read_handler;
     c->write->handler = ngx_stream_live_kmp_dummy_handler;

@@ -82,6 +82,7 @@ typedef struct {
     ngx_live_period_t                 *last_period;
     uint64_t                           duration;
     uint32_t                           segment_count;
+    uint32_t                           period_count;
 } ngx_live_timeline_t;
 
 

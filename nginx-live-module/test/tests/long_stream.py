@@ -14,6 +14,8 @@ MEDIA_INFO_CHANGE = False
 NO_TRUNCATE = False
 
 
+# Note: need to compile the module in release, otherwise the tests will take a long time
+
 # Test matrix:
 
 # params         result                                         error log

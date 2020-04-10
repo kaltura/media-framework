@@ -11,6 +11,7 @@ ngx_live_period_json_get_size(ngx_live_period_t *obj)
     size_t  result =
         sizeof("{\"time\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"duration\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"segment_index\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"segment_count\":") - 1 + NGX_INT32_LEN +
         sizeof("}") - 1;
 
@@ -24,6 +25,8 @@ ngx_live_period_json_write(u_char *p, ngx_live_period_t *obj)
     p = ngx_sprintf(p, "%L", (int64_t) obj->time);
     p = ngx_copy_fix(p, ",\"duration\":");
     p = ngx_sprintf(p, "%uL", (uint64_t) obj->duration);
+    p = ngx_copy_fix(p, ",\"segment_index\":");
+    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->node.key);
     p = ngx_copy_fix(p, ",\"segment_count\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->segment_count);
     *p++ = '}';
@@ -32,9 +35,8 @@ ngx_live_period_json_write(u_char *p, ngx_live_period_t *obj)
 }
 
 size_t
-ngx_live_timeline_json_get_size(ngx_live_timeline_t *obj)
+ngx_live_timeline_conf_json_get_size(ngx_live_timeline_t *obj)
 {
-    ngx_live_period_t  *cur;
     size_t  result =
         sizeof("{\"active\":") - 1 + sizeof("false") - 1 +
         sizeof(",\"no_truncate\":") - 1 + sizeof("false") - 1 +
@@ -46,22 +48,14 @@ ngx_live_timeline_json_get_size(ngx_live_timeline_t *obj)
         sizeof(",\"manifest_max_duration\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"manifest_expiry_threshold\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"manifest_target_duration_segments\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"segment_count\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"duration\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"periods\":[") - 1 +
-        sizeof("]}") - 1;
-
-    for (cur = obj->head_period; cur; cur = cur->next) {
-        result += ngx_live_period_json_get_size(cur) + sizeof(",") - 1;
-    }
+        sizeof("}") - 1;
 
     return result;
 }
 
 u_char *
-ngx_live_timeline_json_write(u_char *p, ngx_live_timeline_t *obj)
+ngx_live_timeline_conf_json_write(u_char *p, ngx_live_timeline_t *obj)
 {
-    ngx_live_period_t  *cur;
     p = ngx_copy_fix(p, "{\"active\":");
     if (obj->conf.active) {
         p = ngx_copy_fix(p, "true");
@@ -96,21 +90,40 @@ ngx_live_timeline_json_write(u_char *p, ngx_live_timeline_t *obj)
     p = ngx_copy_fix(p, ",\"manifest_target_duration_segments\":");
     p = ngx_sprintf(p, "%uD", (uint32_t)
         obj->manifest.conf.target_duration_segments);
+    *p++ = '}';
+
+    return p;
+}
+
+size_t
+ngx_live_timeline_json_get_size(ngx_live_timeline_t *obj)
+{
+    size_t  result =
+        sizeof("{\"conf\":") - 1 + ngx_live_timeline_conf_json_get_size(obj) +
+        sizeof(",\"period_count\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"segment_count\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"duration\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"last_periods\":") - 1 +
+            ngx_live_timeline_last_periods_json_get_size(obj) +
+        sizeof("}") - 1;
+
+    return result;
+}
+
+u_char *
+ngx_live_timeline_json_write(u_char *p, ngx_live_timeline_t *obj)
+{
+    p = ngx_copy_fix(p, "{\"conf\":");
+    p = ngx_live_timeline_conf_json_write(p, obj);
+    p = ngx_copy_fix(p, ",\"period_count\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->period_count);
     p = ngx_copy_fix(p, ",\"segment_count\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->segment_count);
     p = ngx_copy_fix(p, ",\"duration\":");
     p = ngx_sprintf(p, "%uL", (uint64_t) obj->duration);
-    p = ngx_copy_fix(p, ",\"periods\":[");
-
-    for (cur = obj->head_period; cur; cur = cur->next) {
-
-        if (cur != obj->head_period) {
-            *p++ = ',';
-        }
-        p = ngx_live_period_json_write(p, cur);
-    }
-
-    p = ngx_copy_fix(p, "]}");
+    p = ngx_copy_fix(p, ",\"last_periods\":");
+    p = ngx_live_timeline_last_periods_json_write(p, obj);
+    *p++ = '}';
 
     return p;
 }

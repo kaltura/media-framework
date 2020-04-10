@@ -17,7 +17,7 @@ ngx_rtmp_kmp_api_upstream_json_get_size(ngx_kmp_push_upstream_t *obj)
         sizeof("\",\"local_addr\":\"") - 1 + obj->local_addr.len +
             ngx_escape_json(NULL, obj->local_addr.data, obj->local_addr.len) +
         sizeof("\",\"connection\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"sent\":") - 1 + NGX_OFF_T_LEN +
+        sizeof(",\"sent_bytes\":") - 1 + NGX_OFF_T_LEN +
         sizeof(",\"position\":") - 1 + NGX_OFF_T_LEN +
         sizeof(",\"acked_frames\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"acked_bytes\":") - 1 + NGX_OFF_T_LEN +
@@ -39,7 +39,7 @@ ngx_rtmp_kmp_api_upstream_json_write(u_char *p, ngx_kmp_push_upstream_t *obj)
         obj->local_addr.len);
     p = ngx_copy_fix(p, "\",\"connection\":");
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->log.connection);
-    p = ngx_copy_fix(p, ",\"sent\":");
+    p = ngx_copy_fix(p, ",\"sent_bytes\":");
     p = ngx_sprintf(p, "%O", (off_t) (obj->peer.connection ?
         obj->peer.connection->sent : 0));
     p = ngx_copy_fix(p, ",\"position\":");

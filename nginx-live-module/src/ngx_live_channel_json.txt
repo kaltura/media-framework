@@ -3,6 +3,7 @@ static ngx_live_track_input ngx_live_track_input_t
     connection %uA
     remote_addr %V
     uptime %i (ngx_current_msec - obj->start_msec)
+    received_bytes %O
 
 static ngx_live_track_json ngx_live_track_t
     media_type %enum-ngx_live_track_media_type_names

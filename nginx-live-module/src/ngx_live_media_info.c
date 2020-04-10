@@ -38,7 +38,8 @@ typedef struct {
     uint32_t            delta_sum;
 
     ngx_queue_t         active;
-    uint32_t            count;
+    uint32_t            added;
+    uint32_t            removed;
 
     ngx_str_t           group_id;
     u_char              group_id_buf[NGX_LIVE_TRACK_MAX_GROUP_ID_LEN];
@@ -476,7 +477,7 @@ ngx_live_media_info_queue_push(ngx_live_track_t *track,
     node->u.start_segment_index = segment_index;
 
     ngx_queue_insert_tail(&ctx->active, &node->queue);
-    ctx->count++;
+    ctx->added++;
 
     track->channel->last_modified = ngx_time();
 }
@@ -508,7 +509,7 @@ ngx_live_media_info_queue_track_segment_free(ngx_live_track_t *track,
 
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
         ngx_live_media_info_node_free(track->channel, node);
-        ctx->count--;
+        ctx->removed++;
 
         q = next;
     }
@@ -573,7 +574,7 @@ ngx_live_media_info_queue_free_all(ngx_live_track_t *track)
         ngx_live_media_info_node_free(channel, node);
     }
 
-    ctx->count = 0;
+    ctx->removed = ctx->added;
 }
 
 media_info_t *
@@ -1112,7 +1113,7 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track)
         "setting source to \"%V\"", &source->sn.str);
 
     ctx->source = source;
-    ctx->count = source_ctx->count;
+    ctx->added = source_ctx->added - source_ctx->removed;
     source_ctx->source_refs++;
 
     return ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_COPY, source);
@@ -1317,7 +1318,8 @@ ngx_live_media_info_track_json_get_size(void *obj)
 
     result = sizeof("\"group_id\":\"") - 1 +
         ngx_escape_json(NULL, ctx->group_id.data, ctx->group_id.len) +
-        sizeof("\",\"media_info_count\":") - 1 + NGX_INT32_LEN;
+        sizeof("\",\"media_info\":{\"added\":,\"removed\":}") - 1 +
+        2 * NGX_INT32_LEN;
 
     if (ngx_queue_empty(&ctx->active)) {
         return result;
@@ -1325,7 +1327,7 @@ ngx_live_media_info_track_json_get_size(void *obj)
 
     if (ctx->source) {
         source_id = &ctx->source->sn.str;
-        result += sizeof(",\"media_info_source\":\"\"") - 1 +
+        result += sizeof(",\"source\":\"\"") - 1 +
             source_id->len + ngx_escape_json(NULL, source_id->data,
                 source_id->len);
     }
@@ -1333,7 +1335,7 @@ ngx_live_media_info_track_json_get_size(void *obj)
     q = ngx_queue_last(&ctx->active);
     node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
-    result += sizeof(",\"media_info\":") - 1;
+    result += sizeof(",\"last\":") - 1;
 
     switch (node->media_info.media_type) {
 
@@ -1365,16 +1367,19 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
     p = ngx_copy_fix(p, "\"group_id\":\"");
     p = (u_char *) ngx_escape_json(p, ctx->group_id.data, ctx->group_id.len);
 
-    p = ngx_copy_fix(p, "\",\"media_info_count\":");
-    p = ngx_sprintf(p, "%uD", ctx->count);
+    p = ngx_copy_fix(p, "\",\"media_info\":{\"added\":");
+    p = ngx_sprintf(p, "%uD", ctx->added);
+    p = ngx_copy_fix(p, ",\"removed\":");
+    p = ngx_sprintf(p, "%uD", ctx->removed);
 
     if (ngx_queue_empty(&ctx->active)) {
+        *p++ = '}';
         return p;
     }
 
     if (ctx->source) {
         source_id = &ctx->source->sn.str;
-        p = ngx_copy_fix(p, ",\"media_info_source\":\"");
+        p = ngx_copy_fix(p, ",\"source\":\"");
         p = (u_char *) ngx_escape_json(p, source_id->data, source_id->len);
         *p++ = '\"';
     }
@@ -1382,7 +1387,7 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
     q = ngx_queue_last(&ctx->active);
     node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
-    p = ngx_copy_fix(p, ",\"media_info\":");
+    p = ngx_copy_fix(p, ",\"last\":");
 
     switch (node->media_info.media_type) {
 
@@ -1397,6 +1402,7 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
         break;
     }
 
+    *p++ = '}';
     return p;
 }
 
