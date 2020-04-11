@@ -344,16 +344,16 @@ static ngx_int_t
 ngx_live_syncer_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
     size_t                         *track_ctx_size = ectx;
-    ngx_live_syncer_channel_ctx_t  *ctx;
+    ngx_live_syncer_channel_ctx_t  *cctx;
 
-    ctx = ngx_pcalloc(channel->pool, sizeof(*ctx));
-    if (ctx == NULL) {
+    cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
+    if (cctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_syncer_channel_init: alloc failed");
         return NGX_ERROR;
     }
 
-    ngx_live_set_ctx(channel, ctx, ngx_live_syncer_module);
+    ngx_live_set_ctx(channel, cctx, ngx_live_syncer_module);
 
     ngx_live_reserve_track_ctx_size(channel, ngx_live_syncer_module,
         sizeof(ngx_live_syncer_track_ctx_t), track_ctx_size);
