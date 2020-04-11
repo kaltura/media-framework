@@ -1248,23 +1248,23 @@ ngx_live_media_info_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
     size_t                             *track_ctx_size = ectx;
     size_t                              block_sizes[NGX_LIVE_BP_COUNT];
-    ngx_live_media_info_channel_ctx_t  *ctx;
+    ngx_live_media_info_channel_ctx_t  *cctx;
 
-    ctx = ngx_pcalloc(channel->pool, sizeof(*ctx));
-    if (ctx == NULL) {
+    cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
+    if (cctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_media_info_channel_init: alloc failed");
         return NGX_ERROR;
     }
 
-    ngx_live_set_ctx(channel, ctx, ngx_live_media_info_module);
+    ngx_live_set_ctx(channel, cctx, ngx_live_media_info_module);
 
     block_sizes[NGX_LIVE_BP_MEDIA_INFO_NODE] =
         sizeof(ngx_live_media_info_node_t);
 
-    ctx->block_pool = ngx_live_channel_create_block_pool(channel, block_sizes,
+    cctx->block_pool = ngx_live_channel_create_block_pool(channel, block_sizes,
         NGX_LIVE_BP_COUNT);
-    if (ctx->block_pool == NULL) {
+    if (cctx->block_pool == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_media_info_channel_init: create block pool failed");
         return NGX_ERROR;

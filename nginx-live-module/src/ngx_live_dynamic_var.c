@@ -257,22 +257,22 @@ static size_t
 ngx_live_dynamic_var_channel_json_get_size(void *obj)
 {
     ngx_live_channel_t                  *channel = obj;
-    ngx_live_dynamic_var_channel_ctx_t  *ctx;
+    ngx_live_dynamic_var_channel_ctx_t  *cctx;
 
-    ctx = ngx_live_get_module_ctx(channel, ngx_live_dynamic_var_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_dynamic_var_module);
 
-    return ngx_live_dynamic_vars_json_get_size(ctx);
+    return ngx_live_dynamic_vars_json_get_size(cctx);
 }
 
 static u_char *
 ngx_live_dynamic_var_channel_json_write(u_char *p, void *obj)
 {
     ngx_live_channel_t                  *channel = obj;
-    ngx_live_dynamic_var_channel_ctx_t  *ctx;
+    ngx_live_dynamic_var_channel_ctx_t  *cctx;
 
-    ctx = ngx_live_get_module_ctx(channel, ngx_live_dynamic_var_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_dynamic_var_module);
 
-    return ngx_live_dynamic_vars_json_write(p, ctx);
+    return ngx_live_dynamic_vars_json_write(p, cctx);
 }
 
 static ngx_int_t
