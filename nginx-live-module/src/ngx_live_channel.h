@@ -20,9 +20,11 @@
 
 #define NGX_LIVE_TRACK_MAX_ID_LEN       (KMP_MAX_TRACK_ID_LEN)
 
+#define NGX_LIVE_INVALID_TRACK_ID       (0)
 #define NGX_LIVE_INVALID_SEGMENT_INDEX  (NGX_MAX_UINT32_VALUE)
 
 #define NGX_LIVE_SEGMENT_NO_BITRATE     (1)
+
 
 #define ngx_live_reserve_track_ctx_size(channel, module, size, total_size)  \
     channel->track_ctx_offset[module.ctx_index] = *total_size;              \
