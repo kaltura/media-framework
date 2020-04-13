@@ -202,9 +202,10 @@ static frames_source_t  ngx_live_dvr_source = {
 static ngx_int_t
 ngx_live_dvr_read_parse_header(ngx_live_dvr_read_ctx_t *ctx, ngx_str_t *buf)
 {
-    uint64_t                       offset;
+    size_t                         size;
     uint32_t                       i;
     uint32_t                       found_tracks;
+    uint64_t                       offset;
     ngx_live_dvr_file_header_t    *header;
     ngx_live_dvr_segment_entry_t  *cur_entry;
     ngx_live_dvr_segment_entry_t  *last_entry;
@@ -240,6 +241,13 @@ ngx_live_dvr_read_parse_header(ngx_live_dvr_read_ctx_t *ctx, ngx_str_t *buf)
         return NGX_HTTP_BAD_GATEWAY;
     }
 
+    if (header->type != NGX_LIVE_DVR_TYPE_SEGMENT_LIST) {
+        ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
+            "ngx_live_dvr_read_parse_header: "
+            "invalid type 0x%uxD", header->type);
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
     if (header->segment_count > (header->header_size - sizeof(*header)) /
         sizeof(*cur_entry))
     {
@@ -255,8 +263,10 @@ ngx_live_dvr_read_parse_header(ngx_live_dvr_read_ctx_t *ctx, ngx_str_t *buf)
 
     for (offset = header->header_size;
         cur_entry < last_entry;
-        offset += cur_entry->size, cur_entry++)
+        offset += size, cur_entry++)
     {
+        size = cur_entry->header_size + cur_entry->data_size;
+
         if (cur_entry->segment_id != ctx->segment->segment_index) {
             continue;
         }
@@ -275,7 +285,7 @@ ngx_live_dvr_read_parse_header(ngx_live_dvr_read_ctx_t *ctx, ngx_str_t *buf)
             }
 
             ctx->tracks[i].offset = offset;
-            ctx->tracks[i].size = cur_entry->size;
+            ctx->tracks[i].size = size;
             found_tracks |= (1 << i);
         }
     }
@@ -613,8 +623,8 @@ ngx_live_dvr_save_append_segment(ngx_pool_t *pool, ngx_chain_t **ll,
 
     entry->segment_id = segment->node.key;
     entry->track_id = cur_track->in.key;
-    entry->size = header.header_size + segment->data_size;
-    entry->metadata_size = header.header_size;
+    entry->header_size = header.header_size;
+    entry->data_size = segment->data_size;
 
     return ll;
 }
@@ -665,6 +675,9 @@ ngx_live_dvr_save_create_file(ngx_live_channel_t *channel, ngx_pool_t *pool,
 
     header->magic = NGX_LIVE_DVR_FILE_MAGIC;
     header->flags = 0;
+    header->version = NGX_LIVE_DVR_FILE_VERSION;
+    header->type = NGX_LIVE_DVR_TYPE_SEGMENT_LIST;
+    header->data_size = 0;
     header->segment_count = 0;
 
     cl->buf = header_buf;
@@ -721,13 +734,14 @@ ngx_live_dvr_save_create_file(ngx_live_channel_t *channel, ngx_pool_t *pool,
                 return NULL;
             }
 
+            header->data_size += segment_entry->header_size +
+                segment_entry->data_size;
             header->segment_count++;
-            request->size += segment_entry->size;
         }
     }
 
     header->header_size = header_buf->last - header_buf->pos;
-    request->size += header->header_size;
+    request->size = header->header_size + header->data_size;
 
     *ll = NULL;
     *pcln = cln;

@@ -699,7 +699,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
         return rc;
     }
 
-    track->in.key = channel->tracks.next_id++;
+    track->in.key = ++channel->tracks.next_id;
 
     ngx_rbtree_insert(&channel->tracks.rbtree, &track->sn.node);
     ngx_rbtree_insert(&channel->tracks.irbtree, &track->in);
