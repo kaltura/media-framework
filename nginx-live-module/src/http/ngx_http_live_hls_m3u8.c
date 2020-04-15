@@ -244,7 +244,7 @@ ngx_http_live_hls_media_group_label_exists(
         cur < last;
         cur++)
     {
-        cur_label = &(*cur)->label;
+        cur_label = &(*cur)->conf.label;
         if (cur_label->len == label->len &&
             ngx_memcmp(cur_label->data, label->data, label->len) == 0)
         {
@@ -280,7 +280,8 @@ ngx_http_live_hls_media_group_get_size(ngx_http_live_hls_media_group_t *group,
 
         variant = ((ngx_live_variant_t **) group->variants.elts)[i];
 
-        result += variant->label.len + variant->lang.len + variant->sn.str.len;
+        result += variant->conf.label.len + variant->conf.lang.len +
+            variant->sn.str.len;
     }
 
     return result;
@@ -302,13 +303,13 @@ ngx_http_live_hls_media_group_write(u_char *p,
         p = vod_sprintf(p, M3U8_MEDIA_BASE,
             &ngx_http_live_hls_media_type_name[media_type],
             &group->id,
-            &variant->label);
+            &variant->conf.label);
 
-        if (variant->lang.len) {
-            p = vod_sprintf(p, M3U8_MEDIA_LANG, &variant->lang);
+        if (variant->conf.lang.len) {
+            p = vod_sprintf(p, M3U8_MEDIA_LANG, &variant->conf.lang);
         }
 
-        if (variant->is_default) {
+        if (variant->conf.is_default) {
             p = ngx_copy_fix(p, M3U8_MEDIA_DEFAULT);
 
         } else {
@@ -372,7 +373,7 @@ ngx_http_live_hls_group_variants(ngx_http_request_t *r,
             continue;
         }
 
-        switch (variant->role) {
+        switch (variant->conf.role) {
 
         case ngx_live_variant_role_alternate:
 
@@ -395,7 +396,7 @@ ngx_http_live_hls_group_variants(ngx_http_request_t *r,
             }
 
             if (ngx_http_live_hls_media_group_label_exists(group,
-                &variant->label))
+                &variant->conf.label))
             {
                 continue;
             }

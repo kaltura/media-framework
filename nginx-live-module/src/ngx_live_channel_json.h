@@ -142,12 +142,12 @@ ngx_live_variant_json_get_size(ngx_live_variant_t *obj)
         sizeof("{\"track_ids\":{") - 1 +
             ngx_live_variant_json_track_ids_get_size(obj) +
         sizeof("},\"opaque\":\"") - 1 + obj->opaque.len +
-        sizeof("\",\"label\":\"") - 1 + obj->label.len + ngx_escape_json(NULL,
-            obj->label.data, obj->label.len) +
-        sizeof("\",\"lang\":\"") - 1 + obj->lang.len + ngx_escape_json(NULL,
-            obj->lang.data, obj->lang.len) +
+        sizeof("\",\"label\":\"") - 1 + obj->conf.label.len +
+            ngx_escape_json(NULL, obj->conf.label.data, obj->conf.label.len) +
+        sizeof("\",\"lang\":\"") - 1 + obj->conf.lang.len +
+            ngx_escape_json(NULL, obj->conf.lang.data, obj->conf.lang.len) +
         sizeof("\",\"role\":\"") - 1 +
-            ngx_live_variant_role_names[obj->role].len +
+            ngx_live_variant_role_names[obj->conf.role].len +
         sizeof("\",\"is_default\":") - 1 + sizeof("false") - 1 +
         sizeof("}") - 1;
 
@@ -162,13 +162,14 @@ ngx_live_variant_json_write(u_char *p, ngx_live_variant_t *obj)
     p = ngx_copy_fix(p, "},\"opaque\":\"");
     p = ngx_block_str_write(p, &obj->opaque);
     p = ngx_copy_fix(p, "\",\"label\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->label.data, obj->label.len);
+    p = (u_char *) ngx_escape_json(p, obj->conf.label.data,
+        obj->conf.label.len);
     p = ngx_copy_fix(p, "\",\"lang\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->lang.data, obj->lang.len);
+    p = (u_char *) ngx_escape_json(p, obj->conf.lang.data, obj->conf.lang.len);
     p = ngx_copy_fix(p, "\",\"role\":\"");
-    p = ngx_sprintf(p, "%V", &ngx_live_variant_role_names[obj->role]);
+    p = ngx_sprintf(p, "%V", &ngx_live_variant_role_names[obj->conf.role]);
     p = ngx_copy_fix(p, "\",\"is_default\":");
-    if (obj->is_default) {
+    if (obj->conf.is_default) {
         p = ngx_copy_fix(p, "true");
     } else {
         p = ngx_copy_fix(p, "false");
