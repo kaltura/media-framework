@@ -667,7 +667,6 @@ ngx_live_dvr_save_create_file(ngx_live_channel_t *channel, ngx_pool_t *pool,
     }
 
     ll = &out;
-    request->size = 0;
     cln = NULL;
 
     header = (void *) header_buf->last;

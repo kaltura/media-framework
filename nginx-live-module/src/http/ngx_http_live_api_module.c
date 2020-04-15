@@ -452,6 +452,7 @@ ngx_http_live_api_channel_delete(ngx_http_request_t *r, ngx_str_t *params,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_live_api_variants_get(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -477,11 +478,44 @@ ngx_http_live_api_variants_get(ngx_http_request_t *r, ngx_str_t *params,
 }
 
 static ngx_int_t
+ngx_http_live_api_variant_init_conf(ngx_json_value_t **values,
+    ngx_live_variant_conf_t *conf, ngx_log_t *log)
+{
+    ngx_int_t  role;
+
+    if (values[VARIANT_PARAM_ROLE] != NULL) {
+        role = ngx_http_live_find_string(ngx_live_variant_role_names,
+            &values[VARIANT_PARAM_ROLE]->v.str);
+        if (role < 0) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_http_live_api_variant_init_conf: invalid role \"%V\"",
+                &values[VARIANT_PARAM_ROLE]->v.str);
+            return NGX_HTTP_BAD_REQUEST;
+        }
+
+        conf->role = role;
+    }
+
+    if (values[VARIANT_PARAM_LABEL] != NULL) {
+        conf->label = values[VARIANT_PARAM_LABEL]->v.str;
+    }
+
+    if (values[VARIANT_PARAM_LANG] != NULL) {
+        conf->lang = values[VARIANT_PARAM_LANG]->v.str;
+    }
+
+    if (values[VARIANT_PARAM_DEFAULT] != NULL) {
+        conf->is_default = values[VARIANT_PARAM_DEFAULT]->v.boolean;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
 ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
 {
     ngx_int_t                      rc;
-    ngx_int_t                      role;
     ngx_str_t                      channel_id;
     ngx_str_t                      variant_id;
     ngx_log_t                     *log = r->connection->log;
@@ -489,6 +523,7 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t              *values[VARIANT_PARAM_COUNT];
     ngx_live_variant_t            *variant;
     ngx_live_channel_t            *channel;
+    ngx_live_variant_conf_t        conf;
     ngx_http_live_api_loc_conf_t  *llcf;
 
     if (body->type != NGX_JSON_OBJECT) {
@@ -507,50 +542,6 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
     }
 
-    if (values[VARIANT_PARAM_LABEL] != NULL &&
-        values[VARIANT_PARAM_LABEL]->v.str.len >
-            NGX_LIVE_VARIANT_MAX_LABEL_LEN)
-    {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_http_live_api_variants_post: label \"%V\" too long",
-            &values[VARIANT_PARAM_LABEL]->v.str);
-        return NGX_HTTP_BAD_REQUEST;
-    }
-
-    if (values[VARIANT_PARAM_LANG] != NULL &&
-        values[VARIANT_PARAM_LANG]->v.str.len >
-        NGX_LIVE_VARIANT_MAX_LANG_LEN)
-    {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_http_live_api_variants_post: lang \"%V\" too long",
-            &values[VARIANT_PARAM_LANG]->v.str);
-        return NGX_HTTP_BAD_REQUEST;
-    }
-
-    if (values[VARIANT_PARAM_ROLE] != NULL) {
-        role = ngx_http_live_find_string(ngx_live_variant_role_names,
-            &values[VARIANT_PARAM_ROLE]->v.str);
-        if (role < 0) {
-            ngx_log_error(NGX_LOG_ERR, log, 0,
-                "ngx_http_live_api_variants_post: invalid role \"%V\"",
-                &values[VARIANT_PARAM_ROLE]->v.str);
-            return NGX_HTTP_BAD_REQUEST;
-        }
-
-        if (role == ngx_live_variant_role_alternate &&
-            (values[VARIANT_PARAM_LABEL] == NULL ||
-            values[VARIANT_PARAM_LABEL]->v.str.len == 0))
-        {
-            ngx_log_error(NGX_LOG_ERR, log, 0,
-                "ngx_http_live_api_variants_post: "
-                "missing label in alternate variant");
-            return NGX_HTTP_BAD_REQUEST;
-        }
-
-    } else {
-        role = ngx_live_variant_role_main;
-    }
-
 
     channel_id = params[0];
     channel = ngx_live_channel_get(&channel_id);
@@ -561,8 +552,15 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_NOT_FOUND;
     }
 
+    ngx_memzero(&conf, sizeof(conf));
+
+    rc = ngx_http_live_api_variant_init_conf(values, &conf, log);
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
     variant_id = values[VARIANT_PARAM_ID]->v.str;
-    rc = ngx_live_variant_create(channel, &variant_id, log, &variant);
+    rc = ngx_live_variant_create(channel, &variant_id, &conf, log, &variant);
     switch (rc) {
 
     case NGX_BUSY:
@@ -573,6 +571,10 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
                 "variant \"%V\" already exists in channel \"%V\"",
                 &variant_id, &channel_id);
             return NGX_HTTP_CONFLICT;
+        }
+
+        if (ngx_live_variant_update(variant, &conf, log) != NGX_OK) {
+            return NGX_HTTP_BAD_REQUEST;
         }
 
         created = 0;
@@ -604,29 +606,73 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
         }
     }
 
-    if (values[VARIANT_PARAM_LABEL] != NULL) {
-        variant->label.data = variant->label_buf;
-        variant->label.len = values[VARIANT_PARAM_LABEL]->v.str.len;
-        ngx_memcpy(variant->label_buf, values[VARIANT_PARAM_LABEL]->v.str.data,
-            variant->label.len);
-    }
-
-    if (values[VARIANT_PARAM_LANG] != NULL) {
-        variant->lang.data = variant->lang_buf;
-        variant->lang.len = values[VARIANT_PARAM_LANG]->v.str.len;
-        ngx_memcpy(variant->lang_buf, values[VARIANT_PARAM_LANG]->v.str.data,
-            variant->lang.len);
-    }
-
-    if (values[VARIANT_PARAM_DEFAULT] != NULL &&
-        values[VARIANT_PARAM_DEFAULT]->v.boolean)
-    {
-        variant->is_default = 1;
-    }
-
-    variant->role = role;
-
     return created ? NGX_HTTP_CREATED : NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_live_api_variant_put(ngx_http_request_t *r, ngx_str_t *params,
+    ngx_json_value_t *body)
+{
+    ngx_int_t                 rc;
+    ngx_str_t                 channel_id;
+    ngx_str_t                 variant_id;
+    ngx_log_t                *log = r->connection->log;
+    ngx_json_value_t         *values[VARIANT_PARAM_COUNT];
+    ngx_live_channel_t       *channel;
+    ngx_live_variant_t       *variant;
+    ngx_live_variant_conf_t   conf;
+
+    if (body->type != NGX_JSON_OBJECT) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_http_live_api_variant_put: "
+            "invalid element type %d, expected object", body->type);
+        return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
+    }
+
+    ngx_memzero(values, sizeof(values));
+    ngx_json_get_object_values(&body->v.obj, ngx_live_variant_params, values);
+
+
+    channel_id = params[0];
+    channel = ngx_live_channel_get(&channel_id);
+    if (channel == NULL) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_http_live_api_variant_put: unknown channel \"%V\"",
+            &channel_id);
+        return NGX_HTTP_NOT_FOUND;
+    }
+
+    variant_id = params[1];
+    variant = ngx_live_variant_get(channel, &variant_id);
+    if (variant == NULL) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_http_live_api_variant_put: "
+            "unknown variant \"%V\" in channel \"%V\"",
+            &variant_id, &channel_id);
+        return NGX_HTTP_NOT_FOUND;
+    }
+
+    conf = variant->conf;
+
+    rc = ngx_http_live_api_variant_init_conf(values, &conf, log);
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    if (ngx_live_variant_update(variant, &conf, log) != NGX_OK) {
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
+    if (values[VARIANT_PARAM_OPAQUE] != NULL) {
+        rc = ngx_live_channel_block_str_set(channel, &variant->opaque,
+            &values[VARIANT_PARAM_OPAQUE]->v.str);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_variant_put: failed to set opaque");
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+    }
+    return NGX_OK;
 }
 
 static ngx_int_t
@@ -661,6 +707,7 @@ ngx_http_live_api_variant_delete(ngx_http_request_t *r, ngx_str_t *params,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_http_live_api_tracks_get(ngx_http_request_t *r, ngx_str_t *params,
@@ -900,6 +947,7 @@ ngx_http_live_api_track_delete(ngx_http_request_t *r, ngx_str_t *params,
 
 }
 
+
 static ngx_int_t
 ngx_http_live_api_variant_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
@@ -960,14 +1008,6 @@ ngx_http_live_api_variant_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_NOT_FOUND;
     }
 
-    if (track->type == ngx_live_track_type_filler) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_http_live_api_variant_tracks_post: "
-            "track \"%V\" in channel \"%V\" is a filler track",
-            &track_id, &channel_id);
-        return NGX_HTTP_BAD_REQUEST;
-    }
-
     if (variant->tracks[track->media_type] == track) {
         return NGX_OK;
     }
@@ -982,7 +1022,9 @@ ngx_http_live_api_variant_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_CONFLICT;
     }
 
-    ngx_live_variant_set_track(variant, track);
+    if (ngx_live_variant_set_track(variant, track, log) != NGX_OK) {
+        return NGX_HTTP_BAD_REQUEST;
+    }
 
     return NGX_HTTP_CREATED;
 }

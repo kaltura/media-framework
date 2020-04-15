@@ -50,7 +50,7 @@ static ngx_http_api_route_node_t
     NULL,
     &ngx_http_live_api_variant_delete,
     NULL,
-    NULL,
+    &ngx_http_live_api_variant_put,
 };
 
 static ngx_http_api_route_child_t

@@ -67,13 +67,13 @@ ngx_live_channel_init_process(ngx_cycle_t *cycle)
 /* channel */
 
 ngx_live_channel_t *
-ngx_live_channel_get(ngx_str_t *channel_id)
+ngx_live_channel_get(ngx_str_t *id)
 {
     uint32_t  hash;
 
-    hash = ngx_crc32_short(channel_id->data, channel_id->len);
+    hash = ngx_crc32_short(id->data, id->len);
     return (ngx_live_channel_t *) ngx_str_rbtree_lookup(
-        &ngx_live_channels.rbtree, channel_id, hash);
+        &ngx_live_channels.rbtree, id, hash);
 }
 
 static u_char *
@@ -97,7 +97,7 @@ ngx_live_channel_log_error(ngx_log_t *log, u_char *buf, size_t len)
 }
 
 ngx_int_t
-ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
+ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
     ngx_pool_t *temp_pool, ngx_live_channel_t **result)
 {
     size_t                       *block_sizes;
@@ -108,15 +108,15 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
     ngx_live_channel_t           *channel;
     ngx_live_core_preset_conf_t  *cpcf;
 
-    if (channel_id->len > KMP_MAX_CHANNEL_ID_LEN) {
+    if (id->len > KMP_MAX_CHANNEL_ID_LEN) {
         ngx_log_error(NGX_LOG_ERR, temp_pool->log, 0,
-            "ngx_live_channel_create: channel id \"%V\" too long", channel_id);
+            "ngx_live_channel_create: channel id \"%V\" too long", id);
         return NGX_DECLINED;
     }
 
-    hash = ngx_crc32_short(channel_id->data, channel_id->len);
+    hash = ngx_crc32_short(id->data, id->len);
     channel = (ngx_live_channel_t *) ngx_str_rbtree_lookup(
-        &ngx_live_channels.rbtree, channel_id, hash);
+        &ngx_live_channels.rbtree, id, hash);
     if (channel != NULL) {
         *result = channel;
         return NGX_BUSY;
@@ -130,7 +130,7 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
         return NGX_ERROR;
     }
 
-    channel = ngx_palloc(pool, sizeof(*channel) + channel_id->len);
+    channel = ngx_palloc(pool, sizeof(*channel) + id->len);
     if (channel == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
             "ngx_live_channel_create: alloc channel failed");
@@ -158,8 +158,8 @@ ngx_live_channel_create(ngx_str_t *channel_id, ngx_live_conf_ctx_t *conf_ctx,
     channel->pool = pool;
 
     channel->sn.str.data = (void *) (channel + 1);
-    channel->sn.str.len = channel_id->len;
-    ngx_memcpy(channel->sn.str.data, channel_id->data, channel->sn.str.len);
+    channel->sn.str.len = id->len;
+    ngx_memcpy(channel->sn.str.data, id->data, channel->sn.str.len);
     channel->sn.node.key = hash;
 
     channel->log = *pool->log;
@@ -367,32 +367,65 @@ ngx_live_channel_block_str_free(ngx_live_channel_t *channel,
 
 /* variant */
 
+static ngx_int_t
+ngx_live_variant_validate_conf(ngx_live_variant_conf_t *conf, ngx_log_t *log)
+{
+    if (conf->label.len > NGX_LIVE_VARIANT_MAX_LABEL_LEN) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_variant_validate_conf: label \"%V\" too long",
+            &conf->label);
+        return NGX_ERROR;
+    }
+
+    if (conf->lang.len > NGX_LIVE_VARIANT_MAX_LANG_LEN) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_variant_validate_conf: lang \"%V\" too long",
+            &conf->lang);
+        return NGX_ERROR;
+    }
+
+    if (conf->role == ngx_live_variant_role_alternate &&
+        conf->label.len == 0)
+    {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_variant_validate_conf: "
+            "missing label in alternate variant");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
 ngx_live_variant_t *
-ngx_live_variant_get(ngx_live_channel_t *channel, ngx_str_t *variant_id)
+ngx_live_variant_get(ngx_live_channel_t *channel, ngx_str_t *id)
 {
     uint32_t  hash;
 
-    hash = ngx_crc32_short(variant_id->data, variant_id->len);
+    hash = ngx_crc32_short(id->data, id->len);
     return (ngx_live_variant_t *) ngx_str_rbtree_lookup(
-        &channel->variants.rbtree, variant_id, hash);
+        &channel->variants.rbtree, id, hash);
 }
 
 ngx_int_t
-ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *variant_id,
-    ngx_log_t *log, ngx_live_variant_t **result)
+ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
+    ngx_live_variant_conf_t *conf, ngx_log_t *log, ngx_live_variant_t **result)
 {
     uint32_t             hash;
     ngx_live_variant_t  *variant;
 
-    if (variant_id->len > sizeof(variant->id_buf)) {
+    if (id->len > sizeof(variant->id_buf)) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_variant_create: variant id \"%V\" too long", variant_id);
+            "ngx_live_variant_create: variant id \"%V\" too long", id);
         return NGX_DECLINED;
     }
 
-    hash = ngx_crc32_short(variant_id->data, variant_id->len);
+    if (ngx_live_variant_validate_conf(conf, log) != NGX_OK) {
+        return NGX_DECLINED;
+    }
+
+    hash = ngx_crc32_short(id->data, id->len);
     variant = (ngx_live_variant_t *) ngx_str_rbtree_lookup(
-        &channel->variants.rbtree, variant_id, hash);
+        &channel->variants.rbtree, id, hash);
     if (variant != NULL) {
         *result = variant;
         return NGX_BUSY;
@@ -409,9 +442,20 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *variant_id,
     variant->channel = channel;
 
     variant->sn.str.data = variant->id_buf;
-    variant->sn.str.len = variant_id->len;
-    ngx_memcpy(variant->sn.str.data, variant_id->data, variant->sn.str.len);
+    variant->sn.str.len = id->len;
+    ngx_memcpy(variant->sn.str.data, id->data, variant->sn.str.len);
     variant->sn.node.key = hash;
+
+    variant->conf.label.data = variant->label_buf;
+    variant->conf.label.len = conf->label.len;
+    ngx_memcpy(variant->label_buf, conf->label.data, conf->label.len);
+
+    variant->conf.lang.data = variant->lang_buf;
+    variant->conf.lang.len = conf->lang.len;
+    ngx_memcpy(variant->lang_buf, conf->lang.data, conf->lang.len);
+
+    variant->conf.role = conf->role;
+    variant->conf.is_default = conf->is_default;
 
     ngx_rbtree_insert(&channel->variants.rbtree, &variant->sn.node);
     ngx_queue_insert_tail(&channel->variants.queue, &variant->queue);
@@ -445,10 +489,42 @@ ngx_live_variant_free(ngx_live_variant_t *variant)
     ngx_block_pool_free(channel->block_pool, NGX_LIVE_BP_VARIANT, variant);
 }
 
-void
-ngx_live_variant_set_track(ngx_live_variant_t *variant,
-    ngx_live_track_t *track)
+ngx_int_t
+ngx_live_variant_update(ngx_live_variant_t *variant,
+    ngx_live_variant_conf_t *conf, ngx_log_t *log)
 {
+    if (ngx_live_variant_validate_conf(conf, log) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    variant->conf.label.len = conf->label.len;
+    if (conf->label.data != variant->label_buf) {
+        ngx_memcpy(variant->label_buf, conf->label.data, conf->label.len);
+    }
+
+    variant->conf.lang.len = conf->lang.len;
+    if (conf->lang.data != variant->lang_buf) {
+        ngx_memcpy(variant->lang_buf, conf->lang.data, conf->lang.len);
+    }
+
+    variant->conf.role = conf->role;
+    variant->conf.is_default = conf->is_default;
+
+    return NGX_OK;
+}
+
+ngx_int_t
+ngx_live_variant_set_track(ngx_live_variant_t *variant,
+    ngx_live_track_t *track, ngx_log_t *log)
+{
+    if (track->type == ngx_live_track_type_filler) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_variant_set_track: "
+            "track \"%V\" in channel \"%V\" is a filler track",
+            &track->sn.str, &track->channel->sn.str);
+        return NGX_ERROR;
+    }
+
     if (variant->tracks[track->media_type] != NULL) {
         variant->track_count--;
     }
@@ -460,6 +536,8 @@ ngx_live_variant_set_track(ngx_live_variant_t *variant,
     }
 
     variant->channel->last_modified = ngx_time();
+
+    return NGX_OK;
 }
 
 ngx_flag_t
@@ -569,17 +647,17 @@ ngx_live_variant_json_track_ids_write(u_char *p, ngx_live_variant_t *obj)
 /* track */
 
 ngx_live_track_t *
-ngx_live_track_get(ngx_live_channel_t *channel, ngx_str_t *track_id)
+ngx_live_track_get(ngx_live_channel_t *channel, ngx_str_t *id)
 {
     uint32_t  hash;
 
-    hash = ngx_crc32_short(track_id->data, track_id->len);
+    hash = ngx_crc32_short(id->data, id->len);
     return (ngx_live_track_t *) ngx_str_rbtree_lookup(&channel->tracks.rbtree,
-        track_id, hash);
+        id, hash);
 }
 
 ngx_live_track_t *
-ngx_live_track_get_by_int(ngx_live_channel_t *channel, uint32_t track_id)
+ngx_live_track_get_by_int(ngx_live_channel_t *channel, uint32_t id)
 {
     ngx_rbtree_t       *rbtree;
     ngx_rbtree_node_t  *node, *sentinel;
@@ -591,12 +669,12 @@ ngx_live_track_get_by_int(ngx_live_channel_t *channel, uint32_t track_id)
 
     while (node != sentinel) {
 
-        if (track_id < node->key) {
+        if (id < node->key) {
             node = node->left;
             continue;
         }
 
-        if (track_id > node->key) {
+        if (id > node->key) {
             node = node->right;
             continue;
         }
@@ -632,7 +710,7 @@ ngx_live_track_log_error(ngx_log_t *log, u_char *buf, size_t len)
 }
 
 ngx_int_t
-ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
+ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     uint32_t media_type, ngx_log_t *log, ngx_live_track_t **result)
 {
     uint32_t           hash;
@@ -642,15 +720,15 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
     ngx_live_track_t  *track;
     ngx_live_track_t  *cur_track;
 
-    if (track_id->len > sizeof(track->id_buf)) {
+    if (id->len > sizeof(track->id_buf)) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_track_create: track id \"%V\" too long", track_id);
+            "ngx_live_track_create: track id \"%V\" too long", id);
         return NGX_DECLINED;
     }
 
-    hash = ngx_crc32_short(track_id->data, track_id->len);
+    hash = ngx_crc32_short(id->data, id->len);
     track = (ngx_live_track_t *) ngx_str_rbtree_lookup(&channel->tracks.rbtree,
-        track_id, hash);
+        id, hash);
     if (track != NULL) {
 
         if (track->media_type != media_type) {
@@ -674,8 +752,8 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *track_id,
 
     track->channel = channel;
     track->sn.str.data = track->id_buf;
-    track->sn.str.len = track_id->len;
-    ngx_memcpy(track->sn.str.data, track_id->data, track->sn.str.len);
+    track->sn.str.len = id->len;
+    ngx_memcpy(track->sn.str.data, id->data, track->sn.str.len);
     track->sn.node.key = hash;
 
     track->log = channel->log;

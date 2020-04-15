@@ -140,6 +140,13 @@ typedef enum {
 } ngx_live_variant_role_e;
 
 typedef struct {
+    ngx_str_t                      label;
+    ngx_str_t                      lang;
+    ngx_live_variant_role_e        role;
+    unsigned                       is_default:1;
+} ngx_live_variant_conf_t;
+
+typedef struct {
     ngx_str_node_t                 sn;        /* must be first */
     ngx_queue_t                    queue;
     ngx_live_channel_t            *channel;
@@ -149,15 +156,9 @@ typedef struct {
     ngx_live_track_t              *tracks[KMP_MEDIA_COUNT];
     uint32_t                       track_count;
 
-    ngx_str_t                      label;
+    ngx_live_variant_conf_t        conf;
     u_char                         label_buf[NGX_LIVE_VARIANT_MAX_LABEL_LEN];
-
-    ngx_str_t                      lang;
     u_char                         lang_buf[NGX_LIVE_VARIANT_MAX_LANG_LEN];
-
-    ngx_live_variant_role_e        role;
-
-    unsigned                       is_default:1;
 } ngx_live_variant_t;
 
 
@@ -165,13 +166,12 @@ ngx_int_t ngx_live_channel_init_process(ngx_cycle_t *cycle);
 
 
 /* channel */
-ngx_int_t ngx_live_channel_create(ngx_str_t *channel_id,
-    ngx_live_conf_ctx_t *conf_ctx, ngx_pool_t *temp_pool,
-    ngx_live_channel_t **result);
+ngx_int_t ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
+    ngx_pool_t *temp_pool, ngx_live_channel_t **result);
 
 void ngx_live_channel_free(ngx_live_channel_t *channel);
 
-ngx_live_channel_t *ngx_live_channel_get(ngx_str_t *channel_id);
+ngx_live_channel_t *ngx_live_channel_get(ngx_str_t *id);
 
 void ngx_live_channel_finalize(ngx_live_channel_t *channel);
 
@@ -203,16 +203,20 @@ u_char *ngx_live_channels_json_write(u_char *p, void *obj);
 
 
 /* variant */
-ngx_int_t ngx_live_variant_create(ngx_live_channel_t *channel,
-    ngx_str_t *variant_id, ngx_log_t *log, ngx_live_variant_t **result);
+ngx_int_t ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
+    ngx_live_variant_conf_t *conf, ngx_log_t *log,
+    ngx_live_variant_t **result);
 
 void ngx_live_variant_free(ngx_live_variant_t *variant);
 
 ngx_live_variant_t *ngx_live_variant_get(ngx_live_channel_t *channel,
-    ngx_str_t *variant_id);
+    ngx_str_t *id);
 
-void ngx_live_variant_set_track(ngx_live_variant_t *variant,
-    ngx_live_track_t *track);
+ngx_int_t ngx_live_variant_update(ngx_live_variant_t *variant,
+    ngx_live_variant_conf_t *conf, ngx_log_t *log);
+
+ngx_int_t ngx_live_variant_set_track(ngx_live_variant_t *variant,
+    ngx_live_track_t *track, ngx_log_t *log);
 
 ngx_flag_t ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
     uint32_t media_type_mask);
@@ -224,16 +228,16 @@ u_char *ngx_live_variants_json_write(u_char *p, ngx_live_channel_t *obj);
 
 /* track */
 ngx_int_t ngx_live_track_create(ngx_live_channel_t *channel,
-    ngx_str_t *track_id, uint32_t media_type, ngx_log_t *log,
+    ngx_str_t *id, uint32_t media_type, ngx_log_t *log,
     ngx_live_track_t **result);
 
 void ngx_live_track_free(ngx_live_track_t *track);
 
 ngx_live_track_t *ngx_live_track_get(ngx_live_channel_t *channel,
-    ngx_str_t *track_id);
+    ngx_str_t *id);
 
 ngx_live_track_t *ngx_live_track_get_by_int(ngx_live_channel_t *channel,
-    uint32_t track_id);
+    uint32_t id);
 
 
 size_t ngx_live_tracks_json_get_size(ngx_live_channel_t *obj);
