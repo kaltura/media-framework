@@ -573,6 +573,10 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
             return NGX_HTTP_CONFLICT;
         }
 
+        conf = variant->conf;
+
+        (void) ngx_http_live_api_variant_init_conf(values, &conf, log);
+
         if (ngx_live_variant_update(variant, &conf, log) != NGX_OK) {
             return NGX_HTTP_BAD_REQUEST;
         }
@@ -1186,6 +1190,11 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
                 &timeline_id, &channel_id);
             return NGX_HTTP_CONFLICT;
         }
+
+        conf = timeline->conf;
+        manifest_conf = timeline->manifest.conf;
+
+        ngx_http_live_api_timeline_init_conf(values, &conf, &manifest_conf);
 
         if (ngx_live_timeline_update(timeline, &conf, &manifest_conf, log)
             != NGX_OK)
