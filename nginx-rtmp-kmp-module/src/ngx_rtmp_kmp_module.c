@@ -755,6 +755,7 @@ ngx_rtmp_kmp_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     create_ctx.retries_left = kacf->t.ctrl_retries;
 
     ngx_memzero(&ci, sizeof(ci));
+
     ci.url = url;
     ci.create = ngx_rtmp_kmp_connect_create;
     ci.handle = ngx_rtmp_kmp_connect_handle;

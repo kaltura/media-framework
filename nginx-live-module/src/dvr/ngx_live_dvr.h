@@ -5,7 +5,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "../ngx_live.h"
-#include "../ngx_live_segment_index.h"
 
 
 #ifndef NGX_HTTP_NOT_FOUND
@@ -16,62 +15,62 @@
 #endif
 
 
-/* read + write */
+/* read */
+
+typedef void (*ngx_live_dvr_read_handler_pt)(void *data, ngx_int_t rc,
+    ngx_buf_t *response);
 
 typedef struct {
-    uint32_t                   bucket_id;
-    uint32_t                   min_segment_index;
-    uint32_t                   max_segment_index;
-    size_t                     size;
-    ngx_msec_t                 start;
-} ngx_live_dvr_save_request_t;
+    ngx_pool_t                     *pool;
+    ngx_live_channel_t             *channel;
+    ngx_str_t                       path;
+
+    ngx_live_dvr_read_handler_pt    handler;
+    void                           *data;
+} ngx_live_dvr_read_request_t;
 
 
-typedef ngx_int_t (*ngx_live_dvr_read_init_pt)(ngx_pool_t *pool,
-    ngx_live_channel_t *channel, ngx_str_t *path, void *arg, ngx_str_t *name,
-    void **result);
+typedef void (*ngx_live_dvr_get_info_pt)(ngx_live_channel_t *channel,
+    ngx_str_t *name);
 
-typedef ngx_int_t (*ngx_live_dvr_read_pt)(void *ctx, off_t offset,
+typedef void *(*ngx_live_dvr_read_init_pt)(
+    ngx_live_dvr_read_request_t *request);
+
+typedef ngx_int_t (*ngx_live_dvr_read_pt)(void *data, off_t offset,
     size_t size);
-
-typedef ngx_int_t (*ngx_live_dvr_save_pt)(ngx_live_channel_t *channel,
-    ngx_live_dvr_save_request_t *request);
-
-
-typedef struct {
-    ngx_live_dvr_read_init_pt  read_init;
-    ngx_live_dvr_read_pt       read;
-    ngx_live_dvr_save_pt       save;
-} ngx_live_dvr_store_t;
-
-
-typedef struct {
-    ngx_live_dvr_store_t      *store;
-    ngx_live_complex_value_t  *path;
-    ngx_uint_t                 bucket_size;
-    size_t                     initial_read_size;
-} ngx_live_dvr_preset_conf_t;
-
-
-ngx_int_t ngx_live_dvr_get_path(ngx_live_channel_t *channel, ngx_pool_t *pool,
-    uint32_t bucket_id, ngx_str_t *path);
 
 
 /* write */
 
-ngx_chain_t *ngx_live_dvr_save_create_file(ngx_live_channel_t *channel,
-    ngx_pool_t *pool, ngx_live_dvr_save_request_t *request,
-    ngx_live_segment_cleanup_t **pcln);
+typedef void (*ngx_live_dvr_save_handler_pt)(void *data, ngx_int_t rc);
 
-void ngx_live_dvr_save_complete(ngx_live_channel_t *channel,
-    ngx_live_dvr_save_request_t *request, ngx_int_t rc);
+typedef struct {
+    ngx_pool_t                    *pool;
+    ngx_live_channel_t            *channel;
+    ngx_str_t                      path;
+    ngx_chain_t                   *cl;
+    size_t                         size;
+
+    ngx_live_dvr_save_handler_pt   handler;
+    void                          *data;
+} ngx_live_dvr_save_request_t;
 
 
-/* read */
+typedef void *(*ngx_live_dvr_save_pt)(ngx_live_dvr_save_request_t *request);
 
-void ngx_live_dvr_read_complete(void *arg, ngx_int_t rc, ngx_buf_t *response);
+typedef void (*ngx_live_dvr_cancel_save_pt)(void *data);
+
+/* read + write */
+
+typedef struct {
+    ngx_live_dvr_get_info_pt     get_info;
+    ngx_live_dvr_read_init_pt    read_init;
+    ngx_live_dvr_read_pt         read;
+    ngx_live_dvr_save_pt         save;
+    ngx_live_dvr_cancel_save_pt  cancel_save;
+} ngx_live_dvr_store_t;
 
 
-extern ngx_module_t  ngx_live_dvr_module;
+char *ngx_live_dvr_set_store(ngx_conf_t *cf, ngx_live_dvr_store_t *store);
 
 #endif /* _NGX_LIVE_DVR_H_INCLUDED_ */

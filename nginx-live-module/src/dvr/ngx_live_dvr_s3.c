@@ -194,7 +194,7 @@ ngx_live_dvr_s3_set_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_str_t   *value;
     ngx_url_t  **u;
 
-    u = (ngx_url_t **)(p + cmd->offset);
+    u = (ngx_url_t **) (p + cmd->offset);
     if (*u != NGX_CONF_UNSET_PTR) {
         return "is duplicate";
     }
@@ -857,9 +857,8 @@ ngx_live_dvr_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 }
 
 
-static ngx_int_t
-ngx_live_dvr_s3_read_init(ngx_pool_t *pool, ngx_live_channel_t *channel,
-    ngx_str_t *path, void *arg, ngx_str_t *name, void **result)
+static void
+ngx_live_dvr_s3_get_info(ngx_live_channel_t *channel, ngx_str_t *name)
 {
     ngx_live_dvr_s3_ctx_t          *ctx;
     ngx_live_dvr_s3_preset_conf_t  *conf;
@@ -869,31 +868,68 @@ ngx_live_dvr_s3_read_init(ngx_pool_t *pool, ngx_live_channel_t *channel,
     ctx = conf->ctx;
 
     *name = ctx->name;
-
-    return ngx_live_dvr_http_read_init(pool, channel, ctx->url, path,
-        ngx_live_dvr_s3_get_request, ctx, arg, result);
 }
 
-static ngx_int_t
-ngx_live_dvr_s3_save(ngx_live_channel_t *channel,
-    ngx_live_dvr_save_request_t *request)
+static void *
+ngx_live_dvr_s3_read_init(ngx_live_dvr_read_request_t *request)
 {
     ngx_live_dvr_s3_ctx_t          *ctx;
     ngx_live_dvr_s3_preset_conf_t  *conf;
 
+    conf = ngx_live_get_module_preset_conf(request->channel,
+        ngx_live_dvr_s3_module);
+
+    ctx = conf->ctx;
+
+    return ngx_live_dvr_http_read_init(request, ctx->url,
+        ngx_live_dvr_s3_get_request, ctx);
+}
+
+static void *
+ngx_live_dvr_s3_save(ngx_live_dvr_save_request_t *request)
+{
+    ngx_buf_t                      *b;
+    ngx_pool_t                     *pool;
+    ngx_chain_t                    *cl;
+    ngx_live_channel_t             *channel;
+    ngx_live_dvr_s3_ctx_t          *ctx;
+    ngx_live_dvr_s3_preset_conf_t  *conf;
+
+    channel = request->channel;
     conf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_s3_module);
 
     ctx = conf->ctx;
 
-    return ngx_live_dvr_http_save(channel, request, ctx->url,
-        ngx_live_dvr_s3_put_request, ctx);
+    pool = request->pool;
+
+    if (ngx_live_dvr_s3_put_request(pool, ctx, &ctx->url->host, &request->path,
+        request->cl, request->size, &b) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_dvr_s3_save: create request failed");
+        return NULL;
+    }
+
+    cl = ngx_alloc_chain_link(pool);
+    if (cl == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_dvr_s3_save: alloc chain failed");
+        return NULL;
+    }
+
+    cl->buf = b;
+    cl->next = NULL;
+
+    return ngx_live_dvr_http_save(request, ctx->url, cl, request->cl);
 }
 
 
 static ngx_live_dvr_store_t  ngx_live_dvr_s3_store = {
+    ngx_live_dvr_s3_get_info,
     ngx_live_dvr_s3_read_init,
     ngx_live_dvr_http_read,
     ngx_live_dvr_s3_save,
+    ngx_live_dvr_http_cancel_save,
 };
 
 static char *
@@ -903,14 +939,12 @@ ngx_live_dvr_s3(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     ngx_str_t                     *value;
     ngx_live_conf_ctx_t           *live_ctx;
-    ngx_live_dvr_s3_ctx_t        **ctxp;
-    ngx_live_dvr_s3_ctx_t         *ctx;
-    ngx_live_dvr_preset_conf_t    *dmcf;
+    ngx_live_dvr_s3_ctx_t         *ctx, **pctx;
     ngx_live_dvr_s3_main_conf_t   *smcf;
 
-    ctxp = (ngx_live_dvr_s3_ctx_t **)(p + cmd->offset);
+    pctx = (ngx_live_dvr_s3_ctx_t **) (p + cmd->offset);
 
-    if (*ctxp != NGX_CONF_UNSET_PTR) {
+    if (*pctx != NGX_CONF_UNSET_PTR) {
         return "is duplicate";
     }
 
@@ -928,14 +962,10 @@ ngx_live_dvr_s3(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    *ctxp = ctx;
+    *pctx = ctx;
 
     /* register the dvr store */
-    dmcf = ngx_live_get_module_preset_conf(live_ctx, ngx_live_dvr_module);
-
-    dmcf->store = &ngx_live_dvr_s3_store;
-
-    return NGX_CONF_OK;
+    return ngx_live_dvr_set_store(cf, &ngx_live_dvr_s3_store);
 }
 
 

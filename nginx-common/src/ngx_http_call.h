@@ -24,6 +24,7 @@ typedef ngx_int_t (*ngx_http_call_handle_pt)(ngx_pool_t *temp_pool, void *arg,
     ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *body);
 
 typedef struct {
+    ngx_pool_t                     *pool;
     ngx_url_t                      *url;
     ngx_http_call_create_pt         create;
     ngx_http_call_handle_pt         handle;
