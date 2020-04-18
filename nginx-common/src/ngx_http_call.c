@@ -48,6 +48,8 @@ struct ngx_http_call_ctx_s {
     ngx_str_t                    request_line;
 
     ngx_str_t                    content_type;
+
+    unsigned                     destroy_pool:1;
 };
 
 
@@ -74,14 +76,23 @@ ngx_http_call_create(ngx_http_call_init_t *ci)
 {
     ngx_int_t             rc;
     ngx_log_t            *log = ngx_cycle->log;
+    ngx_flag_t            destroy_pool;
     ngx_pool_t           *pool;
     ngx_http_call_ctx_t  *ctx;
 
-    pool = ngx_create_pool(2048, log);
-    if (pool == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_http_call_create: create pool failed");
-        goto error;
+    destroy_pool = 0;
+
+    if (ci->pool == NULL) {
+        pool = ngx_create_pool(2048, log);
+        if (pool == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_call_create: create pool failed");
+            goto error;
+        }
+        destroy_pool = 1;
+
+    } else {
+        pool = ci->pool;
     }
 
     ctx = ngx_pcalloc(pool, sizeof(ngx_http_call_ctx_t));
@@ -114,6 +125,7 @@ ngx_http_call_create(ngx_http_call_init_t *ci)
     }
 
     ctx->pool = pool;
+    ctx->destroy_pool = destroy_pool;
 
     *log = *pool->log;
 
@@ -159,7 +171,7 @@ ngx_http_call_create(ngx_http_call_init_t *ci)
     return ctx;
 
 error:
-    if (pool) {
+    if (destroy_pool) {
         ngx_destroy_pool(pool);
     }
 
@@ -204,7 +216,9 @@ ngx_http_call_free(ngx_http_call_ctx_t *ctx)
         ngx_close_connection(ctx->peer.connection);
     }
 
-    ngx_destroy_pool(ctx->pool);
+    if (ctx->destroy_pool) {
+        ngx_destroy_pool(ctx->pool);
+    }
 }
 
 
@@ -248,7 +262,9 @@ ngx_http_call_retry(ngx_event_t *ev)
 static void
 ngx_http_call_done(ngx_http_call_ctx_t *ctx)
 {
+    ngx_pool_t  *pool;
     ngx_pool_t  *handler_pool;
+    ngx_flag_t   destroy_pool;
 
     ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
         "http call done, code:%ui, content_type:%V, body_size:%uz",
@@ -256,37 +272,50 @@ ngx_http_call_done(ngx_http_call_ctx_t *ctx)
             (size_t)(ctx->response->last - ctx->response->pos) : 0);
 
     handler_pool = ctx->handler_pool;
-    if (handler_pool) {
-
-        /* remove from handler pool, handler may destroy the pool */
-        ngx_pool_cleanup_remove(handler_pool, &ctx->cln);
-        ctx->handler_pool = NULL;
-
-        if (ctx->handle(ctx->pool, ctx->arg, ctx->code, &ctx->content_type,
-            ctx->response) == NGX_AGAIN) {
-
-            ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
-                "http call retry");
-
-            /* add back to handler pool */
-            ctx->cln.next = handler_pool->cleanup;
-            handler_pool->cleanup = &ctx->cln;
-            ctx->handler_pool = handler_pool;
-
-            ctx->log->connection = 0;
-            ngx_close_connection(ctx->peer.connection);
-            ctx->peer.connection = NULL;
-
-            ctx->retry.handler = ngx_http_call_retry;
-            ctx->retry.data = ctx;
-            ctx->retry.log = ctx->log;
-
-            ngx_add_timer(&ctx->retry, ctx->retry_interval);
-            return;
-        }
+    if (!handler_pool) {
+        ngx_http_call_free(ctx);
+        return;
     }
 
-    ngx_http_call_free(ctx);
+    /* remove from handler pool, handler may destroy the pool */
+    ngx_pool_cleanup_remove(handler_pool, &ctx->cln);
+    ctx->handler_pool = NULL;
+
+    /* clean up everything except pool - must not access ctx if handler
+        returns != NGX_AGAIN */
+    if (ctx->retry.timer_set) {
+        ngx_del_timer(&ctx->retry);
+    }
+
+    ctx->log->connection = 0;
+    ngx_close_connection(ctx->peer.connection);
+    ctx->peer.connection = NULL;
+
+    pool = ctx->pool;
+    destroy_pool = ctx->destroy_pool;
+
+    if (ctx->handle(pool, ctx->arg, ctx->code, &ctx->content_type,
+        ctx->response) != NGX_AGAIN)
+    {
+        if (destroy_pool) {
+            ngx_destroy_pool(pool);
+        }
+        return;
+    }
+
+    ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
+        "http call retry");
+
+    /* add back to handler pool */
+    ctx->cln.next = handler_pool->cleanup;
+    handler_pool->cleanup = &ctx->cln;
+    ctx->handler_pool = handler_pool;
+
+    ctx->retry.handler = ngx_http_call_retry;
+    ctx->retry.data = ctx;
+    ctx->retry.log = ctx->log;
+
+    ngx_add_timer(&ctx->retry, ctx->retry_interval);
 }
 
 

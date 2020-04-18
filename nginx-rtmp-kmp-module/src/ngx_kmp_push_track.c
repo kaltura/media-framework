@@ -385,6 +385,7 @@ ngx_kmp_push_track_publish(ngx_kmp_push_track_t *track)
     ctx.retries_left = track->conf->ctrl_retries;
 
     ngx_memzero(&ci, sizeof(ci));
+
     ci.url = url;
     ci.create = ngx_kmp_push_track_publish_create;
     ci.handle = ngx_kmp_push_publish_handle;
@@ -475,6 +476,7 @@ ngx_kmp_push_track_unpublish(ngx_kmp_push_track_t *track)
     ctx.track = track;
 
     ngx_memzero(&ci, sizeof(ci));
+
     ci.url = url;
     ci.create = ngx_kmp_push_unpublish_create;
     ci.arg = &ctx;

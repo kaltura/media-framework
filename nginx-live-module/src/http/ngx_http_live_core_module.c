@@ -622,7 +622,7 @@ ngx_http_live_set_time_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_conf_post_t  *post;
 
 
-    sp = (time_t *)(p + cmd->offset);
+    sp = (time_t *) (p + cmd->offset);
     if (*sp != NGX_CONF_UNSET) {
         return "is duplicate";
     }
@@ -653,7 +653,7 @@ ngx_http_live_buffer_pool_slot(ngx_conf_t *cf, ngx_command_t *cmd,
     ngx_str_t       *value;
     buffer_pool_t  **buffer_pool;
 
-    buffer_pool = (buffer_pool_t **)(p + cmd->offset);
+    buffer_pool = (buffer_pool_t **) (p + cmd->offset);
     if (*buffer_pool != NULL) {
         return "is duplicate";
     }
@@ -1637,7 +1637,7 @@ ngx_http_live_ctx_variable(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-    s = (ngx_str_t *)((char *) ctx + data);
+    s = (ngx_str_t *) ((char *) ctx + data);
 
     if (s->data) {
         v->len = s->len;

@@ -483,7 +483,7 @@ ngx_live_variable_channel(ngx_live_channel_t *ch, ngx_pool_t *pool,
 {
     ngx_str_t  *s;
 
-    s = (ngx_str_t *)((char *) ch + data);
+    s = (ngx_str_t *) ((char *) ch + data);
 
     if (s->data) {
         v->len = s->len;

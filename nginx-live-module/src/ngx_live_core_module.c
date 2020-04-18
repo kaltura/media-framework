@@ -148,7 +148,7 @@ ngx_live_block_sizes_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_array_t      **sizes;
     ngx_conf_post_t   *post;
 
-    sizes = (ngx_array_t **)(p + cmd->offset);
+    sizes = (ngx_array_t **) (p + cmd->offset);
 
     if (*sizes == NULL) {
         *sizes = ngx_array_create(cf->pool, 5, sizeof(size_t));
