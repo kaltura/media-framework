@@ -2,35 +2,37 @@
 #include <ngx_core.h>
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
-#include "ngx_live_dvr_http.h"
+#include "ngx_live_store_http.h"
+#include "ngx_live_dvr.h"
 
 
-#define NGX_LIVE_DVR_S3_SHA256_HEX_LEN   (SHA256_DIGEST_LENGTH * 2)
-#define NGX_LIVE_DVR_S3_HMAC_HEX_LEN     (EVP_MAX_MD_SIZE * 2)
+#define NGX_LIVE_STORE_S3_SHA256_HEX_LEN   (SHA256_DIGEST_LENGTH * 2)
+#define NGX_LIVE_STORE_S3_HMAC_HEX_LEN     (EVP_MAX_MD_SIZE * 2)
 
-#define NGX_LIVE_DVR_S3_AMZ_TIME_FORMAT  ("%Y%m%dT%H%M%SZ")
-#define NGX_LIVE_DVR_S3_AMZ_TIME_LEN     (sizeof("YYYYmmddTHHMMSSZ"))
+#define NGX_LIVE_STORE_S3_AMZ_TIME_FORMAT  ("%Y%m%dT%H%M%SZ")
+#define NGX_LIVE_STORE_S3_AMZ_TIME_LEN     (sizeof("YYYYmmddTHHMMSSZ"))
 
-#define NGX_LIVE_DVR_S3_AMZ_DATE_FORMAT  ("%Y%m%d")
-#define NGX_LIVE_DVR_S3_AMZ_DATE_LEN     (sizeof("YYYYmmdd"))
+#define NGX_LIVE_STORE_S3_AMZ_DATE_FORMAT  ("%Y%m%d")
+#define NGX_LIVE_STORE_S3_AMZ_DATE_LEN     (sizeof("YYYYmmdd"))
 
 
-#define NGX_LIVE_DVR_S3_EMPTY_SHA256    \
+#define NGX_LIVE_STORE_S3_EMPTY_SHA256    \
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 
-static char *ngx_live_dvr_s3(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-
-static char *ngx_live_dvr_s3_auth_block(ngx_conf_t *cf, ngx_command_t *cmd,
+static char *ngx_live_store_s3_set(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 
-static char *ngx_live_dvr_s3_set_url_slot(ngx_conf_t *cf, ngx_command_t *cmd,
+static char *ngx_live_store_s3_block(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 
-static void *ngx_live_dvr_s3_create_main_conf(ngx_conf_t *cf);
+static char *ngx_live_store_s3_set_url_slot(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
 
-static void *ngx_live_dvr_s3_create_preset_conf(ngx_conf_t *cf);
-static char *ngx_live_dvr_s3_merge_preset_conf(ngx_conf_t *cf, void *parent,
+static void *ngx_live_store_s3_create_main_conf(ngx_conf_t *cf);
+
+static void *ngx_live_store_s3_create_preset_conf(ngx_conf_t *cf);
+static char *ngx_live_store_s3_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
 
@@ -50,113 +52,113 @@ typedef struct {
     ngx_str_t               signing_key;
     ngx_str_t               key_scope;
     ngx_str_t               key_scope_suffix;
-} ngx_live_dvr_s3_ctx_t;
+} ngx_live_store_s3_ctx_t;
 
 
 typedef struct {
-    ngx_live_dvr_s3_ctx_t  *ctx;
-} ngx_live_dvr_s3_preset_conf_t;
+    ngx_live_store_s3_ctx_t  *ctx;
+} ngx_live_store_s3_preset_conf_t;
 
 
 typedef struct {
     ngx_array_t             blocks;
-} ngx_live_dvr_s3_main_conf_t;
+} ngx_live_store_s3_main_conf_t;
 
 
-static ngx_command_t  ngx_live_dvr_s3_commands[] = {
+static ngx_command_t  ngx_live_store_s3_commands[] = {
 
-    { ngx_string("dvr_s3"),
+    { ngx_string("store_s3"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
-      ngx_live_dvr_s3,
+      ngx_live_store_s3_set,
       NGX_LIVE_PRESET_CONF_OFFSET,
-      offsetof(ngx_live_dvr_s3_preset_conf_t, ctx),
+      offsetof(ngx_live_store_s3_preset_conf_t, ctx),
       NULL },
 
-    { ngx_string("dvr_s3_block"),
+    { ngx_string("store_s3_block"),
       NGX_LIVE_MAIN_CONF|NGX_CONF_BLOCK|NGX_CONF_TAKE1,
-      ngx_live_dvr_s3_auth_block,
+      ngx_live_store_s3_block,
       NGX_LIVE_MAIN_CONF_OFFSET,
-      offsetof(ngx_live_dvr_s3_main_conf_t, blocks),
+      offsetof(ngx_live_store_s3_main_conf_t, blocks),
       NULL },
 
       ngx_null_command
 };
 
-static ngx_command_t  ngx_live_dvr_s3_block_commands[] = {
+static ngx_command_t  ngx_live_store_s3_block_commands[] = {
     { ngx_string("url"),
       NGX_CONF_TAKE1,
-      ngx_live_dvr_s3_set_url_slot,
+      ngx_live_store_s3_set_url_slot,
       0,
-      offsetof(ngx_live_dvr_s3_ctx_t, url),
+      offsetof(ngx_live_store_s3_ctx_t, url),
       NULL },
 
     { ngx_string("access_key"),
       NGX_CONF_TAKE1,
       ngx_conf_set_str_slot,
       0,
-      offsetof(ngx_live_dvr_s3_ctx_t, access_key),
+      offsetof(ngx_live_store_s3_ctx_t, access_key),
       NULL },
 
     { ngx_string("secret_key"),
       NGX_CONF_TAKE1,
       ngx_conf_set_str_slot,
       0,
-      offsetof(ngx_live_dvr_s3_ctx_t, secret_key),
+      offsetof(ngx_live_store_s3_ctx_t, secret_key),
       NULL },
 
     { ngx_string("service"),
       NGX_CONF_TAKE1,
       ngx_conf_set_str_slot,
       0,
-      offsetof(ngx_live_dvr_s3_ctx_t, service),
+      offsetof(ngx_live_store_s3_ctx_t, service),
       NULL },
 
     { ngx_string("region"),
       NGX_CONF_TAKE1,
       ngx_conf_set_str_slot,
       0,
-      offsetof(ngx_live_dvr_s3_ctx_t, region),
+      offsetof(ngx_live_store_s3_ctx_t, region),
       NULL },
 
       ngx_null_command
 };
 
-static ngx_live_module_t  ngx_live_dvr_s3_module_ctx = {
-    NULL,                               /* preconfiguration */
-    NULL,                               /* postconfiguration */
+static ngx_live_module_t  ngx_live_store_s3_module_ctx = {
+    NULL,                                     /* preconfiguration */
+    NULL,                                     /* postconfiguration */
 
-    ngx_live_dvr_s3_create_main_conf,   /* create main configuration */
-    NULL,                               /* init main configuration */
+    ngx_live_store_s3_create_main_conf,       /* create main configuration */
+    NULL,                                     /* init main configuration */
 
-    ngx_live_dvr_s3_create_preset_conf, /* create preset configuration */
-    ngx_live_dvr_s3_merge_preset_conf   /* merge preset configuration */
+    ngx_live_store_s3_create_preset_conf,     /* create preset configuration */
+    ngx_live_store_s3_merge_preset_conf       /* merge preset configuration */
 };
 
-ngx_module_t  ngx_live_dvr_s3_module = {
+ngx_module_t  ngx_live_store_s3_module = {
     NGX_MODULE_V1,
-    &ngx_live_dvr_s3_module_ctx,        /* module context */
-    ngx_live_dvr_s3_commands,           /* module directives */
-    NGX_LIVE_MODULE,                    /* module type */
-    NULL,                               /* init master */
-    NULL,                               /* init module */
-    NULL,                               /* init process */
-    NULL,                               /* init thread */
-    NULL,                               /* exit thread */
-    NULL,                               /* exit process */
-    NULL,                               /* exit master */
+    &ngx_live_store_s3_module_ctx,            /* module context */
+    ngx_live_store_s3_commands,               /* module directives */
+    NGX_LIVE_MODULE,                          /* module type */
+    NULL,                                     /* init master */
+    NULL,                                     /* init module */
+    NULL,                                     /* init process */
+    NULL,                                     /* init thread */
+    NULL,                                     /* exit thread */
+    NULL,                                     /* exit process */
+    NULL,                                     /* exit master */
     NGX_MODULE_V1_PADDING
 };
 
 
-static ngx_str_t  ngx_live_dvr_s3_aws4_request =
+static ngx_str_t  ngx_live_store_s3_aws4_request =
     ngx_string("aws4_request");
 
-static ngx_str_t  ngx_live_dvr_s3_aws4 =
+static ngx_str_t  ngx_live_store_s3_aws4 =
     ngx_string("AWS4");
 
 
 static ngx_url_t *
-ngx_live_dvr_s3_parse_url(ngx_conf_t *cf, ngx_str_t *url)
+ngx_live_store_s3_parse_url(ngx_conf_t *cf, ngx_str_t *url)
 {
     size_t      add;
     ngx_url_t  *u;
@@ -187,7 +189,7 @@ ngx_live_dvr_s3_parse_url(ngx_conf_t *cf, ngx_str_t *url)
 }
 
 static char *
-ngx_live_dvr_s3_set_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+ngx_live_store_s3_set_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     char  *p = conf;
 
@@ -201,7 +203,7 @@ ngx_live_dvr_s3_set_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     value = cf->args->elts;
 
-    *u = ngx_live_dvr_s3_parse_url(cf, &value[1]);
+    *u = ngx_live_store_s3_parse_url(cf, &value[1]);
     if (*u == NULL) {
         return NGX_CONF_ERROR;
     }
@@ -211,7 +213,7 @@ ngx_live_dvr_s3_set_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
 
 static void
-ngx_live_dvr_s3_sha256_hex_buf(ngx_str_t *message, u_char *digest)
+ngx_live_store_s3_sha256_hex_buf(ngx_str_t *message, u_char *digest)
 {
     u_char      hash[SHA256_DIGEST_LENGTH];
     SHA256_CTX  sha256;
@@ -224,7 +226,7 @@ ngx_live_dvr_s3_sha256_hex_buf(ngx_str_t *message, u_char *digest)
 }
 
 static void
-ngx_live_dvr_s3_sha256_hex_chain(ngx_chain_t *cl, u_char *digest)
+ngx_live_store_s3_sha256_hex_chain(ngx_chain_t *cl, u_char *digest)
 {
     u_char       hash[SHA256_DIGEST_LENGTH];
     ngx_buf_t   *b;
@@ -243,7 +245,7 @@ ngx_live_dvr_s3_sha256_hex_chain(ngx_chain_t *cl, u_char *digest)
 }
 
 static ngx_int_t
-ngx_live_dvr_s3_hmac_sha256(ngx_log_t *log, ngx_str_t *key,
+ngx_live_store_s3_hmac_sha256(ngx_log_t *log, ngx_str_t *key,
     ngx_str_t *message, ngx_str_t *dest)
 {
     unsigned   hash_len;
@@ -258,7 +260,7 @@ ngx_live_dvr_s3_hmac_sha256(ngx_log_t *log, ngx_str_t *key,
     hmac = HMAC_CTX_new();
     if (hmac == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_dvr_s3_hmac_sha256: HMAC_CTX_new failed");
+            "ngx_live_store_s3_hmac_sha256: HMAC_CTX_new failed");
         return NGX_ERROR;
     }
 #endif
@@ -279,7 +281,7 @@ ngx_live_dvr_s3_hmac_sha256(ngx_log_t *log, ngx_str_t *key,
 }
 
 static ngx_int_t
-ngx_live_dvr_s3_hmac_sha256_hex(ngx_log_t *log, ngx_str_t *key,
+ngx_live_store_s3_hmac_sha256_hex(ngx_log_t *log, ngx_str_t *key,
     ngx_str_t *message, ngx_str_t *dest)
 {
     u_char     hash_buf[EVP_MAX_MD_SIZE];
@@ -287,7 +289,7 @@ ngx_live_dvr_s3_hmac_sha256_hex(ngx_log_t *log, ngx_str_t *key,
 
     hash.data = hash_buf;
 
-    if (ngx_live_dvr_s3_hmac_sha256(log, key, message, &hash) != NGX_OK) {
+    if (ngx_live_store_s3_hmac_sha256(log, key, message, &hash) != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -297,55 +299,55 @@ ngx_live_dvr_s3_hmac_sha256_hex(ngx_log_t *log, ngx_str_t *key,
 
 
 static char *
-ngx_live_dvr_s3_init_ctx(ngx_conf_t *cf, ngx_live_dvr_s3_ctx_t *ctx)
+ngx_live_store_s3_init_ctx(ngx_conf_t *cf, ngx_live_store_s3_ctx_t *ctx)
 {
     u_char  *p;
 
     /* check required params */
     if (ctx->url == NGX_CONF_UNSET_PTR) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-            "url not set in dvr_s3_block");
+            "url not set in store_s3_block");
         return NGX_CONF_ERROR;
     }
 
     if (ctx->access_key.len == 0) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-            "access_key not set in dvr_s3_block");
+            "access_key not set in store_s3_block");
         return NGX_CONF_ERROR;
     }
 
     if (ctx->secret_key.len == 0) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-            "secret_key not set in dvr_s3_block");
+            "secret_key not set in store_s3_block");
         return NGX_CONF_ERROR;
     }
 
     if (ctx->service.len == 0) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-            "service not set in dvr_s3_block");
+            "service not set in store_s3_block");
         return NGX_CONF_ERROR;
     }
 
     if (ctx->region.len == 0) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-            "region not set in dvr_s3_block");
+            "region not set in store_s3_block");
         return NGX_CONF_ERROR;
     }
 
     /* add prefix to secret key */
     ctx->secret_key_prefix.data = ngx_pnalloc(cf->pool,
-        ngx_live_dvr_s3_aws4.len + ctx->secret_key.len);
+        ngx_live_store_s3_aws4.len + ctx->secret_key.len);
     if (ctx->secret_key_prefix.data == NULL) {
         return NGX_CONF_ERROR;
     }
     p = ctx->secret_key_prefix.data;
-    p = ngx_copy_str(p, ngx_live_dvr_s3_aws4);
+    p = ngx_copy_str(p, ngx_live_store_s3_aws4);
     p = ngx_copy_str(p, ctx->secret_key);
     ctx->secret_key_prefix.len = p - ctx->secret_key_prefix.data;
 
     /* init key scope suffix */
     ctx->key_scope_suffix.data = ngx_pnalloc(cf->pool, ctx->region.len +
-        ctx->service.len + ngx_live_dvr_s3_aws4_request.len + 3);
+        ctx->service.len + ngx_live_store_s3_aws4_request.len + 3);
     if (ctx->key_scope_suffix.data == NULL) {
         return NGX_CONF_ERROR;
     }
@@ -356,18 +358,19 @@ ngx_live_dvr_s3_init_ctx(ngx_conf_t *cf, ngx_live_dvr_s3_ctx_t *ctx)
     *p++ = '/';
     p = ngx_copy_str(p, ctx->service);
     *p++ = '/';
-    p = ngx_copy_str(p, ngx_live_dvr_s3_aws4_request);
+    p = ngx_copy_str(p, ngx_live_store_s3_aws4_request);
     ctx->key_scope_suffix.len = p - ctx->key_scope_suffix.data;
 
     /* alloc additional buffers */
-    p = ngx_pnalloc(cf->pool, NGX_LIVE_DVR_S3_AMZ_DATE_LEN + EVP_MAX_MD_SIZE +
-        NGX_LIVE_DVR_S3_AMZ_DATE_LEN + ctx->key_scope_suffix.len);
+    p = ngx_pnalloc(cf->pool, NGX_LIVE_STORE_S3_AMZ_DATE_LEN +
+        EVP_MAX_MD_SIZE + NGX_LIVE_STORE_S3_AMZ_DATE_LEN +
+        ctx->key_scope_suffix.len);
     if (p == NULL) {
         return NGX_CONF_ERROR;
     }
 
     ctx->signing_key_date.data = p;
-    p += NGX_LIVE_DVR_S3_AMZ_DATE_LEN;
+    p += NGX_LIVE_STORE_S3_AMZ_DATE_LEN;
 
     ctx->signing_key.data = p;
     p += EVP_MAX_MD_SIZE;
@@ -378,11 +381,11 @@ ngx_live_dvr_s3_init_ctx(ngx_conf_t *cf, ngx_live_dvr_s3_ctx_t *ctx)
 }
 
 static ngx_int_t
-ngx_live_dvr_s3_generate_signing_key(ngx_live_dvr_s3_ctx_t *ctx,
+ngx_live_store_s3_generate_signing_key(ngx_live_store_s3_ctx_t *ctx,
     ngx_log_t *log)
 {
     u_char     *p;
-    u_char      date_buf[NGX_LIVE_DVR_S3_AMZ_DATE_LEN];
+    u_char      date_buf[NGX_LIVE_STORE_S3_AMZ_DATE_LEN];
     struct tm   tm;
     ngx_str_t   date;
     ngx_str_t  *signing_key;
@@ -390,10 +393,10 @@ ngx_live_dvr_s3_generate_signing_key(ngx_live_dvr_s3_ctx_t *ctx,
     /* get the GMT date */
     ngx_libc_gmtime(ngx_time(), &tm);
     date.len = strftime((char *) date_buf, sizeof(date_buf),
-        NGX_LIVE_DVR_S3_AMZ_DATE_FORMAT, &tm);
+        NGX_LIVE_STORE_S3_AMZ_DATE_FORMAT, &tm);
     if (date.len == 0) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_dvr_s3_generate_signing_key: strftime failed");
+            "ngx_live_store_s3_generate_signing_key: strftime failed");
         return NGX_ERROR;
     }
     date.data = date_buf;
@@ -410,26 +413,26 @@ ngx_live_dvr_s3_generate_signing_key(ngx_live_dvr_s3_ctx_t *ctx,
 
     signing_key = &ctx->signing_key;
 
-    if (ngx_live_dvr_s3_hmac_sha256(log, &ctx->secret_key_prefix, &date,
+    if (ngx_live_store_s3_hmac_sha256(log, &ctx->secret_key_prefix, &date,
         signing_key) != NGX_OK)
     {
         return NGX_ERROR;
     }
 
-    if (ngx_live_dvr_s3_hmac_sha256(log, signing_key, &ctx->region,
+    if (ngx_live_store_s3_hmac_sha256(log, signing_key, &ctx->region,
         signing_key) != NGX_OK)
     {
         return NGX_ERROR;
     }
 
-    if (ngx_live_dvr_s3_hmac_sha256(log, signing_key, &ctx->service,
+    if (ngx_live_store_s3_hmac_sha256(log, signing_key, &ctx->service,
         signing_key) != NGX_OK)
     {
         return NGX_ERROR;
     }
 
-    if (ngx_live_dvr_s3_hmac_sha256(log, signing_key,
-        &ngx_live_dvr_s3_aws4_request, signing_key) != NGX_OK)
+    if (ngx_live_store_s3_hmac_sha256(log, signing_key,
+        &ngx_live_store_s3_aws4_request, signing_key) != NGX_OK)
     {
         return NGX_ERROR;
     }
@@ -446,12 +449,12 @@ ngx_live_dvr_s3_generate_signing_key(ngx_live_dvr_s3_ctx_t *ctx,
 }
 
 
-static ngx_live_dvr_s3_ctx_t *
-ngx_live_dvr_s3_get_ctx(ngx_array_t *blocks, ngx_str_t *name)
+static ngx_live_store_s3_ctx_t *
+ngx_live_store_s3_get_ctx(ngx_array_t *blocks, ngx_str_t *name)
 {
-    ngx_uint_t               i;
-    ngx_live_dvr_s3_ctx_t   *ctx;
-    ngx_live_dvr_s3_ctx_t  **pctx;
+    ngx_uint_t                 i;
+    ngx_live_store_s3_ctx_t   *ctx;
+    ngx_live_store_s3_ctx_t  **pctx;
 
     pctx = blocks->elts;
 
@@ -470,15 +473,15 @@ ngx_live_dvr_s3_get_ctx(ngx_array_t *blocks, ngx_str_t *name)
 }
 
 static char *
-ngx_live_dvr_s3_auth_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+ngx_live_store_s3_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     char                        *rv;
     ngx_str_t                    name;
     ngx_str_t                   *value;
     ngx_conf_t                   save;
     ngx_array_t                 *blocks = conf;
-    ngx_live_dvr_s3_ctx_t       *ctx;
-    ngx_live_dvr_s3_ctx_t      **pctx;
+    ngx_live_store_s3_ctx_t     *ctx;
+    ngx_live_store_s3_ctx_t    **pctx;
     ngx_live_block_conf_ctx_t    conf_ctx;
 
     value = cf->args->elts;
@@ -486,7 +489,7 @@ ngx_live_dvr_s3_auth_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     /* get context name */
     name = value[1];
 
-    if (ngx_live_dvr_s3_get_ctx(blocks, &name) != NULL) {
+    if (ngx_live_store_s3_get_ctx(blocks, &name) != NULL) {
         return "is duplicate";
     }
 
@@ -498,7 +501,7 @@ ngx_live_dvr_s3_auth_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ctx->url = NGX_CONF_UNSET_PTR;
 
     /* parse the block */
-    conf_ctx.cmds = ngx_live_dvr_s3_block_commands;
+    conf_ctx.cmds = ngx_live_store_s3_block_commands;
     conf_ctx.cf = &save;
 
     save = *cf;
@@ -516,7 +519,7 @@ ngx_live_dvr_s3_auth_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     /* initialize and add the context */
-    rv = ngx_live_dvr_s3_init_ctx(cf, ctx);
+    rv = ngx_live_store_s3_init_ctx(cf, ctx);
     if (rv != NGX_CONF_OK) {
         return rv;
     }
@@ -534,7 +537,7 @@ ngx_live_dvr_s3_auth_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
 
 static ngx_int_t
-ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
+ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     ngx_str_t *uri, off_t range_start, off_t range_end, ngx_buf_t **result)
 {
     static const char  request_template[] =
@@ -542,7 +545,7 @@ ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         "Connection: Close\r\n"
         "Host: %V\r\n"
         "Range: bytes=%O-%O\r\n"
-        "X-Amz-Content-SHA256: " NGX_LIVE_DVR_S3_EMPTY_SHA256 "\r\n"
+        "X-Amz-Content-SHA256: " NGX_LIVE_STORE_S3_EMPTY_SHA256 "\r\n"
         "X-Amz-Date: %V\r\n"
         "Authorization: AWS4-HMAC-SHA256 Credential=%V/%V, "
         "SignedHeaders=host;x-amz-content-sha256;x-amz-date, "
@@ -554,11 +557,11 @@ ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         "%V\n"
         "\n"
         "host:%V\n"
-        "x-amz-content-sha256:" NGX_LIVE_DVR_S3_EMPTY_SHA256 "\n"
+        "x-amz-content-sha256:" NGX_LIVE_STORE_S3_EMPTY_SHA256 "\n"
         "x-amz-date:%V\n"
         "\n"
         "host;x-amz-content-sha256;x-amz-date\n"
-        NGX_LIVE_DVR_S3_EMPTY_SHA256 "\n";
+        NGX_LIVE_STORE_S3_EMPTY_SHA256 "\n";
 
     static const char  string_to_sign_template[] =
         "AWS4-HMAC-SHA256\n"
@@ -566,39 +569,39 @@ ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         "%V\n"
         "%V";
 
-    u_char                 *p;
-    u_char                 *temp_buf;
-    size_t                  size;
-    size_t                  temp_size;
-    struct tm               tm;
-    ngx_str_t               date;
-    ngx_str_t               signature;
-    ngx_str_t               string_to_sign;
-    ngx_str_t               canonical_sha;
-    ngx_str_t               canonical_request;
-    ngx_buf_t              *b;
-    ngx_int_t               rc;
-    ngx_live_dvr_s3_ctx_t  *ctx = arg;
+    u_char                   *p;
+    u_char                   *temp_buf;
+    size_t                    size;
+    size_t                    temp_size;
+    struct tm                 tm;
+    ngx_str_t                 date;
+    ngx_str_t                 signature;
+    ngx_str_t                 string_to_sign;
+    ngx_str_t                 canonical_sha;
+    ngx_str_t                 canonical_request;
+    ngx_buf_t                *b;
+    ngx_int_t                 rc;
+    ngx_live_store_s3_ctx_t  *ctx = arg;
 
-    u_char  date_buf[NGX_LIVE_DVR_S3_AMZ_TIME_LEN];
-    u_char  signature_buf[NGX_LIVE_DVR_S3_HMAC_HEX_LEN];
-    u_char  canonical_sha_buf[NGX_LIVE_DVR_S3_SHA256_HEX_LEN];
+    u_char  date_buf[NGX_LIVE_STORE_S3_AMZ_TIME_LEN];
+    u_char  signature_buf[NGX_LIVE_STORE_S3_HMAC_HEX_LEN];
+    u_char  canonical_sha_buf[NGX_LIVE_STORE_S3_SHA256_HEX_LEN];
 
     /* get the request date */
     ngx_libc_gmtime(ngx_time(), &tm);
     date.len = strftime((char *) date_buf, sizeof(date_buf),
-        NGX_LIVE_DVR_S3_AMZ_TIME_FORMAT, &tm);
+        NGX_LIVE_STORE_S3_AMZ_TIME_FORMAT, &tm);
     if (date.len == 0) {
         ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_dvr_s3_get_request: strftime failed");
+            "ngx_live_store_s3_get_request: strftime failed");
         return NGX_ERROR;
     }
     date.data = date_buf;
 
     /* generate signing key */
-    if (ngx_live_dvr_s3_generate_signing_key(ctx, pool->log) != NGX_OK) {
+    if (ngx_live_store_s3_generate_signing_key(ctx, pool->log) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_s3_get_request: generate signing key failed");
+            "ngx_live_store_s3_get_request: generate signing key failed");
         return NGX_ERROR;
     }
 
@@ -611,7 +614,7 @@ ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     temp_buf = ngx_alloc(temp_size, pool->log);
     if (temp_buf == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_s3_get_request: alloc temp failed");
+            "ngx_live_store_s3_get_request: alloc temp failed");
         return NGX_ERROR;
     }
 
@@ -625,7 +628,7 @@ ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     canonical_request.len = p - canonical_request.data;
 
     /* get the canonical request hash */
-    ngx_live_dvr_s3_sha256_hex_buf(&canonical_request, canonical_sha_buf);
+    ngx_live_store_s3_sha256_hex_buf(&canonical_request, canonical_sha_buf);
 
     canonical_sha.data = canonical_sha_buf;
     canonical_sha.len = sizeof(canonical_sha_buf);
@@ -640,7 +643,7 @@ ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 
     if ((size_t) (p - temp_buf) > temp_size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
-            "ngx_live_dvr_s3_get_request: "
+            "ngx_live_store_s3_get_request: "
             "temp size %uz greater than allocated length %uz",
             (size_t) (p - temp_buf), temp_size);
         return NGX_ERROR;
@@ -649,14 +652,14 @@ ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     /* get the signature */
     signature.data = signature_buf;
 
-    rc = ngx_live_dvr_s3_hmac_sha256_hex(pool->log, &ctx->signing_key,
+    rc = ngx_live_store_s3_hmac_sha256_hex(pool->log, &ctx->signing_key,
         &string_to_sign, &signature);
 
     ngx_free(temp_buf);
 
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_s3_get_request: failed to sign");
+            "ngx_live_store_s3_get_request: failed to sign");
         return NGX_ERROR;
     }
 
@@ -668,7 +671,7 @@ ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     b = ngx_create_temp_buf(pool, size);
     if (b == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_s3_get_request: alloc buf failed");
+            "ngx_live_store_s3_get_request: alloc buf failed");
         return NGX_ERROR;
     }
 
@@ -678,7 +681,7 @@ ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 
     if ((size_t) (b->last - b->pos) > size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
-            "ngx_live_dvr_s3_get_request: "
+            "ngx_live_store_s3_get_request: "
             "buffer size %uz greater than allocated length %uz",
             (size_t) (b->last - b->pos), size);
         return NGX_ERROR;
@@ -690,7 +693,7 @@ ngx_live_dvr_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 }
 
 static ngx_int_t
-ngx_live_dvr_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
+ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     ngx_str_t *uri, ngx_chain_t *body, size_t content_length,
     ngx_buf_t **result)
 {
@@ -724,41 +727,41 @@ ngx_live_dvr_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         "%V\n"
         "%V";
 
-    u_char                 *p;
-    u_char                 *temp_buf;
-    size_t                  size;
-    size_t                  temp_size;
-    struct tm               tm;
-    ngx_str_t               date;
-    ngx_str_t               signature;
-    ngx_str_t               content_sha;
-    ngx_str_t               canonical_sha;
-    ngx_str_t               string_to_sign;
-    ngx_str_t               canonical_request;
-    ngx_buf_t              *b;
-    ngx_int_t               rc;
-    ngx_live_dvr_s3_ctx_t  *ctx = arg;
+    u_char                   *p;
+    u_char                   *temp_buf;
+    size_t                    size;
+    size_t                    temp_size;
+    struct tm                 tm;
+    ngx_str_t                 date;
+    ngx_str_t                 signature;
+    ngx_str_t                 content_sha;
+    ngx_str_t                 canonical_sha;
+    ngx_str_t                 string_to_sign;
+    ngx_str_t                 canonical_request;
+    ngx_buf_t                *b;
+    ngx_int_t                 rc;
+    ngx_live_store_s3_ctx_t  *ctx = arg;
 
-    u_char  date_buf[NGX_LIVE_DVR_S3_AMZ_TIME_LEN];
-    u_char  signature_buf[NGX_LIVE_DVR_S3_HMAC_HEX_LEN];
-    u_char  content_sha_buf[NGX_LIVE_DVR_S3_SHA256_HEX_LEN];
-    u_char  canonical_sha_buf[NGX_LIVE_DVR_S3_SHA256_HEX_LEN];
+    u_char  date_buf[NGX_LIVE_STORE_S3_AMZ_TIME_LEN];
+    u_char  signature_buf[NGX_LIVE_STORE_S3_HMAC_HEX_LEN];
+    u_char  content_sha_buf[NGX_LIVE_STORE_S3_SHA256_HEX_LEN];
+    u_char  canonical_sha_buf[NGX_LIVE_STORE_S3_SHA256_HEX_LEN];
 
     /* get the request date */
     ngx_libc_gmtime(ngx_time(), &tm);
     date.len = strftime((char *) date_buf, sizeof(date_buf),
-        NGX_LIVE_DVR_S3_AMZ_TIME_FORMAT, &tm);
+        NGX_LIVE_STORE_S3_AMZ_TIME_FORMAT, &tm);
     if (date.len == 0) {
         ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_dvr_s3_put_request: strftime failed");
+            "ngx_live_store_s3_put_request: strftime failed");
         return NGX_ERROR;
     }
     date.data = date_buf;
 
     /* generate signing key */
-    if (ngx_live_dvr_s3_generate_signing_key(ctx, pool->log) != NGX_OK) {
+    if (ngx_live_store_s3_generate_signing_key(ctx, pool->log) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_s3_put_request: generate signing key failed");
+            "ngx_live_store_s3_put_request: generate signing key failed");
         return NGX_ERROR;
     }
 
@@ -772,14 +775,14 @@ ngx_live_dvr_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     temp_buf = ngx_alloc(temp_size, pool->log);
     if (temp_buf == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_s3_put_request: alloc temp failed");
+            "ngx_live_store_s3_put_request: alloc temp failed");
         return NGX_ERROR;
     }
 
     p = temp_buf;
 
     /* get the content sha256 + hex */
-    ngx_live_dvr_s3_sha256_hex_chain(body, content_sha_buf);
+    ngx_live_store_s3_sha256_hex_chain(body, content_sha_buf);
     content_sha.data = content_sha_buf;
     content_sha.len = sizeof(content_sha_buf);
 
@@ -792,7 +795,7 @@ ngx_live_dvr_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     canonical_request.len = p - canonical_request.data;
 
     /* get the canonical request hash */
-    ngx_live_dvr_s3_sha256_hex_buf(&canonical_request, canonical_sha_buf);
+    ngx_live_store_s3_sha256_hex_buf(&canonical_request, canonical_sha_buf);
 
     canonical_sha.data = canonical_sha_buf;
     canonical_sha.len = sizeof(canonical_sha_buf);
@@ -807,7 +810,7 @@ ngx_live_dvr_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 
     if ((size_t) (p - temp_buf) > temp_size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
-            "ngx_live_dvr_s3_put_request: "
+            "ngx_live_store_s3_put_request: "
             "temp size %uz greater than allocated length %uz",
             (size_t) (p - temp_buf), temp_size);
         return NGX_ERROR;
@@ -816,14 +819,14 @@ ngx_live_dvr_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     /* get the signature */
     signature.data = signature_buf;
 
-    rc = ngx_live_dvr_s3_hmac_sha256_hex(pool->log, &ctx->signing_key,
+    rc = ngx_live_store_s3_hmac_sha256_hex(pool->log, &ctx->signing_key,
         &string_to_sign, &signature);
 
     ngx_free(temp_buf);
 
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_s3_put_request: failed to sign");
+            "ngx_live_store_s3_put_request: failed to sign");
         return NGX_ERROR;
     }
 
@@ -835,7 +838,7 @@ ngx_live_dvr_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     b = ngx_create_temp_buf(pool, size);
     if (b == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_s3_put_request: alloc buf failed");
+            "ngx_live_store_s3_put_request: alloc buf failed");
         return NGX_ERROR;
     }
 
@@ -845,7 +848,7 @@ ngx_live_dvr_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 
     if ((size_t) (b->last - b->pos) > size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
-            "ngx_live_dvr_s3_put_request: "
+            "ngx_live_store_s3_put_request: "
             "buffer size %uz greater than allocated length %uz",
             (size_t) (b->last - b->pos), size);
         return NGX_ERROR;
@@ -858,12 +861,12 @@ ngx_live_dvr_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 
 
 static void
-ngx_live_dvr_s3_get_info(ngx_live_channel_t *channel, ngx_str_t *name)
+ngx_live_store_s3_get_info(ngx_live_channel_t *channel, ngx_str_t *name)
 {
-    ngx_live_dvr_s3_ctx_t          *ctx;
-    ngx_live_dvr_s3_preset_conf_t  *conf;
+    ngx_live_store_s3_ctx_t          *ctx;
+    ngx_live_store_s3_preset_conf_t  *conf;
 
-    conf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_s3_module);
+    conf = ngx_live_get_module_preset_conf(channel, ngx_live_store_s3_module);
 
     ctx = conf->ctx;
 
@@ -871,78 +874,78 @@ ngx_live_dvr_s3_get_info(ngx_live_channel_t *channel, ngx_str_t *name)
 }
 
 static void *
-ngx_live_dvr_s3_read_init(ngx_live_dvr_read_request_t *request)
+ngx_live_store_s3_read_init(ngx_live_store_read_request_t *request)
 {
-    ngx_live_dvr_s3_ctx_t          *ctx;
-    ngx_live_dvr_s3_preset_conf_t  *conf;
+    ngx_live_store_s3_ctx_t          *ctx;
+    ngx_live_store_s3_preset_conf_t  *conf;
 
     conf = ngx_live_get_module_preset_conf(request->channel,
-        ngx_live_dvr_s3_module);
+        ngx_live_store_s3_module);
 
     ctx = conf->ctx;
 
-    return ngx_live_dvr_http_read_init(request, ctx->url,
-        ngx_live_dvr_s3_get_request, ctx);
+    return ngx_live_store_http_read_init(request, ctx->url,
+        ngx_live_store_s3_get_request, ctx);
 }
 
 static void *
-ngx_live_dvr_s3_save(ngx_live_dvr_save_request_t *request)
+ngx_live_store_s3_write(ngx_live_store_write_request_t *request)
 {
-    ngx_buf_t                      *b;
-    ngx_pool_t                     *pool;
-    ngx_chain_t                    *cl;
-    ngx_live_channel_t             *channel;
-    ngx_live_dvr_s3_ctx_t          *ctx;
-    ngx_live_dvr_s3_preset_conf_t  *conf;
+    ngx_buf_t                        *b;
+    ngx_pool_t                       *pool;
+    ngx_chain_t                      *cl;
+    ngx_live_channel_t               *channel;
+    ngx_live_store_s3_ctx_t          *ctx;
+    ngx_live_store_s3_preset_conf_t  *conf;
 
     channel = request->channel;
-    conf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_s3_module);
+    conf = ngx_live_get_module_preset_conf(channel, ngx_live_store_s3_module);
 
     ctx = conf->ctx;
 
     pool = request->pool;
 
-    if (ngx_live_dvr_s3_put_request(pool, ctx, &ctx->url->host, &request->path,
-        request->cl, request->size, &b) != NGX_OK)
+    if (ngx_live_store_s3_put_request(pool, ctx, &ctx->url->host,
+        &request->path, request->cl, request->size, &b) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_dvr_s3_save: create request failed");
+            "ngx_live_store_s3_write: create request failed");
         return NULL;
     }
 
     cl = ngx_alloc_chain_link(pool);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_dvr_s3_save: alloc chain failed");
+            "ngx_live_store_s3_write: alloc chain failed");
         return NULL;
     }
 
     cl->buf = b;
     cl->next = NULL;
 
-    return ngx_live_dvr_http_save(request, ctx->url, cl, request->cl);
+    return ngx_live_store_http_write(request, ctx->url, cl, request->cl);
 }
 
 
-static ngx_live_dvr_store_t  ngx_live_dvr_s3_store = {
-    ngx_live_dvr_s3_get_info,
-    ngx_live_dvr_s3_read_init,
-    ngx_live_dvr_http_read,
-    ngx_live_dvr_s3_save,
-    ngx_live_dvr_http_cancel_save,
+static ngx_live_store_t  ngx_live_store_s3 = {
+    ngx_live_store_s3_get_info,
+    ngx_live_store_s3_read_init,
+    ngx_live_store_http_read,
+    ngx_live_store_s3_write,
+    ngx_live_store_http_cancel_write,
 };
 
 static char *
-ngx_live_dvr_s3(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+ngx_live_store_s3_set(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     char  *p = conf;
 
-    ngx_str_t                     *value;
-    ngx_live_conf_ctx_t           *live_ctx;
-    ngx_live_dvr_s3_ctx_t         *ctx, **pctx;
-    ngx_live_dvr_s3_main_conf_t   *smcf;
+    ngx_str_t                      *value;
+    ngx_live_conf_ctx_t            *live_ctx;
+    ngx_live_store_s3_ctx_t        *ctx, **pctx;
+    ngx_live_store_s3_main_conf_t  *smcf;
 
-    pctx = (ngx_live_dvr_s3_ctx_t **) (p + cmd->offset);
+    pctx = (ngx_live_store_s3_ctx_t **) (p + cmd->offset);
 
     if (*pctx != NGX_CONF_UNSET_PTR) {
         return "is duplicate";
@@ -953,34 +956,34 @@ ngx_live_dvr_s3(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     live_ctx = cf->ctx;
 
     /* get the ctx */
-    smcf = ngx_live_get_module_main_conf(live_ctx, ngx_live_dvr_s3_module);
+    smcf = ngx_live_get_module_main_conf(live_ctx, ngx_live_store_s3_module);
 
-    ctx = ngx_live_dvr_s3_get_ctx(&smcf->blocks, &value[1]);
+    ctx = ngx_live_store_s3_get_ctx(&smcf->blocks, &value[1]);
     if (ctx == NULL) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-            "unknown dvr_s3_block \"%V\"", &value[1]);
+            "unknown store_s3_block \"%V\"", &value[1]);
         return NGX_CONF_ERROR;
     }
 
     *pctx = ctx;
 
-    /* register the dvr store */
-    return ngx_live_dvr_set_store(cf, &ngx_live_dvr_s3_store);
+    /* register the store */
+    return ngx_live_dvr_set_store(cf, &ngx_live_store_s3);
 }
 
 
 static void *
-ngx_live_dvr_s3_create_main_conf(ngx_conf_t *cf)
+ngx_live_store_s3_create_main_conf(ngx_conf_t *cf)
 {
-    ngx_live_dvr_s3_main_conf_t  *smcf;
+    ngx_live_store_s3_main_conf_t  *smcf;
 
-    smcf = ngx_pcalloc(cf->pool, sizeof(ngx_live_dvr_s3_main_conf_t));
+    smcf = ngx_pcalloc(cf->pool, sizeof(ngx_live_store_s3_main_conf_t));
     if (smcf == NULL) {
         return NULL;
     }
 
     if (ngx_array_init(&smcf->blocks, cf->pool, 2,
-        sizeof(ngx_live_dvr_s3_ctx_t *))
+        sizeof(ngx_live_store_s3_ctx_t *))
         != NGX_OK)
     {
         return NULL;
@@ -990,11 +993,11 @@ ngx_live_dvr_s3_create_main_conf(ngx_conf_t *cf)
 }
 
 static void *
-ngx_live_dvr_s3_create_preset_conf(ngx_conf_t *cf)
+ngx_live_store_s3_create_preset_conf(ngx_conf_t *cf)
 {
-    ngx_live_dvr_s3_preset_conf_t  *conf;
+    ngx_live_store_s3_preset_conf_t  *conf;
 
-    conf = ngx_pcalloc(cf->pool, sizeof(ngx_live_dvr_s3_preset_conf_t));
+    conf = ngx_pcalloc(cf->pool, sizeof(ngx_live_store_s3_preset_conf_t));
     if (conf == NULL) {
         return NULL;
     }
@@ -1005,10 +1008,10 @@ ngx_live_dvr_s3_create_preset_conf(ngx_conf_t *cf)
 }
 
 static char *
-ngx_live_dvr_s3_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
+ngx_live_store_s3_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    ngx_live_dvr_s3_preset_conf_t  *prev = parent;
-    ngx_live_dvr_s3_preset_conf_t  *conf = child;
+    ngx_live_store_s3_preset_conf_t  *prev = parent;
+    ngx_live_store_s3_preset_conf_t  *conf = child;
 
     ngx_conf_merge_ptr_value(conf->ctx,
                              prev->ctx, NULL);
