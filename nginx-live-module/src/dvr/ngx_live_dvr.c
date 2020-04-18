@@ -26,7 +26,7 @@ static char *ngx_live_dvr_bucket_time(ngx_conf_t *cf, ngx_command_t *cmd,
 
 
 typedef struct {
-    ngx_live_dvr_store_t      *store;
+    ngx_live_store_t          *store;
     ngx_live_complex_value_t  *path;
     ngx_uint_t                 bucket_size;
     size_t                     initial_read_size;
@@ -164,7 +164,7 @@ typedef struct {
     media_segment_t                    *segment;
     ngx_live_dvr_read_track_ctx_t       tracks[KMP_MEDIA_COUNT];
     uint32_t                            read_tracks;
-    ngx_live_dvr_read_pt                read;
+    ngx_live_store_read_pt              read;
     void                               *read_ctx;
     ngx_live_read_segment_callback_pt   callback;
     void                               *arg;
@@ -490,17 +490,17 @@ done:
 static ngx_int_t
 ngx_live_dvr_read(ngx_live_segment_read_req_t *req)
 {
-    uint32_t                      i;
-    uint32_t                      bucket_id;
-    ngx_int_t                     rc;
-    ngx_pool_t                   *pool;
-    media_segment_t              *segment;
-    ngx_live_channel_t           *channel;
-    media_segment_track_t        *cur_track;
-    ngx_live_dvr_read_ctx_t      *ctx;
-    ngx_live_dvr_preset_conf_t   *dpcf;
-    ngx_live_dvr_channel_ctx_t   *cctx;
-    ngx_live_dvr_read_request_t   request;
+    uint32_t                        i;
+    uint32_t                        bucket_id;
+    ngx_int_t                       rc;
+    ngx_pool_t                     *pool;
+    media_segment_t                *segment;
+    ngx_live_channel_t             *channel;
+    media_segment_track_t          *cur_track;
+    ngx_live_dvr_read_ctx_t        *ctx;
+    ngx_live_dvr_preset_conf_t     *dpcf;
+    ngx_live_dvr_channel_ctx_t     *cctx;
+    ngx_live_store_read_request_t   request;
 
     pool = req->pool;
     channel = req->channel;
@@ -842,14 +842,14 @@ ngx_live_dvr_save_bucket(ngx_live_channel_t *channel,
     ngx_live_dvr_channel_ctx_t *cctx, ngx_live_dvr_preset_conf_t *dpcf,
     uint32_t bucket_id)
 {
-    void                         *save_ctx;
-    uint32_t                      min_segment_index;
-    uint32_t                      max_segment_index;
-    ngx_int_t                     rc;
-    ngx_pool_t                   *pool;
-    ngx_live_dvr_save_ctx_t      *ctx;
-    ngx_live_segment_cleanup_t   *cln;
-    ngx_live_dvr_save_request_t   request;
+    void                            *save_ctx;
+    uint32_t                         min_segment_index;
+    uint32_t                         max_segment_index;
+    ngx_int_t                        rc;
+    ngx_pool_t                      *pool;
+    ngx_live_dvr_save_ctx_t         *ctx;
+    ngx_live_segment_cleanup_t      *cln;
+    ngx_live_store_write_request_t   request;
 
     cctx->save_started++;
 
@@ -906,14 +906,14 @@ ngx_live_dvr_save_bucket(ngx_live_channel_t *channel,
     request.handler = ngx_live_dvr_save_complete;
     request.data = ctx;
 
-    save_ctx = dpcf->store->save(&request);
+    save_ctx = dpcf->store->write(&request);
     if (save_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_dvr_save_bucket: save failed");
         goto error;
     }
 
-    cln->handler = dpcf->store->cancel_save;
+    cln->handler = dpcf->store->cancel_write;
     cln->data = save_ctx;
 
     return;
@@ -983,7 +983,7 @@ ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel, void *ectx)
 /* read + write */
 
 char *
-ngx_live_dvr_set_store(ngx_conf_t *cf, ngx_live_dvr_store_t *store)
+ngx_live_dvr_set_store(ngx_conf_t *cf, ngx_live_store_t *store)
 {
     ngx_live_conf_ctx_t         *live_ctx;
     ngx_live_dvr_preset_conf_t  *dmcf;

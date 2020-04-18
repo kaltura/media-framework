@@ -42,7 +42,7 @@ def updateConf(conf):
 
     if DISABLE_DVR:
         preset = getConfBlock(conf, ['live', 'preset main'])
-        preset.remove(getConfParam(preset, 'dvr_s3'))
+        preset.remove(getConfParam(preset, 'store_s3'))
 
     if BLOCKING_SEGMENT_REQUEST:
         preset = getConfBlock(conf, ['live', 'preset main'])
