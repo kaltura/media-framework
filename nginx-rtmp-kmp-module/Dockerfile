@@ -41,7 +41,7 @@ RUN cd /tmp/build/nginx &&  \
 FROM alpine:$ALPINE_VER
 
 RUN apk add --update \
-    pcre  curl gdb python3\
+    pcre  curl gdb python3 tcpdump\
     && rm -rf /var/cache/apk/*
 
 COPY --from=builder /usr/local/nginx /usr/local/nginx
