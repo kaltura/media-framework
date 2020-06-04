@@ -559,7 +559,17 @@ static ngx_int_t
 ngx_rtmp_kmp_connect_error(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v,
     u_char *desc)
 {
-    ngx_int_t  rc;
+    ngx_int_t                  rc;
+    ngx_rtmp_core_srv_conf_t  *cscf;
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    rc = ngx_rtmp_send_chunk_size(s, cscf->chunk_size);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+            "ngx_rtmp_kmp_connect_error: send chunk size failed %i", rc);
+        return NGX_ERROR;
+    }
 
     rc = ngx_rtmp_send_stream_begin(s, s->in_msid);
     if (rc != NGX_OK) {
