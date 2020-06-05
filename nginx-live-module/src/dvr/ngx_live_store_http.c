@@ -141,6 +141,7 @@ typedef struct {
     ngx_live_store_http_preset_conf_t   *conf;
     ngx_url_t                           *url;
     ngx_str_t                            uri;
+    size_t                               max_size;
 
     ngx_live_store_http_create_read_pt   create;
     void                                *create_data;
@@ -175,6 +176,7 @@ ngx_live_store_http_read_init(ngx_live_store_read_request_t *request,
         ngx_live_store_http_module);
     ctx->url = url;
     ctx->uri = request->path;
+    ctx->max_size = request->max_size;
 
     ctx->create = create;
     ctx->create_data = create_data;
@@ -220,9 +222,12 @@ ngx_live_store_http_read_finished(ngx_pool_t *temp_pool, void *arg,
 {
     ngx_int_t                        rc;
     ngx_uint_t                       level;
+    ngx_uint_t                       success_code;
     ngx_live_store_http_read_ctx_t  *ctx = arg;
 
-    if (code != NGX_HTTP_PARTIAL_CONTENT) {
+    success_code = ctx->size == 0 ? NGX_HTTP_OK : NGX_HTTP_PARTIAL_CONTENT;
+
+    if (code != success_code) {
 
         level = (code >= NGX_HTTP_CALL_ERROR_COUNT) ? NGX_LOG_ERR :
             NGX_LOG_NOTICE;
@@ -243,6 +248,10 @@ ngx_live_store_http_read_finished(ngx_pool_t *temp_pool, void *arg,
 
         case NGX_HTTP_CALL_ERROR_TIME_OUT:
             rc = NGX_HTTP_GATEWAY_TIME_OUT;
+            break;
+
+        case NGX_HTTP_NOT_FOUND:
+            rc = code;
             break;
 
         default:
@@ -270,8 +279,8 @@ ngx_live_store_http_read(void *arg, off_t offset, size_t size)
     /* Note: allocating the response buffers on r->pool, in case of multiple
         reads, they will be freed only when the request completes */
 
-    ci.buffer_size = conf->read_buffer_size + size;
-    ci.response = ngx_create_temp_buf(ctx->pool, ci.buffer_size);
+    ci.response = ngx_create_temp_buf(ctx->pool,
+        conf->read_buffer_size + size);
     if (ci.response == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
             "ngx_live_store_http_read: alloc failed");
@@ -282,6 +291,7 @@ ngx_live_store_http_read(void *arg, off_t offset, size_t size)
     ci.create = ngx_live_store_http_read_create;
     ci.handle = ngx_live_store_http_read_finished;
     ci.handler_pool = ctx->pool;
+    ci.max_response_size = ctx->max_size;
 
     ci.arg = ctx;
 

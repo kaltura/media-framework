@@ -3,7 +3,6 @@
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #include "ngx_live_store_http.h"
-#include "ngx_live_dvr.h"
 
 
 #define NGX_LIVE_STORE_S3_SHA256_HEX_LEN   (SHA256_DIGEST_LENGTH * 2)
@@ -37,21 +36,21 @@ static char *ngx_live_store_s3_merge_preset_conf(ngx_conf_t *cf, void *parent,
 
 
 typedef struct {
-    ngx_str_t               name;
+    ngx_str_t                 name;
 
     /* conf */
-    ngx_url_t              *url;
-    ngx_str_t               access_key;
-    ngx_str_t               secret_key;
-    ngx_str_t               service;
-    ngx_str_t               region;
+    ngx_url_t                *url;
+    ngx_str_t                 access_key;
+    ngx_str_t                 secret_key;
+    ngx_str_t                 service;
+    ngx_str_t                 region;
 
     /* derivatives */
-    ngx_str_t               secret_key_prefix;
-    ngx_str_t               signing_key_date;
-    ngx_str_t               signing_key;
-    ngx_str_t               key_scope;
-    ngx_str_t               key_scope_suffix;
+    ngx_str_t                 secret_key_prefix;
+    ngx_str_t                 signing_key_date;
+    ngx_str_t                 signing_key;
+    ngx_str_t                 key_scope;
+    ngx_str_t                 key_scope_suffix;
 } ngx_live_store_s3_ctx_t;
 
 
@@ -61,7 +60,7 @@ typedef struct {
 
 
 typedef struct {
-    ngx_array_t             blocks;
+    ngx_array_t               blocks;
 } ngx_live_store_s3_main_conf_t;
 
 
@@ -544,13 +543,14 @@ ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         "GET %V HTTP/1.1\r\n"
         "Connection: Close\r\n"
         "Host: %V\r\n"
-        "Range: bytes=%O-%O\r\n"
         "X-Amz-Content-SHA256: " NGX_LIVE_STORE_S3_EMPTY_SHA256 "\r\n"
         "X-Amz-Date: %V\r\n"
         "Authorization: AWS4-HMAC-SHA256 Credential=%V/%V, "
         "SignedHeaders=host;x-amz-content-sha256;x-amz-date, "
-        "Signature=%V\r\n"
-        "\r\n";
+        "Signature=%V\r\n";
+
+    static const char  range_header[] =
+        "Range: bytes=%O-%O\r\n";
 
     static const char  canonical_request_template[] =
         "GET\n"
@@ -561,7 +561,7 @@ ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         "x-amz-date:%V\n"
         "\n"
         "host;x-amz-content-sha256;x-amz-date\n"
-        NGX_LIVE_STORE_S3_EMPTY_SHA256 "\n";
+        NGX_LIVE_STORE_S3_EMPTY_SHA256;
 
     static const char  string_to_sign_template[] =
         "AWS4-HMAC-SHA256\n"
@@ -665,8 +665,12 @@ ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 
     /* build the request */
     size = sizeof(request_template) + uri->len + host->len +
-        2 * NGX_OFF_T_LEN + date.len + ctx->access_key.len +
-        ctx->key_scope.len + signature.len;
+        date.len + ctx->access_key.len + ctx->key_scope.len + signature.len +
+        sizeof(CRLF) - 1;
+
+    if (range_end != -1) {
+        size += sizeof(range_header) - 1 + 2 * NGX_OFF_T_LEN;
+    }
 
     b = ngx_create_temp_buf(pool, size);
     if (b == NULL) {
@@ -675,17 +679,26 @@ ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         return NGX_ERROR;
     }
 
-    b->last = ngx_sprintf(b->last, request_template,
-        uri, host, range_start, range_end, &date,
+    p = b->last;
+
+    p = ngx_sprintf(p, request_template, uri, host, &date,
         &ctx->access_key, &ctx->key_scope, &signature);
 
-    if ((size_t) (b->last - b->pos) > size) {
+    if (range_end != -1) {
+        p = ngx_sprintf(p, range_header, range_start, range_end);
+    }
+
+    *p++ = CR; *p++ = LF;
+
+    if ((size_t) (p - b->pos) > size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
             "ngx_live_store_s3_get_request: "
             "buffer size %uz greater than allocated length %uz",
-            (size_t) (b->last - b->pos), size);
+            (size_t) (p - b->pos), size);
         return NGX_ERROR;
     }
+
+    b->last = p;
 
     *result = b;
 
@@ -719,7 +732,7 @@ ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         "x-amz-date:%V\n"
         "\n"
         "host;x-amz-content-sha256;x-amz-date\n"
-        "%V\n";
+        "%V";
 
     static const char string_to_sign_template[] =
         "AWS4-HMAC-SHA256\n"
@@ -968,7 +981,7 @@ ngx_live_store_s3_set(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     *pctx = ctx;
 
     /* register the store */
-    return ngx_live_dvr_set_store(cf, &ngx_live_store_s3);
+    return ngx_live_persist_set_store(cf, &ngx_live_store_s3);
 }
 
 

@@ -51,7 +51,8 @@ enum {
 #include "ngx_live_channel_json.h"
 
 
-void ngx_live_track_channel_free(ngx_live_track_t *track, ngx_uint_t event);
+static void ngx_live_track_channel_free(ngx_live_track_t *track,
+    ngx_uint_t event);
 
 
 ngx_int_t
@@ -171,8 +172,8 @@ ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
     channel->main_conf = conf_ctx->main_conf;
     channel->preset_conf = conf_ctx->preset_conf;
 
-    channel->last_modified = ngx_time();
     channel->start_msec = ngx_current_msec;
+    channel->last_modified = ngx_time();
 
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
@@ -271,6 +272,15 @@ ngx_live_channel_free(ngx_live_channel_t *channel)
     ngx_destroy_pool(channel->pool);
 }
 
+void
+ngx_live_channel_setup_changed(ngx_live_channel_t *channel)
+{
+    channel->last_modified = ngx_time();
+
+    (void) ngx_live_core_channel_event(channel,
+        NGX_LIVE_EVENT_CHANNEL_SETUP_CHANGED, NULL);
+}
+
 static void
 ngx_live_channel_close_handler(ngx_event_t *ev)
 {
@@ -354,7 +364,16 @@ ngx_int_t
 ngx_live_channel_block_str_set(ngx_live_channel_t *channel,
     ngx_block_str_t *dest, ngx_str_t *src)
 {
-    return ngx_block_str_set(dest, channel->block_pool, NGX_LIVE_BP_STR, src);
+    ngx_int_t  rc;
+
+    rc = ngx_block_str_set(dest, channel->block_pool, NGX_LIVE_BP_STR, src);
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    ngx_live_channel_setup_changed(channel);
+
+    return NGX_OK;
 }
 
 void
@@ -364,6 +383,12 @@ ngx_live_channel_block_str_free(ngx_live_channel_t *channel,
     ngx_block_str_free(str, channel->block_pool, NGX_LIVE_BP_STR);
 }
 
+ngx_int_t
+ngx_live_channel_block_str_read(ngx_live_channel_t *channel,
+    ngx_block_str_t *dest, ngx_mem_rstream_t *rs)
+{
+    return ngx_block_str_read(rs, dest, channel->block_pool, NGX_LIVE_BP_STR);
+}
 
 /* variant */
 
@@ -464,7 +489,7 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
         "ngx_live_variant_create: created %p, variant: %V",
         variant, &variant->sn.str);
 
-    channel->last_modified = ngx_time();
+    ngx_live_channel_setup_changed(channel);
 
     *result = variant;
 
@@ -479,14 +504,14 @@ ngx_live_variant_free(ngx_live_variant_t *variant)
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
         "ngx_live_variant_free: freeing %p", channel);
 
-    channel->last_modified = ngx_time();
-
     ngx_live_channel_block_str_free(channel, &variant->opaque);
 
     ngx_rbtree_delete(&channel->variants.rbtree, &variant->sn.node);
     ngx_queue_remove(&variant->queue);
 
     ngx_block_pool_free(channel->block_pool, NGX_LIVE_BP_VARIANT, variant);
+
+    ngx_live_channel_setup_changed(channel);
 }
 
 ngx_int_t
@@ -509,6 +534,8 @@ ngx_live_variant_update(ngx_live_variant_t *variant,
 
     variant->conf.role = conf->role;
     variant->conf.is_default = conf->is_default;
+
+    ngx_live_channel_setup_changed(variant->channel);
 
     return NGX_OK;
 }
@@ -535,7 +562,7 @@ ngx_live_variant_set_track(ngx_live_variant_t *variant,
         variant->track_count++;
     }
 
-    variant->channel->last_modified = ngx_time();
+    ngx_live_channel_setup_changed(variant->channel);
 
     return NGX_OK;
 }
@@ -711,7 +738,8 @@ ngx_live_track_log_error(ngx_log_t *log, u_char *buf, size_t len)
 
 ngx_int_t
 ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
-    uint32_t media_type, ngx_log_t *log, ngx_live_track_t **result)
+    uint32_t int_id, uint32_t media_type, ngx_log_t *log,
+    ngx_live_track_t **result)
 {
     uint32_t           hash;
     ngx_int_t          rc;
@@ -723,6 +751,12 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     if (id->len > sizeof(track->id_buf)) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_track_create: track id \"%V\" too long", id);
+        return NGX_DECLINED;
+    }
+
+    if (media_type >= KMP_MEDIA_COUNT) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_track_create: invalid media type %uD", media_type);
         return NGX_DECLINED;
     }
 
@@ -739,9 +773,34 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
             return NGX_DECLINED;
         }
 
+        if (int_id != NGX_LIVE_INVALID_TRACK_ID && track->in.key != int_id) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_live_track_create: "
+                "attempt to change int id from %ui to %uD",
+                track->in.key, int_id);
+            return NGX_DECLINED;
+        }
+
         *result = track;
         return NGX_BUSY;
     }
+
+    if (int_id != NGX_LIVE_INVALID_TRACK_ID) {
+
+        if (ngx_live_track_get_by_int(channel, int_id) != NULL) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_live_track_create: int id %uD already used", int_id);
+            return NGX_DECLINED;
+        }
+
+        if (channel->tracks.last_id < int_id) {
+            channel->tracks.last_id = int_id;
+        }
+
+    } else {
+        int_id = ++channel->tracks.last_id;
+    }
+
 
     track = ngx_block_pool_calloc(channel->block_pool, NGX_LIVE_BP_TRACK);
     if (track == NULL) {
@@ -755,6 +814,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     track->sn.str.len = id->len;
     ngx_memcpy(track->sn.str.data, id->data, track->sn.str.len);
     track->sn.node.key = hash;
+    track->in.key = int_id;
 
     track->log = channel->log;
     track->log.handler = ngx_live_track_log_error;
@@ -777,8 +837,6 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
         return rc;
     }
 
-    track->in.key = ++channel->tracks.next_id;
-
     ngx_rbtree_insert(&channel->tracks.rbtree, &track->sn.node);
     ngx_rbtree_insert(&channel->tracks.irbtree, &track->in);
 
@@ -800,12 +858,14 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     ngx_log_error(NGX_LOG_INFO, &track->log, 0,
         "ngx_live_track_create: created %p, id %ui", track, track->in.key);
 
+    ngx_live_channel_setup_changed(channel);
+
     *result = track;
 
     return NGX_OK;
 }
 
-void
+static void
 ngx_live_track_channel_free(ngx_live_track_t *track, ngx_uint_t event)
 {
     (void) ngx_live_core_track_event(track, event, NULL);
@@ -853,4 +913,6 @@ ngx_live_track_free(ngx_live_track_t *track)
     ngx_queue_remove(&track->queue);
 
     ngx_block_pool_free(channel->block_pool, NGX_LIVE_BP_TRACK, track);
+
+    ngx_live_channel_setup_changed(channel);
 }

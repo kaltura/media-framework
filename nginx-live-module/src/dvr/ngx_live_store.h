@@ -4,7 +4,6 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include "../ngx_live.h"
 
 
 #ifndef NGX_HTTP_NOT_FOUND
@@ -17,32 +16,33 @@
 
 /* read */
 
-typedef void(*ngx_live_store_read_handler_pt)(void *data, ngx_int_t rc,
+typedef void (*ngx_live_store_read_handler_pt)(void *data, ngx_int_t rc,
     ngx_buf_t *response);
 
 typedef struct {
     ngx_pool_t                       *pool;
     ngx_live_channel_t               *channel;
     ngx_str_t                         path;
+    size_t                            max_size;
 
     ngx_live_store_read_handler_pt    handler;
     void                             *data;
 } ngx_live_store_read_request_t;
 
 
-typedef void(*ngx_live_store_get_info_pt)(ngx_live_channel_t *channel,
+typedef void (*ngx_live_store_get_info_pt)(ngx_live_channel_t *channel,
     ngx_str_t *name);
 
 typedef void *(*ngx_live_store_read_init_pt)(
     ngx_live_store_read_request_t *request);
 
-typedef ngx_int_t(*ngx_live_store_read_pt)(void *data, off_t offset,
+typedef ngx_int_t (*ngx_live_store_read_pt)(void *data, off_t offset,
     size_t size);
 
 
 /* write */
 
-typedef void(*ngx_live_store_write_handler_pt)(void *data, ngx_int_t rc);
+typedef void (*ngx_live_store_write_handler_pt)(void *data, ngx_int_t rc);
 
 typedef struct {
     ngx_pool_t                       *pool;
@@ -59,7 +59,7 @@ typedef struct {
 typedef void *(*ngx_live_store_write_pt)(
     ngx_live_store_write_request_t *request);
 
-typedef void(*ngx_live_store_cancel_write_pt)(void *data);
+typedef void (*ngx_live_store_cancel_write_pt)(void *data);
 
 /* read + write */
 

@@ -74,7 +74,7 @@ ngx_block_str_free_data(ngx_block_str_node_t *data, ngx_block_pool_t *pool,
 }
 
 u_char *
-ngx_block_str_write(u_char *p, ngx_block_str_t *str)
+ngx_block_str_copy(u_char *p, ngx_block_str_t *str)
 {
     size_t                 left;
     ngx_block_str_node_t  *cur;
@@ -89,4 +89,45 @@ ngx_block_str_write(u_char *p, ngx_block_str_t *str)
     p = ngx_copy(p, cur + 1, left);
 
     return p;
+}
+
+
+ngx_int_t
+ngx_block_str_write(ngx_wstream_t *ws, ngx_block_str_t *str)
+{
+    uint32_t               left;
+    ngx_int_t              rc;
+    ngx_block_str_node_t  *cur;
+
+    left = str->len;
+
+    rc = ws->write(ws->ctx, &left, sizeof(left));
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    for (cur = str->data;
+        left > str->block_len;
+        left -= str->block_len, cur = cur->next)
+    {
+        rc = ws->write(ws->ctx, cur + 1, str->block_len);
+        if (rc != NGX_OK) {
+            return rc;
+        }
+    }
+
+    return ws->write(ws->ctx, cur + 1, left);
+}
+
+ngx_int_t
+ngx_block_str_read(ngx_mem_rstream_t *rs, ngx_block_str_t *str,
+    ngx_block_pool_t *pool, ngx_uint_t index)
+{
+    ngx_str_t  src;
+
+    if (ngx_mem_rstream_str_get(rs, &src) != NGX_OK) {
+        return NGX_ABORT;
+    }
+
+    return ngx_block_str_set(str, pool, index, &src);
 }

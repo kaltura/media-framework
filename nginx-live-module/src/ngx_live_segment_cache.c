@@ -22,6 +22,7 @@ typedef struct {
 typedef struct {
     size_t                  frame_left;
     ngx_buf_chain_t        *chain;
+    u_char                 *pos;
 } ngx_live_segment_cache_source_state_t;
 
 
@@ -361,9 +362,7 @@ ngx_live_segment_cache_free_by_index(ngx_live_channel_t *channel,
 
 
 static ngx_int_t
-ngx_live_segment_cache_source_init(
-    ngx_pool_t *pool,
-    ngx_buf_chain_t *chain,
+ngx_live_segment_cache_source_init(ngx_pool_t *pool, ngx_buf_chain_t *chain,
     void **result)
 {
     ngx_live_segment_cache_source_state_t  *state;
@@ -376,6 +375,7 @@ ngx_live_segment_cache_source_init(
     }
 
     state->chain = chain;
+    state->pos = chain->data;
 
     *result = state;
 
@@ -396,16 +396,35 @@ static vod_status_t
 ngx_live_segment_cache_source_read(void *ctx, u_char **buffer, uint32_t *size,
     bool_t *frame_done)
 {
+    size_t                                  chain_left;
     ngx_buf_chain_t                        *chain;
     ngx_live_segment_cache_source_state_t  *state = ctx;
 
-    chain = state->chain;
-    state->chain = chain->next;
-    state->frame_left -= chain->size;
+    *buffer = state->pos;
 
-    *buffer = chain->data;
-    *size = chain->size;
-    *frame_done = state->frame_left <= 0;
+    chain = state->chain;
+    chain_left = chain->data + chain->size - state->pos;
+
+    if (state->frame_left >= chain_left) {
+        *size = chain_left;
+
+        state->frame_left -= chain_left;
+        *frame_done = state->frame_left <= 0;
+
+        chain = chain->next;
+        if (chain) {
+            state->chain = chain;
+            state->pos = chain->data;
+        }
+
+    } else {
+        *size = state->frame_left;
+
+        state->frame_left = 0;
+        *frame_done = 1;
+
+        state->pos += *size;
+    }
 
     return VOD_OK;
 }

@@ -39,12 +39,7 @@ def createTrack(nl, trackName, mediaType, varName=None):
     nl.track.create(NginxLiveTrack(id=trackName, media_type=mediaType))
     if varName is not None:
         nl.variant.addTrack(variantId=varName, trackId=trackName)
-    s = KmpTcpSender(NGINX_LIVE_KMP_ADDR, nl.channelId, trackName)
-
-    # reduce send buffer size for audio
-    if mediaType == 'audio':
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024)
-    return s
+    return KmpTcpSender(NGINX_LIVE_KMP_ADDR, nl.channelId, trackName, mediaType)
 
 def createVariant(nl, varName, tracks):
     nl.variant.create(NginxLiveVariant(id=varName))

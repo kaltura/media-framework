@@ -235,7 +235,7 @@ ngx_live_segment_list_get_closest_segment(
         return NGX_ERROR;
     }
 
-    for (;; ) {
+    for ( ;; ) {
 
         node = (ngx_live_segment_list_node_t *) rbnode;
         next_node = (time < node->time) ? rbnode->left : rbnode->right;

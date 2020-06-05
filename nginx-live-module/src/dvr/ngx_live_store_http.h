@@ -4,7 +4,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include "ngx_live_store.h"
+#include "../ngx_live.h"
 
 
 /* read */

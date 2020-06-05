@@ -12,6 +12,9 @@ typedef struct ngx_live_input_bufs_lock_s  ngx_live_input_bufs_lock_t;
 
 ngx_int_t ngx_live_input_bufs_get(ngx_live_track_t *track, ngx_buf_t *b);
 
+ngx_buf_chain_t *ngx_live_input_bufs_read_chain(ngx_live_track_t *track,
+    ngx_str_t *src, ngx_buf_chain_t **tail);
+
 void ngx_live_input_bufs_set_min_used(ngx_live_track_t *track,
     uint32_t segment_index, u_char *ptr);
 

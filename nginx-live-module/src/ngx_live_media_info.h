@@ -10,9 +10,6 @@
 #include "ngx_buf_chain.h"
 
 
-#define NGX_LIVE_MEDIA_INFO_MAX_EXTRA_DATA_LEN (65536)
-
-
 typedef struct ngx_live_media_info_node_s  ngx_live_media_info_node_t;
 
 typedef struct {
@@ -47,6 +44,10 @@ media_info_t *ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
 
 ngx_int_t ngx_live_media_info_queue_copy_last(ngx_live_track_t *dst,
     ngx_live_track_t *src, uint32_t segment_index);
+
+ngx_int_t ngx_live_media_info_write_segment(
+    ngx_live_persist_write_ctx_t *write_ctx, kmp_media_info_t *kmp_media_info,
+    media_info_t *media_info);
 
 
 /* gap filling */

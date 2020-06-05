@@ -56,7 +56,7 @@ typedef struct {
     ngx_rbtree_node_t              isentinel;
     ngx_queue_t                    queue;
     uint32_t                       count;
-    uint32_t                       next_id;
+    uint32_t                       last_id;
 } ngx_live_channel_tracks_t;
 
 struct ngx_live_channel_s {
@@ -173,6 +173,8 @@ void ngx_live_channel_free(ngx_live_channel_t *channel);
 
 ngx_live_channel_t *ngx_live_channel_get(ngx_str_t *id);
 
+void ngx_live_channel_setup_changed(ngx_live_channel_t *channel);
+
 void ngx_live_channel_finalize(ngx_live_channel_t *channel);
 
 
@@ -192,6 +194,8 @@ ngx_int_t ngx_live_channel_block_str_set(ngx_live_channel_t *channel,
 void ngx_live_channel_block_str_free(ngx_live_channel_t *channel,
     ngx_block_str_t *str);
 
+ngx_int_t ngx_live_channel_block_str_read(ngx_live_channel_t *channel,
+    ngx_block_str_t *dest, ngx_mem_rstream_t *rs);
 
 size_t ngx_live_channel_json_get_size(ngx_live_channel_t *obj);
 
@@ -228,7 +232,7 @@ u_char *ngx_live_variants_json_write(u_char *p, ngx_live_channel_t *obj);
 
 /* track */
 ngx_int_t ngx_live_track_create(ngx_live_channel_t *channel,
-    ngx_str_t *id, uint32_t media_type, ngx_log_t *log,
+    ngx_str_t *id, uint32_t int_id, uint32_t media_type, ngx_log_t *log,
     ngx_live_track_t **result);
 
 void ngx_live_track_free(ngx_live_track_t *track);

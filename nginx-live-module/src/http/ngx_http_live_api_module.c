@@ -27,7 +27,7 @@ static time_t     ngx_http_live_start_time = 0;
 
 
 typedef struct {
-    ngx_flag_t  upsert;
+    ngx_flag_t           upsert;
 } ngx_http_live_api_loc_conf_t;
 
 
@@ -87,6 +87,13 @@ static ngx_json_object_key_def_t  ngx_live_channel_params[] = {
     { vod_string("opaque"),      NGX_JSON_STRING, CHANNEL_PARAM_OPAQUE },
     { vod_null_string, 0, 0 }
 };
+
+typedef struct {
+    ngx_http_request_t  *r;
+    ngx_live_channel_t  *channel;
+    ngx_json_object_t    body;
+    ngx_json_value_t    *values[CHANNEL_PARAM_COUNT];
+} ngx_http_live_api_channel_ctx_t;
 
 
 /* timeline */
@@ -249,20 +256,87 @@ ngx_http_live_api_channels_get(ngx_http_request_t *r, ngx_str_t *params,
 }
 
 static ngx_int_t
+ngx_http_live_api_channel_update(ngx_http_request_t *r,
+    ngx_live_channel_t *channel, ngx_json_object_t *body,
+    ngx_json_value_t **values)
+{
+    ngx_int_t   rc;
+    ngx_log_t  *log = r->connection->log;
+
+    if (values[CHANNEL_PARAM_OPAQUE] != NULL) {
+        rc = ngx_live_channel_block_str_set(channel, &channel->opaque,
+            &values[CHANNEL_PARAM_OPAQUE]->v.str);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_channel_update: failed to set opaque");
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+    }
+
+    rc = ngx_live_json_commands_exec(channel, NGX_LIVE_JSON_CTX_CHANNEL,
+        channel, body, log);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_http_live_api_channel_update: json commands failed %i", rc);
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
+    return NGX_OK;
+}
+
+static void
+ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
+{
+    ngx_str_t                         response;
+    ngx_http_request_t               *r;
+    ngx_live_channel_t               *channel;
+    ngx_http_live_api_channel_ctx_t  *ctx = arg;
+
+    r = ctx->r;
+    channel = ctx->channel;
+
+    if (rc != NGX_OK) {
+
+        if (rc == NGX_ABORT) {
+            rc = NGX_HTTP_SERVICE_UNAVAILABLE;
+
+        } else if (rc < 500 || rc > 599) {
+            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+        ngx_live_channel_free(channel);
+        goto done;
+    }
+
+    rc = ngx_http_live_api_channel_update(r, channel, &ctx->body, ctx->values);
+    if (rc != NGX_OK) {
+        ngx_live_channel_free(channel);
+        goto done;
+    }
+
+    response.len = 0;
+
+    ngx_http_api_send_response(r, NGX_HTTP_OK, &response);
+
+done:
+
+    ngx_http_finalize_request(r, rc);
+}
+
+static ngx_int_t
 ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
 {
-    ngx_int_t                      rc;
-    ngx_str_t                      channel_id;
-    ngx_str_t                      preset_name;
-    ngx_log_t                     *log = r->connection->log;
-    ngx_flag_t                     created;
-    ngx_hash_t                    *json_cmds;
-    ngx_json_value_t              *values[CHANNEL_PARAM_COUNT];
-    ngx_live_channel_t            *channel;
-    ngx_live_conf_ctx_t           *conf_ctx;
-    ngx_live_core_main_conf_t     *cmcf;
-    ngx_http_live_api_loc_conf_t  *llcf;
+    ngx_int_t                         rc;
+    ngx_str_t                         channel_id;
+    ngx_str_t                         preset_name;
+    ngx_log_t                        *log = r->connection->log;
+    ngx_json_value_t                 *values[CHANNEL_PARAM_COUNT];
+    ngx_json_object_t                *obj;
+    ngx_live_channel_t               *channel;
+    ngx_live_conf_ctx_t              *conf_ctx;
+    ngx_http_live_api_loc_conf_t     *llcf;
+    ngx_http_live_api_channel_ctx_t  *ctx;
 
     if (body->type != NGX_JSON_OBJECT) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -271,8 +345,9 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
     }
 
+    obj = &body->v.obj;
     ngx_memzero(values, sizeof(values));
-    ngx_json_get_object_values(&body->v.obj, ngx_live_channel_params, values);
+    ngx_json_get_object_values(obj, ngx_live_channel_params, values);
 
     if (values[CHANNEL_PARAM_ID] == NULL ||
         values[CHANNEL_PARAM_PRESET] == NULL)
@@ -307,15 +382,13 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
             return NGX_HTTP_CONFLICT;
         }
 
-        created = 0;
-        break;
+        return ngx_http_live_api_channel_update(r, channel, obj, values);
 
     case NGX_DECLINED:
         return NGX_HTTP_BAD_REQUEST;
 
     case NGX_OK:
-        created = 1;
-        break;
+        break;      /* handled outside the switch */
 
     default:
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
@@ -323,33 +396,53 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    if (values[CHANNEL_PARAM_OPAQUE] != NULL) {
-        rc = ngx_live_channel_block_str_set(channel, &channel->opaque,
-            &values[CHANNEL_PARAM_OPAQUE]->v.str);
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_http_live_api_channels_post: failed to set opaque");
-            if (created) {
-                ngx_live_channel_free(channel);
-            }
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-    }
-
-    cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
-    json_cmds = &cmcf->json_cmds[NGX_LIVE_JSON_CTX_CHANNEL].hash;
-
-    rc = ngx_live_json_commands_exec(&body->v.obj, json_cmds, channel, log);
+    rc = ngx_live_json_commands_exec(channel, NGX_LIVE_JSON_CTX_PRE_CHANNEL,
+        channel, obj, log);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_http_live_api_channels_post: json commands failed %i", rc);
-        if (created) {
-            ngx_live_channel_free(channel);
-        }
-        return NGX_HTTP_BAD_REQUEST;
+        rc = NGX_HTTP_BAD_REQUEST;
+        goto free;
     }
 
-    return created ? NGX_HTTP_CREATED : NGX_OK;
+    ctx = ngx_palloc(r->pool, sizeof(*ctx));
+    if (ctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_http_live_api_channels_post: alloc failed");
+        rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+        goto free;
+    }
+
+    rc = ngx_live_persist_read(channel, r->pool,
+        ngx_http_live_api_channel_read_handler, ctx);
+    if (rc == NGX_DONE) {
+        ctx->r = r;
+        ctx->channel = channel;
+        ctx->body = *obj;
+        ngx_memcpy(ctx->values, values, sizeof(ctx->values));
+
+        r->main->count++;
+        return NGX_DONE;
+    }
+
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_http_live_api_channels_post: read failed");
+        rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+        goto free;
+    }
+
+    rc = ngx_http_live_api_channel_update(r, channel, obj, values);
+    if (rc != NGX_OK) {
+        goto free;
+    }
+
+    return NGX_HTTP_CREATED;
+
+free:
+
+    ngx_live_channel_free(channel);
+    return rc;
 }
 
 static ngx_int_t
@@ -380,13 +473,11 @@ static ngx_int_t
 ngx_http_live_api_channel_put(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
 {
-    ngx_int_t                   rc;
-    ngx_str_t                   channel_id;
-    ngx_log_t                  *log = r->connection->log;
-    ngx_hash_t                 *json_cmds;
-    ngx_json_value_t           *values[CHANNEL_PARAM_COUNT];
-    ngx_live_channel_t         *channel;
-    ngx_live_core_main_conf_t  *cmcf;
+    ngx_int_t            rc;
+    ngx_str_t            channel_id;
+    ngx_log_t           *log = r->connection->log;
+    ngx_json_value_t    *values[CHANNEL_PARAM_COUNT];
+    ngx_live_channel_t  *channel;
 
     if (body->type != NGX_JSON_OBJECT) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -408,24 +499,9 @@ ngx_http_live_api_channel_put(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_NOT_FOUND;
     }
 
-    if (values[CHANNEL_PARAM_OPAQUE] != NULL) {
-        rc = ngx_live_channel_block_str_set(channel, &channel->opaque,
-            &values[CHANNEL_PARAM_OPAQUE]->v.str);
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_http_live_api_channel_put: failed to set opaque");
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-    }
-
-    cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
-    json_cmds = &cmcf->json_cmds[NGX_LIVE_JSON_CTX_CHANNEL].hash;
-
-    rc = ngx_live_json_commands_exec(&body->v.obj, json_cmds, channel, log);
+    rc = ngx_http_live_api_channel_update(r, channel, &body->v.obj, values);
     if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_http_live_api_channel_put: json commands failed %i", rc);
-        return NGX_HTTP_BAD_REQUEST;
+        return rc;
     }
 
     return NGX_OK;
@@ -747,11 +823,9 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t                      channel_id;
     ngx_log_t                     *log = r->connection->log;
     ngx_flag_t                     created;
-    ngx_hash_t                    *json_cmds;
     ngx_live_track_t              *track;
     ngx_json_value_t              *values[TRACK_PARAM_COUNT];
     ngx_live_channel_t            *channel;
-    ngx_live_core_main_conf_t     *cmcf;
     ngx_http_live_api_loc_conf_t  *llcf;
 
     if (body->type != NGX_JSON_OBJECT) {
@@ -792,7 +866,8 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     }
 
     track_id = values[TRACK_PARAM_ID]->v.str;
-    rc = ngx_live_track_create(channel, &track_id, media_type, log, &track);
+    rc = ngx_live_track_create(channel, &track_id, NGX_LIVE_INVALID_TRACK_ID,
+        media_type, log, &track);
     switch (rc) {
 
     case NGX_BUSY:
@@ -834,10 +909,8 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
         }
     }
 
-    cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
-    json_cmds = &cmcf->json_cmds[NGX_LIVE_JSON_CTX_TRACK].hash;
-
-    rc = ngx_live_json_commands_exec(&body->v.obj, json_cmds, track, log);
+    rc = ngx_live_json_commands_exec(channel, NGX_LIVE_JSON_CTX_TRACK, track,
+        &body->v.obj, log);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_http_live_api_tracks_post: json commands failed %i", rc);
@@ -854,15 +927,13 @@ static ngx_int_t
 ngx_http_live_api_track_put(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
 {
-    ngx_int_t                   rc;
-    ngx_str_t                   track_id;
-    ngx_str_t                   channel_id;
-    ngx_log_t                  *log = r->connection->log;
-    ngx_hash_t                 *json_cmds;
-    ngx_live_track_t           *track;
-    ngx_json_value_t           *values[TRACK_PARAM_COUNT];
-    ngx_live_channel_t         *channel;
-    ngx_live_core_main_conf_t  *cmcf;
+    ngx_int_t            rc;
+    ngx_str_t            track_id;
+    ngx_str_t            channel_id;
+    ngx_log_t           *log = r->connection->log;
+    ngx_live_track_t    *track;
+    ngx_json_value_t    *values[TRACK_PARAM_COUNT];
+    ngx_live_channel_t  *channel;
 
     if (body->type != NGX_JSON_OBJECT) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -904,10 +975,8 @@ ngx_http_live_api_track_put(ngx_http_request_t *r, ngx_str_t *params,
         }
     }
 
-    cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
-    json_cmds = &cmcf->json_cmds[NGX_LIVE_JSON_CTX_TRACK].hash;
-
-    rc = ngx_live_json_commands_exec(&body->v.obj, json_cmds, track, log);
+    rc = ngx_live_json_commands_exec(channel, NGX_LIVE_JSON_CTX_TRACK, track,
+        &body->v.obj, log);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_http_live_api_track_put: json commands failed %i", rc);
@@ -1368,6 +1437,9 @@ static ngx_int_t
 ngx_http_live_api_ro_handler(ngx_http_request_t *r)
 {
     if (r->method != NGX_HTTP_GET) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_api_ro_handler: "
+            "method %ui not allowed", r->method);
         return NGX_HTTP_NOT_ALLOWED;
     }
 

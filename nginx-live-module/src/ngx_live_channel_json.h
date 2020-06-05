@@ -72,7 +72,7 @@ ngx_live_track_json_write(u_char *p, ngx_live_track_t *obj)
     p = ngx_copy_fix(p, "\",\"uptime\":");
     p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - obj->start_msec));
     p = ngx_copy_fix(p, ",\"opaque\":\"");
-    p = ngx_block_str_write(p, &obj->opaque);
+    p = ngx_block_str_copy(p, &obj->opaque);
     p = ngx_copy_fix(p, "\",\"input\":");
     p = ngx_live_track_input_write(p, &obj->input);
     p = ngx_copy_fix(p, ",\"last_segment_bitrate\":");
@@ -160,7 +160,7 @@ ngx_live_variant_json_write(u_char *p, ngx_live_variant_t *obj)
     p = ngx_copy_fix(p, "{\"track_ids\":{");
     p = ngx_live_variant_json_track_ids_write(p, obj);
     p = ngx_copy_fix(p, "},\"opaque\":\"");
-    p = ngx_block_str_write(p, &obj->opaque);
+    p = ngx_block_str_copy(p, &obj->opaque);
     p = ngx_copy_fix(p, "\",\"label\":\"");
     p = (u_char *) ngx_escape_json(p, obj->conf.label.data,
         obj->conf.label.len);
@@ -262,7 +262,7 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
     p = ngx_copy_fix(p, "{\"uptime\":");
     p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - obj->start_msec));
     p = ngx_copy_fix(p, ",\"opaque\":\"");
-    p = ngx_block_str_write(p, &obj->opaque);
+    p = ngx_block_str_copy(p, &obj->opaque);
     p = ngx_copy_fix(p, "\",\"preset_name\":\"");
     p = (u_char *) ngx_escape_json(p, cpcf->name.data, cpcf->name.len);
     p = ngx_copy_fix(p, "\",\"mem_left\":");

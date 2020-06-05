@@ -47,7 +47,7 @@ ngx_module_t  ngx_http_api_module = {
 static ngx_str_t  ngx_http_api_json_type = ngx_string("application/json");
 
 
-static ngx_int_t
+ngx_int_t
 ngx_http_api_send_response(ngx_http_request_t *r, ngx_uint_t status,
     ngx_str_t *response)
 {
@@ -125,12 +125,7 @@ ngx_http_api_body_handler(ngx_http_request_t *r)
 
     *b->last = '\0';
 
-    rc = ngx_json_parse(
-        r->pool,
-        b->pos,
-        &json,
-        error,
-        sizeof(error));
+    rc = ngx_json_parse(r->pool, b->pos, &json, error, sizeof(error));
     if (rc != NGX_JSON_OK) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_api_body_handler: failed to parse json %i, %s",
@@ -147,6 +142,9 @@ ngx_http_api_body_handler(ngx_http_request_t *r)
 
     } else if (rc == NGX_OK) {
         status = NGX_HTTP_NO_CONTENT;
+
+    } else if (rc == NGX_DONE) {
+        goto done;
 
     } else {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,

@@ -7,6 +7,9 @@
 #include "ngx_live_media_info_json.h"
 
 
+#define NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK       (0x666e696d)    /* minf */
+
+
 #define NGX_LIVE_TRACK_MAX_GROUP_ID_LEN  (32)
 #define NGX_LIVE_MEDIA_INFO_FREE_PERIOD  (64)
 
@@ -1435,9 +1438,97 @@ ngx_live_media_info_set_group_id(void *arg, ngx_live_json_command_t *cmd,
     return NGX_OK;
 }
 
+ngx_int_t
+ngx_live_media_info_write_segment(ngx_live_persist_write_ctx_t *write_ctx,
+    kmp_media_info_t *kmp_media_info, media_info_t *media_info)
+{
+    if (ngx_live_persist_write_block_open(write_ctx,
+        NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO) != NGX_OK ||
+        ngx_live_persist_write(write_ctx, kmp_media_info,
+            sizeof(*kmp_media_info)) != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    ngx_live_persist_write_block_set_header(write_ctx, 0);
+
+    if (ngx_live_persist_write(write_ctx, media_info->extra_data.data,
+        media_info->extra_data.len) != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    ngx_live_persist_write_block_close(write_ctx);  /* media info */
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_media_info_write_setup(ngx_live_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_wstream_t                    *ws;
+    ngx_live_track_t                 *track = obj;
+    ngx_live_media_info_track_ctx_t  *ctx;
+
+    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+
+    if (ctx->group_id.len == 0) {
+        return NGX_OK;
+    }
+
+    ws = ngx_live_persist_write_stream(write_ctx);
+
+    if (ngx_live_persist_write_block_open(write_ctx,
+            NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK) != NGX_OK ||
+        ngx_wstream_str(ws, &ctx->group_id) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_media_info_write_setup: write failed");
+        return NGX_ERROR;
+    }
+
+    ngx_live_persist_write_block_close(write_ctx);
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_media_info_read_setup(ngx_live_persist_block_header_t *block,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_live_track_t                 *track = obj;
+    ngx_live_media_info_track_ctx_t  *ctx;
+
+    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+
+    if (ngx_mem_rstream_str_fixed(rs, &ctx->group_id,
+        sizeof(ctx->group_id_buf)) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_media_info_read_setup: read failed");
+        return NGX_ABORT;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_live_persist_block_t  ngx_live_media_info_block = {
+    NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_TRACK, 0,
+    ngx_live_media_info_write_setup,
+    ngx_live_media_info_read_setup,
+};
+
+
 static ngx_int_t
 ngx_live_media_info_preconfiguration(ngx_conf_t *cf)
 {
+    if (ngx_ngx_live_persist_add_block(cf, &ngx_live_media_info_block)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
     if (ngx_live_json_commands_add_multi(cf, ngx_live_media_info_dyn_cmds,
         NGX_LIVE_JSON_CTX_TRACK) != NGX_OK)
     {

@@ -104,10 +104,13 @@ class KmpNullSender(object):
         return ''
 
 class KmpTcpSender(object):
-    def __init__(self, addr, channelId, trackId, initialFrameId = 0, initialOffset = 0):
+    def __init__(self, addr, channelId, trackId, mediaType, initialFrameId = 0, initialOffset = 0):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect(addr)
         s.send(kmpConnectPacket(channelId, trackId, initialFrameId, initialOffset))
+        # reduce send buffer size for audio
+        if mediaType == 'audio':
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024)
 
         self.s = s
         self.name = '%s/%s' % (channelId, trackId)

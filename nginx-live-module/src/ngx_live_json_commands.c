@@ -132,20 +132,27 @@ ngx_live_json_commands_init(ngx_conf_t *cf)
 }
 
 ngx_int_t
-ngx_live_json_commands_exec(ngx_json_object_t *obj, ngx_hash_t *commands_hash,
-    void *ctx, ngx_log_t *log)
+ngx_live_json_commands_exec(ngx_live_channel_t *channel,
+    ngx_uint_t ctx, void *obj, ngx_json_object_t *json, ngx_log_t *log)
 {
-    ngx_int_t                 rc;
-    ngx_json_key_value_t     *cur;
-    ngx_json_key_value_t     *last;
-    ngx_live_json_command_t  *cmd;
+    ngx_int_t                   rc;
+    ngx_flag_t                  changed;
+    ngx_hash_t                 *hash;
+    ngx_json_key_value_t       *cur;
+    ngx_json_key_value_t       *last;
+    ngx_live_json_command_t    *cmd;
+    ngx_live_core_main_conf_t  *cmcf;
 
-    cur = obj->elts;
-    last = cur + obj->nelts;
+    cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
+
+    changed = 0;
+    hash = &cmcf->json_cmds[ctx].hash;
+
+    cur = json->elts;
+    last = cur + json->nelts;
     for (; cur < last; cur++) {
 
-        cmd = ngx_hash_find(commands_hash, cur->key_hash, cur->key.data,
-            cur->key.len);
+        cmd = ngx_hash_find(hash, cur->key_hash, cur->key.data, cur->key.len);
         if (cmd == NULL) {
             continue;
         }
@@ -154,12 +161,18 @@ ngx_live_json_commands_exec(ngx_json_object_t *obj, ngx_hash_t *commands_hash,
             continue;
         }
 
-        rc = cmd->set_handler(ctx, cmd, &cur->value, log);
+        rc = cmd->set_handler(obj, cmd, &cur->value, log);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_json_commands_exec: handler failed %i", rc);
             return rc;
         }
+
+        changed = 1;
+    }
+
+    if (changed) {
+        ngx_live_channel_setup_changed(channel);
     }
 
     return NGX_OK;

@@ -233,7 +233,7 @@ for (n = 0; n < %s.nelts; ++n) {
             elif format == 'bs':
                 fixed += '"';
                 nextFixed = '"'
-                valueWrite = 'p = ngx_block_str_write(p, &%s);' % expr
+                valueWrite = 'p = ngx_block_str_copy(p, &%s);' % expr
                 valueSize = '%s.len' % expr
             elif format == 'xV':
                 fixed += '"';

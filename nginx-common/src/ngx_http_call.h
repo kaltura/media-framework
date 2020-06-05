@@ -32,6 +32,7 @@ typedef struct {
     void                           *arg;
     size_t                          argsize;
     size_t                          buffer_size;
+    size_t                          max_response_size;
     ngx_msec_t                      timeout;
     ngx_msec_t                      read_timeout;
     ngx_msec_t                      retry_interval;

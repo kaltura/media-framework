@@ -3,6 +3,10 @@
 #include "ngx_live.h"
 
 
+#define NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK       (0x766e7964)    /* dynv */
+
+
+
 enum {
     NGX_LIVE_BP_VAR,
 
@@ -313,14 +317,120 @@ ngx_live_dynamic_var_channel_init(ngx_live_channel_t *channel, void *ectx)
 }
 
 static ngx_int_t
+ngx_live_dynamic_var_write_setup(ngx_live_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_queue_t                         *q;
+    ngx_wstream_t                       *ws;
+    ngx_live_channel_t                  *channel = obj;
+    ngx_live_dynamic_var_t              *cur;
+    ngx_live_dynamic_var_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_dynamic_var_module);
+
+    ws = ngx_live_persist_write_stream(write_ctx);
+
+    for (q = ngx_queue_head(&cctx->queue);
+        q != ngx_queue_sentinel(&cctx->queue);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_live_dynamic_var_t, queue);
+
+        if (ngx_live_persist_write_block_open(write_ctx,
+                NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK) != NGX_OK ||
+            ngx_wstream_str(ws, &cur->sn.str) != NGX_OK ||
+            ngx_wstream_str(ws, &cur->value) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                "ngx_live_dynamic_var_write_setup: write failed");
+            return NGX_ERROR;
+        }
+
+        ngx_live_persist_write_block_close(write_ctx);
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_dynamic_var_read_setup(ngx_live_persist_block_header_t *block,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    size_t                               left;
+    uint32_t                             hash;
+    ngx_live_channel_t                  *channel = obj;
+    ngx_live_dynamic_var_t              *var;
+    ngx_live_dynamic_var_channel_ctx_t  *cctx;
+    ngx_live_dynamic_var_preset_conf_t  *dpcf;
+
+    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_dynamic_var_module);
+
+    var = ngx_block_pool_alloc(cctx->block_pool, NGX_LIVE_BP_VAR);
+    if (var == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_dynamic_var_read_setup: alloc failed");
+        return NGX_ERROR;
+    }
+
+    dpcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_dynamic_var_module);
+
+    left = dpcf->max_size;
+
+    var->sn.str.data = (void *) (var + 1);
+    if (ngx_mem_rstream_str_fixed(rs, &var->sn.str, left) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_dynamic_var_read_setup: read key failed");
+        return NGX_ABORT;
+    }
+
+    var->value.data = var->sn.str.data + var->sn.str.len;
+    left -= var->sn.str.len;
+
+    if (ngx_mem_rstream_str_fixed(rs, &var->value, left) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_dynamic_var_read_setup: read value failed");
+        return NGX_ABORT;
+    }
+
+    ngx_queue_insert_tail(&cctx->queue, &var->queue);
+
+    hash = ngx_crc32_short(var->sn.str.data, var->sn.str.len);
+    var->sn.node.key = hash;
+    ngx_rbtree_insert(&cctx->rbtree, &var->sn.node);
+
+    return NGX_OK;
+}
+
+static ngx_live_persist_block_t  ngx_live_dynamic_var_block = {
+    NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_CHANNEL, 0,
+    ngx_live_dynamic_var_write_setup,
+    ngx_live_dynamic_var_read_setup,
+};
+
+
+static ngx_int_t
 ngx_live_dynamic_var_preconfiguration(ngx_conf_t *cf)
 {
     if (ngx_live_variable_add_multi(cf, ngx_live_dynamic_var_vars) != NGX_OK) {
         return NGX_ERROR;
     }
 
+    if (ngx_ngx_live_persist_add_block(cf, &ngx_live_dynamic_var_block)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
     if (ngx_live_json_commands_add_multi(cf, ngx_live_dynamic_var_dyn_cmds,
         NGX_LIVE_JSON_CTX_CHANNEL) != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    /* required for supporting dynamic vars as part of the persist path */
+    if (ngx_live_json_commands_add_multi(cf, ngx_live_dynamic_var_dyn_cmds,
+        NGX_LIVE_JSON_CTX_PRE_CHANNEL) != NGX_OK)
     {
         return NGX_ERROR;
     }

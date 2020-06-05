@@ -12,6 +12,7 @@
 
 enum {
     NGX_LIVE_JSON_CTX_GLOBAL,
+    NGX_LIVE_JSON_CTX_PRE_CHANNEL,      /* before read */
     NGX_LIVE_JSON_CTX_CHANNEL,
     NGX_LIVE_JSON_CTX_TRACK,
 
@@ -46,7 +47,7 @@ ngx_int_t ngx_live_json_commands_add_multi(ngx_conf_t *cf,
 ngx_int_t ngx_live_json_commands_init(ngx_conf_t *cf);
 
 
-ngx_int_t ngx_live_json_commands_exec(ngx_json_object_t *obj,
-    ngx_hash_t *commands_hash, void *ctx, ngx_log_t *log);
+ngx_int_t ngx_live_json_commands_exec(ngx_live_channel_t *channel,
+    ngx_uint_t ctx, void *obj, ngx_json_object_t *json, ngx_log_t *log);
 
 #endif /* _NGX_LIVE_JSON_COMMANDS_H_INCLUDED_ */

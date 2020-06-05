@@ -5,6 +5,9 @@
 #include "ngx_http_call.h"
 
 
+#define NGX_HTTP_CONTINUE                  100
+
+
 struct ngx_http_call_ctx_s {
     ngx_pool_cleanup_t           cln;
     ngx_pool_t                  *pool;
@@ -15,6 +18,7 @@ struct ngx_http_call_ctx_s {
     ngx_msec_t                   read_timeout;
     ngx_msec_t                   retry_interval;
     size_t                       buffer_size;
+    size_t                       max_response_size;
     ngx_pool_t                  *handler_pool;
 
     ngx_event_t                  retry;
@@ -48,6 +52,7 @@ struct ngx_http_call_ctx_s {
     ngx_str_t                    request_line;
 
     ngx_str_t                    content_type;
+    off_t                        content_length_n;
 
     unsigned                     destroy_pool:1;
 };
@@ -145,6 +150,7 @@ ngx_http_call_create(ngx_http_call_init_t *ci)
     ctx->read_timeout = ci->read_timeout;
     ctx->retry_interval = ci->retry_interval;
     ctx->buffer_size = ci->buffer_size;
+    ctx->max_response_size = ci->max_response_size;
     ctx->response = ci->response;
     ctx->handler = ngx_http_call_done;
     ctx->url = ci->url;
@@ -223,18 +229,25 @@ ngx_http_call_free(ngx_http_call_ctx_t *ctx)
 
 
 static void
-ngx_http_call_retry(ngx_event_t *ev)
+ngx_http_call_reset(ngx_http_call_ctx_t *ctx)
 {
-    ngx_http_call_ctx_t  *ctx = ev->data;
-    ngx_chain_t          *cl;
-    ngx_int_t             rc;
-
-    /* reset the state */
     ctx->state = 0;
     ctx->code = 0;
     ctx->count = 0;
     ctx->done = 0;
     ctx->content_type.len = 0;
+    ctx->content_length_n = 0;
+}
+
+
+static void
+ngx_http_call_retry(ngx_event_t *ev)
+{
+    ngx_int_t             rc;
+    ngx_chain_t          *cl;
+    ngx_http_call_ctx_t  *ctx = ev->data;
+
+    ngx_http_call_reset(ctx);
 
     ctx->request = ctx->orig_request;
     ctx->request_body = ctx->orig_request_body;
@@ -341,8 +354,8 @@ ngx_http_call_error(ngx_http_call_ctx_t *ctx, ngx_uint_t code)
 static void
 ngx_http_call_log_request(ngx_http_call_ctx_t *ctx)
 {
-    ngx_chain_t  *cl;
     ngx_str_t     cur;
+    ngx_chain_t  *cl;
 
     for (cl = ctx->request; cl != NULL; cl = cl->next) {
         cur.data = cl->buf->pos;
@@ -357,9 +370,9 @@ ngx_http_call_log_request(ngx_http_call_ctx_t *ctx)
 static ngx_int_t
 ngx_http_call_connect(ngx_http_call_ctx_t *ctx)
 {
-    ngx_connection_t  *cc;
     ngx_int_t          rc;
     ngx_str_t          addr_text;
+    ngx_connection_t  *cc;
 
     ctx->peer.sockaddr = (struct sockaddr *)&ctx->url->sockaddr;
     ctx->peer.socklen = ctx->url->socklen;
@@ -415,9 +428,9 @@ ngx_http_call_connect(ngx_http_call_ctx_t *ctx)
 static void
 ngx_http_call_write_handler(ngx_event_t *wev)
 {
+    ngx_chain_t          *cl;
     ngx_connection_t     *c;
     ngx_http_call_ctx_t  *ctx;
-    ngx_chain_t          *cl;
 
     c = wev->data;
     ctx = c->data;
@@ -548,9 +561,9 @@ ngx_http_call_body_write_handler(ngx_event_t *wev)
 static void
 ngx_http_call_read_handler(ngx_event_t *rev)
 {
-    ssize_t              n, size;
-    ngx_int_t            rc;
-    ngx_connection_t    *c;
+    ssize_t               n, size;
+    ngx_int_t             rc;
+    ngx_connection_t     *c;
     ngx_http_call_ctx_t  *ctx;
 
     c = rev->data;
@@ -567,8 +580,7 @@ ngx_http_call_read_handler(ngx_event_t *rev)
     }
 
     if (ctx->response == NULL) {
-        ctx->response = ngx_create_temp_buf(ctx->peer.connection->pool,
-            ctx->buffer_size);
+        ctx->response = ngx_create_temp_buf(ctx->pool, ctx->buffer_size);
         if (ctx->response == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                 "ngx_http_call_read_handler: create buf failed");
@@ -582,6 +594,15 @@ ngx_http_call_read_handler(ngx_event_t *rev)
         size = ctx->response->end - ctx->response->last;
 
         if (size <= 0) {
+
+            if (ctx->content_length_n &&
+                ctx->response->last - ctx->response->pos >=
+                ctx->content_length_n)
+            {
+                /* already read everything */
+                break;
+            }
+
             ngx_log_error(NGX_LOG_ERR, rev->log, 0,
                 "response buffer size too small");
             ngx_http_call_error(ctx, NGX_HTTP_CALL_ERROR_BAD_GATEWAY);
@@ -929,8 +950,10 @@ done:
 static ngx_int_t
 ngx_http_call_process_headers(ngx_http_call_ctx_t *ctx)
 {
-    size_t     len;
-    ngx_int_t  rc;
+    ngx_int_t   rc;
+    ngx_str_t   key;
+    ngx_str_t   value;
+    ngx_buf_t  *b;
 
     ngx_log_debug0(NGX_LOG_DEBUG_EVENT, ctx->log, 0,
         "ngx_http_call_process_headers: called");
@@ -940,27 +963,39 @@ ngx_http_call_process_headers(ngx_http_call_ctx_t *ctx)
 
         if (rc == NGX_OK) {
 
+            key.len = ctx->header_name_end - ctx->header_name_start;
+            key.data = ctx->header_name_start;
+
+            value.len = ctx->header_end - ctx->header_start;
+            value.data = ctx->header_start;
+
             ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
-                "http call header \"%*s: %*s\"",
-                ctx->header_name_end - ctx->header_name_start,
-                ctx->header_name_start,
-                ctx->header_end - ctx->header_start,
-                ctx->header_start);
+                "http call header \"%V: %V\"", &key, &value);
 
-            len = ctx->header_name_end - ctx->header_name_start;
-
-            if (len == sizeof("Content-Type") - 1
-                && ngx_strncasecmp(ctx->header_name_start,
+            if (key.len == sizeof("Content-Type") - 1
+                && ngx_strncasecmp(key.data,
                 (u_char *) "Content-Type",
                     sizeof("Content-Type") - 1)
                 == 0)
             {
-                ctx->content_type.data = ctx->header_start;
-                ctx->content_type.len = ctx->header_end - ctx->header_start;
+                ctx->content_type = value;
                 continue;
             }
 
-            /* TODO: honor Content-Length */
+            if (key.len == sizeof("Content-Length") - 1
+                && ngx_strncasecmp(key.data,
+                (u_char *) "Content-Length",
+                    sizeof("Content-Length") - 1)
+                == 0)
+            {
+                ctx->content_length_n = ngx_atoof(value.data, value.len);
+                if (ctx->content_length_n < 0) {
+                    ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
+                        "ngx_http_call_process_headers: "
+                        "invalid content-length \"%V\"", &value);
+                    return NGX_ERROR;
+                }
+            }
 
             continue;
         }
@@ -978,6 +1013,28 @@ ngx_http_call_process_headers(ngx_http_call_ctx_t *ctx)
         ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
             "ngx_http_call_process_headers: invalid response");
         return NGX_ERROR;
+    }
+
+    if (ctx->content_length_n > ctx->response->end - ctx->response->pos) {
+
+        if ((size_t) ctx->content_length_n > ctx->max_response_size) {
+            ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
+                "ngx_http_call_process_headers: content length %O too big",
+                ctx->content_length_n);
+            return NGX_ERROR;
+        }
+
+        b = ngx_create_temp_buf(ctx->pool, ctx->content_length_n);
+        if (b == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
+                "ngx_http_call_process_headers: create buf failed");
+            return NGX_ERROR;
+        }
+
+        b->last = ngx_copy(b->last, ctx->response->pos,
+            ctx->response->last - ctx->response->pos);
+
+        ctx->response = b;
     }
 
     ctx->process = ngx_http_call_process_body;
@@ -1180,12 +1237,12 @@ ngx_http_call_process_body(ngx_http_call_ctx_t *ctx)
     ngx_log_debug0(NGX_LOG_DEBUG_EVENT, ctx->log, 0,
         "ngx_http_call_process_body: called");
 
-    if (ctx->code == 100 && ctx->request_body &&     /* NGX_HTTP_CONTINUE */
-        cc->write->handler == ngx_http_call_dummy_handler) {
+    if (ctx->code == NGX_HTTP_CONTINUE && ctx->request_body &&
+        cc->write->handler == ngx_http_call_dummy_handler)
+    {
+        ngx_http_call_reset(ctx);
+
         ctx->process = ngx_http_call_process_status_line;
-        ctx->state = 0;
-        ctx->code = 0;
-        ctx->count = 0;
 
         if (cc->read->timer_set) {
             ngx_del_timer(cc->read);

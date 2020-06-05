@@ -12,10 +12,10 @@
 
 
 typedef struct {
-    uint64_t                           max_duration;
-    uint32_t                           max_segments;
     int64_t                            start;
     int64_t                            end;
+    uint64_t                           max_duration;
+    uint32_t                           max_segments;
     unsigned                           active:1;
     unsigned                           no_truncate:1;
 } ngx_live_timeline_conf_t;

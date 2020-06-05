@@ -3,11 +3,13 @@
 #include <ngx_event.h>
 #include "ngx_live.h"
 #include "ngx_live_segment_cache.h"
-#include "ngx_live_segment_index.h"
 #include "ngx_live_timeline.h"
 #include "ngx_live_segmenter.h"
 #include "ngx_live_media_info.h"
 #include "ngx_live_filler.h"
+
+
+#define NGX_LIVE_SEGMENTER_PERSIST_BLOCK        (0x72746773)    /* sgtr */
 
 
 #define NGX_LIVE_SEGMENTER_FRAME_PART_COUNT  (32)
@@ -2595,13 +2597,6 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
             return NGX_ERROR;
         }
 
-        if (ngx_live_segment_index_create(channel) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-                "ngx_live_segmenter_create_segments: "
-                "failed to create segment index");
-            return NGX_ERROR;
-        }
-
         /* add to the timeline */
         duration = end_pts - cctx->last_segment_end_pts;
 
@@ -3096,28 +3091,27 @@ ngx_live_segmenter_channel_free(ngx_live_channel_t *channel, void *ectx)
 }
 
 static ngx_int_t
-ngx_live_segmenter_set_segment_duration(void *ctx,
-    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log)
+ngx_live_segmenter_set_segment_duration_internal(ngx_live_channel_t *channel,
+    int64_t value, ngx_log_t *log)
 {
     ngx_flag_t                         initial;
-    ngx_live_channel_t                *channel = ctx;
     ngx_live_core_preset_conf_t       *cpcf;
     ngx_live_segmenter_preset_conf_t  *spcf;
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
     spcf = ngx_live_get_module_preset_conf(channel, ngx_live_segmenter_module);
-    if (value->v.num.num < (int64_t) spcf->min_segment_duration) {
+    if (value < (int64_t) spcf->min_segment_duration) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_segmenter_set_segment_duration: "
             "segment duration %L smaller than configured min %M",
-            value->v.num.num, spcf->min_segment_duration);
+            value, spcf->min_segment_duration);
         return NGX_ERROR;
     }
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
-    cctx->conf.segment_duration = value->v.num.num;
+    cctx->conf.segment_duration = value;
     cctx->segment_duration = ngx_live_rescale_time(cctx->conf.segment_duration,
         1000, cpcf->timescale);
 
@@ -3134,8 +3128,69 @@ ngx_live_segmenter_set_segment_duration(void *ctx,
 }
 
 static ngx_int_t
+ngx_live_segmenter_set_segment_duration(void *ctx,
+    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log)
+{
+    return ngx_live_segmenter_set_segment_duration_internal(
+        ctx, value->v.num.num, log);
+}
+
+
+static ngx_int_t
+ngx_live_segmenter_write_setup(ngx_live_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_live_channel_t                *channel = obj;
+    ngx_live_segmenter_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
+
+    if (ngx_live_persist_write(write_ctx, &cctx->conf, sizeof(cctx->conf))
+        != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_segmenter_write_setup: write failed");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_segmenter_read_setup(ngx_live_persist_block_header_t *block,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_live_channel_t             *channel = obj;
+    ngx_live_segmenter_dyn_conf_t   conf;
+
+    if (ngx_mem_rstream_read(rs, &conf, sizeof(conf)) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_segmenter_read_setup: read failed");
+        return NGX_ABORT;
+    }
+
+    return ngx_live_segmenter_set_segment_duration_internal(
+        channel, conf.segment_duration, rs->log);
+}
+
+static ngx_live_persist_block_t  ngx_live_segmenter_block = {
+    NGX_LIVE_SEGMENTER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_CHANNEL,
+    NGX_LIVE_PERSIST_FLAG_SINGLE,
+    ngx_live_segmenter_write_setup,
+    ngx_live_segmenter_read_setup,
+};
+
+
+
+static ngx_int_t
 ngx_live_segmenter_preconfiguration(ngx_conf_t *cf)
 {
+    if (ngx_ngx_live_persist_add_block(cf, &ngx_live_segmenter_block)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
     if (ngx_live_json_commands_add_multi(cf, ngx_live_segmenter_dyn_cmds,
         NGX_LIVE_JSON_CTX_CHANNEL) != NGX_OK)
     {

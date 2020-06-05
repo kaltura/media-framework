@@ -267,6 +267,55 @@ ngx_live_input_bufs_get(ngx_live_track_t *track, ngx_buf_t *b)
     return NGX_OK;
 }
 
+ngx_buf_chain_t *
+ngx_live_input_bufs_read_chain(ngx_live_track_t *track, ngx_str_t *src,
+    ngx_buf_chain_t **tail)
+{
+    ngx_buf_t         b;
+    ngx_str_t         left = *src;
+    ngx_buf_chain_t  *head, **last;
+    ngx_buf_chain_t  *cur = NULL;
+
+    last = &head;
+
+    for ( ;; ) {
+
+        if (ngx_live_input_bufs_get(track, &b) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_input_bufs_read_chain: get buf failed");
+            return NULL;
+        }
+
+        cur = ngx_live_channel_buf_chain_alloc(track->channel);
+        if (cur == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_input_bufs_read_chain: alloc buf chain failed");
+            return NULL;
+        }
+
+        *last = cur;
+        last = &cur->next;
+
+        cur->data = b.last;
+
+        cur->size = b.end - b.last;
+        if (cur->size >= left.len) {
+            cur->size = left.len;
+            ngx_memcpy(cur->data, left.data, cur->size);
+            break;
+        }
+
+        ngx_memcpy(cur->data, left.data, cur->size);
+        left.data += cur->size;
+        left.len -= cur->size;
+    }
+
+    *last = NULL;
+
+    *tail = cur;
+    return head;
+}
+
 ngx_live_input_bufs_lock_t *
 ngx_live_input_bufs_lock(ngx_live_track_t *track, uint32_t segment_index,
     u_char *ptr)
