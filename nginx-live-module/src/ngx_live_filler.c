@@ -1595,12 +1595,12 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
         chain.size = data.len;
         chain.next = NULL;
 
-        if (ngx_live_media_info_pending_add(segment->track, media_info,
-            &chain, chain.size, 0) != NGX_OK)
-        {
+        rc = ngx_live_media_info_pending_add(segment->track, media_info,
+            &chain, chain.size, 0);
+        if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
                 "ngx_live_filler_read_segment_block: media info add failed");
-            return NGX_ERROR;
+            return rc;
         }
 
         break;

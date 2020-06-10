@@ -21,6 +21,9 @@ typedef struct ngx_live_channel_s     ngx_live_channel_t;
 #define NGX_LOG_DEBUG_LIVE    NGX_LOG_DEBUG_CORE
 
 
+#define NGX_BAD_DATA          NGX_ABORT
+
+
 #define ngx_array_entries(x)                    (sizeof(x) / sizeof(x[0]))
 
 #define ngx_round_to_multiple(num, mult)                                    \

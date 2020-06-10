@@ -133,7 +133,7 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
     size_t         size;
     vod_status_t   rc;
 
-    /* Note: returns NGX_ABORT on allocation error, NGX_ERROR on any other */
+    /* Note: returns NGX_BAD_DATA on parsing error, NGX_ERROR on any other */
 
     dest->extra_data.len = extra_data_size;
     if (dest->extra_data.len > 0) {
@@ -142,7 +142,7 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
         if (dest->extra_data.data == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_media_info_parse: alloc failed");
-            return NGX_ABORT;
+            return NGX_ERROR;
         }
 
         if (ngx_buf_chain_copy(&extra_data, dest->extra_data.data,
@@ -166,13 +166,13 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_media_info_parse: invalid video codec id %uD",
                 src->codec_id);
-            return NGX_ERROR;
+            return NGX_BAD_DATA;
         }
 
         if (src->u.video.frame_rate.denom == 0) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_media_info_parse: invalid video frame rate");
-            return NGX_ERROR;
+            return NGX_BAD_DATA;
         }
 
         // XXXX initial pts delay
@@ -184,14 +184,14 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
         if (size == 0) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_media_info_parse: failed to parse avc extra data");
-            return NGX_ERROR;
+            return NGX_BAD_DATA;
         }
 
         p = alloc(alloc_ctx, size);
         if (p == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_media_info_parse: alloc parsed failed");
-            return NGX_ABORT;
+            return NGX_ERROR;
         }
 
         dest->parsed_extra_data.data = p;
@@ -222,7 +222,7 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
         if (codec_config_get_video_codec_name(log, dest) != VOD_OK) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_media_info_parse: failed to get video codec name");
-            return NGX_ERROR;
+            return NGX_BAD_DATA;
         }
         break;
 
@@ -237,7 +237,7 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
             if (rc != VOD_OK) {
                 ngx_log_error(NGX_LOG_NOTICE, log, 0,
                     "ngx_live_media_info_parse: failed to parse mp4a config");
-                return NGX_ERROR;
+                return NGX_BAD_DATA;
             }
 
             dest->codec_id = VOD_CODEC_ID_AAC;
@@ -256,7 +256,7 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_media_info_parse: invalid audio codec id %uD",
                 src->codec_id);
-            return NGX_ERROR;
+            return NGX_BAD_DATA;
         }
 
         dest->media_type = MEDIA_TYPE_AUDIO;
@@ -268,7 +268,7 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
         if (codec_config_get_audio_codec_name(log, dest) != VOD_OK) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_media_info_parse: failed to get audio codec name");
-            return NGX_ERROR;
+            return NGX_BAD_DATA;
         }
         break;
 
@@ -276,7 +276,7 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_media_info_parse: invalid media type %uD",
             src->media_type);
-        return NGX_ERROR;
+        return NGX_BAD_DATA;
     }
 
     dest->bitrate = src->bitrate;
@@ -359,7 +359,7 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
             "ngx_live_media_info_node_create: "
             "attempt to change media type from %uD to %uD",
             track->media_type, media_info->media_type);
-        return NGX_ERROR;
+        return NGX_BAD_DATA;
     }
 
     channel = track->channel;
@@ -370,7 +370,7 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
             "ngx_live_media_info_node_create: "
             "input timescale %uD doesn't match channel timescale %ui",
             media_info->timescale, cpcf->timescale);
-        return NGX_ERROR;
+        return NGX_BAD_DATA;
     }
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_media_info_module);
@@ -380,7 +380,7 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
     if (node == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_media_info_node_create: alloc failed");
-        return NGX_ABORT;
+        return NGX_ERROR;
     }
 
     node->media_info.codec_name.data = node->codec_name;
