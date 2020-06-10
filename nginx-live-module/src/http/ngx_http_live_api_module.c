@@ -78,6 +78,7 @@ enum {
     CHANNEL_PARAM_ID,
     CHANNEL_PARAM_PRESET,
     CHANNEL_PARAM_OPAQUE,
+    CHANNEL_PARAM_READ,
     CHANNEL_PARAM_COUNT
 };
 
@@ -85,6 +86,7 @@ static ngx_json_object_key_def_t  ngx_live_channel_params[] = {
     { vod_string("id"),          NGX_JSON_STRING, CHANNEL_PARAM_ID },
     { vod_string("preset"),      NGX_JSON_STRING, CHANNEL_PARAM_PRESET },
     { vod_string("opaque"),      NGX_JSON_STRING, CHANNEL_PARAM_OPAQUE },
+    { vod_string("read"),        NGX_JSON_BOOL,   CHANNEL_PARAM_READ },
     { vod_null_string, 0, 0 }
 };
 
@@ -405,31 +407,35 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
         goto free;
     }
 
-    ctx = ngx_palloc(r->pool, sizeof(*ctx));
-    if (ctx == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_http_live_api_channels_post: alloc failed");
-        rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
-        goto free;
-    }
+    if (values[CHANNEL_PARAM_READ] == NULL ||
+        values[CHANNEL_PARAM_READ]->v.boolean)
+    {
+        ctx = ngx_palloc(r->pool, sizeof(*ctx));
+        if (ctx == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_channels_post: alloc failed");
+            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            goto free;
+        }
 
-    rc = ngx_live_persist_read(channel, r->pool,
-        ngx_http_live_api_channel_read_handler, ctx);
-    if (rc == NGX_DONE) {
-        ctx->r = r;
-        ctx->channel = channel;
-        ctx->body = *obj;
-        ngx_memcpy(ctx->values, values, sizeof(ctx->values));
+        rc = ngx_live_persist_read(channel, r->pool,
+            ngx_http_live_api_channel_read_handler, ctx);
+        if (rc == NGX_DONE) {
+            ctx->r = r;
+            ctx->channel = channel;
+            ctx->body = *obj;
+            ngx_memcpy(ctx->values, values, sizeof(ctx->values));
 
-        r->main->count++;
-        return NGX_DONE;
-    }
+            r->main->count++;
+            return NGX_DONE;
+        }
 
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_http_live_api_channels_post: read failed");
-        rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
-        goto free;
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_channels_post: read failed");
+            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            goto free;
+        }
     }
 
     rc = ngx_http_live_api_channel_update(r, channel, obj, values);
