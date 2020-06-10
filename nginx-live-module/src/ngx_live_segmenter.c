@@ -166,6 +166,7 @@ typedef struct {
     off_t                             received_bytes;
     ngx_uint_t                        received_frames;
     ngx_uint_t                        received_key_frames;
+    ngx_uint_t                        dropped_frames;
 
     ngx_event_t                       inactive;
 
@@ -1596,6 +1597,10 @@ ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
     }
 
     ctx->frame_count -= count;
+
+    if (free_data_chains) {
+        ctx->dropped_frames += count;
+    }
 
     /* update media info */
     ngx_live_media_info_pending_remove_frames(track, count);
@@ -3227,7 +3232,8 @@ ngx_live_segmenter_track_json_get_size(void *obj)
         sizeof(",\"pending_frames\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"received_bytes\":") - 1 + NGX_OFF_T_LEN +
         sizeof(",\"received_frames\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"received_key_frames\":") - 1 + NGX_INT_T_LEN;
+        sizeof(",\"received_key_frames\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"dropped_frames\":") - 1 + NGX_INT_T_LEN;
 }
 
 static u_char *
@@ -3255,6 +3261,9 @@ ngx_live_segmenter_track_json_write(u_char *p, void *obj)
         p = ngx_sprintf(p, "%ui", ctx->received_key_frames);
     }
 
+    p = ngx_copy_fix(p, ",\"dropped_frames\":");
+    p = ngx_sprintf(p, "%ui", ctx->dropped_frames);
+
     return p;
 }
 
@@ -3276,11 +3285,11 @@ static ngx_live_track_event_t      ngx_live_segmenter_track_events[] = {
 
 static ngx_live_json_writer_def_t  ngx_live_segmenter_json_writers[] = {
     { { ngx_live_segmenter_channel_json_get_size,
-        ngx_live_segmenter_channel_json_write},
+        ngx_live_segmenter_channel_json_write },
       NGX_LIVE_JSON_CTX_CHANNEL },
 
     { { ngx_live_segmenter_track_json_get_size,
-        ngx_live_segmenter_track_json_write},
+        ngx_live_segmenter_track_json_write },
       NGX_LIVE_JSON_CTX_TRACK },
 
       ngx_live_null_json_writer

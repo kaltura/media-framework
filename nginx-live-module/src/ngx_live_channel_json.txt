@@ -7,6 +7,7 @@ static ngx_live_track_input ngx_live_track_input_t
 
 static ngx_live_track_json ngx_live_track_t
     media_type %enum-ngx_live_track_media_type_names
+    type %enum-ngx_live_track_type_names
     uptime %i (ngx_current_msec - obj->start_msec)
     opaque %bs
     input %func-ngx_live_track_input &obj->input

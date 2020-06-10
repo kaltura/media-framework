@@ -1554,7 +1554,7 @@ static ngx_live_track_event_t      ngx_live_media_info_track_events[] = {
 
 static ngx_live_json_writer_def_t  ngx_live_media_info_json_writers[] = {
     { { ngx_live_media_info_track_json_get_size,
-        ngx_live_media_info_track_json_write},
+        ngx_live_media_info_track_json_write },
       NGX_LIVE_JSON_CTX_TRACK },
 
       ngx_live_null_json_writer

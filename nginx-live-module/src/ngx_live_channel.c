@@ -22,6 +22,13 @@ static size_t ngx_live_variant_json_track_ids_get_size(
 static u_char *ngx_live_variant_json_track_ids_write(u_char *p,
     ngx_live_variant_t *obj);
 
+/* must match ngx_live_track_type_e */
+ngx_str_t  ngx_live_track_type_names[] = {
+    ngx_string("default"),
+    ngx_string("filler"),
+    ngx_null_string
+};
+
 /* must match ngx_live_variant_role_e */
 ngx_str_t  ngx_live_variant_role_names[] = {
     ngx_string("main"),
