@@ -150,7 +150,7 @@ enum {
     VARIANT_PARAM_LABEL,
     VARIANT_PARAM_LANG,
     VARIANT_PARAM_ROLE,
-    VARIANT_PARAM_DEFAULT,
+    VARIANT_PARAM_IS_DEFAULT,
     VARIANT_PARAM_COUNT
 };
 
@@ -160,7 +160,7 @@ static ngx_json_object_key_def_t  ngx_live_variant_params[] = {
     { vod_string("label"),       NGX_JSON_STRING, VARIANT_PARAM_LABEL },
     { vod_string("lang"),        NGX_JSON_STRING, VARIANT_PARAM_LANG },
     { vod_string("role"),        NGX_JSON_STRING, VARIANT_PARAM_ROLE },
-    { vod_string("default"),     NGX_JSON_BOOL,   VARIANT_PARAM_DEFAULT },
+    { vod_string("is_default"),  NGX_JSON_BOOL,   VARIANT_PARAM_IS_DEFAULT },
     { vod_null_string, 0, 0 }
 };
 
@@ -580,8 +580,8 @@ ngx_http_live_api_variant_init_conf(ngx_json_value_t **values,
         conf->lang = values[VARIANT_PARAM_LANG]->v.str;
     }
 
-    if (values[VARIANT_PARAM_DEFAULT] != NULL) {
-        conf->is_default = values[VARIANT_PARAM_DEFAULT]->v.boolean;
+    if (values[VARIANT_PARAM_IS_DEFAULT] != NULL) {
+        conf->is_default = values[VARIANT_PARAM_IS_DEFAULT]->v.boolean;
     }
 
     return NGX_OK;

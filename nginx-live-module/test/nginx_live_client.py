@@ -79,13 +79,13 @@ class NginxLiveChannelService:
             channel.__dict__)
 
 class NginxLiveVariant:
-    def __init__(self, id=None, opaque=None, label=None, lang=None, role=None, default=None):
+    def __init__(self, id=None, opaque=None, label=None, lang=None, role=None, is_default=None):
         self.id = id
         self.opaque =opaque
         self.label = label
         self.lang = lang
         self.role = role
-        self.default = default
+        self.is_default = is_default
 
 class NginxLiveVariantService:
     def __init__(self, base):

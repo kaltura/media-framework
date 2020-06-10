@@ -80,6 +80,9 @@ typedef struct {
 } ngx_live_filler_source_t;
 
 
+static size_t ngx_live_filler_channel_json_get_size(void *obj);
+static u_char *ngx_live_filler_channel_json_write(u_char *p, void *obj);
+
 static ngx_int_t ngx_live_filler_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_filler_postconfiguration(ngx_conf_t *cf);
 
@@ -132,6 +135,14 @@ static ngx_live_json_command_t  ngx_live_filler_dyn_cmds[] = {
       ngx_live_filler_set_channel },
 
       ngx_live_null_json_command
+};
+
+static ngx_live_json_writer_def_t  ngx_live_filler_json_writers[] = {
+    { { ngx_live_filler_channel_json_get_size,
+        ngx_live_filler_channel_json_write },
+      NGX_LIVE_JSON_CTX_CHANNEL },
+
+      ngx_live_null_json_writer
 };
 
 
@@ -1158,13 +1169,6 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
 
     cctx = ngx_live_get_module_ctx(dst, ngx_live_filler_module);
 
-    if (cctx->count > 0) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_filler_setup: channel \"%V\" already has a filler",
-            &dst->sn.str);
-        return NGX_ERROR;
-    }
-
     cpcf = ngx_live_get_module_preset_conf(src, ngx_live_core_module);
 
     cctx->count = timeline->segment_count;
@@ -1221,12 +1225,13 @@ static ngx_int_t
 ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
     ngx_json_value_t *value, ngx_log_t *log)
 {
-    ngx_str_t             channel_id;
-    ngx_str_t             timeline_id;
-    ngx_json_value_t     *values[FILLER_PARAM_COUNT];
-    ngx_live_channel_t   *dst = ctx;
-    ngx_live_channel_t   *src;
-    ngx_live_timeline_t  *src_timeline;
+    ngx_str_t                       channel_id;
+    ngx_str_t                       timeline_id;
+    ngx_json_value_t               *values[FILLER_PARAM_COUNT];
+    ngx_live_channel_t             *dst = ctx;
+    ngx_live_channel_t             *src;
+    ngx_live_timeline_t            *src_timeline;
+    ngx_live_filler_channel_ctx_t  *cctx;
 
     ngx_memzero(values, sizeof(values));
     ngx_json_get_object_values(&value->v.obj, ngx_live_filler_params, values);
@@ -1240,6 +1245,30 @@ ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
     }
 
     channel_id = values[FILLER_PARAM_CHANNEL_ID]->v.str;
+    timeline_id = values[FILLER_PARAM_TIMELINE_ID]->v.str;
+
+    cctx = ngx_live_get_module_ctx(dst, ngx_live_filler_module);
+
+    if (cctx->count > 0) {
+
+        if (cctx->channel_id.len == channel_id.len &&
+            ngx_memcmp(cctx->channel_id.data, channel_id.data,
+                channel_id.len) == 0 &&
+            cctx->timeline_id.len == timeline_id.len &&
+            ngx_memcmp(cctx->timeline_id.data, timeline_id.data,
+                timeline_id.len) == 0)
+        {
+            return NGX_OK;
+        }
+
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_filler_setup: attempt to change filler of channel \"%V\""
+            " from \"%V:%V\" to \"%V:%V\"",
+            &dst->sn.str, &cctx->channel_id, &cctx->timeline_id,
+            &channel_id, &timeline_id);
+        return NGX_ERROR;
+    }
+
     src = ngx_live_channel_get(&channel_id);
     if (src == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -1248,7 +1277,6 @@ ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
         return NGX_ERROR;
     }
 
-    timeline_id = values[FILLER_PARAM_TIMELINE_ID]->v.str;
     src_timeline = ngx_live_timeline_get(src, &timeline_id);
     if (src_timeline == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -2057,6 +2085,51 @@ static ngx_live_persist_block_t  ngx_live_filler_block = {
 };
 
 
+static size_t
+ngx_live_filler_channel_json_get_size(void *obj)
+{
+    ngx_live_channel_t             *channel = obj;
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+
+    if (cctx->count <= 0) {
+        return 0;
+    }
+
+    return sizeof("\"filler\":{\"channel_id\":\"") - 1 +
+        ngx_escape_json(NULL, cctx->channel_id.data, cctx->channel_id.len) +
+        sizeof("\",\"timeline_id\":\"") - 1 +
+        ngx_escape_json(NULL, cctx->timeline_id.data, cctx->timeline_id.len) +
+        sizeof("\",\"segments\":") - 1 +
+        NGX_INT32_LEN +
+        sizeof("}") - 1;
+}
+
+static u_char *
+ngx_live_filler_channel_json_write(u_char *p, void *obj)
+{
+    ngx_live_channel_t             *channel = obj;
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+
+    if (cctx->count <= 0) {
+        return p;
+    }
+
+    p = ngx_copy_fix(p, "\"filler\":{\"channel_id\":\"");
+    p = (u_char *) ngx_escape_json(p, cctx->channel_id.data,
+        cctx->channel_id.len);
+    p = ngx_copy_fix(p, "\",\"timeline_id\":\"");
+    p = (u_char *) ngx_escape_json(p, cctx->timeline_id.data,
+        cctx->timeline_id.len);
+    p = ngx_copy_fix(p, "\",\"segments\":");
+    p = ngx_sprintf(p, "%uD", cctx->count);
+    *p++ = '}';
+    return p;
+}
+
 static ngx_int_t
 ngx_live_filler_preconfiguration(ngx_conf_t *cf)
 {
@@ -2067,6 +2140,12 @@ ngx_live_filler_preconfiguration(ngx_conf_t *cf)
     }
 
     if (ngx_ngx_live_persist_add_block(cf, &ngx_live_filler_block) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    if (ngx_live_core_json_writers_add(cf, ngx_live_filler_json_writers)
+        != NGX_OK)
+    {
         return NGX_ERROR;
     }
 

@@ -446,7 +446,7 @@ static ngx_live_channel_event_t    ngx_live_dynamic_var_channel_events[] = {
 
 static ngx_live_json_writer_def_t  ngx_live_dynamic_var_json_writers[] = {
     { { ngx_live_dynamic_var_channel_json_get_size,
-        ngx_live_dynamic_var_channel_json_write},
+        ngx_live_dynamic_var_channel_json_write },
       NGX_LIVE_JSON_CTX_CHANNEL },
 
       ngx_live_null_json_writer

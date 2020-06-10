@@ -50,6 +50,8 @@ ngx_live_track_json_get_size(ngx_live_track_t *obj)
     size_t  result =
         sizeof("{\"media_type\":\"") - 1 +
             ngx_live_track_media_type_names[obj->media_type].len +
+        sizeof("\",\"type\":\"") - 1 +
+            ngx_live_track_type_names[obj->type].len +
         sizeof("\",\"uptime\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"opaque\":\"") - 1 + obj->opaque.len +
         sizeof("\",\"input\":") - 1 +
@@ -69,6 +71,8 @@ ngx_live_track_json_write(u_char *p, ngx_live_track_t *obj)
     p = ngx_copy_fix(p, "{\"media_type\":\"");
     p = ngx_sprintf(p, "%V",
         &ngx_live_track_media_type_names[obj->media_type]);
+    p = ngx_copy_fix(p, "\",\"type\":\"");
+    p = ngx_sprintf(p, "%V", &ngx_live_track_type_names[obj->type]);
     p = ngx_copy_fix(p, "\",\"uptime\":");
     p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - obj->start_msec));
     p = ngx_copy_fix(p, ",\"opaque\":\"");

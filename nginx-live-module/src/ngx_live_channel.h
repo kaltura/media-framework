@@ -94,7 +94,7 @@ struct ngx_live_channel_s {
 
 
 typedef enum {
-    ngx_live_track_type_regular,
+    ngx_live_track_type_default,
     ngx_live_track_type_filler,
 } ngx_live_track_type_e;
 
@@ -248,6 +248,8 @@ size_t ngx_live_tracks_json_get_size(ngx_live_channel_t *obj);
 
 u_char *ngx_live_tracks_json_write(u_char *p, ngx_live_channel_t *obj);
 
+
+extern ngx_str_t  ngx_live_track_type_names[];
 
 extern ngx_str_t  ngx_live_variant_role_names[];
 
