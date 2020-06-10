@@ -1496,7 +1496,7 @@ ngx_live_timeline_read_setup(ngx_live_persist_block_header_t *block,
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_timeline_read_setup: read id failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     conf = ngx_mem_rstream_get_ptr(rs, sizeof(*conf) + sizeof(*manifest_conf));
@@ -1504,7 +1504,7 @@ ngx_live_timeline_read_setup(ngx_live_persist_block_header_t *block,
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_timeline_read_setup: "
             "read data failed, timeline: %V", &id);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     manifest_conf = (void *) (conf + 1);
@@ -1517,7 +1517,7 @@ ngx_live_timeline_read_setup(ngx_live_persist_block_header_t *block,
             "create failed, timeline: %V", &id);
 
         if (rc == NGX_BUSY || rc == NGX_DECLINED) {
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
         return NGX_ERROR;
     }

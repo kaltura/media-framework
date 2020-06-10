@@ -29,7 +29,7 @@ typedef struct {
     ngx_int_t  (*write)(ngx_live_persist_write_ctx_t *write_ctx, void *obj);
 
     /*
-     * NGX_ABORT    - data error
+     * NGX_BAD_DATA - data error
      * NGX_ERROR    - alloc/other error
      */
 

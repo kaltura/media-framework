@@ -1581,11 +1581,11 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
         if (media_info == NULL) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_filler_read_segment_block: read media info failed");
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
 
@@ -1610,11 +1610,11 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
         if (segment->frames.part.nelts != 0) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_filler_read_segment_block: duplicate frame list");
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
 
@@ -1632,11 +1632,11 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
         if (segment->data_head != NULL) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_filler_read_segment_block: duplicate frame data");
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
 
@@ -1645,7 +1645,7 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
         if (data.len <= 0) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_filler_read_segment_block: empty frame data");
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         segment->data_head = ngx_live_input_bufs_read_chain(segment->track,
@@ -1681,7 +1681,7 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
     if (s == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_filler_read_segment: read header failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     if (s->frame_count <= 0 ||
@@ -1690,11 +1690,11 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_filler_read_segment: invalid frame count %uD",
             s->frame_count);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
 
@@ -1711,7 +1711,7 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
         if (block == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
                 "ngx_live_filler_read_segment: read block failed");
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         rc = ngx_live_filler_read_segment_block(block, &block_rs, segment, s);
@@ -1723,13 +1723,13 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
     if (segment->frames.part.nelts == 0) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_filler_read_segment: missing frame list");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     if (segment->data_head == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_filler_read_segment: missing frame data");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     ngx_live_media_info_pending_create_segment(track, segment_index, &ignore);
@@ -1739,7 +1739,7 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
     if (segment->media_info == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_filler_read_segment: missing media info");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     ngx_live_filler_get_frames_info(segment, &size, &duration);
@@ -1749,7 +1749,7 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
             "ngx_live_filler_read_segment: "
             "frames size %uz different than data size %uz",
             size, segment->data_size);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     segment->frame_count = s->frame_count;
@@ -1780,7 +1780,7 @@ ngx_live_filler_read_segments(ngx_live_track_t *track, ngx_mem_rstream_t *rs,
         if (block == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
                 "ngx_live_filler_read_segments: read block failed");
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         if (block->id != NGX_LIVE_PERSIST_BLOCK_SEGMENT) {
@@ -1791,7 +1791,7 @@ ngx_live_filler_read_segments(ngx_live_track_t *track, ngx_mem_rstream_t *rs,
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_filler_read_segments: "
                 "too many segments, count: %uD", read_ctx->count);
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         rc = ngx_live_filler_read_segment(track, segment_index, block,
@@ -1809,7 +1809,7 @@ ngx_live_filler_read_segments(ngx_live_track_t *track, ngx_mem_rstream_t *rs,
             "ngx_live_filler_read_segments: "
             "missing segments, expected: %uD, got: %uD",
             read_ctx->count, segment_index);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     return NGX_OK;
@@ -1832,7 +1832,7 @@ ngx_live_filler_read_tracks(ngx_live_channel_t *channel, ngx_mem_rstream_t *rs,
         if (block == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
                 "ngx_live_filler_read_tracks: read block failed");
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         if (block->id != NGX_LIVE_FILLER_PERSIST_BLOCK_TRACK) {
@@ -1845,13 +1845,13 @@ ngx_live_filler_read_tracks(ngx_live_channel_t *channel, ngx_mem_rstream_t *rs,
         {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_filler_read_tracks: read track header failed");
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         if (ngx_live_persist_read_skip_block_header(&block_rs, block)
             != NGX_OK)
         {
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
 
@@ -1862,7 +1862,7 @@ ngx_live_filler_read_tracks(ngx_live_channel_t *channel, ngx_mem_rstream_t *rs,
                 "ngx_live_filler_read_tracks: create track failed");
 
             if (rc == NGX_BUSY || rc == NGX_DECLINED) {
-                return NGX_ABORT;
+                return NGX_BAD_DATA;
             }
             return NGX_ERROR;
         }
@@ -1937,14 +1937,14 @@ ngx_live_filler_read_setup_channel(ngx_live_persist_block_header_t *block,
         != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_filler_read_setup_channel: read header failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     if (read_ctx.count <= 0 || read_ctx.count > NGX_LIVE_FILLER_MAX_SEGMENTS) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_filler_read_setup_channel: invalid count %uD",
             read_ctx.count);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     read_ctx.durations = ngx_mem_rstream_get_ptr(rs,
@@ -1952,11 +1952,11 @@ ngx_live_filler_read_setup_channel(ngx_live_persist_block_header_t *block,
     if (read_ctx.durations == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_filler_read_setup_channel: read duration array failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
 
@@ -1966,7 +1966,7 @@ ngx_live_filler_read_setup_channel(ngx_live_persist_block_header_t *block,
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_filler_read_setup_channel: "
             "unknown preset \"%V\"", &preset_name);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     temp_pool = ngx_create_pool(1024, log);
@@ -1985,7 +1985,7 @@ ngx_live_filler_read_setup_channel(ngx_live_persist_block_header_t *block,
             "ngx_live_filler_read_setup_channel: create channel failed");
 
         if (rc == NGX_DECLINED) {
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
         return NGX_ERROR;
     }
@@ -2031,7 +2031,7 @@ ngx_live_filler_read_setup(ngx_live_persist_block_header_t *block,
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_filler_read_setup: channel \"%V\" already has a filler",
             &dst->sn.str);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     if (ngx_mem_rstream_str_get(rs, &channel_id) != NGX_OK ||
@@ -2039,7 +2039,7 @@ ngx_live_filler_read_setup(ngx_live_persist_block_header_t *block,
     {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_filler_read_setup: read channel/timeline id failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     src.channel = ngx_live_channel_get(&channel_id);

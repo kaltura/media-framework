@@ -3171,7 +3171,7 @@ ngx_live_segmenter_read_setup(ngx_live_persist_block_header_t *block,
     if (ngx_mem_rstream_read(rs, &conf, sizeof(conf)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_segmenter_read_setup: read failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     return ngx_live_segmenter_set_segment_duration_internal(

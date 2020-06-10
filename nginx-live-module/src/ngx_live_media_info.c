@@ -1507,7 +1507,7 @@ ngx_live_media_info_read_setup(ngx_live_persist_block_header_t *block,
     {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_media_info_read_setup: read failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     return NGX_OK;
