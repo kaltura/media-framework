@@ -119,7 +119,7 @@ ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
     if (id->len > KMP_MAX_CHANNEL_ID_LEN) {
         ngx_log_error(NGX_LOG_ERR, temp_pool->log, 0,
             "ngx_live_channel_create: channel id \"%V\" too long", id);
-        return NGX_DECLINED;
+        return NGX_INVALID_ARG;
     }
 
     hash = ngx_crc32_short(id->data, id->len);
@@ -127,7 +127,7 @@ ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
         &ngx_live_channels.rbtree, id, hash);
     if (channel != NULL) {
         *result = channel;
-        return NGX_BUSY;
+        return NGX_EXISTS;
     }
 
     /* allocate the channel */
@@ -448,11 +448,11 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
     if (id->len > sizeof(variant->id_buf)) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_variant_create: variant id \"%V\" too long", id);
-        return NGX_DECLINED;
+        return NGX_INVALID_ARG;
     }
 
     if (ngx_live_variant_validate_conf(conf, log) != NGX_OK) {
-        return NGX_DECLINED;
+        return NGX_INVALID_ARG;
     }
 
     hash = ngx_crc32_short(id->data, id->len);
@@ -460,7 +460,7 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
         &channel->variants.rbtree, id, hash);
     if (variant != NULL) {
         *result = variant;
-        return NGX_BUSY;
+        return NGX_EXISTS;
     }
 
     variant = ngx_block_pool_calloc(channel->block_pool, NGX_LIVE_BP_VARIANT);
@@ -758,13 +758,13 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     if (id->len > sizeof(track->id_buf)) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_track_create: track id \"%V\" too long", id);
-        return NGX_DECLINED;
+        return NGX_INVALID_ARG;
     }
 
     if (media_type >= KMP_MEDIA_COUNT) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_track_create: invalid media type %uD", media_type);
-        return NGX_DECLINED;
+        return NGX_INVALID_ARG;
     }
 
     hash = ngx_crc32_short(id->data, id->len);
@@ -777,7 +777,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
                 "ngx_live_track_create: "
                 "attempt to change track type from %uD to %uD",
                 track->media_type, media_type);
-            return NGX_DECLINED;
+            return NGX_INVALID_ARG;
         }
 
         if (int_id != NGX_LIVE_INVALID_TRACK_ID && track->in.key != int_id) {
@@ -785,11 +785,11 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
                 "ngx_live_track_create: "
                 "attempt to change int id from %ui to %uD",
                 track->in.key, int_id);
-            return NGX_DECLINED;
+            return NGX_INVALID_ARG;
         }
 
         *result = track;
-        return NGX_BUSY;
+        return NGX_EXISTS;
     }
 
     if (int_id != NGX_LIVE_INVALID_TRACK_ID) {
@@ -797,7 +797,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
         if (ngx_live_track_get_by_int(channel, int_id) != NULL) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_track_create: int id %uD already used", int_id);
-            return NGX_DECLINED;
+            return NGX_INVALID_ARG;
         }
 
         if (channel->tracks.last_id < int_id) {

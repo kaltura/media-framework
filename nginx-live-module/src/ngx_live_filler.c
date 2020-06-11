@@ -853,7 +853,7 @@ ngx_live_filler_setup_track(ngx_live_channel_t *dst,
     rc = ngx_live_track_create(dst, &src_track->sn.str,
         NGX_LIVE_INVALID_TRACK_ID, src_track->media_type, log, &dst_track);
     if (rc != NGX_OK) {
-        if (rc == NGX_BUSY) {
+        if (rc == NGX_EXISTS) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_filler_setup_track: "
                 "track \"%V\" already exists in channel \"%V\"",
@@ -1861,7 +1861,7 @@ ngx_live_filler_read_tracks(ngx_live_channel_t *channel, ngx_mem_rstream_t *rs,
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
                 "ngx_live_filler_read_tracks: create track failed");
 
-            if (rc == NGX_BUSY || rc == NGX_DECLINED) {
+            if (rc == NGX_EXISTS || rc == NGX_INVALID_ARG) {
                 return NGX_BAD_DATA;
             }
             return NGX_ERROR;
@@ -1984,7 +1984,7 @@ ngx_live_filler_read_setup_channel(ngx_live_persist_block_header_t *block,
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_filler_read_setup_channel: create channel failed");
 
-        if (rc == NGX_DECLINED) {
+        if (rc == NGX_INVALID_ARG) {
             return NGX_BAD_DATA;
         }
         return NGX_ERROR;

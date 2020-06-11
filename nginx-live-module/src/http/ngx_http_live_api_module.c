@@ -375,7 +375,7 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
     rc = ngx_live_channel_create(&channel_id, conf_ctx, r->pool, &channel);
     switch (rc) {
 
-    case NGX_BUSY:
+    case NGX_EXISTS:
         llcf = ngx_http_get_module_loc_conf(r, ngx_http_live_api_module);
         if (!llcf->upsert) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -386,7 +386,7 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
 
         return ngx_http_live_api_channel_update(r, channel, obj, values);
 
-    case NGX_DECLINED:
+    case NGX_INVALID_ARG:
         return NGX_HTTP_BAD_REQUEST;
 
     case NGX_OK:
@@ -645,7 +645,7 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
     rc = ngx_live_variant_create(channel, &variant_id, &conf, log, &variant);
     switch (rc) {
 
-    case NGX_BUSY:
+    case NGX_EXISTS:
         llcf = ngx_http_get_module_loc_conf(r, ngx_http_live_api_module);
         if (!llcf->upsert) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -666,7 +666,7 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
         created = 0;
         break;
 
-    case NGX_DECLINED:
+    case NGX_INVALID_ARG:
         return NGX_HTTP_BAD_REQUEST;
 
     case NGX_OK:
@@ -876,7 +876,7 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
         media_type, log, &track);
     switch (rc) {
 
-    case NGX_BUSY:
+    case NGX_EXISTS:
         llcf = ngx_http_get_module_loc_conf(r, ngx_http_live_api_module);
         if (!llcf->upsert) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -889,7 +889,7 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
         created = 0;
         break;
 
-    case NGX_DECLINED:
+    case NGX_INVALID_ARG:
         return NGX_HTTP_BAD_REQUEST;
 
     case NGX_OK:
@@ -1256,7 +1256,7 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
         &manifest_conf, log, &timeline);
     switch (rc) {
 
-    case NGX_BUSY:
+    case NGX_EXISTS:
         llcf = ngx_http_get_module_loc_conf(r, ngx_http_live_api_module);
         if (!llcf->upsert) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -1279,7 +1279,7 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
 
         return NGX_OK;
 
-    case NGX_DECLINED:
+    case NGX_INVALID_ARG:
         return NGX_HTTP_BAD_REQUEST;
 
     case NGX_OK:

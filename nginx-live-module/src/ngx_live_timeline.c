@@ -430,11 +430,11 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
     if (id->len > sizeof(timeline->id_buf)) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_timeline_create: timeline id \"%V\" too long", id);
-        return NGX_DECLINED;
+        return NGX_INVALID_ARG;
     }
 
     if (ngx_live_timeline_validate_conf(conf, manifest_conf, log) != NGX_OK) {
-        return NGX_DECLINED;
+        return NGX_INVALID_ARG;
     }
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
@@ -443,7 +443,7 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
         hash);
     if (timeline != NULL) {
         *result = timeline;
-        return NGX_BUSY;
+        return NGX_EXISTS;
     }
 
     timeline = ngx_block_pool_calloc(cctx->block_pool, NGX_LIVE_BP_TIMELINE);
@@ -1516,7 +1516,7 @@ ngx_live_timeline_read_setup(ngx_live_persist_block_header_t *block,
             "ngx_live_timeline_read_setup: "
             "create failed, timeline: %V", &id);
 
-        if (rc == NGX_BUSY || rc == NGX_DECLINED) {
+        if (rc == NGX_EXISTS || rc == NGX_INVALID_ARG) {
             return NGX_BAD_DATA;
         }
         return NGX_ERROR;
