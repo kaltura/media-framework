@@ -218,7 +218,7 @@ ngx_live_persist_read_blocks(ngx_mem_rstream_t *rs, ngx_hash_t *hash,
 
         header = ngx_live_persist_read_block(rs, &block_rs);
         if (header == NULL) {
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         key = ngx_live_persist_block_id_key(header->id);
@@ -275,7 +275,7 @@ ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_channel: read id failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     if (id.len != channel->sn.str.len ||
@@ -284,7 +284,7 @@ ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_channel: "
             "channel id \"%V\" mismatch", &id);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     rc = ngx_live_channel_block_str_read(channel, &channel->opaque, rs);
@@ -295,7 +295,7 @@ ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
     }
 
     if (ngx_live_persist_read_skip_block_header(rs, header) != NGX_OK) {
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
 
@@ -373,7 +373,7 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_track: read id failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     t = ngx_mem_rstream_get_ptr(rs, sizeof(*t));
@@ -381,7 +381,7 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_track: "
             "read data failed, track: %V", &id);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     rc = ngx_live_track_create(channel, &id, t->track_id, t->media_type,
@@ -391,8 +391,8 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
             "ngx_live_persist_setup_read_track: "
             "create failed, track: %V", &id);
 
-        if (rc == NGX_BUSY || rc == NGX_DECLINED) {
-            return NGX_ABORT;
+        if (rc == NGX_EXISTS || rc == NGX_INVALID_ARG) {
+            return NGX_BAD_DATA;
         }
         return NGX_ERROR;
     }
@@ -405,7 +405,7 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
     }
 
     if (ngx_live_persist_read_skip_block_header(rs, header) != NGX_OK) {
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
 
@@ -495,7 +495,7 @@ ngx_live_persist_setup_read_variant(ngx_live_persist_block_header_t *header,
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_variant: read id failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     v = ngx_mem_rstream_get_ptr(rs, sizeof(*v));
@@ -503,7 +503,7 @@ ngx_live_persist_setup_read_variant(ngx_live_persist_block_header_t *header,
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_variant: "
             "read data failed (1), variant: %V", &id);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     if (ngx_mem_rstream_str_get(rs, &conf.label) != NGX_OK ||
@@ -512,7 +512,7 @@ ngx_live_persist_setup_read_variant(ngx_live_persist_block_header_t *header,
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_variant: "
             "read data failed (2), variant: %V", &id);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     conf.role = v->role;
@@ -525,8 +525,8 @@ ngx_live_persist_setup_read_variant(ngx_live_persist_block_header_t *header,
             "ngx_live_persist_setup_read_variant: "
             "create failed, variant: %V", &id);
 
-        if (rc == NGX_BUSY || rc == NGX_DECLINED) {
-            return NGX_ABORT;
+        if (rc == NGX_EXISTS || rc == NGX_INVALID_ARG) {
+            return NGX_BAD_DATA;
         }
         return NGX_ERROR;
     }
@@ -537,7 +537,7 @@ ngx_live_persist_setup_read_variant(ngx_live_persist_block_header_t *header,
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_persist_setup_read_variant: "
                 "read track id failed, variant: %V", &id);
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         cur_track = ngx_live_track_get_by_int(channel, track_id);
@@ -545,7 +545,7 @@ ngx_live_persist_setup_read_variant(ngx_live_persist_block_header_t *header,
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_persist_setup_read_variant: "
                 "failed to get track %uD, variant: %V", track_id, &id);
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         if (variant->tracks[cur_track->media_type] != NULL) {
@@ -553,7 +553,7 @@ ngx_live_persist_setup_read_variant(ngx_live_persist_block_header_t *header,
                 "ngx_live_persist_setup_read_variant: "
                 "media type %uD already assigned, variant: %V",
                 cur_track->media_type, &id);
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         if (ngx_live_variant_set_track(variant, cur_track, rs->log)
@@ -562,7 +562,7 @@ ngx_live_persist_setup_read_variant(ngx_live_persist_block_header_t *header,
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
                 "ngx_live_persist_setup_read_variant: "
                 "set track failed, variant: %V", &id);
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
     }
 
@@ -616,7 +616,7 @@ ngx_live_persist_setup_read_parse(ngx_live_channel_t *channel, ngx_str_t *buf)
     {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_setup_read_parse: read header failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);

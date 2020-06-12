@@ -232,16 +232,16 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
     case NGX_OK:
         break;
 
-    case NGX_ABORT:
+    case NGX_BAD_DATA:
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
-            "ngx_stream_live_kmp_media_info: push returned abort");
-        ngx_live_channel_finalize(ctx->channel);
-        return NGX_STREAM_INTERNAL_SERVER_ERROR;
+            "ngx_stream_live_kmp_media_info: failed to parse data");
+        return NGX_STREAM_BAD_REQUEST;
 
     default:
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_stream_live_kmp_media_info: push failed");
-        return NGX_STREAM_BAD_REQUEST;
+        ngx_live_channel_finalize(ctx->channel);
+        return NGX_STREAM_INTERNAL_SERVER_ERROR;
     }
 
     ctx->got_media_info = 1;

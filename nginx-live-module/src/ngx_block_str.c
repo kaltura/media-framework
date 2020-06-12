@@ -126,7 +126,7 @@ ngx_block_str_read(ngx_mem_rstream_t *rs, ngx_block_str_t *str,
     ngx_str_t  src;
 
     if (ngx_mem_rstream_str_get(rs, &src) != NGX_OK) {
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     return ngx_block_str_set(str, pool, index, &src);

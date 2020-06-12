@@ -6,6 +6,9 @@
 #include <ngx_core.h>
 
 
+#define NGX_BAD_DATA          NGX_ABORT
+
+
 #define ngx_mem_rstream_left(rs)  ((size_t) ((rs)->end - (rs)->pos))
 #define ngx_mem_rstream_eof(rs)   ((rs)->pos >= (rs)->end)
 
@@ -21,7 +24,7 @@ typedef struct {
 
 
 /*
- * NGX_ABORT    - end of stream
+ * NGX_BAD_DATA - end of stream
  * NGX_ERROR    - alloc error
  */
 
@@ -40,7 +43,7 @@ static ngx_inline ngx_int_t
 ngx_mem_rstream_read(ngx_mem_rstream_t *rs, void *buf, size_t size)
 {
     if (size > ngx_mem_rstream_left(rs)) {
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     ngx_memcpy(buf, rs->pos, size);
@@ -74,7 +77,7 @@ ngx_mem_rstream_get_stream(ngx_mem_rstream_t *rs, size_t size,
 
     pos = ngx_mem_rstream_get_ptr(rs, size);
     if (pos == NULL) {
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     out->end = rs->pos;     /* must be first, in case out == rs */
@@ -99,12 +102,12 @@ ngx_mem_rstream_str_get(ngx_mem_rstream_t *rs, ngx_str_t *s)
     uint32_t  len;
 
     if (ngx_mem_rstream_read(rs, &len, sizeof(len)) != NGX_OK) {
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     s->data = ngx_mem_rstream_get_ptr(rs, len);
     if (s->data == NULL) {
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     s->len = len;
@@ -119,11 +122,11 @@ ngx_mem_rstream_str_fixed(ngx_mem_rstream_t *rs, ngx_str_t *s, size_t max)
     uint32_t   len;
 
     if (ngx_mem_rstream_read(rs, &len, sizeof(len)) != NGX_OK) {
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     if (len > max) {
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     s->len = len;

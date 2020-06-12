@@ -14,6 +14,9 @@
 #include "ngx_block_str.h"
 
 
+#define NGX_INVALID_ARG                 NGX_DECLINED
+#define NGX_EXISTS                      NGX_BUSY
+
 #define NGX_LIVE_VARIANT_MAX_ID_LEN     (32)
 #define NGX_LIVE_VARIANT_MAX_LABEL_LEN  (64)
 #define NGX_LIVE_VARIANT_MAX_LANG_LEN   (6)

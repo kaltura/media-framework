@@ -47,7 +47,7 @@ ngx_mem_rstream_read_list(ngx_mem_rstream_t *rs, ngx_list_t *l,
         if (ngx_mem_rstream_read(rs, elt, l->size * chunk) != NGX_OK) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_mem_rstream_read_list: read failed");
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
 
         last->nelts += chunk;

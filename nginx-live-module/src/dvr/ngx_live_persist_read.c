@@ -14,7 +14,7 @@ ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_read_file_header: buffer size %uz too small",
             buf->len);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     header = (void *) buf->data;
@@ -23,7 +23,7 @@ ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_read_file_header: invalid magic 0x%uxD",
             header->magic);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     header_size = header->header_size & NGX_LIVE_PERSIST_HEADER_SIZE_MASK;
@@ -31,7 +31,7 @@ ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_read_file_header: header size too small %uD",
             header_size);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     if (header_size > buf->len) {
@@ -39,7 +39,7 @@ ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
             "ngx_live_persist_read_file_header: "
             "header size %uD larger than buffer %uz",
             header_size, buf->len);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     if (header->type != type) {
@@ -47,7 +47,7 @@ ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
             "ngx_live_persist_read_file_header: "
             "invalid file type 0x%uxD, expected %*s",
             header->type, (size_t) sizeof(type), &type);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     ngx_mem_rstream_set(rs, buf->data + header_size, buf->data + buf->len,
@@ -103,7 +103,7 @@ ngx_live_persist_read_skip_block_header(ngx_mem_rstream_t *rs,
             "ngx_live_persist_read_skip_block_header: "
             "header size %uD smaller than read size %uD, id: %*s",
             size, read, (size_t) sizeof(header->id), &header->id);
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
 
     } else if (size > read) {
         if (ngx_mem_rstream_get_ptr(rs, size - read) == NULL) {
@@ -111,7 +111,7 @@ ngx_live_persist_read_skip_block_header(ngx_mem_rstream_t *rs,
                 "ngx_live_persist_read_skip_block_header: "
                 "skip failed, id: %*s",
                 (size_t) sizeof(header->id), &header->id);
-            return NGX_ABORT;
+            return NGX_BAD_DATA;
         }
     }
 

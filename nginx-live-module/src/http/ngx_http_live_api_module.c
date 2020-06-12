@@ -78,6 +78,7 @@ enum {
     CHANNEL_PARAM_ID,
     CHANNEL_PARAM_PRESET,
     CHANNEL_PARAM_OPAQUE,
+    CHANNEL_PARAM_READ,
     CHANNEL_PARAM_COUNT
 };
 
@@ -85,6 +86,7 @@ static ngx_json_object_key_def_t  ngx_live_channel_params[] = {
     { vod_string("id"),          NGX_JSON_STRING, CHANNEL_PARAM_ID },
     { vod_string("preset"),      NGX_JSON_STRING, CHANNEL_PARAM_PRESET },
     { vod_string("opaque"),      NGX_JSON_STRING, CHANNEL_PARAM_OPAQUE },
+    { vod_string("read"),        NGX_JSON_BOOL,   CHANNEL_PARAM_READ },
     { vod_null_string, 0, 0 }
 };
 
@@ -297,7 +299,7 @@ ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
 
     if (rc != NGX_OK) {
 
-        if (rc == NGX_ABORT) {
+        if (rc == NGX_BAD_DATA) {
             rc = NGX_HTTP_SERVICE_UNAVAILABLE;
 
         } else if (rc < 500 || rc > 599) {
@@ -373,7 +375,7 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
     rc = ngx_live_channel_create(&channel_id, conf_ctx, r->pool, &channel);
     switch (rc) {
 
-    case NGX_BUSY:
+    case NGX_EXISTS:
         llcf = ngx_http_get_module_loc_conf(r, ngx_http_live_api_module);
         if (!llcf->upsert) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -384,7 +386,7 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
 
         return ngx_http_live_api_channel_update(r, channel, obj, values);
 
-    case NGX_DECLINED:
+    case NGX_INVALID_ARG:
         return NGX_HTTP_BAD_REQUEST;
 
     case NGX_OK:
@@ -405,31 +407,35 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
         goto free;
     }
 
-    ctx = ngx_palloc(r->pool, sizeof(*ctx));
-    if (ctx == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_http_live_api_channels_post: alloc failed");
-        rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
-        goto free;
-    }
+    if (values[CHANNEL_PARAM_READ] == NULL ||
+        values[CHANNEL_PARAM_READ]->v.boolean)
+    {
+        ctx = ngx_palloc(r->pool, sizeof(*ctx));
+        if (ctx == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_channels_post: alloc failed");
+            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            goto free;
+        }
 
-    rc = ngx_live_persist_read(channel, r->pool,
-        ngx_http_live_api_channel_read_handler, ctx);
-    if (rc == NGX_DONE) {
-        ctx->r = r;
-        ctx->channel = channel;
-        ctx->body = *obj;
-        ngx_memcpy(ctx->values, values, sizeof(ctx->values));
+        rc = ngx_live_persist_read(channel, r->pool,
+            ngx_http_live_api_channel_read_handler, ctx);
+        if (rc == NGX_DONE) {
+            ctx->r = r;
+            ctx->channel = channel;
+            ctx->body = *obj;
+            ngx_memcpy(ctx->values, values, sizeof(ctx->values));
 
-        r->main->count++;
-        return NGX_DONE;
-    }
+            r->main->count++;
+            return NGX_DONE;
+        }
 
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_http_live_api_channels_post: read failed");
-        rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
-        goto free;
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_channels_post: read failed");
+            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            goto free;
+        }
     }
 
     rc = ngx_http_live_api_channel_update(r, channel, obj, values);
@@ -639,7 +645,7 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
     rc = ngx_live_variant_create(channel, &variant_id, &conf, log, &variant);
     switch (rc) {
 
-    case NGX_BUSY:
+    case NGX_EXISTS:
         llcf = ngx_http_get_module_loc_conf(r, ngx_http_live_api_module);
         if (!llcf->upsert) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -660,7 +666,7 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
         created = 0;
         break;
 
-    case NGX_DECLINED:
+    case NGX_INVALID_ARG:
         return NGX_HTTP_BAD_REQUEST;
 
     case NGX_OK:
@@ -870,7 +876,7 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
         media_type, log, &track);
     switch (rc) {
 
-    case NGX_BUSY:
+    case NGX_EXISTS:
         llcf = ngx_http_get_module_loc_conf(r, ngx_http_live_api_module);
         if (!llcf->upsert) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -883,7 +889,7 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
         created = 0;
         break;
 
-    case NGX_DECLINED:
+    case NGX_INVALID_ARG:
         return NGX_HTTP_BAD_REQUEST;
 
     case NGX_OK:
@@ -1250,7 +1256,7 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
         &manifest_conf, log, &timeline);
     switch (rc) {
 
-    case NGX_BUSY:
+    case NGX_EXISTS:
         llcf = ngx_http_get_module_loc_conf(r, ngx_http_live_api_module);
         if (!llcf->upsert) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -1273,7 +1279,7 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
 
         return NGX_OK;
 
-    case NGX_DECLINED:
+    case NGX_INVALID_ARG:
         return NGX_HTTP_BAD_REQUEST;
 
     case NGX_OK:

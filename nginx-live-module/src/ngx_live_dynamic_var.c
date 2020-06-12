@@ -6,7 +6,6 @@
 #define NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK       (0x766e7964)    /* dynv */
 
 
-
 enum {
     NGX_LIVE_BP_VAR,
 
@@ -381,7 +380,7 @@ ngx_live_dynamic_var_read_setup(ngx_live_persist_block_header_t *block,
     if (ngx_mem_rstream_str_fixed(rs, &var->sn.str, left) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_dynamic_var_read_setup: read key failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     var->value.data = var->sn.str.data + var->sn.str.len;
@@ -390,7 +389,7 @@ ngx_live_dynamic_var_read_setup(ngx_live_persist_block_header_t *block,
     if (ngx_mem_rstream_str_fixed(rs, &var->value, left) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_dynamic_var_read_setup: read value failed");
-        return NGX_ABORT;
+        return NGX_BAD_DATA;
     }
 
     ngx_queue_insert_tail(&cctx->queue, &var->queue);
