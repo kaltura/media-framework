@@ -9,7 +9,7 @@
 
 
 struct ngx_http_call_ctx_s {
-    ngx_pool_cleanup_t           cln;
+    ngx_pool_cleanup_t          *cln;
     ngx_pool_t                  *pool;
 
     void                        *arg;
@@ -158,11 +158,15 @@ ngx_http_call_create(ngx_http_call_init_t *ci)
     if (ci->handler_pool && ci->handle) {
         ctx->handle = ci->handle;
 
-        ctx->cln.data = ctx;
-        ctx->cln.handler = (ngx_pool_cleanup_pt) ngx_http_call_free;
+        ctx->cln = ngx_pool_cleanup_add(ci->handler_pool, 0);
+        if (ctx->cln == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                "ngx_http_call_create: cleanup add failed");
+            goto error;
+        }
 
-        ctx->cln.next = ci->handler_pool->cleanup;
-        ci->handler_pool->cleanup = &ctx->cln;
+        ctx->cln->data = ctx;
+        ctx->cln->handler = (ngx_pool_cleanup_pt) ngx_http_call_free;
 
         ctx->handler_pool = ci->handler_pool;
     }
@@ -171,6 +175,9 @@ ngx_http_call_create(ngx_http_call_init_t *ci)
     if (rc == NGX_ERROR) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_http_call_create: connect failed");
+        if (ctx->handler_pool) {
+            ctx->cln->handler = NULL;
+        }
         goto error;
     }
 
@@ -186,28 +193,6 @@ error:
 
 
 static void
-ngx_pool_cleanup_remove(ngx_pool_t *pool, ngx_pool_cleanup_t *cln)
-{
-    ngx_pool_cleanup_t  **cur_ptr;
-    ngx_pool_cleanup_t   *cur;
-
-    for (cur_ptr = &pool->cleanup; ; cur_ptr = &cur->next) {
-        cur = *cur_ptr;
-        if (cur == NULL) {
-            ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
-                "attempt to remove non existing pool cleanup item");
-            break;
-        }
-
-        if (cur == cln) {
-            *cur_ptr = cur->next;
-            break;
-        }
-    }
-}
-
-
-static void
 ngx_http_call_free(ngx_http_call_ctx_t *ctx)
 {
     if (ctx->retry.timer_set) {
@@ -215,7 +200,7 @@ ngx_http_call_free(ngx_http_call_ctx_t *ctx)
     }
 
     if (ctx->handler_pool) {
-        ngx_pool_cleanup_remove(ctx->handler_pool, &ctx->cln);
+        ctx->cln->handler = NULL;
     }
 
     if (ctx->peer.connection) {
@@ -291,7 +276,7 @@ ngx_http_call_done(ngx_http_call_ctx_t *ctx)
     }
 
     /* remove from handler pool, handler may destroy the pool */
-    ngx_pool_cleanup_remove(handler_pool, &ctx->cln);
+    ctx->cln->handler = NULL;
     ctx->handler_pool = NULL;
 
     /* clean up everything except pool - must not access ctx if handler
@@ -320,8 +305,7 @@ ngx_http_call_done(ngx_http_call_ctx_t *ctx)
         "http call retry");
 
     /* add back to handler pool */
-    ctx->cln.next = handler_pool->cleanup;
-    handler_pool->cleanup = &ctx->cln;
+    ctx->cln->handler = (ngx_pool_cleanup_pt) ngx_http_call_free;
     ctx->handler_pool = handler_pool;
 
     ctx->retry.handler = ngx_http_call_retry;
