@@ -153,6 +153,7 @@ enum {
     VARIANT_PARAM_LANG,
     VARIANT_PARAM_ROLE,
     VARIANT_PARAM_IS_DEFAULT,
+    VARIANT_PARAM_TRACK_IDS,
     VARIANT_PARAM_COUNT
 };
 
@@ -163,6 +164,7 @@ static ngx_json_object_key_def_t  ngx_live_variant_params[] = {
     { vod_string("lang"),        NGX_JSON_STRING, VARIANT_PARAM_LANG },
     { vod_string("role"),        NGX_JSON_STRING, VARIANT_PARAM_ROLE },
     { vod_string("is_default"),  NGX_JSON_BOOL,   VARIANT_PARAM_IS_DEFAULT },
+    { vod_string("track_ids"),   NGX_JSON_OBJECT, VARIANT_PARAM_TRACK_IDS },
     { vod_null_string, 0, 0 }
 };
 
@@ -594,6 +596,60 @@ ngx_http_live_api_variant_init_conf(ngx_json_value_t **values,
 }
 
 static ngx_int_t
+ngx_http_live_api_variant_init_tracks(ngx_live_channel_t *channel,
+    ngx_json_object_t *obj, ngx_live_track_t **result, ngx_log_t *log)
+{
+    ngx_str_t              media_type;
+    ngx_live_track_t      *cur_track;
+    ngx_json_key_value_t  *cur;
+    ngx_json_key_value_t  *last;
+
+    ngx_memzero(result, sizeof(*result) * KMP_MEDIA_COUNT);
+
+    cur = obj->elts;
+    last = cur + obj->nelts;
+    for (; cur < last; cur++) {
+        if (cur->value.type != NGX_JSON_STRING) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_http_live_api_variant_init_tracks: invalid value type %d",
+                cur->value.type);
+            return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
+        }
+
+        cur_track = ngx_live_track_get(channel, &cur->value.v.str);
+        if (cur_track == NULL) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_http_live_api_variant_init_tracks: "
+                "unknown track \"%V\" in channel \"%V\"",
+                &cur->value.v.str, &channel->sn.str);
+            return NGX_HTTP_NOT_FOUND;
+        }
+
+        media_type = ngx_live_track_media_type_names[cur_track->media_type];
+        if (cur->key.len != media_type.len ||
+            ngx_memcmp(cur->key.data, media_type.data, media_type.len) != 0)
+        {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_http_live_api_variant_init_tracks: "
+                "invalid key \"%V\" expected \"%V\"",
+                &cur->key, &media_type);
+            return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
+        }
+
+        if (result[cur_track->media_type] != NULL) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_http_live_api_variant_init_tracks: "
+                "duplicate %V track", &media_type);
+            return NGX_HTTP_BAD_REQUEST;
+        }
+
+        result[cur_track->media_type] = cur_track;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
 ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
 {
@@ -603,6 +659,7 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_log_t                     *log = r->connection->log;
     ngx_flag_t                     created;
     ngx_json_value_t              *values[VARIANT_PARAM_COUNT];
+    ngx_live_track_t              *tracks[KMP_MEDIA_COUNT];
     ngx_live_variant_t            *variant;
     ngx_live_channel_t            *channel;
     ngx_live_variant_conf_t        conf;
@@ -639,6 +696,14 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
     rc = ngx_http_live_api_variant_init_conf(values, &conf, log);
     if (rc != NGX_OK) {
         return rc;
+    }
+
+    if (values[VARIANT_PARAM_TRACK_IDS] != NULL) {
+        rc = ngx_http_live_api_variant_init_tracks(channel,
+            &values[VARIANT_PARAM_TRACK_IDS]->v.obj, tracks, log);
+        if (rc != NGX_OK) {
+            return rc;
+        }
     }
 
     variant_id = values[VARIANT_PARAM_ID]->v.str;
@@ -679,6 +744,12 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
+    if (values[VARIANT_PARAM_TRACK_IDS] != NULL) {
+        if (ngx_live_variant_set_tracks(variant, tracks, log) != NGX_OK) {
+            return NGX_HTTP_BAD_REQUEST;
+        }
+    }
+
     if (values[VARIANT_PARAM_OPAQUE] != NULL) {
         rc = ngx_live_channel_block_str_set(channel, &variant->opaque,
             &values[VARIANT_PARAM_OPAQUE]->v.str);
@@ -704,6 +775,7 @@ ngx_http_live_api_variant_put(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t                 variant_id;
     ngx_log_t                *log = r->connection->log;
     ngx_json_value_t         *values[VARIANT_PARAM_COUNT];
+    ngx_live_track_t         *tracks[KMP_MEDIA_COUNT];
     ngx_live_channel_t       *channel;
     ngx_live_variant_t       *variant;
     ngx_live_variant_conf_t   conf;
@@ -745,8 +817,22 @@ ngx_http_live_api_variant_put(ngx_http_request_t *r, ngx_str_t *params,
         return rc;
     }
 
+    if (values[VARIANT_PARAM_TRACK_IDS] != NULL) {
+        rc = ngx_http_live_api_variant_init_tracks(channel,
+            &values[VARIANT_PARAM_TRACK_IDS]->v.obj, tracks, log);
+        if (rc != NGX_OK) {
+            return rc;
+        }
+    }
+
     if (ngx_live_variant_update(variant, &conf, log) != NGX_OK) {
         return NGX_HTTP_BAD_REQUEST;
+    }
+
+    if (values[VARIANT_PARAM_TRACK_IDS] != NULL) {
+        if (ngx_live_variant_set_tracks(variant, tracks, log) != NGX_OK) {
+            return NGX_HTTP_BAD_REQUEST;
+        }
     }
 
     if (values[VARIANT_PARAM_OPAQUE] != NULL) {
