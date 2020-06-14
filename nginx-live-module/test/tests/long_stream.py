@@ -19,18 +19,18 @@ NO_TRUNCATE = False
 # Test matrix:
 
 # params         result                                         error log
-# NT+MI+WA     = memory limit exceeded after 220k segments/3m, 'cancelling save request', 'save failed', 'truncat', 'aborting save'
-# NT+WA        = memory limit exceeded after 4m segments/26m,  'cancelling save request', 'save failed', 'truncat', 'aborting save'
+# NT+MI+WA     = memory limit exceeded after 220k segments/3m, 'cancelling write request', 'write failed', 'truncat', 'aborting write'
+# NT+WA        = memory limit exceeded after 4m segments/26m,  'cancelling write request', 'write failed', 'truncat', 'aborting write'
 # NT+MI+WA+DD  = memory limit exceeded after 220k segments/2m, 'truncat'
 # NT+WA+DD     = memory limit exceeded after 4m segments/15m,  'truncat'
-# MI+WA        = runs forever,                                 'cancelling save request', 'save failed', 'truncat'
-# WA           = runs forever,                                 'cancelling save request', 'save failed', 'truncat'
+# MI+WA        = runs forever,                                 'cancelling write request', 'write failed', 'truncat'
+# WA           = runs forever,                                 'cancelling write request', 'write failed', 'truncat'
 # MI+WA+DD     = runs forever,                                 'truncat'
 # WA+DD        = runs forever,                                 'truncat'
-# BSR+MI+WA    = runs forever,                                 'request cleaned up', 'cancelling save request', 'save failed', 'truncat'
+# BSR+MI+WA    = runs forever,                                 'request cleaned up', 'cancelling write request', 'write failed', 'truncat'
 # BSR+MI+WA+DD = runs forever,                                 'request cleaned up', 'truncat'
-# MI           = may fail on pending frame limit,              'cancelling save request', 'save failed', 'truncat'
-#              = may fail on pending frame limit,              'cancelling save request', 'save failed', 'truncat'
+# MI           = may fail on pending frame limit,              'cancelling write request', 'write failed', 'truncat'
+#              = may fail on pending frame limit,              'cancelling write request', 'write failed', 'truncat'
 # MI+DD        = may fail on pending frame limit,              'truncat'
 # DD           = may fail on pending frame limit,              'truncat'
 

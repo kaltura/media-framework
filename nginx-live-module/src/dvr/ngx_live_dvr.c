@@ -48,11 +48,11 @@ typedef struct {
     uint32_t    last_bucket_id;
     uint32_t    bucket_id;
 
-    uint32_t    save_started;
-    uint32_t    save_error;
-    uint32_t    save_success;
-    uint64_t    save_success_msec;
-    uint64_t    save_success_size;
+    uint32_t    write_started;
+    uint32_t    write_error;
+    uint32_t    write_success;
+    uint64_t    write_success_msec;
+    uint64_t    write_success_size;
     uint32_t    read_segments;
 } ngx_live_dvr_channel_ctx_t;
 
@@ -651,10 +651,10 @@ typedef struct {
     uint32_t             max_segment_index;
     size_t               size;
     ngx_msec_t           start;
-} ngx_live_dvr_save_ctx_t;
+} ngx_live_dvr_write_ctx_t;
 
 static ngx_int_t
-ngx_live_dvr_save_append_segment(ngx_live_persist_write_ctx_t *write_data,
+ngx_live_dvr_write_append_segment(ngx_live_persist_write_ctx_t *write_data,
     ngx_live_persist_write_ctx_t *write_idx, ngx_live_track_t *cur_track,
     ngx_live_segment_t *segment)
 {
@@ -720,7 +720,7 @@ ngx_live_dvr_save_append_segment(ngx_live_persist_write_ctx_t *write_data,
 }
 
 static ngx_chain_t *
-ngx_live_dvr_save_create_file(ngx_live_dvr_save_ctx_t *ctx,
+ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
     ngx_live_segment_cleanup_t **pcln)
 {
     uint32_t                       max_segments;
@@ -782,7 +782,7 @@ ngx_live_dvr_save_create_file(ngx_live_dvr_save_ctx_t *ctx,
                 continue;
             }
 
-            if (ngx_live_dvr_save_append_segment(write_data, write_idx,
+            if (ngx_live_dvr_write_append_segment(write_data, write_idx,
                 cur_track, segment) != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
@@ -837,12 +837,12 @@ ngx_live_dvr_save_create_file(ngx_live_dvr_save_ctx_t *ctx,
 }
 
 static void
-ngx_live_dvr_save_complete(void *arg, ngx_int_t rc)
+ngx_live_dvr_write_complete(void *arg, ngx_int_t rc)
 {
     uint32_t                     min_segment_index;
     uint32_t                     max_segment_index;
     ngx_live_channel_t          *channel;
-    ngx_live_dvr_save_ctx_t     *ctx = arg;
+    ngx_live_dvr_write_ctx_t    *ctx = arg;
     ngx_live_dvr_channel_ctx_t  *cctx;
 
     channel = ctx->channel;
@@ -850,14 +850,14 @@ ngx_live_dvr_save_complete(void *arg, ngx_int_t rc)
 
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_dvr_save_complete: save failed %i, bucket_id: %uD",
+            "ngx_live_dvr_write_complete: write failed %i, bucket_id: %uD",
             rc, ctx->bucket_id);
-        cctx->save_error++;
+        cctx->write_error++;
 
     } else {
-        cctx->save_success++;
-        cctx->save_success_msec += ngx_current_msec - ctx->start;
-        cctx->save_success_size += ctx->size;
+        cctx->write_success++;
+        cctx->write_success_msec += ngx_current_msec - ctx->start;
+        cctx->write_success_size += ctx->size;
     }
 
     min_segment_index = ctx->min_segment_index;
@@ -870,21 +870,21 @@ ngx_live_dvr_save_complete(void *arg, ngx_int_t rc)
 }
 
 static void
-ngx_live_dvr_save_bucket(ngx_live_channel_t *channel,
+ngx_live_dvr_write_bucket(ngx_live_channel_t *channel,
     ngx_live_dvr_channel_ctx_t *cctx, ngx_live_dvr_preset_conf_t *dpcf,
     uint32_t bucket_id)
 {
-    void                            *save_ctx;
+    void                            *write_ctx;
     uint32_t                         min_segment_index;
     uint32_t                         max_segment_index;
     ngx_int_t                        rc;
     ngx_pool_t                      *pool;
     ngx_live_store_t                *store;
-    ngx_live_dvr_save_ctx_t         *ctx;
+    ngx_live_dvr_write_ctx_t        *ctx;
     ngx_live_segment_cleanup_t      *cln;
     ngx_live_store_write_request_t   request;
 
-    cctx->save_started++;
+    cctx->write_started++;
 
     pool = NULL;
     min_segment_index = bucket_id * dpcf->bucket_size;
@@ -892,22 +892,22 @@ ngx_live_dvr_save_bucket(ngx_live_channel_t *channel,
 
     if (channel->mem_left < channel->mem_high_watermark) {
         ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
-            "ngx_live_dvr_save_bucket: "
-            "memory too low, aborting save, bucket_id: %uD", bucket_id);
+            "ngx_live_dvr_write_bucket: "
+            "memory too low, aborting write, bucket_id: %uD", bucket_id);
         goto error;
     }
 
     pool = ngx_create_pool(2048, &channel->log);
     if (pool == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_dvr_save_bucket: create pool failed");
+            "ngx_live_dvr_write_bucket: create pool failed");
         goto error;
     }
 
     ctx = ngx_palloc(pool, sizeof(*ctx));
     if (ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_dvr_save_bucket: alloc failed");
+            "ngx_live_dvr_write_bucket: alloc failed");
         goto error;
     }
 
@@ -922,34 +922,34 @@ ngx_live_dvr_save_bucket(ngx_live_channel_t *channel,
     rc = ngx_live_dvr_get_path(channel, pool, bucket_id, &request.path);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_dvr_save_bucket: get path failed %i", rc);
+            "ngx_live_dvr_write_bucket: get path failed %i", rc);
         goto error;
     }
 
-    request.cl = ngx_live_dvr_save_create_file(ctx, &cln);
+    request.cl = ngx_live_dvr_write_create_file(ctx, &cln);
     if (request.cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_dvr_save_bucket: create file failed");
+            "ngx_live_dvr_write_bucket: create file failed");
         goto error;
     }
 
     request.pool = pool;
     request.channel = channel;
     request.size = ctx->size;
-    request.handler = ngx_live_dvr_save_complete;
+    request.handler = ngx_live_dvr_write_complete;
     request.data = ctx;
 
     store = ngx_live_persist_get_store(channel);
 
-    save_ctx = store->write(&request);
-    if (save_ctx == NULL) {
+    write_ctx = store->write(&request);
+    if (write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_dvr_save_bucket: save failed");
+            "ngx_live_dvr_write_bucket: write failed");
         goto error;
     }
 
     cln->handler = store->cancel_write;
-    cln->data = save_ctx;
+    cln->data = write_ctx;
 
     return;
 
@@ -959,13 +959,13 @@ error:
         ngx_destroy_pool(pool);
     }
 
-    cctx->save_error++;
+    cctx->write_error++;
     ngx_live_segment_index_persisted(channel, min_segment_index,
         max_segment_index, NGX_ERROR);
 }
 
 static ngx_int_t
-ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel, void *ectx)
+ngx_live_dvr_write_segment_created(ngx_live_channel_t *channel, void *ectx)
 {
     uint32_t                     bucket_id;
     uint32_t                     segment_index;
@@ -988,8 +988,8 @@ ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel, void *ectx)
     if (cctx->last_bucket_id != NGX_LIVE_DVR_INVALID_BUCKET_ID &&
         cctx->last_bucket_id != bucket_id)
     {
-        /* bucket changed since last time, save previous bucket */
-        ngx_live_dvr_save_bucket(channel, cctx, dpcf, cctx->last_bucket_id);
+        /* bucket changed since last time, write previous bucket */
+        ngx_live_dvr_write_bucket(channel, cctx, dpcf, cctx->last_bucket_id);
 
         cctx->last_bucket_id = NGX_LIVE_DVR_INVALID_BUCKET_ID;
     }
@@ -1002,12 +1002,12 @@ ngx_live_dvr_save_segment_created(ngx_live_channel_t *channel, void *ectx)
         return NGX_OK;
     }
 
-    /* last segment in the bucket, save it */
+    /* last segment in the bucket, write it */
     if (!exists && cctx->last_bucket_id == NGX_LIVE_DVR_INVALID_BUCKET_ID) {
         return NGX_OK;
     }
 
-    ngx_live_dvr_save_bucket(channel, cctx, dpcf, bucket_id);
+    ngx_live_dvr_write_bucket(channel, cctx, dpcf, bucket_id);
 
     cctx->last_bucket_id = NGX_LIVE_DVR_INVALID_BUCKET_ID;
 
@@ -1193,11 +1193,11 @@ ngx_live_dvr_channel_json_get_size(void *obj)
         return 0;
     }
 
-    return sizeof("\"dvr\":{\"save_pending\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"save_error\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"save_success\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"save_success_size\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"save_success_msec\":") - 1 + NGX_INT64_LEN +
+    return sizeof("\"dvr\":{\"write_pending\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"write_error\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"write_success\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"write_success_size\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"write_success_msec\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"read_segments\":") - 1 + NGX_INT32_LEN +
         sizeof("}") - 1;
 }
@@ -1205,7 +1205,7 @@ ngx_live_dvr_channel_json_get_size(void *obj)
 static u_char *
 ngx_live_dvr_channel_json_write(u_char *p, void *obj)
 {
-    uint32_t                     save_pending;
+    uint32_t                     write_pending;
     ngx_live_channel_t          *channel = obj;
     ngx_live_dvr_channel_ctx_t  *cctx;
 
@@ -1214,17 +1214,18 @@ ngx_live_dvr_channel_json_write(u_char *p, void *obj)
         return p;
     }
 
-    save_pending = cctx->save_started - cctx->save_error - cctx->save_success;
-    p = ngx_copy_fix(p, "\"dvr\":{\"save_pending\":");
-    p = ngx_sprintf(p, "%uD", save_pending);
-    p = ngx_copy_fix(p, ",\"save_error\":");
-    p = ngx_sprintf(p, "%uD", cctx->save_error);
-    p = ngx_copy_fix(p, ",\"save_success\":");
-    p = ngx_sprintf(p, "%uD", cctx->save_success);
-    p = ngx_copy_fix(p, ",\"save_success_size\":");
-    p = ngx_sprintf(p, "%uL", cctx->save_success_size);
-    p = ngx_copy_fix(p, ",\"save_success_msec\":");
-    p = ngx_sprintf(p, "%uL", cctx->save_success_msec);
+    write_pending = cctx->write_started - cctx->write_error -
+        cctx->write_success;
+    p = ngx_copy_fix(p, "\"dvr\":{\"write_pending\":");
+    p = ngx_sprintf(p, "%uD", write_pending);
+    p = ngx_copy_fix(p, ",\"write_error\":");
+    p = ngx_sprintf(p, "%uD", cctx->write_error);
+    p = ngx_copy_fix(p, ",\"write_success\":");
+    p = ngx_sprintf(p, "%uD", cctx->write_success);
+    p = ngx_copy_fix(p, ",\"write_success_size\":");
+    p = ngx_sprintf(p, "%uL", cctx->write_success_size);
+    p = ngx_copy_fix(p, ",\"write_success_msec\":");
+    p = ngx_sprintf(p, "%uL", cctx->write_success_msec);
     p = ngx_copy_fix(p, ",\"read_segments\":");
     p = ngx_sprintf(p, "%uD", cctx->read_segments);
     *p++ = '}';
@@ -1279,7 +1280,7 @@ ngx_live_dvr_channel_inactive(ngx_live_channel_t *channel, void *ectx)
 
     dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_module);
 
-    ngx_live_dvr_save_bucket(channel, cctx, dpcf, cctx->last_bucket_id);
+    ngx_live_dvr_write_bucket(channel, cctx, dpcf, cctx->last_bucket_id);
 
     /* make sure the next segment will use a new bucket if the stream becomes
         active later */
@@ -1341,7 +1342,7 @@ ngx_live_dvr_preconfiguration(ngx_conf_t *cf)
 static ngx_live_channel_event_t    ngx_live_dvr_channel_events[] = {
     { ngx_live_dvr_channel_init,     NGX_LIVE_EVENT_CHANNEL_INIT },
     { ngx_live_dvr_channel_inactive, NGX_LIVE_EVENT_CHANNEL_INACTIVE },
-    { ngx_live_dvr_save_segment_created,
+    { ngx_live_dvr_write_segment_created,
         NGX_LIVE_EVENT_CHANNEL_SEGMENT_CREATED },
       ngx_live_null_event
 };
