@@ -225,6 +225,9 @@ ngx_int_t ngx_live_variant_update(ngx_live_variant_t *variant,
 ngx_int_t ngx_live_variant_set_track(ngx_live_variant_t *variant,
     ngx_live_track_t *track, ngx_log_t *log);
 
+ngx_int_t ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
+    ngx_live_track_t **tracks, ngx_log_t *log);
+
 ngx_flag_t ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
     uint32_t media_type_mask);
 

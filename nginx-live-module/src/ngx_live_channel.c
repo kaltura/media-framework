@@ -574,6 +574,38 @@ ngx_live_variant_set_track(ngx_live_variant_t *variant,
     return NGX_OK;
 }
 
+ngx_int_t
+ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
+    ngx_live_track_t **tracks, ngx_log_t *log)
+{
+    uint32_t           i;
+    uint32_t           track_count;
+    ngx_live_track_t  *cur_track;
+
+    track_count = 0;
+    for (i = 0; i < MEDIA_TYPE_COUNT; i++) {
+        cur_track = tracks[i];
+        if (cur_track == NULL) {
+            continue;
+        }
+
+        if (cur_track->type == ngx_live_track_type_filler) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_live_variant_set_tracks: "
+                "track \"%V\" in channel \"%V\" is a filler track",
+                &cur_track->sn.str, &cur_track->channel->sn.str);
+            return NGX_ERROR;
+        }
+
+        track_count++;
+    }
+
+    ngx_memcpy(variant->tracks, tracks, sizeof(variant->tracks));
+    variant->track_count = track_count;
+
+    return NGX_OK;
+}
+
 ngx_flag_t
 ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
     uint32_t media_type_mask)
