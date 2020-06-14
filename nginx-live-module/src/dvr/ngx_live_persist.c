@@ -800,6 +800,8 @@ ngx_live_persist_setup_read_handler(void *data, ngx_int_t rc,
 
 done:
 
+    channel->blocked--;
+
     handler = ctx->handler;
     data = ctx->data;
     cln = ctx->cln;
@@ -898,6 +900,8 @@ ngx_live_persist_read(ngx_live_channel_t *channel, ngx_pool_t *handler_pool,
 
     cln->handler = ngx_live_persist_read_detach;
     cln->data = ctx;
+
+    channel->blocked++;
 
     return NGX_DONE;
 

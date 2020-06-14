@@ -92,6 +92,7 @@ struct ngx_live_channel_s {
     uint32_t                       last_segment_media_types;
     time_t                         last_segment_created;
 
+    unsigned                       blocked:8;
     unsigned                       active:1;
 };
 

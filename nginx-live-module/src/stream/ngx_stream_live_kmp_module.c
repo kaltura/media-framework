@@ -850,6 +850,13 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
         return NGX_STREAM_BAD_REQUEST;
     }
 
+    if (channel->blocked) {
+        ngx_log_error(NGX_LOG_ERR, c->log, 0,
+            "ngx_stream_live_kmp_read_header: channel \"%V\" is blocked",
+            &channel_id);
+        return NGX_STREAM_BAD_REQUEST;
+    }
+
     /* get the track */
     track_id.data = header->track_id;
     track_id.len = ngx_strnlen(track_id.data, sizeof(header->track_id));
