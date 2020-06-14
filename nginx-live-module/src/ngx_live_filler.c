@@ -1277,6 +1277,13 @@ ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
         return NGX_ERROR;
     }
 
+    if (src->blocked) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_filler_set_channel: channel \"%V\" is blocked",
+            &channel_id);
+        return NGX_ERROR;
+    }
+
     src_timeline = ngx_live_timeline_get(src, &timeline_id);
     if (src_timeline == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -2052,6 +2059,13 @@ ngx_live_filler_read_setup(ngx_live_persist_block_header_t *block,
         }
 
     } else {
+
+        if (src.channel->blocked) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_live_filler_read_setup: channel \"%V\" is blocked",
+                &channel_id);
+            return NGX_ERROR;
+        }
 
         src.timeline = ngx_live_timeline_get(src.channel, &timeline_id);
         if (src.timeline == NULL) {

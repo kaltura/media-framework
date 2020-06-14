@@ -490,6 +490,7 @@ ngx_http_live_core_init_ctx(ngx_http_request_t *r,
     ngx_http_live_request_objects_t *objects)
 {
     uint32_t                        media_type;
+    ngx_live_channel_t             *channel;
     ngx_http_live_core_ctx_t       *ctx;
     ngx_http_live_core_loc_conf_t  *conf;
 
@@ -518,13 +519,22 @@ ngx_http_live_core_init_ctx(ngx_http_request_t *r,
 
     ngx_memzero(objects, sizeof(*objects));
 
-    objects->channel = ngx_live_channel_get(&params->channel_id);
-    if (objects->channel == NULL) {
+    channel = ngx_live_channel_get(&params->channel_id);
+    if (channel == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_core_init_ctx: unknown channel \"%V\"",
             &params->channel_id);
         return NGX_HTTP_BAD_REQUEST;
     }
+
+    if (channel->blocked) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_core_init_ctx: channel \"%V\" is blocked",
+            &params->channel_id);
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
+    objects->channel = channel;
 
     /* get the timeline */
     if (conf->timeline_id != NULL) {
@@ -541,8 +551,7 @@ ngx_http_live_core_init_ctx(ngx_http_request_t *r,
         params->timeline_id = ngx_http_live_default_timeline_id;
     }
 
-    objects->timeline = ngx_live_timeline_get(objects->channel,
-        &params->timeline_id);
+    objects->timeline = ngx_live_timeline_get(channel, &params->timeline_id);
     if (objects->timeline == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_core_init_ctx: unknown timeline \"%V\"",
@@ -570,8 +579,7 @@ ngx_http_live_core_init_ctx(ngx_http_request_t *r,
         Note: not using len, since it is possible to have empty variant id */
     if (params->variant_id.data != NULL) {
 
-        objects->variant = ngx_live_variant_get(objects->channel,
-            &params->variant_id);
+        objects->variant = ngx_live_variant_get(channel, &params->variant_id);
         if (objects->variant == NULL) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "ngx_http_live_core_init_ctx: unknown variant \"%V\"",

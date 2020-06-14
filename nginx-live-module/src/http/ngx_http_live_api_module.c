@@ -380,10 +380,17 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
     case NGX_EXISTS:
         llcf = ngx_http_get_module_loc_conf(r, ngx_http_live_api_module);
         if (!llcf->upsert) {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_http_live_api_channels_post: "
                 "channel \"%V\" already exists", &channel_id);
             return NGX_HTTP_CONFLICT;
+        }
+
+        if (channel->blocked) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_http_live_api_channels_post: "
+                "channel \"%V\" is blocked", &channel_id);
+            return NGX_HTTP_FORBIDDEN;
         }
 
         return ngx_http_live_api_channel_update(r, channel, obj, values);
@@ -478,12 +485,38 @@ ngx_http_live_api_channel_get(ngx_http_request_t *r, ngx_str_t *params,
 }
 
 static ngx_int_t
+ngx_http_live_api_channel_get_unblocked(ngx_http_request_t *r, ngx_str_t *id,
+    ngx_live_channel_t **result)
+{
+    ngx_live_channel_t  *channel;
+
+    channel = ngx_live_channel_get(id);
+    if (channel == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_api_channel_get_unblocked: "
+            "unknown channel \"%V\"", id);
+        return NGX_HTTP_NOT_FOUND;
+    }
+
+    if (channel->blocked) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_api_channel_get_unblocked: "
+            "channel \"%V\" is blocked", id);
+        return NGX_HTTP_FORBIDDEN;
+    }
+
+    *result = channel;
+
+    return NGX_OK;
+}
+
+static ngx_int_t
 ngx_http_live_api_channel_put(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
 {
     ngx_int_t            rc;
-    ngx_str_t            channel_id;
     ngx_log_t           *log = r->connection->log;
+    ngx_str_t            channel_id;
     ngx_json_value_t    *values[CHANNEL_PARAM_COUNT];
     ngx_live_channel_t  *channel;
 
@@ -499,12 +532,9 @@ ngx_http_live_api_channel_put(ngx_http_request_t *r, ngx_str_t *params,
 
 
     channel_id = params[0];
-    channel = ngx_live_channel_get(&channel_id);
-    if (channel == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_http_live_api_channel_put: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_HTTP_NOT_FOUND;
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
     rc = ngx_http_live_api_channel_update(r, channel, &body->v.obj, values);
@@ -683,12 +713,9 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
 
 
     channel_id = params[0];
-    channel = ngx_live_channel_get(&channel_id);
-    if (channel == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_http_live_api_variants_post: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_HTTP_NOT_FOUND;
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
     ngx_memzero(&conf, sizeof(conf));
@@ -713,7 +740,7 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
     case NGX_EXISTS:
         llcf = ngx_http_get_module_loc_conf(r, ngx_http_live_api_module);
         if (!llcf->upsert) {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_http_live_api_variants_post: "
                 "variant \"%V\" already exists in channel \"%V\"",
                 &variant_id, &channel_id);
@@ -792,12 +819,9 @@ ngx_http_live_api_variant_put(ngx_http_request_t *r, ngx_str_t *params,
 
 
     channel_id = params[0];
-    channel = ngx_live_channel_get(&channel_id);
-    if (channel == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_http_live_api_variant_put: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_HTTP_NOT_FOUND;
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
     variant_id = params[1];
@@ -851,18 +875,16 @@ static ngx_int_t
 ngx_http_live_api_variant_delete(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
 {
+    ngx_int_t            rc;
     ngx_str_t            channel_id;
     ngx_str_t            variant_id;
     ngx_live_channel_t  *channel;
     ngx_live_variant_t  *variant;
 
     channel_id = params[0];
-    channel = ngx_live_channel_get(&channel_id);
-    if (channel == NULL) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_live_api_variant_delete: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_HTTP_NOT_FOUND;
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
     variant_id = params[1];
@@ -949,12 +971,9 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
 
 
     channel_id = params[0];
-    channel = ngx_live_channel_get(&channel_id);
-    if (channel == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_http_live_api_tracks_post: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_HTTP_NOT_FOUND;
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
     track_id = values[TRACK_PARAM_ID]->v.str;
@@ -965,7 +984,7 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     case NGX_EXISTS:
         llcf = ngx_http_get_module_loc_conf(r, ngx_http_live_api_module);
         if (!llcf->upsert) {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_http_live_api_tracks_post: "
                 "track \"%V\" already exists in channel \"%V\"",
                 &track_id, &channel_id);
@@ -1038,12 +1057,9 @@ ngx_http_live_api_track_put(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_get_object_values(&body->v.obj, ngx_live_track_params, values);
 
     channel_id = params[0];
-    channel = ngx_live_channel_get(&channel_id);
-    if (channel == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_http_live_api_track_put: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_HTTP_NOT_FOUND;
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
     track_id = params[1];
@@ -1082,18 +1098,16 @@ static ngx_int_t
 ngx_http_live_api_track_delete(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
 {
+    ngx_int_t            rc;
     ngx_str_t            track_id;
     ngx_str_t            channel_id;
     ngx_live_track_t    *track;
     ngx_live_channel_t  *channel;
 
     channel_id = params[0];
-    channel = ngx_live_channel_get(&channel_id);
-    if (channel == NULL) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_live_api_track_delete: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_HTTP_NOT_FOUND;
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
     track_id = params[1];
@@ -1117,6 +1131,7 @@ static ngx_int_t
 ngx_http_live_api_variant_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
 {
+    ngx_int_t                      rc;
     ngx_str_t                      track_id;
     ngx_str_t                      variant_id;
     ngx_str_t                      channel_id;
@@ -1145,12 +1160,9 @@ ngx_http_live_api_variant_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
 
 
     channel_id = params[0];
-    channel = ngx_live_channel_get(&channel_id);
-    if (channel == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_http_live_api_variant_tracks_post: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_HTTP_NOT_FOUND;
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
     variant_id = params[1];
@@ -1305,12 +1317,9 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
 
 
     channel_id = params[0];
-    channel = ngx_live_channel_get(&channel_id);
-    if (channel == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_http_live_api_timelines_post: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_HTTP_NOT_FOUND;
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
     if (values[TIMELINE_PARAM_SOURCE_ID] != NULL) {
@@ -1398,18 +1407,16 @@ ngx_http_live_api_timeline_get(ngx_http_request_t *r, ngx_str_t *params,
         (ngx_live_json_writer_write_pt) ngx_live_timeline_json_write,
     };
 
+    ngx_int_t             rc;
     ngx_str_t             channel_id;
     ngx_str_t             timeline_id;
     ngx_live_channel_t   *channel;
     ngx_live_timeline_t  *timeline;
 
     channel_id = params[0];
-    channel = ngx_live_channel_get(&channel_id);
-    if (channel == NULL) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_live_api_timeline_get: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_HTTP_NOT_FOUND;
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
     timeline_id = params[1];
@@ -1430,6 +1437,7 @@ static ngx_int_t
 ngx_http_live_api_timeline_put(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
 {
+    ngx_int_t                           rc;
     ngx_str_t                           channel_id;
     ngx_str_t                           timeline_id;
     ngx_log_t                          *log = r->connection->log;
@@ -1451,12 +1459,9 @@ ngx_http_live_api_timeline_put(ngx_http_request_t *r, ngx_str_t *params,
 
 
     channel_id = params[0];
-    channel = ngx_live_channel_get(&channel_id);
-    if (channel == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_http_live_api_timeline_put: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_HTTP_NOT_FOUND;
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
     timeline_id = params[1];
@@ -1487,18 +1492,16 @@ static ngx_int_t
 ngx_http_live_api_timeline_delete(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
 {
+    ngx_int_t             rc;
     ngx_str_t             channel_id;
     ngx_str_t             timeline_id;
     ngx_live_channel_t   *channel;
     ngx_live_timeline_t  *timeline;
 
     channel_id = params[0];
-    channel = ngx_live_channel_get(&channel_id);
-    if (channel == NULL) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_live_api_timeline_delete: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_HTTP_NOT_FOUND;
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
     timeline_id = params[1];
