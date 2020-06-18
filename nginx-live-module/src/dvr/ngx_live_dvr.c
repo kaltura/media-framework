@@ -870,11 +870,23 @@ ngx_live_dvr_write_complete(void *arg, ngx_int_t rc)
 }
 
 static void
+ngx_live_dvr_write_cancel(void *arg)
+{
+    ngx_live_dvr_write_ctx_t  *ctx = arg;
+
+    ngx_log_error(NGX_LOG_ERR, &ctx->channel->log, 0,
+        "ngx_live_dvr_write_cancel: "
+        "cancelling write request, bucket_id: %uD",
+        ctx->bucket_id);
+
+    ngx_live_dvr_write_complete(ctx, NGX_ERROR);
+}
+
+static void
 ngx_live_dvr_write_bucket(ngx_live_channel_t *channel,
     ngx_live_dvr_channel_ctx_t *cctx, ngx_live_dvr_preset_conf_t *dpcf,
     uint32_t bucket_id)
 {
-    void                            *write_ctx;
     uint32_t                         min_segment_index;
     uint32_t                         max_segment_index;
     ngx_int_t                        rc;
@@ -941,15 +953,18 @@ ngx_live_dvr_write_bucket(ngx_live_channel_t *channel,
 
     store = ngx_live_persist_get_store(channel);
 
-    write_ctx = store->write(&request);
-    if (write_ctx == NULL) {
+    rc = store->write(&request);
+    if (rc != NGX_DONE) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_dvr_write_bucket: write failed");
+            "ngx_live_dvr_write_bucket: write failed %i", rc);
         goto error;
     }
 
-    cln->handler = store->cancel_write;
-    cln->data = write_ctx;
+    cln->handler = ngx_live_dvr_write_cancel;
+    cln->data = ctx;
+
+    /* Note: if the channel is freed, the segment index module will call
+        ngx_live_dvr_write_cancel, which will free the pool */
 
     return;
 

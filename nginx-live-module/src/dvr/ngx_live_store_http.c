@@ -316,7 +316,6 @@ ngx_live_store_http_read(void *arg, off_t offset, size_t size)
 /* write */
 
 typedef struct {
-    ngx_http_call_ctx_t              *call;
     ngx_live_channel_t               *channel;
     ngx_chain_t                      *headers;
     ngx_chain_t                      *body;
@@ -327,34 +326,6 @@ typedef struct {
 
     ngx_uint_t                        retries_left;
 } ngx_live_store_http_write_ctx_t;
-
-static void
-ngx_live_store_http_write_free(ngx_live_store_http_write_ctx_t *ctx,
-    ngx_int_t rc)
-{
-    if (ctx->call != NULL) {
-        ngx_http_call_cancel(ctx->call);
-    }
-
-    /* Note: the channel may be deleted after the request is issued,
-        however, in this case, the channel pool will be destroyed,
-        and the request will be cancelled = this handler won't be called */
-
-    ctx->handler(ctx->data, rc);
-}
-
-void
-ngx_live_store_http_cancel_write(void *data)
-{
-    ngx_live_store_http_write_ctx_t  *ctx = data;
-
-    ngx_log_error(NGX_LOG_ERR, &ctx->channel->log, 0,
-        "ngx_live_store_http_cancel_write: "
-        "cancelling write request, path: %V",
-        &ctx->path);
-
-    ngx_live_store_http_write_free(ctx, NGX_ERROR);
-}
 
 static ngx_chain_t *
 ngx_live_store_http_write_create(void *arg, ngx_pool_t *pool,
@@ -395,14 +366,12 @@ ngx_live_store_http_write_complete(ngx_pool_t *temp_pool, void *arg,
         rc = NGX_OK;
     }
 
-    ctx->call = NULL;
-
-    ngx_live_store_http_write_free(ctx, rc);
+    ctx->handler(ctx->data, rc);
 
     return NGX_OK;
 }
 
-void *
+ngx_int_t
 ngx_live_store_http_write(ngx_live_store_write_request_t *request,
     ngx_url_t *url, ngx_chain_t *headers, ngx_chain_t *body)
 {
@@ -419,7 +388,7 @@ ngx_live_store_http_write(ngx_live_store_write_request_t *request,
     if (ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_store_http_write: alloc failed");
-        return NULL;
+        return NGX_ERROR;
     }
 
     ctx->channel = channel;
@@ -437,7 +406,7 @@ ngx_live_store_http_write(ngx_live_store_write_request_t *request,
     ci.url = url;
     ci.create = ngx_live_store_http_write_create;
     ci.handle = ngx_live_store_http_write_complete;
-    ci.handler_pool = channel->pool;
+    ci.handler_pool = request->pool;
     ci.arg = ctx;
 
     ci.buffer_size = conf->write_buffer_size;
@@ -445,14 +414,13 @@ ngx_live_store_http_write(ngx_live_store_write_request_t *request,
     ci.read_timeout = conf->write_resp_timeout;
     ci.retry_interval = conf->write_retry_interval;
 
-    ctx->call = ngx_http_call_create(&ci);
-    if (ctx->call == NULL) {
+    if (ngx_http_call_create(&ci) == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_store_http_write: create http call failed");
-        return NULL;
+        return NGX_ERROR;
     }
 
-    return ctx;
+    return NGX_DONE;
 }
 
 

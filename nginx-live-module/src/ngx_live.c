@@ -86,7 +86,7 @@ ngx_live_preset_names(ngx_conf_t *cf, ngx_live_core_main_conf_t *cmcf)
         rc = ngx_hash_add_key(&ha, &cscfp[s]->name, cscfp[s], 0);
 
         if (rc == NGX_ERROR) {
-            return NGX_ERROR;
+            goto failed;
         }
 
         if (rc == NGX_BUSY) {

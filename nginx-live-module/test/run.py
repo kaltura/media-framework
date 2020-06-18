@@ -44,15 +44,29 @@ def waitForNginxStart():
             pass
         time.sleep(0.1)
 
-def startNginx(confFile, fileName):
+def startNginx(confFile, fileName, mode='w'):
     cmdLine = [NGINX_BIN, '-c', os.path.abspath(confFile)]
     stdout = None
     if options.valgrind:
         cmdLine = [VALGRIND_BIN, '-v', '--tool=memcheck', '--leak-check=yes', '--num-callers=128'] + cmdLine
-        stdout = file('%s-valgrind.log' % fileName, 'w')
+        stdout = file('%s-valgrind.log' % fileName, mode)
     nginxProc = subprocess.Popen(cmdLine, stdout=stdout, stderr=subprocess.STDOUT)
     waitForNginxStart()
     return nginxProc
+
+def stopNginx(nginxProc):
+    if options.valgrind:
+        nginxPid = nginxProc.pid    # daemon off
+    else:
+        nginxPid = int(file(NGINX_PID).read().strip())
+    os.kill(nginxPid, signal.SIGTERM)
+    nginxProc.wait()
+
+def restartNginx(nginxProc, confFile, fileName):
+    defaultTestCleanup()
+    stopNginx(nginxProc)
+    return startNginx(confFile, fileName, 'a')
+
 
 def valgrindUpdateConf(conf):
     conf.append(['daemon', 'off'])
@@ -83,7 +97,13 @@ def getTests(testsDir, start, end, only):
 
 def defaultTestCleanup():
     nl = nginxLiveClient()
-    nl.channel.delete(CHANNEL_ID)
+    try:
+        nl.channel.delete(CHANNEL_ID)
+    except requests.exceptions.HTTPError, e:
+        if e.response.status_code != 404:
+            raise
+    cleanupStack.reset()
+    logTracker.assertNoCriticalErrors()
 
 def run(tests):
     for fileName in tests:
@@ -118,9 +138,17 @@ def run(tests):
             cleanupNginx()
             nginxProc = startNginx(confFile, fileName)
 
+        setupFunc = getattr(curMod, 'setup', None)
+        if setupFunc is not None:
+            logTracker.init()
+            setupFunc()
+            time.sleep(2)
+            nginxProc = restartNginx(nginxProc, confFile, fileName)
+
         if options.pause_before:
             raw_input('--Next--')
 
+        logTracker.init()
         print '>>> %s' % fileName
         testFunc()
 
@@ -131,12 +159,7 @@ def run(tests):
         cleanupFunc()
 
         if options.setup:
-            if options.valgrind:
-                nginxPid = nginxProc.pid    # daemon off
-            else:
-                nginxPid = int(file(NGINX_PID).read().strip())
-            os.kill(nginxPid, signal.SIGTERM)
-            nginxProc.wait()
+            stopNginx(nginxProc)
 
 if __name__ == '__main__':
     parser = OptionParser()

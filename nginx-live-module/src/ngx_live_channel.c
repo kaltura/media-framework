@@ -257,6 +257,11 @@ ngx_live_channel_free(ngx_live_channel_t *channel)
     ngx_queue_t       *q;
     ngx_live_track_t  *cur_track;
 
+    if (channel->free) {
+        return;
+    }
+    channel->free = 1;
+
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
         "ngx_live_channel_free: freeing %p", channel);
 

@@ -304,7 +304,7 @@ ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
         if (rc == NGX_BAD_DATA) {
             rc = NGX_HTTP_SERVICE_UNAVAILABLE;
 
-        } else if (rc < 500 || rc > 599) {
+        } else if (rc < 400 || rc > 599) {
             rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
         }
 

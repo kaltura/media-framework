@@ -42,6 +42,9 @@ typedef ngx_int_t (*ngx_live_store_read_pt)(void *data, off_t offset,
 
 /* write */
 
+/* Note: the write pool must be freed when the channel is freed, this will
+    cancel the write and prevent the handler from being called */
+
 typedef void (*ngx_live_store_write_handler_pt)(void *data, ngx_int_t rc);
 
 typedef struct {
@@ -56,10 +59,8 @@ typedef struct {
 } ngx_live_store_write_request_t;
 
 
-typedef void *(*ngx_live_store_write_pt)(
+typedef ngx_int_t (*ngx_live_store_write_pt)(
     ngx_live_store_write_request_t *request);
-
-typedef void (*ngx_live_store_cancel_write_pt)(void *data);
 
 /* read + write */
 
@@ -68,7 +69,6 @@ typedef struct {
     ngx_live_store_read_init_pt       read_init;
     ngx_live_store_read_pt            read;
     ngx_live_store_write_pt           write;
-    ngx_live_store_cancel_write_pt    cancel_write;
 } ngx_live_store_t;
 
 #endif /* _NGX_LIVE_STORE_H_INCLUDED_ */

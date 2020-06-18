@@ -901,7 +901,7 @@ ngx_live_store_s3_read_init(ngx_live_store_read_request_t *request)
         ngx_live_store_s3_get_request, ctx);
 }
 
-static void *
+static ngx_int_t
 ngx_live_store_s3_write(ngx_live_store_write_request_t *request)
 {
     ngx_buf_t                        *b;
@@ -923,14 +923,14 @@ ngx_live_store_s3_write(ngx_live_store_write_request_t *request)
     {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_store_s3_write: create request failed");
-        return NULL;
+        return NGX_ERROR;
     }
 
     cl = ngx_alloc_chain_link(pool);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_store_s3_write: alloc chain failed");
-        return NULL;
+        return NGX_ERROR;
     }
 
     cl->buf = b;
@@ -945,7 +945,6 @@ static ngx_live_store_t  ngx_live_store_s3 = {
     ngx_live_store_s3_read_init,
     ngx_live_store_http_read,
     ngx_live_store_s3_write,
-    ngx_live_store_http_cancel_write,
 };
 
 static char *

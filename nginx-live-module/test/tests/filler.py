@@ -13,8 +13,7 @@ FILLER_VIDEO = TEST_VIDEO1
 def updateConf(conf):
     getConfBlock(conf, ['stream', 'server']).append(['live_kmp_read_timeout', '1000000'])
 
-def test(channelId=CHANNEL_ID):
-
+def setup(channelId=CHANNEL_ID):
     # create filler channel
     nl = setupChannelTimeline(FILLER_CHANNEL_ID, FILLER_TIMELINE_ID)
 
@@ -37,7 +36,16 @@ def test(channelId=CHANNEL_ID):
     nl.setChannelId(channelId)
     nl.timeline.create(NginxLiveTimeline(id=TIMELINE_ID, active=True))
 
-    sv, sa = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
+    createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
+
+def test(channelId=CHANNEL_ID):
+
+    nl = nginxLiveClient()
+    nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
+    nl.setChannelId(channelId)
+
+    sv = KmpTcpSender(NGINX_LIVE_KMP_ADDR, channelId, 'v1', 'video')
+    sa = KmpTcpSender(NGINX_LIVE_KMP_ADDR, channelId, 'a1', 'audio')
 
     st = KmpSendTimestamps()
 

@@ -1,5 +1,6 @@
 from nginx_live_client import *
 from kmp_utils import *
+from threading import Thread
 import manifest_utils
 import os
 
@@ -8,6 +9,8 @@ NGINX_LIVE_PORT = 8001
 NGINX_LIVE_URL = 'http://%s:%s' % (NGINX_LIVE_HOST, NGINX_LIVE_PORT)
 NGINX_LIVE_API_URL = '%s/control' % NGINX_LIVE_URL
 NGINX_LIVE_KMP_ADDR = (NGINX_LIVE_HOST, 6543)
+
+NGINX_LOG_PATH = '/var/log/nginx/error.log'
 
 TEST_VIDEO1 = 'video1.mp4'
 TEST_VIDEO2 = 'video2.mp4'
@@ -65,6 +68,11 @@ def getConfParam(c, key):
         if cur[0] == key:
             return cur
 
+def delConfParam(c, key):
+    for i in xrange(len(c) - 1, -1, -1):
+        if c[i][0] == key:
+            c.pop(i)
+
 def testStream(url, basePath, streamName):
     splittedPath = os.path.split(basePath)
     fileName = os.path.splitext(splittedPath[1])[0] + '-%s.txt' % streamName
@@ -95,3 +103,95 @@ def getStreamUrl(channelId, prefix, suffix='', timelineId=TIMELINE_ID):
 def testDefaultStreams(channelId, basePath):
     for prefix in ['hls-ts', 'hls-fmp4']:
         testStream(getStreamUrl(channelId, prefix), basePath, prefix)
+
+
+def assertHttpError(func, status):
+    try:
+        func()
+        assert(False)
+    except requests.exceptions.HTTPError, e:
+        if e.response.status_code != status:
+            raise
+
+
+### Cleanup stack - enables automatic cleanup after a test is run
+class CleanupStack:
+    def __init__(self):
+        self.items = []
+
+    def push(self, callback):
+        self.items.append(callback)
+
+    def reset(self):
+        for i in xrange(len(self.items), 0 , -1):
+            self.items[i - 1]()
+        self.items = []
+
+cleanupStack = CleanupStack()
+
+
+### Log tracker - used to verify certain lines appear in nginx log
+class LogTracker:
+    def init(self):
+        self.initialSize = os.path.getsize(NGINX_LOG_PATH)
+
+    def contains(self, logLine):
+        f = file(NGINX_LOG_PATH, 'rb')
+        f.seek(self.initialSize, os.SEEK_SET)
+        buffer = f.read()
+        f.close()
+        if type(logLine) == list:
+            found = False
+            for curLine in logLine:
+                if curLine in buffer:
+                    found = True
+                    break
+            return found
+        else:
+            return logLine in buffer
+
+    def assertContains(self, logLine):
+        assert(self.contains(logLine))
+
+    def assertNotContains(self, logLine):
+        assert(not self.contains(logLine))
+
+    def assertNoCriticalErrors(self):
+        self.assertNotContains(['[emerg]', '[alert]', '[crit]'])
+
+logTracker = LogTracker()
+
+
+### TCP server
+def createTcpServer(port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)     # prevent Address already in use errors
+    s.bind(('0.0.0.0', port))
+    s.listen(5)
+    cleanupStack.push(s.close)
+    return s
+
+class TcpServer(Thread):
+    def __init__(self, port, callback):
+        Thread.__init__(self)
+        self.port = port
+        self.callback = callback
+        self.keepRunning = True
+        self.serverSocket = createTcpServer(port)
+        self.start()
+        cleanupStack.push(self.stopServer)
+
+    def run(self):
+        while self.keepRunning:
+            (clientsocket, address) = self.serverSocket.accept()
+            if self.keepRunning:
+                self.callback(clientsocket)
+            clientsocket.close()
+
+    def stopServer(self):
+        self.keepRunning = False
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect(('127.0.0.1', self.port))     # release the accept call
+        s.close()
+        while self.isAlive():
+            time.sleep(.1)

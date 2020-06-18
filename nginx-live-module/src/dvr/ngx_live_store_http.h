@@ -22,9 +22,7 @@ ngx_int_t ngx_live_store_http_read(void *ctx, off_t offset, size_t size);
 
 /* write */
 
-void *ngx_live_store_http_write(ngx_live_store_write_request_t *request,
+ngx_int_t ngx_live_store_http_write(ngx_live_store_write_request_t *request,
     ngx_url_t *url, ngx_chain_t *headers, ngx_chain_t *body);
-
-void ngx_live_store_http_cancel_write(void *data);
 
 #endif /* _ngx_live_store_http_H_INCLUDED_ */

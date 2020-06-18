@@ -94,6 +94,7 @@ struct ngx_live_channel_s {
 
     unsigned                       blocked:8;
     unsigned                       active:1;
+    unsigned                       free:1;
 };
 
 
