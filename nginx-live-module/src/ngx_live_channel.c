@@ -179,7 +179,7 @@ ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
     channel->main_conf = conf_ctx->main_conf;
     channel->preset_conf = conf_ctx->preset_conf;
 
-    channel->start_msec = ngx_current_msec;
+    channel->start_sec = ngx_time();
     channel->last_modified = ngx_time();
 
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
@@ -863,7 +863,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     track->log = channel->log;
     track->log.handler = ngx_live_track_log_error;
     track->log.data = track;
-    track->start_msec = ngx_current_msec;
+    track->start_sec = ngx_time();
     track->media_type = media_type;
 
     track->ctx = (void *) (track + 1);

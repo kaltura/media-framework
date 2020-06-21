@@ -75,7 +75,7 @@ struct ngx_live_channel_s {
     size_t                         mem_low_watermark;
     time_t                         last_modified;
     ngx_event_t                    close;
-    ngx_msec_t                     start_msec;
+    time_t                         start_sec;
 
     void                         **ctx;
     void                         **main_conf;
@@ -110,7 +110,7 @@ typedef struct {
 
     ngx_atomic_uint_t              connection;
     ngx_str_t                      remote_addr;
-    ngx_msec_t                     start_msec;
+    time_t                         start_sec;
     off_t                          received_bytes;
 } ngx_live_track_input_t;
 
@@ -124,7 +124,7 @@ struct ngx_live_track_s {
     ngx_block_str_t                opaque;
 
     uint32_t                       media_type;
-    ngx_msec_t                     start_msec;
+    time_t                         start_sec;
     ngx_live_track_type_e          type;
 
     void                         **ctx;

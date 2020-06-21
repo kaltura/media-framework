@@ -2,13 +2,13 @@ static ngx_live_track_input ngx_live_track_input_t
     - %return-null !obj->connection
     connection %uA
     remote_addr %V
-    uptime %i (ngx_current_msec - obj->start_msec)
+    uptime %T (ngx_time() - obj->start_sec)
     received_bytes %O
 
 static ngx_live_track_json ngx_live_track_t
     media_type %enum-ngx_live_track_media_type_names
     type %enum-ngx_live_track_type_names
-    uptime %i (ngx_current_msec - obj->start_msec)
+    uptime %T (ngx_time() - obj->start_sec)
     opaque %bs
     input %func-ngx_live_track_input &obj->input
     last_segment_bitrate %uD
@@ -30,7 +30,7 @@ noobject ngx_live_variants_json ngx_live_channel_t
 
 ngx_live_channel_json ngx_live_channel_t
     - %code ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj, ngx_live_core_module);
-    uptime %i (ngx_current_msec - obj->start_msec)
+    uptime %T (ngx_time() - obj->start_sec)
     opaque %bs
     preset_name %V cpcf->name
     mem_left %uz

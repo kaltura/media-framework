@@ -40,7 +40,7 @@ static ngx_rtmp_kmp_api_stream_json ngx_rtmp_kmp_stream_ctx_t ngx_rtmp_live_stre
     bytes_in_video %uL stream->bw_in_video.bytes
     bw_out %uL (stream->bw_out.bandwidth * 8)
     bytes_out %uL stream->bw_out.bytes
-    uptime %i (ngx_current_msec - stream->epoch)
+    uptime %i (ngx_current_msec - stream->epoch) / 1000
 
     tracks %objFunc-ngx_rtmp_kmp_api_tracks_json obj->tracks
 
@@ -51,7 +51,7 @@ static ngx_rtmp_kmp_api_session_json ngx_rtmp_kmp_ctx_t
     tc_url %V s->
     page_url %V s->
     remote_addr %V
-    uptime %i (ngx_current_msec - s->epoch)
+    uptime %i (ngx_current_msec - s->epoch) / 1000
     connection %uA s->connection->number
     streams %arrFunc-ngx_rtmp_kmp_api_streams_json s
 

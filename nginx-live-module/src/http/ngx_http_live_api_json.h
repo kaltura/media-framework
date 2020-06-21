@@ -52,10 +52,9 @@ ngx_http_live_api_json_write(u_char *p, void *obj)
     p = ngx_copy_fix(p, "\",\"pid\":");
     p = ngx_sprintf(p, "%ui", (ngx_uint_t) ngx_getpid());
     p = ngx_copy_fix(p, ",\"time\":");
-    p = ngx_sprintf(p, "%T", (time_t) ngx_cached_time->sec);
+    p = ngx_sprintf(p, "%T", (time_t) ngx_time());
     p = ngx_copy_fix(p, ",\"uptime\":");
-    p = ngx_sprintf(p, "%T", (time_t) (ngx_cached_time->sec -
-        ngx_http_live_start_time));
+    p = ngx_sprintf(p, "%T", (time_t) (ngx_time() - ngx_http_live_start_time));
     *p++ = ',';
     next = ngx_live_core_json_write(p, NULL, NULL, NGX_LIVE_JSON_CTX_GLOBAL);
     p = next == p ? p - 1 : next;

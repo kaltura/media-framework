@@ -1568,7 +1568,7 @@ ngx_http_live_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 static ngx_int_t
 ngx_http_live_api_postconfiguration(ngx_conf_t *cf)
 {
-    ngx_http_live_start_time = ngx_cached_time->sec;
+    ngx_http_live_start_time = ngx_time();
 
     return NGX_OK;
 }

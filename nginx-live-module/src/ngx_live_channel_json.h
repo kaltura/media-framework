@@ -16,7 +16,7 @@ ngx_live_track_input_get_size(ngx_live_track_input_t *obj)
         sizeof(",\"remote_addr\":\"") - 1 + obj->remote_addr.len +
             ngx_escape_json(NULL, obj->remote_addr.data, obj->remote_addr.len)
             +
-        sizeof("\",\"uptime\":") - 1 + NGX_INT_T_LEN +
+        sizeof("\",\"uptime\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"received_bytes\":") - 1 + NGX_OFF_T_LEN +
         sizeof("}") - 1;
 
@@ -36,7 +36,7 @@ ngx_live_track_input_write(u_char *p, ngx_live_track_input_t *obj)
     p = (u_char *) ngx_escape_json(p, obj->remote_addr.data,
         obj->remote_addr.len);
     p = ngx_copy_fix(p, "\",\"uptime\":");
-    p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - obj->start_msec));
+    p = ngx_sprintf(p, "%T", (time_t) (ngx_time() - obj->start_sec));
     p = ngx_copy_fix(p, ",\"received_bytes\":");
     p = ngx_sprintf(p, "%O", (off_t) obj->received_bytes);
     *p++ = '}';
@@ -52,7 +52,7 @@ ngx_live_track_json_get_size(ngx_live_track_t *obj)
             ngx_live_track_media_type_names[obj->media_type].len +
         sizeof("\",\"type\":\"") - 1 +
             ngx_live_track_type_names[obj->type].len +
-        sizeof("\",\"uptime\":") - 1 + NGX_INT_T_LEN +
+        sizeof("\",\"uptime\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"opaque\":\"") - 1 + obj->opaque.len +
         sizeof("\",\"input\":") - 1 +
             ngx_live_track_input_get_size(&obj->input) +
@@ -74,7 +74,7 @@ ngx_live_track_json_write(u_char *p, ngx_live_track_t *obj)
     p = ngx_copy_fix(p, "\",\"type\":\"");
     p = ngx_sprintf(p, "%V", &ngx_live_track_type_names[obj->type]);
     p = ngx_copy_fix(p, "\",\"uptime\":");
-    p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - obj->start_msec));
+    p = ngx_sprintf(p, "%T", (time_t) (ngx_time() - obj->start_sec));
     p = ngx_copy_fix(p, ",\"opaque\":\"");
     p = ngx_block_str_copy(p, &obj->opaque);
     p = ngx_copy_fix(p, "\",\"input\":");
@@ -238,7 +238,7 @@ ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
     ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj,
         ngx_live_core_module);
     size_t  result =
-        sizeof("{\"uptime\":") - 1 + NGX_INT_T_LEN +
+        sizeof("{\"uptime\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"opaque\":\"") - 1 + obj->opaque.len +
         sizeof("\",\"preset_name\":\"") - 1 + cpcf->name.len +
             ngx_escape_json(NULL, cpcf->name.data, cpcf->name.len) +
@@ -264,7 +264,7 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
         ngx_live_core_module);
     u_char  *next;
     p = ngx_copy_fix(p, "{\"uptime\":");
-    p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - obj->start_msec));
+    p = ngx_sprintf(p, "%T", (time_t) (ngx_time() - obj->start_sec));
     p = ngx_copy_fix(p, ",\"opaque\":\"");
     p = ngx_block_str_copy(p, &obj->opaque);
     p = ngx_copy_fix(p, "\",\"preset_name\":\"");

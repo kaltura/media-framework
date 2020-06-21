@@ -199,7 +199,8 @@ ngx_rtmp_kmp_api_stream_json_write(u_char *p, ngx_rtmp_kmp_stream_ctx_t *obj,
     p = ngx_copy_fix(p, ",\"bytes_out\":");
     p = ngx_sprintf(p, "%uL", (uint64_t) stream->bw_out.bytes);
     p = ngx_copy_fix(p, ",\"uptime\":");
-    p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - stream->epoch));
+    p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - stream->epoch) /
+        1000);
     p = ngx_copy_fix(p, ",\"tracks\":{");
     p = ngx_rtmp_kmp_api_tracks_json_write(p, obj->tracks);
     p = ngx_copy_fix(p, "}}");
@@ -248,7 +249,7 @@ ngx_rtmp_kmp_api_session_json_write(u_char *p, ngx_rtmp_kmp_ctx_t *obj)
     p = (u_char *) ngx_escape_json(p, obj->remote_addr.data,
         obj->remote_addr.len);
     p = ngx_copy_fix(p, "\",\"uptime\":");
-    p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - s->epoch));
+    p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - s->epoch) / 1000);
     p = ngx_copy_fix(p, ",\"connection\":");
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) s->connection->number);
     p = ngx_copy_fix(p, ",\"streams\":[");
