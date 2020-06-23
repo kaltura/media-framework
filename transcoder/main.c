@@ -7,6 +7,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <sys/resource.h>
 
 #ifndef VERSION
 #define VERSION __TIME__
@@ -159,10 +160,25 @@ void timeout(int ignored)
     intHandler(0);
 }
 
-
+int set_resource_limits()
+{
+    const struct rlimit lim = { .rlim_cur = RLIM_INFINITY, .rlim_max = RLIM_INFINITY};
+    int result = setrlimit(RLIMIT_CORE,&lim);
+    if( result < 0)
+    {
+        printf(stderr,"failed to setrlimit(RLIMIT_CORE) with error %d",result);
+        return -1;
+    }
+    return 0;
+}
 
 int main(int argc, char **argv)
 {
+    if( set_resource_limits() < 0)
+    {
+        return -1;
+    }
+
     log_init(AV_LOG_DEBUG);
     
     LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"Version: %s", APPLICATION_VERSION)
@@ -180,6 +196,7 @@ int main(int argc, char **argv)
     if (JSON_OK==json_get_string(GetConfig(),"logger.logLevel","VERBOSE",logLevel,sizeof(logLevel))) {
         set_log_level(logLevel);
     }
+
 
     //alarm(3);
     
