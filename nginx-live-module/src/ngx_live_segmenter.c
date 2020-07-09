@@ -2529,6 +2529,13 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
             break;
         }
 
+        if (channel->next_segment_index >= NGX_LIVE_INVALID_SEGMENT_INDEX - 1)
+        {
+            ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
+                "ngx_live_segmenter_create_segments: invalid segment index");
+            return NGX_ERROR;
+        }
+
         /* get the target pts */
         end_pts = ngx_live_segmenter_get_segment_end_pts(channel, min_pts,
             &min_split_pts);
@@ -3179,7 +3186,7 @@ ngx_live_segmenter_read_setup(ngx_live_persist_block_header_t *block,
 }
 
 static ngx_live_persist_block_t  ngx_live_segmenter_block = {
-    NGX_LIVE_SEGMENTER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_CHANNEL,
+    NGX_LIVE_SEGMENTER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL,
     NGX_LIVE_PERSIST_FLAG_SINGLE,
     ngx_live_segmenter_write_setup,
     ngx_live_segmenter_read_setup,

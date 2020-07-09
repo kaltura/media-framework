@@ -23,7 +23,7 @@ def test(channelId=CHANNEL_ID):
 
         time.sleep(.1)
 
-    logTracker.assertContains('ngx_live_persist_setup_write_complete: write failed 409')
+    logTracker.assertContains('ngx_live_persist_channel_free: cancelling setup write')
 
     cleanupStack.reset()
     time.sleep(1)

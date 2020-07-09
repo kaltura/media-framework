@@ -62,8 +62,8 @@ def stopNginx(nginxProc):
     os.kill(nginxPid, signal.SIGTERM)
     nginxProc.wait()
 
-def restartNginx(nginxProc, confFile, fileName):
-    defaultTestCleanup()
+def restartNginx(nginxProc, confFile, fileName, cleanupFunc):
+    cleanupFunc()
     stopNginx(nginxProc)
     return startNginx(confFile, fileName, 'a')
 
@@ -139,11 +139,13 @@ def run(tests):
             nginxProc = startNginx(confFile, fileName)
 
         setupFunc = getattr(curMod, 'setup', None)
+        cleanupFunc = getattr(curMod, 'cleanup', defaultTestCleanup)
+
         if setupFunc is not None:
             logTracker.init()
             setupFunc()
             time.sleep(2)
-            nginxProc = restartNginx(nginxProc, confFile, fileName)
+            nginxProc = restartNginx(nginxProc, confFile, fileName, cleanupFunc)
 
         if options.pause_before:
             raw_input('--Next--')
@@ -155,7 +157,6 @@ def run(tests):
         if options.pause_after:
             raw_input('--Next--')
 
-        cleanupFunc = getattr(curMod, 'cleanup', defaultTestCleanup)
         cleanupFunc()
 
         if options.setup:

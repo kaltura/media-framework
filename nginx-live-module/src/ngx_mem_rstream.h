@@ -9,17 +9,19 @@
 #define NGX_BAD_DATA          NGX_ABORT
 
 
-#define ngx_mem_rstream_left(rs)  ((size_t) ((rs)->end - (rs)->pos))
-#define ngx_mem_rstream_eof(rs)   ((rs)->pos >= (rs)->end)
+#define ngx_mem_rstream_left(rs)   ((size_t) ((rs)->end - (rs)->pos))
+#define ngx_mem_rstream_eof(rs)    ((rs)->pos >= (rs)->end)
 
-#define ngx_mem_rstream_pos(rs)   ((rs)->pos)
-#define ngx_mem_rstream_end(rs)   ((rs)->end)
+#define ngx_mem_rstream_pos(rs)    ((rs)->pos)
+#define ngx_mem_rstream_end(rs)    ((rs)->end)
+#define ngx_mem_rstream_scope(rs)  ((rs)->scope)
 
 
 typedef struct {
     u_char     *pos;
     u_char     *end;
     ngx_log_t  *log;
+    void       *scope;
 } ngx_mem_rstream_t;
 
 
@@ -31,11 +33,12 @@ typedef struct {
 
 static ngx_inline void
 ngx_mem_rstream_set(ngx_mem_rstream_t *rs, void *start, void *end,
-    ngx_log_t *log)
+    ngx_log_t *log, void *scope)
 {
     rs->pos = start;
     rs->end = end;
     rs->log = log;
+    rs->scope = scope;
 }
 
 
@@ -83,6 +86,7 @@ ngx_mem_rstream_get_stream(ngx_mem_rstream_t *rs, size_t size,
     out->end = rs->pos;     /* must be first, in case out == rs */
     out->pos = pos;
     out->log = rs->log;
+    out->scope = rs->scope;
 
     return NGX_OK;
 }

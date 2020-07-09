@@ -6,16 +6,27 @@
 #include <ngx_core.h>
 #include "ngx_live_persist_format.h"
 #include "../ngx_buf_chain.h"
+#include "../ngx_wstream.h"
 
 
-#define ngx_live_persist_write_stream(ctx)  ((ngx_wstream_t *) (ctx))
+#define ngx_live_persist_write_stream(ctx)                                  \
+    (&((ngx_live_persist_write_base_t *) (ctx))->ws)
+
+#define ngx_live_persist_write_scope(ctx)                                   \
+    (((ngx_live_persist_write_base_t *) (ctx))->scope)
 
 
 typedef struct ngx_live_persist_write_ctx_s  ngx_live_persist_write_ctx_t;
 
 
+typedef struct {
+    ngx_wstream_t   ws;
+    void           *scope;
+} ngx_live_persist_write_base_t;
+
+
 ngx_live_persist_write_ctx_t *ngx_live_persist_write_init(ngx_pool_t *pool,
-    uint32_t type);
+    uint32_t type, void *scope);
 
 ngx_chain_t *ngx_live_persist_write_close(ngx_live_persist_write_ctx_t *ctx,
     size_t *size);
@@ -35,6 +46,9 @@ ngx_int_t ngx_live_persist_write_list_data(ngx_live_persist_write_ctx_t *ctx,
 
 
 /* no copy functions - original buffer must remain valid! */
+ngx_int_t ngx_live_persist_write_append(ngx_live_persist_write_ctx_t *ctx,
+    void *buf, size_t size);
+
 ngx_int_t ngx_live_persist_write_append_buf_chain(
     ngx_live_persist_write_ctx_t *ctx, ngx_buf_chain_t *chain);
 

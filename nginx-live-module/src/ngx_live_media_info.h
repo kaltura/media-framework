@@ -45,9 +45,9 @@ media_info_t *ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
 ngx_int_t ngx_live_media_info_queue_copy_last(ngx_live_track_t *dst,
     ngx_live_track_t *src, uint32_t segment_index);
 
-ngx_int_t ngx_live_media_info_write_segment(
-    ngx_live_persist_write_ctx_t *write_ctx, kmp_media_info_t *kmp_media_info,
-    media_info_t *media_info);
+ngx_int_t ngx_live_media_info_write(ngx_live_persist_write_ctx_t *write_ctx,
+    uint32_t start_segment_index, kmp_media_info_t *kmp_media_info,
+    ngx_str_t *extra_data);
 
 
 /* gap filling */

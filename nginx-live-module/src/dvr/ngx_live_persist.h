@@ -12,10 +12,17 @@
 #define NGX_LIVE_PERSIST_FLAG_SINGLE  (0x01)
 
 
+#define ngx_live_null_persist_block   { 0, 0, 0, NULL, NULL }
+
+
 enum {
-    NGX_LIVE_PERSIST_CTX_MAIN = 0,
-    NGX_LIVE_PERSIST_CTX_CHANNEL,
-    NGX_LIVE_PERSIST_CTX_TRACK,
+    NGX_LIVE_PERSIST_CTX_SETUP_MAIN = 0,
+    NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL,
+    NGX_LIVE_PERSIST_CTX_SETUP_TRACK,
+
+    NGX_LIVE_PERSIST_CTX_INDEX_MAIN,
+    NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL,
+    NGX_LIVE_PERSIST_CTX_INDEX_TRACK,
 
     NGX_LIVE_PERSIST_CTX_COUNT
 };
@@ -36,6 +43,12 @@ typedef struct {
     ngx_int_t  (*read)(ngx_live_persist_block_header_t *block,
         ngx_mem_rstream_t *rs, void *obj);
 } ngx_live_persist_block_t;
+
+
+typedef struct {
+    uint32_t     min_index;
+    uint32_t     max_index;
+} ngx_live_persist_index_scope_t;
 
 
 typedef void (*ngx_live_persist_read_handler_pt)(void *arg, ngx_int_t rc);

@@ -14,9 +14,10 @@ def setup(channelId=CHANNEL_ID):
     nl.variant.create(NginxLiveVariant(id='a', track_ids={'audio':'a1'}))
     nl.timeline.create(NginxLiveTimeline(id='tl', active=False, start=50, end=2000000000, max_duration=80000, max_segments=150, no_truncate=True,
         manifest_expiry_threshold=100000, manifest_max_duration=50000, manifest_max_segments=100, manifest_target_duration_segments=5))
+    time.sleep(2)
     before = nl.channel.get(channelId)
 
-def compareObjects(c1, c2, ignore_keys={}):
+def compareObjects(c1, c2, ignore_keys=set([])):
     result = True
     for k, v1 in c1.iteritems():
         if not k in c2:
@@ -47,4 +48,5 @@ def compareObjects(c1, c2, ignore_keys={}):
 def test(channelId=CHANNEL_ID):
     nl = nginxLiveClient()
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
-    compareObjects(before, nl.channel.get(channelId), {'uptime': True})
+    ignore_keys = set(['uptime', 'success', 'success_size', 'success_msec'])
+    compareObjects(before, nl.channel.get(channelId), ignore_keys)

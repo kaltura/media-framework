@@ -402,7 +402,7 @@ ngx_live_dynamic_var_read_setup(ngx_live_persist_block_header_t *block,
 }
 
 static ngx_live_persist_block_t  ngx_live_dynamic_var_block = {
-    NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_CHANNEL, 0,
+    NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, 0,
     ngx_live_dynamic_var_write_setup,
     ngx_live_dynamic_var_read_setup,
 };

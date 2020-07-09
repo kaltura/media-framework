@@ -253,7 +253,7 @@ ngx_live_dvr_read_parse_header(ngx_live_dvr_read_ctx_t *ctx, ngx_str_t *buf)
     ngx_live_persist_block_header_t  *block;
 
     if (ngx_live_persist_read_file_header(buf,
-        NGX_LIVE_PERSIST_TYPE_SEGMENTS, log, &rs) != NGX_OK)
+        NGX_LIVE_PERSIST_TYPE_SEGMENTS, log, NULL, &rs) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_dvr_read_parse_header: read file header failed");
@@ -352,7 +352,7 @@ ngx_live_dvr_read_init_track(ngx_pool_t *pool, ngx_str_t *buf,
     ngx_live_persist_block_header_t    *block;
     ngx_live_persist_segment_header_t  *header;
 
-    ngx_mem_rstream_set(&rs, buf->data, buf->data + buf->len, log);
+    ngx_mem_rstream_set(&rs, buf->data, buf->data + buf->len, log, NULL);
 
     block = ngx_live_persist_read_block(&rs, &rs);
     if (block == NULL) {
@@ -675,8 +675,9 @@ ngx_live_dvr_write_append_segment(ngx_live_persist_write_ctx_t *write_data,
             NGX_LIVE_PERSIST_BLOCK_SEGMENT) != NGX_OK ||
         ngx_live_persist_write(write_data, &header, sizeof(header))
             != NGX_OK ||
-        ngx_live_media_info_write_segment(write_data, segment->kmp_media_info,
-            segment->media_info) != NGX_OK ||
+        ngx_live_media_info_write(write_data, segment->node.key,
+            segment->kmp_media_info, &segment->media_info->extra_data)
+            != NGX_OK ||
         ngx_live_persist_write_block_open(write_data,
             NGX_LIVE_PERSIST_BLOCK_FRAME_LIST) != NGX_OK ||
         ngx_live_persist_write_list_data(write_data, &segment->frames)
@@ -743,7 +744,7 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
     max_segments = channel->tracks.count * dpcf->bucket_size;
 
     write_idx = ngx_live_persist_write_init(pool,
-        NGX_LIVE_PERSIST_TYPE_SEGMENTS);
+        NGX_LIVE_PERSIST_TYPE_SEGMENTS, NULL);
     if (write_idx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_dvr_create_file: write init failed (1)");
@@ -758,7 +759,7 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
         return NULL;
     }
 
-    write_data = ngx_live_persist_write_init(pool, 0);
+    write_data = ngx_live_persist_write_init(pool, 0, NULL);
     if (write_data == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_dvr_create_file: write init failed (2)");
@@ -1299,8 +1300,12 @@ ngx_live_dvr_channel_inactive(ngx_live_channel_t *channel, void *ectx)
 
     /* make sure the next segment will use a new bucket if the stream becomes
         active later */
-    channel->next_segment_index = ngx_round_up_to_multiple(
-        channel->next_segment_index, dpcf->bucket_size);
+    if (channel->next_segment_index < NGX_LIVE_INVALID_SEGMENT_INDEX -
+        dpcf->bucket_size)
+    {
+        channel->next_segment_index = ngx_round_up_to_multiple(
+            channel->next_segment_index, dpcf->bucket_size);
+    }
 
     cctx->last_bucket_id = NGX_LIVE_DVR_INVALID_BUCKET_ID;
 

@@ -26,6 +26,10 @@ def outputObject(objectInfo, properties):
     if objectInfo[0] == 'noobject':
         prefix = suffix = ''
         objectInfo = objectInfo[1:]
+    elif objectInfo[0].startswith('key('):
+        prefix = '"%s":{' % objectInfo[0][4:-1]
+        suffix = '}'
+        objectInfo = objectInfo[1:]
     else:
         prefix = '{'
         suffix = '}'
@@ -53,6 +57,10 @@ def outputObject(objectInfo, properties):
     for property in properties:
         if property[1] == '%code':
             funcDefs.add(' '.join(property[2:]))
+            continue
+
+        if property[1] == '%writeCode':
+            writeDefs.add(' '.join(property[2:]))
             continue
 
         if property[1].startswith('%return'):

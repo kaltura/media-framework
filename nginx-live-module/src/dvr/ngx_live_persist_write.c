@@ -2,7 +2,6 @@
 #include <ngx_core.h>
 #include "ngx_live_persist_format.h"
 #include "ngx_live_persist_write.h"
-#include "../ngx_wstream.h"
 
 
 #define NGX_LIVE_PERSIST_WRITE_BUF_SIZE  (2048)
@@ -23,7 +22,7 @@ typedef struct {
 
 
 struct ngx_live_persist_write_ctx_s {
-    ngx_wstream_t                     ws;       /* must be first */
+    ngx_live_persist_write_base_t     base;       /* must be first */
 
     ngx_pool_t                       *pool;
     ngx_chain_t                      *out;
@@ -137,7 +136,7 @@ ngx_live_persist_write_flush_buf(ngx_live_persist_write_ctx_t *ctx)
     return NGX_OK;
 }
 
-static ngx_int_t
+ngx_int_t
 ngx_live_persist_write_append(ngx_live_persist_write_ctx_t *ctx, void *buf,
     size_t size)
 {
@@ -300,7 +299,7 @@ ngx_live_persist_write_marker_write(ngx_live_persist_write_marker_t *marker,
 
 
 ngx_live_persist_write_ctx_t *
-ngx_live_persist_write_init(ngx_pool_t *pool, uint32_t type)
+ngx_live_persist_write_init(ngx_pool_t *pool, uint32_t type, void *scope)
 {
     ngx_buf_t                       *b;
     ngx_live_persist_write_ctx_t    *ctx;
@@ -342,8 +341,9 @@ ngx_live_persist_write_init(ngx_pool_t *pool, uint32_t type)
         ctx->header = header;
     }
 
-    ctx->ws.write = (ngx_wstream_write_pt) ngx_live_persist_write;
-    ctx->ws.ctx = ctx;
+    ctx->base.ws.write = (ngx_wstream_write_pt) ngx_live_persist_write;
+    ctx->base.ws.ctx = ctx;
+    ctx->base.scope = scope;
 
     return ctx;
 }
@@ -397,6 +397,9 @@ ngx_live_persist_write_block_open(ngx_live_persist_write_ctx_t *ctx,
     if (ngx_live_persist_write_reserve(ctx,
         sizeof(ngx_live_persist_block_header_t), &block->marker) != NGX_OK)
     {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_write_block_open: reserve failed, id: %*s",
+            (size_t) sizeof(id), &id);
         return NGX_ERROR;
     }
 
@@ -439,6 +442,9 @@ ngx_live_persist_write_block(ngx_live_persist_write_ctx_t *ctx,
     if (ngx_live_persist_write(ctx, header, sizeof(*header)) != NGX_OK ||
         ngx_live_persist_write(ctx, buf, size) != NGX_OK)
     {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_write_block: write failed, id: %*s",
+            (size_t) sizeof(header->id), &header->id);
         return NGX_ERROR;
     }
 
