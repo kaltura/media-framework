@@ -5,7 +5,7 @@
 
 ngx_int_t
 ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
-    ngx_log_t *log, ngx_mem_rstream_t *rs)
+    ngx_log_t *log, void *scope, ngx_mem_rstream_t *rs)
 {
     uint32_t                         header_size;
     ngx_live_persist_file_header_t  *header;
@@ -51,7 +51,7 @@ ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
     }
 
     ngx_mem_rstream_set(rs, buf->data + header_size, buf->data + buf->len,
-        log);
+        log, scope);
 
     return NGX_OK;
 }

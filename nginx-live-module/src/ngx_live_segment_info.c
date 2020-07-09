@@ -4,6 +4,8 @@
 #include "ngx_live_segment_info.h"
 
 
+#define NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK  (0x666e6773)  /* sgnf */
+
 /* sizeof ngx_live_segment_info_node_t = 512 */
 #define NGX_LIVE_SEGMENT_INFO_NODE_ELTS    (56)
 
@@ -50,6 +52,7 @@ typedef struct {
 } ngx_live_segment_info_channel_ctx_t;
 
 
+static ngx_int_t ngx_live_segment_info_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_segment_info_postconfiguration(ngx_conf_t *cf);
 
 static void *ngx_live_segment_info_create_preset_conf(ngx_conf_t *cf);
@@ -91,7 +94,7 @@ static ngx_command_t  ngx_live_segment_info_commands[] = {
 };
 
 static ngx_live_module_t  ngx_live_segment_info_module_ctx = {
-    NULL,                                     /* preconfiguration */
+    ngx_live_segment_info_preconfiguration,   /* preconfiguration */
     ngx_live_segment_info_postconfiguration,  /* postconfiguration */
 
     NULL,                                     /* create main configuration */
@@ -600,6 +603,250 @@ ngx_live_segment_info_track_free(ngx_live_track_t *track, void *ectx)
     return NGX_OK;
 }
 
+static ngx_int_t
+ngx_live_segment_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_queue_t                        *q;
+    ngx_live_track_t                   *track = obj;
+    ngx_live_segment_info_elt_t        *first, *last;
+    ngx_live_segment_info_node_t       *node;
+    ngx_live_persist_index_scope_t     *scope;
+    ngx_live_segment_info_track_ctx_t  *ctx;
+
+    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_info_module);
+    scope = ngx_live_persist_write_scope(write_ctx);
+
+    if (scope->min_index > 0) {
+        node = ngx_live_segment_info_lookup(ctx, scope->min_index);
+        if (node == NULL) {
+            return NGX_OK;
+        }
+
+        q = &node->queue;
+
+    } else {
+        q = ngx_queue_head(&ctx->queue);
+        if (q == ngx_queue_sentinel(&ctx->queue)) {
+            return NGX_OK;
+        }
+
+        node = ngx_queue_data(q, ngx_live_segment_info_node_t, queue);
+    }
+
+    if (ngx_live_persist_write_block_open(write_ctx,
+        NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK) != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    ngx_live_persist_write_block_set_header(write_ctx, 0);
+
+    for ( ;; ) {
+
+        first = &node->elts[0];
+        last = &node->elts[node->nelts];
+
+        /* trim the left side */
+        for (;;) {
+            if (first->index >= scope->min_index) {
+                break;
+            }
+
+            first++;
+
+            if (first >= last) {
+                goto next;
+            }
+        }
+
+        /* trim the right side */
+        for (;;) {
+            if (last[-1].index <= scope->max_index) {
+                break;
+            }
+
+            last--;
+
+            if (first >= last) {
+                goto next;
+            }
+        }
+
+        if (ngx_live_persist_write_append(write_ctx, first,
+            (u_char *) last - (u_char *) first) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_segment_info_write_index: append failed");
+            return NGX_ERROR;
+        }
+
+    next:
+
+        q = ngx_queue_next(q);
+        if (q == ngx_queue_sentinel(&ctx->queue)) {
+            break;
+        }
+
+        node = ngx_queue_data(q, ngx_live_segment_info_node_t, queue);
+    }
+
+    ngx_live_persist_write_block_close(write_ctx);
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_segment_info_read_index(ngx_live_persist_block_header_t *block,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    uint32_t                              left;
+    uint32_t                              count;
+    uint32_t                              min_index;
+    ngx_str_t                             data;
+    ngx_live_track_t                     *track = obj;
+    ngx_live_segment_info_elt_t          *dst;
+    ngx_live_segment_info_elt_t          *cur, *next;
+    ngx_live_segment_info_node_t         *last;
+    ngx_live_persist_index_scope_t       *scope;
+    ngx_live_segment_info_track_ctx_t    *ctx;
+    ngx_live_segment_info_channel_ctx_t  *cctx;
+
+    if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+    ngx_mem_rstream_get_left(rs, &data);
+
+    left = data.len / sizeof(*cur);
+    if (left <= 0) {
+        return NGX_OK;
+    }
+
+    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_info_module);
+    cctx = ngx_live_get_module_ctx(track->channel,
+        ngx_live_segment_info_module);
+    scope = ngx_mem_rstream_scope(rs);
+
+    min_index = scope->min_index;
+
+    cur = (void *) data.data;
+
+    if (!ngx_queue_empty(&ctx->queue)) {
+
+        /* append to existing node */
+        last = ngx_queue_data(ngx_queue_last(&ctx->queue),
+            ngx_live_segment_info_node_t, queue);
+
+        dst = last->elts + last->nelts;
+        if (dst[-1].index >= min_index) {
+            /* can happen due to duplicate block */
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_live_segment_info_read_index: "
+                "last index %uD exceeds min index %uD",
+                dst[-1].index, min_index);
+            return NGX_BAD_DATA;
+        }
+
+        count = NGX_LIVE_SEGMENT_INFO_NODE_ELTS - last->nelts;
+        if (count > left) {
+            count = left;
+        }
+
+        last->nelts += count;
+        next = cur + count;
+
+        for (; cur < next; cur++) {
+            if (cur->index < min_index) {
+                ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                    "ngx_live_segment_info_read_index: "
+                    "segment index %uD less than min segment index %uD",
+                    cur->index, min_index);
+                return NGX_BAD_DATA;
+            }
+
+            if (cur->index > scope->max_index) {
+                ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                    "ngx_live_segment_info_read_index: "
+                    "segment index %uD greater than max segment index %uD",
+                    cur->index, scope->max_index);
+                return NGX_BAD_DATA;
+            }
+
+            min_index = cur->index + 1;
+
+            *dst++ = *cur;
+        }
+
+        left -= count;
+    }
+
+    /* create new nodes */
+    while (left > 0) {
+
+        last = ngx_block_pool_alloc(cctx->block_pool,
+            NGX_LIVE_BP_SEGMENT_INFO_NODE);
+        if (last == NULL) {
+            return NGX_ERROR;
+        }
+
+        last->node.key = cur->index;
+
+        ngx_queue_insert_tail(&ctx->queue, &last->queue);
+        ngx_rbtree_insert(&ctx->rbtree, &last->node);
+
+        dst = last->elts;
+
+        last->nelts = ngx_min(left, NGX_LIVE_SEGMENT_INFO_NODE_ELTS);
+        next = cur + last->nelts;
+
+        for (; cur < next; cur++) {
+            if (cur->index < min_index) {
+                ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                    "ngx_live_segment_info_read_index: "
+                    "segment index %uD less than min segment index %uD",
+                    cur->index, min_index);
+                return NGX_BAD_DATA;
+            }
+
+            if (cur->index > scope->max_index) {
+                ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                    "ngx_live_segment_info_read_index: "
+                    "segment index %uD greater than max segment index %uD",
+                    cur->index, scope->max_index);
+                return NGX_BAD_DATA;
+            }
+
+            min_index = cur->index + 1;
+
+            *dst++ = *cur;
+        }
+
+        left -= last->nelts;
+    }
+
+    ctx->last_segment_bitrate = last->elts[last->nelts - 1].bitrate * 100;
+
+    return NGX_OK;
+}
+
+static ngx_live_persist_block_t  ngx_live_segment_info_block = {
+    NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_INDEX_TRACK, 0,
+    ngx_live_segment_info_write_index,
+    ngx_live_segment_info_read_index
+};
+
+static ngx_int_t
+ngx_live_segment_info_preconfiguration(ngx_conf_t *cf)
+{
+    if (ngx_ngx_live_persist_add_block(cf, &ngx_live_segment_info_block)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
 
 static ngx_live_channel_event_t  ngx_live_segment_info_channel_events[] = {
     { ngx_live_segment_info_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },

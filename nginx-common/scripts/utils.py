@@ -1,3 +1,22 @@
+import re
+
+def findBreakPos(line, minPos, width):
+    # prefer space
+    pos = line[:width].rfind(' ')
+    if pos > minPos:
+        return pos
+
+    # try other delims
+    delims = re.findall('[^\w]', line[minPos:width])
+    if len(delims) > 0:
+        return line[:width].rfind(delims[-1])
+
+    # can't find, take first one
+    delims = re.findall('[^\w]', line[width:])
+    if len(delims) > 0:
+        return width + line[width:].find(delims[0])
+
+    return -1
 
 def formatText(text, width):
     lines = []
@@ -5,13 +24,10 @@ def formatText(text, width):
         curLine = line
         indent = ' ' * (len(line) - len(line.lstrip()) + 4)
         while len(curLine) > width:
-            breakPos = curLine[:width].rfind(' ')
-            if breakPos <= len(indent):
-                breakPos = curLine[width:].find(' ')
-                if breakPos < 0:
-                    break
-                breakPos += width
-            lines.append(curLine[:breakPos].rstrip())
+            breakPos = findBreakPos(curLine, len(indent), width)
+            if breakPos < 0:
+                break
+            lines.append(curLine[:breakPos + 1].rstrip())
             curLine = indent + curLine[(breakPos + 1):]
         lines.append(curLine.rstrip())
     return '\n'.join(lines)

@@ -1,0 +1,33 @@
+static ngx_live_persist_setup_json ngx_live_persist_channel_ctx_t
+    - %writeCode ngx_live_persist_file_stats_t *stats = &obj->stats[NGX_LIVE_PERSIST_FILE_SETUP];
+    version %uD obj->setup.
+    pending %uD (stats->started - stats->error - stats->success)
+    error %uD stats->
+    success %uD stats->
+    success_msec %uL stats->
+    success_size %uL stats->
+    success_version %uD obj->setup.
+
+static ngx_live_persist_index_json ngx_live_persist_channel_ctx_t
+    - %writeCode ngx_live_persist_file_stats_t *stats = &obj->stats[NGX_LIVE_PERSIST_FILE_INDEX];
+    pending %uD (stats->started - stats->error - stats->success)
+    error %uD stats->
+    success %uD stats->
+    success_msec %uL stats->
+    success_size %uL stats->
+    success_index %uD obj->index.
+
+static ngx_live_persist_delta_json ngx_live_persist_channel_ctx_t
+    - %writeCode ngx_live_persist_file_stats_t *stats = &obj->stats[NGX_LIVE_PERSIST_FILE_DELTA];
+    pending %uD (stats->started - stats->error - stats->success)
+    error %uD stats->
+    success %uD stats->
+    success_msec %uL stats->
+    success_size %uL stats->
+    success_index %uD obj->index.success_delta
+
+static key(persist) ngx_live_persist_channel_json void
+    - %code ngx_live_persist_channel_ctx_t *cctx = ngx_live_get_module_ctx((ngx_live_channel_t *) obj, ngx_live_persist_module);
+    setup %func-ngx_live_persist_setup_json cctx
+    index %func-ngx_live_persist_index_json cctx
+    delta %func-ngx_live_persist_delta_json cctx

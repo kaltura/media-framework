@@ -667,7 +667,7 @@ ngx_kmp_push_track_flush(ngx_kmp_push_track_t *track)
 
     if (ngx_kmp_push_track_append_all(track, &send) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_kmp_push_track_send_end_of_stream: append failed");
+            "ngx_kmp_push_track_flush: append failed");
         return NGX_ERROR;
     }
 
@@ -677,7 +677,7 @@ ngx_kmp_push_track_flush(ngx_kmp_push_track_t *track)
 
     if (ngx_kmp_push_track_send_all(track) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_kmp_push_track_send_end_of_stream: send failed");
+            "ngx_kmp_push_track_flush: send failed");
         return NGX_ERROR;
     }
 

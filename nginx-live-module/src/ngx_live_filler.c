@@ -1416,8 +1416,8 @@ ngx_live_filler_write_setup_segment(ngx_live_persist_write_ctx_t *write_ctx,
             return NGX_ERROR;
         }
 
-        if (ngx_live_media_info_write_segment(write_ctx, kmp_media_info,
-            media_info) != NGX_OK)
+        if (ngx_live_media_info_write(write_ctx, 0, kmp_media_info,
+            &media_info->extra_data) != NGX_OK)
         {
             return NGX_ERROR;
         }
@@ -1575,6 +1575,7 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, ngx_live_segment_t *segment,
     ngx_live_persist_segment_header_t *s)
 {
+    u_char            *ptr;
     ngx_int_t          rc;
     ngx_str_t          data;
     ngx_buf_chain_t    chain;
@@ -1584,8 +1585,9 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
 
     case NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO:
 
-        media_info = ngx_mem_rstream_get_ptr(rs, sizeof(*media_info));
-        if (media_info == NULL) {
+        ptr = ngx_mem_rstream_get_ptr(rs, sizeof(uint32_t) +
+            sizeof(*media_info));
+        if (ptr == NULL) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_filler_read_segment_block: read media info failed");
             return NGX_BAD_DATA;
@@ -1595,6 +1597,8 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
             return NGX_BAD_DATA;
         }
 
+
+        media_info = (void *)(ptr + sizeof(uint32_t));
 
         ngx_mem_rstream_get_left(rs, &data);
 
@@ -2093,7 +2097,7 @@ ngx_live_filler_read_setup(ngx_live_persist_block_header_t *block,
 
 
 static ngx_live_persist_block_t  ngx_live_filler_block = {
-    NGX_LIVE_FILLER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_CHANNEL, 0,
+    NGX_LIVE_FILLER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, 0,
     ngx_live_filler_write_setup,
     ngx_live_filler_read_setup,
 };

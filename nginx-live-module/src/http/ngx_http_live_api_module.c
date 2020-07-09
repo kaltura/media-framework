@@ -320,7 +320,7 @@ ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
 
     response.len = 0;
 
-    ngx_http_api_send_response(r, NGX_HTTP_OK, &response);
+    ngx_http_api_send_response(r, NGX_HTTP_NO_CONTENT, &response);
 
 done:
 

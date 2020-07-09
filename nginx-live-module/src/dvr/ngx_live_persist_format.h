@@ -24,6 +24,8 @@
 /* file types */
 #define NGX_LIVE_PERSIST_TYPE_SETUP             (0x70746573)    /* setp */
 
+#define NGX_LIVE_PERSIST_TYPE_INDEX             (0x78696773)    /* sgix */
+
 #define NGX_LIVE_PERSIST_TYPE_SEGMENTS          (0x73746773)    /* sgts */
 
 

@@ -6,7 +6,7 @@ def updateConf(conf):
     url[1] = 'http://127.0.0.1:8002'
 
     block = getConfBlock(conf, ['live'])
-    for key in ['persist_setup_path', 'persist_index_path', 'persist_delta_path']:
+    for key in ['dvr_path', 'persist_setup_path']:
         delConfParam(block, key)
 
 def test(channelId=CHANNEL_ID):
@@ -29,9 +29,9 @@ def test(channelId=CHANNEL_ID):
     except socket.error:
         pass
 
-    time.sleep(1)
+    time.sleep(.5)
 
-    logTracker.assertContains('ngx_live_dvr_write_cancel: cancelling write request')
+    logTracker.assertContains('ngx_live_persist_channel_free: cancelling index write')
 
     cleanupStack.reset()
     time.sleep(1)

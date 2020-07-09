@@ -8,7 +8,8 @@
 #include "ngx_live.h"
 
 
-#define NGX_LIVE_TIMELINE_MAX_ID_LEN       (32)
+#define NGX_LIVE_TIMELINE_LAST_DURATIONS  (3)
+#define NGX_LIVE_TIMELINE_MAX_ID_LEN      (32)
 
 
 typedef struct {
@@ -59,7 +60,8 @@ typedef struct {
     uint64_t                           duration;
     uint32_t                           segment_count;
     uint32_t                           period_count;
-    uint32_t                           last_durations[3];
+    uint32_t                           last_durations
+                                          [NGX_LIVE_TIMELINE_LAST_DURATIONS];
 } ngx_live_manifest_timeline_t;
 
 
@@ -111,6 +113,8 @@ ngx_flag_t ngx_live_timeline_is_expired(ngx_live_timeline_t *timeline);
 
 ngx_int_t ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
     int64_t time, uint32_t duration, ngx_flag_t force_new_period);
+
+void ngx_live_timelines_cleanup(ngx_live_channel_t *channel);
 
 void ngx_live_timelines_truncate(ngx_live_channel_t *channel,
     uint32_t segment_index);
