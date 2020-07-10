@@ -173,6 +173,7 @@ typedef struct {
 typedef struct {
     ngx_pool_t                         *pool;
     media_segment_t                    *segment;
+    uint32_t                            channel_id_hash;
     ngx_live_dvr_read_track_ctx_t       tracks[KMP_MEDIA_COUNT];
     uint32_t                            read_tracks;
     ngx_live_store_read_pt              read;
@@ -245,8 +246,10 @@ ngx_live_dvr_read_parse_header(ngx_live_dvr_read_ctx_t *ctx, ngx_str_t *buf)
 {
     uint32_t                          i;
     uint32_t                          found_tracks;
+    uint32_t                          channel_id_hash;
     uint64_t                          offset;
     ngx_log_t                        *log = ctx->pool->log;
+    ngx_str_t                         channel_id;
     ngx_mem_rstream_t                 rs;
     ngx_mem_rstream_t                 block_rs;
     ngx_live_dvr_segment_entry_t     *entry;
@@ -271,6 +274,20 @@ ngx_live_dvr_read_parse_header(ngx_live_dvr_read_ctx_t *ctx, ngx_str_t *buf)
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_dvr_read_parse_header: "
             "unexpected block, id: 0x%uxD", block->id);
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    if (ngx_mem_rstream_str_get(&rs, &channel_id) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_dvr_read_parse_header: read channel id failed");
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    channel_id_hash = ngx_crc32_short(channel_id.data, channel_id.len);
+    if (channel_id_hash != ctx->channel_id_hash) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_dvr_read_parse_header: "
+            "channel id \"%V\" mismatch", &channel_id);
         return NGX_HTTP_BAD_GATEWAY;
     }
 
@@ -552,6 +569,7 @@ ngx_live_dvr_read(ngx_live_segment_read_req_t *req)
     uint32_t                        i;
     uint32_t                        bucket_id;
     ngx_int_t                       rc;
+    ngx_str_t                      *channel_id;
     ngx_pool_t                     *pool;
     media_segment_t                *segment;
     ngx_live_store_t               *store;
@@ -622,6 +640,9 @@ ngx_live_dvr_read(ngx_live_segment_read_req_t *req)
             return NGX_ERROR;
         }
     }
+
+    channel_id = &channel->sn.str;
+    ctx->channel_id_hash = ngx_crc32_short(channel_id->data, channel_id->len);
 
     ctx->callback = req->callback;
     ctx->arg = req->arg;
@@ -728,6 +749,7 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
     uint32_t                       segment_index;
     ngx_pool_t                    *pool;
     ngx_queue_t                   *q;
+    ngx_wstream_t                 *ws;
     ngx_live_track_t              *cur_track;
     ngx_live_channel_t            *channel;
     ngx_live_segment_t            *segment;
@@ -751,11 +773,14 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
         return NULL;
     }
 
+    ws = ngx_live_persist_write_stream(write_idx);
+
     if (ngx_live_persist_write_block_open(write_idx,
-        NGX_LIVE_DVR_BLOCK_SEGMENT_ENTRY_LIST) != NGX_OK)
+            NGX_LIVE_DVR_BLOCK_SEGMENT_ENTRY_LIST) != NGX_OK ||
+        ngx_wstream_str(ws, &channel->sn.str) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_create_file: open block failed");
+            "ngx_live_dvr_create_file: write header failed");
         return NULL;
     }
 

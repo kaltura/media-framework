@@ -49,9 +49,17 @@ typedef struct {
 /* format */
 
 typedef struct {
+    uint32_t                           version;
+    uint32_t                           reserved;
+    uint64_t                           start_sec;
+} ngx_live_persist_setup_channel_t;
+
+typedef struct {
     uint32_t                           track_id;
     uint32_t                           media_type;
     uint32_t                           type;
+    uint32_t                           reserved;
+    uint64_t                           start_sec;
 } ngx_live_persist_setup_track_t;
 
 typedef struct {
@@ -744,16 +752,20 @@ static ngx_int_t
 ngx_live_persist_setup_write_channel(ngx_live_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    uint32_t            *version;
-    ngx_wstream_t       *ws;
-    ngx_live_channel_t  *channel = obj;
+    uint32_t                          *version;
+    ngx_wstream_t                     *ws;
+    ngx_live_channel_t                *channel = obj;
+    ngx_live_persist_setup_channel_t   c;
 
     ws = ngx_live_persist_write_stream(write_ctx);
     version = ngx_live_persist_write_scope(write_ctx);
 
+    c.version = *version;
+    c.reserved = 0;
+    c.start_sec = channel->start_sec;
+
     if (ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, version, sizeof(*version))
-            != NGX_OK ||
+        ngx_live_persist_write(write_ctx, &c, sizeof(c)) != NGX_OK ||
         ngx_block_str_write(ws, &channel->opaque) != NGX_OK ||
         ngx_live_persist_write_blocks(channel, write_ctx,
             NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, channel) != NGX_OK)
@@ -770,27 +782,30 @@ static ngx_int_t
 ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
-    uint32_t                         version;
-    ngx_int_t                        rc;
-    ngx_hash_t                      *hash;
-    ngx_live_channel_t              *channel = obj;
-    ngx_live_persist_main_conf_t    *pmcf;
-    ngx_live_persist_channel_ctx_t  *cctx;
+    ngx_int_t                          rc;
+    ngx_hash_t                        *hash;
+    ngx_live_channel_t                *channel = obj;
+    ngx_live_persist_main_conf_t      *pmcf;
+    ngx_live_persist_channel_ctx_t    *cctx;
+    ngx_live_persist_setup_channel_t  *c;
 
     rc = ngx_live_persist_read_channel_id(channel, rs);
     if (rc != NGX_OK) {
         return rc;
     }
 
-    if (ngx_mem_rstream_read(rs, &version, sizeof(version)) != NGX_OK) {
+    c = ngx_mem_rstream_get_ptr(rs, sizeof(*c));
+    if (c == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_persist_setup_read_channel: read version failed");
+            "ngx_live_persist_setup_read_channel: read failed");
         return NGX_BAD_DATA;
     }
 
+    channel->start_sec = c->start_sec;
+
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
 
-    cctx->setup.version = cctx->setup.success_version = version;
+    cctx->setup.version = cctx->setup.success_version = c->version;
 
     rc = ngx_live_channel_block_str_read(channel, &channel->opaque, rs);
     if (rc != NGX_OK) {
@@ -843,6 +858,8 @@ ngx_live_persist_setup_write_track(ngx_live_persist_write_ctx_t *write_ctx,
         t.track_id = cur_track->in.key;
         t.media_type = cur_track->media_type;
         t.type = cur_track->type;
+        t.reserved = 0;
+        t.start_sec = cur_track->start_sec;
 
         if (ngx_live_persist_write_block_open(write_ctx,
                 NGX_LIVE_PERSIST_BLOCK_TRACK) != NGX_OK ||
@@ -901,6 +918,8 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
         }
         return NGX_ERROR;
     }
+
+    track->start_sec = t->start_sec;
 
     rc = ngx_live_channel_block_str_read(channel, &track->opaque, rs);
     if (rc != NGX_OK) {
