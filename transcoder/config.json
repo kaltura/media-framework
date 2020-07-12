@@ -46,7 +46,6 @@
         "streamingUrl1": ""
     },
     "engine": {
-        "useNvidiaDecoder": true,
         "encoders": {
             "h264": ["h264_nvenc","libx264","h264_videotoolbox"]
         },

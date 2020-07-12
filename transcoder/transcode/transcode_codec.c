@@ -98,17 +98,33 @@ static int get_decoder_buffer(AVCodecContext *s, AVFrame *frame, int flags)
 int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaInfo_t* extraParams)
 {
     transcode_codec_init(pContext);
-    bool result;
-    json_get_bool(GetConfig(),"engine.useNvidiaDecoder",false,&result);
 
     AVCodecParameters *pCodecParams=extraParams->codecParams;
     
     enum AVHWDeviceType hardWareAcceleration=AV_HWDEVICE_TYPE_NONE;
-    
-    pContext->nvidiaAccelerated=false;
-    
-    AVCodec *dec = NULL;
-    if (result) {
+
+   AVCodec *dec;
+
+   bool result;
+   json_get_bool(GetConfig(),"engine.nvidiaAccelerated",true,&result);
+
+   pContext->nvidiaAccelerated = result && pCodecParams->codec_type == AVMEDIA_TYPE_VIDEO;
+
+ retry:
+
+#define FALLBACK_SW_DECODER \
+    if( pContext->nvidiaAccelerated ) { \
+            pContext->nvidiaAccelerated = false; \
+            hardWareAcceleration = AV_HWDEVICE_TYPE_NONE; \
+            goto retry;\
+    }
+
+    dec = NULL;
+
+    LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "attempt to use %s decoder",  pContext->nvidiaAccelerated ? "nvidia hw" : "sw");
+
+    if (pContext->nvidiaAccelerated) {
+
         if (pCodecParams->codec_id==AV_CODEC_ID_H264) {
             dec = avcodec_find_decoder_by_name("h264_cuvid");
         }
@@ -123,7 +139,6 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
         }
         
         if (dec) {
-            pContext->nvidiaAccelerated=true;
             hardWareAcceleration=AV_HWDEVICE_TYPE_CUDA;
         }
     }
@@ -136,6 +151,7 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
     AVCodecContext *codec_ctx;
     if (!dec) {
         LOGGER(CATEGORY_CODEC,AV_LOG_ERROR, "Failed to find decoder for stream %s",pCodecParams->codec_id);
+        FALLBACK_SW_DECODER;
         return AVERROR_DECODER_NOT_FOUND;
     }
     codec_ctx = avcodec_alloc_context3(dec);
@@ -159,6 +175,7 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
         ret=hw_decoder_init(pContext,dec,codec_ctx,hardWareAcceleration);
         if (ret < 0) {
             LOGGER(CATEGORY_CODEC, AV_LOG_ERROR, "Couldn't genereate hwcontext %d (%s)",ret,av_err2str(ret));
+            FALLBACK_SW_DECODER;
             return ret;
         }
         codec_ctx->get_format  = get_hw_format;
@@ -171,6 +188,7 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
     ret = avcodec_open2(codec_ctx, dec, NULL);
     if (ret < 0) {
         LOGGER( CATEGORY_CODEC, AV_LOG_ERROR, "Failed to open decoder for stream %d (%s)",ret,av_err2str(ret));
+        FALLBACK_SW_DECODER;
         return ret;
     }
     if (pContext->hw_device_ctx!=NULL) {
@@ -189,33 +207,6 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
     return 0;
 }
 
-AVCodec * get_encoder(const char* codecCode) {
-    const json_value_t* result;
-    char key[128];
-    sprintf(key,"engine.encoders.%s", codecCode);
-    json_status_t status= json_get(GetConfig(),key,&result);
-    if (status!=JSON_OK)
-        return NULL;
-        
-    AVCodec* codec=NULL;
-    size_t items=json_get_array_count(result);
-    for (int i=0;!codec && i<items;i++) {
-        json_value_t r;
-        status=json_get_array_index(result,i,&r);
-        if (status!=JSON_OK || r.type!=JSON_STRING)
-            continue;
-        
-        char tmp[100]={0};
-        memcpy(tmp,r.v.str.data,__MIN(sizeof(tmp)-1,r.v.str.len));
-        codec = avcodec_find_encoder_by_name(tmp);
-        if (codec) {
-            break;
-        }
-        LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"Unable to find %s",tmp);
-    }
-    return codec;
-}
-
 int get_preset(const char* codec,const char* preset,char* result,size_t resultSize) {
     char key[100]={0};
     sprintf(key,"engine.presets.%s.%s", preset,codec);
@@ -223,28 +214,31 @@ int get_preset(const char* codec,const char* preset,char* result,size_t resultSi
         return 0;
     return -1;
 }
-    
-int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
-                       AVRational inputAspectRatio,
-                       enum AVPixelFormat inputPixelFormat,
-                       AVRational timebase,
-                       AVRational inputFrameRate,
-                       struct AVBufferRef* hw_frames_ctx,
-                       const transcode_session_output_t* pOutput,
-                       int width,int height)
-{
-    
-    transcode_codec_init(pContext);
-    
-    AVCodec *codec      = NULL;
-    AVCodecContext *enc_ctx  = NULL;
+
+static
+int
+init_video_encoder(transcode_codec_t * pContext,
+    transcode_session_output_t* pOutput,
+     int width,
+     int height,
+     AVRational inputAspectRatio,
+     enum AVPixelFormat inputPixelFormat,
+     AVRational timebase,
+     AVRational inputFrameRate,
+     struct AVBufferRef* hw_frames_ctx,
+     const char *codecName){
+
     int ret = 0;
-    
-    codec = get_encoder(pOutput->codec);
+
+    AVCodecContext *enc_ctx  = NULL;
+
+    AVCodec *codec = avcodec_find_encoder_by_name(codecName);
+
     if (!codec) {
-        LOGGER(CATEGORY_CODEC,AV_LOG_ERROR,"Unable to find %s",pOutput->codec);
+        LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"Unable to find %s",codecName);
         return -1;
     }
+
     enc_ctx = avcodec_alloc_context3(codec);
     enc_ctx->height = height;
     enc_ctx->width = width;
@@ -260,7 +254,7 @@ int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
             return -1;
         }
     }
-    
+
     enc_ctx->gop_size=60;
     enc_ctx->time_base = timebase;
     enc_ctx->framerate = inputFrameRate;
@@ -270,6 +264,7 @@ int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
         av_opt_set(enc_ctx->priv_data, "profile", pOutput->videoParams.profile, 0);
         LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"set video encoder profile %s",pOutput->videoParams.profile);
     }
+
     if (strlen(pOutput->videoParams.preset)>0) {
         char preset[100]={0};
         if (0>=get_preset(codec->name,pOutput->videoParams.preset,preset,sizeof(preset))) {
@@ -281,22 +276,77 @@ int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
         av_opt_set(enc_ctx->priv_data, "x264-params", "nal-hrd=cbr:ratetol=10:scenecut=-1", AV_OPT_SEARCH_CHILDREN);
     }
     enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-    
-        
+
     ret = avcodec_open2(enc_ctx, codec,NULL);
     if (ret<0) {
         LOGGER(CATEGORY_CODEC,AV_LOG_ERROR,"error initilizing video encoder %d (%s)",ret,av_err2str(ret));
+        avcodec_free_context(&enc_ctx);
+    } else {
+        pContext->codec=codec;
+        pContext->ctx=enc_ctx;
+        LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"video encoder  \"%s\"  %dx%d %d Kbit/s %s initilaized",codec->long_name,enc_ctx->width,enc_ctx->height,enc_ctx->bit_rate/1000, av_get_pix_fmt_name (enc_ctx->pix_fmt));
+    }
+    return ret;
+}
+    
+int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
+                       AVRational inputAspectRatio,
+                       enum AVPixelFormat inputPixelFormat,
+                       AVRational timebase,
+                       AVRational inputFrameRate,
+                       struct AVBufferRef* hw_frames_ctx,
+                       const transcode_session_output_t* pOutput,
+                       int width,int height)
+{
+    
+    transcode_codec_init(pContext);
+    
+
+    int ret = -1;
+
+    const json_value_t* result;
+    char key[128];
+    json_status_t status = JSON_OK;
+
+    sprintf(key,"engine.encoders.%s", pOutput->codec);
+
+    status= json_get(GetConfig(),key,&result);
+    if (status!=JSON_OK) {
+        LOGGER(CATEGORY_CODEC,AV_LOG_ERROR,"key %s not found",key);
         return ret;
     }
-    
-    pContext->codec=codec;
-    pContext->ctx=enc_ctx;
-    LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"video encoder  \"%s\"  %dx%d %d Kbit/s %s initilaized",codec->long_name,enc_ctx->width,enc_ctx->height,enc_ctx->bit_rate/1000, av_get_pix_fmt_name (enc_ctx->pix_fmt));
-    
-    pContext->inDts=0;
-    pContext->outDts=0;
 
-    return 0;
+    size_t items=json_get_array_count(result);
+
+    LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"got %d encoder codecs",items);
+
+    for (int i=0; ret < 0 && i<items;i++) {
+
+        json_value_t r;
+        status=json_get_array_index(result,i,&r);
+        if (status!=JSON_OK || r.type!=JSON_STRING) {
+             LOGGER(CATEGORY_CODEC,AV_LOG_ERROR,"item %d is not a string???",i);
+             continue;
+        }
+
+        char tmp[100]={0};
+        memcpy(tmp,r.v.str.data,__MIN(sizeof(tmp)-1,r.v.str.len));
+
+        LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"transcode_codec_init_video_encoder. checking encoder %s ",tmp);
+
+        ret = init_video_encoder(pContext,
+            pOutput,
+            width,
+            height,
+            inputAspectRatio,
+            inputPixelFormat,
+            timebase,
+            inputFrameRate,
+            hw_frames_ctx,
+            tmp);
+    }
+
+    return ret;
 }
 
 int transcode_codec_init_audio_encoder( transcode_codec_t * pContext,transcode_filter_t* pFilter, const  transcode_session_output_t* pOutput)
@@ -325,7 +375,7 @@ int transcode_codec_init_audio_encoder( transcode_codec_t * pContext,transcode_f
     enc_ctx->bit_rate=pOutput->bitrate*1000;
     ret = avcodec_open2(enc_ctx, codec,NULL);
     if (ret<0) {
-        LOGGER(CATEGORY_CODEC,AV_LOG_ERROR,"error initilizing video encoder %d (%s)",ret,av_err2str(ret));
+        LOGGER(CATEGORY_CODEC,AV_LOG_ERROR,"error initilizing audio encoder %d (%s)",ret,av_err2str(ret));
         return ret;
     }
     av_buffersink_set_frame_size(pFilter->sink_ctx, enc_ctx->frame_size);
