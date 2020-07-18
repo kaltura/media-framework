@@ -611,14 +611,14 @@ ngx_live_segment_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_track_t                   *track = obj;
     ngx_live_segment_info_elt_t        *first, *last;
     ngx_live_segment_info_node_t       *node;
-    ngx_live_persist_index_scope_t     *scope;
+    ngx_live_persist_index_snap_t      *snap;
     ngx_live_segment_info_track_ctx_t  *ctx;
 
     ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_info_module);
-    scope = ngx_live_persist_write_scope(write_ctx);
+    snap = ngx_live_persist_write_ctx(write_ctx);
 
-    if (scope->min_index > 0) {
-        node = ngx_live_segment_info_lookup(ctx, scope->min_index);
+    if (snap->scope.min_index > 0) {
+        node = ngx_live_segment_info_lookup(ctx, snap->scope.min_index);
         if (node == NULL) {
             return NGX_OK;
         }
@@ -649,7 +649,7 @@ ngx_live_segment_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
 
         /* trim the left side */
         for (;;) {
-            if (first->index >= scope->min_index) {
+            if (first->index >= snap->scope.min_index) {
                 break;
             }
 
@@ -662,7 +662,7 @@ ngx_live_segment_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
 
         /* trim the right side */
         for (;;) {
-            if (last[-1].index <= scope->max_index) {
+            if (last[-1].index <= snap->scope.max_index) {
                 break;
             }
 

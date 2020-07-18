@@ -5,9 +5,6 @@
 #include "ngx_live_timeline.h"
 
 
-#define NGX_LIVE_SEGMENT_INDEX_FREE_CYCLES  (5)
-
-
 enum {
     NGX_LIVE_BP_SEGMENT_INDEX,
 
@@ -16,7 +13,7 @@ enum {
 
 
 typedef struct {
-    ngx_uint_t                  force_memory_segments;
+    ngx_uint_t                      force_memory_segments;
 } ngx_live_segment_index_preset_conf_t;
 
 
@@ -27,20 +24,26 @@ typedef enum {
 } ngx_live_segment_persist_e;
 
 struct ngx_live_segment_index_s {
-    ngx_rbtree_node_t           node;       /* key = segment_index */
-    ngx_queue_t                 queue;
-    ngx_queue_t                 cleanup;
-    ngx_live_segment_persist_e  persist;
-    unsigned                    free:1;
+    ngx_rbtree_node_t               node;       /* key = segment_index */
+    ngx_queue_t                     queue;      /* all queue */
+    ngx_queue_t                     pqueue;     /* pending / done queues */
+
+    ngx_queue_t                     cleanup;
+    ngx_live_segment_persist_e      persist;
+    ngx_live_persist_index_snap_t  *snap;
+    unsigned                        free:1;
 };
 
 
 typedef struct {
-    ngx_block_pool_t           *block_pool;
-    ngx_queue_t                 queue;
-    ngx_rbtree_t                rbtree;
-    ngx_rbtree_node_t           sentinel;
-    unsigned                    no_free:1;
+    ngx_block_pool_t               *block_pool;
+    ngx_queue_t                     all;
+    ngx_queue_t                     pending;
+    ngx_queue_t                     done;
+    ngx_rbtree_t                    rbtree;
+    ngx_rbtree_node_t               sentinel;
+    uint32_t                        last_segment_index;
+    unsigned                        no_free:1;
 } ngx_live_segment_index_channel_ctx_t;
 
 
@@ -94,7 +97,6 @@ static void
 ngx_live_segment_index_free(ngx_live_channel_t *channel,
     ngx_live_segment_index_t *index, uint32_t *truncate)
 {
-    uint32_t                               segment_index;
     ngx_live_segment_index_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
@@ -103,32 +105,36 @@ ngx_live_segment_index_free(ngx_live_channel_t *channel,
     }
 
     if (!index->free) {
-        segment_index = index->node.key;
-
-        ngx_live_segment_cache_free_by_index(channel, segment_index);
-        ngx_rbtree_delete(&cctx->rbtree, &index->node);
-
-        index->node.key = segment_index;    /* ngx_rbtree_delete zeroes key */
         index->free = 1;
 
+        ngx_live_segment_cache_free_by_index(channel, index->node.key);
+
         if (index->persist != ngx_live_segment_persist_ok) {
-            *truncate = segment_index;
+            *truncate = index->node.key;
         }
+    }
+
+    if (index->snap != NULL) {
+        ngx_live_persist_index_snap_free(index->snap);
+        index->snap = NULL;
     }
 
     if (!ngx_queue_empty(&index->cleanup)) {
         return;
     }
 
+    ngx_rbtree_delete(&cctx->rbtree, &index->node);
     ngx_queue_remove(&index->queue);
+    ngx_queue_remove(&index->pqueue);
+
     ngx_block_pool_free(cctx->block_pool, NGX_LIVE_BP_SEGMENT_INDEX, index);
 }
 
 static void
 ngx_live_segment_index_free_non_forced(ngx_live_channel_t *channel)
 {
-    uint32_t                               cycles;
     uint32_t                               truncate;
+    ngx_uint_t                             limit;
     ngx_queue_t                           *q;
     ngx_live_segment_index_t              *index;
     ngx_live_segment_index_channel_ctx_t  *cctx;
@@ -139,32 +145,24 @@ ngx_live_segment_index_free_non_forced(ngx_live_channel_t *channel)
     spcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_segment_index_module);
 
-    /* Note: if many segments are not persisted (dvr is off or slow)
-        limit the number of freed segments */
-    cycles = NGX_LIVE_SEGMENT_INDEX_FREE_CYCLES;
+    if (cctx->last_segment_index < spcf->force_memory_segments) {
+        return;
+    }
+    limit = cctx->last_segment_index - spcf->force_memory_segments;
+
     truncate = 0;
 
-    q = ngx_queue_head(&cctx->queue);
-    while (q != ngx_queue_sentinel(&cctx->queue)) {
+    q = ngx_queue_head(&cctx->done);
+    while (q != ngx_queue_sentinel(&cctx->done)) {
 
-        index = ngx_queue_data(q, ngx_live_segment_index_t, queue);
-
-        if (index->node.key + spcf->force_memory_segments >=
-            channel->next_segment_index)
-        {
+        index = ngx_queue_data(q, ngx_live_segment_index_t, pqueue);
+        if (index->node.key > limit) {
             break;
         }
 
         q = ngx_queue_next(q);      /* move to next before freeing */
 
-        if (index->persist != ngx_live_segment_persist_none) {
-            ngx_live_segment_index_free(channel, index, &truncate);
-        }
-
-        cycles--;
-        if (cycles <= 0) {
-            break;
-        }
+        ngx_live_segment_index_free(channel, index, &truncate);
     }
 
     if (truncate) {
@@ -191,11 +189,17 @@ ngx_live_segment_index_create(ngx_live_channel_t *channel)
         return NGX_ERROR;
     }
 
+    /* Note: returns null when index persistence is off or create failed */
+    index->snap = ngx_live_persist_index_snap_create(channel);
+
     index->node.key = channel->next_segment_index;
     ngx_queue_init(&index->cleanup);
 
     ngx_rbtree_insert(&cctx->rbtree, &index->node);
-    ngx_queue_insert_tail(&cctx->queue, &index->queue);
+    ngx_queue_insert_tail(&cctx->all, &index->queue);
+    ngx_queue_insert_tail(&cctx->pending, &index->pqueue);
+
+    cctx->last_segment_index = channel->next_segment_index;
 
     ngx_live_segment_index_free_non_forced(channel);
 
@@ -207,6 +211,7 @@ ngx_live_segment_index_get(ngx_live_channel_t *channel, uint32_t segment_index)
 {
     ngx_rbtree_t                          *rbtree;
     ngx_rbtree_node_t                     *node, *sentinel;
+    ngx_live_segment_index_t              *index;
     ngx_live_segment_index_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
@@ -228,67 +233,163 @@ ngx_live_segment_index_get(ngx_live_channel_t *channel, uint32_t segment_index)
             continue;
         }
 
-        return (ngx_live_segment_index_t *) node;
+        index = (ngx_live_segment_index_t *) node;
+
+        return index->free ? NULL : index;
     }
 
     return NULL;
+}
+
+static ngx_live_segment_index_t *
+ngx_live_segment_index_get_first(ngx_live_channel_t *channel,
+    uint32_t segment_index)
+{
+    ngx_queue_t                           *q;
+    ngx_rbtree_t                          *rbtree;
+    ngx_rbtree_node_t                     *next;
+    ngx_rbtree_node_t                     *node, *sentinel;
+    ngx_live_segment_index_t              *index;
+    ngx_live_segment_index_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
+
+    rbtree = &cctx->rbtree;
+
+    node = rbtree->root;
+    sentinel = rbtree->sentinel;
+
+    if (node == sentinel) {
+        return NULL;
+    }
+
+    for ( ;; ) {
+
+        if (segment_index < node->key) {
+            next = node->left;
+            if (next != sentinel) {
+                node = next;
+                continue;
+            }
+
+            return (ngx_live_segment_index_t *) node;
+
+        } else if (segment_index > node->key) {
+            next = node->right;
+            if (next != sentinel) {
+                node = next;
+                continue;
+            }
+
+            index = (ngx_live_segment_index_t *) node;
+
+            q = ngx_queue_next(&index->queue);
+            if (q == ngx_queue_sentinel(&cctx->all)) {
+                return NULL;
+            }
+
+            return ngx_queue_data(q, ngx_live_segment_index_t, queue);
+
+        } else {
+            return (ngx_live_segment_index_t *) node;
+        }
+    }
+}
+
+static ngx_queue_t *
+ngx_live_segment_index_get_insert_pos(ngx_queue_t *queue,
+    uint32_t segment_index)
+{
+    ngx_queue_t               *q;
+    ngx_live_segment_index_t  *cur;
+
+    for (q = ngx_queue_last(queue);
+        q != ngx_queue_sentinel(queue);
+        q = ngx_queue_prev(q))
+    {
+        cur = ngx_queue_data(q, ngx_live_segment_index_t, pqueue);
+        if (cur->node.key < segment_index) {
+            break;
+        }
+    }
+
+    return ngx_queue_next(q);
 }
 
 void
 ngx_live_segment_index_persisted(ngx_live_channel_t *channel,
     uint32_t min_segment_index, uint32_t max_segment_index, ngx_int_t rc)
 {
-    uint32_t                               truncate;
-    uint32_t                               segment_index;
+    ngx_flag_t                             inherited;
     ngx_queue_t                           *q;
+    ngx_queue_t                           *ins;
     ngx_live_segment_index_t              *index;
+    ngx_live_segment_index_t              *pending;
     ngx_live_segment_persist_e             persist;
+    ngx_live_persist_index_snap_t         *snap;
     ngx_live_segment_index_channel_ctx_t  *cctx;
-    ngx_live_segment_index_preset_conf_t  *spcf;
+
+    /* Note: may not find the first index when a dvr bucket is saved,
+        and some segment indexes contained in it did not exist */
+
+    index = ngx_live_segment_index_get_first(channel, min_segment_index);
+    if (index == NULL) {
+        ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
+            "ngx_live_segment_index_persisted: "
+            "index not found, min: %uD", min_segment_index);
+        return;
+    }
+
+    if (index->node.key >= max_segment_index) {
+        ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
+            "ngx_live_segment_index_persisted: "
+            "index not in range, index: %ui, min: %uD, max: %uD",
+            index->node.key, min_segment_index, max_segment_index);
+        return;
+    }
+
+    if (index->persist != ngx_live_segment_persist_none) {
+        ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
+            "ngx_live_segment_index_persisted: "
+            "already called for segment %ui", index->node.key);
+        ngx_debug_point();
+        return;
+    }
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
 
-    spcf = ngx_live_get_module_preset_conf(channel,
-        ngx_live_segment_index_module);
+    q = ngx_queue_prev(&index->pqueue);
+    if (q != ngx_queue_sentinel(&cctx->pending)) {
+        pending = ngx_queue_data(q, ngx_live_segment_index_t, pqueue);
 
-    for (segment_index = min_segment_index; ; segment_index++) {
-
-        if (segment_index >= max_segment_index) {
-            return;
-        }
-
-        index = ngx_live_segment_index_get(channel, segment_index);
-        if (index != NULL) {
-            /* Note: may not find the index when a dvr bucket is saved and
-                some segment indexes contained in it did not exist */
-            break;
-        }
+    } else {
+        pending = NULL;
     }
+
+    snap = NULL;
+
+    ins = ngx_live_segment_index_get_insert_pos(&cctx->done, index->node.key);
 
     q = &index->queue;
     persist = rc == NGX_OK ? ngx_live_segment_persist_ok :
         ngx_live_segment_persist_error;
-    truncate = 0;
 
     for ( ;; ) {
 
-        if (index->persist != ngx_live_segment_persist_none) {
-            ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
-                "ngx_live_segment_index_persisted: "
-                "already called for segment %ui", index->node.key);
-        }
-
         index->persist = persist;
 
-        q = ngx_queue_next(q);      /* move to next before freeing */
+        /* move from pending queue to done */
+        ngx_queue_remove(&index->pqueue);
+        ngx_queue_insert_before(ins, &index->pqueue);
 
-        if (index->node.key + spcf->force_memory_segments <
-            channel->next_segment_index)
-        {
-            ngx_live_segment_index_free(channel, index, &truncate);
+        if (snap != NULL) {
+            ngx_live_persist_index_snap_free(snap);
         }
+        snap = index->snap;
+        index->snap = NULL;
 
-        if (q == ngx_queue_sentinel(&cctx->queue)) {
+        q = ngx_queue_next(q);
+        if (q == ngx_queue_sentinel(&cctx->all)) {
             break;
         }
 
@@ -298,13 +399,32 @@ ngx_live_segment_index_persisted(ngx_live_channel_t *channel,
         }
     }
 
-    if (truncate) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_segment_index_persisted: "
-            "truncating timelines, index: %uD", truncate);
+    ngx_live_segment_index_free_non_forced(channel);
 
-        ngx_live_timelines_truncate(channel, truncate);
+    if (snap == NULL) {
+        return;
     }
+
+    inherited = snap->scope.max_index >= max_segment_index;
+    if (rc != NGX_OK && !inherited) {
+        ngx_live_persist_index_snap_free(snap);
+        return;
+    }
+
+    if (pending != NULL) {
+        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+            "ngx_live_segment_index_persisted: "
+            "ownership of snapshot %uD passed to %ui",
+            snap->scope.max_index, pending->node.key);
+
+        if (pending->snap != NULL) {
+            ngx_live_persist_index_snap_free(pending->snap);
+        }
+        pending->snap = snap;
+        return;
+    }
+
+    ngx_live_persist_index_snap_write(snap);
 }
 
 static void
@@ -340,8 +460,8 @@ ngx_live_segment_index_watermark(ngx_live_channel_t *channel, void *ectx)
     truncate = 0;
     level = NGX_LOG_NOTICE;
 
-    q = ngx_queue_head(&cctx->queue);
-    while (q != ngx_queue_sentinel(&cctx->queue)) {
+    q = ngx_queue_head(&cctx->all);
+    while (q != ngx_queue_sentinel(&cctx->all)) {
 
         if (channel->mem_left >= channel->mem_low_watermark) {
             break;
@@ -394,8 +514,8 @@ ngx_live_segment_index_segment_free(ngx_live_channel_t *channel, void *ectx)
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
 
-    q = ngx_queue_head(&cctx->queue);
-    while (q != ngx_queue_sentinel(&cctx->queue)) {
+    q = ngx_queue_head(&cctx->all);
+    while (q != ngx_queue_sentinel(&cctx->all)) {
 
         index = ngx_queue_data(q, ngx_live_segment_index_t, queue);
 
@@ -497,7 +617,9 @@ ngx_live_segment_index_channel_init(ngx_live_channel_t *channel, void *ectx)
     }
 
     ngx_rbtree_init(&cctx->rbtree, &cctx->sentinel, ngx_rbtree_insert_value);
-    ngx_queue_init(&cctx->queue);
+    ngx_queue_init(&cctx->all);
+    ngx_queue_init(&cctx->pending);
+    ngx_queue_init(&cctx->done);
 
     ngx_live_set_ctx(channel, cctx, ngx_live_segment_index_module);
 
@@ -520,8 +642,8 @@ ngx_live_segment_index_channel_free(ngx_live_channel_t *channel, void *ectx)
         the segment cache module may have already freed everything */
     cctx->no_free = 1;
 
-    q = ngx_queue_head(&cctx->queue);
-    while (q != ngx_queue_sentinel(&cctx->queue)) {
+    q = ngx_queue_head(&cctx->all);
+    while (q != ngx_queue_sentinel(&cctx->all)) {
 
         index = ngx_queue_data(q, ngx_live_segment_index_t, queue);
 
@@ -533,6 +655,10 @@ ngx_live_segment_index_channel_free(ngx_live_channel_t *channel, void *ectx)
             ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
                 "ngx_live_segment_index_channel_free: "
                 "cleanup queue not empty");
+        }
+
+        if (index->snap != NULL) {
+            ngx_live_persist_index_snap_free(index->snap);
         }
     }
 

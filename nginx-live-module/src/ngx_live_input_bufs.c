@@ -365,7 +365,7 @@ ngx_live_input_bufs_lock(ngx_live_track_t *track, uint32_t segment_index,
         return NULL;
     }
 
-    ngx_queue_insert_head(q, &cur->queue);      /* used as 'insert after' */
+    ngx_queue_insert_after(q, &cur->queue);
     cur->input_bufs = input_bufs;
     input_bufs->ref_count++;
 

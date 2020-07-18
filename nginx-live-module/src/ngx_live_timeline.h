@@ -45,23 +45,22 @@ struct ngx_live_period_s {
 typedef struct {
     ngx_live_timeline_manifest_conf_t  conf;
 
+    int64_t                            availability_start_time;
     ngx_live_period_t                  first_period;
     int64_t                            first_period_initial_time;
     uint32_t                           first_period_initial_segment_index;
     uint32_t                           first_period_index;
-    uint32_t                           sequence;
-
-    int64_t                            availability_start_time;
-    time_t                             last_modified;
 
     uint32_t                           target_duration;
+    uint32_t                           sequence;
+    time_t                             last_modified;
+    uint32_t                           last_durations
+                                          [NGX_LIVE_TIMELINE_LAST_DURATIONS];
 
     /* volatile */
     uint64_t                           duration;
     uint32_t                           segment_count;
     uint32_t                           period_count;
-    uint32_t                           last_durations
-                                          [NGX_LIVE_TIMELINE_LAST_DURATIONS];
 } ngx_live_manifest_timeline_t;
 
 
@@ -70,6 +69,7 @@ typedef struct {
     ngx_queue_t                        queue;
     u_char                             id_buf[NGX_LIVE_TIMELINE_MAX_ID_LEN];
     ngx_live_channel_t                *channel;
+    uint32_t                           int_id;
 
     ngx_rbtree_t                       rbtree;
     ngx_rbtree_node_t                  sentinel;

@@ -895,7 +895,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
         }
     }
 
-    ngx_queue_insert_tail(q, &track->queue);    /* used as 'insert before' */
+    ngx_queue_insert_before(q, &track->queue);
 
     channel->tracks.count++;
 

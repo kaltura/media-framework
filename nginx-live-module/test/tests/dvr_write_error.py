@@ -6,7 +6,8 @@ def updateConf(conf):
     block.append(['lingering_timeout', '1'])    # nginx waits this timeout for any request completed with special status
 
     block = getConfBlock(conf, ['live'])
-    delConfParam(block, 'persist_setup_path')
+    for key in ['persist_setup_path', 'persist_index_path', 'persist_delta_path']:
+        delConfParam(block, key)
     block.append(['store_http_write_retries', '0'])
 
 def test(channelId=CHANNEL_ID):

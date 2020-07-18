@@ -766,7 +766,7 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
     max_segments = channel->tracks.count * dpcf->bucket_size;
 
     write_idx = ngx_live_persist_write_init(pool,
-        NGX_LIVE_PERSIST_TYPE_SEGMENTS, NULL);
+        NGX_LIVE_PERSIST_TYPE_SEGMENTS);
     if (write_idx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_dvr_create_file: write init failed (1)");
@@ -784,7 +784,7 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
         return NULL;
     }
 
-    write_data = ngx_live_persist_write_init(pool, 0, NULL);
+    write_data = ngx_live_persist_write_init(pool, 0);
     if (write_data == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_dvr_create_file: write init failed (2)");

@@ -1,13 +1,8 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['live', 'store_s3_block dummy_bucket'])
-    url = getConfParam(block, 'url')
-    url[1] = 'http://127.0.0.1:8002'
-
-    block = getConfBlock(conf, ['live'])
-    for key in ['dvr_path', 'persist_setup_path']:
-        delConfParam(block, key)
+    block = getConfBlock(conf, ['http', 'server'])
+    block.append([['location', '/dvr/channel/test/index'], [['proxy_pass', 'http://127.0.0.1:8002']]])
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

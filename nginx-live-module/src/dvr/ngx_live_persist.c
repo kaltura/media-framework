@@ -69,7 +69,7 @@ typedef struct {
 } ngx_live_persist_setup_variant_t;
 
 typedef struct {
-    uint32_t                           next_segment_index;
+    uint32_t                           reserved;
     uint32_t                           last_segment_media_types;
     int64_t                            last_segment_created;
     int64_t                            last_modified;
@@ -165,6 +165,7 @@ typedef struct {
     uint32_t                               success_index;
     uint32_t                               success_delta;
     ngx_live_persist_file_write_ctx_t     *write_ctx;
+    ngx_live_persist_index_snap_t         *pending;
 } ngx_live_persist_index_channel_ctx_t;
 
 typedef struct {
@@ -390,7 +391,7 @@ ngx_live_persist_write_complete(void *arg, ngx_int_t rc)
 
 static ngx_live_persist_file_write_ctx_t *
 ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
-    void *scope, size_t scope_size)
+    void *data, void *scope, size_t scope_size)
 {
     ngx_int_t                           rc;
     ngx_pool_t                         *pool;
@@ -429,12 +430,14 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
     }
 
     write_ctx = ngx_live_persist_write_init(pool,
-        ngx_live_persist_files[file].type, scope);
+        ngx_live_persist_files[file].type);
     if (write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_write_file: write init failed");
         goto failed;
     }
+
+    ngx_live_persist_write_ctx(write_ctx) = data;
 
     if (ngx_live_persist_write_blocks(channel, write_ctx,
         ngx_live_persist_files[file].ctx, channel) != NGX_OK)
@@ -704,9 +707,7 @@ ngx_live_persist_read(ngx_live_channel_t *channel, ngx_pool_t *handler_pool,
     ngx_live_persist_preset_conf_t  *ppcf;
 
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
-    if (ppcf->files[NGX_LIVE_PERSIST_FILE_SETUP].path == NULL ||
-        ppcf->store == NULL)
-    {
+    if (ppcf->files[NGX_LIVE_PERSIST_FILE_SETUP].path == NULL) {
         return NGX_OK;
     }
 
@@ -755,17 +756,17 @@ ngx_live_persist_setup_write_channel(ngx_live_persist_write_ctx_t *write_ctx,
     uint32_t                          *version;
     ngx_wstream_t                     *ws;
     ngx_live_channel_t                *channel = obj;
-    ngx_live_persist_setup_channel_t   c;
+    ngx_live_persist_setup_channel_t   cp;
 
     ws = ngx_live_persist_write_stream(write_ctx);
-    version = ngx_live_persist_write_scope(write_ctx);
+    version = ngx_live_persist_write_ctx(write_ctx);
 
-    c.version = *version;
-    c.reserved = 0;
-    c.start_sec = channel->start_sec;
+    cp.version = *version;
+    cp.reserved = 0;
+    cp.start_sec = channel->start_sec;
 
     if (ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &c, sizeof(c)) != NGX_OK ||
+        ngx_live_persist_write(write_ctx, &cp, sizeof(cp)) != NGX_OK ||
         ngx_block_str_write(ws, &channel->opaque) != NGX_OK ||
         ngx_live_persist_write_blocks(channel, write_ctx,
             NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, channel) != NGX_OK)
@@ -787,25 +788,25 @@ ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
     ngx_live_channel_t                *channel = obj;
     ngx_live_persist_main_conf_t      *pmcf;
     ngx_live_persist_channel_ctx_t    *cctx;
-    ngx_live_persist_setup_channel_t  *c;
+    ngx_live_persist_setup_channel_t  *cp;
 
     rc = ngx_live_persist_read_channel_id(channel, rs);
     if (rc != NGX_OK) {
         return rc;
     }
 
-    c = ngx_mem_rstream_get_ptr(rs, sizeof(*c));
-    if (c == NULL) {
+    cp = ngx_mem_rstream_get_ptr(rs, sizeof(*cp));
+    if (cp == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_channel: read failed");
         return NGX_BAD_DATA;
     }
 
-    channel->start_sec = c->start_sec;
+    channel->start_sec = cp->start_sec;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
 
-    cctx->setup.version = cctx->setup.success_version = c->version;
+    cctx->setup.version = cctx->setup.success_version = cp->version;
 
     rc = ngx_live_channel_block_str_read(channel, &channel->opaque, rs);
     if (rc != NGX_OK) {
@@ -840,7 +841,7 @@ ngx_live_persist_setup_write_track(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_wstream_t                   *ws;
     ngx_live_track_t                *cur_track;
     ngx_live_channel_t              *channel = obj;
-    ngx_live_persist_setup_track_t   t;
+    ngx_live_persist_setup_track_t   tp;
 
     ws = ngx_live_persist_write_stream(write_ctx);
 
@@ -855,16 +856,16 @@ ngx_live_persist_setup_write_track(ngx_live_persist_write_ctx_t *write_ctx,
             continue;
         }
 
-        t.track_id = cur_track->in.key;
-        t.media_type = cur_track->media_type;
-        t.type = cur_track->type;
-        t.reserved = 0;
-        t.start_sec = cur_track->start_sec;
+        tp.track_id = cur_track->in.key;
+        tp.media_type = cur_track->media_type;
+        tp.type = cur_track->type;
+        tp.reserved = 0;
+        tp.start_sec = cur_track->start_sec;
 
         if (ngx_live_persist_write_block_open(write_ctx,
                 NGX_LIVE_PERSIST_BLOCK_TRACK) != NGX_OK ||
             ngx_wstream_str(ws, &cur_track->sn.str) != NGX_OK ||
-            ngx_live_persist_write(write_ctx, &t, sizeof(t)) != NGX_OK ||
+            ngx_live_persist_write(write_ctx, &tp, sizeof(tp)) != NGX_OK ||
             ngx_block_str_write(ws, &cur_track->opaque) != NGX_OK ||
             ngx_live_persist_write_blocks(channel, write_ctx,
                 NGX_LIVE_PERSIST_CTX_SETUP_TRACK, cur_track) != NGX_OK)
@@ -890,7 +891,7 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
     ngx_live_track_t                *track;
     ngx_live_channel_t              *channel = obj;
     ngx_live_persist_main_conf_t    *pmcf;
-    ngx_live_persist_setup_track_t  *t;
+    ngx_live_persist_setup_track_t  *tp;
 
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
@@ -898,15 +899,15 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    t = ngx_mem_rstream_get_ptr(rs, sizeof(*t));
-    if (t == NULL) {
+    tp = ngx_mem_rstream_get_ptr(rs, sizeof(*tp));
+    if (tp == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_track: "
             "read data failed, track: %V", &id);
         return NGX_BAD_DATA;
     }
 
-    rc = ngx_live_track_create(channel, &id, t->track_id, t->media_type,
+    rc = ngx_live_track_create(channel, &id, tp->track_id, tp->media_type,
         rs->log, &track);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -919,7 +920,7 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
         return NGX_ERROR;
     }
 
-    track->start_sec = t->start_sec;
+    track->start_sec = tp->start_sec;
 
     rc = ngx_live_channel_block_str_read(channel, &track->opaque, rs);
     if (rc != NGX_OK) {
@@ -1143,7 +1144,7 @@ ngx_live_persist_setup_write_handler(ngx_event_t *ev)
     version = cctx->setup.version;
 
     cctx->setup.write_ctx = ngx_live_persist_write_file(channel,
-        NGX_LIVE_PERSIST_FILE_SETUP, &version, sizeof(version));
+        NGX_LIVE_PERSIST_FILE_SETUP, &version, &version, sizeof(version));
     if (cctx->setup.write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_setup_write_handler: "
@@ -1212,6 +1213,185 @@ ngx_live_persist_setup_read_handler(ngx_live_channel_t *channel,
 }
 
 
+/* index snapshot */
+
+static ngx_int_t
+ngx_live_persist_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
+{
+    ngx_queue_t                       *q;
+    ngx_live_track_t                  *cur_track;
+    ngx_live_persist_index_snap_t     *snap = ectx;
+    ngx_live_persist_index_track_t    *tp;
+    ngx_live_persist_index_channel_t  *cp;
+
+    cp = ngx_palloc(snap->pool, sizeof(*cp) +
+        sizeof(*tp) * (channel->tracks.count + 1));
+    if (cp == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_channel_index_snap: alloc failed");
+        return NGX_ERROR;
+    }
+
+    tp = (void *) (cp + 1);
+
+    ngx_live_set_ctx(snap, cp, ngx_live_persist_module);
+
+    cp->reserved = 0;
+    cp->last_modified = channel->last_modified;
+    cp->last_segment_media_types = channel->last_segment_media_types;
+
+    /* when called from segment_created, this field wasn't updated yet */
+    cp->last_segment_created = ngx_time();
+
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
+        q = ngx_queue_next(q))
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+
+        tp->track_id = cur_track->in.key;
+        tp->has_last_segment = cur_track->has_last_segment;
+        tp->last_segment_bitrate = cur_track->last_segment_bitrate;
+        tp++;
+    }
+
+    tp->track_id = NGX_LIVE_INVALID_TRACK_ID;
+
+    return NGX_OK;
+}
+
+ngx_live_persist_index_snap_t *
+ngx_live_persist_index_snap_create(ngx_live_channel_t *channel)
+{
+    ngx_pool_t                      *pool;
+    ngx_live_persist_index_snap_t   *snap;
+    ngx_live_persist_preset_conf_t  *ppcf;
+
+    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
+    if (ppcf->files[NGX_LIVE_PERSIST_FILE_INDEX].path == NULL) {
+        return NULL;
+    }
+
+    pool = ngx_create_pool(1024, &channel->log);
+    if (pool == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_index_snap_create: create pool failed");
+        return NULL;
+    }
+
+    snap = ngx_palloc(pool, sizeof(*snap));
+    if (snap == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_index_snap_create: alloc snap failed");
+        goto failed;
+    }
+
+    snap->ctx = ngx_pcalloc(pool, sizeof(void *) * ngx_live_max_module);
+    if (snap->ctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_index_snap_create: alloc ctx failed");
+        goto failed;
+    }
+
+    snap->channel = channel;
+    snap->pool = pool;
+
+    snap->max_track_id = channel->tracks.last_id;
+    snap->scope.max_index = channel->next_segment_index;
+
+    if (ngx_live_core_channel_event(channel, NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP,
+        snap) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_index_snap_create: event failed");
+        goto failed;
+    }
+
+    return snap;
+
+failed:
+
+    ngx_destroy_pool(pool);
+
+    return NULL;
+}
+
+void
+ngx_live_persist_index_snap_free(ngx_live_persist_index_snap_t *snap)
+{
+    ngx_destroy_pool(snap->pool);
+}
+
+ngx_int_t
+ngx_live_persist_index_snap_write(ngx_live_persist_index_snap_t *snap)
+{
+    ngx_int_t                        rc;
+    ngx_uint_t                       file;
+    ngx_live_channel_t              *channel = snap->channel;
+    ngx_live_persist_preset_conf_t  *ppcf;
+    ngx_live_persist_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
+
+    if (cctx->index.write_ctx != NULL) {
+        ngx_log_debug0(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
+            "ngx_live_persist_index_snap_write: write already active");
+
+        if (cctx->index.pending != NULL) {
+            ngx_live_persist_index_snap_free(cctx->index.pending);
+        }
+        cctx->index.pending = snap;
+        return NGX_OK;
+    }
+
+    if (snap->scope.max_index < channel->min_segment_index) {
+        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+            "ngx_live_persist_index_snap_write: no segments");
+        rc = NGX_OK;
+        goto done;
+    }
+
+    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
+
+    if (ppcf->files[NGX_LIVE_PERSIST_FILE_DELTA].path != NULL &&
+        snap->scope.max_index - channel->min_segment_index + 1 >
+            ppcf->max_delta_segments &&
+        snap->scope.max_index - cctx->index.success_index <=
+            ppcf->max_delta_segments)
+    {
+        file = NGX_LIVE_PERSIST_FILE_DELTA;
+        snap->scope.min_index = cctx->index.success_index + 1;
+
+    } else {
+        file = NGX_LIVE_PERSIST_FILE_INDEX;
+        snap->scope.min_index = channel->min_segment_index;
+    }
+
+    cctx->index.write_ctx = ngx_live_persist_write_file(channel, file,
+        snap, &snap->scope, sizeof(snap->scope));
+    if (cctx->index.write_ctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_index_snap_write: "
+            "write failed, file: %ui, scope: %uD..%uD",
+            file, snap->scope.min_index, snap->scope.max_index);
+        rc = NGX_ERROR;
+        goto done;
+    }
+
+    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+        "ngx_live_persist_index_snap_write: "
+        "write started, file: %ui, scope: %uD..%uD",
+        file, snap->scope.min_index, snap->scope.max_index);
+    rc = NGX_OK;
+
+done:
+
+    ngx_live_persist_index_snap_free(snap);
+
+    return rc;
+}
+
+
 /* index */
 
 static ngx_int_t
@@ -1220,22 +1400,18 @@ ngx_live_persist_index_write_channel(ngx_live_persist_write_ctx_t *write_ctx,
 {
     ngx_wstream_t                     *ws;
     ngx_live_channel_t                *channel = obj;
-    ngx_live_persist_index_scope_t    *scope;
-    ngx_live_persist_index_channel_t   c;
+    ngx_live_persist_index_snap_t     *snap;
+    ngx_live_persist_index_channel_t  *cp;
 
     ws = ngx_live_persist_write_stream(write_ctx);
-    scope = ngx_live_persist_write_scope(write_ctx);
+    snap = ngx_live_persist_write_ctx(write_ctx);
 
-    c.last_modified = channel->last_modified;
-    c.last_segment_media_types = channel->last_segment_media_types;
-
-    /* when called from segment_created, these fields were not updated yet */
-    c.next_segment_index = channel->next_segment_index + 1;
-    c.last_segment_created = ngx_time();
+    cp = ngx_live_get_module_ctx(snap, ngx_live_persist_module);
 
     if (ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, scope, sizeof(*scope)) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &c, sizeof(c)) != NGX_OK ||
+        ngx_live_persist_write(write_ctx, &snap->scope,
+            sizeof(snap->scope)) != NGX_OK ||
+        ngx_live_persist_write(write_ctx, cp, sizeof(*cp)) != NGX_OK ||
         ngx_live_persist_write_blocks(channel, write_ctx,
             NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL, channel) != NGX_OK)
     {
@@ -1257,14 +1433,14 @@ ngx_live_persist_index_read_channel(ngx_live_persist_block_header_t *header,
     ngx_live_persist_main_conf_t      *pmcf;
     ngx_live_persist_index_scope_t    *fs;
     ngx_live_persist_index_scope_t    *scope;
-    ngx_live_persist_index_channel_t  *c;
+    ngx_live_persist_index_channel_t  *cp;
 
     rc = ngx_live_persist_read_channel_id(channel, rs);
     if (rc != NGX_OK) {
         return rc;
     }
 
-    fs = ngx_mem_rstream_get_ptr(rs, sizeof(*fs) + sizeof(*c));
+    fs = ngx_mem_rstream_get_ptr(rs, sizeof(*fs) + sizeof(*cp));
     if (fs == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_index_read_channel: "
@@ -1284,7 +1460,7 @@ ngx_live_persist_index_read_channel(ngx_live_persist_block_header_t *header,
     scope = ngx_mem_rstream_scope(rs);
 
     if (scope->min_index != 0 && fs->min_index != scope->min_index) {
-        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+        ngx_log_error(NGX_LOG_WARN, rs->log, 0,
             "ngx_live_persist_index_read_channel: "
             "file delta index %uD doesn't match expected %uD",
             fs->min_index, scope->min_index);
@@ -1293,12 +1469,13 @@ ngx_live_persist_index_read_channel(ngx_live_persist_block_header_t *header,
 
     *scope = *fs;
 
-    c = (void *) (fs + 1);
+    cp = (void *) (fs + 1);
 
-    channel->last_modified = c->last_modified;
-    channel->next_segment_index = c->next_segment_index;
-    channel->last_segment_media_types = c->last_segment_media_types;
-    channel->last_segment_created = c->last_segment_created;
+    channel->last_modified = cp->last_modified;
+    channel->last_segment_media_types = cp->last_segment_media_types;
+    channel->last_segment_created = cp->last_segment_created;
+
+    channel->next_segment_index = fs->max_index + 1;
 
     if (ngx_live_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
@@ -1322,10 +1499,17 @@ static ngx_int_t
 ngx_live_persist_index_write_track(ngx_live_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    ngx_queue_t                     *q;
-    ngx_live_track_t                *cur_track;
-    ngx_live_channel_t              *channel = obj;
-    ngx_live_persist_index_track_t   t;
+    ngx_queue_t                       *q;
+    ngx_live_track_t                  *cur_track;
+    ngx_live_channel_t                *channel = obj;
+    ngx_live_persist_index_snap_t     *snap;
+    ngx_live_persist_index_track_t    *tp;
+    ngx_live_persist_index_channel_t  *cp;
+
+    snap = ngx_live_persist_write_ctx(write_ctx);
+
+    cp = ngx_live_get_module_ctx(snap, ngx_live_persist_module);
+    tp = (void *) (cp + 1);
 
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
@@ -1338,13 +1522,22 @@ ngx_live_persist_index_write_track(ngx_live_persist_write_ctx_t *write_ctx,
             continue;
         }
 
-        t.track_id = cur_track->in.key;
-        t.has_last_segment = cur_track->has_last_segment;
-        t.last_segment_bitrate = cur_track->last_segment_bitrate;
+        if (cur_track->in.key > snap->max_track_id) {
+            continue;
+        }
+
+        for (; tp->track_id != cur_track->in.key; tp++) {
+            if (tp->track_id == NGX_LIVE_INVALID_TRACK_ID) {
+                ngx_log_error(NGX_LOG_ALERT, &cur_track->log, 0,
+                    "ngx_live_persist_index_write_track: "
+                    "track %ui not found in snapshot", cur_track->in.key);
+                return NGX_OK;
+            }
+        }
 
         if (ngx_live_persist_write_block_open(write_ctx,
                 NGX_LIVE_PERSIST_BLOCK_TRACK) != NGX_OK ||
-            ngx_live_persist_write(write_ctx, &t, sizeof(t)) != NGX_OK ||
+            ngx_live_persist_write(write_ctx, tp, sizeof(*tp)) != NGX_OK ||
             ngx_live_persist_write_blocks(channel, write_ctx,
                 NGX_LIVE_PERSIST_CTX_INDEX_TRACK, cur_track) != NGX_OK)
         {
@@ -1354,6 +1547,8 @@ ngx_live_persist_index_write_track(ngx_live_persist_write_ctx_t *write_ctx,
         }
 
         ngx_live_persist_write_block_close(write_ctx);
+
+        tp++;
     }
 
     return NGX_OK;
@@ -1368,25 +1563,25 @@ ngx_live_persist_index_read_track(ngx_live_persist_block_header_t *header,
     ngx_live_track_t                *track;
     ngx_live_channel_t              *channel = obj;
     ngx_live_persist_main_conf_t    *pmcf;
-    ngx_live_persist_index_track_t  *t;
+    ngx_live_persist_index_track_t  *tp;
 
-    t = ngx_mem_rstream_get_ptr(rs, sizeof(*t));
-    if (t == NULL) {
+    tp = ngx_mem_rstream_get_ptr(rs, sizeof(*tp));
+    if (tp == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_index_read_track: read failed");
         return NGX_BAD_DATA;
     }
 
-    track = ngx_live_track_get_by_int(channel, t->track_id);
+    track = ngx_live_track_get_by_int(channel, tp->track_id);
     if (track == NULL) {
         ngx_log_error(NGX_LOG_WARN, rs->log, 0,
             "ngx_live_persist_index_read_track: "
-            "track index %uD not found", t->track_id);
+            "track index %uD not found", tp->track_id);
         return NGX_OK;
     }
 
-    track->has_last_segment = t->has_last_segment;
-    track->last_segment_bitrate = t->last_segment_bitrate;
+    track->has_last_segment = tp->has_last_segment;
+    track->last_segment_bitrate = tp->last_segment_bitrate;
 
     if (ngx_live_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
@@ -1406,71 +1601,11 @@ ngx_live_persist_index_read_track(ngx_live_persist_block_header_t *header,
     return NGX_OK;
 }
 
-static ngx_int_t
-ngx_live_persist_index_write(ngx_live_channel_t *channel)
-{
-    ngx_uint_t                       file;
-    ngx_live_persist_preset_conf_t  *ppcf;
-    ngx_live_persist_channel_ctx_t  *cctx;
-    ngx_live_persist_index_scope_t   scope;
-
-    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
-    if (ppcf->files[NGX_LIVE_PERSIST_FILE_INDEX].path == NULL) {
-        return NGX_OK;
-    }
-
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
-
-    if (cctx->index.write_ctx != NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
-            "ngx_live_persist_index_write: write already active");
-        return NGX_OK;
-    }
-
-    if (channel->next_segment_index < channel->min_segment_index) {
-        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-            "ngx_live_persist_index_write: no segments");
-        return NGX_OK;
-    }
-
-    if (ppcf->files[NGX_LIVE_PERSIST_FILE_DELTA].path != NULL &&
-        channel->next_segment_index - channel->min_segment_index + 1 >
-            ppcf->max_delta_segments &&
-        channel->next_segment_index - cctx->index.success_index <=
-            ppcf->max_delta_segments)
-    {
-        file = NGX_LIVE_PERSIST_FILE_DELTA;
-        scope.min_index = cctx->index.success_index + 1;
-
-    } else {
-        file = NGX_LIVE_PERSIST_FILE_INDEX;
-        scope.min_index = channel->min_segment_index;
-    }
-
-    scope.max_index = channel->next_segment_index;
-
-    cctx->index.write_ctx = ngx_live_persist_write_file(channel, file,
-        &scope, sizeof(scope));
-    if (cctx->index.write_ctx == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_index_write: "
-            "write failed, file: %ui, scope: %uD..%uD",
-            file, scope.min_index, scope.max_index);
-        return NGX_ERROR;
-    }
-
-    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_persist_index_write: "
-        "write started, file: %ui, scope: %uD..%uD",
-        file, scope.min_index, scope.max_index);
-
-    return NGX_OK;
-}
-
 static void
 ngx_live_persist_index_write_complete(ngx_live_channel_t *channel,
     ngx_uint_t file, void *data, ngx_int_t rc)
 {
+    ngx_live_persist_index_snap_t   *snap;
     ngx_live_persist_channel_ctx_t  *cctx;
     ngx_live_persist_index_scope_t  *scope = data;
 
@@ -1498,18 +1633,12 @@ ngx_live_persist_index_write_complete(ngx_live_channel_t *channel,
         }
     }
 
-    if (channel->next_segment_index > scope->max_index + 1) {
-        (void) ngx_live_persist_index_write(channel);
+    if (cctx->index.pending != NULL) {
+        snap = cctx->index.pending;
+        cctx->index.pending = NULL;
+
+        (void) ngx_live_persist_index_snap_write(snap);
     }
-}
-
-static ngx_int_t
-ngx_live_persist_channel_segment_created(ngx_live_channel_t *channel,
-    void *ectx)
-{
-    (void) ngx_live_persist_index_write(channel);
-
-    return NGX_OK;
 }
 
 static ngx_int_t
@@ -1648,6 +1777,10 @@ ngx_live_persist_channel_free(ngx_live_channel_t *channel, void *ectx)
             ctx->file, scope->min_index, scope->max_index);
 
         ngx_destroy_pool(ctx->pool);
+    }
+
+    if (cctx->index.pending != NULL) {
+        ngx_live_persist_index_snap_free(cctx->index.pending);
     }
 
     if (cctx->setup.timer.timer_set) {
@@ -1871,8 +2004,30 @@ ngx_live_persist_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
             conf->files[i].path = prev->files[i].path;
         }
 
+        if (conf->files[i].path != NULL && conf->store == NULL) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                "persist_xxx_path was used but no store was set");
+            return NGX_CONF_ERROR;
+        }
+
         ngx_conf_merge_size_value(conf->files[i].max_size,
                                   prev->files[i].max_size, 5 * 1024 * 1024);
+    }
+
+    if (conf->files[NGX_LIVE_PERSIST_FILE_INDEX].path != NULL &&
+        conf->files[NGX_LIVE_PERSIST_FILE_SETUP].path == NULL)
+    {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "\"persist_index_path\" requires \"persist_setup_path\"");
+        return NGX_CONF_ERROR;
+    }
+
+    if (conf->files[NGX_LIVE_PERSIST_FILE_DELTA].path != NULL &&
+        conf->files[NGX_LIVE_PERSIST_FILE_INDEX].path == NULL)
+    {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "\"persist_delta_path\" requires \"persist_index_path\"");
+        return NGX_CONF_ERROR;
     }
 
     ngx_conf_merge_msec_value(conf->setup_timeout,
@@ -1890,8 +2045,8 @@ static ngx_live_channel_event_t  ngx_live_persist_channel_events[] = {
     { ngx_live_persist_channel_free, NGX_LIVE_EVENT_CHANNEL_FREE },
     { ngx_live_persist_channel_setup_changed,
         NGX_LIVE_EVENT_CHANNEL_SETUP_CHANGED },
-    { ngx_live_persist_channel_segment_created,
-        NGX_LIVE_EVENT_CHANNEL_SEGMENT_CREATED},
+    { ngx_live_persist_channel_index_snap, NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP },
+
       ngx_live_null_event
 };
 

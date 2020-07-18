@@ -291,15 +291,15 @@ static ngx_int_t
 ngx_live_segment_list_write_node_part(ngx_live_segment_iter_t *iter,
     uint32_t segment_index, ngx_live_persist_write_ctx_t *write_ctx)
 {
-    uint32_t                         max_index;
-    uint32_t                         next_index;
-    ngx_live_segment_repeat_t        elt;
-    ngx_live_segment_repeat_t       *cur, *last;
-    ngx_live_persist_index_scope_t  *scope;
+    uint32_t                        max_index;
+    uint32_t                        next_index;
+    ngx_live_segment_repeat_t       elt;
+    ngx_live_segment_repeat_t      *cur, *last;
+    ngx_live_persist_index_snap_t  *snap;
 
-    scope = ngx_live_persist_write_scope(write_ctx);
+    snap = ngx_live_persist_write_ctx(write_ctx);
 
-    max_index = scope->max_index + 1;
+    max_index = snap->scope.max_index + 1;
 
     cur = iter->elt;
     last = iter->node->elts + iter->node->nelts;
@@ -341,16 +341,16 @@ ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
     ngx_queue_t                     *q;
     ngx_live_segment_iter_t          iter;
     ngx_live_segment_list_node_t    *node;
-    ngx_live_persist_index_scope_t  *scope;
+    ngx_live_persist_index_snap_t   *snap;
     ngx_live_segment_list_period_t   period;
 
-    scope = ngx_live_persist_write_scope(write_ctx);
+    snap = ngx_live_persist_write_ctx(write_ctx);
 
     period.padding = 0;
 
-    if (scope->min_index > 0) {
+    if (snap->scope.min_index > 0) {
 
-        period.segment_index = scope->min_index;
+        period.segment_index = snap->scope.min_index;
 
         if (ngx_live_segment_iter_init(segment_list, &iter,
             period.segment_index, 0, &period.time) != NGX_OK)
@@ -362,7 +362,7 @@ ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
         if (period.segment_index < iter.node->node.key) {
 
             period.segment_index = iter.node->node.key;
-            if (period.segment_index > scope->max_index) {
+            if (period.segment_index > snap->scope.max_index) {
                 return NGX_OK;
             }
         }
@@ -404,7 +404,7 @@ ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
     {
         node = ngx_queue_data(q, ngx_live_segment_list_node_t, queue);
 
-        if (node->node.key > scope->max_index) {
+        if (node->node.key > snap->scope.max_index) {
             break;
         }
 
@@ -436,7 +436,7 @@ ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
             period_index = node->period_index;
         }
 
-        if (node->last_segment_index > scope->max_index) {
+        if (node->last_segment_index > snap->scope.max_index) {
 
             iter.node = node;
             iter.elt = node->elts;

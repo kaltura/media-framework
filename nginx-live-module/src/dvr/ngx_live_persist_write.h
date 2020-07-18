@@ -9,11 +9,11 @@
 #include "../ngx_wstream.h"
 
 
-#define ngx_live_persist_write_stream(ctx)                                  \
-    (&((ngx_live_persist_write_base_t *) (ctx))->ws)
+#define ngx_live_persist_write_stream(c)                                    \
+    (&((ngx_live_persist_write_base_t *) (c))->ws)
 
-#define ngx_live_persist_write_scope(ctx)                                   \
-    (((ngx_live_persist_write_base_t *) (ctx))->scope)
+#define ngx_live_persist_write_ctx(c)                                       \
+    (((ngx_live_persist_write_base_t *) (c))->ctx)
 
 
 typedef struct ngx_live_persist_write_ctx_s  ngx_live_persist_write_ctx_t;
@@ -21,12 +21,12 @@ typedef struct ngx_live_persist_write_ctx_s  ngx_live_persist_write_ctx_t;
 
 typedef struct {
     ngx_wstream_t   ws;
-    void           *scope;
+    void           *ctx;
 } ngx_live_persist_write_base_t;
 
 
 ngx_live_persist_write_ctx_t *ngx_live_persist_write_init(ngx_pool_t *pool,
-    uint32_t type, void *scope);
+    uint32_t type);
 
 ngx_chain_t *ngx_live_persist_write_close(ngx_live_persist_write_ctx_t *ctx,
     size_t *size);

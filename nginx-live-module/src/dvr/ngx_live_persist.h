@@ -51,6 +51,15 @@ typedef struct {
 } ngx_live_persist_index_scope_t;
 
 
+typedef struct {
+    ngx_live_channel_t               *channel;
+    ngx_pool_t                       *pool;
+    void                            **ctx;
+    ngx_live_persist_index_scope_t    scope;
+    uint32_t                          max_track_id;
+} ngx_live_persist_index_snap_t;
+
+
 typedef void (*ngx_live_persist_read_handler_pt)(void *arg, ngx_int_t rc);
 
 
@@ -69,5 +78,14 @@ ngx_int_t ngx_ngx_live_persist_add_blocks(ngx_conf_t *cf,
 ngx_int_t ngx_live_persist_read(ngx_live_channel_t *channel,
     ngx_pool_t *handler_pool, ngx_live_persist_read_handler_pt handler,
     void *data);
+
+
+ngx_live_persist_index_snap_t *ngx_live_persist_index_snap_create(
+    ngx_live_channel_t *channel);
+
+void ngx_live_persist_index_snap_free(ngx_live_persist_index_snap_t *snap);
+
+ngx_int_t ngx_live_persist_index_snap_write(
+    ngx_live_persist_index_snap_t *snap);
 
 #endif /* _NGX_LIVE_PERSIST_H_INCLUDED_ */

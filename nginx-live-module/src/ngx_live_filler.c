@@ -1392,15 +1392,15 @@ ngx_live_filler_write_setup_segment(ngx_live_persist_write_ctx_t *write_ctx,
 {
     media_info_t                       *media_info;
     kmp_media_info_t                   *kmp_media_info;
-    ngx_live_persist_segment_header_t   s;
+    ngx_live_persist_segment_header_t   sp;
 
-    s.frame_count = segment->frame_count;
-    s.start_dts = timeline_pts - segment->pts_delay;
-    s.reserved = 0;
+    sp.frame_count = segment->frame_count;
+    sp.start_dts = timeline_pts - segment->pts_delay;
+    sp.reserved = 0;
 
     if (ngx_live_persist_write_block_open(write_ctx,
             NGX_LIVE_PERSIST_BLOCK_SEGMENT) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &s, sizeof(s)) != NGX_OK)
+        ngx_live_persist_write(write_ctx, &sp, sizeof(sp)) != NGX_OK)
     {
         return NGX_ERROR;
     }
@@ -1573,7 +1573,7 @@ ngx_live_filler_get_frames_info(ngx_live_segment_t *segment, size_t *size,
 static ngx_int_t
 ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, ngx_live_segment_t *segment,
-    ngx_live_persist_segment_header_t *s)
+    ngx_live_persist_segment_header_t *sp)
 {
     u_char            *ptr;
     ngx_int_t          rc;
@@ -1629,7 +1629,7 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
         }
 
 
-        rc = ngx_mem_rstream_read_list(rs, &segment->frames, s->frame_count);
+        rc = ngx_mem_rstream_read_list(rs, &segment->frames, sp->frame_count);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
                 "ngx_live_filler_read_segment_block: read frame list failed");
@@ -1686,21 +1686,21 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
     ngx_flag_t                          ignore;
     ngx_mem_rstream_t                   block_rs;
     ngx_live_segment_t                 *segment;
-    ngx_live_persist_segment_header_t  *s;
+    ngx_live_persist_segment_header_t  *sp;
 
-    s = ngx_mem_rstream_get_ptr(rs, sizeof(*s));
-    if (s == NULL) {
+    sp = ngx_mem_rstream_get_ptr(rs, sizeof(*sp));
+    if (sp == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_filler_read_segment: read header failed");
         return NGX_BAD_DATA;
     }
 
-    if (s->frame_count <= 0 ||
-        s->frame_count > NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT)
+    if (sp->frame_count <= 0 ||
+        sp->frame_count > NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT)
     {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_filler_read_segment: invalid frame count %uD",
-            s->frame_count);
+            sp->frame_count);
         return NGX_BAD_DATA;
     }
 
@@ -1725,7 +1725,7 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
             return NGX_BAD_DATA;
         }
 
-        rc = ngx_live_filler_read_segment_block(block, &block_rs, segment, s);
+        rc = ngx_live_filler_read_segment_block(block, &block_rs, segment, sp);
         if (rc != NGX_OK) {
             return rc;
         }
@@ -1763,8 +1763,8 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
         return NGX_BAD_DATA;
     }
 
-    segment->frame_count = s->frame_count;
-    segment->start_dts = s->start_dts;
+    segment->frame_count = sp->frame_count;
+    segment->start_dts = sp->start_dts;
     segment->end_dts = segment->start_dts + duration;
 
     ngx_live_segment_cache_finalize(segment);
