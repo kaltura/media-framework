@@ -1,12 +1,10 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['live', 'store_s3_block dummy_bucket'])
-    url = getConfParam(block, 'url')
-    url[1] = 'http://127.0.0.1:8002'
+    block = getConfBlock(conf, ['http', 'server'])
+    block.append([['location', '/dvr/channel/test/bucket/'], [['proxy_pass', 'http://127.0.0.1:8002']]])
 
     block = getConfBlock(conf, ['live'])
-    delConfParam(block, 'persist_setup_path')
 
     block.append(['mem_limit', '16m'])
     block.append(['store_http_write_resp_timeout', '1000000'])

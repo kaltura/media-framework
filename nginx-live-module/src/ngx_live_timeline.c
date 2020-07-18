@@ -5,6 +5,8 @@
 #include "ngx_live_timeline.h"
 
 
+#define NGX_LIVE_INVALID_TIMELINE_ID  (0)
+
 #define NGX_LIVE_TIMELINE_PERSIST_BLOCK               (0x6e6c6d74)  /* tmln */
 #define NGX_LIVE_TIMELINE_PERSIST_BLOCK_PERIODS       (0x64706c74)  /* tlpd */
 #define NGX_LIVE_TIMELINE_PERSIST_BLOCK_CHANNEL       (0x68636c74)  /* tlch */
@@ -29,9 +31,23 @@ typedef struct {
     ngx_rbtree_node_t         sentinel;
     ngx_queue_t               queue;        /* ngx_live_timeline_t */
     ngx_event_t               cleanup;
+    uint32_t                  count;
+    uint32_t                  last_id;
     int64_t                   last_segment_middle;
     uint32_t                  truncate;
 } ngx_live_timeline_channel_ctx_t;
+
+
+typedef struct {
+    uint32_t                  id;
+    int64_t                   last_segment_created;
+
+    /* manifest */
+    uint32_t                  target_duration;
+    uint32_t                  sequence;
+    int64_t                   last_modified;
+    uint32_t                  last_durations[NGX_LIVE_TIMELINE_LAST_DURATIONS];
+} ngx_live_timeline_snap_t;
 
 
 typedef struct {
@@ -41,21 +57,29 @@ typedef struct {
 
 
 typedef struct {
+    int64_t                   availability_start_time;
+    uint32_t                  first_period_index;
+    uint32_t                  first_period_segment_index;
+    int64_t                   first_period_initial_time;
+    uint32_t                  first_period_initial_segment_index;
+
+    uint32_t                  sequence;
+    int64_t                   last_modified;
+    uint32_t                  target_duration;
+    uint32_t                  last_durations[NGX_LIVE_TIMELINE_LAST_DURATIONS];
+} ngx_live_timeline_persist_manifest_t;
+
+
+typedef struct {
     int64_t                   last_segment_created;
 } ngx_live_timeline_persist_t;
 
 
 typedef struct {
-    uint32_t                  first_period_index;
-    uint32_t                  first_period_segment_index;
-    int64_t                   first_period_initial_time;
-    uint32_t                  first_period_initial_segment_index;
-    uint32_t                  sequence;
-    int64_t                   availability_start_time;
-    int64_t                   last_modified;
-    uint32_t                  target_duration;
-    uint32_t                  last_durations[NGX_LIVE_TIMELINE_LAST_DURATIONS];
-} ngx_live_timeline_persist_manifest_t;
+    int64_t                   last_segment_middle;
+    uint32_t                  truncate;
+    uint32_t                  reserved;
+} ngx_live_timeline_persist_channel_t;
 
 
 static size_t ngx_live_timeline_last_periods_json_get_size(
@@ -522,6 +546,8 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
     timeline->sn.str.len = id->len;
     ngx_memcpy(timeline->sn.str.data, id->data, timeline->sn.str.len);
     timeline->sn.node.key = hash;
+    timeline->int_id = ++cctx->last_id;
+
     timeline->channel = channel;
 
     timeline->conf = *conf;
@@ -533,8 +559,8 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
         ngx_rbtree_insert_value);
 
     ngx_rbtree_insert(&cctx->rbtree, &timeline->sn.node);
-
     ngx_queue_insert_tail(&cctx->queue, &timeline->queue);
+    cctx->count++;
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
         "ngx_live_timeline_create: created %p, timeline: %V",
@@ -563,6 +589,8 @@ ngx_live_timeline_free(ngx_live_timeline_t *timeline)
 
     ngx_rbtree_delete(&cctx->rbtree, &timeline->sn.node);
     ngx_queue_remove(&timeline->queue);
+    cctx->count--;
+
     ngx_block_pool_free(cctx->block_pool, NGX_LIVE_BP_TIMELINE, timeline);
 
     if (!channel->active && !cctx->cleanup.timer_set) {
@@ -1172,15 +1200,9 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
     ngx_live_timeline_t              *timeline;
     ngx_live_timeline_channel_ctx_t  *cctx;
 
-    if (ngx_live_segment_index_create(channel) != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_timelines_add_segment: "
-            "failed to create segment index");
-        return NGX_ERROR;
-    }
-
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
+    /* add to segment list */
     segment_index = channel->next_segment_index;
 
     rc = ngx_live_segment_list_add(&cctx->segment_list, segment_index, time,
@@ -1277,6 +1299,14 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
     }
 
     ngx_live_timelines_free_old_segments(channel, min_segment_index);
+
+    /* create a segment index */
+    if (ngx_live_segment_index_create(channel) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_timelines_add_segment: "
+            "failed to create segment index");
+        return NGX_ERROR;
+    }
 
     /* notify the creation */
     rc = ngx_live_core_channel_event(channel,
@@ -1412,7 +1442,8 @@ ngx_live_timeline_channel_init(ngx_live_channel_t *channel, void *ectx)
 
     ngx_live_set_ctx(channel, cctx, ngx_live_timeline_module);
 
-    ngx_rbtree_init(&cctx->rbtree, &cctx->sentinel, ngx_str_rbtree_insert_value);
+    ngx_rbtree_init(&cctx->rbtree, &cctx->sentinel,
+        ngx_str_rbtree_insert_value);
     ngx_queue_init(&cctx->queue);
 
     cctx->cleanup.handler = ngx_live_timelines_cleanup_handler;
@@ -1544,21 +1575,6 @@ ngx_live_timeline_json_writer_write(u_char *p, void *obj)
 }
 
 
-static ngx_live_channel_event_t    ngx_live_timeline_channel_events[] = {
-    { ngx_live_timeline_channel_init,     NGX_LIVE_EVENT_CHANNEL_INIT },
-    { ngx_live_timeline_channel_free,     NGX_LIVE_EVENT_CHANNEL_FREE },
-    { ngx_live_timeline_channel_inactive, NGX_LIVE_EVENT_CHANNEL_INACTIVE },
-      ngx_live_null_event
-};
-
-static ngx_live_json_writer_def_t  ngx_live_timeline_json_writers[] = {
-    { { ngx_live_timeline_json_writer_get_size,
-        ngx_live_timeline_json_writer_write },
-      NGX_LIVE_JSON_CTX_CHANNEL },
-
-      ngx_live_null_json_writer
-};
-
 static ngx_int_t
 ngx_live_timeline_write_setup(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_timeline_t *timeline)
@@ -1655,25 +1671,75 @@ ngx_live_timeline_read_setup(ngx_live_persist_block_header_t *block,
 
 
 static ngx_int_t
+ngx_live_timeline_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
+{
+    ngx_queue_t                          *q;
+    ngx_live_timeline_t                  *timeline;
+    ngx_live_timeline_snap_t             *ts;
+    ngx_live_persist_index_snap_t        *snap = ectx;
+    ngx_live_timeline_channel_ctx_t      *cctx;
+    ngx_live_timeline_persist_channel_t  *cp;
+
+    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_timeline_module);
+
+    cp = ngx_palloc(snap->pool, sizeof(*cp) +
+        sizeof(*ts) * (cctx->count + 1));
+    if (cp == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_timeline_channel_index_snap: alloc failed");
+        return NGX_ERROR;
+    }
+
+    ts = (void *) (cp + 1);
+
+    ngx_live_set_ctx(snap, cp, ngx_live_timeline_module);
+
+    cp->truncate = cctx->truncate;
+    cp->last_segment_middle = cctx->last_segment_middle;
+    cp->reserved = 0;
+
+    for (q = ngx_queue_head(&cctx->queue);
+        q != ngx_queue_sentinel(&cctx->queue);
+        q = ngx_queue_next(q))
+    {
+        timeline = ngx_queue_data(q, ngx_live_timeline_t, queue);
+
+        ts->id = timeline->int_id;
+        ts->last_segment_created = timeline->last_segment_created;
+
+        ts->target_duration = timeline->manifest.target_duration;
+        ts->sequence = timeline->manifest.sequence;
+        ts->last_modified = timeline->manifest.last_modified;
+        ngx_memcpy(ts->last_durations, timeline->manifest.last_durations,
+            sizeof(ts->last_durations));
+        ts++;
+    }
+
+    ts->id = NGX_LIVE_INVALID_TIMELINE_ID;
+
+    return NGX_OK;
+}
+
+static ngx_int_t
 ngx_live_timeline_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_timeline_t *timeline)
 {
     uint32_t                             merge;
     uint32_t                             last_index;
     ngx_live_period_t                   *period;
-    ngx_live_persist_index_scope_t      *scope;
-    ngx_live_timeline_persist_period_t   p;
+    ngx_live_persist_index_snap_t       *snap;
+    ngx_live_timeline_persist_period_t   pp;
 
-    scope = ngx_live_persist_write_scope(write_ctx);
+    snap = ngx_live_persist_write_ctx(write_ctx);
 
-    if (scope->min_index > 0) {
+    if (snap->scope.min_index > 0) {
         period = ngx_live_timeline_get_period_by_index(timeline,
-            scope->min_index, 0);
+            snap->scope.min_index, 0);
         if (period == NULL) {
             return NGX_OK;
         }
 
-        merge = scope->min_index > period->node.key;
+        merge = snap->scope.min_index > period->node.key;
 
     } else {
         period = timeline->head_period;
@@ -1698,18 +1764,18 @@ ngx_live_timeline_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
     for (; period != NULL; period = period->next) {
 
         last_index = period->node.key + period->segment_count - 1;
-        if (last_index > scope->max_index) {
-            last_index = scope->max_index;
+        if (last_index > snap->scope.max_index) {
+            last_index = snap->scope.max_index;
         }
 
-        p.segment_index = ngx_max(period->node.key, scope->min_index);
-        if (p.segment_index > last_index) {
+        pp.segment_index = ngx_max(period->node.key, snap->scope.min_index);
+        if (pp.segment_index > last_index) {
             continue;
         }
 
-        p.segment_count = last_index - p.segment_index + 1;
+        pp.segment_count = last_index - pp.segment_index + 1;
 
-        if (ngx_live_persist_write(write_ctx, &p, sizeof(p)) != NGX_OK) {
+        if (ngx_live_persist_write(write_ctx, &pp, sizeof(pp)) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &timeline->channel->log, 0,
                 "ngx_live_timeline_write_periods: write failed");
             return NGX_ERROR;
@@ -1724,34 +1790,35 @@ ngx_live_timeline_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
 
 static ngx_int_t
 ngx_live_timeline_write_index(ngx_live_persist_write_ctx_t *write_ctx,
-    ngx_live_timeline_t *timeline)
+    ngx_live_timeline_t *timeline, ngx_live_timeline_snap_t *ts)
 {
     ngx_wstream_t                         *ws;
-    ngx_live_timeline_persist_t            t;
-    ngx_live_timeline_persist_manifest_t   m;
+    ngx_live_timeline_persist_t            tp;
+    ngx_live_timeline_persist_manifest_t   mp;
 
     ws = ngx_live_persist_write_stream(write_ctx);
 
-    m.first_period_segment_index = timeline->manifest.first_period.node.key;
-    m.first_period_initial_time =
+    mp.availability_start_time = timeline->manifest.availability_start_time;
+    mp.first_period_segment_index = timeline->manifest.first_period.node.key;
+    mp.first_period_initial_time =
         timeline->manifest.first_period_initial_time;
-    m.first_period_initial_segment_index =
+    mp.first_period_initial_segment_index =
         timeline->manifest.first_period_initial_segment_index;
-    m.first_period_index = timeline->manifest.first_period_index;
-    m.sequence = timeline->manifest.sequence;
-    m.availability_start_time = timeline->manifest.availability_start_time;
-    m.last_modified = timeline->manifest.last_modified;
-    m.target_duration = timeline->manifest.target_duration;
-    ngx_memcpy(m.last_durations, timeline->manifest.last_durations,
-        sizeof(m.last_durations));
+    mp.first_period_index = timeline->manifest.first_period_index;
 
-    t.last_segment_created = timeline->last_segment_created;
+    mp.target_duration = ts->target_duration;
+    mp.sequence = ts->sequence;
+    mp.last_modified = ts->last_modified;
+    ngx_memcpy(mp.last_durations, ts->last_durations,
+        sizeof(mp.last_durations));
+
+    tp.last_segment_created = ts->last_segment_created;
 
     if (ngx_live_persist_write_block_open(write_ctx,
             NGX_LIVE_TIMELINE_PERSIST_BLOCK) != NGX_OK ||
         ngx_wstream_str(ws, &timeline->sn.str) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &t, sizeof(t)) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &m, sizeof(m)) != NGX_OK ||
+        ngx_live_persist_write(write_ctx, &tp, sizeof(tp)) != NGX_OK ||
+        ngx_live_persist_write(write_ctx, &mp, sizeof(mp)) != NGX_OK ||
         ngx_live_timeline_write_periods(write_ctx, timeline) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &timeline->channel->log, 0,
@@ -1768,10 +1835,19 @@ static ngx_int_t
 ngx_live_timelines_write_index(ngx_live_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    ngx_queue_t                      *q;
-    ngx_live_channel_t               *channel = obj;
-    ngx_live_timeline_t              *timeline;
-    ngx_live_timeline_channel_ctx_t  *cctx;
+    ngx_queue_t                          *q;
+    ngx_live_channel_t                   *channel = obj;
+    ngx_live_timeline_t                  *timeline;
+    ngx_live_timeline_snap_t             *ts;
+    ngx_live_persist_index_snap_t        *snap;
+    ngx_live_timeline_channel_ctx_t      *cctx;
+    ngx_live_timeline_persist_channel_t  *cp;
+
+    snap = ngx_live_persist_write_ctx(write_ctx);
+
+    cp = ngx_live_get_module_ctx(snap, ngx_live_timeline_module);
+
+    ts = (void *) (cp + 1);
 
     cctx = ngx_live_track_get_module_ctx(channel, ngx_live_timeline_module);
 
@@ -1781,9 +1857,20 @@ ngx_live_timelines_write_index(ngx_live_persist_write_ctx_t *write_ctx,
     {
         timeline = ngx_queue_data(q, ngx_live_timeline_t, queue);
 
-        if (ngx_live_timeline_write_index(write_ctx, timeline) != NGX_OK) {
+        for (; ts->id != timeline->int_id; ts++) {
+            if (ts->id == NGX_LIVE_INVALID_TIMELINE_ID) {
+                ngx_log_error(NGX_LOG_WARN, &channel->log, 0,
+                    "ngx_live_timelines_write_index: "
+                    "timeline id %uD not found in snapshot", timeline->int_id);
+                return NGX_OK;
+            }
+        }
+
+        if (ngx_live_timeline_write_index(write_ctx, timeline, ts) != NGX_OK) {
             return NGX_ERROR;
         }
+
+        ts++;
     }
 
     return NGX_OK;
@@ -1791,7 +1878,7 @@ ngx_live_timelines_write_index(ngx_live_persist_write_ctx_t *write_ctx,
 
 static ngx_int_t
 ngx_live_timeline_read_alloc_period(ngx_live_timeline_t *timeline,
-    ngx_live_timeline_persist_period_t *p)
+    ngx_live_timeline_persist_period_t *pp)
 {
     ngx_int_t                         rc;
     ngx_live_period_t                *period;
@@ -1807,17 +1894,17 @@ ngx_live_timeline_read_alloc_period(ngx_live_timeline_t *timeline,
         return NGX_ERROR;
     }
 
-    period->node.key = p->segment_index;
-    period->segment_count = p->segment_count;
+    period->node.key = pp->segment_index;
+    period->segment_count = pp->segment_count;
     period->next = NULL;
 
     rc = ngx_live_segment_iter_init(&cctx->segment_list,
-        &period->segment_iter, p->segment_index, 1, &period->time);
+        &period->segment_iter, pp->segment_index, 1, &period->time);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
             "ngx_live_timeline_read_alloc_period: "
             "period start index %uD not found, timeline: %V",
-            p->segment_index, &timeline->sn.str);
+            pp->segment_index, &timeline->sn.str);
         return NGX_BAD_DATA;
     }
 
@@ -1981,7 +2068,7 @@ ngx_live_manifest_timeline_reset(ngx_live_manifest_timeline_t *timeline)
 
 static ngx_int_t
 ngx_live_manifest_timeline_read(ngx_live_timeline_t *timeline,
-    ngx_live_timeline_persist_manifest_t *m)
+    ngx_live_timeline_persist_manifest_t *mp)
 {
     ngx_live_period_t                *src;
     ngx_live_period_t                *dst;
@@ -1994,42 +2081,42 @@ ngx_live_manifest_timeline_read(ngx_live_timeline_t *timeline,
 
     /* init first period */
     src = ngx_live_timeline_get_period_by_index(timeline,
-        m->first_period_segment_index, 1);
+        mp->first_period_segment_index, 1);
     if (src == NULL) {
         ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
             "ngx_live_manifest_timeline_read: "
             "segment index %uD not found in any period",
-            m->first_period_segment_index);
+            mp->first_period_segment_index);
         return NGX_BAD_DATA;
     }
 
     dst = &manifest->first_period;
 
     if (ngx_live_segment_iter_init(&cctx->segment_list, &dst->segment_iter,
-        m->first_period_segment_index, 1, &dst->time) != NGX_OK)
+        mp->first_period_segment_index, 1, &dst->time) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
             "ngx_live_manifest_timeline_read: "
             "segment index %uD not found in segment list",
-            m->first_period_segment_index);
+            mp->first_period_segment_index);
         return NGX_ERROR;
     }
 
-    dst->node.key = m->first_period_segment_index;
+    dst->node.key = mp->first_period_segment_index;
     dst->duration = src->time + src->duration - dst->time;
     dst->segment_count = src->node.key + src->segment_count - dst->node.key;
     dst->next = src->next;
 
     /* init other members */
-    manifest->first_period_initial_time = m->first_period_initial_time;
+    manifest->first_period_initial_time = mp->first_period_initial_time;
     manifest->first_period_initial_segment_index =
-        m->first_period_initial_segment_index;
-    manifest->first_period_index = m->first_period_index;
-    manifest->sequence = m->sequence;
-    manifest->availability_start_time = m->availability_start_time;
-    manifest->last_modified = m->last_modified;
-    manifest->target_duration = m->target_duration;
-    ngx_memcpy(manifest->last_durations, m->last_durations,
+        mp->first_period_initial_segment_index;
+    manifest->first_period_index = mp->first_period_index;
+    manifest->sequence = mp->sequence;
+    manifest->availability_start_time = mp->availability_start_time;
+    manifest->last_modified = mp->last_modified;
+    manifest->target_duration = mp->target_duration;
+    ngx_memcpy(manifest->last_durations, mp->last_durations,
         sizeof(manifest->last_durations));
 
     /* reset counters */
@@ -2047,8 +2134,8 @@ ngx_live_timeline_read_index(ngx_live_persist_block_header_t *block,
     ngx_mem_rstream_t                      block_rs;
     ngx_live_channel_t                    *channel = obj;
     ngx_live_timeline_t                   *timeline;
-    ngx_live_timeline_persist_t           *t;
-    ngx_live_timeline_persist_manifest_t  *m;
+    ngx_live_timeline_persist_t           *tp;
+    ngx_live_timeline_persist_manifest_t  *mp;
 
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
@@ -2063,14 +2150,14 @@ ngx_live_timeline_read_index(ngx_live_persist_block_header_t *block,
         return NGX_OK;
     }
 
-    t = ngx_mem_rstream_get_ptr(rs, sizeof(*t) + sizeof(*m));
-    if (t == NULL) {
+    tp = ngx_mem_rstream_get_ptr(rs, sizeof(*tp) + sizeof(*mp));
+    if (tp == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_timeline_read_index: read failed, timeline: %V", &id);
         return NGX_BAD_DATA;
     }
 
-    m = (void *) (t + 1);
+    mp = (void *) (tp + 1);
 
     if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
         return NGX_BAD_DATA;
@@ -2096,9 +2183,9 @@ ngx_live_timeline_read_index(ngx_live_persist_block_header_t *block,
         }
     }
 
-    timeline->last_segment_created = t->last_segment_created;
+    timeline->last_segment_created = tp->last_segment_created;
 
-    rc = ngx_live_manifest_timeline_read(timeline, m);
+    rc = ngx_live_manifest_timeline_read(timeline, mp);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -2112,30 +2199,23 @@ static ngx_int_t
 ngx_live_timelines_channel_write_index(ngx_live_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    ngx_live_channel_t               *channel = obj;
-    ngx_live_timeline_channel_ctx_t  *cctx;
+    ngx_live_channel_t                   *channel = obj;
+    ngx_live_persist_index_snap_t        *snap;
+    ngx_live_timeline_persist_channel_t  *cp;
 
-    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_timeline_module);
+    snap = ngx_live_persist_write_ctx(write_ctx);
 
-    if (cctx->truncate <= 0) {
-        return NGX_OK;
-    }
+    cp = ngx_live_get_module_ctx(snap, ngx_live_timeline_module);
 
     /* Note: the full index file may contain segments that were truncated,
         need to save the truncate index in order to remove them when loading
         the delta */
 
-    if (ngx_live_persist_write_block_open(write_ctx,
-            NGX_LIVE_TIMELINE_PERSIST_BLOCK_CHANNEL) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &cctx->truncate,
-            sizeof(cctx->truncate)) != NGX_OK)
-    {
+    if (ngx_live_persist_write(write_ctx, cp, sizeof(*cp)) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_timelines_channel_write_index: write failed");
         return NGX_ERROR;
     }
-
-    ngx_live_persist_write_block_close(write_ctx);
 
     return NGX_OK;
 }
@@ -2144,18 +2224,21 @@ static ngx_int_t
 ngx_live_timelines_channel_read_index(ngx_live_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, void *obj)
 {
-    ngx_live_channel_t               *channel = obj;
-    ngx_live_timeline_channel_ctx_t  *cctx;
+    ngx_live_channel_t                   *channel = obj;
+    ngx_live_timeline_channel_ctx_t      *cctx;
+    ngx_live_timeline_persist_channel_t  *cp;
 
     cctx = ngx_live_track_get_module_ctx(channel, ngx_live_timeline_module);
 
-    if (ngx_mem_rstream_read(rs, &cctx->truncate, sizeof(cctx->truncate))
-        != NGX_OK)
-    {
+    cp = ngx_mem_rstream_get_ptr(rs, sizeof(*cp));
+    if (cp == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_timelines_channel_read_index: read failed");
         return NGX_BAD_DATA;
     }
+
+    cctx->truncate = cp->truncate;
+    cctx->last_segment_middle = cp->last_segment_middle;
 
     if (cctx->truncate > 0) {
         ngx_live_timelines_truncate(channel, cctx->truncate);
@@ -2203,7 +2286,7 @@ static ngx_live_persist_block_t  ngx_live_timeline_blocks[] = {
       ngx_live_timeline_read_index },
 
     { NGX_LIVE_TIMELINE_PERSIST_BLOCK_CHANNEL,
-      NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL, 0,
+      NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL, NGX_LIVE_PERSIST_FLAG_SINGLE,
       ngx_live_timelines_channel_write_index,
       ngx_live_timelines_channel_read_index },
 
@@ -2221,6 +2304,25 @@ ngx_live_timeline_preconfiguration(ngx_conf_t *cf)
 
     return NGX_OK;
 }
+
+
+static ngx_live_channel_event_t    ngx_live_timeline_channel_events[] = {
+    { ngx_live_timeline_channel_init,     NGX_LIVE_EVENT_CHANNEL_INIT },
+    { ngx_live_timeline_channel_free,     NGX_LIVE_EVENT_CHANNEL_FREE },
+    { ngx_live_timeline_channel_inactive, NGX_LIVE_EVENT_CHANNEL_INACTIVE },
+    { ngx_live_timeline_channel_index_snap,
+        NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP },
+
+      ngx_live_null_event
+};
+
+static ngx_live_json_writer_def_t  ngx_live_timeline_json_writers[] = {
+    { { ngx_live_timeline_json_writer_get_size,
+        ngx_live_timeline_json_writer_write },
+      NGX_LIVE_JSON_CTX_CHANNEL },
+
+      ngx_live_null_json_writer
+};
 
 static ngx_int_t
 ngx_live_timeline_postconfiguration(ngx_conf_t *cf)

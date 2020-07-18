@@ -38,6 +38,8 @@ typedef struct ngx_live_channel_s     ngx_live_channel_t;
 #define ngx_rbtree_data(n, type, node)                                      \
     (type *) ((u_char *) n - offsetof(type, node))
 
+#define ngx_queue_insert_before   ngx_queue_insert_tail
+
 
 #define ngx_live_get_module_ctx(ch, module)     (ch)->ctx[module.ctx_index]
 #define ngx_live_set_ctx(ch, c, module)         ch->ctx[module.ctx_index] = c;

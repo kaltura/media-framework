@@ -299,7 +299,7 @@ ngx_live_persist_write_marker_write(ngx_live_persist_write_marker_t *marker,
 
 
 ngx_live_persist_write_ctx_t *
-ngx_live_persist_write_init(ngx_pool_t *pool, uint32_t type, void *scope)
+ngx_live_persist_write_init(ngx_pool_t *pool, uint32_t type)
 {
     ngx_buf_t                       *b;
     ngx_live_persist_write_ctx_t    *ctx;
@@ -343,7 +343,6 @@ ngx_live_persist_write_init(ngx_pool_t *pool, uint32_t type, void *scope)
 
     ctx->base.ws.write = (ngx_wstream_write_pt) ngx_live_persist_write;
     ctx->base.ws.ctx = ctx;
-    ctx->base.scope = scope;
 
     return ctx;
 }

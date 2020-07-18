@@ -2,7 +2,8 @@ from test_base import *
 
 def updateConf(conf):
     block = getConfBlock(conf, ['live'])
-    delConfParam(block, 'persist_setup_path')
+    for key in ['persist_setup_path', 'persist_index_path', 'persist_delta_path']:
+        delConfParam(block, key)
 
     block = getConfBlock(conf, ['http', 'server', 'location /dvr/'])
     block.append([['limit_except', 'PUT'], [['deny', 'all']]])
