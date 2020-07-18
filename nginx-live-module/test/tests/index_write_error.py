@@ -3,7 +3,7 @@ from test_base import *
 def updateConf(conf):
     block = getConfBlock(conf, ['http', 'server'])
     block.append(
-        [['location', '/dvr/channel/test/index'],
+        [['location', '/store/channel/test/index'],
             [[['limit_except', 'GET'],
                 [['deny', 'all']]],
             ['lingering_timeout', '1']]])

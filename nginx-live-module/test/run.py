@@ -27,7 +27,7 @@ def downloadTestVideos():
 def cleanupNginx():
     os.system('killall -9 nginx 2> /dev/null')
     os.system('killall -9 memcheck-amd64- 2> /dev/null')    # valgrind
-    os.system('rm -rf /tmp/dvr/channel')
+    os.system('rm -rf /tmp/store/channel')
     for f in ['/var/log/nginx/error.log', '/var/log/nginx/access.log']:
         try:
             os.remove(f)

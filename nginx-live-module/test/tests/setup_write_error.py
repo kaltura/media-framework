@@ -1,7 +1,7 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['http', 'server', 'location /dvr/'])
+    block = getConfBlock(conf, ['http', 'server', 'location /store/'])
     block.append(['lingering_timeout', '1'])
     block.append(['return', '400'])
 
