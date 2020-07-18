@@ -243,7 +243,7 @@ ngx_live_input_bufs_get(ngx_live_track_t *track, ngx_buf_t *b)
     ngx_live_input_bufs_t            *input_bufs;
     ngx_live_input_bufs_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_input_bufs_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_input_bufs_module);
 
     input_bufs = ctx->input_bufs;
 
@@ -325,7 +325,7 @@ ngx_live_input_bufs_lock(ngx_live_track_t *track, uint32_t segment_index,
     ngx_live_input_bufs_lock_t       *cur;
     ngx_live_input_bufs_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_input_bufs_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_input_bufs_module);
 
     input_bufs = ctx->input_bufs;
 
@@ -422,7 +422,7 @@ ngx_live_input_bufs_set_min_used(ngx_live_track_t *track,
         "ngx_live_input_bufs_set_min_used: index: %uD ptr: %p",
         segment_index, ptr);
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_input_bufs_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_input_bufs_module);
 
     input_bufs = ctx->input_bufs;
 
@@ -438,11 +438,11 @@ ngx_live_input_bufs_link(ngx_live_track_t *dst, ngx_live_track_t *src)
     ngx_live_input_bufs_t            *input_bufs;
     ngx_live_input_bufs_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(src, ngx_live_input_bufs_module);
+    ctx = ngx_live_get_module_ctx(src, ngx_live_input_bufs_module);
 
     input_bufs = ctx->input_bufs;
 
-    ctx = ngx_live_track_get_module_ctx(dst, ngx_live_input_bufs_module);
+    ctx = ngx_live_get_module_ctx(dst, ngx_live_input_bufs_module);
 
     ngx_live_input_bufs_free(ctx->input_bufs);
 
@@ -508,7 +508,7 @@ ngx_live_input_bufs_track_init(ngx_live_track_t *track, void *ectx)
 {
     ngx_live_input_bufs_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_input_bufs_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_input_bufs_module);
 
     ctx->input_bufs = ngx_live_input_bufs_create(track);
     if (ctx->input_bufs == NULL) {
@@ -523,7 +523,7 @@ ngx_live_input_bufs_track_free(ngx_live_track_t *track, void *ectx)
 {
     ngx_live_input_bufs_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_input_bufs_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_input_bufs_module);
 
     if (ctx->input_bufs != NULL) {
         ngx_live_input_bufs_free(ctx->input_bufs);
@@ -599,7 +599,7 @@ ngx_live_input_bufs_track_json_write(u_char *p, void *obj)
     ngx_live_input_bufs_lock_t       *first_lock;
     ngx_live_input_bufs_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_input_bufs_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_input_bufs_module);
 
     buf_queue = &ctx->input_bufs->buf_queue;
     size = buf_queue->nbuffers * buf_queue->alloc_size;

@@ -298,7 +298,7 @@ ngx_live_filler_track_fill(ngx_live_track_t *track, uint32_t segment_count,
     segment->media_info = media_info;
     segment->kmp_media_info = kmp_media_info;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_filler_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_filler_module);
     cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
 
     fs = &ctx->segments[cctx->index];
@@ -754,7 +754,7 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
     ngx_live_filler_track_ctx_t    *ctx;
     ngx_live_filler_channel_ctx_t  *cctx;
 
-    ctx = ngx_live_track_get_module_ctx(dst_track, ngx_live_filler_module);
+    ctx = ngx_live_get_module_ctx(dst_track, ngx_live_filler_module);
     cctx = ngx_live_get_module_ctx(dst_track->channel, ngx_live_filler_module);
 
     ngx_live_input_bufs_link(dst_track, src_track);
@@ -869,7 +869,7 @@ ngx_live_filler_setup_track(ngx_live_channel_t *dst,
 
     dst_track->type = ngx_live_track_type_filler;
 
-    ctx = ngx_live_track_get_module_ctx(dst_track, ngx_live_filler_module);
+    ctx = ngx_live_get_module_ctx(dst_track, ngx_live_filler_module);
 
     ctx->pool = ngx_create_pool(1024, &dst_track->log);
     if (ctx->pool == NULL) {
@@ -1355,7 +1355,7 @@ ngx_live_filler_track_free(ngx_live_track_t *track, void *ectx)
 {
     ngx_live_filler_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_filler_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_filler_module);
     if (ctx->pool == NULL) {
         /* not a filler track / failed to initialize */
         return NGX_OK;
@@ -1375,7 +1375,7 @@ ngx_live_filler_track_channel_free(ngx_live_track_t *track, void *ectx)
 {
     ngx_live_filler_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_filler_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_filler_module);
 
     if (ctx->pool) {
         ngx_destroy_pool(ctx->pool);
@@ -1499,7 +1499,7 @@ ngx_live_filler_write_setup(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_filler_track_ctx_t    *cur_ctx;
     ngx_live_filler_channel_ctx_t  *cctx;
 
-    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_filler_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
 
     if (cctx->count <= 0) {
         return NGX_OK;

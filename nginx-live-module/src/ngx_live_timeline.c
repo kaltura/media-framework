@@ -1610,7 +1610,7 @@ ngx_live_timelines_write_setup(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_timeline_t              *timeline;
     ngx_live_timeline_channel_ctx_t  *cctx;
 
-    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_timeline_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     for (q = ngx_queue_head(&cctx->queue);
         q != ngx_queue_sentinel(&cctx->queue);
@@ -1680,7 +1680,7 @@ ngx_live_timeline_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
     ngx_live_timeline_channel_ctx_t      *cctx;
     ngx_live_timeline_persist_channel_t  *cp;
 
-    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_timeline_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     cp = ngx_palloc(snap->pool, sizeof(*cp) +
         sizeof(*ts) * (cctx->count + 1));
@@ -1849,7 +1849,7 @@ ngx_live_timelines_write_index(ngx_live_persist_write_ctx_t *write_ctx,
 
     ts = (void *) (cp + 1);
 
-    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_timeline_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     for (q = ngx_queue_head(&cctx->queue);
         q != ngx_queue_sentinel(&cctx->queue);
@@ -2228,7 +2228,7 @@ ngx_live_timelines_channel_read_index(ngx_live_persist_block_header_t *block,
     ngx_live_timeline_channel_ctx_t      *cctx;
     ngx_live_timeline_persist_channel_t  *cp;
 
-    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_timeline_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     cp = ngx_mem_rstream_get_ptr(rs, sizeof(*cp));
     if (cp == NULL) {
@@ -2254,7 +2254,7 @@ ngx_live_timeline_write_segment_list(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_channel_t               *channel = obj;
     ngx_live_timeline_channel_ctx_t  *cctx;
 
-    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_timeline_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     return ngx_live_segment_list_write_index(&cctx->segment_list, write_ctx);
 }
@@ -2266,7 +2266,7 @@ ngx_live_timeline_read_segment_list(ngx_live_persist_block_header_t *block,
     ngx_live_channel_t               *channel = obj;
     ngx_live_timeline_channel_ctx_t  *cctx;
 
-    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_timeline_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     return ngx_live_segment_list_read_index(&cctx->segment_list, rs, block);
 }

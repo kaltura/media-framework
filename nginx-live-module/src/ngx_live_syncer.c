@@ -118,7 +118,7 @@ ngx_live_syncer_track_reset(ngx_live_track_t *track, void *ectx)
     ngx_log_error(NGX_LOG_INFO, &track->log, 0,
         "ngx_live_syncer_track_reset: called");
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_syncer_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
     ctx->last_pts = NGX_LIVE_SYNCER_INVALID_TIMESTAMP;
     ctx->force_sync_count = 0;
     return NGX_OK;
@@ -135,7 +135,7 @@ ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
     ngx_live_syncer_preset_conf_t  *spcf;
     ngx_live_syncer_channel_ctx_t  *cctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_syncer_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
     cctx = ngx_live_get_module_ctx(channel, ngx_live_syncer_module);
     spcf = ngx_live_get_module_preset_conf(channel, ngx_live_syncer_module);
 
@@ -194,8 +194,7 @@ ngx_live_syncer_enable_sync_flag(ngx_live_channel_t *channel,
             continue;
         }
 
-        cur_ctx = ngx_live_track_get_module_ctx(cur_track,
-            ngx_live_syncer_module);
+        cur_ctx = ngx_live_get_module_ctx(cur_track, ngx_live_syncer_module);
         cur_ctx->force_sync_count = force_sync_count;
     }
 }
@@ -217,7 +216,7 @@ ngx_live_syncer_add_frame(ngx_live_track_t *track, kmp_frame_t *frame,
         return next_add_frame(track, frame, data_head, data_tail, size);
     }
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_syncer_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
 
     if (ctx->force_sync_count > 1) {
         ctx->force_sync_count--;
@@ -329,7 +328,7 @@ ngx_live_syncer_track_json_write(u_char *p, void *obj)
     ngx_live_track_t             *track = obj;
     ngx_live_syncer_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_syncer_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
 
     p = ngx_copy_fix(p, "\"syncer\":{\"correction\":");
     p = ngx_sprintf(p, "%L", ctx->correction);

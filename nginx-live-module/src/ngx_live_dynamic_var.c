@@ -325,7 +325,7 @@ ngx_live_dynamic_var_write_setup(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_dynamic_var_t              *cur;
     ngx_live_dynamic_var_channel_ctx_t  *cctx;
 
-    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_dynamic_var_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_dynamic_var_module);
 
     ws = ngx_live_persist_write_stream(write_ctx);
 
@@ -362,7 +362,7 @@ ngx_live_dynamic_var_read_setup(ngx_live_persist_block_header_t *block,
     ngx_live_dynamic_var_channel_ctx_t  *cctx;
     ngx_live_dynamic_var_preset_conf_t  *dpcf;
 
-    cctx = ngx_live_track_get_module_ctx(channel, ngx_live_dynamic_var_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_dynamic_var_module);
 
     var = ngx_block_pool_alloc(cctx->block_pool, NGX_LIVE_BP_VAR);
     if (var == NULL) {
