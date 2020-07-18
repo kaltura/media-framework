@@ -5,7 +5,7 @@ def updateConf(conf):
     for key in ['persist_setup_path', 'persist_index_path', 'persist_delta_path']:
         delConfParam(block, key)
 
-    block = getConfBlock(conf, ['http', 'server', 'location /dvr/'])
+    block = getConfBlock(conf, ['http', 'server', 'location /store/'])
     block.append([['limit_except', 'PUT'], [['deny', 'all']]])
 
 def test(channelId=CHANNEL_ID):

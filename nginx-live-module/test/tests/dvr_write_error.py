@@ -1,7 +1,7 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['http', 'server', 'location /dvr/'])
+    block = getConfBlock(conf, ['http', 'server', 'location /store/'])
     delConfParam(block, 'dav_methods')
     block.append(['lingering_timeout', '1'])    # nginx waits this timeout for any request completed with special status
 
