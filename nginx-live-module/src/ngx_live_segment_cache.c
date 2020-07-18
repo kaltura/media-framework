@@ -92,7 +92,7 @@ ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
         goto error;
     }
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_cache_module);
 
     segment->node.key = segment_index;
     segment->track = track;
@@ -131,7 +131,7 @@ ngx_live_segment_cache_free(ngx_live_segment_t *segment)
     ngx_live_segment_cache_track_ctx_t  *ctx;
 
     track = segment->track;
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_cache_module);
 
     ctx->count--;
     ngx_queue_remove(&segment->queue);
@@ -284,7 +284,7 @@ ngx_live_segment_cache_get(ngx_live_track_t *track, uint32_t segment_index)
     ngx_rbtree_node_t                   *sentinel;
     ngx_live_segment_cache_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_cache_module);
 
     rbtree = &ctx->rbtree;
     node = rbtree->root;
@@ -317,7 +317,7 @@ ngx_live_segment_cache_free_input_bufs(ngx_live_track_t *track)
     ngx_live_segment_t                  *first;
     ngx_live_segment_cache_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_cache_module);
     if (!ngx_queue_empty(&ctx->queue)) {
         head = ngx_queue_head(&ctx->queue);
         first = ngx_queue_data(head, ngx_live_segment_t, queue);
@@ -562,7 +562,7 @@ ngx_live_segment_cache_track_json_write(u_char *p, void *obj)
     ngx_live_segment_t                  *segment;
     ngx_live_segment_cache_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_cache_module);
 
     p = ngx_copy_fix(p, "\"segment_cache\":{\"count\":");
     p = ngx_sprintf(p, "%uD", ctx->count);
@@ -601,7 +601,7 @@ ngx_live_segment_cache_track_init(ngx_live_track_t *track, void *ectx)
 {
     ngx_live_segment_cache_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_cache_module);
 
     ngx_rbtree_init(&ctx->rbtree, &ctx->sentinel, ngx_rbtree_insert_value);
     ngx_queue_init(&ctx->queue);
@@ -616,7 +616,7 @@ ngx_live_segment_cache_track_free(ngx_live_track_t *track, void *ectx)
     ngx_live_segment_t                  *segment;
     ngx_live_segment_cache_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_cache_module);
 
     q = ngx_queue_head(&ctx->queue);
     if (q == NULL) {
@@ -643,7 +643,7 @@ ngx_live_segment_cache_track_channel_free(ngx_live_track_t *track, void *ectx)
     ngx_live_segment_t                  *segment;
     ngx_live_segment_cache_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_segment_cache_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_cache_module);
 
     q = ngx_queue_head(&ctx->queue);
     while (q != ngx_queue_sentinel(&ctx->queue)) {

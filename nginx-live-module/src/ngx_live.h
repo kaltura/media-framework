@@ -44,8 +44,6 @@ typedef struct ngx_live_channel_s     ngx_live_channel_t;
 #define ngx_live_get_module_ctx(ch, module)     (ch)->ctx[module.ctx_index]
 #define ngx_live_set_ctx(ch, c, module)         ch->ctx[module.ctx_index] = c;
 
-#define ngx_live_track_get_module_ctx(t, module)  (t)->ctx[module.ctx_index]
-
 #define ngx_live_rescale_time(time, cur_scale, new_scale)                   \
     ((((uint64_t) (time)) * (new_scale) + (cur_scale) / 2) / (cur_scale))
 

@@ -513,7 +513,7 @@ ngx_live_media_info_queue_push(ngx_live_track_t *track,
 {
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     node->u.start_segment_index = segment_index;
 
@@ -533,7 +533,7 @@ ngx_live_media_info_queue_track_segment_free(ngx_live_track_t *track,
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     q = ngx_queue_head(&ctx->active);
     for ( ;; ) {
@@ -596,7 +596,7 @@ ngx_live_media_info_queue_free_all(ngx_live_track_t *track)
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     q = ngx_queue_head(&ctx->active);
     if (q == NULL) {
@@ -626,7 +626,7 @@ ngx_live_media_info_queue_get(ngx_live_track_t *track, uint32_t segment_index,
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     for (q = ngx_queue_last(&ctx->active);
         q != ngx_queue_sentinel(&ctx->active);
@@ -651,7 +651,7 @@ ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     q = ngx_queue_last(&ctx->active);
     if (q == ngx_queue_sentinel(&ctx->active)) {
@@ -674,7 +674,7 @@ ngx_live_media_info_queue_copy_last(ngx_live_track_t *dst,
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(src, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(src, ngx_live_media_info_module);
 
     q = ngx_queue_last(&ctx->active);
     if (q == ngx_queue_sentinel(&ctx->active)) {
@@ -717,7 +717,7 @@ ngx_live_media_info_source_get(ngx_live_track_t *track)
 
     /* Note: assuming pending queue is not empty */
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     q = ngx_queue_last(&ctx->pending);
     node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
@@ -739,7 +739,7 @@ ngx_live_media_info_source_get(ngx_live_track_t *track)
         }
 
         /* if the group id matches, use current track */
-        cur_ctx = ngx_live_track_get_module_ctx(cur_track,
+        cur_ctx = ngx_live_get_module_ctx(cur_track,
             ngx_live_media_info_module);
 
         if (ctx->group_id.len &&
@@ -819,7 +819,7 @@ ngx_live_media_info_source_set(ngx_live_track_t *track)
     ngx_live_media_info_track_ctx_t  *ctx;
     ngx_live_media_info_track_ctx_t  *source_ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
     channel = track->channel;
 
     if (ngx_queue_empty(&ctx->pending)) {
@@ -852,8 +852,7 @@ ngx_live_media_info_source_set(ngx_live_track_t *track)
         return NGX_DONE;
     }
 
-    source_ctx = ngx_live_track_get_module_ctx(source,
-        ngx_live_media_info_module);
+    source_ctx = ngx_live_get_module_ctx(source, ngx_live_media_info_module);
     q = ngx_queue_last(&source_ctx->active);
     node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
@@ -881,7 +880,7 @@ ngx_live_media_info_source_clear(ngx_live_media_info_track_ctx_t *ctx)
 {
     ngx_live_media_info_track_ctx_t  *source_ctx;
 
-    source_ctx = ngx_live_track_get_module_ctx(ctx->source,
+    source_ctx = ngx_live_get_module_ctx(ctx->source,
         ngx_live_media_info_module);
 
     source_ctx->source_refs--;
@@ -897,7 +896,7 @@ ngx_live_media_info_source_remove_refs(ngx_live_track_t *track)
     ngx_live_media_info_track_ctx_t  *ctx;
     ngx_live_media_info_track_ctx_t  *cur_ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
     if (ctx->source_refs <= 0) {
         return;
     }
@@ -909,7 +908,7 @@ ngx_live_media_info_source_remove_refs(ngx_live_track_t *track)
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
-        cur_ctx = ngx_live_track_get_module_ctx(cur_track,
+        cur_ctx = ngx_live_get_module_ctx(cur_track,
             ngx_live_media_info_module);
 
         if (cur_ctx->source == track) {
@@ -934,7 +933,7 @@ ngx_live_media_info_pending_add(ngx_live_track_t *track,
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     first = 0;
 
@@ -998,7 +997,7 @@ ngx_live_media_info_pending_remove_frames(ngx_live_track_t *track,
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     if (frame_count >= ctx->delta_sum) {
         ctx->delta_sum = 0;
@@ -1033,7 +1032,7 @@ ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
     ngx_live_media_info_node_t       *cur;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     if (ctx->source != NULL) {
         ngx_live_media_info_source_clear(ctx);
@@ -1084,7 +1083,7 @@ ngx_live_media_info_pending_free_all(ngx_live_track_t *track)
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     q = ngx_queue_head(&ctx->pending);
     if (q == NULL) {
@@ -1129,9 +1128,8 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track)
         return NGX_OK;
     }
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
-    source_ctx = ngx_live_track_get_module_ctx(source,
-        ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
+    source_ctx = ngx_live_get_module_ctx(source, ngx_live_media_info_module);
 
     for (q = ngx_queue_head(&source_ctx->active);
         q != ngx_queue_sentinel(&source_ctx->active);
@@ -1184,7 +1182,7 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
             continue;
         }
 
-        cur_ctx = ngx_live_track_get_module_ctx(cur_track,
+        cur_ctx = ngx_live_get_module_ctx(cur_track,
             ngx_live_media_info_module);
 
         if (cur_ctx->source != NULL) {
@@ -1235,7 +1233,7 @@ ngx_live_media_info_iter_init(ngx_live_media_info_iter_t *iter,
     ngx_queue_t                      *q;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     q = ngx_queue_head(&ctx->active);
     if (q == ngx_queue_sentinel(&ctx->active)) {
@@ -1322,7 +1320,7 @@ ngx_live_media_info_track_init(ngx_live_track_t *track, void *ectx)
 {
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     ngx_queue_init(&ctx->pending);
 
@@ -1355,7 +1353,7 @@ ngx_live_media_info_track_json_get_size(void *obj)
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     result = sizeof("\"group_id\":\"") - 1 +
         ngx_escape_json(NULL, ctx->group_id.data, ctx->group_id.len) +
@@ -1403,7 +1401,7 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     p = ngx_copy_fix(p, "\"group_id\":\"");
     p = (u_char *) ngx_escape_json(p, ctx->group_id.data, ctx->group_id.len);
@@ -1461,7 +1459,7 @@ ngx_live_media_info_set_group_id(void *arg, ngx_live_json_command_t *cmd,
         return NGX_ERROR;
     }
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     ctx->group_id.len = value->v.str.len;
     ngx_memcpy(ctx->group_id.data, value->v.str.data, ctx->group_id.len);
@@ -1485,7 +1483,7 @@ ngx_live_media_info_write_setup(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_track_t                 *track = obj;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     if (ctx->group_id.len == 0) {
         return NGX_OK;
@@ -1514,7 +1512,7 @@ ngx_live_media_info_read_setup(ngx_live_persist_block_header_t *block,
     ngx_live_track_t                 *track = obj;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     if (ngx_mem_rstream_str_fixed(rs, &ctx->group_id,
         sizeof(ctx->group_id_buf)) != NGX_OK)
@@ -1552,7 +1550,7 @@ ngx_live_media_info_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
 
-        cur_ctx = ngx_live_track_get_module_ctx(cur_track,
+        cur_ctx = ngx_live_get_module_ctx(cur_track,
             ngx_live_media_info_module);
 
         ms->track_id = cur_track->in.key;
@@ -1650,9 +1648,8 @@ ngx_live_media_info_read_index_source(ngx_live_persist_block_header_t *block,
         return NGX_BAD_DATA;
     }
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
-    source_ctx = ngx_live_track_get_module_ctx(source,
-        ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
+    source_ctx = ngx_live_get_module_ctx(source, ngx_live_media_info_module);
 
     if (ctx->source != NULL) {
         ngx_live_media_info_source_clear(ctx);
@@ -1675,7 +1672,7 @@ ngx_live_media_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_persist_index_snap_t    *snap;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
     snap = ngx_live_persist_write_ctx(write_ctx);
 
     for (q = ngx_queue_head(&ctx->active); ; q = ngx_queue_next(q)) {
@@ -1754,7 +1751,7 @@ ngx_live_media_info_read_index(ngx_live_persist_block_header_t *block,
 
     min_index = scope->min_index;
 
-    ctx = ngx_live_track_get_module_ctx(track, ngx_live_media_info_module);
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     if (!ngx_queue_empty(&ctx->active)) {
         node = ngx_queue_data(ngx_queue_last(&ctx->active),
