@@ -1392,6 +1392,7 @@ ngx_live_filler_write_setup_segment(ngx_live_persist_write_ctx_t *write_ctx,
 {
     media_info_t                       *media_info;
     kmp_media_info_t                   *kmp_media_info;
+    ngx_live_media_info_persist_t       mp;
     ngx_live_persist_segment_header_t   sp;
 
     sp.frame_count = segment->frame_count;
@@ -1416,7 +1417,10 @@ ngx_live_filler_write_setup_segment(ngx_live_persist_write_ctx_t *write_ctx,
             return NGX_ERROR;
         }
 
-        if (ngx_live_media_info_write(write_ctx, 0, kmp_media_info,
+        mp.track_id = track->in.key;
+        mp.start_segment_index = 0;
+
+        if (ngx_live_media_info_write(write_ctx, &mp, kmp_media_info,
             &media_info->extra_data) != NGX_OK)
         {
             return NGX_ERROR;
@@ -1585,8 +1589,8 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
 
     case NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO:
 
-        ptr = ngx_mem_rstream_get_ptr(rs, sizeof(uint32_t) +
-            sizeof(*media_info));
+        ptr = ngx_mem_rstream_get_ptr(rs,
+            sizeof(ngx_live_media_info_persist_t) + sizeof(*media_info));
         if (ptr == NULL) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_filler_read_segment_block: read media info failed");
@@ -1598,7 +1602,7 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
         }
 
 
-        media_info = (void *)(ptr + sizeof(uint32_t));
+        media_info = (void *) (ptr + sizeof(ngx_live_media_info_persist_t));
 
         ngx_mem_rstream_get_left(rs, &data);
 

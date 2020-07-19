@@ -140,6 +140,7 @@ def run(tests):
 
         setupFunc = getattr(curMod, 'setup', None)
         cleanupFunc = getattr(curMod, 'cleanup', defaultTestCleanup)
+        validateFunc = getattr(curMod, 'validate', None)
 
         if setupFunc is not None:
             logTracker.init()
@@ -153,6 +154,11 @@ def run(tests):
         logTracker.init()
         print '>>> %s' % fileName
         testFunc()
+
+        if validateFunc is not None:
+            time.sleep(1)
+            nginxProc = restartNginx(nginxProc, confFile, fileName, cleanupFunc)
+            validateFunc()
 
         if options.pause_after:
             raw_input('--Next--')

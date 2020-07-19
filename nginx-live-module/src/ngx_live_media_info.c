@@ -328,13 +328,12 @@ ngx_live_media_info_clone(ngx_pool_t *pool, media_info_t *src)
 
 ngx_int_t
 ngx_live_media_info_write(ngx_live_persist_write_ctx_t *write_ctx,
-    uint32_t start_segment_index, kmp_media_info_t *kmp_media_info,
+    ngx_live_media_info_persist_t *mp, kmp_media_info_t *kmp_media_info,
     ngx_str_t *extra_data)
 {
     if (ngx_live_persist_write_block_open(write_ctx,
             NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &start_segment_index,
-            sizeof(start_segment_index)) != NGX_OK ||
+        ngx_live_persist_write(write_ctx, mp, sizeof(*mp)) != NGX_OK ||
         ngx_live_persist_write(write_ctx, kmp_media_info,
             sizeof(*kmp_media_info)) != NGX_OK)
     {
@@ -1670,6 +1669,7 @@ ngx_live_media_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_track_t                 *track = obj;
     ngx_live_media_info_node_t       *node;
     ngx_live_persist_index_snap_t    *snap;
+    ngx_live_media_info_persist_t     mp;
     ngx_live_media_info_track_ctx_t  *ctx;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
@@ -1699,8 +1699,11 @@ ngx_live_media_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
 
     for ( ;; ) {
 
-        if (ngx_live_media_info_write(write_ctx, node->u.start_segment_index,
-            &node->kmp_media_info, &node->media_info.extra_data) != NGX_OK)
+        mp.track_id = node->track_id;
+        mp.start_segment_index = node->u.start_segment_index;
+
+        if (ngx_live_media_info_write(write_ctx, &mp, &node->kmp_media_info,
+            &node->media_info.extra_data) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_live_media_info_write_index: write failed");
@@ -1727,9 +1730,7 @@ static ngx_int_t
 ngx_live_media_info_read_index(ngx_live_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, void *obj)
 {
-    u_char                           *ptr;
     uint32_t                          min_index;
-    uint32_t                          segment_index;
     ngx_int_t                         rc;
     ngx_str_t                         data;
     ngx_buf_chain_t                   chain;
@@ -1737,6 +1738,7 @@ ngx_live_media_info_read_index(ngx_live_persist_block_header_t *block,
     kmp_media_info_t                 *media_info;
     ngx_mem_rstream_t                 block_rs;
     ngx_live_media_info_node_t       *node;
+    ngx_live_media_info_persist_t    *mp;
     ngx_live_persist_index_scope_t   *scope;
     ngx_live_media_info_track_ctx_t  *ctx;
 
@@ -1779,33 +1781,31 @@ ngx_live_media_info_read_index(ngx_live_persist_block_header_t *block,
             continue;
         }
 
-        ptr = ngx_mem_rstream_get_ptr(&block_rs, sizeof(uint32_t) +
+        mp = ngx_mem_rstream_get_ptr(&block_rs, sizeof(*mp) +
             sizeof(*media_info));
-        if (ptr == NULL) {
+        if (mp == NULL) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_media_info_read_index: read failed");
             return NGX_BAD_DATA;
         }
 
-        segment_index = *(uint32_t *) ptr;
-
-        if (segment_index < min_index) {
+        if (mp->start_segment_index < min_index) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_media_info_read_index: "
                 "segment index %uD less than min segment index %uD",
-                segment_index, min_index);
+                mp->start_segment_index, min_index);
             return NGX_BAD_DATA;
         }
 
-        if (segment_index > scope->max_index) {
+        if (mp->start_segment_index > scope->max_index) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_media_info_read_index: "
                 "segment index %uD greater than max segment index %uD",
-                segment_index, scope->max_index);
+                mp->start_segment_index, scope->max_index);
             return NGX_BAD_DATA;
         }
 
-        min_index = segment_index + 1;
+        min_index = mp->start_segment_index + 1;
 
         if (ngx_live_persist_read_skip_block_header(&block_rs, block)
             != NGX_OK)
@@ -1814,7 +1814,7 @@ ngx_live_media_info_read_index(ngx_live_persist_block_header_t *block,
         }
 
 
-        media_info = (void *) (ptr + sizeof(uint32_t));
+        media_info = (void *) (mp + 1);
 
         ngx_mem_rstream_get_left(&block_rs, &data);
 
@@ -1830,7 +1830,9 @@ ngx_live_media_info_read_index(ngx_live_persist_block_header_t *block,
             return rc;
         }
 
-        ngx_live_media_info_queue_push(track, node, segment_index);
+        node->track_id = mp->track_id;
+
+        ngx_live_media_info_queue_push(track, node, mp->start_segment_index);
     }
 
     return NGX_OK;
