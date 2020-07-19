@@ -18,6 +18,12 @@ typedef struct {
 } ngx_live_media_info_iter_t;
 
 
+typedef struct {
+    uint32_t                     track_id;
+    uint32_t                     start_segment_index;
+} ngx_live_media_info_persist_t;
+
+
 media_info_t *ngx_live_media_info_clone(ngx_pool_t *pool, media_info_t *src);
 
 
@@ -46,7 +52,7 @@ ngx_int_t ngx_live_media_info_queue_copy_last(ngx_live_track_t *dst,
     ngx_live_track_t *src, uint32_t segment_index);
 
 ngx_int_t ngx_live_media_info_write(ngx_live_persist_write_ctx_t *write_ctx,
-    uint32_t start_segment_index, kmp_media_info_t *kmp_media_info,
+    ngx_live_media_info_persist_t *mp, kmp_media_info_t *kmp_media_info,
     ngx_str_t *extra_data);
 
 

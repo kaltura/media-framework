@@ -77,6 +77,9 @@ def test(channelId=CHANNEL_ID):
     # deactivate the timeline
     nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, active=False))
 
+def validate(channelId=CHANNEL_ID):
+    nl = nginxLiveClient()
+    nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
     testDefaultStreams(channelId, __file__)
 
 def cleanup(channelId=CHANNEL_ID):

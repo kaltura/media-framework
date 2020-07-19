@@ -676,12 +676,13 @@ typedef struct {
 
 static ngx_int_t
 ngx_live_dvr_write_append_segment(ngx_live_persist_write_ctx_t *write_data,
-    ngx_live_persist_write_ctx_t *write_idx, ngx_live_track_t *cur_track,
+    ngx_live_persist_write_ctx_t *write_idx, ngx_live_track_t *track,
     ngx_live_segment_t *segment)
 {
     size_t                             start;
     uint32_t                           header_size;
     ngx_live_dvr_segment_entry_t       entry;
+    ngx_live_media_info_persist_t      mp;
     ngx_live_persist_block_header_t    block;
     ngx_live_persist_segment_header_t  header;
 
@@ -692,13 +693,15 @@ ngx_live_dvr_write_append_segment(ngx_live_persist_write_ctx_t *write_data,
     header.start_dts = segment->start_dts;
     header.reserved = 0;
 
+    mp.track_id = track->in.key;
+    mp.start_segment_index = segment->node.key;
+
     if (ngx_live_persist_write_block_open(write_data,
             NGX_LIVE_PERSIST_BLOCK_SEGMENT) != NGX_OK ||
         ngx_live_persist_write(write_data, &header, sizeof(header))
             != NGX_OK ||
-        ngx_live_media_info_write(write_data, segment->node.key,
-            segment->kmp_media_info, &segment->media_info->extra_data)
-            != NGX_OK ||
+        ngx_live_media_info_write(write_data, &mp, segment->kmp_media_info,
+            &segment->media_info->extra_data) != NGX_OK ||
         ngx_live_persist_write_block_open(write_data,
             NGX_LIVE_PERSIST_BLOCK_FRAME_LIST) != NGX_OK ||
         ngx_live_persist_write_list_data(write_data, &segment->frames)
@@ -728,7 +731,7 @@ ngx_live_dvr_write_append_segment(ngx_live_persist_write_ctx_t *write_data,
     block.id = NGX_LIVE_DVR_BLOCK_SEGMENT_ENTRY;
     block.header_size = header_size | NGX_LIVE_PERSIST_HEADER_FLAG_INDEX;
 
-    entry.track_id = cur_track->in.key;
+    entry.track_id = track->in.key;
     entry.segment_id = segment->node.key;
     entry.size = ngx_live_persist_write_get_size(write_data) - start;
 
