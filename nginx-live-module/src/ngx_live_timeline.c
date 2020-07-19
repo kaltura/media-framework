@@ -44,6 +44,7 @@ typedef struct {
 
     /* manifest */
     uint32_t                  target_duration;
+    uint32_t                  target_duration_segments;
     uint32_t                  sequence;
     int64_t                   last_modified;
     uint32_t                  last_durations[NGX_LIVE_TIMELINE_LAST_DURATIONS];
@@ -66,7 +67,9 @@ typedef struct {
     uint32_t                  sequence;
     int64_t                   last_modified;
     uint32_t                  target_duration;
+    uint32_t                  target_duration_segments;
     uint32_t                  last_durations[NGX_LIVE_TIMELINE_LAST_DURATIONS];
+    uint32_t                  reserved;
 } ngx_live_timeline_persist_manifest_t;
 
 
@@ -392,10 +395,14 @@ static void
 ngx_live_manifest_timeline_post_add_segment(
     ngx_live_manifest_timeline_t *timeline, uint32_t duration)
 {
-    if (timeline->sequence < timeline->conf.target_duration_segments &&
-        duration > timeline->target_duration)
+    if (timeline->target_duration_segments <
+            timeline->conf.target_duration_segments)
     {
-        timeline->target_duration = duration;
+        timeline->target_duration_segments++;
+
+        if (duration > timeline->target_duration) {
+            timeline->target_duration = duration;
+        }
     }
 
     timeline->sequence++;
@@ -425,13 +432,13 @@ ngx_live_timeline_manifest_copy(ngx_live_timeline_t *dest,
         dest->manifest.first_period.time;
     dest->manifest.first_period_initial_segment_index =
         dest->manifest.first_period.node.key;
-    dest->manifest.sequence = dest->segment_count;
 
     dest->manifest.duration = dest->duration;
     dest->manifest.segment_count = dest->segment_count;
     dest->manifest.period_count = dest->period_count;
 
     dest->manifest.target_duration = max_duration;
+    dest->manifest.target_duration_segments = dest->segment_count;
 
     /* Note: if the end of dest timeline is different than source, the below
         is incorrect. however, since last_durations is only used to estimate
@@ -553,6 +560,7 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
     timeline->conf = *conf;
 
     timeline->manifest.conf = *manifest_conf;
+    timeline->manifest.sequence = channel->next_segment_index;
     timeline->manifest.last_modified = ngx_time();
 
     ngx_rbtree_init(&timeline->rbtree, &timeline->sentinel,
@@ -1708,6 +1716,8 @@ ngx_live_timeline_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
         ts->last_segment_created = timeline->last_segment_created;
 
         ts->target_duration = timeline->manifest.target_duration;
+        ts->target_duration_segments =
+            timeline->manifest.target_duration_segments;
         ts->sequence = timeline->manifest.sequence;
         ts->last_modified = timeline->manifest.last_modified;
         ngx_memcpy(ts->last_durations, timeline->manifest.last_durations,
@@ -1807,10 +1817,12 @@ ngx_live_timeline_write_index(ngx_live_persist_write_ctx_t *write_ctx,
     mp.first_period_index = timeline->manifest.first_period_index;
 
     mp.target_duration = ts->target_duration;
+    mp.target_duration_segments = ts->target_duration_segments;
     mp.sequence = ts->sequence;
     mp.last_modified = ts->last_modified;
     ngx_memcpy(mp.last_durations, ts->last_durations,
         sizeof(mp.last_durations));
+    mp.reserved = 0;
 
     tp.last_segment_created = ts->last_segment_created;
 
@@ -2116,6 +2128,7 @@ ngx_live_manifest_timeline_read(ngx_live_timeline_t *timeline,
     manifest->availability_start_time = mp->availability_start_time;
     manifest->last_modified = mp->last_modified;
     manifest->target_duration = mp->target_duration;
+    manifest->target_duration_segments = mp->target_duration_segments;
     ngx_memcpy(manifest->last_durations, mp->last_durations,
         sizeof(manifest->last_durations));
 

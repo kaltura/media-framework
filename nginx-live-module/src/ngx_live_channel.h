@@ -88,6 +88,7 @@ struct ngx_live_channel_s {
 
     size_t                        *track_ctx_offset;
 
+    uint32_t                       initial_segment_index;
     uint32_t                       min_segment_index;
     uint32_t                       next_segment_index;
     uint32_t                       last_segment_media_types;

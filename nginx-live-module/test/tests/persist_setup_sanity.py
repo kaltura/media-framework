@@ -4,7 +4,7 @@ def setup(channelId=CHANNEL_ID):
     global before
 
     nl = setupChannelTimeline(channelId, FILLER_TIMELINE_ID)
-    nl.channel.update(NginxLiveChannel(id=channelId, segment_duration=6000, vars={'var': 'val'}, opaque='x' * 150))
+    nl.channel.update(NginxLiveChannel(id=channelId, segment_duration=6000, vars={'var': 'val'}, opaque='x' * 150, initial_segment_index=456))
     nl.setChannelId(channelId)
     nl.variant.create(NginxLiveVariant(id='no-tracks', is_default=True, label='lab', lang='lang', role='alternate', opaque='y' * 150))
     nl.track.create(NginxLiveTrack(id='v1', media_type='video', group_id='gid', opaque='z' * 150))

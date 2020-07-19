@@ -79,6 +79,7 @@ enum {
     CHANNEL_PARAM_PRESET,
     CHANNEL_PARAM_OPAQUE,
     CHANNEL_PARAM_READ,
+    CHANNEL_PARAM_INITIAL_SEGMENT_INDEX,
     CHANNEL_PARAM_COUNT
 };
 
@@ -87,6 +88,8 @@ static ngx_json_object_key_def_t  ngx_live_channel_params[] = {
     { vod_string("preset"),      NGX_JSON_STRING, CHANNEL_PARAM_PRESET },
     { vod_string("opaque"),      NGX_JSON_STRING, CHANNEL_PARAM_OPAQUE },
     { vod_string("read"),        NGX_JSON_BOOL,   CHANNEL_PARAM_READ },
+    { vod_string("initial_segment_index"), NGX_JSON_INT,
+        CHANNEL_PARAM_INITIAL_SEGMENT_INDEX },
     { vod_null_string, 0, 0 }
 };
 
@@ -264,6 +267,7 @@ ngx_http_live_api_channel_update(ngx_http_request_t *r,
     ngx_live_channel_t *channel, ngx_json_object_t *body,
     ngx_json_value_t **values)
 {
+    int64_t     val;
     ngx_int_t   rc;
     ngx_log_t  *log = r->connection->log;
 
@@ -274,6 +278,22 @@ ngx_http_live_api_channel_update(ngx_http_request_t *r,
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_http_live_api_channel_update: failed to set opaque");
             return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+    }
+
+    if (values[CHANNEL_PARAM_INITIAL_SEGMENT_INDEX] != NULL) {
+        val = values[CHANNEL_PARAM_INITIAL_SEGMENT_INDEX]->v.num.num;
+        if (val < 0 || val >= NGX_LIVE_INVALID_SEGMENT_INDEX) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_http_live_api_channel_update: "
+                "invalid segment index %L", val);
+            return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
+        }
+
+        channel->initial_segment_index = val;
+
+        if (channel->next_segment_index == 0) {
+            channel->next_segment_index = val;
         }
     }
 

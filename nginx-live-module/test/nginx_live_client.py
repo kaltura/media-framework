@@ -40,7 +40,7 @@ class NginxLive:
         self.channelBasePath = '/channels/%s' % id
 
 class NginxLiveChannel:
-    def __init__(self, id=None, preset=None, opaque=None, segment_duration=None, filler=None, read=None, vars=None):
+    def __init__(self, id=None, preset=None, opaque=None, segment_duration=None, filler=None, read=None, vars=None, initial_segment_index=None):
         self.id = id
         self.preset = preset
         self.opaque = opaque
@@ -48,6 +48,7 @@ class NginxLiveChannel:
         self.filler = filler.__dict__ if filler is not None else None
         self.read = read
         self.vars = vars
+        self.initial_segment_index = initial_segment_index
 
 class NginxLiveFiller:
     def __init__(self, channel_id=None, timeline_id=None):

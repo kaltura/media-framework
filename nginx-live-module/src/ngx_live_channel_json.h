@@ -242,7 +242,8 @@ ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
         sizeof(",\"opaque\":\"") - 1 + obj->opaque.len +
         sizeof("\",\"preset_name\":\"") - 1 + cpcf->name.len +
             ngx_escape_json(NULL, cpcf->name.data, cpcf->name.len) +
-        sizeof("\",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof("\",\"initial_segment_index\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"mem_blocks\":") - 1 +
             ngx_block_pool_auto_json_get_size(obj->block_pool,
@@ -269,7 +270,9 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
     p = ngx_block_str_copy(p, &obj->opaque);
     p = ngx_copy_fix(p, "\",\"preset_name\":\"");
     p = (u_char *) ngx_escape_json(p, cpcf->name.data, cpcf->name.len);
-    p = ngx_copy_fix(p, "\",\"mem_left\":");
+    p = ngx_copy_fix(p, "\",\"initial_segment_index\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->initial_segment_index);
+    p = ngx_copy_fix(p, ",\"mem_left\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_left);
     p = ngx_copy_fix(p, ",\"mem_limit\":");
     p = ngx_sprintf(p, "%uz", (size_t) cpcf->mem_limit);

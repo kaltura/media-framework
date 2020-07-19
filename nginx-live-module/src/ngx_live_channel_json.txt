@@ -33,6 +33,7 @@ ngx_live_channel_json ngx_live_channel_t
     uptime %T (ngx_time() - obj->start_sec)
     opaque %bs
     preset_name %V cpcf->name
+    initial_segment_index %uD
     mem_left %uz
     mem_limit %uz cpcf->
     mem_blocks %func-ngx_block_pool_auto_json obj->block_pool, NGX_LIVE_BP_COUNT, 0

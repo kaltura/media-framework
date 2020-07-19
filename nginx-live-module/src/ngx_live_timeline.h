@@ -52,6 +52,8 @@ typedef struct {
     uint32_t                           first_period_index;
 
     uint32_t                           target_duration;
+    uint32_t                           target_duration_segments;
+
     uint32_t                           sequence;
     time_t                             last_modified;
     uint32_t                           last_durations

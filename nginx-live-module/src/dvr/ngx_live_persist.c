@@ -50,7 +50,7 @@ typedef struct {
 
 typedef struct {
     uint32_t                           version;
-    uint32_t                           reserved;
+    uint32_t                           initial_segment_index;
     uint64_t                           start_sec;
 } ngx_live_persist_setup_channel_t;
 
@@ -762,7 +762,7 @@ ngx_live_persist_setup_write_channel(ngx_live_persist_write_ctx_t *write_ctx,
     version = ngx_live_persist_write_ctx(write_ctx);
 
     cp.version = *version;
-    cp.reserved = 0;
+    cp.initial_segment_index = channel->initial_segment_index;
     cp.start_sec = channel->start_sec;
 
     if (ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
@@ -802,7 +802,15 @@ ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
+    if (cp->initial_segment_index >= NGX_LIVE_INVALID_SEGMENT_INDEX) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_setup_read_channel: invalid segment index");
+        return NGX_BAD_DATA;
+    }
+
     channel->start_sec = cp->start_sec;
+    channel->initial_segment_index = cp->initial_segment_index;
+    channel->next_segment_index = cp->initial_segment_index;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
 
