@@ -290,11 +290,7 @@ ngx_http_live_api_channel_update(ngx_http_request_t *r,
             return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
         }
 
-        channel->initial_segment_index = val;
-
-        if (channel->next_segment_index == 0) {
-            channel->next_segment_index = val;
-        }
+        ngx_live_channel_update(channel, val);
     }
 
     rc = ngx_live_json_commands_exec(channel, NGX_LIVE_JSON_CTX_CHANNEL,

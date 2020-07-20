@@ -688,7 +688,9 @@ done:
 
     if (rc == NGX_OK || rc == NGX_HTTP_NOT_FOUND) {
         ngx_live_timelines_cleanup(channel);
-        rc = NGX_OK;
+
+        rc = ngx_live_core_channel_event(channel, NGX_LIVE_EVENT_CHANNEL_READ,
+            NULL);
     }
 
     if (cln) {

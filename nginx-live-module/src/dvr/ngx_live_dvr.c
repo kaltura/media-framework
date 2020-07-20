@@ -1316,15 +1316,17 @@ ngx_live_dvr_channel_inactive(ngx_live_channel_t *channel, void *ectx)
     ngx_live_dvr_preset_conf_t  *dpcf;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_dvr_module);
-    if (cctx == NULL ||
-        cctx->last_bucket_id == NGX_LIVE_DVR_INVALID_BUCKET_ID)
-    {
+    if (cctx == NULL) {
         return NGX_OK;
     }
 
     dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_module);
 
-    ngx_live_dvr_write_bucket(channel, cctx, dpcf, cctx->last_bucket_id);
+    if (cctx->last_bucket_id != NGX_LIVE_DVR_INVALID_BUCKET_ID) {
+        ngx_live_dvr_write_bucket(channel, cctx, dpcf, cctx->last_bucket_id);
+
+        cctx->last_bucket_id = NGX_LIVE_DVR_INVALID_BUCKET_ID;
+    }
 
     /* make sure the next segment will use a new bucket if the stream becomes
         active later */
@@ -1335,7 +1337,28 @@ ngx_live_dvr_channel_inactive(ngx_live_channel_t *channel, void *ectx)
             channel->next_segment_index, dpcf->bucket_size);
     }
 
-    cctx->last_bucket_id = NGX_LIVE_DVR_INVALID_BUCKET_ID;
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_dvr_channel_read(ngx_live_channel_t *channel, void *ectx)
+{
+    ngx_live_dvr_preset_conf_t  *dpcf;
+
+    dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_module);
+
+    if (dpcf->path == NULL) {
+        return NGX_OK;
+    }
+
+    /* make sure the next segment will use a new bucket if the stream becomes
+        active later */
+    if (channel->next_segment_index < NGX_LIVE_INVALID_SEGMENT_INDEX -
+        dpcf->bucket_size)
+    {
+        channel->next_segment_index = ngx_round_up_to_multiple(
+            channel->next_segment_index, dpcf->bucket_size);
+    }
 
     return NGX_OK;
 }
@@ -1390,6 +1413,7 @@ ngx_live_dvr_preconfiguration(ngx_conf_t *cf)
 static ngx_live_channel_event_t    ngx_live_dvr_channel_events[] = {
     { ngx_live_dvr_channel_init,     NGX_LIVE_EVENT_CHANNEL_INIT },
     { ngx_live_dvr_channel_inactive, NGX_LIVE_EVENT_CHANNEL_INACTIVE },
+    { ngx_live_dvr_channel_read,     NGX_LIVE_EVENT_CHANNEL_READ },
     { ngx_live_dvr_write_segment_created,
         NGX_LIVE_EVENT_CHANNEL_SEGMENT_CREATED },
       ngx_live_null_event
