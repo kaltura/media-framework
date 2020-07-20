@@ -180,6 +180,9 @@ void ngx_live_channel_free(ngx_live_channel_t *channel);
 
 ngx_live_channel_t *ngx_live_channel_get(ngx_str_t *id);
 
+void ngx_live_channel_update(ngx_live_channel_t *channel,
+    uint32_t initial_segment_index);
+
 void ngx_live_channel_setup_changed(ngx_live_channel_t *channel);
 
 void ngx_live_channel_finalize(ngx_live_channel_t *channel);

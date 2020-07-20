@@ -285,6 +285,16 @@ ngx_live_channel_free(ngx_live_channel_t *channel)
 }
 
 void
+ngx_live_channel_update(ngx_live_channel_t *channel,
+    uint32_t initial_segment_index)
+{
+    if (channel->next_segment_index == 0) {
+        channel->initial_segment_index = initial_segment_index;
+        channel->next_segment_index = initial_segment_index;
+    }
+}
+
+void
 ngx_live_channel_setup_changed(ngx_live_channel_t *channel)
 {
     channel->last_modified = ngx_time();
