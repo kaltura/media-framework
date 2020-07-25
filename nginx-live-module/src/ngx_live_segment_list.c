@@ -28,6 +28,7 @@ struct ngx_live_segment_list_node_s {
 };
 
 
+/* used for persist */
 typedef struct {
     int64_t                     time;
     uint32_t                    segment_index;
