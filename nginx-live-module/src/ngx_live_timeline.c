@@ -1737,7 +1737,7 @@ ngx_live_timeline_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
     uint32_t                             merge;
     uint32_t                             last_index;
     ngx_live_period_t                   *period;
-    ngx_live_persist_index_snap_t       *snap;
+    ngx_live_persist_snap_t             *snap;
     ngx_live_timeline_persist_period_t   pp;
 
     snap = ngx_live_persist_write_ctx(write_ctx);

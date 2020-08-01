@@ -39,10 +39,10 @@
 
 typedef struct ngx_live_track_s  ngx_live_track_t;
 
-typedef void (*live_track_ack_frames_pt)(ngx_live_track_t *track,
-    ngx_uint_t count);
+typedef void (*ngx_live_track_ack_frames_pt)(ngx_live_track_t *track,
+    uint64_t next_frame_id);
 
-typedef void (*live_track_disconnect_pt)(ngx_live_track_t *track,
+typedef void (*ngx_live_track_disconnect_pt)(ngx_live_track_t *track,
     ngx_uint_t rc);
 
 
@@ -94,6 +94,7 @@ struct ngx_live_channel_s {
     uint32_t                       last_segment_media_types;
     time_t                         last_segment_created;
 
+    uint32_t                       snapshots;
     unsigned                       blocked:8;
     unsigned                       active:1;
     unsigned                       free:1;
@@ -107,8 +108,8 @@ typedef enum {
 
 typedef struct {
     void                          *data;
-    live_track_ack_frames_pt       ack_frames;
-    live_track_disconnect_pt       disconnect;
+    ngx_live_track_ack_frames_pt   ack_frames;
+    ngx_live_track_disconnect_pt   disconnect;
 
     ngx_atomic_uint_t              connection;
     ngx_str_t                      remote_addr;
@@ -133,6 +134,7 @@ struct ngx_live_track_s {
     ngx_log_t                      log;
 
     ngx_live_track_input_t         input;
+    uint64_t                       next_frame_id;
 
     /* Note: when a track gets a segment from another track (gap filling),
         has_last_segment = 0 while last_segment_bitrate != 0 */
@@ -186,6 +188,8 @@ void ngx_live_channel_update(ngx_live_channel_t *channel,
 void ngx_live_channel_setup_changed(ngx_live_channel_t *channel);
 
 void ngx_live_channel_finalize(ngx_live_channel_t *channel);
+
+void ngx_live_channel_ack_frames(ngx_live_channel_t *channel);
 
 
 ngx_block_pool_t *ngx_live_channel_create_block_pool(

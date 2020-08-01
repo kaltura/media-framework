@@ -2060,6 +2060,8 @@ ngx_live_filler_read_setup(ngx_live_persist_block_header_t *block,
     src.channel = ngx_live_channel_get(&channel_id);
     if (src.channel == NULL) {
 
+        src.timeline = NULL;    /* suppress warning */
+
         rc = ngx_live_filler_read_setup_channel(block, rs, &channel_id,
             &timeline_id, &src);
         if (rc != NGX_OK) {
@@ -2085,8 +2087,7 @@ ngx_live_filler_read_setup(ngx_live_persist_block_header_t *block,
         }
     }
 
-    if (ngx_live_filler_setup(dst, src.channel, src.timeline, log)
-        != NGX_OK) {
+    if (ngx_live_filler_setup(dst, src.channel, src.timeline, log) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_filler_read_setup: setup failed");
         return NGX_ERROR;

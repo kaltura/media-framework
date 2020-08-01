@@ -1086,6 +1086,13 @@ ngx_live_dvr_bucket_id_variable(ngx_live_channel_t *channel, ngx_pool_t *pool,
     return NGX_OK;
 }
 
+ngx_flag_t
+ngx_live_dvr_enabled(ngx_live_channel_t *channel)
+{
+    // XXXXXX remove this hack!!!
+    return ngx_live_get_module_ctx(channel, ngx_live_dvr_module) != NULL;
+}
+
 static ngx_int_t
 ngx_live_dvr_bucket_time_variable(ngx_live_channel_t *channel,
     ngx_pool_t *pool, ngx_live_variable_value_t *v, uintptr_t data)
