@@ -1684,7 +1684,7 @@ ngx_live_timeline_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
     ngx_queue_t                          *q;
     ngx_live_timeline_t                  *timeline;
     ngx_live_timeline_snap_t             *ts;
-    ngx_live_persist_index_snap_t        *snap = ectx;
+    ngx_live_persist_snap_index_t        *snap = ectx;
     ngx_live_timeline_channel_ctx_t      *cctx;
     ngx_live_timeline_persist_channel_t  *cp;
 
@@ -1851,7 +1851,7 @@ ngx_live_timelines_write_index(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_channel_t                   *channel = obj;
     ngx_live_timeline_t                  *timeline;
     ngx_live_timeline_snap_t             *ts;
-    ngx_live_persist_index_snap_t        *snap;
+    ngx_live_persist_snap_index_t        *snap;
     ngx_live_timeline_channel_ctx_t      *cctx;
     ngx_live_timeline_persist_channel_t  *cp;
 
@@ -2213,7 +2213,7 @@ ngx_live_timelines_channel_write_index(ngx_live_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     ngx_live_channel_t                   *channel = obj;
-    ngx_live_persist_index_snap_t        *snap;
+    ngx_live_persist_snap_index_t        *snap;
     ngx_live_timeline_persist_channel_t  *cp;
 
     snap = ngx_live_persist_write_ctx(write_ctx);

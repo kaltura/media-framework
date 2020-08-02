@@ -72,7 +72,7 @@ typedef struct {
     ngx_pool_t                       *pool;
     void                            **ctx;
     ngx_live_persist_snap_t          *frames_snap;
-} ngx_live_persist_index_snap_t;
+} ngx_live_persist_snap_index_t;
 
 
 typedef void (*ngx_live_persist_read_handler_pt)(void *arg, ngx_int_t rc);

@@ -1531,7 +1531,7 @@ ngx_live_media_info_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
     ngx_queue_t                      *q;
     ngx_live_track_t                 *cur_track;
     ngx_live_media_info_snap_t       *ms;
-    ngx_live_persist_index_snap_t    *snap = ectx;
+    ngx_live_persist_snap_index_t    *snap = ectx;
     ngx_live_media_info_track_ctx_t  *cur_ctx;
 
     ms = ngx_palloc(snap->pool, sizeof(*ms) * (channel->tracks.count + 1));
@@ -1570,7 +1570,7 @@ ngx_live_media_info_write_index_source(ngx_live_persist_write_ctx_t *write_ctx,
     uint32_t                        source_id;
     ngx_live_track_t               *track = obj;
     ngx_live_media_info_snap_t     *ms;
-    ngx_live_persist_index_snap_t  *snap;
+    ngx_live_persist_snap_index_t  *snap;
 
     snap = ngx_live_persist_write_ctx(write_ctx);
     ms = ngx_live_get_module_ctx(snap, ngx_live_media_info_module);

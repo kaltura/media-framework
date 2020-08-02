@@ -169,7 +169,7 @@ typedef struct {
     uint32_t                               success_delta;
     ngx_live_persist_file_write_ctx_t     *write_ctx;
     ngx_live_persist_snap_t               *frames_snap;
-    ngx_live_persist_index_snap_t         *pending;
+    ngx_live_persist_snap_index_t         *pending;
 } ngx_live_persist_index_channel_ctx_t;
 
 typedef struct {
@@ -1360,7 +1360,7 @@ ngx_live_persist_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
 {
     ngx_queue_t                       *q;
     ngx_live_track_t                  *cur_track;
-    ngx_live_persist_index_snap_t     *snap = ectx;
+    ngx_live_persist_snap_index_t     *snap = ectx;
     ngx_live_persist_index_track_t    *tp;
     ngx_live_persist_index_channel_t  *cp;
 
@@ -1403,19 +1403,19 @@ ngx_live_persist_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
 }
 
 static void
-ngx_live_persist_index_snap_free(ngx_live_persist_index_snap_t *snap)
+ngx_live_persist_snap_index_free(ngx_live_persist_snap_index_t *snap)
 {
     ngx_live_persist_snap_frames_free(snap->frames_snap);
     ngx_destroy_pool(snap->pool);
 }
 
 static void
-ngx_live_persist_index_snap_close(void *data,
+ngx_live_persist_snap_index_close(void *data,
     ngx_live_persist_snap_close_action_e action)
 {
     ngx_uint_t                       file;
     ngx_live_channel_t              *channel;
-    ngx_live_persist_index_snap_t   *snap = data;
+    ngx_live_persist_snap_index_t   *snap = data;
     ngx_live_persist_index_scope_t  *scope;
     ngx_live_persist_preset_conf_t  *ppcf;
     ngx_live_persist_channel_ctx_t  *cctx;
@@ -1424,13 +1424,13 @@ ngx_live_persist_index_snap_close(void *data,
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
 
     ngx_log_debug2(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
-        "ngx_live_persist_index_snap_close: index: %uD, action: %d",
+        "ngx_live_persist_snap_index_close: index: %uD, action: %d",
         snap->base.scope.max_index, action);
 
     switch (action) {
 
     case ngx_live_persist_snap_close_free:
-        ngx_live_persist_index_snap_free(snap);
+        ngx_live_persist_snap_index_free(snap);
         return;
 
     case ngx_live_persist_snap_close_ack:
@@ -1457,10 +1457,10 @@ ngx_live_persist_index_snap_close(void *data,
 
     if (cctx->index.write_ctx != NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
-            "ngx_live_persist_index_snap_close: write already active");
+            "ngx_live_persist_snap_index_close: write already active");
 
         if (cctx->index.pending != NULL) {
-            ngx_live_persist_index_snap_free(cctx->index.pending);
+            ngx_live_persist_snap_index_free(cctx->index.pending);
         }
         cctx->index.pending = snap;
         return;
@@ -1469,7 +1469,7 @@ ngx_live_persist_index_snap_close(void *data,
     scope = &snap->base.scope;
     if (scope->max_index < channel->min_segment_index) {
         ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-            "ngx_live_persist_index_snap_close: no segments");
+            "ngx_live_persist_snap_index_close: no segments");
         goto close;
     }
 
@@ -1493,7 +1493,7 @@ ngx_live_persist_index_snap_close(void *data,
         snap, scope, sizeof(*scope));
     if (cctx->index.write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_index_snap_close: "
+            "ngx_live_persist_snap_index_close: "
             "write failed, file: %ui, scope: %uD..%uD",
             file, scope->min_index, scope->max_index);
         goto close;
@@ -1502,7 +1502,7 @@ ngx_live_persist_index_snap_close(void *data,
     cctx->index.frames_snap = snap->frames_snap;
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_persist_index_snap_close: "
+        "ngx_live_persist_snap_index_close: "
         "write started, file: %ui, scope: %uD..%uD",
         file, scope->min_index, scope->max_index);
 
@@ -1516,43 +1516,43 @@ close:
 }
 
 static ngx_live_persist_snap_t *
-ngx_live_persist_index_snap_create(ngx_live_channel_t *channel)
+ngx_live_persist_snap_index_create(ngx_live_channel_t *channel)
 {
     ngx_pool_t                     *pool;
-    ngx_live_persist_index_snap_t  *snap;
+    ngx_live_persist_snap_index_t  *snap;
 
     pool = ngx_create_pool(1024, &channel->log);
     if (pool == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_index_snap_create: create pool failed");
+            "ngx_live_persist_snap_index_create: create pool failed");
         return NULL;
     }
 
     snap = ngx_palloc(pool, sizeof(*snap));
     if (snap == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_index_snap_create: alloc snap failed");
+            "ngx_live_persist_snap_index_create: alloc snap failed");
         goto failed;
     }
 
     snap->ctx = ngx_pcalloc(pool, sizeof(void *) * ngx_live_max_module);
     if (snap->ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_index_snap_create: alloc ctx failed");
+            "ngx_live_persist_snap_index_create: alloc ctx failed");
         goto failed;
     }
 
     snap->frames_snap = ngx_live_persist_snap_frames_create(channel);
     if (snap->frames_snap == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_index_snap_create: create frames snap failed");
+            "ngx_live_persist_snap_index_create: create frames snap failed");
         goto failed;
     }
 
     snap->base.channel = channel;
     snap->base.max_track_id = channel->tracks.last_id;
     snap->base.scope.max_index = channel->next_segment_index;
-    snap->base.close = ngx_live_persist_index_snap_close;
+    snap->base.close = ngx_live_persist_snap_index_close;
 
     snap->pool = pool;
 
@@ -1560,7 +1560,7 @@ ngx_live_persist_index_snap_create(ngx_live_channel_t *channel)
         snap) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_index_snap_create: event failed");
+            "ngx_live_persist_snap_index_create: event failed");
         ngx_live_persist_snap_frames_free(snap->frames_snap);
         goto failed;
     }
@@ -1583,7 +1583,7 @@ ngx_live_persist_snap_create(ngx_live_channel_t *channel)
 
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
     if (ppcf->files[NGX_LIVE_PERSIST_FILE_INDEX].path != NULL) {
-        snap = ngx_live_persist_index_snap_create(channel);
+        snap = ngx_live_persist_snap_index_create(channel);
 
     } else if (ngx_live_dvr_enabled(channel)) {
         snap = ngx_live_persist_snap_frames_create(channel);
@@ -1607,7 +1607,7 @@ ngx_live_persist_index_write_channel(ngx_live_persist_write_ctx_t *write_ctx,
 {
     ngx_wstream_t                     *ws;
     ngx_live_channel_t                *channel = obj;
-    ngx_live_persist_index_snap_t     *snap;
+    ngx_live_persist_snap_index_t     *snap;
     ngx_live_persist_index_channel_t  *cp;
 
     ws = ngx_live_persist_write_stream(write_ctx);
@@ -1709,7 +1709,7 @@ ngx_live_persist_index_write_track(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_queue_t                       *q;
     ngx_live_track_t                  *cur_track;
     ngx_live_channel_t                *channel = obj;
-    ngx_live_persist_index_snap_t     *snap;
+    ngx_live_persist_snap_index_t     *snap;
     ngx_live_persist_index_track_t    *tp;
     ngx_live_persist_index_channel_t  *cp;
 
@@ -1813,7 +1813,7 @@ static void
 ngx_live_persist_index_write_complete(ngx_live_channel_t *channel,
     ngx_uint_t file, void *data, ngx_int_t rc)
 {
-    ngx_live_persist_index_snap_t   *snap;
+    ngx_live_persist_snap_index_t   *snap;
     ngx_live_persist_channel_ctx_t  *cctx;
     ngx_live_persist_index_scope_t  *scope = data;
 
@@ -1849,7 +1849,7 @@ ngx_live_persist_index_write_complete(ngx_live_channel_t *channel,
         snap = cctx->index.pending;
         cctx->index.pending = NULL;
 
-        ngx_live_persist_index_snap_close(snap,
+        ngx_live_persist_snap_index_close(snap,
             ngx_live_persist_snap_close_write);
     }
 }
@@ -1999,7 +1999,7 @@ ngx_live_persist_channel_free(ngx_live_channel_t *channel, void *ectx)
     }
 
     if (cctx->index.pending != NULL) {
-        ngx_live_persist_index_snap_free(cctx->index.pending);
+        ngx_live_persist_snap_index_free(cctx->index.pending);
     }
 
     if (cctx->setup.timer.timer_set) {
