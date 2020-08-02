@@ -15,6 +15,7 @@
 typedef struct {
     ngx_msec_t                read_timeout;
     ngx_msec_t                send_timeout;
+    ngx_uint_t                max_skip_frames;
     ngx_str_t                 dump_folder;
 } ngx_stream_live_kmp_srv_conf_t;
 
@@ -36,6 +37,7 @@ typedef struct {
 
     kmp_ack_frames_packet_t   ack_packet;
     u_char                   *ack_packet_pos;
+    uint64_t                  cur_frame_id;
     uint64_t                  acked_frame_id;
 
     ngx_fd_t                  dump_fd;
@@ -74,6 +76,13 @@ static ngx_command_t  ngx_stream_live_kmp_commands[] = {
       ngx_conf_set_msec_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_live_kmp_srv_conf_t, send_timeout),
+      NULL },
+
+    { ngx_string("live_kmp_max_skip_frames"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_live_kmp_srv_conf_t, max_skip_frames),
       NULL },
 
     { ngx_string("live_kmp_dump_folder"),
@@ -252,11 +261,13 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
 static ngx_int_t
 ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
 {
-    ngx_int_t         rc;
-    kmp_frame_t       frame;
-    kmp_frame_t      *frame_ptr;
-    ngx_buf_chain_t  *cur;
-    ngx_buf_chain_t  *data = ctx->packet_data_first;
+    ngx_int_t                  rc;
+    kmp_frame_t                frame;
+    kmp_frame_t               *frame_ptr;
+    ngx_buf_chain_t           *cur;
+    ngx_buf_chain_t           *data;
+    ngx_live_track_t          *track;
+    ngx_live_add_frame_req_t   req;
 
     /* get the frame metadata */
     if (ctx->packet_header.header_size < sizeof(kmp_frame_packet_t)) {
@@ -266,18 +277,27 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         return NGX_STREAM_BAD_REQUEST;
     }
 
+    track = ctx->track;
+    if (ctx->cur_frame_id < track->next_frame_id) {
+        ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
+            "ngx_stream_live_kmp_frame: skipping frame, cur: %uL, next: %uL",
+            ctx->cur_frame_id, track->next_frame_id);
+        goto done;
+    }
+
     if (!ctx->got_media_info) {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
+        ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
             "ngx_stream_live_kmp_frame: no media info, skipping frame");
-        return NGX_OK;
+        goto done;
     }
 
     if (ctx->packet_header.data_size == 0) {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
+        ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
             "ngx_stream_live_kmp_frame: skipping empty frame");
-        return NGX_OK;
+        goto done;
     }
 
+    data = ctx->packet_data_first;
     frame_ptr = ngx_buf_chain_read(&data, &frame, sizeof(frame));
     if (frame_ptr == NULL) {
         ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
@@ -285,23 +305,23 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
     }
 
-    ngx_log_debug6(NGX_LOG_DEBUG_STREAM, &ctx->track->log, 0,
+    ngx_log_debug6(NGX_LOG_DEBUG_STREAM, &track->log, 0,
         "ngx_stream_live_kmp_frame: track: %V, created: %L, size: %uD, "
         "dts: %L, flags: 0x%uxD, ptsDelay: %uD",
-        &ctx->track->sn.str, frame_ptr->created, ctx->packet_header.data_size,
+        &track->sn.str, frame_ptr->created, ctx->packet_header.data_size,
         frame_ptr->dts, frame_ptr->flags, frame_ptr->pts_delay);
 
     if (ctx->wait_key) {
 
         /* ignore frames that arrive before the first key */
-        if (ctx->track->media_type == KMP_MEDIA_VIDEO &&
+        if (track->media_type == KMP_MEDIA_VIDEO &&
             (frame_ptr->flags & KMP_FRAME_FLAG_KEY) == 0)
         {
-            ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
+            ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
                 "ngx_stream_live_kmp_frame: "
                 "skipping non-key frame, created: %L, dts: %L",
                 frame_ptr->created, frame_ptr->dts);
-            return NGX_OK;
+            goto done;
         }
 
         ctx->wait_key = 0;
@@ -321,12 +341,19 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
     /* add the frame */
     frame_ptr->flags &= KMP_FRAME_FLAG_MASK;
 
-    rc = ngx_live_add_frame(ctx->track, frame_ptr, data, ctx->packet_data_last,
-        ctx->packet_header.data_size);
+    req.track = track;
+    req.frame_id = ctx->cur_frame_id;
+    req.frame = frame_ptr;
+
+    req.data_head = data;
+    req.data_tail = ctx->packet_data_last;
+    req.size = ctx->packet_header.data_size;
+
+    rc = ngx_live_add_frame(&req);
     switch (rc) {
 
     case NGX_DONE:
-        return NGX_OK;
+        goto done;
 
     case NGX_OK:
         break;
@@ -354,6 +381,10 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
     } else {
         ctx->packet_data_last = NULL;
     }
+
+done:
+
+    ctx->cur_frame_id++;
 
     return NGX_OK;
 }
@@ -676,7 +707,7 @@ ngx_stream_live_kmp_write_handler(ngx_event_t *wev)
 }
 
 static void
-ngx_stream_live_kmp_ack_frames(ngx_live_track_t *track, ngx_uint_t count)
+ngx_stream_live_kmp_ack_frames(ngx_live_track_t *track, uint64_t next_frame_id)
 {
     ngx_event_t                *wev;
     ngx_stream_session_t       *s = track->input.data;
@@ -684,7 +715,11 @@ ngx_stream_live_kmp_ack_frames(ngx_live_track_t *track, ngx_uint_t count)
 
     ctx = ngx_stream_get_module_ctx(s, ngx_stream_live_kmp_module);
 
-    ctx->acked_frame_id += count;
+    if (next_frame_id <= ctx->acked_frame_id) {
+        return;
+    }
+
+    ctx->acked_frame_id = next_frame_id;
 
     s = ctx->s;
     wev = s->connection->write;
@@ -771,16 +806,17 @@ ngx_stream_live_kmp_log_error(ngx_log_t *log, u_char *buf, size_t len)
 static ngx_int_t
 ngx_stream_live_kmp_read_header(ngx_event_t *rev)
 {
-    ngx_int_t                   rc;
-    ngx_buf_t                  *b;
-    ngx_str_t                   track_id;
-    ngx_str_t                   channel_id;
-    ngx_connection_t           *c;
-    ngx_live_track_t           *track;
-    ngx_live_channel_t         *channel;
-    ngx_stream_session_t       *s;
-    kmp_connect_packet_t       *header;
-    ngx_stream_live_kmp_ctx_t  *ctx;
+    ngx_int_t                        rc;
+    ngx_buf_t                       *b;
+    ngx_str_t                        track_id;
+    ngx_str_t                        channel_id;
+    ngx_connection_t                *c;
+    ngx_live_track_t                *track;
+    ngx_live_channel_t              *channel;
+    ngx_stream_session_t            *s;
+    kmp_connect_packet_t            *header;
+    ngx_stream_live_kmp_ctx_t       *ctx;
+    ngx_stream_live_kmp_srv_conf_t  *lscf;
 
     c = rev->data;
     s = c->data;
@@ -912,6 +948,7 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
 
     ctx->ack_packet.header.packet_type = KMP_PACKET_ACK_FRAMES;
     ctx->ack_packet.header.header_size = sizeof(ctx->ack_packet);
+    ctx->cur_frame_id = header->initial_frame_id;
     ctx->acked_frame_id = header->initial_frame_id;
 
     ctx->dump_fd = ngx_stream_live_kmp_open_dump_file(s);
@@ -934,6 +971,19 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
     track->input.connection = c->number;
     track->input.start_sec = ngx_time();
     track->input.received_bytes = sizeof(*header);
+
+    lscf = ngx_stream_get_module_srv_conf(s, ngx_stream_live_kmp_module);
+
+    if (track->next_frame_id > ctx->cur_frame_id +
+        lscf->max_skip_frames)
+    {
+        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+            "ngx_stream_live_kmp_read_header: "
+            "skip count exceeds limit, cur: %uL, next: %uL",
+            ctx->cur_frame_id, track->next_frame_id);
+
+        track->next_frame_id = ctx->cur_frame_id;
+    }
 
     /* get the address name with port */
     track->input.remote_addr.data = ctx->remote_addr_buf;
@@ -1064,6 +1114,7 @@ ngx_stream_live_kmp_create_srv_conf(ngx_conf_t *cf)
 
     conf->read_timeout = NGX_CONF_UNSET_MSEC;
     conf->send_timeout = NGX_CONF_UNSET_MSEC;
+    conf->max_skip_frames = NGX_CONF_UNSET_UINT;
 
     return conf;
 }
@@ -1079,6 +1130,9 @@ ngx_stream_live_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_msec_value(conf->send_timeout,
                               prev->send_timeout, 10 * 1000);
+
+    ngx_conf_merge_uint_value(conf->max_skip_frames,
+                              prev->max_skip_frames, 2000);
 
     ngx_conf_merge_str_value(conf->dump_folder, prev->dump_folder, "");
 

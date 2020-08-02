@@ -1667,8 +1667,8 @@ ngx_live_media_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
 {
     ngx_queue_t                      *q;
     ngx_live_track_t                 *track = obj;
+    ngx_live_persist_snap_t          *snap;
     ngx_live_media_info_node_t       *node;
-    ngx_live_persist_index_snap_t    *snap;
     ngx_live_media_info_persist_t     mp;
     ngx_live_media_info_track_ctx_t  *ctx;
 

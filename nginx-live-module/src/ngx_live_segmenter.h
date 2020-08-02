@@ -15,9 +15,19 @@
 #define NGX_LIVE_FRAME_FLAG_SPLIT           (0x10)
 
 
-typedef ngx_int_t (*ngx_live_add_frame_pt)(ngx_live_track_t *track,
-    kmp_frame_t *frame, ngx_buf_chain_t *data_head, ngx_buf_chain_t *data_tail,
-    size_t size);
+typedef struct {
+    ngx_live_track_t  *track;
+
+    uint64_t           frame_id;
+    kmp_frame_t       *frame;
+
+    ngx_buf_chain_t   *data_head;
+    ngx_buf_chain_t   *data_tail;
+    size_t             size;
+} ngx_live_add_frame_req_t;
+
+
+typedef ngx_int_t (*ngx_live_add_frame_pt)(ngx_live_add_frame_req_t *req);
 
 typedef ngx_int_t (*ngx_live_add_media_info_pt)(ngx_live_track_t *track,
     kmp_media_info_t *media_info, ngx_buf_chain_t *extra_data,

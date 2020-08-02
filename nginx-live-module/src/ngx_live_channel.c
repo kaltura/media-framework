@@ -326,6 +326,27 @@ ngx_live_channel_finalize(ngx_live_channel_t *channel)
     ngx_post_event(e, &ngx_posted_events);
 }
 
+void
+ngx_live_channel_ack_frames(ngx_live_channel_t *channel)
+{
+    ngx_queue_t       *q;
+    ngx_live_track_t  *cur_track;
+
+    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+        "ngx_live_channel_ack_frames: sending acks");
+
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
+        q = ngx_queue_next(q))
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+
+        if (cur_track->input.ack_frames != NULL) {
+            cur_track->input.ack_frames(cur_track, cur_track->next_frame_id);
+        }
+    }
+}
+
 ngx_block_pool_t *
 ngx_live_channel_create_block_pool(ngx_live_channel_t *channel, size_t *sizes,
     ngx_uint_t count)

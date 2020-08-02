@@ -200,20 +200,22 @@ ngx_live_syncer_enable_sync_flag(ngx_live_channel_t *channel,
 }
 
 static ngx_int_t
-ngx_live_syncer_add_frame(ngx_live_track_t *track, kmp_frame_t *frame,
-    ngx_buf_chain_t *data_head, ngx_buf_chain_t *data_tail, size_t size)
+ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
 {
     int64_t                         pts;
     uint32_t                        sync_frames;
     ngx_flag_t                      channel_synched;
+    kmp_frame_t                    *frame;
+    ngx_live_track_t               *track;
     ngx_live_syncer_track_ctx_t    *ctx;
     ngx_live_syncer_preset_conf_t  *spcf;
 
+    track = req->track;
     spcf = ngx_live_get_module_preset_conf(track->channel,
         ngx_live_syncer_module);
 
     if (!spcf->enabled) {
-        return next_add_frame(track, frame, data_head, data_tail, size);
+        return next_add_frame(req);
     }
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
@@ -221,6 +223,8 @@ ngx_live_syncer_add_frame(ngx_live_track_t *track, kmp_frame_t *frame,
     if (ctx->force_sync_count > 1) {
         ctx->force_sync_count--;
     }
+
+    frame = req->frame;
 
     pts = frame->dts + frame->pts_delay;
 
@@ -286,7 +290,7 @@ done:
 
     frame->dts = pts + ctx->correction - frame->pts_delay;
 
-    return next_add_frame(track, frame, data_head, data_tail, size);
+    return next_add_frame(req);
 }
 
 static size_t

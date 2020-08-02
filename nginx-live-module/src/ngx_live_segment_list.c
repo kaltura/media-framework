@@ -292,11 +292,11 @@ static ngx_int_t
 ngx_live_segment_list_write_node_part(ngx_live_segment_iter_t *iter,
     uint32_t segment_index, ngx_live_persist_write_ctx_t *write_ctx)
 {
-    uint32_t                        max_index;
-    uint32_t                        next_index;
-    ngx_live_segment_repeat_t       elt;
-    ngx_live_segment_repeat_t      *cur, *last;
-    ngx_live_persist_index_snap_t  *snap;
+    uint32_t                    max_index;
+    uint32_t                    next_index;
+    ngx_live_persist_snap_t    *snap;
+    ngx_live_segment_repeat_t   elt;
+    ngx_live_segment_repeat_t  *cur, *last;
 
     snap = ngx_live_persist_write_ctx(write_ctx);
 
@@ -340,9 +340,9 @@ ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
     uint32_t                         period_index;
     ngx_flag_t                       in_block;
     ngx_queue_t                     *q;
+    ngx_live_persist_snap_t         *snap;
     ngx_live_segment_iter_t          iter;
     ngx_live_segment_list_node_t    *node;
-    ngx_live_persist_index_snap_t   *snap;
     ngx_live_segment_list_period_t   period;
 
     snap = ngx_live_persist_write_ctx(write_ctx);

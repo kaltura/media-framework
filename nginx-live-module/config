@@ -232,6 +232,7 @@ LIVE_DEPS="$LIVE_DEPS                                         \
     $ngx_addon_dir/src/ngx_live_timeline.h                    \
     $ngx_addon_dir/src/ngx_live_timeline_json.h               \
     $ngx_addon_dir/src/ngx_live_variables.h                   \
+    $ngx_addon_dir/src/dvr/ngx_live_dvr.h                     \
     $ngx_addon_dir/src/dvr/ngx_live_persist.h                 \
     $ngx_addon_dir/src/dvr/ngx_live_persist_format.h          \
     $ngx_addon_dir/src/dvr/ngx_live_persist_read.h            \

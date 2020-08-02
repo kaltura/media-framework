@@ -28,6 +28,13 @@ enum {
 };
 
 
+typedef enum {
+    ngx_live_persist_snap_close_free,
+    ngx_live_persist_snap_close_ack,
+    ngx_live_persist_snap_close_write,
+} ngx_live_persist_snap_close_action_e;
+
+
 typedef struct {
     uint32_t     id;
     uint32_t     ctx;
@@ -53,10 +60,18 @@ typedef struct {
 
 typedef struct {
     ngx_live_channel_t               *channel;
+    uint32_t                          max_track_id;
+    ngx_live_persist_index_scope_t    scope;
+    void                            (*close)(void *snap,
+                                ngx_live_persist_snap_close_action_e action);
+} ngx_live_persist_snap_t;
+
+
+typedef struct {
+    ngx_live_persist_snap_t           base;     /* must be first */
     ngx_pool_t                       *pool;
     void                            **ctx;
-    ngx_live_persist_index_scope_t    scope;
-    uint32_t                          max_track_id;
+    ngx_live_persist_snap_t          *frames_snap;
 } ngx_live_persist_index_snap_t;
 
 
@@ -80,12 +95,7 @@ ngx_int_t ngx_live_persist_read(ngx_live_channel_t *channel,
     void *data);
 
 
-ngx_live_persist_index_snap_t *ngx_live_persist_index_snap_create(
+ngx_live_persist_snap_t *ngx_live_persist_snap_create(
     ngx_live_channel_t *channel);
-
-void ngx_live_persist_index_snap_free(ngx_live_persist_index_snap_t *snap);
-
-ngx_int_t ngx_live_persist_index_snap_write(
-    ngx_live_persist_index_snap_t *snap);
 
 #endif /* _NGX_LIVE_PERSIST_H_INCLUDED_ */

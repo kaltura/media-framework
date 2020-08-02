@@ -19,18 +19,18 @@ NO_TRUNCATE = False
 # Test matrix:
 
 # params         result                                         error log
-# NT+MI+WA     = memory limit exceeded after 220k segments/3m, 'cancelling write request', 'write failed', 'truncat', 'aborting write'
-# NT+WA        = memory limit exceeded after 4m segments/26m,  'cancelling write request', 'write failed', 'truncat', 'aborting write'
+# NT+MI+WA     = memory limit exceeded after 220k segments/3m, 'cancelling write request', 'write failed', 'truncat', 'aborting write', 'exceeds limit'
+# NT+WA        = memory limit exceeded after 4m segments/26m,  'cancelling write request', 'write failed', 'truncat', 'aborting write', 'exceeds limit'
 # NT+MI+WA+DD  = memory limit exceeded after 220k segments/2m, 'truncat'
 # NT+WA+DD     = memory limit exceeded after 4m segments/15m,  'truncat'
-# MI+WA        = runs forever,                                 'cancelling write request', 'write failed', 'truncat'
-# WA           = runs forever,                                 'cancelling write request', 'write failed', 'truncat'
+# MI+WA        = runs forever,                                 'cancelling write request', 'write failed', 'truncat', 'exceeds limit'
+# WA           = runs forever,                                 'cancelling write request', 'write failed', 'truncat', 'exceeds limit'
 # MI+WA+DD     = runs forever,                                 'truncat'
 # WA+DD        = runs forever,                                 'truncat'
 # BSR+MI+WA    = runs forever,                                 'request cleaned up', 'cancelling write request', 'write failed', 'truncat'
 # BSR+MI+WA+DD = runs forever,                                 'request cleaned up', 'truncat'
-# MI           = may fail on pending frame limit,              'cancelling write request', 'write failed', 'truncat'
-#              = may fail on pending frame limit,              'cancelling write request', 'write failed', 'truncat'
+# MI           = may fail on pending frame limit,              'cancelling write request', 'write failed', 'truncat', 'exceeds limit'
+#              = may fail on pending frame limit,              'cancelling write request', 'write failed', 'truncat', 'exceeds limit'
 # MI+DD        = may fail on pending frame limit,              'truncat'
 # DD           = may fail on pending frame limit,              'truncat'
 
@@ -41,8 +41,9 @@ def updateConf(conf):
     errorLog[1] = errorLog[1].split(' ')[0] + ' notice'
 
     if DISABLE_DVR:
-        preset = getConfBlock(conf, ['live', 'preset main'])
-        preset.remove(getConfParam(preset, 'store_s3'))
+        block = getConfBlock(conf, ['live'])
+        for key in ['dvr_path', 'persist_setup_path', 'persist_index_path', 'persist_delta_path']:
+            delConfParam(block, key)
 
     if BLOCKING_SEGMENT_REQUEST:
         preset = getConfBlock(conf, ['live', 'preset main'])
@@ -174,6 +175,19 @@ class WaitAckSender(object):
             self.ackedFrames = frameId
 
 def test(channelId=CHANNEL_ID):
+    # print the params
+    params = [
+        'DISABLE_DVR',
+        'BLOCKING_SEGMENT_REQUEST',
+        'WAIT_ACKS',
+        'MEDIA_INFO_CHANGE',
+        'NO_TRUNCATE',
+    ]
+
+    print '%s started' % time.ctime()
+    for param in params:
+        print '%s: %s' % (param, globals()[param])
+
     # prepare the buffers in memory
     if BLOCKING_SEGMENT_REQUEST:
         video1 = TEST_VIDEO_HIGH        # need large segments to make send block

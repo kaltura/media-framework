@@ -30,7 +30,7 @@ struct ngx_live_segment_index_s {
 
     ngx_queue_t                     cleanup;
     ngx_live_segment_persist_e      persist;
-    ngx_live_persist_index_snap_t  *snap;
+    ngx_live_persist_snap_t        *snap;
     unsigned                        free:1;
 };
 
@@ -115,7 +115,7 @@ ngx_live_segment_index_free(ngx_live_channel_t *channel,
     }
 
     if (index->snap != NULL) {
-        ngx_live_persist_index_snap_free(index->snap);
+        index->snap->close(index->snap, ngx_live_persist_snap_close_ack);
         index->snap = NULL;
     }
 
@@ -190,7 +190,7 @@ ngx_live_segment_index_create(ngx_live_channel_t *channel)
     }
 
     /* Note: returns null when index persistence is off or create failed */
-    index->snap = ngx_live_persist_index_snap_create(channel);
+    index->snap = ngx_live_persist_snap_create(channel);
 
     index->node.key = channel->next_segment_index;
     ngx_queue_init(&index->cleanup);
@@ -323,10 +323,10 @@ ngx_live_segment_index_persisted(ngx_live_channel_t *channel,
     ngx_flag_t                             inherited;
     ngx_queue_t                           *q;
     ngx_queue_t                           *ins;
+    ngx_live_persist_snap_t               *snap;
     ngx_live_segment_index_t              *index;
     ngx_live_segment_index_t              *pending;
     ngx_live_segment_persist_e             persist;
-    ngx_live_persist_index_snap_t         *snap;
     ngx_live_segment_index_channel_ctx_t  *cctx;
 
     /* Note: may not find the first index when a dvr bucket is saved,
@@ -382,11 +382,13 @@ ngx_live_segment_index_persisted(ngx_live_channel_t *channel,
         ngx_queue_remove(&index->pqueue);
         ngx_queue_insert_before(ins, &index->pqueue);
 
-        if (snap != NULL) {
-            ngx_live_persist_index_snap_free(snap);
+        if (index->snap != NULL) {
+            if (snap != NULL) {
+                snap->close(snap, ngx_live_persist_snap_close_free);
+            }
+            snap = index->snap;
+            index->snap = NULL;
         }
-        snap = index->snap;
-        index->snap = NULL;
 
         q = ngx_queue_next(q);
         if (q == ngx_queue_sentinel(&cctx->all)) {
@@ -407,7 +409,9 @@ ngx_live_segment_index_persisted(ngx_live_channel_t *channel,
 
     inherited = snap->scope.max_index >= max_segment_index;
     if (rc != NGX_OK && !inherited) {
-        ngx_live_persist_index_snap_free(snap);
+        /* Note: it is possible that there is some pending segment before
+            this one, but since this one failed, we just ack it */
+        snap->close(snap, ngx_live_persist_snap_close_ack);
         return;
     }
 
@@ -418,13 +422,14 @@ ngx_live_segment_index_persisted(ngx_live_channel_t *channel,
             snap->scope.max_index, pending->node.key);
 
         if (pending->snap != NULL) {
-            ngx_live_persist_index_snap_free(pending->snap);
+            pending->snap->close(pending->snap,
+                ngx_live_persist_snap_close_free);
         }
         pending->snap = snap;
         return;
     }
 
-    ngx_live_persist_index_snap_write(snap);
+    snap->close(snap, ngx_live_persist_snap_close_write);
 }
 
 static void
@@ -658,7 +663,7 @@ ngx_live_segment_index_channel_free(ngx_live_channel_t *channel, void *ectx)
         }
 
         if (index->snap != NULL) {
-            ngx_live_persist_index_snap_free(index->snap);
+            index->snap->close(index->snap, ngx_live_persist_snap_close_free);
         }
     }
 
