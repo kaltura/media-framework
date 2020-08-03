@@ -1,13 +1,15 @@
 import struct
+import zlib
 import sys
 import os
 
 MAX_BLOCK_DEPTH = 5
 LABEL_LEN = 2 * MAX_BLOCK_DEPTH + len('cccc header  ')
 
-PERSIST_HEADER_SIZE_MASK      = 0x0fffffff
-PERSIST_HEADER_FLAG_CONTAINER = 0x10000000
-PERSIST_HEADER_FLAG_INDEX     = 0x20000000
+PERSIST_HEADER_SIZE_MASK       = 0x0fffffff
+PERSIST_HEADER_FLAG_CONTAINER  = 0x10000000
+PERSIST_HEADER_FLAG_INDEX      = 0x20000000
+PERSIST_HEADER_FLAG_COMPRESSED = 0x40000000
 
 def format_hex(data, start, end, pos_format, label, next_label, label_len):
     result = ''
@@ -69,11 +71,19 @@ def print_blocks(data, start, end, pos_format, indent):
             print 'Error: data size overflow, pos: %s' % pos
             return
 
-        if header_flags & PERSIST_HEADER_FLAG_CONTAINER:
-            print_blocks(data, data_pos, next_pos, pos_format, next_indent)
-        elif data_pos < next_pos:
-            print format_hex(data, data_pos, next_pos, pos_format,
-                title_indent + id + ' data', next_indent, LABEL_LEN)
+        if header_flags & PERSIST_HEADER_FLAG_COMPRESSED:
+            cur_data = zlib.decompress(data[data_pos:next_pos], 0)
+            if header_flags & PERSIST_HEADER_FLAG_CONTAINER:
+                print_blocks(cur_data, 0, len(cur_data), pos_format, next_indent)
+            else:
+                print format_hex(cur_data, 0, len(cur_data), pos_format,
+                    title_indent + id + ' data', next_indent, LABEL_LEN)
+        else:
+            if header_flags & PERSIST_HEADER_FLAG_CONTAINER:
+                print_blocks(data, data_pos, next_pos, pos_format, next_indent)
+            elif data_pos < next_pos:
+                print format_hex(data, data_pos, next_pos, pos_format,
+                    title_indent + id + ' data', next_indent, LABEL_LEN)
 
         pos = next_pos
 

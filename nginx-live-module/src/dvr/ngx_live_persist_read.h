@@ -8,8 +8,12 @@
 #include "../ngx_mem_rstream.h"
 
 
-ngx_int_t ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
-    ngx_log_t *log, void *scope, ngx_mem_rstream_t *rs);
+ngx_live_persist_file_header_t *ngx_live_persist_read_file_header(
+    ngx_str_t *buf, uint32_t type, ngx_log_t *log, void *scope,
+    ngx_mem_rstream_t *rs);
+
+ngx_int_t ngx_live_persist_read_inflate(ngx_live_persist_file_header_t *header,
+    size_t max_size, ngx_mem_rstream_t *rs, void **ptr);
 
 ngx_live_persist_block_header_t *ngx_live_persist_read_block(
     ngx_mem_rstream_t *rs, ngx_mem_rstream_t *block_rs);

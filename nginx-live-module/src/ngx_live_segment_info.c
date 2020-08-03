@@ -468,7 +468,7 @@ ngx_live_segment_info_count(ngx_live_track_t *track, uint32_t first_index,
     cur = node->elts;
     last = cur + node->nelts;
 
-    for (;;) {
+    for ( ;; ) {
 
         if (cur->index > prev_index) {
 
@@ -648,7 +648,7 @@ ngx_live_segment_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
         last = &node->elts[node->nelts];
 
         /* trim the left side */
-        for (;;) {
+        for ( ;; ) {
             if (first->index >= snap->scope.min_index) {
                 break;
             }
@@ -661,7 +661,7 @@ ngx_live_segment_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
         }
 
         /* trim the right side */
-        for (;;) {
+        for ( ;; ) {
             if (last[-1].index <= snap->scope.max_index) {
                 break;
             }

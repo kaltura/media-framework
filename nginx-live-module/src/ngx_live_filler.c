@@ -314,7 +314,7 @@ ngx_live_filler_track_fill(ngx_live_track_t *track, uint32_t segment_count,
     /* full segments */
     for (i = 0; i < segment_count; ) {
 
-        for (;;) {
+        for ( ;; ) {
 
             src = ngx_live_filler_frame_iter_get(&ctx->frame_iter);
             if (src == NULL) {

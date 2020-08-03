@@ -129,7 +129,7 @@ ff_avc_parse_nal_units(AVIOContext *pb, const uint8_t *buf_in, int size)
 
     size = 0;
     nal_start = ff_avc_find_startcode(p, end);
-    for (;;) {
+    for ( ;; ) {
         while (nal_start < end && !*(nal_start++));
         if (nal_start == end)
             break;

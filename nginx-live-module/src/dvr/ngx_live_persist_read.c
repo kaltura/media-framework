@@ -2,8 +2,10 @@
 #include <ngx_core.h>
 #include "ngx_live_persist_read.h"
 
+#include <zlib.h>
 
-ngx_int_t
+
+ngx_live_persist_file_header_t *
 ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
     ngx_log_t *log, void *scope, ngx_mem_rstream_t *rs)
 {
@@ -14,7 +16,7 @@ ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_read_file_header: buffer size %uz too small",
             buf->len);
-        return NGX_BAD_DATA;
+        return NULL;
     }
 
     header = (void *) buf->data;
@@ -23,7 +25,7 @@ ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_read_file_header: invalid magic 0x%uxD",
             header->magic);
-        return NGX_BAD_DATA;
+        return NULL;
     }
 
     header_size = header->header_size & NGX_LIVE_PERSIST_HEADER_SIZE_MASK;
@@ -31,7 +33,7 @@ ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_read_file_header: header size too small %uD",
             header_size);
-        return NGX_BAD_DATA;
+        return NULL;
     }
 
     if (header_size > buf->len) {
@@ -39,7 +41,7 @@ ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
             "ngx_live_persist_read_file_header: "
             "header size %uD larger than buffer %uz",
             header_size, buf->len);
-        return NGX_BAD_DATA;
+        return NULL;
     }
 
     if (header->type != type) {
@@ -47,11 +49,70 @@ ngx_live_persist_read_file_header(ngx_str_t *buf, uint32_t type,
             "ngx_live_persist_read_file_header: "
             "invalid file type 0x%uxD, expected %*s",
             header->type, (size_t) sizeof(type), &type);
-        return NGX_BAD_DATA;
+        return NULL;
     }
 
     ngx_mem_rstream_set(rs, buf->data + header_size, buf->data + buf->len,
         log, scope);
+
+    return header;
+}
+
+ngx_int_t
+ngx_live_persist_read_inflate(ngx_live_persist_file_header_t *header,
+    size_t max_size, ngx_mem_rstream_t *rs, void **ptr)
+{
+    int         rc;
+    uLongf      size;
+    u_char     *p;
+    uint32_t    header_size;
+    ngx_str_t   buf;
+
+    if (!(header->header_size & NGX_LIVE_PERSIST_HEADER_FLAG_COMPRESSED)) {
+        *ptr = NULL;
+        return NGX_OK;
+    }
+
+    header_size = header->header_size & NGX_LIVE_PERSIST_HEADER_SIZE_MASK;
+
+    if (header->uncomp_size < header_size) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_read_inflate: "
+            "uncompressed size %uD smaller than header %uD",
+            header->uncomp_size, header_size);
+        return NGX_BAD_DATA;
+    }
+
+    if (header->uncomp_size > max_size) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_read_inflate: "
+            "uncompressed size %uD exceeds limit %uz",
+            header->uncomp_size, max_size);
+        return NGX_BAD_DATA;
+    }
+
+    size = header->uncomp_size - header_size;
+
+    p = ngx_alloc(size, rs->log);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_persist_read_file_header: alloc failed");
+        return NGX_ERROR;
+    }
+
+    ngx_mem_rstream_get_left(rs, &buf);
+
+    rc = uncompress(p, &size, buf.data, buf.len);
+    if (rc != Z_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_read_inflate: "
+            "uncompress failed %d", rc);
+        ngx_free(p);
+        return NGX_BAD_DATA;
+    }
+
+    ngx_mem_rstream_set(rs, p, p + size, rs->log, rs->scope);
+    *ptr = p;
 
     return NGX_OK;
 }

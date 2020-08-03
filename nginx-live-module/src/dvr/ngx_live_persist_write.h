@@ -26,7 +26,7 @@ typedef struct {
 
 
 ngx_live_persist_write_ctx_t *ngx_live_persist_write_init(ngx_pool_t *pool,
-    uint32_t type);
+    uint32_t type, int comp_level);
 
 ngx_chain_t *ngx_live_persist_write_close(ngx_live_persist_write_ctx_t *ctx,
     size_t *size);

@@ -3,8 +3,11 @@
 #include "ngx_live_persist_format.h"
 #include "ngx_live_persist_write.h"
 
+#include <zlib.h>
 
-#define NGX_LIVE_PERSIST_WRITE_BUF_SIZE  (2048)
+
+#define NGX_LIVE_PERSIST_WRITE_BUF_SIZE       (2048)
+#define NGX_LIVE_PERSIST_WRITE_COMP_BUF_SIZE  (2048)
 
 
 typedef struct {
@@ -25,6 +28,10 @@ struct ngx_live_persist_write_ctx_s {
     ngx_live_persist_write_base_t     base;       /* must be first */
 
     ngx_pool_t                       *pool;
+    ngx_pool_cleanup_t               *cln;
+    ngx_pool_t                       *final_pool;
+    int                               comp_level;
+
     ngx_chain_t                      *out;
     ngx_chain_t                     **last;
     ngx_buf_t                        *buf;
@@ -299,7 +306,7 @@ ngx_live_persist_write_marker_write(ngx_live_persist_write_marker_t *marker,
 
 
 ngx_live_persist_write_ctx_t *
-ngx_live_persist_write_init(ngx_pool_t *pool, uint32_t type)
+ngx_live_persist_write_init(ngx_pool_t *pool, uint32_t type, int comp_level)
 {
     ngx_buf_t                       *b;
     ngx_live_persist_write_ctx_t    *ctx;
@@ -307,12 +314,40 @@ ngx_live_persist_write_init(ngx_pool_t *pool, uint32_t type)
 
     ctx = ngx_pcalloc(pool, sizeof(*ctx));
     if (ctx == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_persist_write_init: alloc failed");
         return NULL;
     }
 
-    ctx->pool = pool;
+    if (comp_level) {
+
+        /* use a temporary pool, allocate only the compressed buffers on
+            the provided pool */
+
+        ctx->cln = ngx_pool_cleanup_add(pool, 0);
+        if (ctx->cln == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                "ngx_live_persist_write_init: cleanup add failed");
+            return NULL;
+        }
+
+        ctx->pool = ngx_create_pool(1024, pool->log);
+        if (ctx->pool == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                "ngx_live_persist_write_init: create pool failed");
+            return NULL;
+        }
+
+        ctx->cln->handler = (ngx_pool_cleanup_pt) ngx_destroy_pool;
+        ctx->cln->data = ctx->pool;
+
+        ctx->final_pool = pool;
+        ctx->comp_level = comp_level;
+
+    } else {
+        ctx->pool = pool;
+    }
+
     ctx->last = &ctx->out;
 
     if (ngx_live_persist_write_alloc_temp_buf(ctx) != NGX_OK) {
@@ -326,7 +361,7 @@ ngx_live_persist_write_init(ngx_pool_t *pool, uint32_t type)
         header->magic = NGX_LIVE_PERSIST_FILE_MAGIC;
         header->header_size = sizeof(*header) |
             NGX_LIVE_PERSIST_HEADER_FLAG_CONTAINER;
-        header->flags = 0;
+        header->uncomp_size = 0;
         header->version = NGX_LIVE_PERSIST_FILE_VERSION;
         header->type = type;
         header->created = ngx_time();
@@ -450,6 +485,159 @@ ngx_live_persist_write_block(ngx_live_persist_write_ctx_t *ctx,
     return NGX_OK;
 }
 
+
+static void *
+ngx_live_persist_write_alloc(void *opaque, u_int items, u_int size)
+{
+    return ngx_palloc(opaque, items * size);
+}
+
+static void
+ngx_live_persist_write_free(void *opaque, void *address)
+{
+}
+
+static ngx_chain_t *
+ngx_live_persist_write_deflate(ngx_live_persist_write_ctx_t *ctx, size_t *size)
+{
+    int                               rc;
+    int                               flush;
+    z_stream                          zstream;
+    ngx_buf_t                        *ib;
+    ngx_buf_t                        *ob;
+    ngx_pool_t                       *pool;
+    ngx_chain_t                      *ocl;
+    ngx_chain_t                      *icl;
+    ngx_chain_t                      *out;
+    ngx_chain_t                     **last;
+    ngx_live_persist_file_header_t   *header;
+
+    /* init zlib */
+    ngx_memzero(&zstream, sizeof(zstream));
+
+    zstream.zalloc = ngx_live_persist_write_alloc;
+    zstream.zfree = ngx_live_persist_write_free;
+    zstream.opaque = ctx->pool;
+
+    rc = deflateInit2(&zstream, ctx->comp_level, Z_DEFLATED, MAX_WBITS,
+        MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY);
+
+    if (rc != Z_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_write_deflate: deflateInit2 failed: %d", rc);
+        return NULL;
+    }
+
+    /* init output */
+    pool = ctx->final_pool;
+
+    ob = ngx_create_temp_buf(pool, NGX_LIVE_PERSIST_WRITE_COMP_BUF_SIZE);
+    if (ob == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_persist_write_deflate: create buf failed (1)");
+        return NULL;
+    }
+
+    out = ngx_alloc_chain_link(pool);
+    if (out == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_persist_write_deflate: alloc chain failed (1)");
+        return NULL;
+    }
+
+    out->buf = ob;
+    last = &out->next;
+
+    header = (void *) ob->pos;
+
+    zstream.next_out = (void *) (header + 1);
+    zstream.avail_out = ob->end - zstream.next_out;
+
+    /* init input */
+    *ctx->last = NULL;
+    icl = ctx->out;
+    ib = icl->buf;
+
+    zstream.next_in = (void *) (ctx->header + 1);
+    zstream.avail_in = ib->last - zstream.next_in;
+
+    for ( ;; ) {
+
+        icl = icl->next;
+        flush = icl == NULL ? Z_FINISH : Z_NO_FLUSH;
+
+        for ( ;; ) {
+
+            rc = deflate(&zstream, flush);
+            if (rc != Z_OK && rc != Z_STREAM_END && rc != Z_BUF_ERROR) {
+                ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                    "ngx_live_persist_write_deflate: deflate failed: %d", rc);
+                return NULL;
+            }
+
+            if (zstream.avail_out > 0) {
+                break;
+            }
+
+            ob->last = ob->end;
+
+            ob = ngx_create_temp_buf(pool,
+                NGX_LIVE_PERSIST_WRITE_COMP_BUF_SIZE);
+            if (ob == NULL) {
+                ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                    "ngx_live_persist_write_deflate: create buf failed (2)");
+                return NULL;
+            }
+
+            ocl = ngx_alloc_chain_link(pool);
+            if (ocl == NULL) {
+                ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                    "ngx_live_persist_write_deflate: alloc chain failed (2)");
+                return NULL;
+            }
+
+            *last = ocl;
+            last = &ocl->next;
+            ocl->buf = ob;
+
+            zstream.next_out = ob->pos;
+            zstream.avail_out = ob->end - zstream.next_out;
+        }
+
+        if (icl == NULL) {
+            break;
+        }
+
+        ib = icl->buf;
+
+        zstream.next_in = ib->pos;
+        zstream.avail_in = ib->last - zstream.next_in;
+    }
+
+    ob->last = zstream.next_out;
+
+    *header = *ctx->header;
+    header->size = sizeof(*header) + zstream.total_out;
+    header->header_size |= NGX_LIVE_PERSIST_HEADER_FLAG_COMPRESSED;
+    header->uncomp_size = ctx->size;
+
+    rc = deflateEnd(&zstream);
+    if (rc != Z_OK) {
+        ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
+            "ngx_live_persist_write_deflate: deflateEnd failed %d", rc);
+        return NULL;
+    }
+
+    ctx->cln->handler = NULL;
+    ngx_destroy_pool(ctx->pool);
+
+    *last = NULL;
+    *size = header->size;
+
+    return out;
+}
+
+
 ngx_chain_t *
 ngx_live_persist_write_close(ngx_live_persist_write_ctx_t *ctx, size_t *size)
 {
@@ -458,6 +646,10 @@ ngx_live_persist_write_close(ngx_live_persist_write_ctx_t *ctx, size_t *size)
             "ngx_live_persist_write_close: nonzero depth");
         ngx_debug_point();
         return NULL;
+    }
+
+    if (ctx->comp_level) {
+        return ngx_live_persist_write_deflate(ctx, size);
     }
 
     if (ctx->header) {
