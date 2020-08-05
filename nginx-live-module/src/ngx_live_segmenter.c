@@ -112,6 +112,12 @@ typedef struct {
     ngx_buf_chain_t                  *last_data_part;
 } ngx_live_segmenter_frame_list_t;
 
+typedef struct {
+    int64_t                           split_duration;
+    uint64_t                          last_id;
+    int64_t                           last_pts;
+} ngx_live_segmenter_remove_res_t;
+
 
 /* key frame list */
 typedef struct {
@@ -567,13 +573,12 @@ ngx_live_segmenter_frame_list_get(ngx_live_segmenter_frame_list_t *list,
     return part->elts + index;
 }
 
-static uint64_t
+static void
 ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
     ngx_uint_t count, ngx_flag_t free_data_chains, uint32_t *split_count,
-    int64_t *split_duration)
+    ngx_live_segmenter_remove_res_t *res)
 {
     int64_t                            prev_pts;
-    uint64_t                           last_id;
     ngx_uint_t                         left;
     ngx_buf_chain_t                   *data_tail;
     ngx_live_segmenter_frame_t        *cur, *last;
@@ -592,8 +597,7 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
             cur->data, data_tail);
     }
 
-    last_id = 0;            /* suppress warning */
-    *split_duration = 0;
+    ngx_memzero(res, sizeof(*res));
 
     if (*split_count > 0) {
 
@@ -619,7 +623,8 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
                     break;
                 }
 
-                last_id = last[-1].id;
+                res->last_id = last[-1].id;
+                res->last_pts = last[-1].pts;
 
                 if (part != &list->part) {
                     ngx_block_pool_free(list->block_pool,
@@ -632,7 +637,7 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
             }
 
             if (cur->flags & NGX_LIVE_FRAME_FLAG_SPLIT) {
-                *split_duration += cur->pts - prev_pts;
+                res->split_duration += cur->pts - prev_pts;
                 (*split_count)--;
             }
 
@@ -662,7 +667,8 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
 
             left -= part->nelts;
 
-            last_id = part->elts[part->nelts - 1].id;
+            res->last_id = part->elts[part->nelts - 1].id;
+            res->last_pts = part->elts[part->nelts - 1].pts;
 
             if (part != &list->part) {
                 ngx_block_pool_free(list->block_pool,
@@ -677,7 +683,8 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
     }
 
     if (cur > part->elts) {
-        last_id = cur[-1].id;
+        res->last_id = cur[-1].id;
+        res->last_pts = cur[-1].pts;
     }
 
     /* remove frames from the last part */
@@ -697,8 +704,6 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
             list->last_data_part = NULL;
         }
     }
-
-    return last_id;
 }
 
 static int64_t
@@ -1626,11 +1631,10 @@ ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
     ngx_flag_t free_data_chains)
 {
     int64_t                            start_pts;
-    int64_t                            split_duration;
-    uint64_t                           last_id;
     uint32_t                           initial_split_count;
     ngx_live_channel_t                *channel;
     ngx_live_segmenter_track_ctx_t    *ctx;
+    ngx_live_segmenter_remove_res_t    rr;
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
     if (count <= 0) {
@@ -1653,10 +1657,11 @@ ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
     /* update frame list */
     initial_split_count = ctx->split_count;
 
-    last_id = ngx_live_segmenter_frame_list_remove(&ctx->frames, count,
-        free_data_chains, &ctx->split_count, &split_duration);
+    ngx_live_segmenter_frame_list_remove(&ctx->frames, count,
+        free_data_chains, &ctx->split_count, &rr);
 
-    track->next_frame_id = last_id + 1;
+    track->last_frame_pts = rr.last_pts;
+    track->next_frame_id = rr.last_id + 1;
 
     if (track->media_type == KMP_MEDIA_VIDEO) {
         ngx_live_segmenter_kf_list_remove(&ctx->key_frames, count);
@@ -1665,7 +1670,8 @@ ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
     /* update start pts / split count / ready status */
     if (ctx->frames.part.nelts > 0) {
         start_pts = ctx->frames.part.elts[0].pts;
-        ctx->pending_duration -= start_pts - ctx->start_pts - split_duration;
+        ctx->pending_duration -= start_pts - ctx->start_pts -
+            rr.split_duration;
         ctx->start_pts = start_pts;
 
         if (ctx->state == ngx_live_track_ready &&

@@ -4,39 +4,73 @@
 #include "ngx_live_segmenter.h"
 
 
-#define NGX_LIVE_SYNCER_INVALID_TIMESTAMP  LLONG_MAX
+#define NGX_LIVE_SYNCER_PERSIST_BLOCK        (0x636e7973)  /* sync */
+#define NGX_LIVE_SYNCER_PERSIST_BLOCK_TRACK  (0x746e7973)  /* synt */
+
+#define NGX_LIVE_SYNCER_LOG_COUNT            (3)
 
 #define ngx_live_syncer_wraparound_value(timescale)     \
     (0x100000000L * ((timescale) / 1000))
 
 
 typedef struct {
-    ngx_flag_t  enabled;
-    time_t      jump_threshold;
-    ngx_uint_t  jump_sync_frames;
-    time_t      max_forward_drift;
-    time_t      correction_reuse_threshold;
+    ngx_flag_t             enabled;
+    time_t                 jump_threshold;
+    ngx_uint_t             jump_sync_frames;
+    time_t                 max_forward_drift;
+    time_t                 correction_reuse_threshold;
 
-    ngx_uint_t  timescale;
+    ngx_uint_t             timescale;
 } ngx_live_syncer_preset_conf_t;
 
 typedef struct {
-    int64_t     last_pts;
-    int64_t     correction;
-    uint32_t    force_sync_count;
-    uint32_t    count;
+    uint64_t               frame_id;
+    int64_t                correction;
+    uint32_t               sequence;
+} ngx_live_syncer_log_t;
+
+typedef struct {
+    int64_t                last_pts;
+    int64_t                correction;
+    uint32_t               force_sync_count;
+    uint32_t               count;
+    ngx_live_syncer_log_t  log[NGX_LIVE_SYNCER_LOG_COUNT];
+    uint32_t               log_index;
 } ngx_live_syncer_track_ctx_t;
 
 typedef struct {
-    int64_t     correction;
-    uint32_t    count;
+    int64_t                correction;
+    uint32_t               count;
+    uint32_t               sequence;
 } ngx_live_syncer_channel_ctx_t;
+
+
+typedef struct {
+    int64_t                correction;
+} ngx_live_syncer_persist_track_t;
+
+typedef struct {
+    int64_t                correction;
+} ngx_live_syncer_persist_channel_t;
+
+
+typedef struct {
+    uint32_t                            track_id;
+    ngx_live_syncer_persist_track_t     tp;
+    unsigned                            valid:1;
+} ngx_live_syncer_snap_track_t;
+
+typedef struct {
+    ngx_live_syncer_persist_channel_t   cp;
+    ngx_live_syncer_snap_track_t       *cur;
+} ngx_live_syncer_snap_channel_t;
 
 
 static void *ngx_live_syncer_create_preset_conf(ngx_conf_t *cf);
 static char *ngx_live_syncer_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
+static ngx_int_t ngx_live_syncer_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_syncer_postconfiguration(ngx_conf_t *cf);
 
 
@@ -81,7 +115,7 @@ static ngx_command_t  ngx_live_syncer_commands[] = {
 };
 
 static ngx_live_module_t  ngx_live_syncer_module_ctx = {
-    NULL,                                     /* preconfiguration */
+    ngx_live_syncer_preconfiguration,         /* preconfiguration */
     ngx_live_syncer_postconfiguration,        /* postconfiguration */
 
     NULL,                                     /* create main configuration */
@@ -119,9 +153,31 @@ ngx_live_syncer_track_reset(ngx_live_track_t *track, void *ectx)
         "ngx_live_syncer_track_reset: called");
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
-    ctx->last_pts = NGX_LIVE_SYNCER_INVALID_TIMESTAMP;
+    ctx->last_pts = NGX_LIVE_INVALID_TIMESTAMP;
     ctx->force_sync_count = 0;
     return NGX_OK;
+}
+
+static void
+ngx_live_syncer_log_add(ngx_live_channel_t *channel,
+    ngx_live_syncer_track_ctx_t *ctx, uint64_t frame_id)
+{
+    ngx_live_syncer_log_t          *log;
+    ngx_live_syncer_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_syncer_module);
+
+    cctx->sequence++;
+
+    log = &ctx->log[ctx->log_index];
+    log->frame_id = frame_id;
+    log->correction = ctx->correction;
+    log->sequence = cctx->sequence;
+
+    ctx->log_index++;
+    if (ctx->log_index >= NGX_LIVE_SYNCER_LOG_COUNT) {
+        ctx->log_index = 0;
+    }
 }
 
 static void
@@ -162,7 +218,6 @@ ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
             "using channel, track: %L, channel_wrapped: %L, channel: %L",
             track_correction, channel_correction, cctx->correction);
         ctx->correction = channel_correction;
-        ctx->count++;
         *channel_synched = 0;
 
     } else {
@@ -171,10 +226,11 @@ ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
             "using track, track: %L, channel_wrapped: %L, channel: %L",
             track_correction, channel_correction, cctx->correction);
         ctx->correction = cctx->correction = track_correction;
-        ctx->count++;
         cctx->count++;
         *channel_synched = 1;
     }
+
+    ctx->count++;
 }
 
 static void
@@ -207,12 +263,13 @@ ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
     ngx_flag_t                      channel_synched;
     kmp_frame_t                    *frame;
     ngx_live_track_t               *track;
+    ngx_live_channel_t             *channel;
     ngx_live_syncer_track_ctx_t    *ctx;
     ngx_live_syncer_preset_conf_t  *spcf;
 
     track = req->track;
-    spcf = ngx_live_get_module_preset_conf(track->channel,
-        ngx_live_syncer_module);
+    channel = track->channel;
+    spcf = ngx_live_get_module_preset_conf(channel, ngx_live_syncer_module);
 
     if (!spcf->enabled) {
         return next_add_frame(req);
@@ -242,7 +299,7 @@ ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
             "ngx_live_syncer_add_frame: applying forced sync");
         goto sync;
 
-    } else if (ctx->last_pts == NGX_LIVE_SYNCER_INVALID_TIMESTAMP) {
+    } else if (ctx->last_pts == NGX_LIVE_INVALID_TIMESTAMP) {
 
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
             "ngx_live_syncer_add_frame: first time sync");
@@ -284,11 +341,13 @@ sync:
         ctx->force_sync_count = 0;
     }
 
+    ngx_live_syncer_log_add(channel, ctx, req->frame_id);
+
 done:
 
     ctx->last_pts = pts;
 
-    frame->dts = pts + ctx->correction - frame->pts_delay;
+    frame->dts += ctx->correction;
 
     return next_add_frame(req);
 }
@@ -364,6 +423,215 @@ ngx_live_syncer_channel_init(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
+static ngx_live_syncer_log_t *
+ngx_live_syncer_get_log(ngx_live_track_t *track)
+{
+    ngx_uint_t                    i;
+    ngx_live_syncer_log_t        *cur, *best;
+    ngx_live_syncer_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
+
+    best = NULL;
+
+    for (i = 0; i < NGX_LIVE_SYNCER_LOG_COUNT; i++) {
+        cur = &ctx->log[i];
+
+        if (cur->sequence == 0) {
+            break;
+        }
+
+        if (cur->frame_id >= track->next_frame_id) {
+            continue;
+        }
+
+        if (best == NULL || best->frame_id < cur->frame_id) {
+            best = cur;
+        }
+    }
+
+    return best;
+}
+
+static ngx_int_t
+ngx_live_syncer_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
+{
+    uint32_t                         sequence;
+    ngx_queue_t                     *q;
+    ngx_live_track_t                *cur_track;
+    ngx_live_syncer_log_t           *log;
+    ngx_live_syncer_snap_track_t    *ts;
+    ngx_live_persist_snap_index_t   *snap = ectx;
+    ngx_live_syncer_snap_channel_t  *cs;
+
+    cs = ngx_palloc(snap->pool, sizeof(*cs) +
+        sizeof(*ts) * (channel->tracks.count + 1));
+    if (cs == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_syncer_channel_index_snap: alloc failed");
+        return NGX_ERROR;
+    }
+
+    ts = (void *) (cs + 1);
+
+    ngx_live_set_ctx(snap, cs, ngx_live_syncer_module);
+
+    cs->cp.correction = 0;
+    cs->cur = ts;
+
+    sequence = 0;
+
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
+        q = ngx_queue_next(q))
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+
+        ts->track_id = cur_track->in.key;
+
+        log = ngx_live_syncer_get_log(cur_track);
+        if (log == NULL) {
+            ts->valid = 0;
+            ts++;
+            continue;
+        }
+
+        ts->valid = 1;
+        ts->tp.correction = log->correction;
+        ts++;
+
+        if (log->sequence > sequence) {
+            cs->cp.correction = log->correction;
+            sequence = log->sequence;
+        }
+    }
+
+    ts->track_id = NGX_LIVE_INVALID_TRACK_ID;
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_syncer_write_index_track(ngx_live_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_live_track_t                 *track = obj;
+    ngx_live_persist_snap_index_t    *snap;
+    ngx_live_syncer_snap_channel_t   *cs;
+    ngx_live_syncer_persist_track_t  *tp;
+
+    snap = ngx_live_persist_write_ctx(write_ctx);
+
+    cs = ngx_live_get_module_ctx(snap, ngx_live_syncer_module);
+
+    for (; cs->cur->track_id != track->in.key; cs->cur++) {
+        if (cs->cur->track_id == NGX_LIVE_INVALID_TRACK_ID) {
+            ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
+                "ngx_live_syncer_write_index_track: "
+                "track %ui not found in snapshot", track->in.key);
+            return NGX_OK;
+        }
+    }
+
+    if (!cs->cur->valid) {
+        return NGX_OK;
+    }
+
+    tp = &cs->cur->tp;
+
+    if (ngx_live_persist_write_block_open(write_ctx,
+            NGX_LIVE_SYNCER_PERSIST_BLOCK_TRACK) != NGX_OK ||
+        ngx_live_persist_write(write_ctx, tp, sizeof(*tp)) != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    ngx_live_persist_write_block_close(write_ctx);
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_syncer_read_index_track(ngx_live_persist_block_header_t *block,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_live_track_t                 *track = obj;
+    ngx_live_syncer_log_t            *log;
+    ngx_live_syncer_track_ctx_t      *ctx;
+    ngx_live_syncer_channel_ctx_t    *cctx;
+    ngx_live_syncer_persist_track_t  *tp;
+
+    tp = ngx_mem_rstream_get_ptr(rs, sizeof(*tp));
+    if (tp == NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_syncer_read_index_track: read failed");
+        return NGX_BAD_DATA;
+    }
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
+    cctx = ngx_live_get_module_ctx(track->channel, ngx_live_syncer_module);
+
+    ctx->correction = tp->correction;
+    if (track->last_frame_pts != NGX_LIVE_INVALID_TIMESTAMP) {
+        ctx->last_pts = track->last_frame_pts - ctx->correction;
+    }
+
+    log = &ctx->log[0];
+    log->frame_id = 0;
+    log->correction = ctx->correction;
+    log->sequence = ctx->correction == cctx->correction ? 2 : 1;
+
+    ctx->log_index = 1;
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_syncer_write_index(ngx_live_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_live_channel_t              *channel = obj;
+    ngx_live_persist_snap_index_t   *snap;
+    ngx_live_syncer_snap_channel_t  *cs;
+
+    snap = ngx_live_persist_write_ctx(write_ctx);
+
+    cs = ngx_live_get_module_ctx(snap, ngx_live_syncer_module);
+
+    if (ngx_live_persist_write(write_ctx, &cs->cp, sizeof(cs->cp)) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_syncer_write_index: write failed");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_syncer_read_index(ngx_live_persist_block_header_t *block,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_live_channel_t                 *channel = obj;
+    ngx_live_syncer_channel_ctx_t      *cctx;
+    ngx_live_syncer_persist_channel_t  *cp;
+
+    cp = ngx_mem_rstream_get_ptr(rs, sizeof(*cp));
+    if (cp == NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_syncer_read_index: read failed");
+        return NGX_BAD_DATA;
+    }
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_syncer_module);
+
+    cctx->correction = cp->correction;
+    cctx->sequence = 2;
+
+    return NGX_OK;
+}
+
+
 static void *
 ngx_live_syncer_create_preset_conf(ngx_conf_t *cf)
 {
@@ -413,8 +681,34 @@ ngx_live_syncer_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 }
 
 
+static ngx_live_persist_block_t  ngx_live_syncer_blocks[] = {
+    { NGX_LIVE_SYNCER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL,
+      NGX_LIVE_PERSIST_FLAG_SINGLE,
+      ngx_live_syncer_write_index,
+      ngx_live_syncer_read_index },
+
+    { NGX_LIVE_SYNCER_PERSIST_BLOCK_TRACK, NGX_LIVE_PERSIST_CTX_INDEX_TRACK, 0,
+      ngx_live_syncer_write_index_track,
+      ngx_live_syncer_read_index_track },
+
+    ngx_live_null_persist_block
+};
+
+static ngx_int_t
+ngx_live_syncer_preconfiguration(ngx_conf_t *cf)
+{
+    if (ngx_ngx_live_persist_add_blocks(cf, ngx_live_syncer_blocks)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
 static ngx_live_channel_event_t    ngx_live_syncer_channel_events[] = {
     { ngx_live_syncer_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
+    { ngx_live_syncer_channel_index_snap, NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP },
       ngx_live_null_event
 };
 

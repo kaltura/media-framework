@@ -896,6 +896,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     track->log.data = track;
     track->start_sec = ngx_time();
     track->media_type = media_type;
+    track->last_frame_pts = NGX_LIVE_INVALID_TIMESTAMP;
 
     track->ctx = (void *) (track + 1);
     for (i = 0; i < ngx_live_max_module; i++) {

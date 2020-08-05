@@ -25,6 +25,7 @@
 
 #define NGX_LIVE_INVALID_TRACK_ID       (0)
 #define NGX_LIVE_INVALID_SEGMENT_INDEX  (NGX_MAX_UINT32_VALUE)
+#define NGX_LIVE_INVALID_TIMESTAMP      (LLONG_MAX)
 
 #define NGX_LIVE_SEGMENT_NO_BITRATE     (1)
 
@@ -134,6 +135,7 @@ struct ngx_live_track_s {
     ngx_log_t                      log;
 
     ngx_live_track_input_t         input;
+    int64_t                        last_frame_pts;
     uint64_t                       next_frame_id;
 
     /* Note: when a track gets a segment from another track (gap filling),

@@ -81,6 +81,7 @@ typedef struct {
     uint32_t                           has_last_segment;
     uint32_t                           last_segment_bitrate;
     uint32_t                           reserved;
+    int64_t                            last_frame_pts;
     uint64_t                           next_frame_id;
 } ngx_live_persist_index_track_t;
 
@@ -101,7 +102,8 @@ typedef struct {
     ngx_flag_t                         compress;
 
     void                             (*write_handler)(
-        ngx_live_channel_t *channel, ngx_uint_t file, void *scope, ngx_int_t rc);
+        ngx_live_channel_t *channel, ngx_uint_t file, void *scope,
+        ngx_int_t rc);
     ngx_int_t                        (*read_handler)(
         ngx_live_channel_t *channel, ngx_uint_t file, ngx_str_t *buf,
         uint32_t *min_index);
@@ -1437,6 +1439,7 @@ ngx_live_persist_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
         tp->track_id = cur_track->in.key;
         tp->has_last_segment = cur_track->has_last_segment;
         tp->last_segment_bitrate = cur_track->last_segment_bitrate;
+        tp->last_frame_pts = cur_track->last_frame_pts;
         tp->next_frame_id = cur_track->next_frame_id;
         tp->reserved = 0;
         tp++;
@@ -1834,6 +1837,7 @@ ngx_live_persist_index_read_track(ngx_live_persist_block_header_t *header,
 
     track->has_last_segment = tp->has_last_segment;
     track->last_segment_bitrate = tp->last_segment_bitrate;
+    track->last_frame_pts = tp->last_frame_pts;
     track->next_frame_id = tp->next_frame_id;
 
     if (ngx_live_persist_read_skip_block_header(rs, header) != NGX_OK) {
@@ -2158,7 +2162,6 @@ ngx_live_persist_create_main_conf(ngx_conf_t *cf)
 {
     ngx_uint_t                     i;
     ngx_hash_keys_arrays_t        *keys;
-    ngx_live_persist_block_t      *block;
     ngx_live_persist_main_conf_t  *pmcf;
 
     pmcf = ngx_pcalloc(cf->pool, sizeof(ngx_live_persist_main_conf_t));
@@ -2190,14 +2193,6 @@ ngx_live_persist_create_main_conf(ngx_conf_t *cf)
         pmcf->blocks[i].keys = keys;
     }
 
-    for (block = ngx_live_persist_blocks; block->id; block++) {
-        if (ngx_ngx_live_persist_add_block_internal(cf, pmcf, block)
-            != NGX_OK)
-        {
-            return NULL;
-        }
-    }
-
     return pmcf;
 }
 
@@ -2206,9 +2201,18 @@ ngx_live_persist_init_block_hash(ngx_conf_t *cf)
 {
     ngx_uint_t                     i;
     ngx_hash_init_t                hash;
+    ngx_live_persist_block_t      *block;
     ngx_live_persist_main_conf_t  *pmcf;
 
     pmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_persist_module);
+
+    for (block = ngx_live_persist_blocks; block->id; block++) {
+        if (ngx_ngx_live_persist_add_block_internal(cf, pmcf, block)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+    }
 
     hash.key = ngx_hash_key;
     hash.max_size = 1024;
