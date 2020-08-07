@@ -304,6 +304,7 @@ ngx_live_manifest_timeline_remove_segment(
     timeline->first_period_index++;
 
     if (period->next == NULL) {
+        timeline->first_period.node.key = NGX_LIVE_INVALID_SEGMENT_INDEX;
         return;
     }
 
@@ -560,6 +561,7 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
     timeline->conf = *conf;
 
     timeline->manifest.conf = *manifest_conf;
+    timeline->manifest.first_period.node.key = NGX_LIVE_INVALID_SEGMENT_INDEX;
     timeline->manifest.sequence = channel->next_segment_index;
     timeline->manifest.last_modified = ngx_time();
 
@@ -802,12 +804,21 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
 
             prev_period = period;
         }
+
+    } else if (timeline->manifest.first_period.node.key
+        != NGX_LIVE_INVALID_SEGMENT_INDEX)
+    {
+        ngx_log_error(NGX_LOG_ALERT, log, 0,
+            "ngx_live_timeline_validate: "
+            "invalid manifest first segment index %ui when empty",
+            timeline->manifest.first_period.node.key);
+        ngx_debug_point();
     }
 
     if (timeline->manifest.duration != duration) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_timeline_validate: "
-            "invalid manifest timeline duration %uL expected %uL",
+            "invalid manifest duration %uL expected %uL",
             timeline->manifest.duration, duration);
         ngx_debug_point();
     }
@@ -815,7 +826,7 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
     if (timeline->manifest.segment_count != segment_count) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
             "ngx_live_timeline_validate: "
-            "invalid manifest timeline segment count %uD expected %uD",
+            "invalid manifest segment count %uD expected %uD",
             timeline->manifest.segment_count, segment_count);
         ngx_debug_point();
     }
@@ -1742,6 +1753,9 @@ ngx_live_timeline_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
 
     snap = ngx_live_persist_write_ctx(write_ctx);
 
+    ngx_live_persist_write_block_set_header(write_ctx,
+        NGX_LIVE_PERSIST_HEADER_FLAG_CONTAINER);
+
     if (snap->scope.min_index > 0) {
         period = ngx_live_timeline_get_period_by_index(timeline,
             snap->scope.min_index, 0);
@@ -2091,33 +2105,46 @@ ngx_live_manifest_timeline_read(ngx_live_timeline_t *timeline,
     channel = timeline->channel;
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
-    /* init first period */
-    src = ngx_live_timeline_get_period_by_index(timeline,
-        mp->first_period_segment_index, 1);
-    if (src == NULL) {
-        ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
-            "ngx_live_manifest_timeline_read: "
-            "segment index %uD not found in any period",
-            mp->first_period_segment_index);
-        return NGX_BAD_DATA;
-    }
-
+    /* init first period + counters */
     dst = &manifest->first_period;
+    if (mp->first_period_segment_index != NGX_LIVE_INVALID_SEGMENT_INDEX) {
 
-    if (ngx_live_segment_iter_init(&cctx->segment_list, &dst->segment_iter,
-        mp->first_period_segment_index, 1, &dst->time) != NGX_OK)
-    {
-        ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
-            "ngx_live_manifest_timeline_read: "
-            "segment index %uD not found in segment list",
-            mp->first_period_segment_index);
-        return NGX_ERROR;
+        src = ngx_live_timeline_get_period_by_index(timeline,
+            mp->first_period_segment_index, 1);
+        if (src == NULL) {
+            ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
+                "ngx_live_manifest_timeline_read: "
+                "segment index %uD not found in any period",
+                mp->first_period_segment_index);
+            return NGX_BAD_DATA;
+        }
+
+        if (ngx_live_segment_iter_init(&cctx->segment_list, &dst->segment_iter,
+            mp->first_period_segment_index, 1, &dst->time) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
+                "ngx_live_manifest_timeline_read: "
+                "segment index %uD not found in segment list",
+                mp->first_period_segment_index);
+            return NGX_ERROR;
+        }
+
+        dst->node.key = mp->first_period_segment_index;
+        dst->duration = src->time + src->duration - dst->time;
+        dst->segment_count = src->node.key + src->segment_count -
+            dst->node.key;
+        dst->next = src->next;
+
+        ngx_live_manifest_timeline_reset(manifest);
+
+    } else {
+
+        ngx_memzero(dst, sizeof(*dst));
+        dst->node.key = NGX_LIVE_INVALID_SEGMENT_INDEX;
+        manifest->duration = 0;
+        manifest->segment_count = 0;
+        manifest->period_count = 0;
     }
-
-    dst->node.key = mp->first_period_segment_index;
-    dst->duration = src->time + src->duration - dst->time;
-    dst->segment_count = src->node.key + src->segment_count - dst->node.key;
-    dst->next = src->next;
 
     /* init other members */
     manifest->first_period_initial_time = mp->first_period_initial_time;
@@ -2131,9 +2158,6 @@ ngx_live_manifest_timeline_read(ngx_live_timeline_t *timeline,
     manifest->target_duration_segments = mp->target_duration_segments;
     ngx_memcpy(manifest->last_durations, mp->last_durations,
         sizeof(manifest->last_durations));
-
-    /* reset counters */
-    ngx_live_manifest_timeline_reset(manifest);
 
     return NGX_OK;
 }

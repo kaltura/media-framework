@@ -472,7 +472,8 @@ ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
 
 static ngx_int_t
 ngx_live_segment_list_read_period(ngx_live_segment_list_t *segment_list,
-    ngx_mem_rstream_t *rs, ngx_live_persist_block_header_t *block)
+    ngx_mem_rstream_t *rs, ngx_live_persist_block_header_t *block,
+    ngx_flag_t is_first)
 {
     uint32_t                         period_index;
     uint32_t                         left;
@@ -527,7 +528,7 @@ ngx_live_segment_list_read_period(ngx_live_segment_list_t *segment_list,
 
         period_index = last->period_index;
 
-        if (last->last_segment_index >= scope->min_index) {
+        if (is_first && last->last_segment_index >= scope->min_index) {
             /* can happen due to duplicate block */
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_segment_list_read_period: "
@@ -676,11 +677,14 @@ ngx_live_segment_list_read_index(ngx_live_segment_list_t *segment_list,
     ngx_mem_rstream_t *rs, ngx_live_persist_block_header_t *block)
 {
     ngx_int_t          rc;
+    ngx_flag_t         is_first;
     ngx_mem_rstream_t  block_rs;
 
     if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
         return NGX_BAD_DATA;
     }
+
+    is_first = 1;
 
     while (!ngx_mem_rstream_eof(rs)) {
 
@@ -695,10 +699,13 @@ ngx_live_segment_list_read_index(ngx_live_segment_list_t *segment_list,
             continue;
         }
 
-        rc = ngx_live_segment_list_read_period(segment_list, &block_rs, block);
+        rc = ngx_live_segment_list_read_period(segment_list, &block_rs, block,
+            is_first);
         if (rc != NGX_OK) {
             return rc;
         }
+
+        is_first = 0;
     }
 
     return NGX_OK;
