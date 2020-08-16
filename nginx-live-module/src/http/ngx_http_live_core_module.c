@@ -524,7 +524,7 @@ ngx_http_live_core_init_ctx(ngx_http_request_t *r,
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_core_init_ctx: unknown channel \"%V\"",
             &params->channel_id);
-        return NGX_HTTP_BAD_REQUEST;
+        return NGX_HTTP_NOT_FOUND;
     }
 
     if (channel->blocked) {
