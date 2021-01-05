@@ -40,6 +40,7 @@ typedef struct {
 
     /* conf */
     ngx_url_t                *url;
+    ngx_str_t                 host;
     ngx_str_t                 access_key;
     ngx_str_t                 secret_key;
     ngx_str_t                 service;
@@ -89,6 +90,13 @@ static ngx_command_t  ngx_live_store_s3_block_commands[] = {
       ngx_live_store_s3_set_url_slot,
       0,
       offsetof(ngx_live_store_s3_ctx_t, url),
+      NULL },
+
+    { ngx_string("host"),
+      NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      0,
+      offsetof(ngx_live_store_s3_ctx_t, host),
       NULL },
 
     { ngx_string("access_key"),
@@ -587,6 +595,10 @@ ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     u_char  signature_buf[NGX_LIVE_STORE_S3_HMAC_HEX_LEN];
     u_char  canonical_sha_buf[NGX_LIVE_STORE_S3_SHA256_HEX_LEN];
 
+    if (ctx->host.len > 0) {
+        host = &ctx->host;
+    }
+
     /* get the request date */
     ngx_libc_gmtime(ngx_time(), &tm);
     date.len = strftime((char *) date_buf, sizeof(date_buf),
@@ -759,6 +771,10 @@ ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     u_char  signature_buf[NGX_LIVE_STORE_S3_HMAC_HEX_LEN];
     u_char  content_sha_buf[NGX_LIVE_STORE_S3_SHA256_HEX_LEN];
     u_char  canonical_sha_buf[NGX_LIVE_STORE_S3_SHA256_HEX_LEN];
+
+    if (ctx->host.len > 0) {
+        host = &ctx->host;
+    }
 
     /* get the request date */
     ngx_libc_gmtime(ngx_time(), &tm);
