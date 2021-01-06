@@ -265,6 +265,12 @@ init_video_encoder(transcode_codec_t * pContext,
         LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"set video encoder profile %s",pOutput->videoParams.profile);
     }
 
+    if(enc_ctx->codec_id == AV_CODEC_ID_H264) {
+       // force key frame when input key frame arrive
+       enc_ctx->gop_size=INT_MAX;
+       av_opt_set_int(enc_ctx->priv_data, "forced-idr", 1, 0);
+    }
+
     if (strlen(pOutput->videoParams.preset)>0) {
         char preset[100]={0};
         if (0>=get_preset(codec->name,pOutput->videoParams.preset,preset,sizeof(preset))) {
