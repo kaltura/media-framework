@@ -119,6 +119,7 @@ void* processClient(void *vargp)
 
             LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] received packet %s (%p) #: %lld",session->stream_name,getPacketDesc(packet),transcode_session,received_frame_id);
             transcode_session_async_send_packet(transcode_session, packet);
+            av_packet_free(&packet);
             received_frame_id++;
             uint64_t frame_id = transcode_session_get_ack_frame_id(transcode_session);
             if (frame_id!=0 && received_frame_ack_id!=frame_id) {
