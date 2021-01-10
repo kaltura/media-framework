@@ -44,8 +44,8 @@ static void *ngx_live_dynamic_var_create_preset_conf(ngx_conf_t *cf);
 static char *ngx_live_dynamic_var_merge_preset_conf(ngx_conf_t *cf,
     void *parent, void *child);
 
-static ngx_int_t ngx_live_dynamic_var_get(ngx_live_channel_t *ch,
-    ngx_pool_t *pool, ngx_live_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_live_dynamic_var_get(ngx_live_variables_ctx_t *ctx,
+    ngx_live_variable_value_t *v, uintptr_t data);
 
 static ngx_int_t ngx_live_dynamic_var_set_vars(void *ctx,
     ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log);
@@ -226,7 +226,7 @@ failed:
 }
 
 static ngx_int_t
-ngx_live_dynamic_var_get(ngx_live_channel_t *ch, ngx_pool_t *pool,
+ngx_live_dynamic_var_get(ngx_live_variables_ctx_t *ctx,
     ngx_live_variable_value_t *v, uintptr_t data)
 {
     uint32_t                             hash;
@@ -234,7 +234,7 @@ ngx_live_dynamic_var_get(ngx_live_channel_t *ch, ngx_pool_t *pool,
     ngx_live_dynamic_var_t              *var;
     ngx_live_dynamic_var_channel_ctx_t  *cctx;
 
-    cctx = ngx_live_get_module_ctx(ch, ngx_live_dynamic_var_module);
+    cctx = ngx_live_get_module_ctx(ctx->ch, ngx_live_dynamic_var_module);
 
     name.data += sizeof("var_") - 1;
     name.len -= sizeof("var_") - 1;

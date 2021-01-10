@@ -74,6 +74,7 @@ typedef struct {
 
     ngx_array_t                     variables;        /* ngx_live_variable_t */
     ngx_array_t                     prefix_variables; /* ngx_live_variable_t */
+    ngx_uint_t                      ncaptures;
 
     ngx_uint_t                      variables_hash_max_size;
     ngx_uint_t                      variables_hash_bucket_size;
@@ -125,6 +126,7 @@ ngx_int_t ngx_live_core_track_events_add(ngx_conf_t *cf,
 
 ngx_int_t ngx_live_core_json_writers_add(ngx_conf_t *cf,
     ngx_live_json_writer_def_t *writers);
+
 
 size_t ngx_live_core_json_get_size(void *obj, ngx_live_channel_t *channel,
     ngx_uint_t ctx);

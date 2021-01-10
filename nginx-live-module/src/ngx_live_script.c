@@ -17,6 +17,10 @@ static ngx_int_t ngx_live_script_add_copy_code(
     ngx_live_script_compile_t *sc, ngx_str_t *value, ngx_uint_t last);
 static ngx_int_t ngx_live_script_add_var_code(
     ngx_live_script_compile_t *sc, ngx_str_t *name);
+#if (NGX_PCRE)
+static ngx_int_t ngx_live_script_add_capture_code(
+    ngx_live_script_compile_t *sc, ngx_uint_t n);
+#endif
 static ngx_int_t ngx_live_script_add_full_name_code(
     ngx_live_script_compile_t *sc);
 static size_t ngx_live_script_full_name_len_code(
@@ -29,35 +33,49 @@ static void ngx_live_script_full_name_code(ngx_live_script_engine_t *e);
 static uintptr_t ngx_live_script_exit_code = (uintptr_t) NULL;
 
 
+void
+ngx_live_script_flush_complex_value(ngx_live_variables_ctx_t *ctx,
+    ngx_live_complex_value_t *val)
+{
+    ngx_uint_t  *index;
+
+    index = val->flushes;
+
+    if (index) {
+        while (*index != (ngx_uint_t) -1) {
+
+            if (ctx->variables[*index].no_cacheable) {
+                ctx->variables[*index].valid = 0;
+                ctx->variables[*index].not_found = 0;
+            }
+
+            index++;
+        }
+    }
+}
+
+
 ngx_int_t
-ngx_live_complex_value(ngx_live_channel_t *ch, ngx_pool_t *pool,
+ngx_live_complex_value(ngx_live_variables_ctx_t *ctx,
     ngx_live_complex_value_t *val, ngx_str_t *value)
 {
-    size_t                        len;
-    ngx_live_script_code_pt       code;
-    ngx_live_script_engine_t      e;
-    ngx_live_core_main_conf_t    *cmcf;
-    ngx_live_script_len_code_pt   lcode;
+    size_t                       len;
+    ngx_live_script_code_pt      code;
+    ngx_live_script_engine_t     e;
+    ngx_live_script_len_code_pt  lcode;
 
     if (val->lengths == NULL) {
         *value = val->value;
         return NGX_OK;
     }
 
+    ngx_live_script_flush_complex_value(ctx, val);
+
     ngx_memzero(&e, sizeof(ngx_live_script_engine_t));
 
     e.ip = val->lengths;
-    e.channel = ch;
-    e.pool = pool;
+    e.ctx = ctx;
     e.flushed = 1;
-
-    cmcf = ngx_live_get_module_main_conf(ch, ngx_live_core_module);
-
-    e.variables = ngx_pcalloc(pool, cmcf->variables.nelts
-        * sizeof(ngx_live_variable_value_t));
-    if (e.variables == NULL) {
-        return NGX_ERROR;
-    }
 
     len = 0;
 
@@ -67,7 +85,7 @@ ngx_live_complex_value(ngx_live_channel_t *ch, ngx_pool_t *pool,
     }
 
     value->len = len;
-    value->data = ngx_pnalloc(pool, len);
+    value->data = ngx_pnalloc(ctx->pool, len);
     if (value->data == NULL) {
         return NGX_ERROR;
     }
@@ -88,7 +106,7 @@ ngx_live_complex_value(ngx_live_channel_t *ch, ngx_pool_t *pool,
 
 
 size_t
-ngx_live_complex_value_size(ngx_live_channel_t *ch, ngx_pool_t *pool,
+ngx_live_complex_value_size(ngx_live_variables_ctx_t *ctx,
     ngx_live_complex_value_t *val, size_t default_value)
 {
     size_t     size;
@@ -102,14 +120,14 @@ ngx_live_complex_value_size(ngx_live_channel_t *ch, ngx_pool_t *pool,
         return val->u.size;
     }
 
-    if (ngx_live_complex_value(ch, pool, val, &value) != NGX_OK) {
+    if (ngx_live_complex_value(ctx, val, &value) != NGX_OK) {
         return default_value;
     }
 
     size = ngx_parse_size(&value);
 
     if (size == (size_t) NGX_ERROR) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+        ngx_log_error(NGX_LOG_ERR, &ctx->ch->log, 0,
                       "invalid size \"%V\"", &value);
         return default_value;
     }
@@ -123,7 +141,7 @@ ngx_live_compile_complex_value(ngx_live_compile_complex_value_t *ccv)
 {
     ngx_str_t                  *v;
     ngx_uint_t                  i, n, nv, nc;
-    ngx_array_t                 lengths, values, *pl, *pv;
+    ngx_array_t                 flushes, lengths, values, *pf, *pl, *pv;
     ngx_live_script_compile_t   sc;
 
     v = ccv->value;
@@ -154,11 +172,20 @@ ngx_live_compile_complex_value(ngx_live_compile_complex_value_t *ccv)
     }
 
     ccv->complex_value->value = *v;
+    ccv->complex_value->flushes = NULL;
     ccv->complex_value->lengths = NULL;
     ccv->complex_value->values = NULL;
 
     if (nv == 0 && nc == 0) {
         return NGX_OK;
+    }
+
+    n = nv + 1;
+
+    if (ngx_array_init(&flushes, ccv->cf->pool, n, sizeof(ngx_uint_t))
+        != NGX_OK)
+    {
+        return NGX_ERROR;
     }
 
     n = nv * (2 * sizeof(ngx_live_script_copy_code_t)
@@ -180,6 +207,7 @@ ngx_live_compile_complex_value(ngx_live_compile_complex_value_t *ccv)
         return NGX_ERROR;
     }
 
+    pf = &flushes;
     pl = &lengths;
     pv = &values;
 
@@ -187,6 +215,7 @@ ngx_live_compile_complex_value(ngx_live_compile_complex_value_t *ccv)
 
     sc.cf = ccv->cf;
     sc.source = v;
+    sc.flushes = &pf;
     sc.lengths = &pl;
     sc.values = &pv;
     sc.complete_lengths = 1;
@@ -197,6 +226,11 @@ ngx_live_compile_complex_value(ngx_live_compile_complex_value_t *ccv)
 
     if (ngx_live_script_compile(&sc) != NGX_OK) {
         return NGX_ERROR;
+    }
+
+    if (flushes.nelts) {
+        ccv->complex_value->flushes = flushes.elts;
+        ccv->complex_value->flushes[flushes.nelts] = (ngx_uint_t) -1;
     }
 
     ccv->complex_value->lengths = lengths.elts;
@@ -309,6 +343,27 @@ ngx_live_script_compile(ngx_live_script_compile_t *sc)
                 goto invalid_variable;
             }
 
+            if (sc->source->data[i] >= '1' && sc->source->data[i] <= '9') {
+#if (NGX_PCRE)
+                ngx_uint_t  n;
+
+                n = sc->source->data[i] - '0';
+
+                if (ngx_live_script_add_capture_code(sc, n) != NGX_OK) {
+                    return NGX_ERROR;
+                }
+
+                i++;
+
+                continue;
+#else
+                ngx_conf_log_error(NGX_LOG_EMERG, sc->cf, 0,
+                                   "using variable \"$%c\" requires "
+                                   "PCRE library", sc->source->data[i]);
+                return NGX_ERROR;
+#endif
+            }
+
             if (sc->source->data[i] == '{') {
                 bracket = 1;
 
@@ -395,28 +450,29 @@ invalid_variable:
 
 
 u_char *
-ngx_live_script_run(ngx_live_channel_t *ch, ngx_pool_t *pool, ngx_str_t *value,
+ngx_live_script_run(ngx_live_variables_ctx_t *ctx, ngx_str_t *value,
     void *code_lengths, size_t len, void *code_values)
 {
+    ngx_uint_t                    i;
     ngx_live_script_code_pt       code;
     ngx_live_script_engine_t      e;
     ngx_live_core_main_conf_t    *cmcf;
     ngx_live_script_len_code_pt   lcode;
 
-    cmcf = ngx_live_get_module_main_conf(ch, ngx_live_core_module);
+    cmcf = ngx_live_get_module_main_conf(ctx->ch, ngx_live_core_module);
+
+    for (i = 0; i < cmcf->variables.nelts; i++) {
+        if (ctx->variables[i].no_cacheable) {
+            ctx->variables[i].valid = 0;
+            ctx->variables[i].not_found = 0;
+        }
+    }
 
     ngx_memzero(&e, sizeof(ngx_live_script_engine_t));
 
     e.ip = code_lengths;
-    e.channel = ch;
-    e.pool = pool;
+    e.ctx = ctx;
     e.flushed = 1;
-
-    e.variables = ngx_pcalloc(pool, cmcf->variables.nelts
-        * sizeof(ngx_live_variable_value_t));
-    if (e.variables == NULL) {
-        return NULL;
-    }
 
     while (*(uintptr_t *) e.ip) {
         lcode = *(ngx_live_script_len_code_pt *) e.ip;
@@ -425,7 +481,7 @@ ngx_live_script_run(ngx_live_channel_t *ch, ngx_pool_t *pool, ngx_str_t *value,
 
 
     value->len = len;
-    value->data = ngx_pnalloc(pool, len);
+    value->data = ngx_pnalloc(ctx->pool, len);
     if (value->data == NULL) {
         return NULL;
     }
@@ -442,10 +498,36 @@ ngx_live_script_run(ngx_live_channel_t *ch, ngx_pool_t *pool, ngx_str_t *value,
 }
 
 
+void
+ngx_live_script_flush_no_cacheable_variables(ngx_live_variables_ctx_t *ctx,
+    ngx_array_t *indices)
+{
+    ngx_uint_t  n, *index;
+
+    if (indices) {
+        index = indices->elts;
+        for (n = 0; n < indices->nelts; n++) {
+            if (ctx->variables[index[n]].no_cacheable) {
+                ctx->variables[index[n]].valid = 0;
+                ctx->variables[index[n]].not_found = 0;
+            }
+        }
+    }
+}
+
+
 static ngx_int_t
 ngx_live_script_init_arrays(ngx_live_script_compile_t *sc)
 {
     ngx_uint_t   n;
+
+    if (sc->flushes && *sc->flushes == NULL) {
+        n = sc->variables ? sc->variables : 1;
+        *sc->flushes = ngx_array_create(sc->cf->pool, n, sizeof(ngx_uint_t));
+        if (*sc->flushes == NULL) {
+            return NGX_ERROR;
+        }
+    }
 
     if (*sc->lengths == NULL) {
         n = sc->variables * (2 * sizeof(ngx_live_script_copy_code_t)
@@ -624,7 +706,7 @@ ngx_live_script_copy_code(ngx_live_script_engine_t *e)
     e->ip += sizeof(ngx_live_script_copy_code_t)
           + ((code->len + sizeof(uintptr_t) - 1) & ~(sizeof(uintptr_t) - 1));
 
-    ngx_log_debug2(NGX_LOG_DEBUG_LIVE, &e->channel->log, 0,
+    ngx_log_debug2(NGX_LOG_DEBUG_LIVE, &e->ctx->ch->log, 0,
                    "live script copy: \"%*s\"", e->pos - p, p);
 }
 
@@ -632,13 +714,22 @@ ngx_live_script_copy_code(ngx_live_script_engine_t *e)
 static ngx_int_t
 ngx_live_script_add_var_code(ngx_live_script_compile_t *sc, ngx_str_t *name)
 {
-    ngx_int_t                    index;
+    ngx_int_t                    index, *p;
     ngx_live_script_var_code_t  *code;
 
     index = ngx_live_get_variable_index(sc->cf, name);
 
     if (index == NGX_ERROR) {
         return NGX_ERROR;
+    }
+
+    if (sc->flushes) {
+        p = ngx_array_push(*sc->flushes);
+        if (p == NULL) {
+            return NGX_ERROR;
+        }
+
+        *p = index;
     }
 
     code = ngx_live_script_add_code(*sc->lengths,
@@ -677,12 +768,10 @@ ngx_live_script_copy_var_len_code(ngx_live_script_engine_t *e)
     e->ip += sizeof(ngx_live_script_var_code_t);
 
     if (e->flushed) {
-        value = ngx_live_get_indexed_variable(e->channel, e->pool,
-            e->variables, code->index);
+        value = ngx_live_get_indexed_variable(e->ctx, code->index);
 
     } else {
-        value = ngx_live_get_flushed_variable(e->channel, e->pool,
-            e->variables, code->index);
+        value = ngx_live_get_flushed_variable(e->ctx, code->index);
     }
 
     if (value && !value->not_found) {
@@ -707,12 +796,10 @@ ngx_live_script_copy_var_code(ngx_live_script_engine_t *e)
     if (!e->skip) {
 
         if (e->flushed) {
-            value = ngx_live_get_indexed_variable(e->channel, e->pool,
-                e->variables, code->index);
+            value = ngx_live_get_indexed_variable(e->ctx, code->index);
 
         } else {
-            value = ngx_live_get_flushed_variable(e->channel, e->pool,
-                e->variables, code->index);
+            value = ngx_live_get_flushed_variable(e->ctx, code->index);
         }
 
         if (value && !value->not_found) {
@@ -720,11 +807,106 @@ ngx_live_script_copy_var_code(ngx_live_script_engine_t *e)
             e->pos = ngx_copy(p, value->data, value->len);
 
             ngx_log_debug2(NGX_LOG_DEBUG_LIVE,
-                           &e->channel->log, 0,
+                           &e->ctx->ch->log, 0,
                            "live script var: \"%*s\"", e->pos - p, p);
         }
     }
 }
+
+
+#if (NGX_PCRE)
+
+static ngx_int_t
+ngx_live_script_add_capture_code(ngx_live_script_compile_t *sc,
+    ngx_uint_t n)
+{
+    ngx_live_script_copy_capture_code_t  *code;
+
+    code = ngx_live_script_add_code(*sc->lengths,
+                                  sizeof(ngx_live_script_copy_capture_code_t),
+                                  NULL);
+    if (code == NULL) {
+        return NGX_ERROR;
+    }
+
+    code->code = (ngx_live_script_code_pt) (void *)
+                                       ngx_live_script_copy_capture_len_code;
+    code->n = 2 * n;
+
+
+    code = ngx_live_script_add_code(*sc->values,
+                                  sizeof(ngx_live_script_copy_capture_code_t),
+                                  &sc->main);
+    if (code == NULL) {
+        return NGX_ERROR;
+    }
+
+    code->code = ngx_live_script_copy_capture_code;
+    code->n = 2 * n;
+
+    if (sc->ncaptures < n) {
+        sc->ncaptures = n;
+    }
+
+    return NGX_OK;
+}
+
+
+size_t
+ngx_live_script_copy_capture_len_code(ngx_live_script_engine_t *e)
+{
+    int                                  *cap;
+    ngx_uint_t                            n;
+    ngx_live_variables_ctx_t             *ctx;
+    ngx_live_script_copy_capture_code_t  *code;
+
+    ctx = e->ctx;
+
+    code = (ngx_live_script_copy_capture_code_t *) e->ip;
+
+    e->ip += sizeof(ngx_live_script_copy_capture_code_t);
+
+    n = code->n;
+
+    if (n < ctx->ncaptures) {
+        cap = ctx->captures;
+        return cap[n + 1] - cap[n];
+    }
+
+    return 0;
+}
+
+
+void
+ngx_live_script_copy_capture_code(ngx_live_script_engine_t *e)
+{
+    int                                  *cap;
+    u_char                               *p, *pos;
+    ngx_uint_t                            n;
+    ngx_live_variables_ctx_t             *ctx;
+    ngx_live_script_copy_capture_code_t  *code;
+
+    ctx = e->ctx;
+
+    code = (ngx_live_script_copy_capture_code_t *) e->ip;
+
+    e->ip += sizeof(ngx_live_script_copy_capture_code_t);
+
+    n = code->n;
+
+    pos = e->pos;
+
+    if (n < ctx->ncaptures) {
+        cap = ctx->captures;
+        p = ctx->captures_data;
+        e->pos = ngx_copy(pos, &p[cap[n]], cap[n + 1] - cap[n]);
+    }
+
+    ngx_log_debug2(NGX_LOG_DEBUG_LIVE, &e->ctx->ch->log, 0,
+                   "live script capture: \"%*s\"", e->pos - pos, pos);
+}
+
+#endif
 
 
 static ngx_int_t
@@ -785,7 +967,7 @@ ngx_live_script_full_name_code(ngx_live_script_engine_t *e)
     prefix = code->conf_prefix ? (ngx_str_t *) &ngx_cycle->conf_prefix:
                                  (ngx_str_t *) &ngx_cycle->prefix;
 
-    if (ngx_get_full_name(e->pool, prefix, &value)
+    if (ngx_get_full_name(e->ctx->pool, prefix, &value)
         != NGX_OK)
     {
         e->ip = ngx_live_script_exit;
@@ -794,7 +976,7 @@ ngx_live_script_full_name_code(ngx_live_script_engine_t *e)
 
     e->buf = value;
 
-    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, &e->channel->log, 0,
+    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, &e->ctx->ch->log, 0,
                    "live script fullname: \"%V\"", &value);
 
     e->ip += sizeof(ngx_live_script_full_name_code_t);
