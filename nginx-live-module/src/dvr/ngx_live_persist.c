@@ -425,6 +425,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
     ngx_int_t                           rc;
     ngx_pool_t                         *pool;
     ngx_live_persist_file_t            *file_spec;
+    ngx_live_variables_ctx_t            vctx;
     ngx_live_persist_write_ctx_t       *write_ctx;
     ngx_live_store_write_request_t      request;
     ngx_live_persist_preset_conf_t     *ppcf;
@@ -451,8 +452,14 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
         goto failed;
     }
 
-    rc = ngx_live_complex_value(channel, pool, ppcf->files[file].path,
-        &request.path);
+    rc = ngx_live_variables_init_ctx(channel, pool, &vctx);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_write_file: failed to init var ctx");
+        goto failed;
+    }
+
+    rc = ngx_live_complex_value(&vctx, ppcf->files[file].path, &request.path);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_write_file: complex value failed");
@@ -594,6 +601,7 @@ ngx_live_persist_read_file(ngx_live_channel_t *channel,
     void                              *read_ctx;
     ngx_int_t                          rc;
     ngx_pool_t                        *pool;
+    ngx_live_variables_ctx_t           vctx;
     ngx_live_store_read_request_t      request;
     ngx_live_persist_channel_ctx_t    *cctx;
     ngx_live_persist_preset_conf_t    *ppcf;
@@ -611,8 +619,14 @@ ngx_live_persist_read_file(ngx_live_channel_t *channel,
         return NGX_ERROR;
     }
 
-    rc = ngx_live_complex_value(channel, pool, ppcf->files[file].path,
-        &request.path);
+    rc = ngx_live_variables_init_ctx(channel, pool, &vctx);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_read_file: failed to init var ctx");
+        goto failed;
+    }
+
+    rc = ngx_live_complex_value(&vctx, ppcf->files[file].path, &request.path);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_read_file: complex value failed");

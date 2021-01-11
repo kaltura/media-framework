@@ -25,9 +25,7 @@ typedef struct {
     unsigned                      flushed:1;
     unsigned                      skip:1;
 
-    ngx_live_channel_t           *channel;
-    ngx_pool_t                   *pool;
-    ngx_live_variable_value_t    *variables;
+    ngx_live_variables_ctx_t     *ctx;
 } ngx_live_script_engine_t;
 
 
@@ -35,10 +33,12 @@ typedef struct {
     ngx_conf_t                   *cf;
     ngx_str_t                    *source;
 
+    ngx_array_t                 **flushes;
     ngx_array_t                 **lengths;
     ngx_array_t                 **values;
 
     ngx_uint_t                    variables;
+    ngx_uint_t                    ncaptures;
     ngx_uint_t                    size;
 
     void                         *main;
@@ -53,6 +53,7 @@ typedef struct {
 
 typedef struct {
     ngx_str_t                     value;
+    ngx_uint_t                   *flushes;
     void                         *lengths;
     void                         *values;
 
@@ -91,13 +92,21 @@ typedef struct {
 
 typedef struct {
     ngx_live_script_code_pt       code;
+    uintptr_t                     n;
+} ngx_live_script_copy_capture_code_t;
+
+
+typedef struct {
+    ngx_live_script_code_pt       code;
     uintptr_t                     conf_prefix;
 } ngx_live_script_full_name_code_t;
 
 
-ngx_int_t ngx_live_complex_value(ngx_live_channel_t *ch, ngx_pool_t *pool,
+void ngx_live_script_flush_complex_value(ngx_live_variables_ctx_t *ctx,
+    ngx_live_complex_value_t *val);
+ngx_int_t ngx_live_complex_value(ngx_live_variables_ctx_t *ctx,
     ngx_live_complex_value_t *val, ngx_str_t *value);
-size_t ngx_live_complex_value_size(ngx_live_channel_t *ch, ngx_pool_t *pool,
+size_t ngx_live_complex_value_size(ngx_live_variables_ctx_t *ctx,
     ngx_live_complex_value_t *val, size_t default_value);
 ngx_int_t ngx_live_compile_complex_value(
     ngx_live_compile_complex_value_t *ccv);
@@ -109,8 +118,10 @@ char *ngx_live_set_complex_value_size_slot(ngx_conf_t *cf, ngx_command_t *cmd,
 
 ngx_uint_t ngx_live_script_variables_count(ngx_str_t *value);
 ngx_int_t ngx_live_script_compile(ngx_live_script_compile_t *sc);
-u_char *ngx_live_script_run(ngx_live_channel_t *ch, ngx_pool_t *pool,
-    ngx_str_t *value, void *code_lengths, size_t reserved, void *code_values);
+u_char *ngx_live_script_run(ngx_live_variables_ctx_t *ctx, ngx_str_t *value,
+    void *code_lengths, size_t reserved, void *code_values);
+void ngx_live_script_flush_no_cacheable_variables(
+    ngx_live_variables_ctx_t *ctx, ngx_array_t *indices);
 
 void *ngx_live_script_add_code(ngx_array_t *codes, size_t size, void *code);
 
@@ -118,5 +129,7 @@ size_t ngx_live_script_copy_len_code(ngx_live_script_engine_t *e);
 void ngx_live_script_copy_code(ngx_live_script_engine_t *e);
 size_t ngx_live_script_copy_var_len_code(ngx_live_script_engine_t *e);
 void ngx_live_script_copy_var_code(ngx_live_script_engine_t *e);
+size_t ngx_live_script_copy_capture_len_code(ngx_live_script_engine_t *e);
+void ngx_live_script_copy_capture_code(ngx_live_script_engine_t *e);
 
 #endif /* _NGX_LIVE_SCRIPT_H_INCLUDED_ */

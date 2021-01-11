@@ -85,6 +85,7 @@ LIVE_CORE_MODULES="                                           \
     ngx_live_segment_info_module                              \
     ngx_live_syncer_module                                    \
     ngx_live_filler_module                                    \
+    ngx_live_map_module                                       \
     ngx_live_dynamic_var_module                               \
     ngx_live_dvr_module                                       \
     ngx_live_store_http_module                                \
@@ -176,6 +177,7 @@ LIVE_CORE_SRCS="                                              \
     $ngx_addon_dir/src/ngx_live_filler.c                      \
     $ngx_addon_dir/src/ngx_live_input_bufs.c                  \
     $ngx_addon_dir/src/ngx_live_json_commands.c               \
+    $ngx_addon_dir/src/ngx_live_map.c                         \
     $ngx_addon_dir/src/ngx_live_media_info.c                  \
     $ngx_addon_dir/src/ngx_live_script.c                      \
     $ngx_addon_dir/src/ngx_live_segment_cache.c               \

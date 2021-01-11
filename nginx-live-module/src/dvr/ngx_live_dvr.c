@@ -23,8 +23,8 @@ static void *ngx_live_dvr_create_preset_conf(ngx_conf_t *cf);
 static char *ngx_live_dvr_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
-static ngx_int_t ngx_live_dvr_bucket_id_variable(ngx_live_channel_t *channel,
-    ngx_pool_t *pool, ngx_live_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_live_dvr_bucket_id_variable(ngx_live_variables_ctx_t *ctx,
+    ngx_live_variable_value_t *v, uintptr_t data);
 
 static char *ngx_live_dvr_bucket_time(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
@@ -138,8 +138,15 @@ ngx_live_dvr_get_path(ngx_live_channel_t *channel, ngx_pool_t *pool,
     uint32_t bucket_id, ngx_str_t *path)
 {
     ngx_int_t                    rc;
+    ngx_live_variables_ctx_t     vctx;
     ngx_live_dvr_channel_ctx_t  *cctx;
     ngx_live_dvr_preset_conf_t  *dpcf;
+
+    if (ngx_live_variables_init_ctx(channel, pool, &vctx) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_dvr_get_path: failed to init var ctx");
+        return NGX_ERROR;
+    }
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_dvr_module);
 
@@ -147,7 +154,7 @@ ngx_live_dvr_get_path(ngx_live_channel_t *channel, ngx_pool_t *pool,
 
     cctx->bucket_id = bucket_id;
 
-    rc = ngx_live_complex_value(channel, pool, dpcf->path, path);
+    rc = ngx_live_complex_value(&vctx, dpcf->path, path);
 
     cctx->bucket_id = NGX_LIVE_DVR_INVALID_BUCKET_ID;
 
@@ -1059,20 +1066,20 @@ ngx_live_dvr_write_segment_created(ngx_live_channel_t *channel, void *ectx)
 }
 
 static ngx_int_t
-ngx_live_dvr_bucket_id_variable(ngx_live_channel_t *channel, ngx_pool_t *pool,
+ngx_live_dvr_bucket_id_variable(ngx_live_variables_ctx_t *ctx,
     ngx_live_variable_value_t *v, uintptr_t data)
 {
     u_char                      *p;
     ngx_live_dvr_channel_ctx_t  *cctx;
 
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_dvr_module);
+    cctx = ngx_live_get_module_ctx(ctx->ch, ngx_live_dvr_module);
 
     if (cctx == NULL || cctx->bucket_id == NGX_LIVE_DVR_INVALID_BUCKET_ID) {
         v->not_found = 1;
         return NGX_OK;
     }
 
-    p = ngx_pnalloc(pool, NGX_INT32_LEN);
+    p = ngx_pnalloc(ctx->pool, NGX_INT32_LEN);
     if (p == NULL) {
         return NGX_ERROR;
     }
@@ -1094,8 +1101,8 @@ ngx_live_dvr_enabled(ngx_live_channel_t *channel)
 }
 
 static ngx_int_t
-ngx_live_dvr_bucket_time_variable(ngx_live_channel_t *channel,
-    ngx_pool_t *pool, ngx_live_variable_value_t *v, uintptr_t data)
+ngx_live_dvr_bucket_time_variable(ngx_live_variables_ctx_t *ctx,
+    ngx_live_variable_value_t *v, uintptr_t data)
 {
     time_t                           sec;
     int64_t                          time;
@@ -1109,28 +1116,28 @@ ngx_live_dvr_bucket_time_variable(ngx_live_channel_t *channel,
 
     char  buf[NGX_LIVE_DVR_DATE_LEN];
 
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_dvr_module);
+    cctx = ngx_live_get_module_ctx(ctx->ch, ngx_live_dvr_module);
 
     if (cctx == NULL || cctx->bucket_id == NGX_LIVE_DVR_INVALID_BUCKET_ID) {
         v->not_found = 1;
         return NGX_OK;
     }
 
-    dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_dvr_module);
+    dpcf = ngx_live_get_module_preset_conf(ctx->ch, ngx_live_dvr_module);
 
     segment_index = cctx->bucket_id * dpcf->bucket_size;
     limit = segment_index + dpcf->bucket_size;
     for ( ;; ) {
 
         if (segment_index >= limit) {
-            ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            ngx_log_error(NGX_LOG_ERR, &ctx->ch->log, 0,
                 "ngx_live_dvr_bucket_time_variable: "
                 "failed to get the timestamp of all segments in bucket %uD",
                 cctx->bucket_id);
             return NGX_ERROR;
         }
 
-        if (ngx_live_timelines_get_segment_time(channel, segment_index, &time)
+        if (ngx_live_timelines_get_segment_time(ctx->ch, segment_index, &time)
             == NGX_OK)
         {
             break;
@@ -1139,7 +1146,7 @@ ngx_live_dvr_bucket_time_variable(ngx_live_channel_t *channel,
         segment_index++;
     }
 
-    cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
+    cpcf = ngx_live_get_module_preset_conf(ctx->ch, ngx_live_core_module);
 
     sec = time / cpcf->timescale;
 
@@ -1153,14 +1160,14 @@ ngx_live_dvr_bucket_time_variable(ngx_live_channel_t *channel,
     v->len = strftime(buf, NGX_LIVE_DVR_DATE_LEN,
         (char *) var->timefmt.data, &tm);
     if (v->len == 0) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+        ngx_log_error(NGX_LOG_ERR, &ctx->ch->log, 0,
             "ngx_live_dvr_bucket_time_variable: strftime failed");
         return NGX_ERROR;
     }
 
-    v->data = ngx_pnalloc(pool, v->len);
+    v->data = ngx_pnalloc(ctx->pool, v->len);
     if (v->data == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, &ctx->ch->log, 0,
             "ngx_live_dvr_bucket_time_variable: alloc failed");
         return NGX_ERROR;
     }
