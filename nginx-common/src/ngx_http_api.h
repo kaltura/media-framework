@@ -31,7 +31,7 @@ struct ngx_http_api_route_child_s {
 
 
 typedef struct {
-    unsigned    write:1;
+    unsigned  write:1;
     unsigned  upsert:1;
 } ngx_http_api_options_t;
 

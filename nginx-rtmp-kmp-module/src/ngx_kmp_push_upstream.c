@@ -543,7 +543,8 @@ ngx_kmp_push_upstream_ack_packet(ngx_kmp_push_upstream_t *u,
 
     case KMP_PACKET_MEDIA_INFO:
         if ((size_t) (u->acked_media_info.end - u->acked_media_info.start) <
-            size) {
+            size)
+        {
             u->acked_media_info.start = ngx_palloc(u->pool, size);
             if (u->acked_media_info.start == NULL) {
                 ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
@@ -559,7 +560,8 @@ ngx_kmp_push_upstream_ack_packet(ngx_kmp_push_upstream_t *u,
 
         p = ngx_copy(p, kmp_header, sizeof(*kmp_header));
         if (ngx_buf_queue_reader_copy(&u->acked_reader, p,
-            size - sizeof(*kmp_header)) == NULL) {
+            size - sizeof(*kmp_header)) == NULL)
+        {
             ngx_log_error(NGX_LOG_ALERT, &u->log, 0,
                 "ngx_kmp_push_upstream_ack_packet: "
                 "failed to read media info packet, size: %uz", size);
@@ -573,7 +575,8 @@ ngx_kmp_push_upstream_ack_packet(ngx_kmp_push_upstream_t *u,
 
     case KMP_PACKET_FRAME:
         if (ngx_buf_queue_reader_skip(&u->acked_reader,
-                size - sizeof(*kmp_header)) != NGX_OK) {
+                size - sizeof(*kmp_header)) != NGX_OK)
+        {
             ngx_log_error(NGX_LOG_ALERT, &u->log, 0,
                 "ngx_kmp_push_upstream_ack_packet: "
                 "failed to skip frame packet, size: %uz", size);
