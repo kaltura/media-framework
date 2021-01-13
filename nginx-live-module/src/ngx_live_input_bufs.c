@@ -50,7 +50,9 @@ typedef struct {
 
 typedef struct {
     size_t                  buffer_size;
+    ngx_uint_t              bin_count;
     ngx_uint_t              max_free_buffers;
+    ngx_lba_t              *lba;
 } ngx_live_input_bufs_preset_conf_t;
 
 
@@ -68,6 +70,13 @@ static ngx_command_t  ngx_live_input_bufs_commands[] = {
       ngx_conf_set_size_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_input_bufs_preset_conf_t, buffer_size),
+      NULL },
+
+    { ngx_string("input_bufs_bin_count"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_input_bufs_preset_conf_t, bin_count),
       NULL },
 
     { ngx_string("input_bufs_max_free"),
@@ -156,7 +165,7 @@ ngx_live_input_bufs_create(ngx_live_track_t *track)
     conf = ngx_live_get_module_preset_conf(channel,
         ngx_live_input_bufs_module);
 
-    rc = ngx_buf_queue_init(&result->buf_queue, &track->log, conf->buffer_size,
+    rc = ngx_buf_queue_init(&result->buf_queue, &track->log, conf->lba,
         conf->max_free_buffers, &channel->mem_left);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
@@ -686,6 +695,7 @@ ngx_live_input_bufs_create_preset_conf(ngx_conf_t *cf)
     }
 
     conf->buffer_size = NGX_CONF_UNSET_SIZE;
+    conf->bin_count = NGX_CONF_UNSET_UINT;
     conf->max_free_buffers = NGX_CONF_UNSET_UINT;
 
     return conf;
@@ -701,8 +711,16 @@ ngx_live_input_bufs_merge_preset_conf(ngx_conf_t *cf, void *parent,
     ngx_conf_merge_size_value(conf->buffer_size,
                               prev->buffer_size, 10240);
 
+    ngx_conf_merge_size_value(conf->bin_count,
+                              prev->bin_count, 8);
+
     ngx_conf_merge_uint_value(conf->max_free_buffers,
                               prev->max_free_buffers, 4);
+
+    conf->lba = ngx_live_core_get_lba(cf, conf->buffer_size, conf->bin_count);
+    if (conf->lba == NULL) {
+        return NGX_CONF_ERROR;
+    }
 
     return NGX_CONF_OK;
 }

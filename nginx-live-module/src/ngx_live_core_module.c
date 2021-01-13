@@ -413,6 +413,12 @@ ngx_live_core_preconfiguration(ngx_conf_t *cf)
         }
     }
 
+    if (ngx_array_init(&cmcf->lba_array, cf->temp_pool, 1, sizeof(void *))
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
     return ngx_live_json_commands_prepare(cf);
 }
 
@@ -540,6 +546,38 @@ ngx_live_core_track_event(ngx_live_track_t *track, ngx_uint_t event,
         "ngx_live_core_track_event: event %ui done", event);
 
     return NGX_OK;
+}
+
+ngx_lba_t *
+ngx_live_core_get_lba(ngx_conf_t *cf, size_t buffer_size, ngx_uint_t bin_count)
+{
+    ngx_lba_t                  *lba, **plba;
+    ngx_uint_t                  i;
+    ngx_live_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
+
+    plba = cmcf->lba_array.elts;
+    for (i = 0; i < cmcf->lba_array.nelts; i++) {
+        lba = plba[i];
+        if (ngx_lba_match(lba, buffer_size, bin_count)) {
+            return lba;
+        }
+    }
+
+    lba = ngx_lba_create(cf->pool, buffer_size, bin_count);
+    if (lba == NULL) {
+        return NULL;
+    }
+
+    plba = ngx_array_push(&cmcf->lba_array);
+    if (plba == NULL) {
+        return NULL;
+    }
+
+    *plba = lba;
+
+    return lba;
 }
 
 ngx_int_t

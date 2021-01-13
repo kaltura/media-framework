@@ -3,6 +3,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
+#include "ngx_lba.h"
 
 
 #define ngx_buf_queue_head(buf_queue) (buf_queue)->used_head
@@ -23,6 +24,7 @@ struct ngx_buf_queue_node_s {
 };
 
 typedef struct {
+    ngx_lba_t              *lba;
     ngx_log_t              *log;
     size_t                  alloc_size;
     size_t                  used_size;
@@ -36,7 +38,7 @@ typedef struct {
 
 
 ngx_int_t ngx_buf_queue_init(ngx_buf_queue_t *buf_queue, ngx_log_t *log,
-    size_t buffer_size, ngx_uint_t max_free_buffers, size_t *mem_left);
+    ngx_lba_t *lba, ngx_uint_t max_free_buffers, size_t *mem_left);
 
 void ngx_buf_queue_delete(ngx_buf_queue_t *buf_queue);
 

@@ -3,6 +3,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
+#include <ngx_lba.h>
 
 
 typedef struct ngx_kmp_push_track_s ngx_kmp_push_track_t;
@@ -21,10 +22,13 @@ typedef struct {
     ngx_uint_t       timescale;
     ngx_msec_t       timeout;
     ngx_uint_t       max_free_buffers;
+    ngx_uint_t       buffer_bin_count;
     size_t           video_buffer_size;
     size_t           video_mem_limit;
+    ngx_lba_t       *video_lba;
     size_t           audio_buffer_size;
     size_t           audio_mem_limit;
+    ngx_lba_t       *audio_lba;
     ngx_msec_t       flush_timeout;
 
     time_t           republish_interval;
