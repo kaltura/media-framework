@@ -68,6 +68,7 @@ ngx_kmp_push_track_init_conf(ngx_kmp_push_track_conf_t *conf)
     conf->timescale = NGX_CONF_UNSET_UINT;
     conf->timeout = NGX_CONF_UNSET_MSEC;
     conf->max_free_buffers = NGX_CONF_UNSET_UINT;
+    conf->buffer_bin_count = NGX_CONF_UNSET_UINT;
     conf->video_buffer_size = NGX_CONF_UNSET_SIZE;
     conf->video_mem_limit = NGX_CONF_UNSET_SIZE;
     conf->audio_buffer_size = NGX_CONF_UNSET_SIZE;
@@ -116,6 +117,9 @@ ngx_kmp_push_track_merge_conf(ngx_kmp_push_track_conf_t *conf,
 
     ngx_conf_merge_uint_value(conf->max_free_buffers,
                               prev->max_free_buffers, 4);
+
+    ngx_conf_merge_size_value(conf->buffer_bin_count,
+                              prev->buffer_bin_count, 8);
 
     ngx_conf_merge_size_value(conf->video_buffer_size,
                               prev->video_buffer_size, 64 * 1024);
@@ -898,7 +902,7 @@ ngx_kmp_push_track_t *
 ngx_kmp_push_track_create(ngx_kmp_push_track_conf_t *conf,
     ngx_uint_t media_type)
 {
-    size_t                 buffer_size;
+    ngx_lba_t             *lba;
     ngx_log_t             *log = ngx_cycle->log;
     ngx_pool_t            *pool;
     ngx_kmp_push_track_t  *track;
@@ -927,16 +931,16 @@ ngx_kmp_push_track_create(ngx_kmp_push_track_conf_t *conf,
 
     if (media_type == KMP_MEDIA_VIDEO) {
         track->mem_limit = conf->video_mem_limit;
-        buffer_size = conf->video_buffer_size;
+        lba = conf->video_lba;
 
     } else {
         track->mem_limit = conf->audio_mem_limit;
-        buffer_size = conf->audio_buffer_size;
+        lba = conf->audio_lba;
     }
 
     track->mem_left = track->mem_limit;
 
-    if (ngx_buf_queue_init(&track->buf_queue, pool->log, buffer_size,
+    if (ngx_buf_queue_init(&track->buf_queue, pool->log, lba,
         conf->max_free_buffers, &track->mem_left) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_kmp_push_track_create: ngx_buf_queue_init failed");

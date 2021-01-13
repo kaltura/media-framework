@@ -5,8 +5,10 @@
 
 ngx_int_t
 ngx_buf_queue_init(ngx_buf_queue_t *buf_queue, ngx_log_t *log,
-    size_t buffer_size, ngx_uint_t max_free_buffers, size_t *mem_left)
+    ngx_lba_t *lba, ngx_uint_t max_free_buffers, size_t *mem_left)
 {
+    size_t  buffer_size = ngx_lba_buf_size(lba);
+
     if (buffer_size <= sizeof(ngx_buf_queue_node_t)) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_buf_queue_init: buffer size %uz too small", buffer_size);
@@ -14,6 +16,7 @@ ngx_buf_queue_init(ngx_buf_queue_t *buf_queue, ngx_log_t *log,
     }
 
     buf_queue->log = log;
+    buf_queue->lba = lba;
     buf_queue->alloc_size = buffer_size;
     buf_queue->used_size = buffer_size - sizeof(ngx_buf_queue_node_t);
     buf_queue->used_head = NULL;
@@ -29,6 +32,7 @@ ngx_buf_queue_init(ngx_buf_queue_t *buf_queue, ngx_log_t *log,
     return NGX_OK;
 }
 
+
 void
 ngx_buf_queue_delete(ngx_buf_queue_t *buf_queue)
 {
@@ -40,14 +44,14 @@ ngx_buf_queue_delete(ngx_buf_queue_t *buf_queue)
 
     for (node = buf_queue->free; node != NULL; node = next) {
         next = ngx_buf_queue_next(node);
-        ngx_free(node);
+        ngx_lba_free(buf_queue->lba, node);
         buf_queue->free_left++;
     }
     buf_queue->free = NULL;
 
     for (node = ngx_buf_queue_head(buf_queue); node != NULL; node = next) {
         next = ngx_buf_queue_next(node);
-        ngx_free(node);
+        ngx_lba_free(buf_queue->lba, node);
     }
     buf_queue->used_head = NULL;
     buf_queue->used_tail = &buf_queue->used_head;
@@ -139,7 +143,7 @@ ngx_buf_queue_get(ngx_buf_queue_t *buf_queue)
             return NULL;
         }
 
-        result = ngx_alloc(buf_queue->alloc_size, buf_queue->log);
+        result = ngx_lba_alloc(buf_queue->lba);
         if (result == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, buf_queue->log, 0,
                 "ngx_buf_queue_get: alloc failed");
@@ -216,7 +220,7 @@ ngx_buf_queue_free(ngx_buf_queue_t *buf_queue, u_char *limit)
             "ngx_buf_queue_free: %p freeing %p", buf_queue, cur);
 
         if (buf_queue->free_left <= 0) {
-            ngx_free(cur);
+            ngx_lba_free(buf_queue->lba, cur);
             if (buf_queue->mem_left != NULL) {
                 *buf_queue->mem_left += buf_queue->alloc_size;
             }

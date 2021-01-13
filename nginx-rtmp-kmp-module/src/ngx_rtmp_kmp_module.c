@@ -9,6 +9,7 @@
 #include <ngx_live_kmp.h>
 #include <ngx_http_call.h>
 #include <ngx_json_parser.h>
+#include <ngx_lba.h>
 #include "ngx_kmp_push_utils.h"
 #include "ngx_rtmp_kmp_module.h"
 
@@ -26,18 +27,23 @@ static ngx_rtmp_disconnect_pt    next_disconnect;
 
 
 typedef struct {
-    ngx_msec_t                  idle_timeout;
+    ngx_array_t  lba_array;
+} ngx_rtmp_kmp_main_conf_t;
+
+
+typedef struct {
+    ngx_msec_t   idle_timeout;
 } ngx_rtmp_kmp_srv_conf_t;
 
 
 /* Note: an ngx_str_t version of ngx_rtmp_connect_t */
 typedef struct {
-    ngx_str_t  app;
-    ngx_str_t  args;
-    ngx_str_t  flashver;
-    ngx_str_t  swf_url;
-    ngx_str_t  tc_url;
-    ngx_str_t  page_url;
+    ngx_str_t    app;
+    ngx_str_t    args;
+    ngx_str_t    flashver;
+    ngx_str_t    swf_url;
+    ngx_str_t    tc_url;
+    ngx_str_t    page_url;
 } ngx_rtmp_kmp_connect_t;
 
 #include "ngx_rtmp_kmp_json.h"
@@ -49,6 +55,8 @@ static char *ngx_rtmp_kmp_headers_add(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 
 static ngx_int_t ngx_rtmp_kmp_postconfiguration(ngx_conf_t *cf);
+
+static void *ngx_rtmp_kmp_create_main_conf(ngx_conf_t *cf);
 
 static void *ngx_rtmp_kmp_create_srv_conf(ngx_conf_t *cf);
 static char *ngx_rtmp_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent,
@@ -168,6 +176,13 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
       offsetof(ngx_rtmp_kmp_app_conf_t, t.max_free_buffers),
       NULL },
 
+    { ngx_string("kmp_buffer_bin_count"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_kmp_app_conf_t, t.buffer_bin_count),
+      NULL },
+
     { ngx_string("kmp_video_buffer_size"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
@@ -224,7 +239,7 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
 static ngx_rtmp_module_t  ngx_rtmp_kmp_module_ctx = {
     NULL,                                   /* preconfiguration */
     ngx_rtmp_kmp_postconfiguration,         /* postconfiguration */
-    NULL,                                   /* create main configuration */
+    ngx_rtmp_kmp_create_main_conf,          /* create main configuration */
     NULL,                                   /* init main configuration */
     ngx_rtmp_kmp_create_srv_conf,           /* create server configuration */
     ngx_rtmp_kmp_merge_srv_conf,            /* merge server configuration */
@@ -351,6 +366,58 @@ ngx_rtmp_kmp_headers_add(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
 
 static void *
+ngx_rtmp_kmp_create_main_conf(ngx_conf_t *cf)
+{
+    ngx_rtmp_kmp_main_conf_t  *kmcf;
+
+    kmcf = ngx_pcalloc(cf->pool, sizeof(ngx_rtmp_kmp_main_conf_t));
+    if (kmcf == NULL) {
+        return NULL;
+    }
+
+    if (ngx_array_init(&kmcf->lba_array, cf->temp_pool, 1, sizeof(void *))
+        != NGX_OK)
+    {
+        return NULL;
+    }
+
+    return kmcf;
+}
+
+static ngx_lba_t *
+ngx_rtmp_kmp_get_lba(ngx_conf_t *cf, size_t buffer_size, ngx_uint_t bin_count)
+{
+    ngx_lba_t                 *lba, **plba;
+    ngx_uint_t                 i;
+    ngx_rtmp_kmp_main_conf_t  *kmcf;
+
+    kmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_kmp_module);
+
+    plba = kmcf->lba_array.elts;
+    for (i = 0; i < kmcf->lba_array.nelts; i++) {
+        lba = plba[i];
+        if (ngx_lba_match(lba, buffer_size, bin_count)) {
+            return lba;
+        }
+    }
+
+    lba = ngx_lba_create(cf->pool, buffer_size, bin_count);
+    if (lba == NULL) {
+        return NULL;
+    }
+
+    plba = ngx_array_push(&kmcf->lba_array);
+    if (plba == NULL) {
+        return NULL;
+    }
+
+    *plba = lba;
+
+    return lba;
+}
+
+
+static void *
 ngx_rtmp_kmp_create_srv_conf(ngx_conf_t *cf)
 {
     ngx_rtmp_kmp_srv_conf_t  *kscf;
@@ -406,6 +473,18 @@ ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
                              prev->ctrl_connect_url, NULL);
 
     ngx_kmp_push_track_merge_conf(&conf->t, &prev->t);
+
+    conf->t.video_lba = ngx_rtmp_kmp_get_lba(cf, conf->t.video_buffer_size,
+        conf->t.buffer_bin_count);
+    if (conf->t.video_lba == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    conf->t.audio_lba = ngx_rtmp_kmp_get_lba(cf, conf->t.audio_buffer_size,
+        conf->t.buffer_bin_count);
+    if (conf->t.audio_lba == NULL) {
+        return NGX_CONF_ERROR;
+    }
 
     if (conf->t.timescale % NGX_RTMP_TIMESCALE) {
         ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
