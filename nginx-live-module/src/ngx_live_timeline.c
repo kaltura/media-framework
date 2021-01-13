@@ -1390,7 +1390,7 @@ ngx_live_timelines_cleanup(ngx_live_channel_t *channel)
     }
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_timelines_cleanup_handler: called");
+        "ngx_live_timelines_cleanup: called");
 
     add_timer = 0;
     min_segment_index = NGX_MAX_UINT32_VALUE;
