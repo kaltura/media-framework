@@ -1212,7 +1212,7 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
 
         default:
             ngx_log_error(NGX_LOG_NOTICE, &cur_track->log, 0,
-                "ngx_live_media_info_source_sets: fill gap failed");
+                "ngx_live_media_info_queue_fill_gaps: fill gap failed");
             return NGX_ERROR;
         }
 
@@ -1826,7 +1826,7 @@ ngx_live_media_info_read_index(ngx_live_persist_block_header_t *block,
             data.len, &node);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_media_info_pending_add: create node failed");
+                "ngx_live_media_info_read_index: create node failed");
             return rc;
         }
 

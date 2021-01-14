@@ -1324,7 +1324,7 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
 
     if (result->len > result_size) {
         vod_log_error(VOD_LOG_ALERT, r->connection->log, 0,
-            "ngx_http_live_hls_build_index_playlist: "
+            "ngx_http_live_hls_m3u8_build_index: "
             "result length %uz greater than allocated length %uz",
             result->len, result_size);
         return NGX_HTTP_INTERNAL_SERVER_ERROR;

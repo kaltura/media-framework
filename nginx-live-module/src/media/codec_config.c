@@ -28,7 +28,7 @@ codec_config_avcc_nal_units_get_size(
     if (extra_data->len < sizeof(avcc_config_t))
     {
         vod_log_error(VOD_LOG_ERR, log, 0,
-            "codec_config_avcc_get_nal_units: extra data size %uz too small", extra_data->len);
+            "codec_config_avcc_nal_units_get_size: extra data size %uz too small", extra_data->len);
         return 0;
     }
 
@@ -42,7 +42,7 @@ codec_config_avcc_nal_units_get_size(
         if (cur_pos >= extra_data_end)
         {
             vod_log_error(VOD_LOG_ERR, log, 0,
-                "codec_config_avcc_get_nal_units: extra data overflow while reading unit count");
+                "codec_config_avcc_nal_units_get_size: extra data overflow while reading unit count");
             return 0;
         }
 
@@ -51,7 +51,7 @@ codec_config_avcc_nal_units_get_size(
             if (cur_pos + sizeof(uint16_t) > extra_data_end)
             {
                 vod_log_error(VOD_LOG_ERR, log, 0,
-                    "codec_config_avcc_get_nal_units: extra data overflow while reading unit size");
+                    "codec_config_avcc_nal_units_get_size: extra data overflow while reading unit size");
                 return 0;
             }
 
@@ -59,7 +59,7 @@ codec_config_avcc_nal_units_get_size(
             if (cur_pos + unit_size > extra_data_end)
             {
                 vod_log_error(VOD_LOG_ERR, log, 0,
-                    "codec_config_avcc_get_nal_units: unit size %uD overflows the extra data buffer", (uint32_t)unit_size);
+                    "codec_config_avcc_nal_units_get_size: unit size %uD overflows the extra data buffer", (uint32_t)unit_size);
                 return 0;
             }
 

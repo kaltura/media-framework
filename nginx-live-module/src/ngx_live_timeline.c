@@ -1228,7 +1228,7 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
         duration);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_timeline_add_segment: add failed");
+            "ngx_live_timelines_add_segment: add failed");
         return rc;
     }
 
@@ -1269,7 +1269,7 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
             period = ngx_live_period_create(channel);
             if (period == NULL) {
                 ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-                    "ngx_live_timeline_add_segment: failed to create period");
+                    "ngx_live_timelines_add_segment: failed to create period");
                 return NGX_ERROR;
             }
 
@@ -1332,7 +1332,7 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
         NGX_LIVE_EVENT_CHANNEL_SEGMENT_CREATED, (void *) added);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_timeline_add_segment: event failed");
+            "ngx_live_timelines_add_segment: event failed");
         return rc;
     }
 
@@ -2206,7 +2206,7 @@ ngx_live_timeline_read_index(ngx_live_persist_block_header_t *block,
         block = ngx_live_persist_read_block(rs, &block_rs);
         if (block == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_filler_read_segment: read block failed");
+                "ngx_live_timeline_read_index: read block failed");
             return NGX_BAD_DATA;
         }
 

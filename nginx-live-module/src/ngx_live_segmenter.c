@@ -3186,7 +3186,7 @@ ngx_live_segmenter_set_segment_duration_internal(ngx_live_channel_t *channel,
     spcf = ngx_live_get_module_preset_conf(channel, ngx_live_segmenter_module);
     if (value < (int64_t) spcf->min_segment_duration) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_segmenter_set_segment_duration: "
+            "ngx_live_segmenter_set_segment_duration_internal: "
             "segment duration %L smaller than configured min %M",
             value, spcf->min_segment_duration);
         return NGX_ERROR;
@@ -3205,7 +3205,7 @@ ngx_live_segmenter_set_segment_duration_internal(ngx_live_channel_t *channel,
         cctx->ready_duration;
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_segmenter_set_segment_duration: set to %M",
+        "ngx_live_segmenter_set_segment_duration_internal: set to %M",
         cctx->conf.segment_duration);
 
     return NGX_OK;

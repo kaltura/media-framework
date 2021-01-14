@@ -1262,7 +1262,8 @@ ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
         }
 
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_filler_setup: attempt to change filler of channel \"%V\""
+            "ngx_live_filler_set_channel: "
+            "attempt to change filler of channel \"%V\""
             " from \"%V:%V\" to \"%V:%V\"",
             &dst->sn.str, &cctx->channel_id, &cctx->timeline_id,
             &channel_id, &timeline_id);

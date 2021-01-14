@@ -808,7 +808,7 @@ ngx_live_persist_read_channel_id(ngx_live_channel_t *channel,
 
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_persist_setup_read_channel: read id failed");
+            "ngx_live_persist_read_channel_id: read id failed");
         return NGX_BAD_DATA;
     }
 
@@ -816,7 +816,7 @@ ngx_live_persist_read_channel_id(ngx_live_channel_t *channel,
         ngx_memcmp(id.data, channel->sn.str.data, id.len) != 0)
     {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_persist_setup_read_channel: "
+            "ngx_live_persist_read_channel_id: "
             "channel id \"%V\" mismatch", &id);
         return NGX_BAD_DATA;
     }

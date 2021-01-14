@@ -691,7 +691,7 @@ ngx_live_segment_list_read_index(ngx_live_segment_list_t *segment_list,
         block = ngx_live_persist_read_block(rs, &block_rs);
         if (block == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_media_info_read_index: read block failed");
+                "ngx_live_segment_list_read_index: read block failed");
             return NGX_BAD_DATA;
         }
 
