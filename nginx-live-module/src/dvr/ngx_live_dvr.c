@@ -779,7 +779,7 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
         NGX_LIVE_PERSIST_TYPE_SEGMENTS, 0);
     if (write_idx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_create_file: write init failed (1)");
+            "ngx_live_dvr_write_create_file: write init failed (1)");
         return NULL;
     }
 
@@ -790,14 +790,14 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
         ngx_wstream_str(ws, &channel->sn.str) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_create_file: write header failed");
+            "ngx_live_dvr_write_create_file: write header failed");
         return NULL;
     }
 
     write_data = ngx_live_persist_write_init(pool, 0, 0);
     if (write_data == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_dvr_create_file: write init failed (2)");
+            "ngx_live_dvr_write_create_file: write init failed (2)");
         return NULL;
     }
 
@@ -822,7 +822,7 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
                 cur_track, segment) != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                    "ngx_live_dvr_create_file: append segment failed");
+                    "ngx_live_dvr_write_create_file: append segment failed");
                 return NULL;
             }
 
@@ -830,7 +830,7 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
                 index = ngx_live_segment_index_get(channel, segment_index);
                 if (index == NULL) {
                     ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
-                        "ngx_live_dvr_create_file: "
+                        "ngx_live_dvr_write_create_file: "
                         "failed to get index %uD", segment_index);
                     return NULL;
                 }
@@ -839,14 +839,15 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
                     max_segments);
                 if (cln == NULL) {
                     ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                        "ngx_live_dvr_create_file: add cleanup item failed");
+                        "ngx_live_dvr_write_create_file: "
+                        "add cleanup item failed");
                     return NULL;
                 }
             }
 
             if (ngx_live_segment_index_lock(cln, segment) != NGX_OK) {
                 ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                    "ngx_live_dvr_create_file: lock segment failed");
+                    "ngx_live_dvr_write_create_file: lock segment failed");
                 return NULL;
             }
         }
@@ -854,7 +855,7 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
 
     if (cln == NULL) {
         ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
-            "ngx_live_dvr_create_file: "
+            "ngx_live_dvr_write_create_file: "
             "no segments found, bucket: %uD", ctx->bucket_id);
         return NULL;
     }
@@ -863,7 +864,7 @@ ngx_live_dvr_write_create_file(ngx_live_dvr_write_ctx_t *ctx,
 
     if (ngx_live_persist_write_chain(write_idx, write_data) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_dvr_create_file: chain failed");
+            "ngx_live_dvr_write_create_file: chain failed");
         return NULL;
     }
 

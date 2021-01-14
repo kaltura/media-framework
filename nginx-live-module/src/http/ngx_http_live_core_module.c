@@ -469,7 +469,7 @@ ngx_http_live_generate_key(ngx_http_request_t *r, ngx_flag_t iv,
     if (value != NULL) {
         if (ngx_http_complex_value(r, value, &seed) != NGX_OK) {
             ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "ngx_http_live_hls_get_seed: ngx_http_complex_value failed");
+                "ngx_http_live_generate_key: ngx_http_complex_value failed");
             return NGX_HTTP_INTERNAL_SERVER_ERROR;
         }
     }

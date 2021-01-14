@@ -80,14 +80,14 @@ ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
 
         if (*block_pool->mem_limit < slot->alloc) {
             ngx_log_error(NGX_LOG_ERR, block_pool->pool->log, 0,
-                "ngx_block_pool_alloc: memory limit exceeded");
+                "ngx_block_pool_alloc_internal: memory limit exceeded");
             return NULL;
         }
 
         ptr = ngx_palloc(block_pool->pool, slot->alloc);
         if (ptr == NULL) {
             ngx_log_error(NGX_LOG_ERR, block_pool->pool->log, 0,
-                "ngx_block_pool_alloc: alloc failed");
+                "ngx_block_pool_alloc_internal: alloc failed");
             return NULL;
         }
 
@@ -153,7 +153,7 @@ ngx_block_pool_free_list_internal(ngx_block_pool_t *block_pool,
 
         if (*ptr != slot) {
             ngx_log_error(NGX_LOG_ALERT, block_pool->pool->log, 0,
-                "ngx_block_pool_free_list: non-matching slot");
+                "ngx_block_pool_free_list_internal: non-matching slot");
             ngx_debug_point();
         }
 
@@ -297,7 +297,7 @@ ngx_block_pool_auto_alloc(ngx_block_pool_t *block_pool, size_t size,
     for (index = min_index; ; index++) {
         if (index >= max_index) {
             ngx_log_error(NGX_LOG_ERR, block_pool->pool->log, 0,
-                "ngx_block_pool_alloc_auto: no slot found matching size %uz",
+                "ngx_block_pool_auto_alloc: no slot found matching size %uz",
                 size);
             return NULL;
         }

@@ -437,7 +437,7 @@ ngx_live_core_get_main_conf(ngx_cycle_t *cycle)
         ngx_live_module);
     if (live_conf == NULL) {
         ngx_log_error(NGX_LOG_CRIT, cycle->log, 0,
-            "ngx_live_core_get_preset_conf: no live conf");
+            "ngx_live_core_get_main_conf: no live conf");
         return NULL;
     }
 

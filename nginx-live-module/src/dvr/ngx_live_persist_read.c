@@ -96,7 +96,7 @@ ngx_live_persist_read_inflate(ngx_live_persist_file_header_t *header,
     p = ngx_alloc(size, rs->log);
     if (p == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-            "ngx_live_persist_read_file_header: alloc failed");
+            "ngx_live_persist_read_inflate: alloc failed");
         return NGX_ERROR;
     }
 
