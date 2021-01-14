@@ -36,11 +36,11 @@ typedef struct {
 } ngx_http_api_options_t;
 
 
-ngx_int_t ngx_http_api_send_response(ngx_http_request_t *r, ngx_uint_t status,
-    ngx_str_t *response);
-
 ngx_int_t ngx_http_api_handler(ngx_http_request_t *r,
     ngx_http_api_route_node_t *root);
+
+void ngx_http_api_done(ngx_http_request_t *r, ngx_int_t rc,
+    ngx_str_t *response);
 
 char *ngx_http_api_parse_options(ngx_conf_t *cf,
     ngx_http_api_options_t *options);
