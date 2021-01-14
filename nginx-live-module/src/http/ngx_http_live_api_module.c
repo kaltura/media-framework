@@ -334,13 +334,10 @@ ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
         goto done;
     }
 
-    response.len = 0;
-
-    ngx_http_api_send_response(r, NGX_HTTP_NO_CONTENT, &response);
-
 done:
 
-    ngx_http_finalize_request(r, rc);
+    response.len = 0;
+    ngx_http_api_done(r, rc, &response);
 }
 
 static ngx_int_t
@@ -451,7 +448,6 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
             ctx->body = *obj;
             ngx_memcpy(ctx->values, values, sizeof(ctx->values));
 
-            r->main->count++;
             return NGX_DONE;
         }
 
