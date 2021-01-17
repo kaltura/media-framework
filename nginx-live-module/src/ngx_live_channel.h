@@ -71,9 +71,12 @@ struct ngx_live_channel_s {
     ngx_block_pool_t              *block_pool;
     ngx_pool_t                    *pool;
     ngx_log_t                      log;
+
+    size_t                         mem_limit;
     size_t                         mem_left;
     size_t                         mem_high_watermark;
     size_t                         mem_low_watermark;
+
     time_t                         last_modified;
     ngx_event_t                    close;
     time_t                         start_sec;

@@ -275,7 +275,7 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
     p = ngx_copy_fix(p, ",\"mem_left\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_left);
     p = ngx_copy_fix(p, ",\"mem_limit\":");
-    p = ngx_sprintf(p, "%uz", (size_t) cpcf->mem_limit);
+    p = ngx_sprintf(p, "%uz", (size_t) obj->mem_limit);
     p = ngx_copy_fix(p, ",\"mem_blocks\":");
     p = ngx_block_pool_auto_json_write(p, obj->block_pool, NGX_LIVE_BP_COUNT,
         0);
