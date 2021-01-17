@@ -3,8 +3,8 @@ import sys
 import os
 
 if len(sys.argv) < 3:
-    print 'Usage:\n\t%s <routes definition file> <base name>' %              \
-        os.path.basename(__file__)
+    print('Usage:\n\t%s <routes definition file> <base name>' %
+        os.path.basename(__file__))
     sys.exit(1)
 
 INPUT_FILE = sys.argv[1]
@@ -21,15 +21,15 @@ NODE_TYPE_NAME = 'ngx_http_api_route_node_t'
 
 def parseInputFile(inputFile):
     root = { 'children': {}, 'handlers': {}}
-    for curLine in file(inputFile):
+    for curLine in open(inputFile):
         curLine = curLine.strip()
         if len(curLine) == 0:
             continue
         method, path = curLine.split()
         if not method in METHODS:
-            print 'Unsupported method %s' % method
+            print('Unsupported method %s' % method)
             sys.exit(1)
-        splittedPath = filter(len, path.lstrip('/').split('/'))
+        splittedPath = list(filter(len, path.lstrip('/').split('/')))
 
         cur = root
         for name in splittedPath:
@@ -87,7 +87,7 @@ def outputNode(node, base):
     handlers = node['handlers']
     handlersArr = ''
     for method in METHODS:
-        if handlers.has_key(method):
+        if method in handlers:
             handlerName = '&%s' % handlers[method]
         else:
             handlerName = 'NULL'

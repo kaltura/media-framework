@@ -43,5 +43,5 @@ def validate(channelId=CHANNEL_ID):
     testDefaultStreams(channelId, __file__)
 
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'index-svar1.m3u8', EMPTY_TIMELINE_ID))
-    assert(req.status_code == 400)
-    logTracker.assertContains('no segments in timeline "empty"')
+    assert(req.status_code == 410)
+    logTracker.assertContains('timeline "empty" no longer has segments')
