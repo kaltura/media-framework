@@ -4,31 +4,6 @@
 #define _NGX_HTTP_LIVE_API_ROUTES_H_INCLUDED_
 
 static ngx_http_api_route_node_t
-    ngx_http_live_api_route_channels_param_timelines_param = {
-    NULL,
-    &ngx_http_live_api_timeline_get,
-    &ngx_http_live_api_timeline_delete,
-    NULL,
-    &ngx_http_live_api_timeline_put,
-};
-
-static ngx_http_api_route_child_t
-    ngx_http_live_api_route_channels_param_timelines_children[] = {
-    { ngx_string("%"), &ngx_http_live_api_route_channels_param_timelines_param
-        },
-    { ngx_null_string, NULL },
-};
-
-static ngx_http_api_route_node_t
-    ngx_http_live_api_route_channels_param_timelines = {
-    ngx_http_live_api_route_channels_param_timelines_children,
-    &ngx_http_live_api_timelines_get,
-    NULL,
-    &ngx_http_live_api_timelines_post,
-    NULL,
-};
-
-static ngx_http_api_route_node_t
     ngx_http_live_api_route_channels_param_variants_param_tracks = {
     NULL,
     NULL,
@@ -93,13 +68,38 @@ static ngx_http_api_route_node_t
     NULL,
 };
 
+static ngx_http_api_route_node_t
+    ngx_http_live_api_route_channels_param_timelines_param = {
+    NULL,
+    &ngx_http_live_api_timeline_get,
+    &ngx_http_live_api_timeline_delete,
+    NULL,
+    &ngx_http_live_api_timeline_put,
+};
+
+static ngx_http_api_route_child_t
+    ngx_http_live_api_route_channels_param_timelines_children[] = {
+    { ngx_string("%"), &ngx_http_live_api_route_channels_param_timelines_param
+        },
+    { ngx_null_string, NULL },
+};
+
+static ngx_http_api_route_node_t
+    ngx_http_live_api_route_channels_param_timelines = {
+    ngx_http_live_api_route_channels_param_timelines_children,
+    &ngx_http_live_api_timelines_get,
+    NULL,
+    &ngx_http_live_api_timelines_post,
+    NULL,
+};
+
 static ngx_http_api_route_child_t
     ngx_http_live_api_route_channels_param_children[] = {
-    { ngx_string("timelines"),
-        &ngx_http_live_api_route_channels_param_timelines },
     { ngx_string("variants"), &ngx_http_live_api_route_channels_param_variants
         },
     { ngx_string("tracks"), &ngx_http_live_api_route_channels_param_tracks },
+    { ngx_string("timelines"),
+        &ngx_http_live_api_route_channels_param_timelines },
     { ngx_null_string, NULL },
 };
 

@@ -33,4 +33,4 @@ def formatText(text, width):
     return '\n'.join(lines)
 
 def writeText(text, width=79):
-    print formatText(text, width)
+    print(formatText(text, width))
