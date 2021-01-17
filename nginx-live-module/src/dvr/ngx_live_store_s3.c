@@ -639,6 +639,10 @@ ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 
     canonical_request.len = p - canonical_request.data;
 
+    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, pool->log, 0,
+        "ngx_live_store_s3_get_request: canonical request \"%V\"",
+        &canonical_request);
+
     /* get the canonical request hash */
     ngx_live_store_s3_sha256_hex_buf(&canonical_request, canonical_sha_buf);
 
@@ -652,6 +656,10 @@ ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         &canonical_sha);
 
     string_to_sign.len = p - string_to_sign.data;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, pool->log, 0,
+        "ngx_live_store_s3_get_request: string to sign \"%V\"",
+        &string_to_sign);
 
     if ((size_t) (p - temp_buf) > temp_size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
@@ -823,6 +831,10 @@ ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 
     canonical_request.len = p - canonical_request.data;
 
+    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, pool->log, 0,
+        "ngx_live_store_s3_put_request: canonical request \"%V\"",
+        &canonical_request);
+
     /* get the canonical request hash */
     ngx_live_store_s3_sha256_hex_buf(&canonical_request, canonical_sha_buf);
 
@@ -836,6 +848,10 @@ ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         &date, &ctx->key_scope, &canonical_sha);
 
     string_to_sign.len = p - string_to_sign.data;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, pool->log, 0,
+        "ngx_live_store_s3_put_request: string to sign \"%V\"",
+        &string_to_sign);
 
     if ((size_t) (p - temp_buf) > temp_size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
