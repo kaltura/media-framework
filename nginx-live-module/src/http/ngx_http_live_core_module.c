@@ -560,6 +560,14 @@ ngx_http_live_core_init_ctx(ngx_http_request_t *r,
     }
 
     if (objects->timeline->manifest.segment_count <= 0) {
+        if (objects->timeline->manifest.target_duration_segments) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_live_core_init_ctx: "
+                "timeline \"%V\" no longer has segments",
+                &params->timeline_id);
+            return NGX_HTTP_GONE;
+        }
+
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_core_init_ctx: no segments in timeline \"%V\"",
             &params->timeline_id);
