@@ -19,6 +19,9 @@ static void *ngx_live_core_create_preset_conf(ngx_conf_t *cf);
 static char *ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
+static ngx_int_t ngx_live_core_set_mem_limit(void *ctx,
+    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log);
+
 
 static ngx_conf_num_bounds_t  ngx_live_core_percent_bounds = {
     ngx_conf_check_num_bounds, 0, 100
@@ -125,6 +128,14 @@ ngx_module_t  ngx_live_core_module = {
     NULL,                                     /* exit process */
     NULL,                                     /* exit master */
     NGX_MODULE_V1_PADDING
+};
+
+
+static ngx_live_json_command_t  ngx_live_core_dyn_cmds[] = {
+
+    { ngx_string("mem_limit"), NGX_JSON_INT, ngx_live_core_set_mem_limit },
+
+      ngx_live_null_json_command
 };
 
 
@@ -404,8 +415,7 @@ ngx_live_core_preconfiguration(ngx_conf_t *cf)
 
     cur = cmcf->json_writers;
     last = cur + NGX_LIVE_JSON_CTX_MAX;
-    for (; cur < last; cur++)
-    {
+    for (; cur < last; cur++) {
         if (ngx_array_init(cur, cf->pool, 1, sizeof(ngx_live_json_writer_t))
             != NGX_OK)
         {
@@ -419,7 +429,17 @@ ngx_live_core_preconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    return ngx_live_json_commands_prepare(cf);
+    if (ngx_live_json_commands_prepare(cf) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    if (ngx_live_json_commands_add_multi(cf, ngx_live_core_dyn_cmds,
+        NGX_LIVE_JSON_CTX_CHANNEL) != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
 }
 
 static ngx_int_t
@@ -467,6 +487,39 @@ ngx_live_core_get_preset_conf(ngx_cycle_t *cycle, ngx_str_t *preset_name)
     return cpcf->ctx;
 }
 
+
+static ngx_int_t
+ngx_live_core_set_mem_limit(void *ctx, ngx_live_json_command_t *cmd,
+    ngx_json_value_t *value, ngx_log_t *log)
+{
+    size_t               mem_limit;
+    ngx_live_channel_t  *channel = ctx;
+
+    mem_limit = value->v.num.num;
+
+    if (mem_limit >= channel->mem_limit) {
+        channel->mem_left += mem_limit - channel->mem_limit;
+
+    } else if (mem_limit >= channel->mem_limit - channel->mem_left) {
+        channel->mem_left -= channel->mem_limit - mem_limit;
+
+    } else {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_core_set_mem_limit: "
+            "new limit lower than used mem, new: %uz, old: %uz, left: %uz",
+            mem_limit, channel->mem_limit, channel->mem_left);
+        return NGX_ERROR;
+    }
+
+    channel->mem_limit = mem_limit;
+
+    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+        "ngx_live_core_set_mem_limit: set to %uz", mem_limit);
+
+    return NGX_OK;
+}
+
+
 void
 ngx_live_core_channel_init(ngx_live_channel_t *channel)
 {
@@ -474,7 +527,8 @@ ngx_live_core_channel_init(ngx_live_channel_t *channel)
 
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
-    channel->mem_left = cpcf->mem_limit;
+    channel->mem_limit = cpcf->mem_limit;
+    channel->mem_left = channel->mem_limit;
     channel->mem_high_watermark = (100 - cpcf->mem_high_watermark) *
         cpcf->mem_limit / 100;
     channel->mem_low_watermark = (100 - cpcf->mem_low_watermark) *
