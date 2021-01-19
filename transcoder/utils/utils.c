@@ -138,7 +138,7 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
         return "<NULL>";
     }
     if (pFrame->width>0) {
-        snprintf(buf,size,"pts=%s;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d",
+        snprintf(buf,size,"pts=%s;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;has_53cc=%d",
              pts2str(pFrame->pts),
              pFrame->pkt_pos != 0 ? ts2str(pFrame->pkt_pos,false) :  "N/A",
              pFrame->key_frame==1 ? "True" : "False",
@@ -147,7 +147,8 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
              av_get_pix_fmt_name(pFrame->format),
              pict_type_to_string(pFrame->pict_type),
              pFrame->width,
-             pFrame->height);
+             pFrame->height,
+             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL);
     } else {
         snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%lld",
                  pts2str(pFrame->pts),
