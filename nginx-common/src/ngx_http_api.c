@@ -554,7 +554,8 @@ done:
 static void
 ngx_http_api_body_handler(ngx_http_request_t *r)
 {
-    ngx_buf_t           *b;
+    size_t               size;
+    ngx_buf_t           *b, *nb;
     ngx_int_t            rc;
     ngx_str_t            response;
     ngx_uint_t           status;
@@ -578,11 +579,22 @@ ngx_http_api_body_handler(ngx_http_request_t *r)
 
     b = r->request_body->bufs->buf;
     if (b->last >= b->end) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_api_body_handler: no room for null terminator");
-        rc = NGX_HTTP_REQUEST_ENTITY_TOO_LARGE;
-        goto done;
+
+        size = b->last - b->pos;
+        nb = ngx_create_temp_buf(r->connection->pool, size + 1);
+        if (nb == NULL) {
+            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            goto done;
+        }
+
+        nb->last = ngx_copy(nb->last, b->pos, size);
+
+        b = nb;
     }
+
+    *b->last = '\0';
 
     /* Note: json must be allocated on heap for multirequest - it contains
         the first list part */
@@ -595,7 +607,8 @@ ngx_http_api_body_handler(ngx_http_request_t *r)
         goto done;
     }
 
-    *b->last = '\0';
+    ngx_log_debug1(NGX_LOG_DEBUG_CORE, r->connection->log, 0,
+        "ngx_http_api_body_handler: body: %s", b->pos);
 
     rc = ngx_json_parse(r->pool, b->pos, json, error, sizeof(error));
     if (rc != NGX_JSON_OK) {
