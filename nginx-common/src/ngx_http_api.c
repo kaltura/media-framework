@@ -559,6 +559,7 @@ ngx_http_api_body_handler(ngx_http_request_t *r)
     ngx_int_t            rc;
     ngx_str_t            response;
     ngx_uint_t           status;
+    ngx_chain_t         *cl;
     ngx_json_value_t    *json;
     ngx_http_api_ctx_t  *ctx;
     u_char               error[128];
@@ -577,19 +578,30 @@ ngx_http_api_body_handler(ngx_http_request_t *r)
         goto done;
     }
 
-    b = r->request_body->bufs->buf;
-    if (b->last >= b->end) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_api_body_handler: no room for null terminator");
+    cl = r->request_body->bufs;
+    b = cl->buf;
+    if (cl->next || b->last >= b->end) {
 
         size = b->last - b->pos;
+        for (cl = cl->next; cl != NULL; cl = cl->next) {
+            b = cl->buf;
+            size += b->last - b->pos;
+        }
+
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_api_body_handler: "
+            "copying request body, size: %uz", size);
+
         nb = ngx_create_temp_buf(r->connection->pool, size + 1);
         if (nb == NULL) {
             rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
             goto done;
         }
 
-        nb->last = ngx_copy(nb->last, b->pos, size);
+        for (cl = r->request_body->bufs; cl != NULL; cl = cl->next) {
+            b = cl->buf;
+            nb->last = ngx_copy(nb->last, b->pos, b->last - b->pos);
+        }
 
         b = nb;
     }
