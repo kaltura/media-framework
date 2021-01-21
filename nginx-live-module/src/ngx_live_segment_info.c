@@ -23,6 +23,7 @@ typedef struct {
     ngx_flag_t                     bitrate;
     ngx_uint_t                     bitrate_lower_bound;
     ngx_uint_t                     bitrate_upper_bound;
+    ngx_uint_t                     bp_idx[NGX_LIVE_BP_COUNT];
 } ngx_live_segment_info_preset_conf_t;
 
 
@@ -47,7 +48,6 @@ typedef struct {
 } ngx_live_segment_info_track_ctx_t;
 
 typedef struct {
-    ngx_block_pool_t              *block_pool;
     uint32_t                       min_free_index;
 } ngx_live_segment_info_channel_ctx_t;
 
@@ -121,12 +121,16 @@ ngx_module_t  ngx_live_segment_info_module = {
 
 
 static ngx_live_segment_info_elt_t *
-ngx_live_segment_info_push(ngx_live_segment_info_track_ctx_t *ctx,
-    ngx_live_segment_info_channel_ctx_t *cctx, uint32_t segment_index)
+ngx_live_segment_info_push(ngx_live_channel_t *channel,
+    ngx_live_segment_info_track_ctx_t *ctx)
 {
-    ngx_queue_t                   *q;
-    ngx_live_segment_info_elt_t   *elt;
-    ngx_live_segment_info_node_t  *last;
+    uint32_t                              segment_index;
+    ngx_queue_t                          *q;
+    ngx_live_segment_info_elt_t          *elt;
+    ngx_live_segment_info_node_t         *last;
+    ngx_live_segment_info_preset_conf_t  *sipcf;
+
+    segment_index = channel->next_segment_index;
 
     q = ngx_queue_last(&ctx->queue);
     if (q != ngx_queue_sentinel(&ctx->queue)) {
@@ -143,8 +147,11 @@ ngx_live_segment_info_push(ngx_live_segment_info_track_ctx_t *ctx,
         }
     }
 
-    last = ngx_block_pool_alloc(cctx->block_pool,
-        NGX_LIVE_BP_SEGMENT_INFO_NODE);
+    sipcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_segment_info_module);
+
+    last = ngx_block_pool_alloc(channel->block_pool,
+        sipcf->bp_idx[NGX_LIVE_BP_SEGMENT_INFO_NODE]);
     if (last == NULL) {
         return NULL;
     }
@@ -171,7 +178,6 @@ ngx_live_segment_info_segment_created(ngx_live_channel_t *channel, void *ectx)
     ngx_live_segment_info_elt_t          *elt;
     ngx_live_segment_info_track_ctx_t    *cur_ctx;
     ngx_live_segment_info_preset_conf_t  *sipcf;
-    ngx_live_segment_info_channel_ctx_t  *cctx;
 
     sipcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_segment_info_module);
@@ -179,8 +185,6 @@ ngx_live_segment_info_segment_created(ngx_live_channel_t *channel, void *ectx)
     if (!sipcf->bitrate && !sipcf->gaps) {
         return NGX_OK;
     }
-
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_info_module);
 
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
@@ -210,8 +214,7 @@ ngx_live_segment_info_segment_created(ngx_live_channel_t *channel, void *ectx)
             continue;
         }
 
-        elt = ngx_live_segment_info_push(cur_ctx, cctx,
-            channel->next_segment_index);
+        elt = ngx_live_segment_info_push(channel, cur_ctx);
         if (elt == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, &cur_track->log, 0,
                 "ngx_live_segment_info_segment_created: push failed");
@@ -231,23 +234,26 @@ ngx_live_segment_info_track_copy(ngx_live_track_t *dst, void *ectx)
 {
     ngx_queue_t                          *q;
     ngx_live_track_t                     *src = ectx;
+    ngx_live_channel_t                   *dst_channel;
     ngx_live_segment_info_node_t         *src_node;
     ngx_live_segment_info_node_t         *dst_node;
     ngx_live_segment_info_track_ctx_t    *src_ctx;
     ngx_live_segment_info_track_ctx_t    *dst_ctx;
-    ngx_live_segment_info_channel_ctx_t  *cctx;
+    ngx_live_segment_info_preset_conf_t  *sipcf;
 
     src_ctx = ngx_live_get_module_ctx(src, ngx_live_segment_info_module);
     dst_ctx = ngx_live_get_module_ctx(dst, ngx_live_segment_info_module);
 
-    cctx = ngx_live_get_module_ctx(dst->channel, ngx_live_segment_info_module);
+    dst_channel = dst->channel;
+    sipcf = ngx_live_get_module_preset_conf(dst_channel,
+        ngx_live_segment_info_module);
 
     for (q = ngx_queue_head(&src_ctx->queue);
         q != ngx_queue_sentinel(&src_ctx->queue);
         q = ngx_queue_next(q))
     {
-        dst_node = ngx_block_pool_alloc(cctx->block_pool,
-            NGX_LIVE_BP_SEGMENT_INFO_NODE);
+        dst_node = ngx_block_pool_alloc(dst_channel->block_pool,
+            sipcf->bp_idx[NGX_LIVE_BP_SEGMENT_INFO_NODE]);
         if (dst_node == NULL) {
             return NGX_ERROR;
         }
@@ -273,13 +279,15 @@ ngx_live_segment_info_track_segment_free(ngx_live_track_t *track,
     uint32_t min_segment_index)
 {
     ngx_queue_t                          *q, *next;
+    ngx_live_channel_t                   *channel;
     ngx_live_segment_info_node_t         *next_node;
     ngx_live_segment_info_node_t         *node;
     ngx_live_segment_info_track_ctx_t    *ctx;
-    ngx_live_segment_info_channel_ctx_t  *cctx;
+    ngx_live_segment_info_preset_conf_t  *sipcf;
 
+    channel = track->channel;
     ctx = ngx_live_get_module_ctx(track, ngx_live_segment_info_module);
-    cctx = ngx_live_get_module_ctx(track->channel,
+    sipcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_segment_info_module);
 
     q = ngx_queue_head(&ctx->queue);
@@ -299,8 +307,8 @@ ngx_live_segment_info_track_segment_free(ngx_live_track_t *track,
         ngx_queue_remove(q);
         ngx_rbtree_delete(&ctx->rbtree, &node->node);
 
-        ngx_block_pool_free(cctx->block_pool,
-            NGX_LIVE_BP_SEGMENT_INFO_NODE, node);
+        ngx_block_pool_free(channel->block_pool,
+            sipcf->bp_idx[NGX_LIVE_BP_SEGMENT_INFO_NODE], node);
 
         q = next;
     }
@@ -518,8 +526,6 @@ done:
 static ngx_int_t
 ngx_live_segment_info_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
-    size_t                               *track_ctx_size = ectx;
-    size_t                                block_sizes[NGX_LIVE_BP_COUNT];
     ngx_live_segment_info_channel_ctx_t  *cctx;
 
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
@@ -530,20 +536,6 @@ ngx_live_segment_info_channel_init(ngx_live_channel_t *channel, void *ectx)
     }
 
     ngx_live_set_ctx(channel, cctx, ngx_live_segment_info_module);
-
-    block_sizes[NGX_LIVE_BP_SEGMENT_INFO_NODE] =
-        sizeof(ngx_live_segment_info_node_t);
-
-    cctx->block_pool = ngx_live_channel_create_block_pool(channel, block_sizes,
-        NGX_LIVE_BP_COUNT);
-    if (cctx->block_pool == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_segment_info_channel_init: create block pool failed");
-        return NGX_ERROR;
-    }
-
-    ngx_live_reserve_track_ctx_size(channel, ngx_live_segment_info_module,
-        sizeof(ngx_live_segment_info_track_ctx_t), track_ctx_size);
 
     return NGX_OK;
 }
@@ -577,7 +569,7 @@ ngx_live_segment_info_track_free(ngx_live_track_t *track, void *ectx)
     ngx_live_channel_t                   *channel;
     ngx_live_segment_info_node_t         *node;
     ngx_live_segment_info_track_ctx_t    *ctx;
-    ngx_live_segment_info_channel_ctx_t  *cctx;
+    ngx_live_segment_info_preset_conf_t  *sipcf;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_segment_info_module);
 
@@ -588,7 +580,8 @@ ngx_live_segment_info_track_free(ngx_live_track_t *track, void *ectx)
     }
 
     channel = track->channel;
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_info_module);
+    sipcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_segment_info_module);
 
     while (q != ngx_queue_sentinel(&ctx->queue)) {
 
@@ -596,8 +589,8 @@ ngx_live_segment_info_track_free(ngx_live_track_t *track, void *ectx)
 
         q = ngx_queue_next(q);      /* move to next before freeing */
 
-        ngx_block_pool_free(cctx->block_pool, NGX_LIVE_BP_SEGMENT_INFO_NODE,
-            node);
+        ngx_block_pool_free(channel->block_pool,
+            sipcf->bp_idx[NGX_LIVE_BP_SEGMENT_INFO_NODE], node);
     }
 
     return NGX_OK;
@@ -705,12 +698,13 @@ ngx_live_segment_info_read_index(ngx_live_persist_block_header_t *block,
     uint32_t                              min_index;
     ngx_str_t                             data;
     ngx_live_track_t                     *track = obj;
+    ngx_live_channel_t                   *channel;
     ngx_live_segment_info_elt_t          *dst;
     ngx_live_segment_info_elt_t          *cur, *next;
     ngx_live_segment_info_node_t         *last;
     ngx_live_persist_index_scope_t       *scope;
     ngx_live_segment_info_track_ctx_t    *ctx;
-    ngx_live_segment_info_channel_ctx_t  *cctx;
+    ngx_live_segment_info_preset_conf_t  *sipcf;
 
     if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
         return NGX_BAD_DATA;
@@ -723,8 +717,9 @@ ngx_live_segment_info_read_index(ngx_live_persist_block_header_t *block,
         return NGX_OK;
     }
 
+    channel = track->channel;
     ctx = ngx_live_get_module_ctx(track, ngx_live_segment_info_module);
-    cctx = ngx_live_get_module_ctx(track->channel,
+    sipcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_segment_info_module);
     scope = ngx_mem_rstream_scope(rs);
 
@@ -784,8 +779,8 @@ ngx_live_segment_info_read_index(ngx_live_persist_block_header_t *block,
     /* create new nodes */
     while (left > 0) {
 
-        last = ngx_block_pool_alloc(cctx->block_pool,
-            NGX_LIVE_BP_SEGMENT_INFO_NODE);
+        last = ngx_block_pool_alloc(channel->block_pool,
+            sipcf->bp_idx[NGX_LIVE_BP_SEGMENT_INFO_NODE]);
         if (last == NULL) {
             return NGX_ERROR;
         }
@@ -918,6 +913,16 @@ ngx_live_segment_info_merge_preset_conf(ngx_conf_t *cf, void *parent,
 
     ngx_conf_merge_uint_value(conf->bitrate_upper_bound,
                               prev->bitrate_upper_bound, 110);
+
+    if (ngx_live_core_add_block_pool_index(cf,
+        &conf->bp_idx[NGX_LIVE_BP_SEGMENT_INFO_NODE],
+        sizeof(ngx_live_segment_info_node_t)) != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
+
+    ngx_live_reserve_track_ctx_size(cf, ngx_live_segment_info_module,
+        sizeof(ngx_live_segment_info_track_ctx_t));
 
     return NGX_CONF_OK;
 }

@@ -15,6 +15,7 @@ enum {
 
 typedef struct {
     size_t                  max_size;
+    ngx_uint_t              bp_idx[NGX_LIVE_BP_COUNT];
 } ngx_live_dynamic_var_preset_conf_t;
 
 
@@ -26,8 +27,6 @@ typedef struct {
 
 
 typedef struct {
-    ngx_block_pool_t       *block_pool;
-
     ngx_rbtree_t            rbtree;
     ngx_rbtree_node_t       sentinel;
     ngx_queue_t             queue;
@@ -147,7 +146,8 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_command_t *cmd,
             goto failed;
         }
 
-        var = ngx_block_pool_alloc(cctx->block_pool, NGX_LIVE_BP_VAR);
+        var = ngx_block_pool_alloc(channel->block_pool,
+            dpcf->bp_idx[NGX_LIVE_BP_VAR]);
         if (var == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_dynamic_var_set_vars: alloc failed");
@@ -185,7 +185,8 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_command_t *cmd,
 
         q = ngx_queue_next(q);      /* move to next before freeing */
 
-        ngx_block_pool_free(cctx->block_pool, NGX_LIVE_BP_VAR, var);
+        ngx_block_pool_free(channel->block_pool, dpcf->bp_idx[NGX_LIVE_BP_VAR],
+            var);
     }
 
     ngx_rbtree_init(&cctx->rbtree, &cctx->sentinel,
@@ -219,7 +220,8 @@ failed:
 
         q = ngx_queue_next(q);      /* move to next before freeing */
 
-        ngx_block_pool_free(cctx->block_pool, NGX_LIVE_BP_VAR, var);
+        ngx_block_pool_free(channel->block_pool, dpcf->bp_idx[NGX_LIVE_BP_VAR],
+            var);
     }
 
     return NGX_ERROR;
@@ -281,8 +283,6 @@ ngx_live_dynamic_var_channel_json_write(u_char *p, void *obj)
 static ngx_int_t
 ngx_live_dynamic_var_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
-    size_t                               block_sizes[NGX_LIVE_BP_COUNT];
-    ngx_live_dynamic_var_preset_conf_t  *dpcf;
     ngx_live_dynamic_var_channel_ctx_t  *cctx;
 
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
@@ -293,20 +293,6 @@ ngx_live_dynamic_var_channel_init(ngx_live_channel_t *channel, void *ectx)
     }
 
     ngx_live_set_ctx(channel, cctx, ngx_live_dynamic_var_module);
-
-    dpcf = ngx_live_get_module_preset_conf(channel,
-        ngx_live_dynamic_var_module);
-
-    block_sizes[NGX_LIVE_BP_VAR] = sizeof(ngx_live_dynamic_var_t) +
-        dpcf->max_size;
-
-    cctx->block_pool = ngx_live_channel_create_block_pool(channel, block_sizes,
-        NGX_LIVE_BP_COUNT);
-    if (cctx->block_pool == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_dynamic_var_channel_init: create block pool failed");
-        return NGX_ERROR;
-    }
 
     ngx_rbtree_init(&cctx->rbtree, &cctx->sentinel,
         ngx_str_rbtree_insert_value);
@@ -364,15 +350,16 @@ ngx_live_dynamic_var_read_setup(ngx_live_persist_block_header_t *block,
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_dynamic_var_module);
 
-    var = ngx_block_pool_alloc(cctx->block_pool, NGX_LIVE_BP_VAR);
+    dpcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_dynamic_var_module);
+
+    var = ngx_block_pool_alloc(channel->block_pool,
+        dpcf->bp_idx[NGX_LIVE_BP_VAR]);
     if (var == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_live_dynamic_var_read_setup: alloc failed");
         return NGX_ERROR;
     }
-
-    dpcf = ngx_live_get_module_preset_conf(channel,
-        ngx_live_dynamic_var_module);
 
     left = dpcf->max_size;
 
@@ -493,6 +480,12 @@ ngx_live_dynamic_var_merge_preset_conf(ngx_conf_t *cf, void *parent,
 
     ngx_conf_merge_size_value(conf->max_size,
                               prev->max_size, 128);
+
+    if (ngx_live_core_add_block_pool_index(cf, &conf->bp_idx[NGX_LIVE_BP_VAR],
+        sizeof(ngx_live_dynamic_var_t) + conf->max_size) != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
 
     return NGX_CONF_OK;
 }

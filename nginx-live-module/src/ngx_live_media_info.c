@@ -56,7 +56,6 @@ typedef struct {
 } ngx_live_media_info_track_ctx_t;
 
 typedef struct {
-    ngx_block_pool_t   *block_pool;
     uint32_t            min_free_index;
 } ngx_live_media_info_channel_ctx_t;
 
@@ -67,10 +66,19 @@ typedef struct {
 } ngx_live_media_info_snap_t;
 
 
+typedef struct {
+    ngx_uint_t          bp_idx[NGX_LIVE_BP_COUNT];
+} ngx_live_media_info_preset_conf_t;
+
+
 static ngx_int_t ngx_live_media_info_queue_copy(ngx_live_track_t *track);
 
 static ngx_int_t ngx_live_media_info_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_media_info_postconfiguration(ngx_conf_t *cf);
+
+static void *ngx_live_media_info_create_preset_conf(ngx_conf_t *cf);
+static char *ngx_live_media_info_merge_preset_conf(ngx_conf_t *cf,
+    void *parent, void *child);
 
 static ngx_int_t ngx_live_media_info_set_group_id(void *arg,
     ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log);
@@ -83,8 +91,8 @@ static ngx_live_module_t  ngx_live_media_info_module_ctx = {
     NULL,                                     /* create main configuration */
     NULL,                                     /* init main configuration */
 
-    NULL,                                     /* create preset configuration */
-    NULL,                                     /* merge preset configuration */
+    ngx_live_media_info_create_preset_conf,   /* create preset configuration */
+    ngx_live_media_info_merge_preset_conf,    /* merge preset configuration */
 };
 
 ngx_module_t  ngx_live_media_info_module = {
@@ -360,9 +368,10 @@ static void
 ngx_live_media_info_node_free(ngx_live_channel_t *channel,
     ngx_live_media_info_node_t *node)
 {
-    ngx_live_media_info_channel_ctx_t  *cctx;
+    ngx_live_media_info_preset_conf_t  *mipcf;
 
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_media_info_module);
+    mipcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_media_info_module);
 
     if (node->media_info.extra_data.data != NULL) {
         ngx_live_channel_auto_free(channel, node->media_info.extra_data.data);
@@ -377,7 +386,8 @@ ngx_live_media_info_node_free(ngx_live_channel_t *channel,
         ngx_queue_remove(&node->queue);
     }
 
-    ngx_block_pool_free(cctx->block_pool, NGX_LIVE_BP_MEDIA_INFO_NODE, node);
+    ngx_block_pool_free(channel->block_pool,
+        mipcf->bp_idx[NGX_LIVE_BP_MEDIA_INFO_NODE], node);
 }
 
 static ngx_int_t
@@ -389,7 +399,7 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
     ngx_live_channel_t                 *channel;
     ngx_live_media_info_node_t         *node;
     ngx_live_core_preset_conf_t        *cpcf;
-    ngx_live_media_info_channel_ctx_t  *cctx;
+    ngx_live_media_info_preset_conf_t  *mipcf;
 
     if (media_info->media_type != track->media_type) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
@@ -410,10 +420,12 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
         return NGX_BAD_DATA;
     }
 
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_media_info_module);
 
-    node = ngx_block_pool_calloc(cctx->block_pool,
-        NGX_LIVE_BP_MEDIA_INFO_NODE);
+    mipcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_media_info_module);
+
+    node = ngx_block_pool_calloc(channel->block_pool,
+        mipcf->bp_idx[NGX_LIVE_BP_MEDIA_INFO_NODE]);
     if (node == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_media_info_node_create: alloc failed");
@@ -423,8 +435,9 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
     node->media_info.codec_name.data = node->codec_name;
 
     rc = ngx_live_media_info_parse(&track->log,
-        (ngx_live_media_info_alloc_pt) ngx_live_channel_auto_alloc, channel,
-        media_info, extra_data, extra_data_size, &node->media_info);
+        (ngx_live_media_info_alloc_pt) ngx_block_pool_auto_alloc,
+        channel->block_pool, media_info, extra_data, extra_data_size,
+        &node->media_info);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_media_info_node_create: failed to parse media info");
@@ -446,12 +459,13 @@ ngx_live_media_info_node_clone(ngx_live_channel_t *channel,
     ngx_live_media_info_node_t *src)
 {
     ngx_live_media_info_node_t         *node;
-    ngx_live_media_info_channel_ctx_t  *cctx;
+    ngx_live_media_info_preset_conf_t  *mipcf;
 
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_media_info_module);
+    mipcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_media_info_module);
 
-    node = ngx_block_pool_calloc(cctx->block_pool,
-        NGX_LIVE_BP_MEDIA_INFO_NODE);
+    node = ngx_block_pool_calloc(channel->block_pool,
+        mipcf->bp_idx[NGX_LIVE_BP_MEDIA_INFO_NODE]);
     if (node == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_media_info_node_clone: alloc failed");
@@ -1284,8 +1298,6 @@ ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
 static ngx_int_t
 ngx_live_media_info_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
-    size_t                             *track_ctx_size = ectx;
-    size_t                              block_sizes[NGX_LIVE_BP_COUNT];
     ngx_live_media_info_channel_ctx_t  *cctx;
 
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
@@ -1296,20 +1308,6 @@ ngx_live_media_info_channel_init(ngx_live_channel_t *channel, void *ectx)
     }
 
     ngx_live_set_ctx(channel, cctx, ngx_live_media_info_module);
-
-    block_sizes[NGX_LIVE_BP_MEDIA_INFO_NODE] =
-        sizeof(ngx_live_media_info_node_t);
-
-    cctx->block_pool = ngx_live_channel_create_block_pool(channel, block_sizes,
-        NGX_LIVE_BP_COUNT);
-    if (cctx->block_pool == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_media_info_channel_init: create block pool failed");
-        return NGX_ERROR;
-    }
-
-    ngx_live_reserve_track_ctx_size(channel, ngx_live_media_info_module,
-        sizeof(ngx_live_media_info_track_ctx_t), track_ctx_size);
 
     return NGX_OK;
 }
@@ -1923,4 +1921,36 @@ ngx_live_media_info_postconfiguration(ngx_conf_t *cf)
     }
 
     return NGX_OK;
+}
+
+static void *
+ngx_live_media_info_create_preset_conf(ngx_conf_t *cf)
+{
+    ngx_live_media_info_preset_conf_t  *conf;
+
+    conf = ngx_pcalloc(cf->pool, sizeof(ngx_live_media_info_preset_conf_t));
+    if (conf == NULL) {
+        return NULL;
+    }
+
+    return conf;
+}
+
+static char *
+ngx_live_media_info_merge_preset_conf(ngx_conf_t *cf, void *parent,
+    void *child)
+{
+    ngx_live_media_info_preset_conf_t  *conf = child;
+
+    if (ngx_live_core_add_block_pool_index(cf,
+        &conf->bp_idx[NGX_LIVE_BP_MEDIA_INFO_NODE],
+        sizeof(ngx_live_media_info_node_t)) != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
+
+    ngx_live_reserve_track_ctx_size(cf, ngx_live_media_info_module,
+        sizeof(ngx_live_media_info_track_ctx_t));
+
+    return NGX_CONF_OK;
 }

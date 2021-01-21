@@ -172,6 +172,28 @@ ngx_live_init_events(ngx_conf_t *cf, ngx_live_core_main_conf_t *cmcf)
     return NGX_OK;
 }
 
+
+static ngx_int_t
+ngx_live_prepare_presets(ngx_conf_t *cf)
+{
+    ngx_uint_t                     s;
+    ngx_live_core_main_conf_t     *cmcf;
+    ngx_live_core_preset_conf_t  **cscfp;
+
+    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
+
+    cscfp = cmcf->presets.elts;
+
+    for (s = 0; s < cmcf->presets.nelts; s++) {
+        if (ngx_live_core_prepare_preset(cf, cscfp[s]) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
+
 static char *
 ngx_live_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -324,6 +346,10 @@ ngx_live_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
     }
 
+    if (ngx_live_prepare_presets(cf) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
     if (ngx_live_variables_init_vars(cf) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
@@ -357,10 +383,10 @@ char *
 ngx_live_block_command_handler(ngx_conf_t *cf, ngx_command_t *dummy,
     void *conf)
 {
-    ngx_live_block_conf_ctx_t  *ctx;
-    ngx_command_t              *cmd;
-    ngx_str_t                  *name;
     char                       *rv;
+    ngx_str_t                  *name;
+    ngx_command_t              *cmd;
+    ngx_live_block_conf_ctx_t  *ctx;
 
     ctx = cf->ctx;
     cmd = ctx->cmds;

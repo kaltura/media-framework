@@ -28,6 +28,9 @@ typedef struct {
 
 static ngx_int_t ngx_live_segment_cache_postconfiguration(ngx_conf_t *cf);
 
+static char *ngx_live_segment_cache_merge_preset_conf(ngx_conf_t *cf,
+    void *parent, void *child);
+
 
 static ngx_live_module_t  ngx_live_segment_cache_module_ctx = {
     NULL,                                     /* preconfiguration */
@@ -37,7 +40,7 @@ static ngx_live_module_t  ngx_live_segment_cache_module_ctx = {
     NULL,                                     /* init main configuration */
 
     NULL,                                     /* create preset configuration */
-    NULL,                                     /* merge preset configuration */
+    ngx_live_segment_cache_merge_preset_conf, /* merge preset configuration */
 };
 
 
@@ -586,17 +589,6 @@ ngx_live_segment_cache_track_json_write(u_char *p, void *obj)
 
 
 static ngx_int_t
-ngx_live_segment_cache_channel_init(ngx_live_channel_t *channel, void *ectx)
-{
-    size_t                                *track_ctx_size = ectx;
-
-    ngx_live_reserve_track_ctx_size(channel, ngx_live_segment_cache_module,
-        sizeof(ngx_live_segment_cache_track_ctx_t), track_ctx_size);
-
-    return NGX_OK;
-}
-
-static ngx_int_t
 ngx_live_segment_cache_track_init(ngx_live_track_t *track, void *ectx)
 {
     ngx_live_segment_cache_track_ctx_t  *ctx;
@@ -659,11 +651,6 @@ ngx_live_segment_cache_track_channel_free(ngx_live_track_t *track, void *ectx)
 }
 
 
-static ngx_live_channel_event_t    ngx_live_segment_cache_channel_events[] = {
-    { ngx_live_segment_cache_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
-      ngx_live_null_event
-};
-
 static ngx_live_track_event_t      ngx_live_segment_cache_track_events[] = {
     { ngx_live_segment_cache_track_init, NGX_LIVE_EVENT_TRACK_INIT },
     { ngx_live_segment_cache_track_free, NGX_LIVE_EVENT_TRACK_FREE },
@@ -683,12 +670,6 @@ static ngx_live_json_writer_def_t  ngx_live_segment_cache_json_writers[] = {
 static ngx_int_t
 ngx_live_segment_cache_postconfiguration(ngx_conf_t *cf)
 {
-    if (ngx_live_core_channel_events_add(cf,
-        ngx_live_segment_cache_channel_events) != NGX_OK)
-    {
-        return NGX_ERROR;
-    }
-
     if (ngx_live_core_track_events_add(cf,
         ngx_live_segment_cache_track_events) != NGX_OK)
     {
@@ -705,4 +686,14 @@ ngx_live_segment_cache_postconfiguration(ngx_conf_t *cf)
     ngx_live_read_segment = ngx_live_segment_cache_read;
 
     return NGX_OK;
+}
+
+static char *
+ngx_live_segment_cache_merge_preset_conf(ngx_conf_t *cf, void *parent,
+    void *child)
+{
+    ngx_live_reserve_track_ctx_size(cf, ngx_live_segment_cache_module,
+        sizeof(ngx_live_segment_cache_track_ctx_t));
+
+    return NGX_CONF_OK;
 }

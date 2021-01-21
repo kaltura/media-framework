@@ -22,7 +22,7 @@
 
 
 #define ngx_http_live_match_file_name(start_pos, end_pos, prefix, postfix)  \
-    ((end_pos) - (start_pos) >= (int)((prefix).len + (postfix).len)         \
+    ((end_pos) - (start_pos) >= (int) ((prefix).len + (postfix).len)        \
     && ngx_memcmp((end_pos) - (postfix).len, (postfix).data,                \
         (postfix).len) == 0                                                 \
     && ngx_memcmp((start_pos), (prefix).data, (prefix).len) == 0)

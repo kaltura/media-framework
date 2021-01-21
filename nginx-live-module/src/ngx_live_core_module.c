@@ -3,6 +3,9 @@
 #include "ngx_live.h"
 
 
+#define NGX_LIVE_CORE_STR_BLOCK_SIZE  (128)
+
+
 static char *ngx_live_core_preset(ngx_conf_t *cf, ngx_command_t *cmd,
     void *dummy);
 
@@ -21,6 +24,12 @@ static char *ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent,
 
 static ngx_int_t ngx_live_core_set_mem_limit(void *ctx,
     ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log);
+
+
+typedef struct {
+    size_t       size;
+    ngx_uint_t  *index;
+} ngx_live_core_block_size_t;
 
 
 static ngx_conf_num_bounds_t  ngx_live_core_percent_bounds = {
@@ -89,7 +98,7 @@ static ngx_command_t  ngx_live_core_commands[] = {
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_1MORE,
       ngx_live_block_sizes_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
-      offsetof(ngx_live_core_preset_conf_t, mem_block_sizes),
+      offsetof(ngx_live_core_preset_conf_t, mem_conf_blocks),
       NULL },
 
     { ngx_string("timescale"),
@@ -136,6 +145,15 @@ static ngx_live_json_command_t  ngx_live_core_dyn_cmds[] = {
     { ngx_string("mem_limit"), NGX_JSON_INT, ngx_live_core_set_mem_limit },
 
       ngx_live_null_json_command
+};
+
+
+/* must match NGX_LIVE_CORE_BP_XXX in order */
+static size_t  ngx_live_core_block_sizes[NGX_LIVE_CORE_BP_COUNT] = {
+    0,      /* dynamic */
+    sizeof(ngx_live_variant_t),
+    sizeof(ngx_buf_chain_t),
+    NGX_LIVE_CORE_STR_BLOCK_SIZE
 };
 
 
@@ -191,17 +209,6 @@ ngx_live_block_sizes_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     return NGX_CONF_OK;
-}
-
-static int ngx_libc_cdecl
-ngx_live_core_compare_sizes(const void *one, const void *two)
-{
-    size_t  *first, *second;
-
-    first = (size_t *) one;
-    second = (size_t *) two;
-
-    return (int) *first - (int) *second;
 }
 
 static char *
@@ -334,6 +341,116 @@ ngx_live_core_init_main_conf(ngx_conf_t *cf, void *conf)
     return NGX_CONF_OK;
 }
 
+
+ngx_int_t
+ngx_live_core_add_block_pool_index(ngx_conf_t *cf, ngx_uint_t *index,
+    size_t size)
+{
+    ngx_live_core_block_size_t   *bs;
+    ngx_live_core_preset_conf_t  *cpcf;
+
+    cpcf = ngx_live_conf_get_module_preset_conf(cf, ngx_live_core_module);
+
+    bs = ngx_array_push(cpcf->mem_temp_blocks);
+    if (bs == NULL) {
+        return NGX_ERROR;
+    }
+
+    bs->size = size;
+    bs->index = index;
+
+    return NGX_OK;
+}
+
+
+static int ngx_libc_cdecl
+ngx_live_core_compare_block_sizes(const void *one, const void *two)
+{
+    ngx_live_core_block_size_t  *first, *second;
+
+    first = (ngx_live_core_block_size_t *) one;
+    second = (ngx_live_core_block_size_t *) two;
+
+    return (int) first->size - (int) second->size;
+}
+
+
+ngx_int_t
+ngx_live_core_prepare_preset(ngx_conf_t *cf, ngx_live_core_preset_conf_t *cpcf)
+{
+    size_t                      *size;
+    size_t                      *elts;
+    ngx_uint_t                   i, n;
+    ngx_live_core_block_size_t  *bs;
+
+    /* add core blocks */
+    bs = ngx_array_push_n(cpcf->mem_temp_blocks, NGX_LIVE_CORE_BP_COUNT);
+    if (bs == NULL) {
+        return NGX_ERROR;
+    }
+
+    for (i = 0; i < NGX_LIVE_CORE_BP_COUNT; i++) {
+        bs[i].size = ngx_live_core_block_sizes[i];
+        bs[i].index = &cpcf->bp_idx[i];
+    }
+
+    bs[NGX_LIVE_CORE_BP_TRACK].size = cpcf->track_ctx_size;
+
+    /* add conf blocks */
+    if (cpcf->mem_conf_blocks != NULL) {
+        elts = cpcf->mem_conf_blocks->elts;
+        n = cpcf->mem_conf_blocks->nelts;
+
+    } else {
+        elts = ngx_live_core_default_block_sizes;
+        n = vod_array_entries(ngx_live_core_default_block_sizes);
+    }
+
+    bs = ngx_array_push_n(cpcf->mem_temp_blocks, n);
+    if (bs == NULL) {
+        return NGX_ERROR;
+    }
+
+    for (i = 0; i < n; i++) {
+        bs[i].size = elts[i];
+        bs[i].index = NULL;
+    }
+
+    /* sort and compact the block list */
+    bs = cpcf->mem_temp_blocks->elts;
+    n = cpcf->mem_temp_blocks->nelts;
+
+    ngx_qsort(bs, n, sizeof(ngx_live_core_block_size_t),
+        ngx_live_core_compare_block_sizes);
+
+    if (ngx_array_init(&cpcf->mem_blocks, cf->pool, n, sizeof(size_t))
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    for (i = 0; i < n; i++) {
+
+        if (i == 0 || bs[i].size != bs[i - 1].size) {
+            size = ngx_array_push(&cpcf->mem_blocks);
+            if (size == NULL) {
+                return NGX_ERROR;
+            }
+
+            *size = bs[i].size;
+        }
+
+        if (bs[i].index != NULL) {
+            *bs[i].index = cpcf->mem_blocks.nelts - 1;
+        }
+    }
+
+    cpcf->mem_temp_blocks = NULL;
+
+    return NGX_OK;
+}
+
+
 static void *
 ngx_live_core_create_preset_conf(ngx_conf_t *cf)
 {
@@ -349,15 +466,28 @@ ngx_live_core_create_preset_conf(ngx_conf_t *cf)
     conf->mem_low_watermark = NGX_CONF_UNSET_UINT;
     conf->timescale = NGX_CONF_UNSET_UINT;
 
+    conf->mem_temp_blocks = ngx_array_create(cf->temp_pool, 10,
+        sizeof(ngx_live_core_block_size_t));
+    if (conf->mem_temp_blocks == NULL) {
+        return NULL;
+    }
+
+    conf->track_ctx_offset = ngx_pcalloc(cf->pool,
+        sizeof(size_t) * ngx_live_max_module);
+    if (conf->track_ctx_offset == NULL) {
+        return NULL;
+    }
+
+    conf->track_ctx_size = sizeof(ngx_live_track_t) +
+        sizeof(void *) * ngx_live_max_module;
+
     return conf;
 }
+
 
 static char *
 ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    size_t                       *elts;
-    ngx_uint_t                    nelts;
-    ngx_array_t                  *block_sizes;
     ngx_live_core_preset_conf_t  *prev = parent;
     ngx_live_core_preset_conf_t  *conf = child;
 
@@ -373,28 +503,8 @@ ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_uint_value(conf->timescale,
                               prev->timescale, 90000);
 
-    if (conf->mem_block_sizes == NULL) {
-        conf->mem_block_sizes = prev->mem_block_sizes;
-    }
-
-    if (conf->mem_block_sizes == NULL) {
-        block_sizes = ngx_palloc(cf->pool, sizeof(ngx_array_t));
-        if (block_sizes == NULL) {
-            return NGX_CONF_ERROR;
-        }
-
-        block_sizes->elts = ngx_live_core_default_block_sizes;
-        block_sizes->nelts =
-            vod_array_entries(ngx_live_core_default_block_sizes);
-        block_sizes->size = sizeof(size_t);
-
-        conf->mem_block_sizes = block_sizes;
-
-    } else {
-        elts = (size_t *) conf->mem_block_sizes->elts;
-        nelts = conf->mem_block_sizes->nelts;
-
-        ngx_qsort(elts, nelts, sizeof(size_t), ngx_live_core_compare_sizes);
+    if (conf->mem_conf_blocks == NULL) {
+        conf->mem_conf_blocks = prev->mem_conf_blocks;
     }
 
     return NGX_CONF_OK;

@@ -24,6 +24,7 @@ typedef struct {
     ngx_queue_t                    queue;
 
     ngx_block_pool_t              *block_pool;
+    ngx_uint_t                     bp_idx;
     ngx_log_t                     *log;
 
     int64_t                        last_time;
@@ -36,8 +37,10 @@ typedef struct {
 } ngx_live_segment_iter_t;
 
 
+size_t ngx_live_segment_list_get_node_size();
+
 ngx_int_t ngx_live_segment_list_init(ngx_live_channel_t *channel,
-    ngx_live_segment_list_t *segment_list);
+    ngx_uint_t bp_idx, ngx_live_segment_list_t *segment_list);
 
 ngx_int_t ngx_live_segment_list_add(ngx_live_segment_list_t *segment_list,
     uint32_t segment_index, int64_t time, uint32_t duration);

@@ -14,6 +14,7 @@ enum {
 
 typedef struct {
     ngx_uint_t                      force_memory_segments;
+    ngx_uint_t                      bp_idx[NGX_LIVE_BP_COUNT];
 } ngx_live_segment_index_preset_conf_t;
 
 
@@ -36,7 +37,6 @@ struct ngx_live_segment_index_s {
 
 
 typedef struct {
-    ngx_block_pool_t               *block_pool;
     ngx_queue_t                     all;
     ngx_queue_t                     pending;
     ngx_queue_t                     done;
@@ -98,6 +98,7 @@ ngx_live_segment_index_free(ngx_live_channel_t *channel,
     ngx_live_segment_index_t *index, uint32_t *truncate)
 {
     ngx_live_segment_index_channel_ctx_t  *cctx;
+    ngx_live_segment_index_preset_conf_t  *spcf;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
     if (cctx->no_free) {
@@ -127,7 +128,11 @@ ngx_live_segment_index_free(ngx_live_channel_t *channel,
     ngx_queue_remove(&index->queue);
     ngx_queue_remove(&index->pqueue);
 
-    ngx_block_pool_free(cctx->block_pool, NGX_LIVE_BP_SEGMENT_INDEX, index);
+    spcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_segment_index_module);
+
+    ngx_block_pool_free(channel->block_pool,
+        spcf->bp_idx[NGX_LIVE_BP_SEGMENT_INDEX], index);
 }
 
 static void
@@ -179,15 +184,20 @@ ngx_live_segment_index_create(ngx_live_channel_t *channel)
 {
     ngx_live_segment_index_t              *index;
     ngx_live_segment_index_channel_ctx_t  *cctx;
+    ngx_live_segment_index_preset_conf_t  *spcf;
 
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
+    spcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_segment_index_module);
 
-    index = ngx_block_pool_calloc(cctx->block_pool, NGX_LIVE_BP_SEGMENT_INDEX);
+    index = ngx_block_pool_calloc(channel->block_pool,
+        spcf->bp_idx[NGX_LIVE_BP_SEGMENT_INDEX]);
     if (index == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_segment_index_create: alloc failed");
         return NGX_ERROR;
     }
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
 
     /* Note: returns null when index persistence is off or create failed */
     index->snap = ngx_live_persist_snap_create(channel);
@@ -601,23 +611,12 @@ ngx_live_segment_index_cleanup_add(ngx_pool_t *pool,
 static ngx_int_t
 ngx_live_segment_index_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
-    size_t                                 block_sizes[NGX_LIVE_BP_COUNT];
     ngx_live_segment_index_channel_ctx_t  *cctx;
 
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
     if (cctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_segment_index_channel_init: alloc failed");
-        return NGX_ERROR;
-    }
-
-    block_sizes[NGX_LIVE_BP_SEGMENT_INDEX] = sizeof(ngx_live_segment_index_t);
-
-    cctx->block_pool = ngx_live_channel_create_block_pool(channel, block_sizes,
-        NGX_LIVE_BP_COUNT);
-    if (cctx->block_pool == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_segment_index_channel_init: create block pool failed");
         return NGX_ERROR;
     }
 
@@ -694,6 +693,13 @@ ngx_live_segment_index_merge_preset_conf(ngx_conf_t *cf, void *parent,
 
     ngx_conf_merge_uint_value(conf->force_memory_segments,
                               prev->force_memory_segments, 5);
+
+    if (ngx_live_core_add_block_pool_index(cf,
+        &conf->bp_idx[NGX_LIVE_BP_SEGMENT_INDEX],
+        sizeof(ngx_live_segment_index_t)) != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
 
     return NGX_CONF_OK;
 }

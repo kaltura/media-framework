@@ -246,8 +246,7 @@ ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
         sizeof(",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"mem_blocks\":") - 1 +
-            ngx_block_pool_auto_json_get_size(obj->block_pool,
-            NGX_LIVE_BP_COUNT, 0) +
+            ngx_block_pool_json_get_size(obj->block_pool) +
         sizeof(",\"last_segment_created\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"tracks\":") - 1 + ngx_live_tracks_json_get_size(obj) +
         sizeof(",\"variants\":") - 1 + ngx_live_variants_json_get_size(obj) +
@@ -277,8 +276,7 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
     p = ngx_copy_fix(p, ",\"mem_limit\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_limit);
     p = ngx_copy_fix(p, ",\"mem_blocks\":");
-    p = ngx_block_pool_auto_json_write(p, obj->block_pool, NGX_LIVE_BP_COUNT,
-        0);
+    p = ngx_block_pool_json_write(p, obj->block_pool);
     p = ngx_copy_fix(p, ",\"last_segment_created\":");
     p = ngx_sprintf(p, "%T", (time_t) obj->last_segment_created);
     p = ngx_copy_fix(p, ",\"tracks\":");

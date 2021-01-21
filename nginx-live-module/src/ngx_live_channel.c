@@ -3,9 +3,6 @@
 #include "ngx_live.h"
 
 
-#define NGX_LIVE_STR_BLOCK_SIZE  (128)
-
-
 typedef struct {
     ngx_rbtree_t            rbtree;
     ngx_rbtree_node_t       sentinel;
@@ -42,16 +39,6 @@ ngx_str_t  ngx_live_track_media_type_names[] = {
     ngx_string("video"),
     ngx_string("audio"),
     ngx_null_string
-};
-
-
-enum {
-    NGX_LIVE_BP_TRACK,
-    NGX_LIVE_BP_VARIANT,
-    NGX_LIVE_BP_BUF_CHAIN,
-    NGX_LIVE_BP_STR,
-
-    NGX_LIVE_BP_COUNT
 };
 
 
@@ -108,10 +95,8 @@ ngx_int_t
 ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
     ngx_pool_t *temp_pool, ngx_live_channel_t **result)
 {
-    size_t                       *block_sizes;
     uint32_t                      hash;
     ngx_int_t                     rc;
-    ngx_uint_t                    block_count;
     ngx_pool_t                   *pool;
     ngx_live_channel_t           *channel;
     ngx_live_core_preset_conf_t  *cpcf;
@@ -154,14 +139,6 @@ ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
         goto error;
     }
 
-    channel->track_ctx_offset = ngx_pcalloc(pool, sizeof(size_t) *
-        ngx_live_max_module);
-    if (channel->track_ctx_offset == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
-            "ngx_live_channel_create: alloc track ctx offset failed");
-        goto error;
-    }
-
     /* initialize */
     channel->pool = pool;
 
@@ -184,41 +161,25 @@ ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
 
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
-    block_count = NGX_LIVE_BP_COUNT + cpcf->mem_block_sizes->nelts;
-
-    block_sizes = ngx_palloc(temp_pool, sizeof(block_sizes[0]) * block_count);
-    if (block_sizes == NULL) {
-        ngx_log_error(NGX_LOG_ERR, temp_pool->log, 0,
-            "ngx_live_channel_create: alloc track ctx offset failed");
-        goto error;
-    }
-
-    block_sizes[NGX_LIVE_BP_TRACK] = sizeof(ngx_live_track_t) +
-        sizeof(void *) * ngx_live_max_module;
-    block_sizes[NGX_LIVE_BP_VARIANT] = sizeof(ngx_live_variant_t);
-    block_sizes[NGX_LIVE_BP_BUF_CHAIN] = sizeof(ngx_buf_chain_t);
-    block_sizes[NGX_LIVE_BP_STR] = NGX_LIVE_STR_BLOCK_SIZE;
-
-    ngx_memcpy(&block_sizes[NGX_LIVE_BP_COUNT], cpcf->mem_block_sizes->elts,
-        sizeof(block_sizes[0]) * cpcf->mem_block_sizes->nelts);
-
-    /* call handlers */
-    ngx_live_core_channel_init(channel);
-
-    rc = ngx_live_core_channel_event(channel, NGX_LIVE_EVENT_CHANNEL_INIT,
-        &block_sizes[NGX_LIVE_BP_TRACK]);
-    if (rc != NGX_OK) {
+    /* create block pool */
+    channel->block_pool = ngx_block_pool_create(pool, cpcf->mem_blocks.elts,
+        cpcf->mem_blocks.nelts, &channel->mem_left);
+    if (channel->block_pool == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
+            "ngx_live_channel_create: create block pool failed");
         (void) ngx_live_core_channel_event(channel,
             NGX_LIVE_EVENT_CHANNEL_FREE, NULL);
         goto error;
     }
 
-    /* create block pool */
-    channel->block_pool = ngx_live_channel_create_block_pool(channel,
-        block_sizes, block_count);
-    if (channel->block_pool == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
-            "ngx_live_channel_create: create block pool failed");
+    channel->bp_idx = cpcf->bp_idx;
+
+    /* call handlers */
+    ngx_live_core_channel_init(channel);
+
+    rc = ngx_live_core_channel_event(channel, NGX_LIVE_EVENT_CHANNEL_INIT,
+        NULL);
+    if (rc != NGX_OK) {
         (void) ngx_live_core_channel_event(channel,
             NGX_LIVE_EVENT_CHANNEL_FREE, NULL);
         goto error;
@@ -347,61 +308,6 @@ ngx_live_channel_ack_frames(ngx_live_channel_t *channel)
     }
 }
 
-ngx_block_pool_t *
-ngx_live_channel_create_block_pool(ngx_live_channel_t *channel, size_t *sizes,
-    ngx_uint_t count)
-{
-    ngx_block_pool_t  *result;
-
-    result = ngx_block_pool_create(channel->pool, sizes, count,
-        &channel->mem_left);
-    if (result == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_channel_create_block_pool: create block pool failed");
-        return NULL;
-    }
-
-    return result;
-}
-
-ngx_buf_chain_t *
-ngx_live_channel_buf_chain_alloc(ngx_live_channel_t *channel)
-{
-    ngx_buf_chain_t  *result;
-
-    result = ngx_block_pool_alloc(channel->block_pool, NGX_LIVE_BP_BUF_CHAIN);
-    if (result == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_channel_buf_chain_alloc: alloc failed");
-        return NULL;
-    }
-
-    return result;
-}
-
-void
-ngx_live_channel_buf_chain_free_list(ngx_live_channel_t *channel,
-    ngx_buf_chain_t *head, ngx_buf_chain_t *tail)
-{
-    ngx_block_pool_free_list(channel->block_pool, NGX_LIVE_BP_BUF_CHAIN,
-        head, tail);
-}
-
-void *
-ngx_live_channel_auto_alloc(ngx_live_channel_t *channel, size_t size)
-{
-    void  *result;
-
-    result = ngx_block_pool_auto_alloc(channel->block_pool, size,
-        NGX_LIVE_BP_COUNT, 0);
-    if (result == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_channel_auto_alloc: alloc failed");
-        return NULL;
-    }
-
-    return result;
-}
 
 ngx_int_t
 ngx_live_channel_block_str_set(ngx_live_channel_t *channel,
@@ -409,7 +315,8 @@ ngx_live_channel_block_str_set(ngx_live_channel_t *channel,
 {
     ngx_int_t  rc;
 
-    rc = ngx_block_str_set(dest, channel->block_pool, NGX_LIVE_BP_STR, src);
+    rc = ngx_block_str_set(dest, channel->block_pool,
+        channel->bp_idx[NGX_LIVE_CORE_BP_STR], src);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -423,14 +330,16 @@ void
 ngx_live_channel_block_str_free(ngx_live_channel_t *channel,
     ngx_block_str_t *str)
 {
-    ngx_block_str_free(str, channel->block_pool, NGX_LIVE_BP_STR);
+    ngx_block_str_free(str, channel->block_pool,
+        channel->bp_idx[NGX_LIVE_CORE_BP_STR]);
 }
 
 ngx_int_t
 ngx_live_channel_block_str_read(ngx_live_channel_t *channel,
     ngx_block_str_t *dest, ngx_mem_rstream_t *rs)
 {
-    return ngx_block_str_read(rs, dest, channel->block_pool, NGX_LIVE_BP_STR);
+    return ngx_block_str_read(rs, dest, channel->block_pool,
+        channel->bp_idx[NGX_LIVE_CORE_BP_STR]);
 }
 
 /* variant */
@@ -499,7 +408,8 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
         return NGX_EXISTS;
     }
 
-    variant = ngx_block_pool_calloc(channel->block_pool, NGX_LIVE_BP_VARIANT);
+    variant = ngx_block_pool_calloc(channel->block_pool,
+        channel->bp_idx[NGX_LIVE_CORE_BP_VARIANT]);
     if (variant == NULL) {
 
         ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -552,7 +462,8 @@ ngx_live_variant_free(ngx_live_variant_t *variant)
     ngx_rbtree_delete(&channel->variants.rbtree, &variant->sn.node);
     ngx_queue_remove(&variant->queue);
 
-    ngx_block_pool_free(channel->block_pool, NGX_LIVE_BP_VARIANT, variant);
+    ngx_block_pool_free(channel->block_pool,
+        channel->bp_idx[NGX_LIVE_CORE_BP_VARIANT], variant);
 
     ngx_live_channel_setup_changed(channel);
 }
@@ -816,12 +727,13 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     uint32_t int_id, uint32_t media_type, ngx_log_t *log,
     ngx_live_track_t **result)
 {
-    uint32_t           hash;
-    ngx_int_t          rc;
-    ngx_uint_t         i;
-    ngx_queue_t       *q;
-    ngx_live_track_t  *track;
-    ngx_live_track_t  *cur_track;
+    uint32_t                      hash;
+    ngx_int_t                     rc;
+    ngx_uint_t                    i;
+    ngx_queue_t                  *q;
+    ngx_live_track_t             *track;
+    ngx_live_track_t             *cur_track;
+    ngx_live_core_preset_conf_t  *cpcf;
 
     if (id->len > sizeof(track->id_buf)) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
@@ -877,7 +789,8 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     }
 
 
-    track = ngx_block_pool_calloc(channel->block_pool, NGX_LIVE_BP_TRACK);
+    track = ngx_block_pool_calloc(channel->block_pool,
+        channel->bp_idx[NGX_LIVE_CORE_BP_TRACK]);
     if (track == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_track_create: alloc failed");
@@ -898,9 +811,11 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     track->media_type = media_type;
     track->last_frame_pts = NGX_LIVE_INVALID_TIMESTAMP;
 
+    cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
+
     track->ctx = (void *) (track + 1);
     for (i = 0; i < ngx_live_max_module; i++) {
-        track->ctx[i] = (u_char *) track + channel->track_ctx_offset[i];
+        track->ctx[i] = (u_char *) track + cpcf->track_ctx_offset[i];
     }
 
     rc = ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_INIT, NULL);
@@ -909,7 +824,8 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
             "ngx_live_track_create: track init failed %i", rc);
         (void) ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_FREE,
             NULL);
-        ngx_block_pool_free(channel->block_pool, NGX_LIVE_BP_TRACK, track);
+        ngx_block_pool_free(channel->block_pool,
+            channel->bp_idx[NGX_LIVE_CORE_BP_TRACK], track);
         return rc;
     }
 
@@ -988,7 +904,8 @@ ngx_live_track_free(ngx_live_track_t *track)
     ngx_rbtree_delete(&channel->tracks.irbtree, &track->in);
     ngx_queue_remove(&track->queue);
 
-    ngx_block_pool_free(channel->block_pool, NGX_LIVE_BP_TRACK, track);
+    ngx_block_pool_free(channel->block_pool,
+        channel->bp_idx[NGX_LIVE_CORE_BP_TRACK], track);
 
     ngx_live_channel_setup_changed(channel);
 }

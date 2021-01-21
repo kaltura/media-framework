@@ -10,13 +10,6 @@
 #define NGX_LIVE_SEGMENT_LIST_PERSIST_BLOCK_PERIOD  (0x64706c73)    /* slpd */
 
 
-enum {
-    NGX_LIVE_BP_SEGMENT_LIST_NODE,
-
-    NGX_LIVE_BP_COUNT
-};
-
-
 struct ngx_live_segment_list_node_s {
     ngx_rbtree_node_t           node;        /* key = segment_index */
     ngx_queue_t                 queue;
@@ -36,26 +29,22 @@ typedef struct {
 } ngx_live_segment_list_period_t;
 
 
+size_t
+ngx_live_segment_list_get_node_size()
+{
+    return sizeof(ngx_live_segment_list_node_t);
+}
+
 ngx_int_t
-ngx_live_segment_list_init(ngx_live_channel_t *channel,
+ngx_live_segment_list_init(ngx_live_channel_t *channel, ngx_uint_t bp_idx,
     ngx_live_segment_list_t *segment_list)
 {
-    size_t  block_sizes[NGX_LIVE_BP_COUNT];
-
     ngx_rbtree_init(&segment_list->rbtree, &segment_list->sentinel,
         ngx_rbtree_insert_value);
     ngx_queue_init(&segment_list->queue);
 
-    block_sizes[NGX_LIVE_BP_SEGMENT_LIST_NODE] =
-        sizeof(ngx_live_segment_list_node_t);
-
-    segment_list->block_pool = ngx_live_channel_create_block_pool(channel,
-        block_sizes, NGX_LIVE_BP_COUNT);
-    if (segment_list->block_pool == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_segment_list_init: create pool failed");
-        return NGX_ERROR;
-    }
+    segment_list->block_pool = channel->block_pool;
+    segment_list->bp_idx = bp_idx;
 
     segment_list->log = &channel->log;
 
@@ -107,7 +96,7 @@ ngx_live_segment_list_add(ngx_live_segment_list_t *segment_list,
     }
 
     last = ngx_block_pool_alloc(segment_list->block_pool,
-        NGX_LIVE_BP_SEGMENT_LIST_NODE);
+        segment_list->bp_idx);
     if (last == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
             "ngx_live_segment_list_add: alloc failed");
@@ -162,8 +151,8 @@ ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
         ngx_queue_remove(q);
         ngx_rbtree_delete(&segment_list->rbtree, &node->node);
 
-        ngx_block_pool_free(segment_list->block_pool,
-            NGX_LIVE_BP_SEGMENT_LIST_NODE, node);
+        ngx_block_pool_free(segment_list->block_pool, segment_list->bp_idx,
+            node);
 
         q = next;
     }
@@ -621,7 +610,7 @@ ngx_live_segment_list_read_period(ngx_live_segment_list_t *segment_list,
     while (left > 0) {
 
         last = ngx_block_pool_alloc(segment_list->block_pool,
-            NGX_LIVE_BP_SEGMENT_LIST_NODE);
+            segment_list->bp_idx);
         if (last == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
                 "ngx_live_segment_list_read_period: alloc failed (1)");

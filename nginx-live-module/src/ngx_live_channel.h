@@ -30,12 +30,20 @@
 #define NGX_LIVE_SEGMENT_NO_BITRATE     (1)
 
 
-#define ngx_live_reserve_track_ctx_size(channel, module, size, total_size)  \
-    channel->track_ctx_offset[module.ctx_index] = *total_size;              \
-    *total_size += size;
+#define ngx_live_channel_auto_alloc(channel, size)                          \
+    ngx_block_pool_auto_alloc((channel)->block_pool, (size))
 
 #define ngx_live_channel_auto_free(channel, ptr)                            \
-    ngx_block_pool_auto_free((channel)->block_pool, ptr)
+    ngx_block_pool_auto_free((channel)->block_pool, (ptr))
+
+
+#define ngx_live_channel_buf_chain_alloc(ch)                                \
+    ngx_block_pool_alloc((ch)->block_pool,                                  \
+        (ch)->bp_idx[NGX_LIVE_CORE_BP_BUF_CHAIN])
+
+#define ngx_live_channel_buf_chain_free_list(ch, head, tail)                \
+    ngx_block_pool_free_list((ch)->block_pool,                              \
+        (ch)->bp_idx[NGX_LIVE_CORE_BP_BUF_CHAIN], (head), (tail))
 
 
 typedef struct ngx_live_track_s  ngx_live_track_t;
@@ -69,6 +77,7 @@ struct ngx_live_channel_s {
     ngx_block_str_t                opaque;
 
     ngx_block_pool_t              *block_pool;
+    ngx_uint_t                    *bp_idx;
     ngx_pool_t                    *pool;
     ngx_log_t                      log;
 
@@ -89,8 +98,6 @@ struct ngx_live_channel_s {
 
     ngx_live_channel_tracks_t      tracks;
     uint32_t                       filler_media_types;
-
-    size_t                        *track_ctx_offset;
 
     uint32_t                       initial_segment_index;
     uint32_t                       min_segment_index;
@@ -196,16 +203,6 @@ void ngx_live_channel_finalize(ngx_live_channel_t *channel);
 
 void ngx_live_channel_ack_frames(ngx_live_channel_t *channel);
 
-
-ngx_block_pool_t *ngx_live_channel_create_block_pool(
-    ngx_live_channel_t *channel, size_t *sizes, ngx_uint_t count);
-
-ngx_buf_chain_t *ngx_live_channel_buf_chain_alloc(ngx_live_channel_t *channel);
-
-void ngx_live_channel_buf_chain_free_list(ngx_live_channel_t *channel,
-    ngx_buf_chain_t *head, ngx_buf_chain_t *tail);
-
-void *ngx_live_channel_auto_alloc(ngx_live_channel_t *channel, size_t size);
 
 ngx_int_t ngx_live_channel_block_str_set(ngx_live_channel_t *channel,
     ngx_block_str_t *dest, ngx_str_t *src);
