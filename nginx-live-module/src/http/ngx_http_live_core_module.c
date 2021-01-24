@@ -79,6 +79,14 @@ static ngx_command_t  ngx_http_live_core_commands[] = {
         expires[NGX_HTTP_LIVE_EXPIRES_INDEX]),
       NULL },
 
+    { ngx_string("live_expires_index_gone"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_sec_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_live_core_loc_conf_t,
+        expires[NGX_HTTP_LIVE_EXPIRES_INDEX_GONE]),
+      NULL },
+
     { ngx_string("live_expires_master"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_sec_slot,
@@ -192,6 +200,7 @@ static ngx_str_t  ngx_http_live_default_timeline_id = ngx_string("main");
 static time_t  ngx_http_live_default_expires[NGX_HTTP_LIVE_EXPIRES_COUNT] = {
     8640000,        /* static - 100 days */
     3,              /* index - 3 sec */
+    5,              /* index gone - 5 sec */
     30,             /* master - 30 sec */
 };
 
@@ -565,7 +574,7 @@ ngx_http_live_core_init_ctx(ngx_http_request_t *r,
                 "ngx_http_live_core_init_ctx: "
                 "timeline \"%V\" no longer has segments",
                 &params->timeline_id);
-            return NGX_HTTP_GONE;
+            return ngx_http_live_gone(r);
         }
 
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -580,7 +589,7 @@ ngx_http_live_core_init_ctx(ngx_http_request_t *r,
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_core_init_ctx: timeline \"%V\" is expired",
             &params->timeline_id);
-        return NGX_HTTP_GONE;
+        return ngx_http_live_gone(r);
     }
 
     /* get the variant
@@ -945,6 +954,28 @@ ngx_http_live_send_header(ngx_http_request_t *r, off_t content_length_n,
     }
 
     return NGX_OK;
+}
+
+ngx_int_t
+ngx_http_live_gone(ngx_http_request_t *r)
+{
+    time_t                          expires_time;
+    ngx_int_t                       rc;
+    ngx_http_live_core_loc_conf_t  *conf;
+
+    conf = ngx_http_get_module_loc_conf(r, ngx_http_live_core_module);
+
+    expires_time = conf->expires[NGX_HTTP_LIVE_EXPIRES_INDEX_GONE];
+    if (expires_time >= 0) {
+        rc = ngx_http_live_set_expires(r, expires_time);
+        if (rc != NGX_OK) {
+            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                "ngx_http_live_gone: failed to set expires %i", rc);
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+    }
+
+    return NGX_HTTP_GONE;
 }
 
 ngx_int_t

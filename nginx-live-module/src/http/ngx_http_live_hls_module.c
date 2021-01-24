@@ -408,10 +408,11 @@ ngx_http_live_hls_handle_index_playlist(ngx_http_request_t *r,
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_core_module);
 
     if (!ngx_live_variant_is_main_track_active(objects->variant,
-        ctx->params.media_type_mask)) {
+        ctx->params.media_type_mask))
+    {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_hls_handle_index_playlist: main track is inactive");
-        return NGX_HTTP_GONE;
+        return ngx_http_live_gone(r);
     }
 
     conf = ngx_http_get_module_loc_conf(r, ngx_http_live_hls_module);
