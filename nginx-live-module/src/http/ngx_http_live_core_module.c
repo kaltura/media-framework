@@ -1279,6 +1279,7 @@ ngx_http_live_core_write_segment(ngx_http_request_t *r)
     ngx_str_t                          output_buffer = ngx_null_string;
     ngx_str_t                          content_type;
     vod_status_t                       rc;
+    media_segment_track_t             *cur_track;
     ngx_http_live_core_ctx_t          *ctx;
     ngx_http_live_core_loc_conf_t     *conf;
     ngx_http_live_frame_processor_pt   processor;
@@ -1294,6 +1295,15 @@ ngx_http_live_core_write_segment(ngx_http_request_t *r)
                 "ngx_http_live_core_write_segment: "
                 "ngx_http_complex_value failed");
             return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+    }
+
+    if (ctx->correction) {
+        for (cur_track = ctx->segment->tracks;
+            cur_track < ctx->segment->tracks_end;
+            cur_track++)
+        {
+            cur_track->start_dts += ctx->correction;
         }
     }
 
@@ -1488,8 +1498,8 @@ ngx_http_live_core_segment_handler(ngx_http_request_t *r,
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_core_module);
 
-    if (!ngx_live_timeline_contains_segment(objects->timeline,
-        ctx->params.index))
+    if (!ngx_live_timeline_get_segment_info(objects->timeline,
+        ctx->params.index, &ctx->correction))
     {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_core_segment_handler: "

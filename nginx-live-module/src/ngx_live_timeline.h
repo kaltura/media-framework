@@ -15,6 +15,7 @@
 typedef struct {
     int64_t                            start;
     int64_t                            end;
+    int64_t                            period_gap;
     uint64_t                           max_duration;
     uint32_t                           max_segments;
     unsigned                           active:1;
@@ -37,6 +38,7 @@ struct ngx_live_period_s {
 
     ngx_live_segment_iter_t            segment_iter;
     int64_t                            time;
+    int64_t                            correction;
     uint64_t                           duration;
     uint32_t                           segment_count;
 };
@@ -76,6 +78,7 @@ typedef struct {
     ngx_rbtree_t                       rbtree;
     ngx_rbtree_node_t                  sentinel;
     ngx_live_period_t                 *head_period;
+    int64_t                            last_time;   /* after correction */
 
     ngx_live_timeline_conf_t           conf;
     time_t                             last_segment_created;
@@ -89,6 +92,9 @@ typedef struct {
     uint32_t                           period_count;
 } ngx_live_timeline_t;
 
+
+void ngx_live_timeline_conf_default(ngx_live_timeline_conf_t *conf,
+    ngx_live_timeline_manifest_conf_t *manifest_conf);
 
 ngx_int_t ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
     ngx_live_timeline_conf_t *conf,
@@ -107,8 +113,8 @@ ngx_int_t ngx_live_timeline_update(ngx_live_timeline_t *timeline,
 ngx_int_t ngx_live_timeline_copy(ngx_live_timeline_t *dest,
     ngx_live_timeline_t *source);
 
-ngx_flag_t ngx_live_timeline_contains_segment(ngx_live_timeline_t *timeline,
-    uint32_t segment_index);
+ngx_flag_t ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
+    uint32_t segment_index, int64_t *correction);
 
 ngx_flag_t ngx_live_timeline_is_expired(ngx_live_timeline_t *timeline);
 

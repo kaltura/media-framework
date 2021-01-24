@@ -2072,8 +2072,6 @@ ngx_live_persist_channel_free(ngx_live_channel_t *channel, void *ectx)
 }
 
 
-
-
 static ngx_int_t
 ngx_ngx_live_persist_add_block_internal(ngx_conf_t *cf,
     ngx_live_persist_main_conf_t *pmcf, ngx_live_persist_block_t *block)

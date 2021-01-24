@@ -237,8 +237,8 @@ ngx_live_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
      * the preset{}s' preset_conf's
      */
 
-    ctx->preset_conf = ngx_pcalloc(cf->pool, sizeof(void *) *
-        ngx_live_max_module);
+    ctx->preset_conf = ngx_pcalloc(cf->pool,
+                                   sizeof(void *) * ngx_live_max_module);
     if (ctx->preset_conf == NULL) {
         return NGX_CONF_ERROR;
     }

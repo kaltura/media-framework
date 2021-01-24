@@ -98,6 +98,7 @@ typedef struct {
     size_t                               content_length;
     size_t                               size_limit;
 
+    int64_t                              correction;
     media_segment_t                     *segment;
     segment_writer_t                     segment_writer;
     ngx_http_live_segment_writer_ctx_t   segment_writer_ctx;
