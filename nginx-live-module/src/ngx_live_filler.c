@@ -1901,11 +1901,7 @@ ngx_live_filler_read_setup_timeline(ngx_live_channel_t *channel, ngx_str_t *id,
     ngx_live_timeline_conf_t            conf;
     ngx_live_timeline_manifest_conf_t   manifest_conf;
 
-    ngx_memzero(&conf, sizeof(conf));
-    ngx_memzero(&manifest_conf, sizeof(manifest_conf));
-
-    conf.active = 1;
-    manifest_conf.target_duration_segments = 3;
+    ngx_live_timeline_conf_default(&conf, &manifest_conf);
 
     if (ngx_live_timeline_create(channel, id, &conf, &manifest_conf,
         log, &timeline) != NGX_OK)

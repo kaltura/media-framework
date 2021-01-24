@@ -45,6 +45,7 @@ typedef struct {
 
 typedef struct {
     uint32_t                  id;
+    int64_t                   last_time;
     int64_t                   last_segment_created;
 
     /* manifest */
@@ -59,6 +60,7 @@ typedef struct {
 typedef struct {
     uint32_t                  segment_index;
     uint32_t                  segment_count;
+    int64_t                   correction;
 } ngx_live_timeline_persist_period_t;
 
 
@@ -79,6 +81,7 @@ typedef struct {
 
 
 typedef struct {
+    int64_t                   last_time;
     int64_t                   last_segment_created;
 } ngx_live_timeline_persist_t;
 
@@ -470,8 +473,20 @@ ngx_live_timeline_manifest_copy(ngx_live_timeline_t *dest,
 
 /* timeline */
 
+void
+ngx_live_timeline_conf_default(ngx_live_timeline_conf_t *conf,
+    ngx_live_timeline_manifest_conf_t *manifest_conf)
+{
+    ngx_memzero(conf, sizeof(*conf));
+    ngx_memzero(manifest_conf, sizeof(*manifest_conf));
+
+    conf->active = 1;    /* active by default */
+    conf->period_gap = -1;
+    manifest_conf->target_duration_segments = 3;
+}
+
 static ngx_int_t
-ngx_live_timeline_validate_conf(ngx_live_timeline_conf_t *conf,
+ngx_live_timeline_conf_validate(ngx_live_timeline_conf_t *conf,
     ngx_live_timeline_manifest_conf_t *manifest_conf, ngx_log_t *log)
 {
     if (!conf->end) {
@@ -480,7 +495,7 @@ ngx_live_timeline_validate_conf(ngx_live_timeline_conf_t *conf,
 
     if (conf->start >= conf->end) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_timeline_validate_conf: "
+            "ngx_live_timeline_conf_validate: "
             "start offset must be lower than end offset",
             conf->start, conf->end);
         return NGX_ERROR;
@@ -495,7 +510,7 @@ ngx_live_timeline_validate_conf(ngx_live_timeline_conf_t *conf,
 
     } else if (manifest_conf->max_segments > conf->max_segments) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_timeline_validate_conf: "
+            "ngx_live_timeline_conf_validate: "
             "manifest max segments %uD larger than max segments %uD",
             manifest_conf->max_segments, conf->max_segments);
         return NGX_ERROR;
@@ -510,7 +525,7 @@ ngx_live_timeline_validate_conf(ngx_live_timeline_conf_t *conf,
 
     } else if (manifest_conf->max_duration > conf->max_duration) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_timeline_validate_conf: "
+            "ngx_live_timeline_conf_validate: "
             "manifest max duration %uL larger than max duration %uL",
             manifest_conf->max_duration, conf->max_duration);
         return NGX_ERROR;
@@ -518,7 +533,7 @@ ngx_live_timeline_validate_conf(ngx_live_timeline_conf_t *conf,
 
     if (manifest_conf->target_duration_segments <= 0) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_timeline_validate_conf: "
+            "ngx_live_timeline_conf_validate: "
             "invalid target_duration_segments %uD",
             manifest_conf->target_duration_segments);
         return NGX_ERROR;
@@ -544,7 +559,7 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
         return NGX_INVALID_ARG;
     }
 
-    if (ngx_live_timeline_validate_conf(conf, manifest_conf, log) != NGX_OK) {
+    if (ngx_live_timeline_conf_validate(conf, manifest_conf, log) != NGX_OK) {
         return NGX_INVALID_ARG;
     }
 
@@ -659,8 +674,8 @@ ngx_live_timeline_get(ngx_live_channel_t *channel, ngx_str_t *id)
 }
 
 ngx_flag_t
-ngx_live_timeline_contains_segment(ngx_live_timeline_t *timeline,
-    uint32_t segment_index)
+ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
+    uint32_t segment_index, int64_t *correction)
 {
     ngx_rbtree_t       *rbtree = &timeline->rbtree;
     ngx_rbtree_node_t  *node;
@@ -678,6 +693,7 @@ ngx_live_timeline_contains_segment(ngx_live_timeline_t *timeline,
         } else {
             period = (ngx_live_period_t *) node;
             if (segment_index < node->key + period->segment_count) {
+                *correction = period->correction;
                 return 1;
             }
 
@@ -727,7 +743,7 @@ ngx_live_timeline_update(ngx_live_timeline_t *timeline,
     ngx_live_channel_t               *channel;
     ngx_live_timeline_channel_ctx_t  *cctx;
 
-    if (ngx_live_timeline_validate_conf(conf, manifest_conf, log) != NGX_OK) {
+    if (ngx_live_timeline_conf_validate(conf, manifest_conf, log) != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -1143,6 +1159,14 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
         dest_period->duration = segment_time - dest_period->time;
         dest_period->next = NULL;
 
+        if (dest->conf.period_gap != -1 && dest->last_time) {
+            dest_period->correction = dest->last_time + dest->conf.period_gap -
+                dest_period->time;
+
+        } else {
+            dest_period->correction = 0;
+        }
+
         ngx_rbtree_insert(&dest->rbtree, &dest_period->node);
 
         if (dest->head_period == NULL) {
@@ -1153,6 +1177,8 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
         }
         dest->period_count++;
 
+        dest->last_time = dest_period->time + dest_period->duration +
+            dest_period->correction;
         dest->last_period = dest_period;
 
         dest->segment_count += dest_period->segment_count;
@@ -1299,6 +1325,14 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
             period->node.key = segment_index;
             period->time = time;
 
+            if (timeline->conf.period_gap != -1 && timeline->last_time) {
+                period->correction = timeline->last_time +
+                    timeline->conf.period_gap - time;
+
+            } else {
+                period->correction = 0;
+            }
+
             ngx_rbtree_insert(&timeline->rbtree, &period->node);
 
             if (timeline->head_period == NULL) {
@@ -1320,6 +1354,8 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
         }
 
         /* add the segment */
+        timeline->last_time = time + duration + period->correction;
+
         ngx_live_timeline_add_segment(timeline, duration);
 
         ngx_live_timeline_remove_segments(timeline, 0, 0, &min_segment_index);
@@ -1741,6 +1777,7 @@ ngx_live_timeline_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
         timeline = ngx_queue_data(q, ngx_live_timeline_t, queue);
 
         ts->id = timeline->int_id;
+        ts->last_time = timeline->last_time;
         ts->last_segment_created = timeline->last_segment_created;
 
         ts->target_duration = timeline->manifest.target_duration;
@@ -1815,6 +1852,7 @@ ngx_live_timeline_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
         }
 
         pp.segment_count = last_index - pp.segment_index + 1;
+        pp.correction = period->correction;
 
         if (ngx_live_persist_write(write_ctx, &pp, sizeof(pp)) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &timeline->channel->log, 0,
@@ -1855,6 +1893,7 @@ ngx_live_timeline_write_index(ngx_live_persist_write_ctx_t *write_ctx,
         sizeof(mp.last_durations));
     mp.reserved = 0;
 
+    tp.last_time = ts->last_time;
     tp.last_segment_created = ts->last_segment_created;
 
     if (ngx_live_persist_write_block_open(write_ctx,
@@ -1941,6 +1980,7 @@ ngx_live_timeline_read_alloc_period(ngx_live_timeline_t *timeline,
 
     period->node.key = pp->segment_index;
     period->segment_count = pp->segment_count;
+    period->correction = pp->correction;
     period->next = NULL;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
@@ -2241,6 +2281,7 @@ ngx_live_timeline_read_index(ngx_live_persist_block_header_t *block,
         }
     }
 
+    timeline->last_time = tp->last_time;
     timeline->last_segment_created = tp->last_segment_created;
 
     rc = ngx_live_manifest_timeline_read(timeline, mp);
