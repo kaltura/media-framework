@@ -20,6 +20,7 @@ RTMP_DEPS="                                                 \
                 $ngx_addon_dir/ngx_rtmp_version.h           \
                 $ngx_addon_dir/ngx_rtmp_live_module.h       \
                 $ngx_addon_dir/ngx_rtmp_streams.h           \
+                $ngx_addon_dir/ngx_rtmp_chain_reader.h      \
                 $ngx_addon_dir/ngx_rtmp_bitop.h             \
                 $ngx_addon_dir/ngx_rtmp_proxy_protocol.h    \
                 "
@@ -41,6 +42,7 @@ RTMP_CORE_SRCS="                                            \
                 $ngx_addon_dir/ngx_rtmp_live_module.c       \
                 $ngx_addon_dir/ngx_rtmp_bandwidth.c         \
                 $ngx_addon_dir/ngx_rtmp_log_module.c        \
+                $ngx_addon_dir/ngx_rtmp_chain_reader.c      \
                 $ngx_addon_dir/ngx_rtmp_bitop.c             \
                 $ngx_addon_dir/ngx_rtmp_proxy_protocol.c    \
                 "

@@ -34,6 +34,8 @@ typedef struct {
     int64_t              timestamp;
     int32_t              last_timestamp;
     unsigned             timestamps_synced:1;
+    unsigned             media_info_sent:1;
+    unsigned             published:1;
 } ngx_rtmp_kmp_track_ctx_t;
 
 
@@ -106,58 +108,66 @@ ngx_rtmp_kmp_copy(ngx_log_t *log, void *dst, u_char **src, size_t n,
 }
 
 static ngx_int_t
-ngx_rtmp_kmp_track_set_media_info(ngx_kmp_push_track_t *track,
+ngx_rtmp_kmp_track_set_extra_data(ngx_kmp_push_track_t *track,
     ngx_rtmp_session_t *s, ngx_chain_t *in, u_char *p, uint32_t size)
 {
-    size_t                 alloc_size;
+    size_t     alloc_size;
+    ngx_int_t  rc;
+
+    track->extra_data.len = size;
+
+    if (size <= 0) {
+        return NGX_OK;
+    }
+
+    if (size > track->extra_data_size) {
+
+        alloc_size = ngx_max(size, track->extra_data_size * 2);
+        if (track->mem_left < alloc_size) {
+            ngx_log_error(NGX_LOG_ERR, &track->log, 0,
+                "ngx_rtmp_kmp_track_set_extra_data: "
+                "memory limit exceeded");
+            return NGX_ERROR;
+        }
+
+        track->extra_data.data = ngx_pnalloc(track->pool, alloc_size);
+        if (track->extra_data.data == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_rtmp_kmp_track_set_extra_data: alloc failed");
+            return NGX_ERROR;
+        }
+
+        track->extra_data_size = alloc_size;
+        track->mem_left -= alloc_size;
+    }
+
+    rc = ngx_rtmp_kmp_copy(&track->log, track->extra_data.data, &p, size,
+        &in);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_rtmp_kmp_track_set_extra_data: "
+            "failed to read extra data");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_rtmp_kmp_track_send_media_info(ngx_kmp_push_track_t *track,
+    ngx_rtmp_session_t *s)
+{
     int64_t                num;
     int64_t                denom;
-    ngx_int_t              rc;
     kmp_media_info_t      *media_info;
     ngx_rtmp_codec_ctx_t  *codec_ctx;
 
     codec_ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
     if (codec_ctx == NULL) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
-            "ngx_rtmp_kmp_track_set_media_info: failed to get codec ctx");
+            "ngx_rtmp_kmp_track_send_media_info: failed to get codec ctx");
         return NGX_ERROR;
     }
-
-    /* copy the extra data */
-    if (size > 0) {
-
-        if (size > track->extra_data_size) {
-
-            alloc_size = ngx_max(size, track->extra_data_size * 2);
-            if (track->mem_left < alloc_size) {
-                ngx_log_error(NGX_LOG_ERR, &track->log, 0,
-                    "ngx_rtmp_kmp_track_set_media_info: "
-                    "memory limit exceeded");
-                return NGX_ERROR;
-            }
-
-            track->extra_data.data = ngx_pnalloc(track->pool, alloc_size);
-            if (track->extra_data.data == NULL) {
-                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                    "ngx_rtmp_kmp_track_set_media_info: alloc failed");
-                return NGX_ERROR;
-            }
-
-            track->extra_data_size = alloc_size;
-            track->mem_left -= alloc_size;
-        }
-
-        rc = ngx_rtmp_kmp_copy(&track->log, track->extra_data.data, &p, size,
-            &in);
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_rtmp_kmp_track_set_media_info: "
-                "failed to read extra data");
-            return NGX_ERROR;
-        }
-    }
-
-    track->extra_data.len = size;
 
     /* Note: media_type and timescale were set by ngx_kmp_push_track_create */
 
@@ -174,6 +184,7 @@ ngx_rtmp_kmp_track_set_media_info(ngx_kmp_push_track_t *track,
 
         media_info->u.video.width = codec_ctx->width;
         media_info->u.video.height = codec_ctx->height;
+        media_info->u.video.cea_captions = codec_ctx->video_captions;
 
         ngx_kmp_push_float_to_rational(codec_ctx->frame_rate, 1000000,
             &num, &denom);
@@ -190,14 +201,15 @@ ngx_rtmp_kmp_track_set_media_info(ngx_kmp_push_track_t *track,
         media_info->u.audio.sample_rate = codec_ctx->sample_rate;
         media_info->u.audio.bits_per_sample = codec_ctx->sample_size * 8;
         media_info->u.audio.channels = codec_ctx->audio_channels;
-        media_info->u.audio.padding = 0;
+        media_info->u.audio.channel_layout = codec_ctx->audio_channels == 1 ?
+            KMP_CH_LAYOUT_MONO : KMP_CH_LAYOUT_STEREO;
         break;
     }
 
     /* send the updated media info */
     if (ngx_kmp_push_track_write_media_info(track) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_rtmp_kmp_track_set_media_info: write failed");
+            "ngx_rtmp_kmp_track_send_media_info: write failed");
         return NGX_ERROR;
     }
 
@@ -332,7 +344,7 @@ ngx_rtmp_kmp_get_chain_size(ngx_chain_t *in)
 
 ngx_int_t
 ngx_rtmp_kmp_track_av(ngx_kmp_push_track_t *track, ngx_rtmp_header_t *h,
-    ngx_chain_t *in, ngx_flag_t first_time)
+    ngx_chain_t *in)
 {
 #if (NGX_DEBUG)
     size_t                     size;
@@ -362,26 +374,50 @@ ngx_rtmp_kmp_track_av(ngx_kmp_push_track_t *track, ngx_rtmp_header_t *h,
     p = in->buf->pos;
 
     if (ngx_rtmp_kmp_track_init_frame(track, &frame, h, &in, &p,
-        &sequence_header) != NGX_OK) {
+        &sequence_header) != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_rtmp_kmp_track_av: init frame failed");
         return NGX_ERROR;
     }
 
-    if (sequence_header || first_time) {
+    if (sequence_header) {
+        rc = ngx_rtmp_kmp_track_set_extra_data(track, ctx->s, in, p,
+            frame.header.data_size);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_rtmp_kmp_track_av: set extra data failed");
+            return NGX_ERROR;
+        }
 
+        ctx->media_info_sent = 0;    /* force resend */
+        return NGX_OK;
+    }
+
+    if (frame.header.data_size <= 0) {
+        return NGX_OK;
+    }
+
+    if (!ctx->media_info_sent) {
         /* update and send the media info */
-        rc = ngx_rtmp_kmp_track_set_media_info(track, ctx->s, in, p,
-            sequence_header ? frame.header.data_size : 0);
+        rc = ngx_rtmp_kmp_track_send_media_info(track, ctx->s);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_rtmp_kmp_track_av: send media info failed");
             return NGX_ERROR;
         }
+
+        ctx->media_info_sent = 1;
     }
 
-    if (sequence_header || frame.header.data_size <= 0) {
-        return NGX_OK;
+    if (!ctx->published) {
+        if (ngx_kmp_push_track_publish(track) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_rtmp_kmp_track_av: publish failed");
+            return NGX_ERROR;
+        }
+
+        ctx->published = 1;
     }
 
     /* send the frame */
@@ -411,13 +447,13 @@ ngx_rtmp_kmp_track_create(ngx_kmp_push_track_conf_t *conf,
     ngx_rtmp_session_t *s, ngx_rtmp_kmp_publish_t  *publish,
     ngx_rtmp_header_t *h, ngx_chain_t *in)
 {
-    u_char                               *p;
-    size_t                                json_len;
-    size_t                                input_id_len;
-    ngx_str_t                             media_type_str;
-    ngx_uint_t                            media_type;
-    ngx_kmp_push_track_t                 *track;
-    ngx_rtmp_kmp_track_ctx_t             *ctx;
+    u_char                    *p;
+    size_t                     json_len;
+    size_t                     input_id_len;
+    ngx_str_t                  media_type_str;
+    ngx_uint_t                 media_type;
+    ngx_kmp_push_track_t      *track;
+    ngx_rtmp_kmp_track_ctx_t  *ctx;
 
     media_type = h->type == NGX_RTMP_MSG_VIDEO ? KMP_MEDIA_VIDEO :
         KMP_MEDIA_AUDIO;
@@ -474,22 +510,6 @@ ngx_rtmp_kmp_track_create(ngx_kmp_push_track_conf_t *conf,
             "json length %uz greater than allocated length %uz",
             track->json_info.len, json_len);
         ngx_kmp_push_track_detach(track, "create_track_failed");
-        return NULL;
-    }
-
-    /* process the frame (initializes media info) */
-    if (ngx_rtmp_kmp_track_av(track, h, in, 1) != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_rtmp_kmp_track_create: ngx_rtmp_kmp_track_av failed");
-        ngx_kmp_push_track_detach(track, "first_frame_failed");
-        return NULL;
-    }
-
-    /* publish */
-    if (ngx_kmp_push_track_publish(track) != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_rtmp_kmp_track_create: alloc failed");
-        ngx_kmp_push_track_detach(track, "publish_track_failed");
         return NULL;
     }
 

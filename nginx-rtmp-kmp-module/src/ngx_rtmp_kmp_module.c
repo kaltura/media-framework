@@ -1054,11 +1054,10 @@ ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
         }
 
         sctx->tracks[media_type] = track;
-        return NGX_OK;
     }
 
     /* forward to track */
-    return ngx_rtmp_kmp_track_av(track, h, in, 0);
+    return ngx_rtmp_kmp_track_av(track, h, in);
 }
 
 static ngx_int_t

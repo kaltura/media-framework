@@ -59,7 +59,7 @@ ngx_rtmp_kmp_connect_json_get_size(ngx_rtmp_kmp_connect_t *obj,
 {
     size_t  result =
         sizeof("{\"event_type\":\"connect\",\"input_type\":\"rtmp\",\"rtmp\":")
-            - 1 + ngx_rtmp_kmp_connect_rtmp_json_get_size(obj, s) +
+             - 1 + ngx_rtmp_kmp_connect_rtmp_json_get_size(obj, s) +
         sizeof("}") - 1;
 
     return result;

@@ -279,9 +279,14 @@ for (n = 0; n < %s.nelts; ++n) {
                 printParams += ', (uint32_t) (n %% d * %d) / d''' %           \
                     (10 ** precision)
                 writeDefs.add('uint32_t  n, d;')
-                valueWrite = '''n = %s.num;
-d = %s.denom;
-p = ngx_sprintf(p, "%s", %s);''' % (expr, expr, format, printParams)
+                valueWrite = '''d = %s.denom;
+if (d) {
+    n = %s.num;
+    p = ngx_sprintf(p, "%s", %s);
+
+} else {
+    *p++ = '0';
+}''' % (expr, expr, format, printParams)
             else:
                 match = re.match('^\.(\d+)f$', format)
                 if not match is None:
