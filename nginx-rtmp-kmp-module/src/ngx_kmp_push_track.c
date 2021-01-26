@@ -125,7 +125,7 @@ ngx_kmp_push_track_merge_conf(ngx_kmp_push_track_conf_t *conf,
                               prev->video_buffer_size, 64 * 1024);
 
     ngx_conf_merge_size_value(conf->video_mem_limit,
-                              prev->video_mem_limit, 16 * 1024 * 1024);
+                              prev->video_mem_limit, 32 * 1024 * 1024);
 
     ngx_conf_merge_size_value(conf->audio_buffer_size,
                               prev->audio_buffer_size, 4 * 1024);

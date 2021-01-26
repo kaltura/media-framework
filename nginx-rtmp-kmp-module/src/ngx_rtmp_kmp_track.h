@@ -25,6 +25,6 @@ ngx_kmp_push_track_t *ngx_rtmp_kmp_track_create(
     ngx_rtmp_kmp_publish_t  *publish, ngx_rtmp_header_t *h, ngx_chain_t *in);
 
 ngx_int_t ngx_rtmp_kmp_track_av(ngx_kmp_push_track_t *track,
-    ngx_rtmp_header_t *h, ngx_chain_t *in, ngx_flag_t first_time);
+    ngx_rtmp_header_t *h, ngx_chain_t *in);
 
 #endif /* _NGX_RTMP_KMP_TRACK_H_INCLUDED_ */

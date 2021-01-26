@@ -11,16 +11,26 @@ function outputJson($params)
 
 function postJson($url, $fields)
 {
-    $ch = curl_init($url);
-    $payload = json_encode($fields);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
-    curl_setopt($ch, CURLOPT_HEADER, false);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_exec($ch);
-    // TODO: check curl_getinfo($ch, CURLINFO_HTTP_CODE)
-    curl_close($ch);
+    for ($i = 0; $i < 3; $i++)
+    {
+        $ch = curl_init($url);
+        $payload = json_encode($fields);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
+        curl_setopt($ch, CURLOPT_HEADER, false);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if (substr($code, 0, 1) == '2')
+        {
+            break;
+        }
+
+        usleep(100000);
+    }
 }
 
 function setupPackager($controlUrl, $channelId, $variantId, $trackId, $mediaType)

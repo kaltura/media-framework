@@ -230,10 +230,6 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
         }
     }
 
-    if (media_info_ptr->media_type == KMP_MEDIA_AUDIO) {
-        media_info_ptr->u.audio.padding = 0;
-    }
-
     rc = ngx_live_add_media_info(ctx->track, media_info_ptr, data,
         ctx->packet_header.data_size);
     switch (rc) {

@@ -12,6 +12,14 @@
 #define KMP_FRAME_FLAG_KEY      (0x01)
 #define KMP_FRAME_FLAG_MASK     (KMP_FRAME_FLAG_KEY)
 
+/* matches ffmpeg AV_CH_XXX */
+#define KMP_CH_FRONT_LEFT       0x00000001
+#define KMP_CH_FRONT_RIGHT      0x00000002
+#define KMP_CH_FRONT_CENTER     0x00000004
+
+#define KMP_CH_LAYOUT_MONO      (KMP_CH_FRONT_CENTER)
+#define KMP_CH_LAYOUT_STEREO    (KMP_CH_FRONT_LEFT|KMP_CH_FRONT_RIGHT)
+
 /* enums */
 enum {
     /* client -> server */
@@ -67,13 +75,14 @@ typedef struct {
     uint16_t             channels;
     uint16_t             bits_per_sample;
     uint32_t             sample_rate;
-    uint32_t             padding;
+    uint64_t             channel_layout;
 } kmp_audio_media_info_t;
 
 typedef struct {
     uint16_t             width;
     uint16_t             height;
     kmp_rational_t       frame_rate;
+    uint32_t             cea_captions;
 } kmp_video_media_info_t;
 
 typedef struct kmp_media_info_s kmp_media_info_t;

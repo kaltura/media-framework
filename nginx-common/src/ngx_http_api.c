@@ -619,8 +619,9 @@ ngx_http_api_body_handler(ngx_http_request_t *r)
         goto done;
     }
 
-    ngx_log_debug1(NGX_LOG_DEBUG_CORE, r->connection->log, 0,
-        "ngx_http_api_body_handler: body: %s", b->pos);
+    ngx_log_debug2(NGX_LOG_DEBUG_CORE, r->connection->log, 0,
+        "ngx_http_api_body_handler: request: \"%V\", body: %s",
+        &r->request_line, b->pos);
 
     rc = ngx_json_parse(r->pool, b->pos, json, error, sizeof(error));
     if (rc != NGX_JSON_OK) {
