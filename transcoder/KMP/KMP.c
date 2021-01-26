@@ -183,6 +183,7 @@ int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo 
         media_info.u.video.height=codecpar->height;
         media_info.u.video.frame_rate.denom=mediaInfo->frameRate.den;
         media_info.u.video.frame_rate.num=mediaInfo->frameRate.num;
+        media_info.u.video.cea_captions=0;		// TODO: copy from input
     }
     if (codecpar->codec_type==AVMEDIA_TYPE_AUDIO)
     {
@@ -191,6 +192,7 @@ int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo 
         media_info.u.audio.bits_per_sample=codecpar->bits_per_coded_sample;
         media_info.u.audio.sample_rate=codecpar->sample_rate;
         media_info.u.audio.channels=codecpar->channels;
+        media_info.u.audio.channel_layout=codecpar->channel_layout;
     }
     
     if (codecpar->codec_type==AVMEDIA_TYPE_VIDEO && codecpar->extradata_size>0 && codecpar->extradata[0] != 1) { //convert to mp4 header
@@ -624,7 +626,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
         params->sample_rate=mediaInfo.u.audio.sample_rate;
         params->bits_per_coded_sample=mediaInfo.u.audio.bits_per_sample*8;
         params->channels=mediaInfo.u.audio.channels;
-        params->channel_layout=av_get_default_channel_layout(params->channels);
+        params->channel_layout=mediaInfo.u.audio.channel_layout;
         set_audio_codec(mediaInfo.codec_id,params);
     }
     if (mediaInfo.media_type==KMP_MEDIA_VIDEO) {
