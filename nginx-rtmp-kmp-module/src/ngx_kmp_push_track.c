@@ -273,7 +273,8 @@ ngx_kmp_push_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
 
     /* parse and validate the json */
     if (ngx_kmp_push_parse_json_response(temp_pool, &track->log, code,
-        content_type, body, &json) != NGX_OK) {
+        content_type, body, &json) != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_kmp_push_publish_handle: parse response failed");
         goto retry;
@@ -284,7 +285,8 @@ ngx_kmp_push_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
 
     if (values[NGX_KMP_TRACK_CHANNEL_ID] == NULL ||
         values[NGX_KMP_TRACK_TRACK_ID] == NULL ||
-        values[NGX_KMP_TRACK_UPSTREAMS] == NULL) {
+        values[NGX_KMP_TRACK_UPSTREAMS] == NULL)
+    {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_kmp_push_publish_handle: missing required params in json");
         goto retry;
@@ -803,7 +805,8 @@ ngx_kmp_push_track_write_media_info(ngx_kmp_push_track_t *track)
     header.reserved = 0;
 
     if (ngx_kmp_push_track_write(track, (u_char *) &header, sizeof(header))
-        != NGX_OK) {
+        != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
@@ -854,8 +857,9 @@ ngx_kmp_push_track_send_end_of_stream(ngx_kmp_push_track_t *track)
     header.packet_type = KMP_PACKET_END_OF_STREAM;
     header.header_size = sizeof(header);
 
-    if (ngx_kmp_push_track_write(track, (u_char *) &header, sizeof(header)) !=
-        NGX_OK) {
+    if (ngx_kmp_push_track_write(track, (u_char *) &header, sizeof(header))
+        != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_kmp_push_track_send_end_of_stream: write failed");
         return NGX_ERROR;

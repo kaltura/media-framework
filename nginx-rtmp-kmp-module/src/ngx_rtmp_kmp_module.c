@@ -1015,6 +1015,7 @@ ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
 
     /* get media type */
     switch (h->type) {
+
     case NGX_RTMP_MSG_VIDEO:
         media_type = KMP_MEDIA_VIDEO;
         break;

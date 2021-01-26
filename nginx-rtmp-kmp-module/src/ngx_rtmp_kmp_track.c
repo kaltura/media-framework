@@ -141,8 +141,7 @@ ngx_rtmp_kmp_track_set_extra_data(ngx_kmp_push_track_t *track,
         track->mem_left -= alloc_size;
     }
 
-    rc = ngx_rtmp_kmp_copy(&track->log, track->extra_data.data, &p, size,
-        &in);
+    rc = ngx_rtmp_kmp_copy(&track->log, track->extra_data.data, &p, size, &in);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_rtmp_kmp_track_set_extra_data: "
