@@ -30,6 +30,7 @@ typedef struct {
     u_char                      remote_addr_buf[NGX_SOCKADDR_STRLEN];
     ngx_msec_t                  idle_timeout;
     ngx_event_t                 idle;
+    unsigned                    error:1;
 } ngx_rtmp_kmp_ctx_t;
 
 

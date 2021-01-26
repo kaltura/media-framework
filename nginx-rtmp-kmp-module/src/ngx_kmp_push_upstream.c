@@ -263,7 +263,8 @@ ngx_kmp_push_upstream_from_json(ngx_pool_t *temp_pool,
     ngx_json_get_object_values(json, ngx_kmp_upstream_json_params, values);
 
     if (ngx_kmp_push_upstream_parse_url(temp_pool,
-        values[NGX_KMP_UPSTREAM_URL], &url) != NGX_OK) {
+        values[NGX_KMP_UPSTREAM_URL], &url) != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
             "ngx_kmp_push_upstream_from_json: parse url failed");
         return NGX_ERROR;

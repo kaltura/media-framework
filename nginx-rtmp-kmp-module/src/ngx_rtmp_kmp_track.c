@@ -127,6 +127,7 @@ ngx_rtmp_kmp_track_set_extra_data(ngx_kmp_push_track_t *track,
             ngx_log_error(NGX_LOG_ERR, &track->log, 0,
                 "ngx_rtmp_kmp_track_set_extra_data: "
                 "memory limit exceeded");
+            ngx_kmp_push_track_set_error_reason(track, "alloc_failed");
             return NGX_ERROR;
         }
 
@@ -134,6 +135,7 @@ ngx_rtmp_kmp_track_set_extra_data(ngx_kmp_push_track_t *track,
         if (track->extra_data.data == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_rtmp_kmp_track_set_extra_data: alloc failed");
+            ngx_kmp_push_track_set_error_reason(track, "alloc_failed");
             return NGX_ERROR;
         }
 
@@ -146,6 +148,7 @@ ngx_rtmp_kmp_track_set_extra_data(ngx_kmp_push_track_t *track,
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_rtmp_kmp_track_set_extra_data: "
             "failed to read extra data");
+        ngx_kmp_push_track_set_error_reason(track, "rtmp_bad_data");
         return NGX_ERROR;
     }
 
@@ -238,7 +241,8 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_push_track_t *track,
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_rtmp_kmp_track_init_frame: failed to read frame info");
-        return rc;
+        ngx_kmp_push_track_set_error_reason(track, "rtmp_bad_data");
+        return NGX_ERROR;
     }
 
     rtmpscale = track->media_info.timescale / NGX_RTMP_TIMESCALE;
@@ -266,7 +270,8 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_push_track_t *track,
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_rtmp_kmp_track_init_frame: failed to read avc header");
-            return rc;
+            ngx_kmp_push_track_set_error_reason(track, "rtmp_bad_data");
+            return NGX_ERROR;
         }
 
         frame->header.data_size -= sizeof(avc_header);
@@ -292,7 +297,8 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_push_track_t *track,
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_rtmp_kmp_track_init_frame: failed to read aac header");
-            return rc;
+            ngx_kmp_push_track_set_error_reason(track, "rtmp_bad_data");
+            return NGX_ERROR;
         }
 
         frame->header.data_size -= sizeof(packet_type);

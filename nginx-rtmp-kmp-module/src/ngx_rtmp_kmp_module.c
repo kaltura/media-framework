@@ -882,13 +882,12 @@ ngx_rtmp_kmp_disconnect(ngx_rtmp_session_t *s)
 
         if (ngx_queue_next(&ctx->queue) != NULL) {
             ngx_queue_remove(&ctx->queue);
+            ctx->queue.next = NULL;
         }
 
         if (ctx->idle.timer_set) {
             ngx_del_timer(&ctx->idle);
         }
-
-        ngx_rtmp_delete_ctx(s, ngx_rtmp_kmp_module);
     }
 
     return next_disconnect(s);
@@ -977,6 +976,8 @@ ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_stream_ctx_t *sctx, char *reason)
 static ngx_int_t
 ngx_rtmp_kmp_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
 {
+    char                       *reason;
+    ngx_rtmp_kmp_ctx_t         *ctx;
     ngx_rtmp_kmp_stream_ctx_t  *sctx;
 
     sctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_kmp_module);
@@ -990,8 +991,19 @@ ngx_rtmp_kmp_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
 
     ngx_memzero(&sctx->publish, sizeof(sctx->publish));
 
-    ngx_rtmp_kmp_detach_tracks(sctx, v->disconnect ? "rtmp_disconnect" :
-        "rtmp_close");
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_kmp_module);
+
+    if (ctx && ctx->error) {
+        reason = "rtmp_kmp_error";
+
+    } else if (v->disconnect) {
+        reason = "rtmp_disconnect";
+
+    } else {
+        reason = "rtmp_close";
+    }
+
+    ngx_rtmp_kmp_detach_tracks(sctx, reason);
 
 next:
     return next_close_stream(s, v);
@@ -1044,6 +1056,7 @@ ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
         if (kacf == NULL) {
             ngx_log_error(NGX_LOG_ALERT, s->connection->log, 0,
                 "ngx_rtmp_kmp_av: failed to get app conf");
+            ctx->error = 1;
             return NGX_ERROR;
         }
 
@@ -1051,6 +1064,7 @@ ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
         if (track == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
                 "ngx_rtmp_kmp_av: failed to create track");
+            ctx->error = 1;
             return NGX_ERROR;
         }
 
@@ -1058,7 +1072,14 @@ ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
     }
 
     /* forward to track */
-    return ngx_rtmp_kmp_track_av(track, h, in);
+    if (ngx_rtmp_kmp_track_av(track, h, in) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+            "ngx_rtmp_kmp_av: track handler failed");
+        ctx->error = 1;
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
 }
 
 static ngx_int_t
