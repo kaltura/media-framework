@@ -34,13 +34,14 @@ typedef struct {
     uint16_t channels;
     uint16_t bits_per_sample;
     uint32_t sample_rate;
-    uint32_t padding;
+    uint64_t channel_layout;
 } kmp_audio_media_info_t;
 
 typedef struct {
     uint16_t width;
     uint16_t height;
     kmp_rational_t frame_rate;        // currently rounded by nginx-rtmp, will need a patch to avoid it
+    uint32_t cea_captions;
 } kmp_video_media_info_t;
 
 typedef struct {
@@ -113,6 +114,7 @@ typedef struct {
     kmp_packet_header_t header;
     uint64_t frame_id;
     uint32_t offset;
+    uint32_t padding;
 } kmp_ack_frames_packet_t;
 
 #endif /* _LIVE_PROTOCOL_H_INCLUDED_ */
