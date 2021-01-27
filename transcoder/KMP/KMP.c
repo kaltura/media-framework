@@ -364,6 +364,8 @@ int KMP_send_ack( KMP_session_t *context,uint64_t frame_id)
     pkt.header.reserved=0;
     pkt.header.header_size=sizeof(kmp_ack_frames_packet_t);
     pkt.frame_id=frame_id;
+    pkt.offset=0;
+    pkt.padding=0;
     _S(KMP_send(context, &pkt, sizeof(kmp_ack_frames_packet_t)));
     return 0;
 }
@@ -377,6 +379,8 @@ int KMP_send_handshake( KMP_session_t *context,const char* channel_id,const char
     connect.header.data_size=0;
     connect.header.reserved=0;
     connect.initial_frame_id=initial_frame_id;
+    connect.initial_offset=0;
+    connect.padding=0;
     strcpy((char*)connect.channel_id,channel_id);
     strcpy((char*)connect.track_id,track_id);
     _S(KMP_send(context, &connect, sizeof(connect)));
