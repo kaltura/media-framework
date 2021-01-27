@@ -151,6 +151,7 @@ typedef struct {
 
 typedef struct {
     ngx_live_store_t                  *store;
+    ngx_flag_t                         write;
 
     ngx_live_persist_file_conf_t       files[NGX_LIVE_PERSIST_FILE_COUNT];
     ngx_int_t                          comp_level;
@@ -198,6 +199,13 @@ static ngx_conf_num_bounds_t  ngx_live_persist_comp_level_bounds = {
 
 
 static ngx_command_t  ngx_live_persist_commands[] = {
+    { ngx_string("persist_write"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_persist_preset_conf_t, write),
+      NULL },
+
     { ngx_string("persist_setup_path"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_live_set_complex_value_slot,
@@ -237,7 +245,7 @@ static ngx_command_t  ngx_live_persist_commands[] = {
         files[NGX_LIVE_PERSIST_FILE_DELTA].path),
       NULL },
 
-    { ngx_string("gzip_comp_level"),
+    { ngx_string("persist_comp_level"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
@@ -1644,7 +1652,10 @@ ngx_live_persist_snap_create(ngx_live_channel_t *channel)
     ngx_live_persist_preset_conf_t  *ppcf;
 
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
-    if (ppcf->files[NGX_LIVE_PERSIST_FILE_INDEX].path != NULL) {
+    if (!ppcf->write) {
+        snap = NULL;
+
+    } else if (ppcf->files[NGX_LIVE_PERSIST_FILE_INDEX].path != NULL) {
         snap = ngx_live_persist_snap_index_create(channel);
 
     } else if (ngx_live_dvr_enabled(channel)) {
@@ -2002,7 +2013,7 @@ ngx_live_persist_channel_init(ngx_live_channel_t *channel, void *ectx)
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
 
     if (ppcf->files[NGX_LIVE_PERSIST_FILE_SETUP].path != NULL &&
-        ppcf->store != NULL)
+        ppcf->store != NULL && ppcf->write)
     {
         cctx->setup.enabled = 1;
 
@@ -2260,9 +2271,10 @@ ngx_live_persist_create_preset_conf(ngx_conf_t *cf)
     }
 
     conf->store = NGX_CONF_UNSET_PTR;
+    conf->write = NGX_CONF_UNSET;
+    conf->comp_level = NGX_CONF_UNSET;
     conf->setup_timeout = NGX_CONF_UNSET_MSEC;
     conf->max_delta_segments = NGX_CONF_UNSET_UINT;
-    conf->comp_level = NGX_CONF_UNSET;
     for (i = 0; i < NGX_LIVE_PERSIST_FILE_COUNT; i++) {
         conf->files[i].max_size = NGX_CONF_UNSET_SIZE;
     }
@@ -2278,6 +2290,8 @@ ngx_live_persist_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_live_persist_preset_conf_t  *conf = child;
 
     ngx_conf_merge_ptr_value(conf->store, prev->store, NULL);
+
+    ngx_conf_merge_value(conf->write, prev->write, 1);
 
     for (i = 0; i < NGX_LIVE_PERSIST_FILE_COUNT; i++) {
         if (conf->files[i].path == NULL) {
