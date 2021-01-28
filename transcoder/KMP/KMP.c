@@ -183,7 +183,7 @@ int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo 
         media_info.u.video.height=codecpar->height;
         media_info.u.video.frame_rate.denom=mediaInfo->frameRate.den;
         media_info.u.video.frame_rate.num=mediaInfo->frameRate.num;
-        media_info.u.video.cea_captions=0;		// TODO: copy from input
+        media_info.u.video.cea_captions=mediaInfo->closed_captions;
     }
     if (codecpar->codec_type==AVMEDIA_TYPE_AUDIO)
     {
@@ -640,6 +640,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
         params->height=mediaInfo.u.video.height;
         transcodeMediaInfo->frameRate.den=mediaInfo.u.video.frame_rate.denom;
         transcodeMediaInfo->frameRate.num=mediaInfo.u.video.frame_rate.num;
+        transcodeMediaInfo->closed_captions = mediaInfo.u.video.cea_captions;
         set_video_codec(mediaInfo.codec_id,params);
     }
     transcodeMediaInfo->timeScale.den=mediaInfo.timescale;

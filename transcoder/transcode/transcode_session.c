@@ -277,6 +277,8 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
         extra.frameRate=pEncoderContext->ctx->framerate;
         extra.timeScale=pEncoderContext->ctx->time_base;
         extra.codecParams=avcodec_parameters_alloc();
+        //TODO: how do we know encoder supports captions?
+        extra.closed_captions = pContext->currentMediaInfo->closed_captions;
         avcodec_parameters_from_context(extra.codecParams,pEncoderContext->ctx);
         _S(transcode_session_output_set_media_info(pOutput,&extra,pContext->input_frame_first_id));
     } else
