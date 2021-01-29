@@ -178,3 +178,27 @@ ngx_live_persist_read_skip_block_header(ngx_mem_rstream_t *rs,
 
     return NGX_OK;
 }
+
+ngx_int_t
+ngx_live_persist_read_channel_id(ngx_live_channel_t *channel,
+    ngx_mem_rstream_t *rs)
+{
+    ngx_str_t  id;
+
+    if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_read_channel_id: read id failed");
+        return NGX_BAD_DATA;
+    }
+
+    if (id.len != channel->sn.str.len ||
+        ngx_memcmp(id.data, channel->sn.str.data, id.len) != 0)
+    {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_read_channel_id: "
+            "channel id \"%V\" mismatch", &id);
+        return NGX_BAD_DATA;
+    }
+
+    return NGX_OK;
+}

@@ -91,6 +91,8 @@ LIVE_CORE_MODULES="                                           \
     ngx_live_store_http_module                                \
     ngx_live_store_s3_module                                  \
     ngx_live_persist_module                                   \
+    ngx_live_persist_setup_module                             \
+    ngx_live_persist_index_module                             \
     "
 
 LIVE_STREAM_MODULES="                                         \
@@ -190,7 +192,10 @@ LIVE_CORE_SRCS="                                              \
     $ngx_addon_dir/src/ngx_live_variables.c                   \
     $ngx_addon_dir/src/dvr/ngx_live_dvr.c                     \
     $ngx_addon_dir/src/dvr/ngx_live_persist.c                 \
+    $ngx_addon_dir/src/dvr/ngx_live_persist_index.c           \
     $ngx_addon_dir/src/dvr/ngx_live_persist_read.c            \
+    $ngx_addon_dir/src/dvr/ngx_live_persist_setup.c           \
+    $ngx_addon_dir/src/dvr/ngx_live_persist_snap_frames.c     \
     $ngx_addon_dir/src/dvr/ngx_live_persist_write.c           \
     $ngx_addon_dir/src/dvr/ngx_live_store_http.c              \
     $ngx_addon_dir/src/dvr/ngx_live_store_s3.c                \
@@ -237,7 +242,12 @@ LIVE_DEPS="$LIVE_DEPS                                         \
     $ngx_addon_dir/src/dvr/ngx_live_dvr.h                     \
     $ngx_addon_dir/src/dvr/ngx_live_persist.h                 \
     $ngx_addon_dir/src/dvr/ngx_live_persist_format.h          \
+    $ngx_addon_dir/src/dvr/ngx_live_persist_index.h           \
+    $ngx_addon_dir/src/dvr/ngx_live_persist_internal.h        \
+    $ngx_addon_dir/src/dvr/ngx_live_persist_json.h            \
     $ngx_addon_dir/src/dvr/ngx_live_persist_read.h            \
+    $ngx_addon_dir/src/dvr/ngx_live_persist_setup.h           \
+    $ngx_addon_dir/src/dvr/ngx_live_persist_snap_frames.h     \
     $ngx_addon_dir/src/dvr/ngx_live_persist_write.h           \
     $ngx_addon_dir/src/dvr/ngx_live_store.h                   \
     $ngx_addon_dir/src/dvr/ngx_live_store_http.h              \

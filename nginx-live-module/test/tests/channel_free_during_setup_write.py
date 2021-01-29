@@ -22,7 +22,7 @@ def test(channelId=CHANNEL_ID):
 
         time.sleep(.1)
 
-    logTracker.assertContains('ngx_live_persist_channel_free: cancelling setup write')
+    logTracker.assertContains('ngx_live_persist_setup_channel_free: cancelling write')
 
     cleanupStack.reset()
     time.sleep(1)
