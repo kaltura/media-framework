@@ -6,49 +6,7 @@
 
 
 static size_t
-ngx_live_persist_setup_json_get_size(ngx_live_persist_channel_ctx_t *obj)
-{
-    size_t  result =
-        sizeof("{\"version\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"pending\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"error\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"success\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"success_msec\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"success_size\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"success_version\":") - 1 + NGX_INT32_LEN +
-        sizeof("}") - 1;
-
-    return result;
-}
-
-static u_char *
-ngx_live_persist_setup_json_write(u_char *p, ngx_live_persist_channel_ctx_t
-    *obj)
-{
-    ngx_live_persist_file_stats_t *stats =
-        &obj->stats[NGX_LIVE_PERSIST_FILE_SETUP];
-    p = ngx_copy_fix(p, "{\"version\":");
-    p = ngx_sprintf(p, "%uD", (uint32_t) obj->setup.version);
-    p = ngx_copy_fix(p, ",\"pending\":");
-    p = ngx_sprintf(p, "%uD", (uint32_t) (stats->started - stats->error -
-        stats->success));
-    p = ngx_copy_fix(p, ",\"error\":");
-    p = ngx_sprintf(p, "%uD", (uint32_t) stats->error);
-    p = ngx_copy_fix(p, ",\"success\":");
-    p = ngx_sprintf(p, "%uD", (uint32_t) stats->success);
-    p = ngx_copy_fix(p, ",\"success_msec\":");
-    p = ngx_sprintf(p, "%uL", (uint64_t) stats->success_msec);
-    p = ngx_copy_fix(p, ",\"success_size\":");
-    p = ngx_sprintf(p, "%uL", (uint64_t) stats->success_size);
-    p = ngx_copy_fix(p, ",\"success_version\":");
-    p = ngx_sprintf(p, "%uD", (uint32_t) obj->setup.success_version);
-    *p++ = '}';
-
-    return p;
-}
-
-static size_t
-ngx_live_persist_index_json_get_size(ngx_live_persist_channel_ctx_t *obj)
+ngx_live_persist_setup_obj_json_get_size(ngx_live_channel_t *obj)
 {
     size_t  result =
         sizeof("{\"pending\":") - 1 + NGX_INT32_LEN +
@@ -56,18 +14,20 @@ ngx_live_persist_index_json_get_size(ngx_live_persist_channel_ctx_t *obj)
         sizeof(",\"success\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"success_msec\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"success_size\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"success_index\":") - 1 + NGX_INT32_LEN +
+        sizeof(",") - 1 + ngx_live_persist_setup_json_get_size(obj) +
         sizeof("}") - 1;
 
     return result;
 }
 
 static u_char *
-ngx_live_persist_index_json_write(u_char *p, ngx_live_persist_channel_ctx_t
-    *obj)
+ngx_live_persist_setup_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 {
+    ngx_live_persist_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
+        ngx_live_persist_module);
     ngx_live_persist_file_stats_t *stats =
-        &obj->stats[NGX_LIVE_PERSIST_FILE_INDEX];
+        &cctx->stats[NGX_LIVE_PERSIST_FILE_SETUP];
+    u_char  *next;
     p = ngx_copy_fix(p, "{\"pending\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) (stats->started - stats->error -
         stats->success));
@@ -79,15 +39,16 @@ ngx_live_persist_index_json_write(u_char *p, ngx_live_persist_channel_ctx_t
     p = ngx_sprintf(p, "%uL", (uint64_t) stats->success_msec);
     p = ngx_copy_fix(p, ",\"success_size\":");
     p = ngx_sprintf(p, "%uL", (uint64_t) stats->success_size);
-    p = ngx_copy_fix(p, ",\"success_index\":");
-    p = ngx_sprintf(p, "%uD", (uint32_t) obj->index.success_index);
+    *p++ = ',';
+    next = ngx_live_persist_setup_json_write(p, obj);
+    p = next == p ? p - 1 : next;
     *p++ = '}';
 
     return p;
 }
 
 static size_t
-ngx_live_persist_delta_json_get_size(ngx_live_persist_channel_ctx_t *obj)
+ngx_live_persist_index_obj_json_get_size(ngx_live_channel_t *obj)
 {
     size_t  result =
         sizeof("{\"pending\":") - 1 + NGX_INT32_LEN +
@@ -95,18 +56,20 @@ ngx_live_persist_delta_json_get_size(ngx_live_persist_channel_ctx_t *obj)
         sizeof(",\"success\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"success_msec\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"success_size\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"success_index\":") - 1 + NGX_INT32_LEN +
+        sizeof(",") - 1 + ngx_live_persist_index_json_get_size(obj) +
         sizeof("}") - 1;
 
     return result;
 }
 
 static u_char *
-ngx_live_persist_delta_json_write(u_char *p, ngx_live_persist_channel_ctx_t
-    *obj)
+ngx_live_persist_index_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 {
+    ngx_live_persist_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
+        ngx_live_persist_module);
     ngx_live_persist_file_stats_t *stats =
-        &obj->stats[NGX_LIVE_PERSIST_FILE_DELTA];
+        &cctx->stats[NGX_LIVE_PERSIST_FILE_INDEX];
+    u_char  *next;
     p = ngx_copy_fix(p, "{\"pending\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) (stats->started - stats->error -
         stats->success));
@@ -118,8 +81,51 @@ ngx_live_persist_delta_json_write(u_char *p, ngx_live_persist_channel_ctx_t
     p = ngx_sprintf(p, "%uL", (uint64_t) stats->success_msec);
     p = ngx_copy_fix(p, ",\"success_size\":");
     p = ngx_sprintf(p, "%uL", (uint64_t) stats->success_size);
-    p = ngx_copy_fix(p, ",\"success_index\":");
-    p = ngx_sprintf(p, "%uD", (uint32_t) obj->index.success_delta);
+    *p++ = ',';
+    next = ngx_live_persist_index_json_write(p, obj);
+    p = next == p ? p - 1 : next;
+    *p++ = '}';
+
+    return p;
+}
+
+static size_t
+ngx_live_persist_delta_obj_json_get_size(ngx_live_channel_t *obj)
+{
+    size_t  result =
+        sizeof("{\"pending\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"error\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"success\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"success_msec\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"success_size\":") - 1 + NGX_INT64_LEN +
+        sizeof(",") - 1 + ngx_live_persist_delta_json_get_size(obj) +
+        sizeof("}") - 1;
+
+    return result;
+}
+
+static u_char *
+ngx_live_persist_delta_obj_json_write(u_char *p, ngx_live_channel_t *obj)
+{
+    ngx_live_persist_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
+        ngx_live_persist_module);
+    ngx_live_persist_file_stats_t *stats =
+        &cctx->stats[NGX_LIVE_PERSIST_FILE_DELTA];
+    u_char  *next;
+    p = ngx_copy_fix(p, "{\"pending\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) (stats->started - stats->error -
+        stats->success));
+    p = ngx_copy_fix(p, ",\"error\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) stats->error);
+    p = ngx_copy_fix(p, ",\"success\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) stats->success);
+    p = ngx_copy_fix(p, ",\"success_msec\":");
+    p = ngx_sprintf(p, "%uL", (uint64_t) stats->success_msec);
+    p = ngx_copy_fix(p, ",\"success_size\":");
+    p = ngx_sprintf(p, "%uL", (uint64_t) stats->success_size);
+    *p++ = ',';
+    next = ngx_live_persist_delta_json_write(p, obj);
+    p = next == p ? p - 1 : next;
     *p++ = '}';
 
     return p;
@@ -128,16 +134,13 @@ ngx_live_persist_delta_json_write(u_char *p, ngx_live_persist_channel_ctx_t
 static size_t
 ngx_live_persist_channel_json_get_size(void *obj)
 {
-    ngx_live_persist_channel_ctx_t *cctx =
-        ngx_live_get_module_ctx((ngx_live_channel_t *) obj,
-        ngx_live_persist_module);
     size_t  result =
         sizeof("\"persist\":{\"setup\":") - 1 +
-            ngx_live_persist_setup_json_get_size(cctx) +
-        sizeof(",\"index\":") - 1 + ngx_live_persist_index_json_get_size(cctx)
-            +
-        sizeof(",\"delta\":") - 1 + ngx_live_persist_delta_json_get_size(cctx)
-            +
+            ngx_live_persist_setup_obj_json_get_size(obj) +
+        sizeof(",\"index\":") - 1 +
+            ngx_live_persist_index_obj_json_get_size(obj) +
+        sizeof(",\"delta\":") - 1 +
+            ngx_live_persist_delta_obj_json_get_size(obj) +
         sizeof("}") - 1;
 
     return result;
@@ -146,15 +149,12 @@ ngx_live_persist_channel_json_get_size(void *obj)
 static u_char *
 ngx_live_persist_channel_json_write(u_char *p, void *obj)
 {
-    ngx_live_persist_channel_ctx_t *cctx =
-        ngx_live_get_module_ctx((ngx_live_channel_t *) obj,
-        ngx_live_persist_module);
     p = ngx_copy_fix(p, "\"persist\":{\"setup\":");
-    p = ngx_live_persist_setup_json_write(p, cctx);
+    p = ngx_live_persist_setup_obj_json_write(p, obj);
     p = ngx_copy_fix(p, ",\"index\":");
-    p = ngx_live_persist_index_json_write(p, cctx);
+    p = ngx_live_persist_index_obj_json_write(p, obj);
     p = ngx_copy_fix(p, ",\"delta\":");
-    p = ngx_live_persist_delta_json_write(p, cctx);
+    p = ngx_live_persist_delta_obj_json_write(p, obj);
     *p++ = '}';
 
     return p;

@@ -78,6 +78,7 @@ typedef struct {
 typedef void (*ngx_live_persist_read_handler_pt)(void *arg, ngx_int_t rc);
 
 
+/* TODO: remove these functions after blending dvr with persist */
 ngx_live_store_t *ngx_live_persist_get_store(ngx_live_channel_t *channel);
 
 char *ngx_live_persist_set_store(ngx_conf_t *cf, ngx_live_store_t *store);
