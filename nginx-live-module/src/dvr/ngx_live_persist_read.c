@@ -83,7 +83,7 @@ ngx_live_persist_read_inflate(ngx_live_persist_file_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    if (header->uncomp_size > max_size) {
+    if (max_size && header->uncomp_size > max_size) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_read_inflate: "
             "uncompressed size %uD exceeds limit %uz",

@@ -42,7 +42,7 @@ def updateConf(conf):
 
     if DISABLE_DVR:
         block = getConfBlock(conf, ['live'])
-        for key in ['dvr_path', 'persist_setup_path', 'persist_index_path', 'persist_delta_path']:
+        for key in ['persist_media_path', 'persist_setup_path', 'persist_index_path', 'persist_delta_path']:
             delConfParam(block, key)
 
     if BLOCKING_SEGMENT_REQUEST:

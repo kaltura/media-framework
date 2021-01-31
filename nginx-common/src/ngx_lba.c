@@ -18,11 +18,6 @@
 #define NGX_LBA_BLOCK_SIZE        (512 * 1024)
 
 
-/* Note: NGX_LBA_SKIP makes the module proxy to ngx_alloc/ngx_free. */
-
-#define NGX_LBA_SKIP  0
-
-
 typedef struct {
     ngx_queue_t              queue;
     ngx_uint_t               bin_index;
@@ -51,6 +46,8 @@ struct ngx_lba_s {
     ngx_lba_block_bin_t      bins[1];
 };
 
+
+/* Note: NGX_LBA_SKIP makes the module proxy to ngx_alloc/ngx_free. */
 
 #if !(NGX_LBA_SKIP)
 

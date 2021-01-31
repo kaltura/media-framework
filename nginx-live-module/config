@@ -87,12 +87,12 @@ LIVE_CORE_MODULES="                                           \
     ngx_live_filler_module                                    \
     ngx_live_map_module                                       \
     ngx_live_dynamic_var_module                               \
-    ngx_live_dvr_module                                       \
     ngx_live_store_http_module                                \
     ngx_live_store_s3_module                                  \
     ngx_live_persist_module                                   \
     ngx_live_persist_setup_module                             \
     ngx_live_persist_index_module                             \
+    ngx_live_persist_media_module                             \
     "
 
 LIVE_STREAM_MODULES="                                         \
@@ -190,9 +190,9 @@ LIVE_CORE_SRCS="                                              \
     $ngx_addon_dir/src/ngx_live_syncer.c                      \
     $ngx_addon_dir/src/ngx_live_timeline.c                    \
     $ngx_addon_dir/src/ngx_live_variables.c                   \
-    $ngx_addon_dir/src/dvr/ngx_live_dvr.c                     \
     $ngx_addon_dir/src/dvr/ngx_live_persist.c                 \
     $ngx_addon_dir/src/dvr/ngx_live_persist_index.c           \
+    $ngx_addon_dir/src/dvr/ngx_live_persist_media.c           \
     $ngx_addon_dir/src/dvr/ngx_live_persist_read.c            \
     $ngx_addon_dir/src/dvr/ngx_live_persist_setup.c           \
     $ngx_addon_dir/src/dvr/ngx_live_persist_snap_frames.c     \
@@ -239,12 +239,12 @@ LIVE_DEPS="$LIVE_DEPS                                         \
     $ngx_addon_dir/src/ngx_live_timeline.h                    \
     $ngx_addon_dir/src/ngx_live_timeline_json.h               \
     $ngx_addon_dir/src/ngx_live_variables.h                   \
-    $ngx_addon_dir/src/dvr/ngx_live_dvr.h                     \
     $ngx_addon_dir/src/dvr/ngx_live_persist.h                 \
     $ngx_addon_dir/src/dvr/ngx_live_persist_format.h          \
     $ngx_addon_dir/src/dvr/ngx_live_persist_index.h           \
     $ngx_addon_dir/src/dvr/ngx_live_persist_internal.h        \
     $ngx_addon_dir/src/dvr/ngx_live_persist_json.h            \
+    $ngx_addon_dir/src/dvr/ngx_live_persist_media.h           \
     $ngx_addon_dir/src/dvr/ngx_live_persist_read.h            \
     $ngx_addon_dir/src/dvr/ngx_live_persist_setup.h           \
     $ngx_addon_dir/src/dvr/ngx_live_persist_snap_frames.h     \

@@ -30,7 +30,7 @@ def test(channelId=CHANNEL_ID):
         except socket.error:
             pass
 
-        if logTracker.contains('ngx_live_dvr_write_cancel: cancelling write request'):
+        if logTracker.contains('ngx_live_persist_media_write_cancel: cancelling write request'):
             break
 
     time.sleep(1)

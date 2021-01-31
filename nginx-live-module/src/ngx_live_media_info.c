@@ -1,7 +1,8 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include "ngx_live_media_info.h"
 #include "ngx_live.h"
+#include "ngx_live_media_info.h"
+#include "ngx_live_segment_cache.h"
 #include "media/mp4/mp4_defs.h"
 
 #include "ngx_live_media_info_json.h"
@@ -1837,6 +1838,24 @@ ngx_live_media_info_read_index(ngx_live_persist_block_header_t *block,
 }
 
 
+static ngx_int_t
+ngx_live_media_info_write_media_segment(
+    ngx_live_persist_write_ctx_t *write_ctx, void *obj)
+{
+    ngx_live_segment_t             *segment;
+    ngx_live_media_info_persist_t   mp;
+
+    segment = obj;
+
+    mp.track_id = segment->track->in.key;
+    mp.start_segment_index = segment->node.key;
+
+    return ngx_live_media_info_write(write_ctx, &mp, segment->kmp_media_info,
+        &segment->media_info->extra_data);
+}
+
+
+
 static ngx_live_persist_block_t  ngx_live_media_info_blocks[] = {
     { NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_TRACK, 0,
       ngx_live_media_info_write_setup,
@@ -1851,6 +1870,11 @@ static ngx_live_persist_block_t  ngx_live_media_info_blocks[] = {
       NGX_LIVE_PERSIST_CTX_INDEX_TRACK, 0,
       ngx_live_media_info_write_index_source,
       ngx_live_media_info_read_index_source },
+
+    { NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO,
+      NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER, 0,
+      ngx_live_media_info_write_media_segment,
+      NULL },
 
     ngx_live_null_persist_block
 };

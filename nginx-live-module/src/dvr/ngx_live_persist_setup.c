@@ -125,6 +125,7 @@ ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
 {
     ngx_int_t                              rc;
     ngx_live_channel_t                    *channel = obj;
+    ngx_live_persist_main_conf_t          *pmcf;
     ngx_live_persist_setup_channel_t      *cp;
     ngx_live_persist_setup_channel_ctx_t  *cctx;
 
@@ -166,7 +167,9 @@ ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
     }
 
 
-    rc = ngx_live_persist_read_blocks(channel,
+    pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
+
+    rc = ngx_live_persist_read_blocks(pmcf,
         NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, rs, channel);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -234,6 +237,7 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
     ngx_str_t                        id;
     ngx_live_track_t                *track;
     ngx_live_channel_t              *channel = obj;
+    ngx_live_persist_main_conf_t    *pmcf;
     ngx_live_persist_setup_track_t  *tp;
 
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
@@ -277,7 +281,9 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
     }
 
 
-    rc = ngx_live_persist_read_blocks(channel,
+    pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
+
+    rc = ngx_live_persist_read_blocks(pmcf,
         NGX_LIVE_PERSIST_CTX_SETUP_TRACK, rs, track);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -445,13 +451,15 @@ ngx_live_persist_setup_read_variant(ngx_live_persist_block_header_t *header,
 
 
 void
-ngx_live_persist_setup_write_complete(ngx_live_channel_t *channel,
-    ngx_uint_t file, void *data, ngx_int_t rc)
+ngx_live_persist_setup_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
+    ngx_int_t rc)
 {
     uint32_t                               version;
+    ngx_live_channel_t                    *channel;
     ngx_live_persist_setup_channel_ctx_t  *cctx;
 
-    version = *(uint32_t *) data;
+    channel = ctx->channel;
+    version = *(uint32_t *) ctx->scope;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_setup_module);
 
@@ -473,6 +481,8 @@ ngx_live_persist_setup_write_complete(ngx_live_channel_t *channel,
     if (version != cctx->version) {
         ngx_add_timer(&cctx->timer, 1);
     }
+
+    ngx_live_persist_write_file_destroy(ctx);
 }
 
 static void
@@ -600,9 +610,7 @@ ngx_live_persist_setup_channel_init(ngx_live_channel_t *channel, void *ectx)
 
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
 
-    if (ppcf->files[NGX_LIVE_PERSIST_FILE_SETUP].path != NULL &&
-        ppcf->store != NULL && ppcf->write)
-    {
+    if (ppcf->files[NGX_LIVE_PERSIST_FILE_SETUP].path != NULL && ppcf->write) {
         cctx->enabled = 1;
 
         cctx->timer.handler = ngx_live_persist_setup_write_handler;
@@ -624,7 +632,7 @@ ngx_live_persist_setup_channel_free(ngx_live_channel_t *channel, void *ectx)
 
     ctx = cctx->write_ctx;
     if (ctx != NULL) {
-        version = ngx_live_persist_write_file_scope(ctx);
+        version = (void *) ctx->scope;
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_setup_channel_free: "
             "cancelling write, version: %uD", *version);

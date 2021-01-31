@@ -1,34 +1,36 @@
+static noobject ngx_live_persist_base_obj_json ngx_live_persist_file_stats_t
+    pending %uD (obj->started - obj->error - obj->success)
+    error %uD
+    success %uD
+    success_msec %uL
+    success_size %uL
+
 static ngx_live_persist_setup_obj_json ngx_live_channel_t
-    - %writeCode ngx_live_persist_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_module);
-    - %writeCode ngx_live_persist_file_stats_t *stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_SETUP];
-    pending %uD (stats->started - stats->error - stats->success)
-    error %uD stats->
-    success %uD stats->
-    success_msec %uL stats->
-    success_size %uL stats->
+    - %code ngx_live_persist_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_module);
+    - %code ngx_live_persist_file_stats_t *stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_SETUP];
+    - %func-ngx_live_persist_base_obj_json stats
     - %func-ngx_live_persist_setup_json obj
 
 static ngx_live_persist_index_obj_json ngx_live_channel_t
-    - %writeCode ngx_live_persist_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_module);
-    - %writeCode ngx_live_persist_file_stats_t *stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_INDEX];
-    pending %uD (stats->started - stats->error - stats->success)
-    error %uD stats->
-    success %uD stats->
-    success_msec %uL stats->
-    success_size %uL stats->
+    - %code ngx_live_persist_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_module);
+    - %code ngx_live_persist_file_stats_t *stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_INDEX];
+    - %func-ngx_live_persist_base_obj_json stats
     - %func-ngx_live_persist_index_json obj
 
 static ngx_live_persist_delta_obj_json ngx_live_channel_t
-    - %writeCode ngx_live_persist_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_module);
-    - %writeCode ngx_live_persist_file_stats_t *stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_DELTA];
-    pending %uD (stats->started - stats->error - stats->success)
-    error %uD stats->
-    success %uD stats->
-    success_msec %uL stats->
-    success_size %uL stats->
+    - %code ngx_live_persist_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_module);
+    - %code ngx_live_persist_file_stats_t *stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_DELTA];
+    - %func-ngx_live_persist_base_obj_json stats
     - %func-ngx_live_persist_delta_json obj
+
+static ngx_live_persist_media_obj_json ngx_live_channel_t
+    - %code ngx_live_persist_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_module);
+    - %code ngx_live_persist_file_stats_t *stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_MEDIA];
+    - %func-ngx_live_persist_base_obj_json stats
+    - %func-ngx_live_persist_media_json obj
 
 static key(persist) ngx_live_persist_channel_json void
     setup %func-ngx_live_persist_setup_obj_json obj
     index %func-ngx_live_persist_index_obj_json obj
     delta %func-ngx_live_persist_delta_obj_json obj
+    media %func-ngx_live_persist_media_obj_json obj

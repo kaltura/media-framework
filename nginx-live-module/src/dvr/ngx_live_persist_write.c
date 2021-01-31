@@ -382,6 +382,12 @@ ngx_live_persist_write_init(ngx_pool_t *pool, uint32_t type, int comp_level)
     return ctx;
 }
 
+ngx_pool_t *
+ngx_live_persist_write_pool(ngx_live_persist_write_ctx_t *ctx)
+{
+    return ctx->pool;
+}
+
 size_t
 ngx_live_persist_write_get_size(ngx_live_persist_write_ctx_t *ctx)
 {

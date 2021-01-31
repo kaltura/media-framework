@@ -34,6 +34,8 @@ ngx_chain_t *ngx_live_persist_write_close(ngx_live_persist_write_ctx_t *ctx,
 ngx_int_t ngx_live_persist_write_chain(ngx_live_persist_write_ctx_t *ctx1,
     ngx_live_persist_write_ctx_t *ctx2);
 
+ngx_pool_t *ngx_live_persist_write_pool(ngx_live_persist_write_ctx_t *ctx);
+
 size_t ngx_live_persist_write_get_size(ngx_live_persist_write_ctx_t *ctx);
 
 

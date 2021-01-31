@@ -4,9 +4,9 @@
 #include "../ngx_live_timeline.h"
 #include "ngx_live_persist_internal.h"
 #include "ngx_live_persist_index.h"
+#include "ngx_live_persist_media.h"
 #include "ngx_live_persist_setup.h"
 #include "ngx_live_persist_snap_frames.h"
-#include "ngx_live_dvr.h"
 
 
 #define NGX_HTTP_CONFLICT                  409
@@ -32,13 +32,6 @@ static void ngx_live_persist_read_handler(void *data, ngx_int_t rc,
     ngx_buf_t *response);
 
 
-typedef struct {
-    ngx_hash_t                         hash;
-    ngx_array_t                        arr;
-    ngx_hash_keys_arrays_t            *keys;
-} ngx_live_persist_block_ctx_t;
-
-
 /* files */
 
 typedef struct {
@@ -47,8 +40,8 @@ typedef struct {
     ngx_flag_t                         compress;
 
     void                             (*write_handler)(
-        ngx_live_channel_t *channel, ngx_uint_t file, void *scope,
-        ngx_int_t rc);
+        ngx_live_persist_write_file_ctx_t *ctx, ngx_int_t rc);
+
     ngx_int_t                        (*read_handler)(
         ngx_live_channel_t *channel, ngx_uint_t file, ngx_str_t *buf,
         uint32_t *min_index);
@@ -61,16 +54,6 @@ typedef struct {
     uint64_t                           success_msec;
     uint64_t                           success_size;
 } ngx_live_persist_file_stats_t;
-
-struct ngx_live_persist_write_file_ctx_s {
-    ngx_pool_t                        *pool;
-    ngx_live_channel_t                *channel;
-
-    ngx_uint_t                         file;
-    size_t                             size;
-    ngx_msec_t                         start;
-    u_char                             scope[1];    /* must be last */
-};
 
 typedef struct {
     ngx_live_channel_t                *channel;
@@ -86,8 +69,14 @@ typedef struct {
 /* conf */
 
 typedef struct {
+    ngx_hash_t                         hash;
+    ngx_array_t                        arr;
+    ngx_hash_keys_arrays_t            *keys;
+} ngx_live_persist_block_ctx_t;
+
+struct ngx_live_persist_main_conf_s {
     ngx_live_persist_block_ctx_t       blocks[NGX_LIVE_PERSIST_CTX_COUNT];
-} ngx_live_persist_main_conf_t;
+};
 
 
 /* channel ctx */
@@ -143,6 +132,14 @@ static ngx_command_t  ngx_live_persist_commands[] = {
         files[NGX_LIVE_PERSIST_FILE_DELTA].path),
       NULL },
 
+    { ngx_string("persist_media_path"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_live_set_complex_value_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_persist_preset_conf_t,
+        files[NGX_LIVE_PERSIST_FILE_MEDIA].path),
+      NULL },
+
     { ngx_string("persist_comp_level"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
@@ -194,6 +191,10 @@ static ngx_live_persist_file_t  ngx_live_persist_files[] = {
     { NGX_LIVE_PERSIST_TYPE_INDEX, NGX_LIVE_PERSIST_CTX_INDEX_MAIN, 1,
         ngx_live_persist_index_write_complete,
         ngx_live_persist_index_read_handler },
+
+    { NGX_LIVE_PERSIST_TYPE_MEDIA, NGX_LIVE_PERSIST_CTX_MEDIA_MAIN, 0,
+        ngx_live_persist_media_write_complete,
+        NULL },
 };
 
 
@@ -252,18 +253,15 @@ ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
 }
 
 ngx_int_t
-ngx_live_persist_read_blocks(ngx_live_channel_t *channel, ngx_uint_t ctx,
-    ngx_mem_rstream_t *rs, void *obj)
+ngx_live_persist_read_blocks(ngx_live_persist_main_conf_t *pmcf,
+    ngx_uint_t ctx, ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_hash_t                       *hash;
     ngx_int_t                         rc;
     ngx_uint_t                        key;
     ngx_mem_rstream_t                 block_rs;
     ngx_live_persist_block_t         *block;
-    ngx_live_persist_main_conf_t     *pmcf;
     ngx_live_persist_block_header_t  *header;
-
-    pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
 
     hash = &pmcf->blocks[ctx].hash;
 
@@ -322,10 +320,7 @@ ngx_live_persist_write_file_complete(void *arg, ngx_int_t rc)
         stats->success_size += ctx->size;
     }
 
-    ngx_live_persist_files[ctx->file].write_handler(channel, ctx->file,
-        ctx->scope, rc);
-
-    ngx_live_persist_write_file_destroy(ctx);
+    ngx_live_persist_files[ctx->file].write_handler(ctx, rc);
 }
 
 ngx_live_persist_write_file_ctx_t *
@@ -397,7 +392,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
     }
 
     size = ngx_live_persist_write_get_size(write_ctx);
-    if (size > ppcf->files[file].max_size) {
+    if (ppcf->files[file].max_size && size > ppcf->files[file].max_size) {
         ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
             "ngx_live_persist_write_file: size %uz exceeds limit %uz",
             size, ppcf->files[file].max_size);
@@ -444,10 +439,15 @@ failed:
     return NULL;
 }
 
-void *
-ngx_live_persist_write_file_scope(ngx_live_persist_write_file_ctx_t *ctx)
+void
+ngx_live_persist_write_error(ngx_live_channel_t *channel, ngx_uint_t file)
 {
-    return ctx->scope;
+    ngx_live_persist_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
+
+    cctx->stats[file].started++;
+    cctx->stats[file].error++;
 }
 
 
@@ -459,6 +459,7 @@ ngx_live_persist_read_parse(ngx_live_channel_t *channel, ngx_str_t *buf,
     ngx_int_t                        rc;
     ngx_mem_rstream_t                rs;
     ngx_live_persist_file_t         *file_spec;
+    ngx_live_persist_main_conf_t    *pmcf;
     ngx_live_persist_preset_conf_t  *ppcf;
     ngx_live_persist_file_header_t  *header;
 
@@ -483,7 +484,9 @@ ngx_live_persist_read_parse(ngx_live_channel_t *channel, ngx_str_t *buf,
         return rc;
     }
 
-    rc = ngx_live_persist_read_blocks(channel, file_spec->ctx, &rs, channel);
+    pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
+
+    rc = ngx_live_persist_read_blocks(pmcf, file_spec->ctx, &rs, channel);
 
     ngx_free(ptr);
 
@@ -656,7 +659,7 @@ ngx_live_persist_read_handler(void *data, ngx_int_t rc, ngx_buf_t *response)
     pool = NULL;
 
     file++;
-    if (file >= NGX_LIVE_PERSIST_FILE_COUNT) {
+    if (file >= NGX_LIVE_PERSIST_FILE_MEDIA) {
         goto done;
     }
 
@@ -711,32 +714,22 @@ ngx_live_persist_read(ngx_live_channel_t *channel, ngx_pool_t *handler_pool,
 }
 
 
-ngx_live_store_t *
-ngx_live_persist_get_store(ngx_live_channel_t *channel)
-{
-    ngx_live_persist_preset_conf_t  *dpcf;
-
-    dpcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
-
-    return dpcf->store;
-}
-
 char *
 ngx_live_persist_set_store(ngx_conf_t *cf, ngx_live_store_t *store)
 {
     ngx_live_conf_ctx_t             *live_ctx;
-    ngx_live_persist_preset_conf_t  *dmcf;
+    ngx_live_persist_preset_conf_t  *ppcf;
 
     live_ctx = cf->ctx;
 
-    dmcf = ngx_live_get_module_preset_conf(live_ctx, ngx_live_persist_module);
+    ppcf = ngx_live_get_module_preset_conf(live_ctx, ngx_live_persist_module);
 
-    if (dmcf->store != NGX_CONF_UNSET_PTR) {
+    if (ppcf->store != NGX_CONF_UNSET_PTR) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "persist store already set");
         return NGX_CONF_ERROR;
     }
 
-    dmcf->store = store;
+    ppcf->store = store;
 
     return NGX_CONF_OK;
 }
@@ -755,7 +748,7 @@ ngx_live_persist_snap_create(ngx_live_channel_t *channel)
     } else if (ppcf->files[NGX_LIVE_PERSIST_FILE_INDEX].path != NULL) {
         snap = ngx_live_persist_index_snap_create(channel);
 
-    } else if (ngx_live_dvr_enabled(channel)) {
+    } else if (ppcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path != NULL) {
         snap = ngx_live_persist_snap_frames_create(channel);
 
     } else {
@@ -824,6 +817,10 @@ ngx_ngx_live_persist_add_block(ngx_conf_t *cf, ngx_live_persist_block_t *block)
     }
 
     *blk = *block;
+
+    if (block->read == NULL) {
+        return NGX_OK;
+    }
 
     id.data = (u_char *) &blk->id;
     id.len = sizeof(blk->id);
@@ -965,6 +962,7 @@ ngx_live_persist_create_preset_conf(ngx_conf_t *cf)
 static char *
 ngx_live_persist_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 {
+    size_t                           max_size;
     ngx_uint_t                       i;
     ngx_live_persist_preset_conf_t  *prev = parent;
     ngx_live_persist_preset_conf_t  *conf = child;
@@ -974,18 +972,17 @@ ngx_live_persist_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_value(conf->write, prev->write, 1);
 
     for (i = 0; i < NGX_LIVE_PERSIST_FILE_COUNT; i++) {
-        if (conf->files[i].path == NULL) {
+        if (conf->store == NULL) {
+            conf->files[i].path = NULL;
+
+        } else if (conf->files[i].path == NULL) {
             conf->files[i].path = prev->files[i].path;
         }
 
-        if (conf->files[i].path != NULL && conf->store == NULL) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                "persist_xxx_path was used but no store was set");
-            return NGX_CONF_ERROR;
-        }
+        max_size = i == NGX_LIVE_PERSIST_FILE_MEDIA ? 0 : 5 * 1024 * 1024;
 
         ngx_conf_merge_size_value(conf->files[i].max_size,
-                                  prev->files[i].max_size, 5 * 1024 * 1024);
+                                  prev->files[i].max_size, max_size);
     }
 
     if (conf->files[NGX_LIVE_PERSIST_FILE_INDEX].path != NULL &&
@@ -993,6 +990,14 @@ ngx_live_persist_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
             "\"persist_index_path\" requires \"persist_setup_path\"");
+        return NGX_CONF_ERROR;
+    }
+
+    if (conf->files[NGX_LIVE_PERSIST_FILE_INDEX].path != NULL &&
+        conf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path == NULL)
+    {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "\"persist_index_path\" requires \"persist_media_path\"");
         return NGX_CONF_ERROR;
     }
 
