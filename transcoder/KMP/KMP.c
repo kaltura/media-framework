@@ -25,6 +25,9 @@
 
 static ssize_t KMP_send( KMP_session_t *context,const void *buf, size_t len)
 {
+    if(!context->socket) {
+       return AVERROR_INVALIDDATA;
+    }
     int bytesRead=0;
     while (len>0) {
         int valread = (int)send(context->socket ,buf+bytesRead , len , 0 );
