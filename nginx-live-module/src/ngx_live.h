@@ -14,7 +14,7 @@ typedef struct ngx_live_channel_s     ngx_live_channel_t;
 #include "ngx_live_channel.h"
 #include "ngx_live_script.h"
 #include "ngx_live_core_module.h"
-#include "dvr/ngx_live_persist.h"
+#include "persist/ngx_live_persist.h"
 
 
 #define NGX_LIVE_VALIDATIONS  NGX_DEBUG
