@@ -1001,7 +1001,9 @@ ngx_http_call_process_headers(ngx_http_call_ctx_t *ctx)
 
     if (ctx->content_length_n > ctx->response->end - ctx->response->pos) {
 
-        if ((size_t) ctx->content_length_n > ctx->max_response_size) {
+        if (ctx->max_response_size &&
+            (size_t) ctx->content_length_n > ctx->max_response_size)
+        {
             ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
                 "ngx_http_call_process_headers: content length %O too big",
                 ctx->content_length_n);

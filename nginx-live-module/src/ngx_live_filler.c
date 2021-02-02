@@ -86,6 +86,9 @@ static u_char *ngx_live_filler_channel_json_write(u_char *p, void *obj);
 static ngx_int_t ngx_live_filler_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_filler_postconfiguration(ngx_conf_t *cf);
 
+static char *ngx_live_filler_merge_preset_conf(ngx_conf_t *cf, void *parent,
+    void *child);
+
 static ngx_int_t ngx_live_filler_set_channel(void *ctx,
     ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log);
 
@@ -97,7 +100,7 @@ static ngx_live_module_t  ngx_live_filler_module_ctx = {
     NULL,                                   /* init main configuration */
 
     NULL,                                   /* create preset configuration */
-    NULL,                                   /* merge preset configuration */
+    ngx_live_filler_merge_preset_conf,      /* merge preset configuration */
 };
 
 ngx_module_t  ngx_live_filler_module = {
@@ -1310,7 +1313,6 @@ ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
 static ngx_int_t
 ngx_live_filler_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
-    size_t                         *track_ctx_size = ectx;
     ngx_live_filler_channel_ctx_t  *cctx;
 
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
@@ -1321,9 +1323,6 @@ ngx_live_filler_channel_init(ngx_live_channel_t *channel, void *ectx)
     }
 
     ngx_live_set_ctx(channel, cctx, ngx_live_filler_module);
-
-    ngx_live_reserve_track_ctx_size(channel, ngx_live_filler_module,
-        sizeof(ngx_live_filler_track_ctx_t), track_ctx_size);
 
     ngx_queue_init(&cctx->queue);
 
@@ -1902,11 +1901,7 @@ ngx_live_filler_read_setup_timeline(ngx_live_channel_t *channel, ngx_str_t *id,
     ngx_live_timeline_conf_t            conf;
     ngx_live_timeline_manifest_conf_t   manifest_conf;
 
-    ngx_memzero(&conf, sizeof(conf));
-    ngx_memzero(&manifest_conf, sizeof(manifest_conf));
-
-    conf.active = 1;
-    manifest_conf.target_duration_segments = 3;
+    ngx_live_timeline_conf_default(&conf, &manifest_conf);
 
     if (ngx_live_timeline_create(channel, id, &conf, &manifest_conf,
         log, &timeline) != NGX_OK)
@@ -2204,4 +2199,13 @@ ngx_live_filler_postconfiguration(ngx_conf_t *cf)
     }
 
     return NGX_OK;
+}
+
+static char *
+ngx_live_filler_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
+{
+    ngx_live_reserve_track_ctx_size(cf, ngx_live_filler_module,
+        sizeof(ngx_live_filler_track_ctx_t));
+
+    return NGX_CONF_OK;
 }

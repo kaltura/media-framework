@@ -24,6 +24,11 @@ enum {
     NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL,
     NGX_LIVE_PERSIST_CTX_INDEX_TRACK,
 
+    NGX_LIVE_PERSIST_CTX_MEDIA_MAIN,
+    NGX_LIVE_PERSIST_CTX_MEDIA_BUCKET,
+    NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER,
+    NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_DATA,
+
     NGX_LIVE_PERSIST_CTX_COUNT
 };
 
@@ -77,8 +82,6 @@ typedef struct {
 
 typedef void (*ngx_live_persist_read_handler_pt)(void *arg, ngx_int_t rc);
 
-
-ngx_live_store_t *ngx_live_persist_get_store(ngx_live_channel_t *channel);
 
 char *ngx_live_persist_set_store(ngx_conf_t *cf, ngx_live_store_t *store);
 

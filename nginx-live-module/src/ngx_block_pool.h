@@ -55,15 +55,12 @@ void ngx_block_pool_free_list(ngx_block_pool_t *block_pool, ngx_uint_t index,
 size_t ngx_block_pool_get_size(ngx_block_pool_t *block_pool, ngx_uint_t index);
 
 
-void *ngx_block_pool_auto_alloc(ngx_block_pool_t *block_pool, size_t size,
-    ngx_uint_t min_index, ngx_uint_t max_index);
+void *ngx_block_pool_auto_alloc(ngx_block_pool_t *block_pool, size_t size);
 
 void ngx_block_pool_auto_free(ngx_block_pool_t *block_pool, void *ptr);
 
-size_t ngx_block_pool_auto_json_get_size(ngx_block_pool_t *block_pool,
-    ngx_uint_t min_index, ngx_uint_t max_index);
+size_t ngx_block_pool_json_get_size(ngx_block_pool_t *block_pool);
 
-u_char *ngx_block_pool_auto_json_write(u_char *p,
-    ngx_block_pool_t *block_pool, ngx_uint_t min_index, ngx_uint_t max_index);
+u_char *ngx_block_pool_json_write(u_char *p, ngx_block_pool_t *block_pool);
 
 #endif /* _NGX_BLOCK_POOL_H_INCLUDED_ */

@@ -107,6 +107,7 @@ enum {
     TIMELINE_PARAM_SOURCE_ID,
     TIMELINE_PARAM_ACTIVE,
     TIMELINE_PARAM_NO_TRUNCATE,
+    TIMELINE_PARAM_PERIOD_GAP,
     TIMELINE_PARAM_MAX_SEGMENTS,
     TIMELINE_PARAM_MAX_DURATION,
     TIMELINE_PARAM_START,
@@ -128,6 +129,8 @@ static ngx_json_object_key_def_t  ngx_live_timeline_params[] = {
         TIMELINE_PARAM_ACTIVE },
     { vod_string("no_truncate"),                        NGX_JSON_BOOL,
         TIMELINE_PARAM_NO_TRUNCATE },
+    { vod_string("period_gap"),                         NGX_JSON_INT,
+        TIMELINE_PARAM_PERIOD_GAP },
     { vod_string("max_segments"),                       NGX_JSON_INT,
         TIMELINE_PARAM_MAX_SEGMENTS },
     { vod_string("max_duration"),                       NGX_JSON_INT,
@@ -1249,6 +1252,10 @@ ngx_http_live_api_timeline_init_conf(ngx_json_value_t **values,
     ngx_live_timeline_conf_t *conf,
     ngx_live_timeline_manifest_conf_t *manifest_conf)
 {
+    if (values[TIMELINE_PARAM_PERIOD_GAP] != NULL) {
+        conf->period_gap = values[TIMELINE_PARAM_PERIOD_GAP]->v.num.num;
+    }
+
     if (values[TIMELINE_PARAM_MAX_SEGMENTS] != NULL) {
         conf->max_segments = values[TIMELINE_PARAM_MAX_SEGMENTS]->v.num.num;
     }
@@ -1351,11 +1358,7 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
 
     timeline_id = values[TIMELINE_PARAM_ID]->v.str;
 
-    ngx_memzero(&conf, sizeof(conf));
-    ngx_memzero(&manifest_conf, sizeof(manifest_conf));
-
-    conf.active = 1;    /* active by default */
-    manifest_conf.target_duration_segments = 3;
+    ngx_live_timeline_conf_default(&conf, &manifest_conf);
 
     ngx_http_live_api_timeline_init_conf(values, &conf, &manifest_conf);
 

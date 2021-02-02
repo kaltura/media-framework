@@ -59,6 +59,8 @@ typedef struct {
 
     ngx_uint_t                        ready_threshold;
     ngx_uint_t                        initial_ready_threshold;
+
+    ngx_uint_t                        bp_idx[NGX_LIVE_BP_COUNT];
 } ngx_live_segmenter_preset_conf_t;
 
 typedef struct {
@@ -106,6 +108,7 @@ struct ngx_live_segmenter_frame_part_s {
 typedef struct {
     ngx_live_track_t                 *track;
     ngx_block_pool_t                 *block_pool;
+    ngx_uint_t                        bp_idx;
 
     ngx_live_segmenter_frame_part_t  *last;
     ngx_live_segmenter_frame_part_t   part;
@@ -139,6 +142,7 @@ struct ngx_live_segmenter_kf_part_s {
 typedef struct {
     ngx_live_track_t                 *track;
     ngx_block_pool_t                 *block_pool;
+    ngx_uint_t                        bp_idx;
 
     ngx_live_segmenter_kf_part_t     *last;
     ngx_live_segmenter_kf_part_t      part;
@@ -199,8 +203,6 @@ typedef struct {
     uint32_t                          ready_duration;
     uint32_t                          initial_ready_duration;
     uint32_t                          cur_ready_duration;
-
-    ngx_block_pool_t                 *block_pool;
 
     int64_t                           last_segment_end_pts;
     uint32_t                          count[ngx_live_track_state_count];
@@ -480,9 +482,10 @@ ngx_live_segmenter_candidate_list_truncate(
 /* frame list */
 static void
 ngx_live_segmenter_frame_list_init(ngx_live_segmenter_frame_list_t *list,
-    ngx_live_track_t *track, ngx_block_pool_t *block_pool)
+    ngx_live_track_t *track, ngx_block_pool_t *block_pool, ngx_uint_t bp_idx)
 {
     list->block_pool = block_pool;
+    list->bp_idx = bp_idx;
     list->track = track;
     list->last = &list->part;
 }
@@ -510,8 +513,7 @@ ngx_live_segmenter_frame_list_free(ngx_live_segmenter_frame_list_t *list)
     for (part = list->part.next; part != NULL; part = next) {
         next = part->next;
 
-        ngx_block_pool_free(list->block_pool, NGX_LIVE_BP_PENDING_FRAME_PART,
-            part);
+        ngx_block_pool_free(list->block_pool, list->bp_idx, part);
     }
 }
 
@@ -526,8 +528,7 @@ ngx_live_segmenter_frame_list_push(ngx_live_segmenter_frame_list_t *list,
 
     if (last->nelts >= NGX_LIVE_SEGMENTER_FRAME_PART_COUNT) {
 
-        last = ngx_block_pool_alloc(list->block_pool,
-            NGX_LIVE_BP_PENDING_FRAME_PART);
+        last = ngx_block_pool_alloc(list->block_pool, list->bp_idx);
         if (last == NULL) {
             return NULL;
         }
@@ -627,8 +628,7 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
                 res->last_pts = last[-1].pts;
 
                 if (part != &list->part) {
-                    ngx_block_pool_free(list->block_pool,
-                        NGX_LIVE_BP_PENDING_FRAME_PART, part);
+                    ngx_block_pool_free(list->block_pool, list->bp_idx, part);
                 }
 
                 part = next_part;
@@ -671,8 +671,7 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
             res->last_pts = part->elts[part->nelts - 1].pts;
 
             if (part != &list->part) {
-                ngx_block_pool_free(list->block_pool,
-                    NGX_LIVE_BP_PENDING_FRAME_PART, part);
+                ngx_block_pool_free(list->block_pool, list->bp_idx, part);
             }
 
             part = next_part;
@@ -693,8 +692,7 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
     list->part.next = part->next;
 
     if (part != &list->part) {
-        ngx_block_pool_free(list->block_pool, NGX_LIVE_BP_PENDING_FRAME_PART,
-            part);
+        ngx_block_pool_free(list->block_pool, list->bp_idx, part);
     }
 
     if (list->part.next == NULL) {
@@ -924,9 +922,10 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
 /* key frame list */
 static void
 ngx_live_segmenter_kf_list_init(ngx_live_segmenter_kf_list_t *list,
-    ngx_live_track_t *track, ngx_block_pool_t *block_pool)
+    ngx_live_track_t *track, ngx_block_pool_t *block_pool, ngx_uint_t bp_idx)
 {
     list->block_pool = block_pool;
+    list->bp_idx = bp_idx;
     list->track = track;
     list->last = &list->part;
 }
@@ -948,8 +947,7 @@ ngx_live_segmenter_kf_list_free(ngx_live_segmenter_kf_list_t *list)
     for (part = list->part.next; part != NULL; part = next) {
         next = part->next;
 
-        ngx_block_pool_free(list->block_pool, NGX_LIVE_BP_PENDING_KF_PART,
-            part);
+        ngx_block_pool_free(list->block_pool, list->bp_idx, part);
     }
 }
 
@@ -964,8 +962,7 @@ ngx_live_segmenter_kf_list_push(ngx_live_segmenter_kf_list_t *list,
 
     if (last->nelts >= NGX_LIVE_SEGMENTER_KF_PART_COUNT) {
 
-        last = ngx_block_pool_alloc(list->block_pool,
-            NGX_LIVE_BP_PENDING_KF_PART);
+        last = ngx_block_pool_alloc(list->block_pool, list->bp_idx);
         if (last == NULL) {
             return NULL;
         }
@@ -1016,8 +1013,7 @@ ngx_live_segmenter_kf_list_remove(ngx_live_segmenter_kf_list_t *list,
             }
 
             if (part != &list->part) {
-                ngx_block_pool_free(list->block_pool,
-                    NGX_LIVE_BP_PENDING_KF_PART, part);
+                ngx_block_pool_free(list->block_pool, list->bp_idx, part);
             }
 
             part = next_part;
@@ -1041,8 +1037,7 @@ ngx_live_segmenter_kf_list_remove(ngx_live_segmenter_kf_list_t *list,
     list->part.next = part->next;
 
     if (part != &list->part) {
-        ngx_block_pool_free(list->block_pool, NGX_LIVE_BP_PENDING_KF_PART,
-            part);
+        ngx_block_pool_free(list->block_pool, list->bp_idx, part);
     }
 
     if (list->part.next == NULL) {
@@ -2995,18 +2990,24 @@ ngx_live_segmenter_create_handler(ngx_event_t *ev)
 static ngx_int_t
 ngx_live_segmenter_track_init(ngx_live_track_t *track, void *ectx)
 {
+    ngx_live_channel_t                *channel;
     ngx_live_segmenter_track_ctx_t    *ctx;
     ngx_live_segmenter_channel_ctx_t  *cctx;
+    ngx_live_segmenter_preset_conf_t  *spcf;
 
-    cctx = ngx_live_get_module_ctx(track->channel, ngx_live_segmenter_module);
+    channel = track->channel;
+    spcf = ngx_live_get_module_preset_conf(channel, ngx_live_segmenter_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
     ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
 
     ctx->state = ngx_live_track_inactive;
     ctx->min_split_pts = NGX_LIVE_INVALID_PTS;
 
-    ngx_live_segmenter_frame_list_init(&ctx->frames, track, cctx->block_pool);
+    ngx_live_segmenter_frame_list_init(&ctx->frames, track,
+        channel->block_pool, spcf->bp_idx[NGX_LIVE_BP_PENDING_FRAME_PART]);
 
-    ngx_live_segmenter_kf_list_init(&ctx->key_frames, track, cctx->block_pool);
+    ngx_live_segmenter_kf_list_init(&ctx->key_frames, track,
+        channel->block_pool, spcf->bp_idx[NGX_LIVE_BP_PENDING_KF_PART]);
 
     ctx->inactive.handler = ngx_live_segmenter_inactive_handler;
     ctx->inactive.data = track;
@@ -3088,8 +3089,6 @@ ngx_live_segmenter_update_segment_duration(
 static ngx_int_t
 ngx_live_segmenter_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
-    size_t                            *track_ctx_size = ectx;
-    size_t                             block_sizes[NGX_LIVE_BP_COUNT];
     ngx_live_core_preset_conf_t       *cpcf;
     ngx_live_segmenter_preset_conf_t  *spcf;
     ngx_live_segmenter_channel_ctx_t  *cctx;
@@ -3102,19 +3101,6 @@ ngx_live_segmenter_channel_init(ngx_live_channel_t *channel, void *ectx)
     }
 
     ngx_live_set_ctx(channel, cctx, ngx_live_segmenter_module);
-
-    block_sizes[NGX_LIVE_BP_PENDING_FRAME_PART] =
-        sizeof(ngx_live_segmenter_frame_part_t);
-    block_sizes[NGX_LIVE_BP_PENDING_KF_PART] =
-        sizeof(ngx_live_segmenter_kf_part_t);
-
-    cctx->block_pool = ngx_live_channel_create_block_pool(channel, block_sizes,
-        NGX_LIVE_BP_COUNT);
-    if (cctx->block_pool == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_segmenter_channel_init: create block pool failed");
-        return NGX_ERROR;
-    }
 
     spcf = ngx_live_get_module_preset_conf(channel, ngx_live_segmenter_module);
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
@@ -3153,9 +3139,6 @@ ngx_live_segmenter_channel_init(ngx_live_channel_t *channel, void *ectx)
     cctx->create.log = &channel->log;
 
     cctx->force_new_period = 1;
-
-    ngx_live_reserve_track_ctx_size(channel, ngx_live_segmenter_module,
-        sizeof(ngx_live_segmenter_track_ctx_t), track_ctx_size);
 
     return NGX_OK;
 }
@@ -3480,6 +3463,23 @@ ngx_live_segmenter_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_uint_value(conf->initial_ready_threshold,
                               prev->initial_ready_threshold, 200);
+
+    if (ngx_live_core_add_block_pool_index(cf,
+        &conf->bp_idx[NGX_LIVE_BP_PENDING_FRAME_PART],
+        sizeof(ngx_live_segmenter_frame_part_t)) != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
+
+    if (ngx_live_core_add_block_pool_index(cf,
+        &conf->bp_idx[NGX_LIVE_BP_PENDING_KF_PART],
+        sizeof(ngx_live_segmenter_kf_part_t)) != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
+
+    ngx_live_reserve_track_ctx_size(cf, ngx_live_segmenter_module,
+        sizeof(ngx_live_segmenter_track_ctx_t));
 
     return NGX_CONF_OK;
 }

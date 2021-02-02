@@ -465,7 +465,6 @@ ngx_live_input_bufs_link(ngx_live_track_t *dst, ngx_live_track_t *src)
 static ngx_int_t
 ngx_live_input_bufs_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
-    size_t                             *track_ctx_size = ectx;
     ngx_live_input_bufs_channel_ctx_t  *cctx;
 
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
@@ -478,9 +477,6 @@ ngx_live_input_bufs_channel_init(ngx_live_channel_t *channel, void *ectx)
     ngx_live_set_ctx(channel, cctx, ngx_live_input_bufs_module);
 
     ngx_queue_init(&cctx->queue);
-
-    ngx_live_reserve_track_ctx_size(channel, ngx_live_input_bufs_module,
-        sizeof(ngx_live_input_bufs_track_ctx_t), track_ctx_size);
 
     return NGX_OK;
 }
@@ -721,6 +717,9 @@ ngx_live_input_bufs_merge_preset_conf(ngx_conf_t *cf, void *parent,
     if (conf->lba == NULL) {
         return NGX_CONF_ERROR;
     }
+
+    ngx_live_reserve_track_ctx_size(cf, ngx_live_input_bufs_module,
+        sizeof(ngx_live_input_bufs_track_ctx_t));
 
     return NGX_CONF_OK;
 }

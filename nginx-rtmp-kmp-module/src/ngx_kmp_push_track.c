@@ -125,7 +125,7 @@ ngx_kmp_push_track_merge_conf(ngx_kmp_push_track_conf_t *conf,
                               prev->video_buffer_size, 64 * 1024);
 
     ngx_conf_merge_size_value(conf->video_mem_limit,
-                              prev->video_mem_limit, 16 * 1024 * 1024);
+                              prev->video_mem_limit, 32 * 1024 * 1024);
 
     ngx_conf_merge_size_value(conf->audio_buffer_size,
                               prev->audio_buffer_size, 4 * 1024);
@@ -196,6 +196,15 @@ ngx_kmp_push_track_media_info_json_write(u_char *p,
     *p++ = '}';
 
     return p;
+}
+
+void
+ngx_kmp_push_track_set_error_reason(ngx_kmp_push_track_t *track, char *code)
+{
+    if (track->unpublish_reason.len == 0) {
+        track->unpublish_reason.data = (u_char *) code;
+        track->unpublish_reason.len = ngx_strlen(code);
+    }
 }
 
 static ngx_chain_t *
@@ -273,7 +282,8 @@ ngx_kmp_push_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
 
     /* parse and validate the json */
     if (ngx_kmp_push_parse_json_response(temp_pool, &track->log, code,
-        content_type, body, &json) != NGX_OK) {
+        content_type, body, &json) != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_kmp_push_publish_handle: parse response failed");
         goto retry;
@@ -284,7 +294,8 @@ ngx_kmp_push_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
 
     if (values[NGX_KMP_TRACK_CHANNEL_ID] == NULL ||
         values[NGX_KMP_TRACK_TRACK_ID] == NULL ||
-        values[NGX_KMP_TRACK_UPSTREAMS] == NULL) {
+        values[NGX_KMP_TRACK_UPSTREAMS] == NULL)
+    {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_kmp_push_publish_handle: missing required params in json");
         goto retry;
@@ -407,6 +418,7 @@ ngx_kmp_push_track_publish(ngx_kmp_push_track_t *track)
     if (track->publish_call == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_kmp_push_track_publish: http call create failed");
+        ngx_kmp_push_track_set_error_reason(track, "create_publish_failed");
         return NGX_ERROR;
     }
 
@@ -532,10 +544,7 @@ ngx_kmp_push_track_error(ngx_kmp_push_track_t *track, char *code)
     ngx_log_error(level, &track->log, 0,
         "ngx_kmp_push_track_error: called");
 
-    if (track->unpublish_reason.len == 0) {
-        track->unpublish_reason.data = (u_char *) code;
-        track->unpublish_reason.len = ngx_strlen(code);
-    }
+    ngx_kmp_push_track_set_error_reason(track, code);
 
     if (track->detached) {
         ngx_kmp_push_track_cleanup(track);
@@ -572,10 +581,7 @@ ngx_kmp_push_track_detach(ngx_kmp_push_track_t *track, char *reason)
 
     track->detached = 1;
 
-    if (track->unpublish_reason.len == 0) {
-        track->unpublish_reason.data = (u_char *) reason;
-        track->unpublish_reason.len = ngx_strlen(reason);
-    }
+    ngx_kmp_push_track_set_error_reason(track, reason);
 
     if (track->publish_call != NULL) {
         ngx_http_call_cancel(track->publish_call);
@@ -618,6 +624,7 @@ ngx_kmp_push_track_append_all(ngx_kmp_push_track_t *track, ngx_flag_t *send)
             != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_kmp_push_track_append_all: append failed");
+            ngx_kmp_push_track_set_error_reason(track, "append_failed");
             return NGX_ERROR;
         }
 
@@ -657,6 +664,7 @@ ngx_kmp_push_track_send_all(ngx_kmp_push_track_t *track)
         if (rc != NGX_OK && rc != NGX_AGAIN) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_kmp_push_track_send_all: send failed");
+            ngx_kmp_push_track_set_error_reason(track, "upstream_error");
             return NGX_ERROR;
         }
     }
@@ -699,7 +707,7 @@ ngx_kmp_push_track_flush_handler(ngx_event_t *ev)
         "ngx_kmp_push_track_flush_handler: called");
 
     if (ngx_kmp_push_track_flush(track) != NGX_OK) {
-        ngx_kmp_push_track_error(track, "flush_failed");
+        ngx_kmp_push_track_error(track, "unexpected");
     }
 }
 
@@ -762,6 +770,7 @@ ngx_kmp_push_track_write_chain(ngx_kmp_push_track_t *track, ngx_chain_t *in,
                 ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                     "ngx_kmp_push_track_write_chain: "
                     "ngx_buf_queue_get failed");
+                ngx_kmp_push_track_set_error_reason(track, "alloc_failed");
                 goto error;
             }
 
@@ -803,7 +812,8 @@ ngx_kmp_push_track_write_media_info(ngx_kmp_push_track_t *track)
     header.reserved = 0;
 
     if (ngx_kmp_push_track_write(track, (u_char *) &header, sizeof(header))
-        != NGX_OK) {
+        != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
@@ -854,8 +864,9 @@ ngx_kmp_push_track_send_end_of_stream(ngx_kmp_push_track_t *track)
     header.packet_type = KMP_PACKET_END_OF_STREAM;
     header.header_size = sizeof(header);
 
-    if (ngx_kmp_push_track_write(track, (u_char *) &header, sizeof(header)) !=
-        NGX_OK) {
+    if (ngx_kmp_push_track_write(track, (u_char *) &header, sizeof(header))
+        != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_kmp_push_track_send_end_of_stream: write failed");
         return NGX_ERROR;

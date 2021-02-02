@@ -8,7 +8,6 @@
 #include "core.h"
 #include "transcode_codec.h"
 
-static enum AVPixelFormat hw_pix_fmt;
 
 int transcode_codec_init( transcode_codec_t * pContext)
 {
@@ -31,7 +30,7 @@ static int hw_decoder_init( transcode_codec_t * pContext,AVCodec* decoder,AVCode
         }
         if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
             config->device_type == type) {
-            hw_pix_fmt = config->pix_fmt;
+            ctx->pix_fmt = config->pix_fmt;
             break;
         }
     }
@@ -75,8 +74,8 @@ static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,const enum AVPixelFo
     
     
     for (p = pix_fmts; *p != -1; p++) {
-        if (*p == hw_pix_fmt) {
-            LOGGER(CATEGORY_CODEC, AV_LOG_INFO, "get_hw_format returned %s",av_get_pix_fmt_name (hw_pix_fmt));
+        if (*p == ctx->pix_fmt) {
+            LOGGER(CATEGORY_CODEC, AV_LOG_INFO, "get_hw_format returned %s",av_get_pix_fmt_name (*p));
             return *p;
         }
     }
@@ -123,27 +122,10 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
 
     LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "attempt to use %s decoder",  pContext->nvidiaAccelerated ? "nvidia hw" : "sw");
 
-    if (pContext->nvidiaAccelerated) {
+    dec = avcodec_find_decoder(pCodecParams->codec_id);
 
-        if (pCodecParams->codec_id==AV_CODEC_ID_H264) {
-            dec = avcodec_find_decoder_by_name("h264_cuvid");
-        }
-        if (pCodecParams->codec_id==AV_CODEC_ID_HEVC) {
-            dec = avcodec_find_decoder_by_name("h265_cuvid");
-        }
-        if (pCodecParams->codec_id==AV_CODEC_ID_VP8) {
-            dec = avcodec_find_decoder_by_name("vp8_cuvid");
-        }
-        if (pCodecParams->codec_id==AV_CODEC_ID_VP9) {
-            dec = avcodec_find_decoder_by_name("vp9_cuvid");
-        }
-        
-        if (dec) {
-            hardWareAcceleration=AV_HWDEVICE_TYPE_CUDA;
-        }
-    }
-    if (dec==NULL) {
-        dec = avcodec_find_decoder(pCodecParams->codec_id);
+    if (pContext->nvidiaAccelerated) {
+       hardWareAcceleration=AV_HWDEVICE_TYPE_CUDA;
     }
 
     pContext->codec=dec;
@@ -171,7 +153,6 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
     }
 
     if (hardWareAcceleration!=AV_HWDEVICE_TYPE_NONE) {
-        
         ret=hw_decoder_init(pContext,dec,codec_ctx,hardWareAcceleration);
         if (ret < 0) {
             LOGGER(CATEGORY_CODEC, AV_LOG_ERROR, "Couldn't genereate hwcontext %d (%s)",ret,av_err2str(ret));
@@ -181,7 +162,6 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
         codec_ctx->get_format  = get_hw_format;
         codec_ctx->get_buffer2 = get_decoder_buffer;
         codec_ctx->hw_device_ctx = av_buffer_ref(pContext->hw_device_ctx);
-        //codec_ctx->pix_fmt=hw_pix_fmt;
     }
     av_opt_set_int(codec_ctx, "refcounted_frames", 1, 0);
     

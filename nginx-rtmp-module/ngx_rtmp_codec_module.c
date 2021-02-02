@@ -9,12 +9,16 @@
 #include "ngx_rtmp_codec_module.h"
 #include "ngx_rtmp_live_module.h"
 #include "ngx_rtmp_cmd_module.h"
+#include "ngx_rtmp_chain_reader.h"
 #include "ngx_rtmp_bitop.h"
 
 
 #define NGX_RTMP_CODEC_META_OFF     0
 #define NGX_RTMP_CODEC_META_ON      1
 #define NGX_RTMP_CODEC_META_COPY    2
+
+
+#define NGX_RTMP_CODEC_CAPTION_TRIES  10
 
 
 static void * ngx_rtmp_codec_create_app_conf(ngx_conf_t *cf);
@@ -198,6 +202,103 @@ ngx_rtmp_codec_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 }
 
 
+/* user_data_registered_itu_t_t35 */
+static u_char ngx_rtmp_codec_cea_header[] = {
+    0xb5,    /* itu_t_t35_country_code   */
+    0x00,    /* Itu_t_t35_provider_code  */
+    0x31,
+    0x47,    /* user_identifier ('GA94') */
+    0x41,
+    0x39,
+    0x34,
+};
+
+static ngx_flag_t
+ngx_rtmp_codec_detect_cea(ngx_rtmp_session_t *s, ngx_chain_t *in)
+{
+    u_char                    b;
+    u_char                    buf[sizeof(ngx_rtmp_codec_cea_header)];
+    u_char                   *nalp;
+    uint32_t                  size;
+    ngx_rtmp_codec_ctx_t     *ctx;
+    ngx_rtmp_chain_reader_t   reader;
+    ngx_rtmp_chain_reader_t   nal_reader;
+
+    ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
+
+    if (!ctx->avc_nal_bytes) {
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+            "ngx_rtmp_codec_detect_cea: avc_nal_bytes not set");
+        return 0;
+    }
+
+    ngx_rtmp_chain_reader_init(&reader, in);
+
+    /* frame info, packet type, comp time (3 bytes) */
+    if (ngx_rtmp_chain_reader_skip(&reader, 5) != NGX_OK) {
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+            "ngx_rtmp_codec_detect_cea: skip avc header failed");
+        return 0;
+    }
+
+    size = 0;
+    nalp = (u_char *) &size + sizeof(size) - ctx->avc_nal_bytes;
+
+    for ( ;; ) {
+
+        /* nal unit */
+        if (ngx_rtmp_chain_reader_read(&reader, nalp, ctx->avc_nal_bytes)
+            != NGX_OK)
+        {
+            break;
+        }
+
+        size = ngx_rtmp_r32(size);
+        if (size <= 0) {
+            ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                "ngx_rtmp_codec_detect_cea: zero size nal");
+            break;
+        }
+
+        nal_reader = reader;
+
+        if (ngx_rtmp_chain_reader_skip(&reader, size) != NGX_OK) {
+            ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                "ngx_rtmp_codec_detect_cea: "
+                "failed to skip nal, size: %uD", size);
+            break;
+        }
+
+        if (ngx_rtmp_chain_reader_read(&nal_reader, &b, sizeof(b)) != NGX_OK
+            || (b & 0x1f) != 6      /* nal_type = SEI */
+            || ngx_rtmp_chain_reader_read(&nal_reader, &b, sizeof(b)) != NGX_OK
+            || b != 4)              /* payload_type = user data registered */
+        {
+            continue;
+        }
+
+        /* payload_size */
+        do {
+            if (ngx_rtmp_chain_reader_read(&nal_reader, &b, sizeof(b)) != NGX_OK) {
+                break;
+            }
+        } while (b == 0xff);
+
+        if (ngx_rtmp_chain_reader_read(&nal_reader, buf, sizeof(buf)) != NGX_OK) {
+            continue;
+        }
+
+        if (ngx_memcmp(buf, ngx_rtmp_codec_cea_header, sizeof(buf)) == 0) {
+            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                "ngx_rtmp_codec_detect_cea: cea captions detected");
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+
 static ngx_int_t
 ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ngx_chain_t *in)
@@ -223,6 +324,8 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     if (ctx == NULL) {
         ctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_codec_ctx_t));
         ngx_rtmp_stream_set_ctx(s, ctx, ngx_rtmp_codec_module);
+
+        ctx->video_captions_tries = NGX_RTMP_CODEC_CAPTION_TRIES;
     }
 
     /* save codec */
@@ -250,6 +353,19 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     /* no conf */
     if (!ngx_rtmp_is_codec_header(in)) {
+        if (ctx->video_captions_tries > 0
+            && h->type == NGX_RTMP_MSG_VIDEO
+            && ctx->video_codec_id == NGX_RTMP_VIDEO_H264)
+        {
+            if (ngx_rtmp_codec_detect_cea(s, in)) {
+                ctx->video_captions = 1;
+                ctx->video_captions_tries = 0;
+
+            } else {
+                ctx->video_captions_tries--;
+            }
+        }
+
         return NGX_OK;
     }
 
@@ -855,6 +971,8 @@ ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     if (ctx == NULL) {
         ctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_codec_ctx_t));
         ngx_rtmp_stream_set_ctx(s, ctx, ngx_rtmp_codec_module);
+
+        ctx->video_captions_tries = NGX_RTMP_CODEC_CAPTION_TRIES;
     }
 
     ngx_memzero(&v, sizeof(v));

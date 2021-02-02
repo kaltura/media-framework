@@ -25,6 +25,9 @@
 
 static ssize_t KMP_send( KMP_session_t *context,const void *buf, size_t len)
 {
+    if(!context->socket) {
+       return AVERROR_INVALIDDATA;
+    }
     int bytesRead=0;
     while (len>0) {
         int valread = (int)send(context->socket ,buf+bytesRead , len , 0 );
@@ -183,6 +186,7 @@ int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo 
         media_info.u.video.height=codecpar->height;
         media_info.u.video.frame_rate.denom=mediaInfo->frameRate.den;
         media_info.u.video.frame_rate.num=mediaInfo->frameRate.num;
+        media_info.u.video.cea_captions=mediaInfo->closed_captions;
     }
     if (codecpar->codec_type==AVMEDIA_TYPE_AUDIO)
     {
@@ -191,6 +195,7 @@ int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo 
         media_info.u.audio.bits_per_sample=codecpar->bits_per_coded_sample;
         media_info.u.audio.sample_rate=codecpar->sample_rate;
         media_info.u.audio.channels=codecpar->channels;
+        media_info.u.audio.channel_layout=codecpar->channel_layout;
     }
     
     if (codecpar->codec_type==AVMEDIA_TYPE_VIDEO && codecpar->extradata_size>0 && codecpar->extradata[0] != 1) { //convert to mp4 header
@@ -362,6 +367,8 @@ int KMP_send_ack( KMP_session_t *context,uint64_t frame_id)
     pkt.header.reserved=0;
     pkt.header.header_size=sizeof(kmp_ack_frames_packet_t);
     pkt.frame_id=frame_id;
+    pkt.offset=0;
+    pkt.padding=0;
     _S(KMP_send(context, &pkt, sizeof(kmp_ack_frames_packet_t)));
     return 0;
 }
@@ -375,6 +382,8 @@ int KMP_send_handshake( KMP_session_t *context,const char* channel_id,const char
     connect.header.data_size=0;
     connect.header.reserved=0;
     connect.initial_frame_id=initial_frame_id;
+    connect.initial_offset=0;
+    connect.padding=0;
     strcpy((char*)connect.channel_id,channel_id);
     strcpy((char*)connect.track_id,track_id);
     _S(KMP_send(context, &connect, sizeof(connect)));
@@ -624,7 +633,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
         params->sample_rate=mediaInfo.u.audio.sample_rate;
         params->bits_per_coded_sample=mediaInfo.u.audio.bits_per_sample*8;
         params->channels=mediaInfo.u.audio.channels;
-        params->channel_layout=av_get_default_channel_layout(params->channels);
+        params->channel_layout=mediaInfo.u.audio.channel_layout;
         set_audio_codec(mediaInfo.codec_id,params);
     }
     if (mediaInfo.media_type==KMP_MEDIA_VIDEO) {
@@ -634,6 +643,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
         params->height=mediaInfo.u.video.height;
         transcodeMediaInfo->frameRate.den=mediaInfo.u.video.frame_rate.denom;
         transcodeMediaInfo->frameRate.num=mediaInfo.u.video.frame_rate.num;
+        transcodeMediaInfo->closed_captions = mediaInfo.u.video.cea_captions;
         set_video_codec(mediaInfo.codec_id,params);
     }
     transcodeMediaInfo->timeScale.den=mediaInfo.timescale;

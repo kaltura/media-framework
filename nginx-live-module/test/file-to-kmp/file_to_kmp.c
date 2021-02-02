@@ -342,6 +342,7 @@ kmp_get_mediainfo(AVStream *stream, kmp_media_info_t *media_info,
         media_info->u.video.height = codecpar->height;
         media_info->u.video.frame_rate.denom = stream->avg_frame_rate.den;
         media_info->u.video.frame_rate.num = stream->avg_frame_rate.num;
+        media_info->u.video.cea_captions = 0;
 
         if (media_info->codec_id == KMP_CODEC_VIDEO_H264 &&
             codecpar->extradata_size > 6 &&
@@ -379,7 +380,7 @@ kmp_get_mediainfo(AVStream *stream, kmp_media_info_t *media_info,
         media_info->u.audio.bits_per_sample = codecpar->bits_per_coded_sample;
         media_info->u.audio.sample_rate = codecpar->sample_rate;
         media_info->u.audio.channels = codecpar->channels;
-        media_info->u.audio.padding = 0;
+        media_info->u.audio.channel_layout = codecpar->channel_layout;
         break;
 
     default:

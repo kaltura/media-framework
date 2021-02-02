@@ -27,7 +27,7 @@
 
 #define NGX_LIVE_PERSIST_TYPE_INDEX              (0x78696773)    /* sgix */
 
-#define NGX_LIVE_PERSIST_TYPE_SEGMENTS           (0x73746773)    /* sgts */
+#define NGX_LIVE_PERSIST_TYPE_MEDIA              (0x73746773)    /* sgts */
 
 
 /* block ids */

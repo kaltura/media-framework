@@ -17,6 +17,11 @@ def fixedStringCopy(fixed):
 
     return 'p = ngx_copy_fix(p, %s);\n' % (fixed)
 
+# not using set in order to retain order
+def listAdd(lst, item):
+    if item not in lst:
+        lst.append(item)
+
 def outputObject(objectInfo, properties):
     # parse the object info
     static = ''
@@ -48,19 +53,19 @@ def outputObject(objectInfo, properties):
     sizeCalc = ''
     getSizeCode = ''
     writeCode = ''
-    funcDefs = set([])
-    writeDefs = set([])
+    funcDefs = []
+    writeDefs = []
     returnConds = {}
     fixed = prefix
     nextFixed = ''
     firstField = True
     for property in properties:
         if property[1] == '%code':
-            funcDefs.add(' '.join(property[2:]))
+            listAdd(funcDefs, ' '.join(property[2:]))
             continue
 
         if property[1] == '%writeCode':
-            writeDefs.add(' '.join(property[2:]))
+            listAdd(writeDefs, ' '.join(property[2:]))
             continue
 
         if property[1].startswith('%return'):
@@ -103,7 +108,7 @@ def outputObject(objectInfo, properties):
                     expr = ', %s' % expr
 
                 if fixed.endswith(','):
-                    writeDefs.add('u_char  *next;');
+                    listAdd(writeDefs, 'u_char  *next;');
                     valueWrite = 'next = %s_write(p%s);' % (baseFunc, expr)
                     valueWrite += '\n' + 'p = next == p ? p - 1 : next;'
                 else:
@@ -148,7 +153,7 @@ for (q = ngx_queue_head(&%s);
 ''' % (expr, expr, objectType, objectType, queueNode, expr, idField,
         idField, baseFunc)
 
-                funcDefs.add('ngx_queue_t  *q;')
+                listAdd(funcDefs, 'ngx_queue_t  *q;')
                 valueSize = ''
             elif format.startswith('slist-'):
                 params = format[len('slist-'):].split(',')
@@ -172,7 +177,7 @@ for (cur = %s; cur; cur = cur->next) {
 }
 ''' % (expr, expr, baseFunc)
 
-                funcDefs.add('%s  *cur;' % objectType)
+                listAdd(funcDefs, '%s  *cur;' % objectType)
                 valueSize = ''
             elif format.startswith('queue-'):
                 params = format[len('queue-'):].split(',')
@@ -204,7 +209,7 @@ for (q = ngx_queue_head(&%s);
 }
 ''' % (expr, expr, objectType, objectType, queueNode, expr, baseFunc)
 
-                funcDefs.add('ngx_queue_t  *q;')
+                listAdd(funcDefs, 'ngx_queue_t  *q;')
                 valueSize = ''
             elif format.startswith('array-'):
                 params = format[len('array-'):].split(',')
@@ -227,7 +232,7 @@ for (n = 0; n < %s.nelts; ++n) {
     p = %s_write(p, cur);
 }
 ''' % (expr, objectType, objectType, expr, baseFunc)
-                funcDefs.add('ngx_uint_t  n;')
+                listAdd(funcDefs, 'ngx_uint_t  n;')
                 valueSize = ''
             elif format == 'V':
                 fixed += '"';
@@ -278,10 +283,15 @@ for (n = 0; n < %s.nelts; ++n) {
                 printParams = '(uint32_t) (n / d)'
                 printParams += ', (uint32_t) (n %% d * %d) / d''' %           \
                     (10 ** precision)
-                writeDefs.add('uint32_t  n, d;')
-                valueWrite = '''n = %s.num;
-d = %s.denom;
-p = ngx_sprintf(p, "%s", %s);''' % (expr, expr, format, printParams)
+                listAdd(writeDefs, 'uint32_t  n, d;')
+                valueWrite = '''d = %s.denom;
+if (d) {
+    n = %s.num;
+    p = ngx_sprintf(p, "%s", %s);
+
+} else {
+    *p++ = '0';
+}''' % (expr, expr, format, printParams)
             else:
                 match = re.match('^\.(\d+)f$', format)
                 if not match is None:

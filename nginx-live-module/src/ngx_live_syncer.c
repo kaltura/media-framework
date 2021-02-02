@@ -405,7 +405,6 @@ ngx_live_syncer_track_json_write(u_char *p, void *obj)
 static ngx_int_t
 ngx_live_syncer_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
-    size_t                         *track_ctx_size = ectx;
     ngx_live_syncer_channel_ctx_t  *cctx;
 
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
@@ -416,9 +415,6 @@ ngx_live_syncer_channel_init(ngx_live_channel_t *channel, void *ectx)
     }
 
     ngx_live_set_ctx(channel, cctx, ngx_live_syncer_module);
-
-    ngx_live_reserve_track_ctx_size(channel, ngx_live_syncer_module,
-        sizeof(ngx_live_syncer_track_ctx_t), track_ctx_size);
 
     return NGX_OK;
 }
@@ -676,6 +672,9 @@ ngx_live_syncer_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     cpcf = ngx_live_get_module_preset_conf((ngx_live_conf_ctx_t *) cf->ctx,
         ngx_live_core_module);
     conf->timescale = cpcf->timescale;
+
+    ngx_live_reserve_track_ctx_size(cf, ngx_live_syncer_module,
+        sizeof(ngx_live_syncer_track_ctx_t));
 
     return NGX_CONF_OK;
 }

@@ -22,7 +22,7 @@
 
 
 #define ngx_http_live_match_file_name(start_pos, end_pos, prefix, postfix)  \
-    ((end_pos) - (start_pos) >= (int)((prefix).len + (postfix).len)         \
+    ((end_pos) - (start_pos) >= (int) ((prefix).len + (postfix).len)        \
     && ngx_memcmp((end_pos) - (postfix).len, (postfix).data,                \
         (postfix).len) == 0                                                 \
     && ngx_memcmp((start_pos), (prefix).data, (prefix).len) == 0)
@@ -36,6 +36,7 @@ typedef vod_status_t (*ngx_http_live_frame_processor_pt)(void *context);
 enum {
     NGX_HTTP_LIVE_EXPIRES_STATIC,
     NGX_HTTP_LIVE_EXPIRES_INDEX,
+    NGX_HTTP_LIVE_EXPIRES_INDEX_GONE,
     NGX_HTTP_LIVE_EXPIRES_MASTER,
 
     NGX_HTTP_LIVE_EXPIRES_COUNT
@@ -98,6 +99,7 @@ typedef struct {
     size_t                               content_length;
     size_t                               size_limit;
 
+    int64_t                              correction;
     media_segment_t                     *segment;
     segment_writer_t                     segment_writer;
     ngx_http_live_segment_writer_ctx_t   segment_writer_ctx;
@@ -131,6 +133,8 @@ ngx_int_t ngx_http_live_status_to_ngx_error(ngx_http_request_t *r,
 ngx_int_t ngx_http_live_send_header(ngx_http_request_t *r,
     off_t content_length_n, ngx_str_t *content_type,
     time_t last_modified_time, ngx_uint_t expires_type);
+
+ngx_int_t ngx_http_live_gone(ngx_http_request_t *r);
 
 ngx_int_t ngx_http_live_send_response(ngx_http_request_t *r,
     ngx_str_t *response);

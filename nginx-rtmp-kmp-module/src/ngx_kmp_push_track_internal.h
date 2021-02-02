@@ -63,6 +63,9 @@ struct ngx_kmp_push_track_s {
 
 int64_t ngx_kmp_push_track_get_time(ngx_kmp_push_track_t *track);
 
+void ngx_kmp_push_track_set_error_reason(ngx_kmp_push_track_t *track,
+    char *code);
+
 ngx_http_call_ctx_t *ngx_kmp_push_track_http_call_create(
     ngx_kmp_push_track_t *track, ngx_http_call_init_t *ci);
 

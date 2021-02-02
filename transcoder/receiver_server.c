@@ -75,9 +75,13 @@ void* processClient(void *vargp)
     
     uint64_t received_frame_ack_id=0;
     uint64_t received_frame_id=0;
-    while (true) {
+    while (session->kmpClient.socket) {
         
-        KMP_read_header(&session->kmpClient,&header);
+        if( KMP_read_header(&session->kmpClient,&header)  <= 0 )
+        {
+            LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] KMP_read_header",session->stream_name);
+            break;
+        }
         if (header.packet_type==KMP_PACKET_EOS) {
             LOGGER(CATEGORY_KMP,AV_LOG_INFO,"[%s] recieved termination packet",session->stream_name);
             break;
@@ -85,7 +89,8 @@ void* processClient(void *vargp)
         if (header.packet_type==KMP_PACKET_CONNECT) {
             uint64_t frame_id=0;
             if ( KMP_read_handshake(&session->kmpClient,&header,session->channel_id,session->track_id,&frame_id)<0) {
-                LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] Invalid mediainfo",session->stream_name);
+                LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] KMP_read_handshake",session->stream_name);
+                break;
             } else {
                 LOGGER(CATEGORY_KMP,AV_LOG_INFO,"[%s] recieved handshake",session->stream_name);
                 transcode_session->onProcessedFrame=(transcode_session_processedFrameCB*)processedFrameCB;
@@ -99,7 +104,7 @@ void* processClient(void *vargp)
         {
             transcode_mediaInfo_t* newParams=av_malloc(sizeof(transcode_mediaInfo_t));
             newParams->codecParams=avcodec_parameters_alloc();
-            if (KMP_read_mediaInfo(&session->kmpClient,&header,newParams)<0) {
+            if (KMP_read_mediaInfo(&session->kmpClient,&header,newParams)<=0) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] Invalid mediainfo",session->stream_name);
                 break;
             }
@@ -111,7 +116,9 @@ void* processClient(void *vargp)
         {
             AVPacket* packet=av_packet_alloc();
             if (KMP_read_packet(&session->kmpClient,&header,packet)<=0) {
-                break;
+                LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] KMP_read_packet mediainfo",session->stream_name);
+                 av_packet_free(&packet);
+                 break;
             }
             pthread_mutex_lock(&server->diagnostics_locker);  // lock the critical section
             samples_stats_add(&server->receiverStats,packet->dts,packet->pos,packet->size);
@@ -220,7 +227,13 @@ int receiver_server_sync_listen(receiver_server_t *server)
 void receiver_server_close(receiver_server_t *server)
 {
     KMP_close(&server->kmpServer);
-    
+
+     for (int i=0;i<vector_total(&server->sessions);i++) {
+
+        receiver_server_session_t* session=(receiver_server_session_t*)vector_get(&server->sessions,i);
+        KMP_close(&session->kmpClient);
+     }
+
     if (server->thread_id!=0)
     {
         pthread_join(server->thread_id,NULL);

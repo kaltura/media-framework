@@ -263,7 +263,8 @@ ngx_kmp_push_upstream_from_json(ngx_pool_t *temp_pool,
     ngx_json_get_object_values(json, ngx_kmp_upstream_json_params, values);
 
     if (ngx_kmp_push_upstream_parse_url(temp_pool,
-        values[NGX_KMP_UPSTREAM_URL], &url) != NGX_OK) {
+        values[NGX_KMP_UPSTREAM_URL], &url) != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
             "ngx_kmp_push_upstream_from_json: parse url failed");
         return NGX_ERROR;
@@ -466,8 +467,7 @@ ngx_kmp_push_upstream_republish(ngx_kmp_push_upstream_t *u)
         return NGX_DECLINED;
     }
 
-    if (track->conf->ctrl_republish_url == NULL ||
-        u->no_republish) {
+    if (track->conf->ctrl_republish_url == NULL || u->no_republish) {
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
             "ngx_kmp_push_upstream_republish: cannot republish");
         return NGX_DECLINED;
@@ -542,8 +542,8 @@ ngx_kmp_push_upstream_ack_packet(ngx_kmp_push_upstream_t *u,
     switch (kmp_header->packet_type) {
 
     case KMP_PACKET_MEDIA_INFO:
-        if ((size_t) (u->acked_media_info.end - u->acked_media_info.start) <
-            size)
+        if ((size_t) (u->acked_media_info.end - u->acked_media_info.start)
+            < size)
         {
             u->acked_media_info.start = ngx_palloc(u->pool, size);
             if (u->acked_media_info.start == NULL) {
@@ -575,7 +575,7 @@ ngx_kmp_push_upstream_ack_packet(ngx_kmp_push_upstream_t *u,
 
     case KMP_PACKET_FRAME:
         if (ngx_buf_queue_reader_skip(&u->acked_reader,
-                size - sizeof(*kmp_header)) != NGX_OK)
+            size - sizeof(*kmp_header)) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_ALERT, &u->log, 0,
                 "ngx_kmp_push_upstream_ack_packet: "

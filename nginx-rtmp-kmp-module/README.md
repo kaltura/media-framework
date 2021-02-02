@@ -138,6 +138,19 @@ Sample request:
 }
 ```
 
+`reason` can have of the following values:
+* `alloc_failed` - memory limit reached / out of memory
+* `append_failed` - failed to append data to an upstream (out of memory)
+* `create_publish_failed` - failed to create publish request (out of memory)
+* `create_track_failed` - failed to create track object (out of memory)
+* `create_upstream_failed` - failed to create upstream object (invalid url or out of memory)
+* `parse_publish_failed` - got invalid response to 'publish' event (error http status, unknown content type etc.)
+* `rtmp_bad_data` - invalid audio/video data received on rtmp
+* `rtmp_close` - graceful rtmp unpublish
+* `rtmp_disconnect` - rtmp connection dropped
+* `rtmp_kmp_error` - generic module error, usually appears when another track initiated the disconnect
+* `upstream_error` - error on upstream kmp connection
+
 #### kmp_ctrl_republish_url
 * **syntax**: `kmp_ctrl_republish_url url`
 * **default**: `none`
@@ -262,21 +275,21 @@ Sets the size of the buffers used to send video data to the upstream server. A l
 
 #### kmp_video_mem_limit
 * **syntax**: `kmp_video_mem_limit size`
-* **default**: `16m`
+* **default**: `32m`
 * **context**: `rtmp`, `server`, `application`
 
 Sets the maximum total size of the buffers used to send video data to the upstream server. If the limit is hit, the module drops the RTMP connection.
 
 #### kmp_audio_buffer_size
 * **syntax**: `kmp_audio_buffer_size size`
-* **default**: `64k`
+* **default**: `4k`
 * **context**: `rtmp`, `server`, `application`
 
 Sets the size of the buffers used to send audio data to the upstream server. A large value can be more efficient, but increases the latency (a buffer is sent only when full).
 
 #### kmp_audio_mem_limit
 * **syntax**: `kmp_audio_mem_limit size`
-* **default**: `16m`
+* **default**: `1m`
 * **context**: `rtmp`, `server`, `application`
 
 Sets the maximum total size of the buffers used to send audio data to the upstream server. If the limit is hit, the module drops the RTMP connection.

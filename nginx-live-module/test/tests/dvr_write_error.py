@@ -29,4 +29,4 @@ def test(channelId=CHANNEL_ID):
         pass
 
     time.sleep(2)
-    logTracker.assertContains('ngx_live_dvr_write_complete: write failed')
+    logTracker.assertContains('ngx_live_persist_media_write_complete: write failed')

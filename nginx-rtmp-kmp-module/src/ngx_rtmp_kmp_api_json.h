@@ -359,8 +359,8 @@ ngx_rtmp_kmp_api_server_json_write(u_char *p, ngx_rtmp_core_srv_conf_t *obj)
 static size_t
 ngx_rtmp_kmp_api_json_get_size()
 {
-    ngx_uint_t  n;
     ngx_rtmp_core_main_conf_t *cmcf = ngx_rtmp_core_main_conf;
+    ngx_uint_t  n;
     size_t  result =
         sizeof("{\"version\":\"") - 1 + ngx_rtmp_kmp_version.len +
             ngx_escape_json(NULL, ngx_rtmp_kmp_version.data,
@@ -399,8 +399,8 @@ ngx_rtmp_kmp_api_json_get_size()
 static u_char *
 ngx_rtmp_kmp_api_json_write(u_char *p)
 {
-    ngx_uint_t  n;
     ngx_rtmp_core_main_conf_t *cmcf = ngx_rtmp_core_main_conf;
+    ngx_uint_t  n;
     p = ngx_copy_fix(p, "{\"version\":\"");
     p = (u_char *) ngx_escape_json(p, ngx_rtmp_kmp_version.data,
         ngx_rtmp_kmp_version.len);

@@ -73,6 +73,7 @@ void* thread_stream_from_file(void *vargp)
     extra.frameRate=in_stream->avg_frame_rate;
     extra.timeScale=standard_timebase;
     extra.codecParams=in_stream->codecpar;
+    extra.closed_captions = 0;
     if (KMP_send_mediainfo(&kmp,&extra)<0) {
         LOGGER0(CATEGORY_RECEIVER,AV_LOG_FATAL,"couldn't send mediainfo!");
         return NULL;

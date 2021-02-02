@@ -554,10 +554,12 @@ done:
 static void
 ngx_http_api_body_handler(ngx_http_request_t *r)
 {
-    ngx_buf_t           *b;
+    size_t               size;
+    ngx_buf_t           *b, *nb;
     ngx_int_t            rc;
     ngx_str_t            response;
     ngx_uint_t           status;
+    ngx_chain_t         *cl;
     ngx_json_value_t    *json;
     ngx_http_api_ctx_t  *ctx;
     u_char               error[128];
@@ -576,13 +578,35 @@ ngx_http_api_body_handler(ngx_http_request_t *r)
         goto done;
     }
 
-    b = r->request_body->bufs->buf;
-    if (b->last >= b->end) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_api_body_handler: no room for null terminator");
-        rc = NGX_HTTP_REQUEST_ENTITY_TOO_LARGE;
-        goto done;
+    cl = r->request_body->bufs;
+    b = cl->buf;
+    if (cl->next || b->last >= b->end) {
+
+        size = b->last - b->pos;
+        for (cl = cl->next; cl != NULL; cl = cl->next) {
+            b = cl->buf;
+            size += b->last - b->pos;
+        }
+
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_api_body_handler: "
+            "copying request body, size: %uz", size);
+
+        nb = ngx_create_temp_buf(r->connection->pool, size + 1);
+        if (nb == NULL) {
+            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            goto done;
+        }
+
+        for (cl = r->request_body->bufs; cl != NULL; cl = cl->next) {
+            b = cl->buf;
+            nb->last = ngx_copy(nb->last, b->pos, b->last - b->pos);
+        }
+
+        b = nb;
     }
+
+    *b->last = '\0';
 
     /* Note: json must be allocated on heap for multirequest - it contains
         the first list part */
@@ -595,7 +619,9 @@ ngx_http_api_body_handler(ngx_http_request_t *r)
         goto done;
     }
 
-    *b->last = '\0';
+    ngx_log_debug2(NGX_LOG_DEBUG_CORE, r->connection->log, 0,
+        "ngx_http_api_body_handler: request: \"%V\", body: %s",
+        &r->request_line, b->pos);
 
     rc = ngx_json_parse(r->pool, b->pos, json, error, sizeof(error));
     if (rc != NGX_JSON_OK) {

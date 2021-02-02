@@ -7,6 +7,7 @@ static ngx_live_media_info_json_video kmp_media_info_t media_info_t *media_info
     width %uD obj->u.video.
     height %uD obj->u.video.
     frame_rate %.2F obj->u.video.
+    cea_captions %b obj->u.video.
 
 static ngx_live_media_info_json_audio kmp_media_info_t media_info_t *media_info
     codec_id %uD
@@ -15,5 +16,6 @@ static ngx_live_media_info_json_audio kmp_media_info_t media_info_t *media_info
     codec_name %V  media_info->
     extra_data %xV media_info->
     channels %uD obj->u.audio.
+    channel_layout %uL obj->u.audio.
     bits_per_sample %uD obj->u.audio.
     sample_rate %uD obj->u.audio.

@@ -7,7 +7,7 @@ if (isset($_SERVER['PHP_SELF']))
     $pathParts = explode('/', $_SERVER['PHP_SELF']);
 }
 $pathParts = array_diff($pathParts, $scriptParts);
-$filePath = '/tmp/live-dvr/' . implode('/', $pathParts);
+$filePath = '/tmp/live-store/' . implode('/', $pathParts);
 
 mkdir(dirname($filePath), 0777, true);
 

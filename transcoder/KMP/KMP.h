@@ -30,6 +30,7 @@ typedef struct
     AVCodecParameters* codecParams;
     AVRational timeScale;
     AVRational frameRate;
+    bool_t closed_captions;
 } transcode_mediaInfo_t;
 
 int KMP_init( KMP_session_t *context);

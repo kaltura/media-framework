@@ -26,7 +26,7 @@ def test(channelId=CHANNEL_ID):
 
     time.sleep(1)
 
-    logTracker.assertContains('ngx_live_dvr_write_cancel: cancelling write request')
+    logTracker.assertContains('ngx_live_persist_media_write_cancel: cancelling write request')
 
     cleanupStack.reset()
     time.sleep(1)

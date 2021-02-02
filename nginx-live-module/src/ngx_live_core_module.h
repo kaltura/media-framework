@@ -8,6 +8,15 @@
 #include "ngx_live_json_commands.h"
 
 
+#define ngx_live_reserve_track_ctx_size(cf, module, size) {                 \
+        ngx_live_core_preset_conf_t  *cpcf;                                 \
+        cpcf = ngx_live_conf_get_module_preset_conf(cf,                     \
+            ngx_live_core_module);                                          \
+        cpcf->track_ctx_offset[module.ctx_index] = cpcf->track_ctx_size;    \
+        cpcf->track_ctx_size += size;                                       \
+    }
+
+
 #define ngx_live_null_json_writer  { { NULL, NULL }, 0 }
 #define ngx_live_null_event        { NULL, 0 }
 
@@ -35,6 +44,16 @@ enum {
 };
 
 
+enum {
+    NGX_LIVE_CORE_BP_TRACK,
+    NGX_LIVE_CORE_BP_VARIANT,
+    NGX_LIVE_CORE_BP_BUF_CHAIN,
+    NGX_LIVE_CORE_BP_STR,
+
+    NGX_LIVE_CORE_BP_COUNT
+};
+
+
 typedef size_t (*ngx_live_json_writer_get_size_pt)(void *obj);
 typedef u_char *(*ngx_live_json_writer_write_pt)(u_char *p, void *obj);
 
@@ -56,7 +75,16 @@ typedef struct ngx_live_core_preset_conf_s {
     size_t                          mem_limit;
     ngx_uint_t                      mem_high_watermark;
     ngx_uint_t                      mem_low_watermark;
-    ngx_array_t                    *mem_block_sizes;
+
+    ngx_array_t                     mem_blocks;         /* size_t */
+    ngx_array_t                    *mem_conf_blocks;    /* size_t */
+    ngx_array_t                    *mem_temp_blocks;
+                                             /* ngx_live_core_block_size_t */
+
+    ngx_uint_t                      bp_idx[NGX_LIVE_CORE_BP_COUNT];
+
+    size_t                         *track_ctx_offset;
+    size_t                          track_ctx_size;
 
     ngx_uint_t                      timescale;
 } ngx_live_core_preset_conf_t;
@@ -118,6 +146,13 @@ ngx_int_t ngx_live_core_channel_event(ngx_live_channel_t *channel,
 
 ngx_int_t ngx_live_core_track_event(ngx_live_track_t *track, ngx_uint_t event,
     void *ectx);
+
+
+ngx_int_t ngx_live_core_add_block_pool_index(ngx_conf_t *cf, ngx_uint_t *index,
+    size_t size);
+
+ngx_int_t ngx_live_core_prepare_preset(ngx_conf_t *cf,
+    ngx_live_core_preset_conf_t *cpcf);
 
 
 ngx_lba_t *ngx_live_core_get_lba(ngx_conf_t *cf, size_t buffer_size,
