@@ -33,7 +33,7 @@ LDFLAGS =  $(LDIR) $(LIBS)  $(FFMPEG_LIBS) $(LIBS)
 ifeq ($(OS),Darwin)
         LIBS += -liconv  -framework AudioToolbox  -framework VideoToolbox  -framework MediaToolbox  -framework CoreMedia  -framework CoreMediaIO  -framework CoreVideo   -framework CoreAudio  -framework CoreImage  -framework OpenGL   -framework AppKit  -framework QuartzCore  -framework ImageCaptureCore  -framework CoreFoundation  -framework Security   -framework SecurityFoundation  -framework SecurityInterface
 else
-        LIBS += -lrt ${CUDA_LIBS} 
+        LIBS +=  ${CUDA_LIBS} -lrt
 endif
 
 dir_guard=@mkdir -p $(@D)
