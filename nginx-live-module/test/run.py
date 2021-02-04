@@ -1,7 +1,6 @@
 from optparse import OptionParser
 from nginx_live_client import *
 from test_base import *
-import nginxparser
 import http_utils
 import subprocess
 import requests
@@ -9,6 +8,14 @@ import signal
 import time
 import sys
 import os
+
+nginxParser = os.path.join(os.path.dirname(__file__), 'nginxparser.py')
+if not os.path.isfile(nginxParser):
+    print 'Info: downloading %s' % nginxParser
+    r = requests.get('https://raw.githubusercontent.com/fatiherikli/nginxparser/master/nginxparser.py')
+    open(nginxParser, 'wb').write(r.content)
+
+import nginxparser
 
 NGINX_CONF = 'nginx.conf'
 TEMP_NGINX_CONF = 'temp.conf'

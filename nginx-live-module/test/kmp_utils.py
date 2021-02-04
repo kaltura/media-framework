@@ -2,6 +2,8 @@ import subprocess
 import struct
 import socket
 import time
+import sys
+import os
 
 
 FILE_TO_KMP_BIN = 'file-to-kmp/file_to_kmp'
@@ -78,10 +80,15 @@ class KmpFileReader(KmpReader):
 
 class KmpMediaFileReader(KmpReader):
     def __init__(self, inputFile, streamId, createdBase=DEFAULT_CREATED):
+        fileToKmp = os.path.join(os.path.dirname(__file__), FILE_TO_KMP_BIN)
+        if not os.path.isfile(fileToKmp):
+            print 'Error: "%s" does not exist\nPlease compile it' % fileToKmp
+            sys.exit(1)
+
         self.inputFile = inputFile
         self.streamId = streamId
         p = subprocess.Popen([
-            FILE_TO_KMP_BIN,
+            fileToKmp,
             '-s%s' % streamId,
             '-c%s' % createdBase,
             inputFile,
