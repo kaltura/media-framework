@@ -796,7 +796,7 @@ ngx_http_live_hls_bitrate_iter_get(ngx_http_live_hls_bitrate_iter_t *iter,
 static ngx_int_t
 ngx_http_live_hls_media_info_iter_init(ngx_http_request_t *r,
     ngx_http_live_hls_media_info_iter_t *iter,
-    ngx_http_live_request_objects_t *objects)
+    ngx_http_live_request_objects_t *objects, uint32_t segment_index)
 {
     uint32_t                     i, count;
     ngx_live_track_t            *cur_track;
@@ -812,7 +812,7 @@ ngx_http_live_hls_media_info_iter_init(ngx_http_request_t *r,
             continue;
         }
 
-        count += ngx_live_media_info_iter_init(cur, cur_track);
+        count += ngx_live_media_info_iter_init(cur, cur_track, segment_index);
 
         cur++;
     }
@@ -1270,7 +1270,7 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
     last_map_index = NGX_MAX_UINT32_VALUE;
 
     rc = ngx_http_live_hls_media_info_iter_init(r, &media_info_iter,
-        objects);
+        objects, first_period->node.key);
     if (rc != NGX_OK) {
         return rc;
     }

@@ -28,16 +28,13 @@ enum {
 typedef void *(*ngx_live_media_info_alloc_pt)(void *ctx, size_t size);
 
 struct ngx_live_media_info_node_s {
+    ngx_rbtree_node_t   node;
     ngx_queue_t         queue;
     kmp_media_info_t    kmp_media_info;
     media_info_t        media_info;
     u_char              codec_name[MAX_CODEC_NAME_SIZE];
     uint32_t            track_id;
-
-    union {
-        uint32_t        frame_index_delta;     /* used when pending */
-        uint32_t        start_segment_index;
-    } u;
+    uint32_t            frame_index_delta;     /* used when pending */
 };
 
 
@@ -45,6 +42,8 @@ typedef struct {
     ngx_queue_t         pending;
     uint32_t            delta_sum;
 
+    ngx_rbtree_t        rbtree;
+    ngx_rbtree_node_t   sentinel;
     ngx_queue_t         active;
     uint32_t            added;
     uint32_t            removed;
@@ -465,7 +464,7 @@ ngx_live_media_info_node_clone(ngx_live_channel_t *channel,
     mipcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_media_info_module);
 
-    node = ngx_block_pool_calloc(channel->block_pool,
+    node = ngx_block_pool_alloc(channel->block_pool,
         mipcf->bp_idx[NGX_LIVE_BP_MEDIA_INFO_NODE]);
     if (node == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
@@ -529,8 +528,9 @@ ngx_live_media_info_queue_push(ngx_live_track_t *track,
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
-    node->u.start_segment_index = segment_index;
+    node->node.key = segment_index;
 
+    ngx_rbtree_insert(&ctx->rbtree, &node->node);
     ngx_queue_insert_tail(&ctx->active, &node->queue);
     ctx->added++;
 
@@ -558,11 +558,12 @@ ngx_live_media_info_queue_track_segment_free(ngx_live_track_t *track,
         }
 
         next_node = ngx_queue_data(next, ngx_live_media_info_node_t, queue);
-        if (min_segment_index < next_node->u.start_segment_index) {
+        if (min_segment_index < next_node->node.key) {
             break;
         }
 
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+        ngx_rbtree_delete(&ctx->rbtree, &node->node);
         ngx_live_media_info_node_free(track->channel, node);
         ctx->removed++;
 
@@ -629,32 +630,146 @@ ngx_live_media_info_queue_free_all(ngx_live_track_t *track)
         ngx_live_media_info_node_free(channel, node);
     }
 
+#if 0   /* skipping since the track is freed */
+    ngx_rbtree_reset(&ctx->rbtree);
     ctx->removed = ctx->added;
+#endif
+}
+
+static ngx_live_media_info_node_t *
+ngx_live_media_info_queue_get_before(ngx_live_media_info_track_ctx_t *ctx,
+    uint32_t segment_index)
+{
+    ngx_queue_t                 *prev;
+    ngx_rbtree_t                *rbtree;
+    ngx_rbtree_node_t           *rbnode;
+    ngx_rbtree_node_t           *sentinel;
+    ngx_rbtree_node_t           *next_node;
+    ngx_live_media_info_node_t  *node;
+
+    rbtree = &ctx->rbtree;
+    rbnode = rbtree->root;
+    sentinel = rbtree->sentinel;
+
+    if (rbnode == sentinel) {
+        return NULL;
+    }
+
+    for ( ;; ) {
+
+        if (segment_index < rbnode->key) {
+            next_node = rbnode->left;
+            if (next_node != sentinel) {
+                goto next;
+            }
+
+            /* Note: since we don't know the end index of each node, it is
+                possible that we made a wrong right turn, in that case, we
+                need to go back one node */
+
+            node = (ngx_live_media_info_node_t *) rbnode;
+
+            prev = ngx_queue_prev(&node->queue);
+            if (prev == ngx_queue_sentinel(&ctx->active)) {
+                return NULL;
+            }
+
+            node = ngx_queue_data(prev, ngx_live_media_info_node_t, queue);
+
+        } else {
+            next_node = rbnode->right;
+            if (next_node != sentinel) {
+                goto next;
+            }
+
+            node = (ngx_live_media_info_node_t *) rbnode;
+        }
+
+        break;
+
+    next:
+
+        rbnode = next_node;
+    }
+
+    return node;
+}
+
+static ngx_live_media_info_node_t *
+ngx_live_media_info_queue_get_after(ngx_live_media_info_track_ctx_t *ctx,
+    uint32_t segment_index)
+{
+    ngx_queue_t                 *next;
+    ngx_rbtree_t                *rbtree;
+    ngx_rbtree_node_t           *rbnode;
+    ngx_rbtree_node_t           *sentinel;
+    ngx_rbtree_node_t           *next_node;
+    ngx_live_media_info_node_t  *node;
+
+    rbtree = &ctx->rbtree;
+    rbnode = rbtree->root;
+    sentinel = rbtree->sentinel;
+
+    if (rbnode == sentinel) {
+        return NULL;
+    }
+
+    for ( ;; ) {
+
+        if (segment_index < rbnode->key) {
+            next_node = rbnode->left;
+            if (next_node != sentinel) {
+                goto next;
+            }
+
+            node = (ngx_live_media_info_node_t *) rbnode;
+            break;
+
+        } else if (segment_index > rbnode->key) {
+            next_node = rbnode->right;
+            if (next_node != sentinel) {
+                goto next;
+            }
+
+            node = (ngx_live_media_info_node_t *) rbnode;
+
+            next = ngx_queue_next(&node->queue);
+            if (next == ngx_queue_sentinel(&ctx->active)) {
+                return NULL;
+            }
+
+            node = ngx_queue_data(next, ngx_live_media_info_node_t, queue);
+            break;
+
+        } else {
+            node = (ngx_live_media_info_node_t *) rbnode;
+            break;
+        }
+
+    next:
+
+        rbnode = next_node;
+    }
+
+    return node;
 }
 
 media_info_t *
 ngx_live_media_info_queue_get(ngx_live_track_t *track, uint32_t segment_index,
     uint32_t *track_id)
 {
-    ngx_queue_t                      *q;
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
-    for (q = ngx_queue_last(&ctx->active);
-        q != ngx_queue_sentinel(&ctx->active);
-        q = ngx_queue_prev(q))
-    {
-        node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-
-        if (segment_index >= node->u.start_segment_index) {
-            *track_id = node->track_id;
-            return &node->media_info;
-        }
+    node = ngx_live_media_info_queue_get_before(ctx, segment_index);
+    if (node == NULL) {
+        return NULL;
     }
 
-    return NULL;
+    *track_id = node->track_id;
+    return &node->media_info;
 }
 
 media_info_t *
@@ -854,7 +969,7 @@ ngx_live_media_info_source_set(ngx_live_track_t *track)
             return NGX_ERROR;
         }
 
-        node->u.frame_index_delta = 0;
+        node->frame_index_delta = 0;
 
         ngx_queue_insert_tail(&ctx->pending, &node->queue);
     }
@@ -956,7 +1071,8 @@ ngx_live_media_info_pending_add(ngx_live_track_t *track,
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
         if (ngx_live_media_info_node_compare(node, media_info, extra_data,
-            extra_data_size)) {
+            extra_data_size))
+        {
             /* no change - ignore */
             return NGX_DONE;
         }
@@ -985,7 +1101,7 @@ ngx_live_media_info_pending_add(ngx_live_track_t *track,
         return rc;
     }
 
-    node->u.frame_index_delta = frame_index - ctx->delta_sum;
+    node->frame_index_delta = frame_index - ctx->delta_sum;
     ctx->delta_sum = frame_index;
 
     ngx_queue_insert_tail(&ctx->pending, &node->queue);
@@ -1027,13 +1143,13 @@ ngx_live_media_info_pending_remove_frames(ngx_live_track_t *track,
     {
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
-        if (left <= node->u.frame_index_delta) {
-            node->u.frame_index_delta -= left;
+        if (left <= node->frame_index_delta) {
+            node->frame_index_delta -= left;
             break;
         }
 
-        left -= node->u.frame_index_delta;
-        node->u.frame_index_delta = 0;
+        left -= node->frame_index_delta;
+        node->frame_index_delta = 0;
     }
 }
 
@@ -1061,7 +1177,7 @@ ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
     while (q != ngx_queue_sentinel(&ctx->pending)) {
         cur = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
-        if (cur->u.frame_index_delta > 0) {
+        if (cur->frame_index_delta > 0) {
             break;
         }
 
@@ -1242,23 +1358,28 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
 
 ngx_flag_t
 ngx_live_media_info_iter_init(ngx_live_media_info_iter_t *iter,
-    ngx_live_track_t *track)
+    ngx_live_track_t *track, uint32_t segment_index)
 {
     ngx_queue_t                      *q;
     ngx_live_media_info_track_ctx_t  *ctx;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
-    q = ngx_queue_head(&ctx->active);
-    if (q == ngx_queue_sentinel(&ctx->active)) {
-        iter->cur = NULL;
-        return 0;
-    }
-
-    iter->cur = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
     iter->sentinel = ngx_queue_sentinel(&ctx->active);
 
-    return 1;
+    iter->cur = ngx_live_media_info_queue_get_before(ctx, segment_index);
+    if (iter->cur != NULL) {
+        return 1;
+    }
+
+    q = ngx_queue_head(&ctx->active);
+    if (q != ngx_queue_sentinel(&ctx->active)) {
+        iter->cur = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+        return 1;
+    }
+
+    /* iter->cur was already set to NULL */
+    return 0;
 }
 
 uint32_t
@@ -1268,9 +1389,7 @@ ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
     ngx_queue_t                 *q;
     ngx_live_media_info_node_t  *next;
 
-    if (iter->cur == NULL ||
-        segment_index < iter->cur->u.start_segment_index)
-    {
+    if (iter->cur == NULL || segment_index < iter->cur->node.key) {
         *media_info = NULL;
         return 0;
     }
@@ -1284,7 +1403,7 @@ ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
 
         next = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
-        if (segment_index < next->u.start_segment_index) {
+        if (segment_index < next->node.key) {
             break;
         }
 
@@ -1292,7 +1411,7 @@ ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
     }
 
     *media_info = &iter->cur->media_info;
-    return iter->cur->u.start_segment_index;
+    return iter->cur->node.key;
 }
 
 
@@ -1323,6 +1442,7 @@ ngx_live_media_info_track_init(ngx_live_track_t *track, void *ectx)
     ngx_queue_init(&ctx->pending);
 
     ngx_queue_init(&ctx->active);
+    ngx_rbtree_init(&ctx->rbtree, &ctx->sentinel, ngx_rbtree_insert_value);
 
     ctx->group_id.data = ctx->group_id_buf;
 
@@ -1674,19 +1794,24 @@ ngx_live_media_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
     snap = ngx_live_persist_write_ctx(write_ctx);
 
-    for (q = ngx_queue_head(&ctx->active); ; q = ngx_queue_next(q)) {
+    if (snap->scope.min_index > 0) {
+        node = ngx_live_media_info_queue_get_after(ctx, snap->scope.min_index);
+        if (node == NULL) {
+            return NGX_OK;
+        }
 
+        q = &node->queue;
+
+    } else {
+        q = ngx_queue_head(&ctx->active);
         if (q == ngx_queue_sentinel(&ctx->active)) {
             return NGX_OK;
         }
 
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-        if (node->u.start_segment_index >= snap->scope.min_index) {
-            break;
-        }
     }
 
-    if (node->u.start_segment_index > snap->scope.max_index) {
+    if (node->node.key > snap->scope.max_index) {
         return NGX_OK;
     }
 
@@ -1699,7 +1824,7 @@ ngx_live_media_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
     for ( ;; ) {
 
         mp.track_id = node->track_id;
-        mp.start_segment_index = node->u.start_segment_index;
+        mp.start_segment_index = node->node.key;
 
         if (ngx_live_media_info_write(write_ctx, &mp, &node->kmp_media_info,
             &node->media_info.extra_data) != NGX_OK)
@@ -1715,7 +1840,7 @@ ngx_live_media_info_write_index(ngx_live_persist_write_ctx_t *write_ctx,
         }
 
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-        if (node->u.start_segment_index > snap->scope.max_index) {
+        if (node->node.key > snap->scope.max_index) {
             break;
         }
     }
@@ -1757,12 +1882,12 @@ ngx_live_media_info_read_index(ngx_live_persist_block_header_t *block,
     if (!ngx_queue_empty(&ctx->active)) {
         node = ngx_queue_data(ngx_queue_last(&ctx->active),
             ngx_live_media_info_node_t, queue);
-        if (node->u.start_segment_index >= min_index) {
+        if (node->node.key >= min_index) {
             /* can happen due to duplicate block */
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_media_info_read_index: "
                 "last index %uD exceeds min index %uD",
-                node->u.start_segment_index, min_index);
+                node->node.key, min_index);
             return NGX_BAD_DATA;
         }
     }

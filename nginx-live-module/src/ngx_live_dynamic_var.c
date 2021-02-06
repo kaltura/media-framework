@@ -189,8 +189,7 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_command_t *cmd,
             var);
     }
 
-    ngx_rbtree_init(&cctx->rbtree, &cctx->sentinel,
-        ngx_str_rbtree_insert_value);
+    ngx_rbtree_reset(&cctx->rbtree);
     ngx_queue_init(&cctx->queue);
 
     /* load new vars */

@@ -196,25 +196,35 @@ ngx_live_segment_list_get_closest_segment(
     for ( ;; ) {
 
         node = (ngx_live_segment_list_node_t *) rbnode;
-        next_node = (time < node->time) ? rbnode->left : rbnode->right;
-        if (next_node == sentinel) {
-            break;
+        if (time < node->time) {
+            next_node = rbnode->left;
+            if (next_node != sentinel) {
+                goto next;
+            }
+
+            /* Note: since we don't know the end index of each node, it is
+                possible that we made a wrong right turn, in that case, we
+                need to go back one node */
+
+            prev = ngx_queue_prev(&node->queue);
+            if (prev == ngx_queue_sentinel(&segment_list->queue)) {
+                return NGX_ERROR;
+            }
+
+            node = ngx_queue_data(prev, ngx_live_segment_list_node_t, queue);
+
+        } else {
+            next_node = rbnode->right;
+            if (next_node != sentinel) {
+                goto next;
+            }
         }
+
+        break;
+
+    next:
 
         rbnode = next_node;
-    }
-
-    if (time < node->time)
-    {
-        /* Note: since we don't know the end index of each node, it is possible
-            that we made a wrong right turn, in that case, we need to go back
-            one node */
-        prev = ngx_queue_prev(&node->queue);
-        if (prev == ngx_queue_sentinel(&segment_list->queue)) {
-            return NGX_ERROR;
-        }
-
-        node = ngx_queue_data(prev, ngx_live_segment_list_node_t, queue);
     }
 
     *segment_index = node->node.key;
