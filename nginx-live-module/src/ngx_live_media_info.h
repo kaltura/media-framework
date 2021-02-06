@@ -63,7 +63,7 @@ ngx_int_t ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
 
 /* iterator */
 ngx_flag_t ngx_live_media_info_iter_init(ngx_live_media_info_iter_t *iter,
-    ngx_live_track_t *track);
+    ngx_live_track_t *track, uint32_t segment_index);
 
 uint32_t ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
     uint32_t segment_index, media_info_t **media_info);

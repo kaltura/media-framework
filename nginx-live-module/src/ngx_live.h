@@ -35,6 +35,10 @@ typedef struct ngx_live_channel_s     ngx_live_channel_t;
 #define ngx_abs_diff(val1, val2)                                            \
     ((val2) > (val1) ? (val2) - (val1) : (val1) - (val2))
 
+#define ngx_rbtree_reset(tree)                                              \
+    ngx_rbtree_sentinel_init((tree)->sentinel);                             \
+    (tree)->root = (tree)->sentinel;
+
 #define ngx_rbtree_data(n, type, node)                                      \
     (type *) ((u_char *) n - offsetof(type, node))
 
