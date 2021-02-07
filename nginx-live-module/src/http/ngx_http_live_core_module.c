@@ -520,7 +520,8 @@ ngx_http_live_core_init_ctx(ngx_http_request_t *r,
     }
 
     if (ngx_http_complex_value(r, conf->channel_id, &params->channel_id)
-        != NGX_OK) {
+        != NGX_OK)
+    {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
             "ngx_http_live_core_init_ctx: channel complex value failed");
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -1321,7 +1322,8 @@ ngx_http_live_core_write_segment(ngx_http_request_t *r)
 
     if (conf->segment_metadata != NULL) {
         if (ngx_http_complex_value(r, conf->segment_metadata,
-            &ctx->segment->metadata) != NGX_OK) {
+            &ctx->segment->metadata) != NGX_OK)
+        {
             ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                 "ngx_http_live_core_write_segment: "
                 "ngx_http_complex_value failed");
@@ -1651,7 +1653,7 @@ ngx_http_live_core_get_init_segment(ngx_http_request_t *r,
     }
 
     if (result->count <= 0) {
-        ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_core_get_init_segment: "
             "no media info found, index: %uD", ctx->params.index);
         return NGX_HTTP_BAD_REQUEST;

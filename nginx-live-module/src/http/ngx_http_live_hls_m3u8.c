@@ -832,19 +832,27 @@ ngx_http_live_hls_media_info_iter_init(ngx_http_request_t *r,
 static void
 ngx_http_live_hls_media_info_iter_get(
     ngx_http_live_hls_media_info_iter_t *iter, uint32_t segment_index,
-    media_info_t **media_infos, uint32_t *max_index)
+    media_info_t **media_infos, uint32_t *map_index)
 {
     uint32_t  i;
     uint32_t  cur_index;
 
-    *max_index = 0;
+    *map_index = NGX_LIVE_INVALID_SEGMENT_INDEX;
+
     for (i = 0; i < iter->track_count; i++) {
 
         cur_index = ngx_live_media_info_iter_next(&iter->iters[i],
             segment_index, media_infos + i);
 
-        if (*max_index < cur_index) {
-            *max_index = cur_index;
+        if (*map_index > segment_index) {
+            /* take the min of future segment indexes */
+            if (cur_index < *map_index) {
+                *map_index = cur_index;
+            }
+
+        } else if (cur_index > *map_index && cur_index <= segment_index) {
+            /* take the max of past segment indexes */
+            *map_index = cur_index;
         }
     }
 }
