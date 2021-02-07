@@ -1324,7 +1324,7 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
     }
 
     /* write the footer */
-    if (!timeline->conf.active) {
+    if (timeline->conf.end_list) {
         p = ngx_copy_fix(p, M3U8_END_LIST);
     }
 
