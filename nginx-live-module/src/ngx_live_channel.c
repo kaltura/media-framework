@@ -733,6 +733,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     ngx_queue_t                  *q;
     ngx_live_track_t             *track;
     ngx_live_track_t             *cur_track;
+    ngx_live_core_ctx_offset_t   *offsets;
     ngx_live_core_preset_conf_t  *cpcf;
 
     if (id->len > sizeof(track->id_buf)) {
@@ -814,8 +815,10 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
     track->ctx = (void *) (track + 1);
-    for (i = 0; i < ngx_live_max_module; i++) {
-        track->ctx[i] = (u_char *) track + cpcf->track_ctx_offset[i];
+
+    offsets = cpcf->track_ctx_offset.elts;
+    for (i = 0; i < cpcf->track_ctx_offset.nelts; i++) {
+        track->ctx[offsets[i].index] = (u_char *) track + offsets[i].offset;
     }
 
     rc = ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_INIT, NULL);
