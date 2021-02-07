@@ -3,12 +3,12 @@
 
 ARG  CUDA_VERSION="11.0"
 
-FROM nvidia/cuda:${CUDA_VERSION}-devel 
+FROM nvidia/cuda:${CUDA_VERSION}-devel AS builder
 ENV TZ=Europe/Kiev
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 WORKDIR /build
 
-RUN apt-get update && apt-get install -y sudo git build-essential gdbserver vim yasm cmake libtool autogen dh-autoreconf libbz2-dev libc6 libc6-dev unzip wget libnuma1 libnuma-dev frei0r-plugins-dev libgnutls28-dev libass-dev libmp3lame-dev libopencore-amrnb-dev libopencore-amrwb-dev libopus-dev librtmp-dev libsoxr-dev libspeex-dev libtheora-dev libvo-amrwbenc-dev libvorbis-dev libvpx-dev libwebp-dev libx264-dev libx265-dev libxvidcore-dev gdb python3 python3-pip
+RUN apt-get update && apt-get install -y sudo git build-essential gdbserver vim yasm cmake libtool autogen dh-autoreconf libbz2-dev libc6 libc6-dev unzip wget libnuma1 libnuma-dev frei0r-plugins-dev libgnutls28-dev libass-dev libmp3lame-dev libopencore-amrnb-dev libopencore-amrwb-dev libopus-dev librtmp-dev libsoxr-dev libspeex-dev libtheora-dev libvo-amrwbenc-dev libvorbis-dev libvpx-dev libwebp-dev libx264-dev libx265-dev libxvidcore-dev gdb
 
 ARG  FFMPEG_VERSION="n4.3.1"
 ARG  NVIDIA_CODEC_HEADERS_VERSION="n10.0.26.1"
@@ -32,14 +32,23 @@ RUN  cd ffmpeg && ./configure --disable-doc --enable-nonfree --disable-shared --
         make install
 
 
-
-RUN pip3 install redis
-COPY . . 
-
-ENV NVIDIA_VISIBLE_DEVICES all
-ENV NVIDIA_DRIVER_CAPABILITIES video,compute,utility
+COPY . .
 
 #RUN cmake -DSTATICCOMPILE=ON   -DSTATIC=true . && make
 RUN make clean && make && make install
+
+ARG CUDA_VERSION
+
+FROM nvidia/cuda:${CUDA_VERSION}-base
+
+RUN apt-get update && apt-get install -y sudo python3 python3-pip
+RUN pip3 install redis
+
+WORKDIR /build
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libx264.s* /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /build/transcoder  /build/
+
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES video,compute,utility
 
 RUN ./transcoder || true
