@@ -343,6 +343,29 @@ ngx_live_core_init_main_conf(ngx_conf_t *cf, void *conf)
 
 
 ngx_int_t
+ngx_live_core_reserve_track_ctx_size(ngx_conf_t *cf, ngx_uint_t index,
+    size_t size)
+{
+    ngx_live_core_ctx_offset_t   *elt;
+    ngx_live_core_preset_conf_t  *cpcf;
+
+    cpcf = ngx_live_conf_get_module_preset_conf(cf, ngx_live_core_module);
+
+    elt = ngx_array_push(&cpcf->track_ctx_offset);
+    if (elt == NULL) {
+        return NGX_ERROR;
+    }
+
+    elt->index = index;
+    elt->offset = cpcf->track_ctx_size;
+
+    cpcf->track_ctx_size += size;
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
 ngx_live_core_add_block_pool_index(ngx_conf_t *cf, ngx_uint_t *index,
     size_t size)
 {
@@ -472,9 +495,10 @@ ngx_live_core_create_preset_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    conf->track_ctx_offset = ngx_pcalloc(cf->pool,
-        sizeof(size_t) * ngx_live_max_module);
-    if (conf->track_ctx_offset == NULL) {
+    if (ngx_array_init(&conf->track_ctx_offset, cf->pool, 8,
+                       sizeof(ngx_live_core_ctx_offset_t))
+        != NGX_OK)
+    {
         return NULL;
     }
 

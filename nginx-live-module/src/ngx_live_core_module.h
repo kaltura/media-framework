@@ -8,13 +8,8 @@
 #include "ngx_live_json_commands.h"
 
 
-#define ngx_live_reserve_track_ctx_size(cf, module, size) {                 \
-        ngx_live_core_preset_conf_t  *cpcf;                                 \
-        cpcf = ngx_live_conf_get_module_preset_conf(cf,                     \
-            ngx_live_core_module);                                          \
-        cpcf->track_ctx_offset[module.ctx_index] = cpcf->track_ctx_size;    \
-        cpcf->track_ctx_size += size;                                       \
-    }
+#define ngx_live_reserve_track_ctx_size(cf, module, size)                   \
+    ngx_live_core_reserve_track_ctx_size(cf, module.ctx_index, size)
 
 
 #define ngx_live_null_json_writer  { { NULL, NULL }, 0 }
@@ -68,6 +63,12 @@ typedef struct {
 } ngx_live_json_writer_def_t;
 
 
+typedef struct {
+    ngx_uint_t                      index;
+    size_t                          offset;
+} ngx_live_core_ctx_offset_t;
+
+
 typedef struct ngx_live_core_preset_conf_s {
     ngx_str_t                       name;
     ngx_live_conf_ctx_t            *ctx;
@@ -83,7 +84,7 @@ typedef struct ngx_live_core_preset_conf_s {
 
     ngx_uint_t                      bp_idx[NGX_LIVE_CORE_BP_COUNT];
 
-    size_t                         *track_ctx_offset;
+    ngx_array_t                     track_ctx_offset;
     size_t                          track_ctx_size;
 
     ngx_uint_t                      timescale;
@@ -147,6 +148,9 @@ ngx_int_t ngx_live_core_channel_event(ngx_live_channel_t *channel,
 ngx_int_t ngx_live_core_track_event(ngx_live_track_t *track, ngx_uint_t event,
     void *ectx);
 
+
+ngx_int_t ngx_live_core_reserve_track_ctx_size(ngx_conf_t *cf,
+    ngx_uint_t index, size_t size);
 
 ngx_int_t ngx_live_core_add_block_pool_index(ngx_conf_t *cf, ngx_uint_t *index,
     size_t size);

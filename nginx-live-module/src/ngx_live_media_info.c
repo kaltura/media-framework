@@ -2104,8 +2104,11 @@ ngx_live_media_info_merge_preset_conf(ngx_conf_t *cf, void *parent,
         return NGX_CONF_ERROR;
     }
 
-    ngx_live_reserve_track_ctx_size(cf, ngx_live_media_info_module,
-        sizeof(ngx_live_media_info_track_ctx_t));
+    if (ngx_live_reserve_track_ctx_size(cf, ngx_live_media_info_module,
+        sizeof(ngx_live_media_info_track_ctx_t)) != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
 
     return NGX_CONF_OK;
 }
