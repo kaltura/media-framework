@@ -20,6 +20,7 @@ typedef struct {
     uint32_t                           max_segments;
     unsigned                           active:1;
     unsigned                           no_truncate:1;
+    unsigned                           end_list:1;
 } ngx_live_timeline_conf_t;
 
 typedef struct {

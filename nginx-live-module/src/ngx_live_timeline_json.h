@@ -40,6 +40,7 @@ ngx_live_timeline_conf_json_get_size(ngx_live_timeline_t *obj)
     size_t  result =
         sizeof("{\"active\":") - 1 + sizeof("false") - 1 +
         sizeof(",\"no_truncate\":") - 1 + sizeof("false") - 1 +
+        sizeof(",\"end_list\":") - 1 + sizeof("false") - 1 +
         sizeof(",\"period_gap\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"max_segments\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"max_duration\":") - 1 + NGX_INT64_LEN +
@@ -65,6 +66,12 @@ ngx_live_timeline_conf_json_write(u_char *p, ngx_live_timeline_t *obj)
     }
     p = ngx_copy_fix(p, ",\"no_truncate\":");
     if (obj->conf.no_truncate) {
+        p = ngx_copy_fix(p, "true");
+    } else {
+        p = ngx_copy_fix(p, "false");
+    }
+    p = ngx_copy_fix(p, ",\"end_list\":");
+    if (obj->conf.end_list) {
         p = ngx_copy_fix(p, "true");
     } else {
         p = ngx_copy_fix(p, "false");

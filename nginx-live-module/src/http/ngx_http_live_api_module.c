@@ -107,6 +107,7 @@ enum {
     TIMELINE_PARAM_SOURCE_ID,
     TIMELINE_PARAM_ACTIVE,
     TIMELINE_PARAM_NO_TRUNCATE,
+    TIMELINE_PARAM_END_LIST,
     TIMELINE_PARAM_PERIOD_GAP,
     TIMELINE_PARAM_MAX_SEGMENTS,
     TIMELINE_PARAM_MAX_DURATION,
@@ -129,6 +130,8 @@ static ngx_json_object_key_def_t  ngx_live_timeline_params[] = {
         TIMELINE_PARAM_ACTIVE },
     { vod_string("no_truncate"),                        NGX_JSON_BOOL,
         TIMELINE_PARAM_NO_TRUNCATE },
+    { vod_string("end_list"),                           NGX_JSON_BOOL,
+        TIMELINE_PARAM_END_LIST },
     { vod_string("period_gap"),                         NGX_JSON_INT,
         TIMELINE_PARAM_PERIOD_GAP },
     { vod_string("max_segments"),                       NGX_JSON_INT,
@@ -1278,6 +1281,10 @@ ngx_http_live_api_timeline_init_conf(ngx_json_value_t **values,
 
     if (values[TIMELINE_PARAM_NO_TRUNCATE] != NULL) {
         conf->no_truncate = values[TIMELINE_PARAM_NO_TRUNCATE]->v.boolean;
+    }
+
+    if (values[TIMELINE_PARAM_END_LIST] != NULL) {
+        conf->end_list = values[TIMELINE_PARAM_END_LIST]->v.boolean;
     }
 
 
