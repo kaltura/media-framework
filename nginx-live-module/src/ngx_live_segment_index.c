@@ -180,7 +180,7 @@ ngx_live_segment_index_free_non_forced(ngx_live_channel_t *channel)
 }
 
 ngx_int_t
-ngx_live_segment_index_create(ngx_live_channel_t *channel)
+ngx_live_segment_index_create(ngx_live_channel_t *channel, ngx_flag_t exists)
 {
     ngx_live_segment_index_t              *index;
     ngx_live_segment_index_channel_ctx_t  *cctx;
@@ -199,8 +199,14 @@ ngx_live_segment_index_create(ngx_live_channel_t *channel)
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
 
-    /* Note: returns null when index persistence is off or create failed */
-    index->snap = ngx_live_persist_snap_create(channel);
+    if (exists) {
+        /* Note: returns null when index persistence is off or create failed */
+        index->snap = ngx_live_persist_snap_create(channel);
+    }
+
+    if (channel->snapshots <= 0) {
+        ngx_live_channel_ack_frames(channel);
+    }
 
     index->node.key = channel->next_segment_index;
     ngx_queue_init(&index->cleanup);

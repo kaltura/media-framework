@@ -755,10 +755,6 @@ ngx_live_persist_snap_create(ngx_live_channel_t *channel)
         snap = NULL;
     }
 
-    if (channel->snapshots <= 0) {
-        ngx_live_channel_ack_frames(channel);
-    }
-
     return snap;
 }
 
