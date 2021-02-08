@@ -518,10 +518,10 @@ ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_size_value(conf->mem_limit,
                               prev->mem_limit, 64 * 1024 * 1024);
 
-    ngx_conf_merge_size_value(conf->mem_high_watermark,
+    ngx_conf_merge_uint_value(conf->mem_high_watermark,
                               prev->mem_high_watermark, 75);
 
-    ngx_conf_merge_size_value(conf->mem_low_watermark,
+    ngx_conf_merge_uint_value(conf->mem_low_watermark,
                               prev->mem_low_watermark, 50);
 
     ngx_conf_merge_uint_value(conf->timescale,

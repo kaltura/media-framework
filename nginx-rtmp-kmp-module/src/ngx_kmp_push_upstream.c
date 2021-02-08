@@ -604,19 +604,20 @@ ngx_kmp_push_upstream_ack_packet(ngx_kmp_push_upstream_t *u,
     return NGX_OK;
 }
 
-static ngx_int_t
-ngx_kmp_push_upstream_auto_ack(ngx_kmp_push_upstream_t *u)
+ngx_int_t
+ngx_kmp_push_upstream_auto_ack(ngx_kmp_push_upstream_t *u, size_t left)
 {
     off_t                    sent;
     size_t                   size;
     ngx_int_t                rc;
+    ngx_uint_t               count;
     kmp_packet_header_t      kmp_header_buf;
     kmp_packet_header_t     *kmp_header;
     ngx_buf_queue_reader_t   reader;
 
     sent = u->sent_base + u->peer.connection->sent;
 
-    for ( ;; ) {
+    for (count = 0; ; count++) {
 
         if (u->acked_bytes + (off_t) sizeof(kmp_header_buf) > sent) {
             break;
@@ -649,9 +650,14 @@ ngx_kmp_push_upstream_auto_ack(ngx_kmp_push_upstream_t *u)
             u->no_republish = 1;
             return NGX_ERROR;
         }
+
+        if (left <= size) {
+            break;
+        }
+        left -= size;
     }
 
-    return NGX_OK;
+    return count;
 }
 
 static ngx_int_t
@@ -849,7 +855,7 @@ ngx_kmp_push_upstream_send_chain(ngx_kmp_push_upstream_t *u)
     }
 
     if (u->auto_ack) {
-        if (ngx_kmp_push_upstream_auto_ack(u) != NGX_OK) {
+        if (ngx_kmp_push_upstream_auto_ack(u, NGX_MAX_SIZE_T_VALUE) < 0) {
             ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
                 "ngx_kmp_push_upstream_send_chain: auto ack failed");
             return NGX_ERROR;

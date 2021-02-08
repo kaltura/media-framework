@@ -63,6 +63,9 @@ ngx_int_t ngx_kmp_push_upstream_send(ngx_kmp_push_upstream_t *u);
 ngx_int_t ngx_kmp_push_upstream_append_buffer(ngx_kmp_push_upstream_t *u,
     ngx_buf_t *buffer);
 
+ngx_int_t ngx_kmp_push_upstream_auto_ack(ngx_kmp_push_upstream_t *u,
+    size_t left);
+
 void ngx_kmp_push_upstream_free(ngx_kmp_push_upstream_t *u);
 
 #endif /* _NGX_KMP_PUSH_UPSTREAM_H_INCLUDED_ */
