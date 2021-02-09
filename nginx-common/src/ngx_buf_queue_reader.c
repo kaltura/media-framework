@@ -34,7 +34,7 @@ ngx_buf_queue_reader_copy(ngx_buf_queue_reader_t *reader, void *buffer,
     p = buffer;
 
     while (size > 0) {
-        copy = ngx_min(size, (size_t)(end - start));
+        copy = ngx_min(size, (size_t) (end - start));
         p = ngx_copy(p, start, copy);
         start += copy;
         size -= copy;
@@ -67,12 +67,12 @@ ngx_buf_queue_reader_read(ngx_buf_queue_reader_t *reader, void *buffer,
     node = reader->node;
     start = reader->start;
     end = ngx_buf_queue_end(reader->buf_queue, node);
-    if ((size_t)(end - start) > size) {
+    if ((size_t) (end - start) > size) {
         reader->start += size;
         return start;
     }
 
-    if ((size_t)(end - start) == size) {
+    if ((size_t) (end - start) == size) {
         node = ngx_buf_queue_next(node);
         if (node == NULL) {
             return NULL;
@@ -97,7 +97,7 @@ ngx_buf_queue_reader_skip(ngx_buf_queue_reader_t *reader, size_t size)
     end = ngx_buf_queue_end(reader->buf_queue, node);
 
     for ( ;; ) {
-        if (size < (size_t)(end - start)) {
+        if (size < (size_t) (end - start)) {
             reader->start = start + size;
             return NGX_OK;
         }
