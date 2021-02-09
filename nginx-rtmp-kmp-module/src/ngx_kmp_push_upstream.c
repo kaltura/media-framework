@@ -89,7 +89,7 @@ ngx_kmp_push_upstream_create(ngx_kmp_push_track_t *track, ngx_str_t *id)
     u = ngx_palloc(pool, sizeof(ngx_kmp_push_upstream_t) + id->len);
     if (u == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_kmp_push_upstream_create: ngx_pcalloc failed");
+            "ngx_kmp_push_upstream_create: ngx_palloc failed");
         ngx_destroy_pool(pool);
         return NULL;
     }
@@ -649,6 +649,10 @@ ngx_kmp_push_upstream_auto_ack(ngx_kmp_push_upstream_t *u, size_t left)
                 "ngx_kmp_push_upstream_auto_ack: ack packet failed");
             u->no_republish = 1;
             return NGX_ERROR;
+        }
+
+        if (kmp_header->packet_type == KMP_PACKET_FRAME) {
+            u->auto_acked_frames++;
         }
 
         if (left <= size) {

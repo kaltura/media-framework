@@ -21,6 +21,7 @@ ngx_rtmp_kmp_api_upstream_json_get_size(ngx_kmp_push_upstream_t *obj)
         sizeof(",\"position\":") - 1 + NGX_OFF_T_LEN +
         sizeof(",\"acked_frames\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"acked_bytes\":") - 1 + NGX_OFF_T_LEN +
+        sizeof(",\"auto_acked_frames\":") - 1 + NGX_INT_T_LEN +
         sizeof("}") - 1;
 
     return result;
@@ -50,6 +51,8 @@ ngx_rtmp_kmp_api_upstream_json_write(u_char *p, ngx_kmp_push_upstream_t *obj)
         obj->track->connect.initial_frame_id);
     p = ngx_copy_fix(p, ",\"acked_bytes\":");
     p = ngx_sprintf(p, "%O", (off_t) obj->acked_bytes);
+    p = ngx_copy_fix(p, ",\"auto_acked_frames\":");
+    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->auto_acked_frames);
     *p++ = '}';
 
     return p;
@@ -262,9 +265,9 @@ ngx_rtmp_kmp_api_session_json_write(u_char *p, ngx_rtmp_kmp_ctx_t *obj)
 static size_t
 ngx_rtmp_kmp_api_application_json_get_size(ngx_rtmp_core_app_conf_t *obj)
 {
-    ngx_queue_t  *q;
     ngx_rtmp_kmp_app_conf_t *kacf =
         obj->app_conf[ngx_rtmp_kmp_module.ctx_index];
+    ngx_queue_t  *q;
     if (kacf == NULL) {
         return 0;
     }
@@ -290,9 +293,9 @@ static u_char *
 ngx_rtmp_kmp_api_application_json_write(u_char *p, ngx_rtmp_core_app_conf_t
     *obj)
 {
-    ngx_queue_t  *q;
     ngx_rtmp_kmp_app_conf_t *kacf =
         obj->app_conf[ngx_rtmp_kmp_module.ctx_index];
+    ngx_queue_t  *q;
     if (kacf == NULL) {
         return p;
     }

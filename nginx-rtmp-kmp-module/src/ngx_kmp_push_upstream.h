@@ -47,6 +47,7 @@ typedef struct {
     ngx_buf_t                  acked_media_info;
     off_t                      acked_bytes;
     off_t                      sent_base;
+    ngx_uint_t                 auto_acked_frames;
 
     unsigned                   sent_buffered:1;
     unsigned                   sent_end:1;
