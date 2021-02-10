@@ -186,6 +186,18 @@ ngx_live_segment_index_create(ngx_live_channel_t *channel, ngx_flag_t exists)
     ngx_live_segment_index_channel_ctx_t  *cctx;
     ngx_live_segment_index_preset_conf_t  *spcf;
 
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
+
+    if (!exists) {
+        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+            "ngx_live_segment_index_create: "
+            "no active timeline, freeing segment");
+
+        ngx_live_segment_cache_free_by_index(channel,
+            channel->next_segment_index);
+        goto done;
+    }
+
     spcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_segment_index_module);
 
@@ -197,15 +209,11 @@ ngx_live_segment_index_create(ngx_live_channel_t *channel, ngx_flag_t exists)
         return NGX_ERROR;
     }
 
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
-
-    if (exists) {
-        /* Note: returns null when index persistence is off or create failed */
-        index->snap = ngx_live_persist_snap_create(channel);
-    }
-
-    if (channel->snapshots <= 0) {
-        ngx_live_channel_ack_frames(channel);
+    index->snap = ngx_live_persist_snap_create(channel);
+    if (index->snap == NGX_LIVE_PERSIST_INVALID_SNAP) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_segment_index_create: create snap failed");
+        return NGX_ERROR;
     }
 
     index->node.key = channel->next_segment_index;
@@ -215,9 +223,15 @@ ngx_live_segment_index_create(ngx_live_channel_t *channel, ngx_flag_t exists)
     ngx_queue_insert_tail(&cctx->all, &index->queue);
     ngx_queue_insert_tail(&cctx->pending, &index->pqueue);
 
+done:
+
     cctx->last_segment_index = channel->next_segment_index;
 
     ngx_live_segment_index_free_non_forced(channel);
+
+    if (channel->snapshots <= 0) {
+        ngx_live_channel_ack_frames(channel);
+    }
 
     return NGX_OK;
 }

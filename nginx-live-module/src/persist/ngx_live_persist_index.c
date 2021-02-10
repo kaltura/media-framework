@@ -263,7 +263,7 @@ ngx_live_persist_index_snap_create(ngx_live_channel_t *channel)
     if (pool == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_index_snap_create: create pool failed");
-        return NULL;
+        return NGX_LIVE_PERSIST_INVALID_SNAP;
     }
 
     snap = ngx_palloc(pool, sizeof(*snap));
@@ -310,7 +310,7 @@ failed:
 
     ngx_destroy_pool(pool);
 
-    return NULL;
+    return NGX_LIVE_PERSIST_INVALID_SNAP;
 }
 
 

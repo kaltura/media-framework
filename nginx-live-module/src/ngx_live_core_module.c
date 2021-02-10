@@ -683,8 +683,9 @@ ngx_live_core_channel_event(ngx_live_channel_t *channel, ngx_uint_t event,
     handler = cmcf->events[event].elts;
     n = cmcf->events[event].nelts;
 
-    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
-        "ngx_live_core_channel_event: event %ui started", event);
+    ngx_log_debug2(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
+        "ngx_live_core_channel_event: event %ui started, ctx: %p",
+        event, ectx);
 
     for (i = 0; i < n; i++) {
         rc = handler[i](channel, ectx);
@@ -716,8 +717,8 @@ ngx_live_core_track_event(ngx_live_track_t *track, ngx_uint_t event,
     handler = cmcf->events[event].elts;
     n = cmcf->events[event].nelts;
 
-    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, &track->log, 0,
-        "ngx_live_core_track_event: event %ui started", event);
+    ngx_log_debug2(NGX_LOG_DEBUG_LIVE, &track->log, 0,
+        "ngx_live_core_track_event: event %ui started, ctx: %p", event, ectx);
 
     for (i = 0; i < n; i++) {
 

@@ -1325,6 +1325,7 @@ static ngx_int_t
 ngx_live_persist_media_channel_inactive(ngx_live_channel_t *channel,
     void *ectx)
 {
+    uint32_t                               next_segment_index;
     ngx_live_persist_preset_conf_t        *ppcf;
     ngx_live_persist_media_channel_ctx_t  *cctx;
     ngx_live_persist_media_preset_conf_t  *pmpcf;
@@ -1350,11 +1351,17 @@ ngx_live_persist_media_channel_inactive(ngx_live_channel_t *channel,
     pmpcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_persist_media_module);
 
-    if (channel->next_segment_index < NGX_LIVE_INVALID_SEGMENT_INDEX -
+    next_segment_index = channel->next_segment_index;
+    if (next_segment_index < NGX_LIVE_INVALID_SEGMENT_INDEX -
         pmpcf->bucket_size)
     {
         channel->next_segment_index = ngx_round_up_to_multiple(
-            channel->next_segment_index, pmpcf->bucket_size);
+            next_segment_index, pmpcf->bucket_size);
+
+        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+            "ngx_live_persist_media_channel_inactive: "
+            "aligned next segment index to bucket, prev: %uD",
+            next_segment_index);
     }
 
     return NGX_OK;
