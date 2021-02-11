@@ -38,6 +38,7 @@ ngx_live_channel_json ngx_live_channel_t
     mem_limit %uz
     mem_blocks %func-ngx_block_pool_json obj->block_pool
     last_segment_created %T
+    snapshots %uD
     tracks %func-ngx_live_tracks_json obj
     variants %func-ngx_live_variants_json obj
     - %func-ngx_live_core_json obj, obj, NGX_LIVE_JSON_CTX_CHANNEL

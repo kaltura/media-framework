@@ -36,6 +36,15 @@ typedef struct {
 
 
 typedef struct {
+    uint32_t                       started;
+    uint32_t                       error;
+    uint32_t                       success;
+    uint64_t                       success_msec;
+    uint64_t                       success_size;
+} ngx_live_persist_file_stats_t;
+
+
+typedef struct {
     ngx_pool_t                    *pool;
     ngx_live_channel_t            *channel;
 
@@ -66,6 +75,13 @@ ngx_int_t ngx_live_persist_read_blocks(ngx_live_persist_main_conf_t *pmcf,
 
 ngx_int_t ngx_live_persist_read_parse(ngx_live_channel_t *channel,
     ngx_str_t *buf, ngx_uint_t file, ngx_live_persist_index_scope_t *scope);
+
+
+size_t ngx_live_persist_base_obj_json_get_size(
+    ngx_live_persist_file_stats_t *obj);
+
+u_char *ngx_live_persist_base_obj_json_write(u_char *p,
+    ngx_live_persist_file_stats_t *obj);
 
 
 extern ngx_module_t  ngx_live_persist_module;
