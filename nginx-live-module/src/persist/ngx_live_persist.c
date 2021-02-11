@@ -48,14 +48,6 @@ typedef struct {
 } ngx_live_persist_file_t;
 
 typedef struct {
-    uint32_t                           started;
-    uint32_t                           error;
-    uint32_t                           success;
-    uint64_t                           success_msec;
-    uint64_t                           success_size;
-} ngx_live_persist_file_stats_t;
-
-typedef struct {
     ngx_live_channel_t                *channel;
     ngx_pool_t                        *pool;
     ngx_uint_t                         file;
