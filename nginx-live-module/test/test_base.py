@@ -3,6 +3,7 @@ from kmp_utils import *
 from threading import Thread
 import manifest_utils
 import os
+import re
 
 NGINX_LIVE_HOST = 'localhost'
 NGINX_LIVE_PORT = 8001
@@ -140,6 +141,9 @@ class LogTracker:
         f.seek(self.initialSize, os.SEEK_SET)
         buffer = f.read()
         f.close()
+
+        buffer = re.sub(r'nginx: \[emerg\] bind\(\) to [^ ]+ failed', '', buffer)
+
         if type(logLine) == list:
             found = False
             for curLine in logLine:

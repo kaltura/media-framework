@@ -1441,7 +1441,7 @@ ngx_live_timelines_get_segment_time(ngx_live_channel_t *channel,
         segment_index, result);
 }
 
-void
+ngx_flag_t
 ngx_live_timelines_cleanup(ngx_live_channel_t *channel)
 {
     uint32_t                          min_segment_index;
@@ -1451,7 +1451,7 @@ ngx_live_timelines_cleanup(ngx_live_channel_t *channel)
     ngx_live_timeline_channel_ctx_t  *cctx;
 
     if (channel->active) {
-        return;
+        return 1;
     }
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
@@ -1484,6 +1484,8 @@ ngx_live_timelines_cleanup(ngx_live_channel_t *channel)
     if (add_timer) {
         ngx_add_timer(&cctx->cleanup, NGX_LIVE_TIMELINE_CLEANUP_INTERVAL);
     }
+
+    return min_segment_index != NGX_MAX_UINT32_VALUE;
 }
 
 static void

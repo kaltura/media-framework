@@ -29,6 +29,7 @@ typedef struct {
 typedef struct {
     ngx_live_store_t              *store;
     ngx_flag_t                     write;
+    ngx_flag_t                     cancel_read_if_empty;
 
     ngx_live_persist_file_conf_t   files[NGX_LIVE_PERSIST_FILE_COUNT];
     ngx_int_t                      comp_level;

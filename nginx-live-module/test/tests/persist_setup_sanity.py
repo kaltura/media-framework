@@ -1,5 +1,8 @@
 from test_base import *
 
+def updateConf(conf):
+    getConfBlock(conf, ['live']).append(['persist_cancel_read_if_empty', 'off'])
+
 def setup(channelId=CHANNEL_ID):
     global before
 

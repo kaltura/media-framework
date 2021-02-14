@@ -313,15 +313,52 @@ ngx_http_live_api_channel_update(ngx_http_request_t *r,
 static void
 ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
 {
+    ngx_log_t                        *log;
     ngx_str_t                         response;
+    ngx_str_t                         channel_id;
     ngx_http_request_t               *r;
     ngx_live_channel_t               *channel;
+    ngx_live_conf_ctx_t               conf_ctx;
     ngx_http_live_api_channel_ctx_t  *ctx = arg;
 
     r = ctx->r;
     channel = ctx->channel;
+    log = r->connection->log;
 
-    if (rc != NGX_OK) {
+    ngx_log_error(NGX_LOG_INFO, log, 0,
+        "ngx_http_live_api_channel_read_handler: called %i", rc);
+
+    if (rc == NGX_DECLINED) {
+
+        /* recreate the channel in order to cancel the read */
+
+        conf_ctx.main_conf = channel->main_conf;
+        conf_ctx.preset_conf = channel->preset_conf;
+
+        ngx_live_channel_free(channel);
+
+        channel_id = ctx->values[CHANNEL_PARAM_ID]->v.str;
+        rc = ngx_live_channel_create(&channel_id, &conf_ctx, r->pool,
+            &channel);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_channel_read_handler: "
+                "create channel failed %i", rc);
+            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            goto done;
+        }
+
+        rc = ngx_live_json_commands_exec(channel,
+            NGX_LIVE_JSON_CTX_PRE_CHANNEL, channel, &ctx->body, log);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_channel_read_handler: "
+                "json commands failed %i", rc);
+            rc = NGX_HTTP_BAD_REQUEST;
+            goto free;
+        }
+
+    } else if (rc != NGX_OK) {
 
         if (rc == NGX_BAD_DATA) {
             rc = NGX_HTTP_SERVICE_UNAVAILABLE;
@@ -330,15 +367,17 @@ ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
             rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
         }
 
-        ngx_live_channel_free(channel);
-        goto done;
+        goto free;
     }
 
     rc = ngx_http_live_api_channel_update(r, channel, &ctx->body, ctx->values);
-    if (rc != NGX_OK) {
-        ngx_live_channel_free(channel);
+    if (rc == NGX_OK) {
         goto done;
     }
+
+free:
+
+    ngx_live_channel_free(channel);
 
 done:
 
