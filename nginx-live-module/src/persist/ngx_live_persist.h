@@ -11,6 +11,7 @@
 
 #define NGX_LIVE_PERSIST_FLAG_SINGLE  (0x01)
 
+#define NGX_LIVE_PERSIST_INVALID_SNAP  ((void *) -1)
 
 #define ngx_live_null_persist_block   { 0, 0, 0, NULL, NULL }
 

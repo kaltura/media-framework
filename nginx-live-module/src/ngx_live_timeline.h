@@ -20,6 +20,7 @@ typedef struct {
     uint32_t                           max_segments;
     unsigned                           active:1;
     unsigned                           no_truncate:1;
+    unsigned                           end_list:1;
 } ngx_live_timeline_conf_t;
 
 typedef struct {
@@ -122,7 +123,7 @@ ngx_flag_t ngx_live_timeline_is_expired(ngx_live_timeline_t *timeline);
 ngx_int_t ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
     int64_t time, uint32_t duration, ngx_flag_t force_new_period);
 
-void ngx_live_timelines_cleanup(ngx_live_channel_t *channel);
+ngx_flag_t ngx_live_timelines_cleanup(ngx_live_channel_t *channel);
 
 void ngx_live_timelines_truncate(ngx_live_channel_t *channel,
     uint32_t segment_index);

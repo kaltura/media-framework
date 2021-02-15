@@ -34,29 +34,31 @@ static char *ngx_live_persist_media_bucket_time(ngx_conf_t *cf,
 
 
 typedef struct {
-    uint32_t    track_id;
-    uint32_t    segment_id;
-    uint32_t    size;
+    uint32_t                       track_id;
+    uint32_t                       segment_id;
+    uint32_t                       size;
 } ngx_live_persist_media_entry_t;
 
 
 typedef struct {
-    ngx_uint_t  bucket_size;
-    size_t      initial_read_size;
+    ngx_uint_t                     bucket_size;
+    size_t                         initial_read_size;
 } ngx_live_persist_media_preset_conf_t;
 
 
 typedef struct {
-    uint32_t    last_bucket_id;
-    uint32_t    bucket_id;
+    uint32_t                       last_bucket_id;
+    uint32_t                       bucket_id;
 
-    uint32_t    read_segments;
+    ngx_queue_t                    reads;
+    ngx_live_persist_file_stats_t  read_stats;
+    uint32_t                       read_cancel;
 } ngx_live_persist_media_channel_ctx_t;
 
 
 typedef struct {
-    ngx_uint_t  gmt;
-    ngx_str_t   timefmt;
+    ngx_uint_t                     gmt;
+    ngx_str_t                      timefmt;
 } ngx_live_persist_media_bucket_time_ctx_t;
 
 
@@ -137,16 +139,24 @@ typedef struct {
 } ngx_live_persist_media_read_track_ctx_t;
 
 typedef struct {
+    ngx_queue_t                               queue;
     ngx_pool_t                               *pool;
     ngx_live_persist_main_conf_t             *pmcf;
-    media_segment_t                          *segment;
-    uint32_t                                  channel_id_hash;
-    ngx_live_persist_media_read_track_ctx_t   tracks[KMP_MEDIA_COUNT];
-    uint32_t                                  read_tracks;
-    ngx_live_store_read_pt                    read;
-    void                                     *read_ctx;
     ngx_live_read_segment_callback_pt         callback;
     void                                     *arg;
+
+    ngx_live_channel_t                       *channel;
+    uint32_t                                  channel_id_hash;
+
+    ngx_live_store_read_pt                    read;
+    void                                     *read_ctx;
+
+    media_segment_t                          *segment;
+    ngx_live_persist_media_read_track_ctx_t   tracks[KMP_MEDIA_COUNT];
+    uint32_t                                  read_tracks;
+
+    ngx_msec_t                                start;
+    size_t                                    size;
 } ngx_live_persist_media_read_ctx_t;
 
 
@@ -517,6 +527,7 @@ ngx_live_persist_media_read_complete(void *arg, ngx_int_t rc,
 {
     ngx_str_t                                 buf;
     ngx_live_persist_media_read_ctx_t        *ctx = arg;
+    ngx_live_persist_media_channel_ctx_t     *cctx;
     ngx_live_persist_media_read_track_ctx_t  *tctx;
 
     if (rc != NGX_OK) {
@@ -568,6 +579,8 @@ ngx_live_persist_media_read_complete(void *arg, ngx_int_t rc,
             goto done;
         }
 
+        ctx->size += tctx->size;
+
         return;
     }
 
@@ -575,7 +588,43 @@ ngx_live_persist_media_read_complete(void *arg, ngx_int_t rc,
 
 done:
 
+    if (ctx->channel != NULL) {
+        cctx = ngx_live_get_module_ctx(ctx->channel,
+            ngx_live_persist_media_module);
+
+        if (rc == NGX_OK) {
+            cctx->read_stats.success++;
+            cctx->read_stats.success_msec += ngx_current_msec - ctx->start;
+            cctx->read_stats.success_size += ctx->size;
+
+        } else {
+            cctx->read_stats.error++;
+        }
+
+        ngx_queue_remove(&ctx->queue);
+        ctx->channel = NULL;
+    }
+
     ctx->callback(ctx->arg, rc);
+}
+
+static void
+ngx_live_persist_media_read_detach(void *data)
+{
+    ngx_live_persist_media_read_ctx_t     *ctx = data;
+    ngx_live_persist_media_channel_ctx_t  *cctx;
+
+    if (ctx->channel == NULL) {
+        return;
+    }
+
+    cctx = ngx_live_get_module_ctx(ctx->channel,
+        ngx_live_persist_media_module);
+
+    cctx->read_stats.started--;     /* reduce the pending count */
+    cctx->read_cancel++;
+
+    ngx_queue_remove(&ctx->queue);
 }
 
 static ngx_int_t
@@ -588,6 +637,7 @@ ngx_live_persist_media_read(ngx_live_segment_read_req_t *req)
     ngx_pool_t                            *pool;
     media_segment_t                       *segment;
     ngx_live_store_t                      *store;
+    ngx_pool_cleanup_t                    *cln;
     ngx_live_channel_t                    *channel;
     media_segment_track_t                 *cur_track;
     ngx_live_variables_ctx_t               vctx;
@@ -608,12 +658,15 @@ ngx_live_persist_media_read(ngx_live_segment_read_req_t *req)
         return NGX_ABORT;
     }
 
-    ctx = ngx_pcalloc(pool, sizeof(*ctx));
-    if (ctx == NULL) {
+    cln = ngx_pool_cleanup_add(pool, sizeof(*ctx));
+    if (cln == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_persist_media_read: alloc failed");
+            "ngx_live_persist_media_read: cleanup add failed");
         return NGX_ERROR;
     }
+
+    ctx = cln->data;
+    ngx_memzero(ctx, sizeof(*ctx));
 
     pmpcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_persist_media_module);
@@ -684,14 +737,23 @@ ngx_live_persist_media_read(ngx_live_segment_read_req_t *req)
     ctx->callback = req->callback;
     ctx->arg = req->arg;
 
+    cctx->read_stats.started++;
+    ctx->start = ngx_current_msec;
+
     rc = ctx->read(ctx->read_ctx, 0, pmpcf->initial_read_size);
     if (rc != NGX_DONE) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_persist_media_read: read failed %i", rc);
+        cctx->read_stats.error++;
         return NGX_ERROR;
     }
 
-    cctx->read_segments++;
+    ctx->size = pmpcf->initial_read_size;
+
+    ctx->channel = channel;
+    ngx_queue_insert_tail(&cctx->reads, &ctx->queue);
+
+    cln->handler = ngx_live_persist_media_read_detach;
 
     return NGX_DONE;
 }
@@ -1279,23 +1341,36 @@ ngx_live_persist_media_bucket_time(ngx_conf_t *cf, ngx_command_t *cmd,
 
 
 size_t
-ngx_live_persist_media_json_get_size(ngx_live_channel_t *channel)
+ngx_live_persist_media_read_json_get_size(ngx_live_channel_t *channel)
 {
+    ngx_live_persist_file_stats_t         *stats;
+    ngx_live_persist_media_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_media_module);
+    stats = &cctx->read_stats;
+
     size_t  result =
-        sizeof("\"read_segments\":") - 1 + NGX_INT32_LEN;
+        ngx_live_persist_base_obj_json_get_size(stats) +
+        sizeof(",\"cancel\":") - 1 + NGX_INT32_LEN +
+        sizeof("{}") - 1;
 
     return result;
 }
 
 u_char *
-ngx_live_persist_media_json_write(u_char *p, ngx_live_channel_t *channel)
+ngx_live_persist_media_read_json_write(u_char *p, ngx_live_channel_t *channel)
 {
+    ngx_live_persist_file_stats_t         *stats;
     ngx_live_persist_media_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_media_module);
+    stats = &cctx->read_stats;
 
-    p = ngx_copy_fix(p, "\"read_segments\":");
-    p = ngx_sprintf(p, "%uD", (uint32_t) cctx->read_segments);
+    *p++ = '{';
+    p = ngx_live_persist_base_obj_json_write(p, stats);
+    p = ngx_copy_fix(p, ",\"cancel\":");
+    p = ngx_sprintf(p, "%uD", cctx->read_cancel);
+    *p++ = '}';
 
     return p;
 }
@@ -1318,6 +1393,35 @@ ngx_live_persist_media_channel_init(ngx_live_channel_t *channel, void *ectx)
     cctx->bucket_id = NGX_LIVE_PERSIST_INVALID_BUCKET_ID;
     cctx->last_bucket_id = NGX_LIVE_PERSIST_INVALID_BUCKET_ID;
 
+    ngx_queue_init(&cctx->reads);
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_persist_media_channel_free(ngx_live_channel_t *channel, void *ectx)
+{
+    ngx_queue_t                           *q;
+    ngx_live_persist_media_read_ctx_t     *ctx;
+    ngx_live_persist_media_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_media_module);
+    if (cctx == NULL) {
+        return NGX_OK;
+    }
+
+    for (q = ngx_queue_head(&cctx->reads);
+        q != ngx_queue_sentinel(&cctx->reads);
+        q = ngx_queue_next(q))
+    {
+        ctx = ngx_queue_data(q, ngx_live_persist_media_read_ctx_t, queue);
+
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_media_channel_free: detaching from channel");
+
+        ctx->channel = NULL;
+    }
+
     return NGX_OK;
 }
 
@@ -1325,6 +1429,7 @@ static ngx_int_t
 ngx_live_persist_media_channel_inactive(ngx_live_channel_t *channel,
     void *ectx)
 {
+    uint32_t                               next_segment_index;
     ngx_live_persist_preset_conf_t        *ppcf;
     ngx_live_persist_media_channel_ctx_t  *cctx;
     ngx_live_persist_media_preset_conf_t  *pmpcf;
@@ -1350,11 +1455,17 @@ ngx_live_persist_media_channel_inactive(ngx_live_channel_t *channel,
     pmpcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_persist_media_module);
 
-    if (channel->next_segment_index < NGX_LIVE_INVALID_SEGMENT_INDEX -
+    next_segment_index = channel->next_segment_index;
+    if (next_segment_index < NGX_LIVE_INVALID_SEGMENT_INDEX -
         pmpcf->bucket_size)
     {
         channel->next_segment_index = ngx_round_up_to_multiple(
-            channel->next_segment_index, pmpcf->bucket_size);
+            next_segment_index, pmpcf->bucket_size);
+
+        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+            "ngx_live_persist_media_channel_inactive: "
+            "aligned next segment index to bucket, prev: %uD",
+            next_segment_index);
     }
 
     return NGX_OK;
@@ -1465,6 +1576,7 @@ ngx_live_persist_media_preconfiguration(ngx_conf_t *cf)
 
 static ngx_live_channel_event_t    ngx_live_persist_media_channel_events[] = {
     { ngx_live_persist_media_channel_init,     NGX_LIVE_EVENT_CHANNEL_INIT },
+    { ngx_live_persist_media_channel_free,     NGX_LIVE_EVENT_CHANNEL_FREE },
     { ngx_live_persist_media_channel_read,     NGX_LIVE_EVENT_CHANNEL_READ },
     { ngx_live_persist_media_channel_inactive,
         NGX_LIVE_EVENT_CHANNEL_INACTIVE },

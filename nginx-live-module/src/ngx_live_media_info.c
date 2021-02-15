@@ -1389,9 +1389,9 @@ ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
     ngx_queue_t                 *q;
     ngx_live_media_info_node_t  *next;
 
-    if (iter->cur == NULL || segment_index < iter->cur->node.key) {
+    if (iter->cur == NULL) {
         *media_info = NULL;
-        return 0;
+        return NGX_LIVE_INVALID_SEGMENT_INDEX;
     }
 
     for ( ;; ) {
@@ -1410,7 +1410,13 @@ ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
         iter->cur = next;
     }
 
-    *media_info = &iter->cur->media_info;
+    if (segment_index >= iter->cur->node.key) {
+        *media_info = &iter->cur->media_info;
+
+    } else {
+        *media_info = NULL;
+    }
+
     return iter->cur->node.key;
 }
 
@@ -2098,8 +2104,11 @@ ngx_live_media_info_merge_preset_conf(ngx_conf_t *cf, void *parent,
         return NGX_CONF_ERROR;
     }
 
-    ngx_live_reserve_track_ctx_size(cf, ngx_live_media_info_module,
-        sizeof(ngx_live_media_info_track_ctx_t));
+    if (ngx_live_reserve_track_ctx_size(cf, ngx_live_media_info_module,
+        sizeof(ngx_live_media_info_track_ctx_t)) != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
 
     return NGX_CONF_OK;
 }

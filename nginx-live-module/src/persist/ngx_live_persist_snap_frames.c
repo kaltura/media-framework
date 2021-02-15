@@ -97,7 +97,7 @@ ngx_live_persist_snap_frames_create(ngx_live_channel_t *channel)
     if (snap == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_snap_frames_create: alloc failed");
-        return NULL;
+        return NGX_LIVE_PERSIST_INVALID_SNAP;
     }
 
     tf = (void *) (snap + 1);

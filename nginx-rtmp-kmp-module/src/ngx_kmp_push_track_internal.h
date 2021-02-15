@@ -32,6 +32,8 @@ struct ngx_kmp_push_track_s {
     ngx_queue_t                    upstreams;
     size_t                         mem_left;
     size_t                         mem_limit;
+    size_t                         mem_high_watermark;
+    size_t                         mem_low_watermark;
     ngx_http_call_ctx_t           *publish_call;
 
     kmp_connect_packet_t           connect;

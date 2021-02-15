@@ -35,7 +35,7 @@ def test(channelId=CHANNEL_ID):
         nl.timeline.update(NginxLiveTimeline(id=EMPTY_TIMELINE_ID, active=False))
 
     # deactivate the timeline
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, active=False))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
 
 def validate(channelId=CHANNEL_ID):
     nl = nginxLiveClient()

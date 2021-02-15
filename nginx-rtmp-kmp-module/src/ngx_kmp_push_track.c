@@ -69,6 +69,8 @@ ngx_kmp_push_track_init_conf(ngx_kmp_push_track_conf_t *conf)
     conf->timeout = NGX_CONF_UNSET_MSEC;
     conf->max_free_buffers = NGX_CONF_UNSET_UINT;
     conf->buffer_bin_count = NGX_CONF_UNSET_UINT;
+    conf->mem_high_watermark = NGX_CONF_UNSET_UINT;
+    conf->mem_low_watermark = NGX_CONF_UNSET_UINT;
     conf->video_buffer_size = NGX_CONF_UNSET_SIZE;
     conf->video_mem_limit = NGX_CONF_UNSET_SIZE;
     conf->audio_buffer_size = NGX_CONF_UNSET_SIZE;
@@ -121,11 +123,17 @@ ngx_kmp_push_track_merge_conf(ngx_kmp_push_track_conf_t *conf,
     ngx_conf_merge_size_value(conf->buffer_bin_count,
                               prev->buffer_bin_count, 8);
 
+    ngx_conf_merge_uint_value(conf->mem_high_watermark,
+                              prev->mem_high_watermark, 75);
+
+    ngx_conf_merge_uint_value(conf->mem_low_watermark,
+                              prev->mem_low_watermark, 50);
+
     ngx_conf_merge_size_value(conf->video_buffer_size,
                               prev->video_buffer_size, 64 * 1024);
 
     ngx_conf_merge_size_value(conf->video_mem_limit,
-                              prev->video_mem_limit, 32 * 1024 * 1024);
+                              prev->video_mem_limit, 48 * 1024 * 1024);
 
     ngx_conf_merge_size_value(conf->audio_buffer_size,
                               prev->audio_buffer_size, 4 * 1024);
@@ -711,14 +719,89 @@ ngx_kmp_push_track_flush_handler(ngx_event_t *ev)
     }
 }
 
+static ngx_kmp_push_upstream_t *
+ngx_kmp_push_track_min_acked_upstream(ngx_kmp_push_track_t *track)
+{
+    ngx_queue_t              *q;
+    ngx_kmp_push_upstream_t  *cur, *min;
+
+    min = NULL;
+
+    for (q = ngx_queue_head(&track->upstreams);
+        q != ngx_queue_sentinel(&track->upstreams);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_kmp_push_upstream_t, queue);
+
+        if (min == NULL || cur->acked_frame_id < min->acked_frame_id) {
+            min = cur;
+        }
+    }
+
+    return min;
+}
+
+static void
+ngx_kmp_push_track_free_bufs(ngx_kmp_push_track_t *track)
+{
+    ngx_kmp_push_upstream_t  *u;
+
+    u = ngx_kmp_push_track_min_acked_upstream(track);
+    if (u == NULL) {
+        return;
+    }
+
+    ngx_buf_queue_free(&track->buf_queue, u->acked_reader.start);
+}
+
+static ngx_int_t
+ngx_kmp_push_track_mem_watermark(ngx_kmp_push_track_t *track)
+{
+    size_t                    mem_left;
+    ngx_int_t                 rc;
+    ngx_kmp_push_upstream_t  *u;
+
+    while (track->mem_left < track->mem_low_watermark) {
+        u = ngx_kmp_push_track_min_acked_upstream(track);
+        if (u == NULL) {
+            break;
+        }
+
+        rc = ngx_kmp_push_upstream_auto_ack(u,
+            track->mem_low_watermark - track->mem_left);
+        if (rc <= 0) {
+            return rc;
+        }
+
+        mem_left = track->mem_left;
+
+        ngx_kmp_push_track_free_bufs(track);
+
+        ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+            "ngx_kmp_push_track_mem_watermark: "
+            "memory too low, acked frames, count: %i, before: %uz, after: %uz",
+            rc, mem_left, track->mem_left);
+    }
+
+    return NGX_OK;
+}
+
 ngx_int_t
 ngx_kmp_push_track_write_chain(ngx_kmp_push_track_t *track, ngx_chain_t *in,
     u_char *p)
 {
     size_t       size;
+    ngx_int_t    rc;
     ngx_buf_t   *active_buf = &track->active_buf;
     ngx_flag_t   send = 0;
     ngx_flag_t   appended = 0;
+
+    if (track->mem_left < track->mem_high_watermark) {
+        rc = ngx_kmp_push_track_mem_watermark(track);
+        if (rc != NGX_OK) {
+            return rc;
+        }
+    }
 
     for ( ;; ) {
 
@@ -950,6 +1033,10 @@ ngx_kmp_push_track_create(ngx_kmp_push_track_conf_t *conf,
     }
 
     track->mem_left = track->mem_limit;
+    track->mem_high_watermark = (100 - conf->mem_high_watermark) *
+        track->mem_limit / 100;
+    track->mem_low_watermark = (100 - conf->mem_low_watermark) *
+        track->mem_limit / 100;
 
     if (ngx_buf_queue_init(&track->buf_queue, pool->log, lba,
         conf->max_free_buffers, &track->mem_left) != NGX_OK) {

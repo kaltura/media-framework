@@ -954,11 +954,17 @@ ngx_live_timeline_inactive_remove_segments(ngx_live_timeline_t *timeline,
 {
     uint32_t                      base_count;
     uint64_t                      base_duration;
+    ngx_live_period_t            *period;
     ngx_live_core_preset_conf_t  *cpcf;
 
     if (ngx_time() <= timeline->last_segment_created ||
         timeline->duration <= 0)
     {
+        period = timeline->head_period;
+        if (period != NULL && period->node.key < *min_segment_index) {
+            *min_segment_index = period->node.key;
+        }
+
         return;
     }
 
@@ -1379,7 +1385,7 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
     ngx_live_timelines_free_old_segments(channel, min_segment_index);
 
     /* create a segment index */
-    if (ngx_live_segment_index_create(channel) != NGX_OK) {
+    if (ngx_live_segment_index_create(channel, added) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_timelines_add_segment: "
             "failed to create segment index");
@@ -1435,7 +1441,7 @@ ngx_live_timelines_get_segment_time(ngx_live_channel_t *channel,
         segment_index, result);
 }
 
-void
+ngx_flag_t
 ngx_live_timelines_cleanup(ngx_live_channel_t *channel)
 {
     uint32_t                          min_segment_index;
@@ -1445,7 +1451,7 @@ ngx_live_timelines_cleanup(ngx_live_channel_t *channel)
     ngx_live_timeline_channel_ctx_t  *cctx;
 
     if (channel->active) {
-        return;
+        return 1;
     }
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
@@ -1478,6 +1484,8 @@ ngx_live_timelines_cleanup(ngx_live_channel_t *channel)
     if (add_timer) {
         ngx_add_timer(&cctx->cleanup, NGX_LIVE_TIMELINE_CLEANUP_INTERVAL);
     }
+
+    return min_segment_index != NGX_MAX_UINT32_VALUE;
 }
 
 static void

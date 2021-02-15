@@ -47,6 +47,7 @@ typedef struct {
     ngx_buf_t                  acked_media_info;
     off_t                      acked_bytes;
     off_t                      sent_base;
+    ngx_uint_t                 auto_acked_frames;
 
     unsigned                   sent_buffered:1;
     unsigned                   sent_end:1;
@@ -62,6 +63,9 @@ ngx_int_t ngx_kmp_push_upstream_send(ngx_kmp_push_upstream_t *u);
 
 ngx_int_t ngx_kmp_push_upstream_append_buffer(ngx_kmp_push_upstream_t *u,
     ngx_buf_t *buffer);
+
+ngx_int_t ngx_kmp_push_upstream_auto_ack(ngx_kmp_push_upstream_t *u,
+    size_t left);
 
 void ngx_kmp_push_upstream_free(ngx_kmp_push_upstream_t *u);
 

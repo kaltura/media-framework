@@ -5,7 +5,7 @@
 #endif
 
 
-static size_t
+size_t
 ngx_live_persist_base_obj_json_get_size(ngx_live_persist_file_stats_t *obj)
 {
     size_t  result =
@@ -18,7 +18,7 @@ ngx_live_persist_base_obj_json_get_size(ngx_live_persist_file_stats_t *obj)
     return result;
 }
 
-static u_char *
+u_char *
 ngx_live_persist_base_obj_json_write(u_char *p, ngx_live_persist_file_stats_t
     *obj)
 {
@@ -145,7 +145,6 @@ ngx_live_persist_media_obj_json_get_size(ngx_live_channel_t *obj)
         &cctx->stats[NGX_LIVE_PERSIST_FILE_MEDIA];
     size_t  result =
         sizeof("{") - 1 + ngx_live_persist_base_obj_json_get_size(stats) +
-        sizeof(",") - 1 + ngx_live_persist_media_json_get_size(obj) +
         sizeof("}") - 1;
 
     return result;
@@ -158,12 +157,8 @@ ngx_live_persist_media_obj_json_write(u_char *p, ngx_live_channel_t *obj)
         ngx_live_persist_module);
     ngx_live_persist_file_stats_t *stats =
         &cctx->stats[NGX_LIVE_PERSIST_FILE_MEDIA];
-    u_char  *next;
     *p++ = '{';
     p = ngx_live_persist_base_obj_json_write(p, stats);
-    *p++ = ',';
-    next = ngx_live_persist_media_json_write(p, obj);
-    p = next == p ? p - 1 : next;
     *p++ = '}';
 
     return p;
@@ -181,6 +176,8 @@ ngx_live_persist_channel_json_get_size(void *obj)
             ngx_live_persist_delta_obj_json_get_size(obj) +
         sizeof(",\"media\":") - 1 +
             ngx_live_persist_media_obj_json_get_size(obj) +
+        sizeof(",\"media_read\":") - 1 +
+            ngx_live_persist_media_read_json_get_size(obj) +
         sizeof("}") - 1;
 
     return result;
@@ -197,6 +194,8 @@ ngx_live_persist_channel_json_write(u_char *p, void *obj)
     p = ngx_live_persist_delta_obj_json_write(p, obj);
     p = ngx_copy_fix(p, ",\"media\":");
     p = ngx_live_persist_media_obj_json_write(p, obj);
+    p = ngx_copy_fix(p, ",\"media_read\":");
+    p = ngx_live_persist_media_read_json_write(p, obj);
     *p++ = '}';
 
     return p;

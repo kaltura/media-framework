@@ -1,5 +1,5 @@
 # NB: duplicate declaration!
-ARG CUDA_VERSION="11.0"
+ARG CUDA_VERSION="10.1"
 ARG BUILD_TAG=latest
 ARG IMAGE_NAMESPACE=kaltura
 FROM $IMAGE_NAMESPACE/transcoder-dev:$BUILD_TAG as dev

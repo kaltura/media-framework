@@ -9,6 +9,7 @@ static ngx_rtmp_kmp_api_upstream_json ngx_kmp_push_upstream_t
     position %O (obj->peer.connection ? obj->sent_base + obj->peer.connection->sent : 0)
     acked_frames %uL obj->acked_frame_id - obj->track->connect.initial_frame_id
     acked_bytes %O
+    auto_acked_frames %ui
 
 static ngx_rtmp_kmp_api_track_json ngx_kmp_push_track_t
     input_id %V

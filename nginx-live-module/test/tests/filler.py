@@ -12,6 +12,7 @@ FILLER_VIDEO = TEST_VIDEO1
 
 def updateConf(conf):
     getConfBlock(conf, ['stream', 'server']).append(['live_kmp_read_timeout', '1000000'])
+    getConfBlock(conf, ['live']).append(['persist_cancel_read_if_empty', 'off'])
 
 def setup(channelId=CHANNEL_ID):
     # create filler channel
@@ -75,7 +76,7 @@ def test(channelId=CHANNEL_ID):
     kmpSendEndOfStream([sv, sa])
 
     # deactivate the timeline
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, active=False))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
 
 def validate(channelId=CHANNEL_ID):
     nl = nginxLiveClient()

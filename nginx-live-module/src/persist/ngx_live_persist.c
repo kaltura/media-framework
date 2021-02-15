@@ -48,14 +48,6 @@ typedef struct {
 } ngx_live_persist_file_t;
 
 typedef struct {
-    uint32_t                           started;
-    uint32_t                           error;
-    uint32_t                           success;
-    uint64_t                           success_msec;
-    uint64_t                           success_size;
-} ngx_live_persist_file_stats_t;
-
-typedef struct {
     ngx_live_channel_t                *channel;
     ngx_pool_t                        *pool;
     ngx_uint_t                         file;
@@ -98,6 +90,13 @@ static ngx_command_t  ngx_live_persist_commands[] = {
       ngx_conf_set_flag_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_persist_preset_conf_t, write),
+      NULL },
+
+    { ngx_string("persist_cancel_read_if_empty"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_persist_preset_conf_t, cancel_read_if_empty),
       NULL },
 
     { ngx_string("persist_setup_path"),
@@ -616,10 +615,10 @@ ngx_live_persist_read_handler(void *data, ngx_int_t rc, ngx_buf_t *response)
     uint32_t                           min_index;
     ngx_str_t                          buf;
     ngx_uint_t                         file;
-    ngx_uint_t                         level;
     ngx_pool_t                        *pool;
     ngx_pool_cleanup_t                *cln;
     ngx_live_channel_t                *channel;
+    ngx_live_persist_preset_conf_t    *ppcf;
     ngx_live_persist_channel_ctx_t    *cctx;
     ngx_live_persist_read_handler_pt   handler;
     ngx_live_persist_file_read_ctx_t  *ctx = data;
@@ -639,10 +638,17 @@ ngx_live_persist_read_handler(void *data, ngx_int_t rc, ngx_buf_t *response)
     channel->blocked--;
 
     if (rc != NGX_OK) {
-        level = rc == NGX_HTTP_NOT_FOUND ? NGX_LOG_INFO : NGX_LOG_NOTICE;
-        ngx_log_error(level, &channel->log, 0,
-            "ngx_live_persist_read_handler: "
-            "read failed %i, file: %ui", rc, file);
+        if (rc == NGX_HTTP_NOT_FOUND) {
+            ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+                "ngx_live_persist_read_handler: "
+                "read file not found, file: %ui", file);
+            rc = NGX_OK;
+
+        } else {
+            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                "ngx_live_persist_read_handler: "
+                "read failed %i, file: %ui", rc, file);
+        }
         goto done;
     }
 
@@ -675,11 +681,22 @@ done:
         ngx_destroy_pool(pool);
     }
 
-    if (rc == NGX_OK || rc == NGX_HTTP_NOT_FOUND) {
-        ngx_live_timelines_cleanup(channel);
+    if (rc == NGX_OK && file > 0) {
+        ppcf = ngx_live_get_module_preset_conf(channel,
+            ngx_live_persist_module);
 
-        rc = ngx_live_core_channel_event(channel, NGX_LIVE_EVENT_CHANNEL_READ,
-            NULL);
+        if (!ngx_live_timelines_cleanup(channel) &&
+            ppcf->cancel_read_if_empty)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                "ngx_live_persist_read_handler: "
+                "no segments, cancelling read");
+            rc = NGX_DECLINED;
+
+        } else {
+            rc = ngx_live_core_channel_event(channel,
+                NGX_LIVE_EVENT_CHANNEL_READ, NULL);
+        }
     }
 
     if (cln) {
@@ -753,10 +770,6 @@ ngx_live_persist_snap_create(ngx_live_channel_t *channel)
 
     } else {
         snap = NULL;
-    }
-
-    if (channel->snapshots <= 0) {
-        ngx_live_channel_ack_frames(channel);
     }
 
     return snap;
@@ -951,6 +964,7 @@ ngx_live_persist_create_preset_conf(ngx_conf_t *cf)
 
     conf->store = NGX_CONF_UNSET_PTR;
     conf->write = NGX_CONF_UNSET;
+    conf->cancel_read_if_empty = NGX_CONF_UNSET;
     conf->comp_level = NGX_CONF_UNSET;
     for (i = 0; i < NGX_LIVE_PERSIST_FILE_COUNT; i++) {
         conf->files[i].max_size = NGX_CONF_UNSET_SIZE;
@@ -970,6 +984,9 @@ ngx_live_persist_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_ptr_value(conf->store, prev->store, NULL);
 
     ngx_conf_merge_value(conf->write, prev->write, 1);
+
+    ngx_conf_merge_value(conf->cancel_read_if_empty,
+                         prev->cancel_read_if_empty, 1);
 
     for (i = 0; i < NGX_LIVE_PERSIST_FILE_COUNT; i++) {
         if (conf->store == NULL) {

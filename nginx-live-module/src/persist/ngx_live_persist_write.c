@@ -544,20 +544,12 @@ ngx_live_persist_write_deflate(ngx_live_persist_write_ctx_t *ctx, size_t *size)
         return NULL;
     }
 
-    out = ngx_alloc_chain_link(pool);
-    if (out == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_persist_write_deflate: alloc chain failed (1)");
-        return NULL;
-    }
-
-    out->buf = ob;
-    last = &out->next;
-
     header = (void *) ob->pos;
 
     zstream.next_out = (void *) (header + 1);
     zstream.avail_out = ob->end - zstream.next_out;
+
+    last = &out;
 
     /* init input */
     *ctx->last = NULL;
@@ -587,6 +579,17 @@ ngx_live_persist_write_deflate(ngx_live_persist_write_ctx_t *ctx, size_t *size)
 
             ob->last = ob->end;
 
+            ocl = ngx_alloc_chain_link(pool);
+            if (ocl == NULL) {
+                ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                    "ngx_live_persist_write_deflate: alloc chain failed (1)");
+                return NULL;
+            }
+
+            *last = ocl;
+            last = &ocl->next;
+            ocl->buf = ob;
+
             ob = ngx_create_temp_buf(pool,
                 NGX_LIVE_PERSIST_WRITE_COMP_BUF_SIZE);
             if (ob == NULL) {
@@ -594,17 +597,6 @@ ngx_live_persist_write_deflate(ngx_live_persist_write_ctx_t *ctx, size_t *size)
                     "ngx_live_persist_write_deflate: create buf failed (2)");
                 return NULL;
             }
-
-            ocl = ngx_alloc_chain_link(pool);
-            if (ocl == NULL) {
-                ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                    "ngx_live_persist_write_deflate: alloc chain failed (2)");
-                return NULL;
-            }
-
-            *last = ocl;
-            last = &ocl->next;
-            ocl->buf = ob;
 
             zstream.next_out = ob->pos;
             zstream.avail_out = ob->end - zstream.next_out;
@@ -621,6 +613,19 @@ ngx_live_persist_write_deflate(ngx_live_persist_write_ctx_t *ctx, size_t *size)
     }
 
     ob->last = zstream.next_out;
+
+    if (ob->last > ob->pos) {
+        ocl = ngx_alloc_chain_link(pool);
+        if (ocl == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                "ngx_live_persist_write_deflate: alloc chain failed (2)");
+            return NULL;
+        }
+
+        *last = ocl;
+        last = &ocl->next;
+        ocl->buf = ob;
+    }
 
     *header = *ctx->header;
     header->size = sizeof(*header) + zstream.total_out;

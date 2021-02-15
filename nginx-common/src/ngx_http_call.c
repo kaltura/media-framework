@@ -670,6 +670,16 @@ ngx_http_call_create_request(ngx_http_call_ctx_t *ctx, ngx_http_call_init_t *ci)
                 "ngx_http_call_create_request: "
                 "request buffer pos is different from buffer start");
             ngx_debug_point();
+            return NGX_ERROR;
+        }
+
+        if (ngx_buf_size(cl->buf) == 0 && !ngx_buf_special(cl->buf)) {
+            ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
+                "ngx_http_call_create_request: zero size request buf "
+                "t:%d %p %p-%p", cl->buf->temporary, cl->buf->start,
+                cl->buf->pos, cl->buf->last);
+            ngx_debug_point();
+            return NGX_ERROR;
         }
     }
 
@@ -677,8 +687,18 @@ ngx_http_call_create_request(ngx_http_call_ctx_t *ctx, ngx_http_call_init_t *ci)
         if (cl->buf->pos != cl->buf->start) {
             ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
                 "ngx_http_call_create_request: "
-                "request buffer pos is different from buffer start");
+                "request body buffer pos is different from buffer start");
             ngx_debug_point();
+            return NGX_ERROR;
+        }
+
+        if (ngx_buf_size(cl->buf) == 0 && !ngx_buf_special(cl->buf)) {
+            ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
+                "ngx_http_call_create_request: zero size request body buf "
+                "t:%d %p %p-%p", cl->buf->temporary, cl->buf->start,
+                cl->buf->pos, cl->buf->last);
+            ngx_debug_point();
+            return NGX_ERROR;
         }
     }
 #endif

@@ -23,6 +23,8 @@ typedef struct {
     ngx_msec_t       timeout;
     ngx_uint_t       max_free_buffers;
     ngx_uint_t       buffer_bin_count;
+    ngx_uint_t       mem_high_watermark;
+    ngx_uint_t       mem_low_watermark;
     size_t           video_buffer_size;
     size_t           video_mem_limit;
     ngx_lba_t       *video_lba;

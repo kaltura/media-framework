@@ -107,6 +107,7 @@ enum {
     TIMELINE_PARAM_SOURCE_ID,
     TIMELINE_PARAM_ACTIVE,
     TIMELINE_PARAM_NO_TRUNCATE,
+    TIMELINE_PARAM_END_LIST,
     TIMELINE_PARAM_PERIOD_GAP,
     TIMELINE_PARAM_MAX_SEGMENTS,
     TIMELINE_PARAM_MAX_DURATION,
@@ -129,6 +130,8 @@ static ngx_json_object_key_def_t  ngx_live_timeline_params[] = {
         TIMELINE_PARAM_ACTIVE },
     { vod_string("no_truncate"),                        NGX_JSON_BOOL,
         TIMELINE_PARAM_NO_TRUNCATE },
+    { vod_string("end_list"),                           NGX_JSON_BOOL,
+        TIMELINE_PARAM_END_LIST },
     { vod_string("period_gap"),                         NGX_JSON_INT,
         TIMELINE_PARAM_PERIOD_GAP },
     { vod_string("max_segments"),                       NGX_JSON_INT,
@@ -310,15 +313,52 @@ ngx_http_live_api_channel_update(ngx_http_request_t *r,
 static void
 ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
 {
+    ngx_log_t                        *log;
     ngx_str_t                         response;
+    ngx_str_t                         channel_id;
     ngx_http_request_t               *r;
     ngx_live_channel_t               *channel;
+    ngx_live_conf_ctx_t               conf_ctx;
     ngx_http_live_api_channel_ctx_t  *ctx = arg;
 
     r = ctx->r;
     channel = ctx->channel;
+    log = r->connection->log;
 
-    if (rc != NGX_OK) {
+    ngx_log_error(NGX_LOG_INFO, log, 0,
+        "ngx_http_live_api_channel_read_handler: called %i", rc);
+
+    if (rc == NGX_DECLINED) {
+
+        /* recreate the channel in order to cancel the read */
+
+        conf_ctx.main_conf = channel->main_conf;
+        conf_ctx.preset_conf = channel->preset_conf;
+
+        ngx_live_channel_free(channel);
+
+        channel_id = ctx->values[CHANNEL_PARAM_ID]->v.str;
+        rc = ngx_live_channel_create(&channel_id, &conf_ctx, r->pool,
+            &channel);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_channel_read_handler: "
+                "create channel failed %i", rc);
+            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            goto done;
+        }
+
+        rc = ngx_live_json_commands_exec(channel,
+            NGX_LIVE_JSON_CTX_PRE_CHANNEL, channel, &ctx->body, log);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_channel_read_handler: "
+                "json commands failed %i", rc);
+            rc = NGX_HTTP_BAD_REQUEST;
+            goto free;
+        }
+
+    } else if (rc != NGX_OK) {
 
         if (rc == NGX_BAD_DATA) {
             rc = NGX_HTTP_SERVICE_UNAVAILABLE;
@@ -327,15 +367,17 @@ ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
             rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
         }
 
-        ngx_live_channel_free(channel);
-        goto done;
+        goto free;
     }
 
     rc = ngx_http_live_api_channel_update(r, channel, &ctx->body, ctx->values);
-    if (rc != NGX_OK) {
-        ngx_live_channel_free(channel);
+    if (rc == NGX_OK) {
         goto done;
     }
+
+free:
+
+    ngx_live_channel_free(channel);
 
 done:
 
@@ -1278,6 +1320,10 @@ ngx_http_live_api_timeline_init_conf(ngx_json_value_t **values,
 
     if (values[TIMELINE_PARAM_NO_TRUNCATE] != NULL) {
         conf->no_truncate = values[TIMELINE_PARAM_NO_TRUNCATE]->v.boolean;
+    }
+
+    if (values[TIMELINE_PARAM_END_LIST] != NULL) {
+        conf->end_list = values[TIMELINE_PARAM_END_LIST]->v.boolean;
     }
 
 
