@@ -26,7 +26,8 @@ struct ngx_live_json_command_s {
     ngx_str_t                name;
     ngx_int_t                type;
     ngx_int_t              (*set_handler)(void *ctx,
-        ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log);
+        ngx_live_json_command_t *cmd, ngx_json_value_t *value,
+        ngx_pool_t *pool);
 };
 
 
@@ -48,6 +49,6 @@ ngx_int_t ngx_live_json_commands_init(ngx_conf_t *cf);
 
 
 ngx_int_t ngx_live_json_commands_exec(ngx_live_channel_t *channel,
-    ngx_uint_t ctx, void *obj, ngx_json_object_t *json, ngx_log_t *log);
+    ngx_uint_t ctx, void *obj, ngx_json_object_t *json, ngx_pool_t *pool);
 
 #endif /* _NGX_LIVE_JSON_COMMANDS_H_INCLUDED_ */

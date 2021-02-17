@@ -1,4 +1,10 @@
-static noobject ngx_kmp_push_upstream_republish_json ngx_kmp_push_upstream_t
+
+in ngx_kmp_push_upstream_json
+    url %V
+    id %V
+    auto_ack %b
+
+out noobject ngx_kmp_push_upstream_republish_json ngx_kmp_push_upstream_t
     event_type republish
     id %V
     input_id %V obj->track->

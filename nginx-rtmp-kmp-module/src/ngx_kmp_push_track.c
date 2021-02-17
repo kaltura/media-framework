@@ -12,20 +12,6 @@
 #include "ngx_kmp_push_track_json.h"
 
 
-enum {
-    NGX_KMP_TRACK_CHANNEL_ID,
-    NGX_KMP_TRACK_TRACK_ID,
-    NGX_KMP_TRACK_UPSTREAMS,
-    NGX_KMP_TRACK_PARAM_COUNT
-};
-
-static ngx_json_object_key_def_t  ngx_kmp_track_json_params[] = {
-    { ngx_string("channel_id"),  NGX_JSON_STRING,  NGX_KMP_TRACK_CHANNEL_ID },
-    { ngx_string("track_id"),    NGX_JSON_STRING,  NGX_KMP_TRACK_TRACK_ID },
-    { ngx_string("upstreams"),   NGX_JSON_ARRAY,   NGX_KMP_TRACK_UPSTREAMS },
-    { ngx_null_string, 0, 0 }
-};
-
 typedef struct {
     ngx_kmp_push_track_t  *track;
     ngx_uint_t             retries_left;
@@ -279,37 +265,45 @@ ngx_kmp_push_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
     ngx_str_t                         channel_id;
     ngx_array_part_t                 *part;
     ngx_json_array_t                 *upstreams;
-    ngx_json_value_t                  json;
-    ngx_json_value_t                 *values[NGX_KMP_TRACK_PARAM_COUNT];
+    ngx_json_value_t                  obj;
     ngx_json_object_t                *cur;
     ngx_kmp_push_track_t             *track;
     kmp_connect_packet_t             *header;
+    ngx_kmp_push_track_json_t         json;
     ngx_kmp_push_publish_call_ctx_t  *ctx = arg;
 
     track = ctx->track;
 
     /* parse and validate the json */
     if (ngx_kmp_push_parse_json_response(temp_pool, &track->log, code,
-        content_type, body, &json) != NGX_OK)
+        content_type, body, &obj) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_kmp_push_publish_handle: parse response failed");
         goto retry;
     }
 
-    ngx_memzero(values, sizeof(values));
-    ngx_json_get_object_values(&json.v.obj, ngx_kmp_track_json_params, values);
+    ngx_memset(&json, 0xff, sizeof(json));
 
-    if (values[NGX_KMP_TRACK_CHANNEL_ID] == NULL ||
-        values[NGX_KMP_TRACK_TRACK_ID] == NULL ||
-        values[NGX_KMP_TRACK_UPSTREAMS] == NULL)
+    if (ngx_json_object_parse(temp_pool, &obj.v.obj, ngx_kmp_push_track_json,
+            ngx_array_entries(ngx_kmp_push_track_json), &json)
+        != NGX_JSON_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_kmp_push_publish_handle: failed to parse object");
+        goto retry;
+    }
+
+    if (json.channel_id.data == NGX_CONF_UNSET_PTR ||
+        json.track_id.data == NGX_CONF_UNSET_PTR ||
+        json.upstreams == NGX_CONF_UNSET_PTR)
     {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_kmp_push_publish_handle: missing required params in json");
         goto retry;
     }
 
-    channel_id = values[NGX_KMP_TRACK_CHANNEL_ID]->v.str;
+    channel_id = json.channel_id;
     if (channel_id.len > sizeof(header->channel_id)) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_kmp_push_publish_handle: channel id \"%V\" too long",
@@ -317,7 +311,7 @@ ngx_kmp_push_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
         goto retry;
     }
 
-    track_id = values[NGX_KMP_TRACK_TRACK_ID]->v.str;
+    track_id = json.track_id;
     if (track_id.len > sizeof(header->track_id)) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_kmp_push_publish_handle: track id \"%V\" too long",
@@ -325,7 +319,7 @@ ngx_kmp_push_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
         goto retry;
     }
 
-    upstreams = &values[NGX_KMP_TRACK_UPSTREAMS]->v.arr;
+    upstreams = json.upstreams;
     if (upstreams->type != NGX_JSON_OBJECT) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_kmp_push_publish_handle: invalid upstreams element type %d",

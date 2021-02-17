@@ -133,7 +133,7 @@ ngx_live_json_commands_init(ngx_conf_t *cf)
 
 ngx_int_t
 ngx_live_json_commands_exec(ngx_live_channel_t *channel,
-    ngx_uint_t ctx, void *obj, ngx_json_object_t *json, ngx_log_t *log)
+    ngx_uint_t ctx, void *obj, ngx_json_object_t *json, ngx_pool_t *pool)
 {
     ngx_int_t                   rc;
     ngx_flag_t                  changed;
@@ -161,9 +161,9 @@ ngx_live_json_commands_exec(ngx_live_channel_t *channel,
             continue;
         }
 
-        rc = cmd->set_handler(obj, cmd, &cur->value, log);
+        rc = cmd->set_handler(obj, cmd, &cur->value, pool);
         if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
                 "ngx_live_json_commands_exec: handler failed %i", rc);
             return rc;
         }

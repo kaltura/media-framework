@@ -226,6 +226,7 @@ LIVE_DEPS="$LIVE_DEPS                                         \
     $ngx_addon_dir/src/ngx_live_core_module.h                 \
     $ngx_addon_dir/src/ngx_live_dynamic_var_json.h            \
     $ngx_addon_dir/src/ngx_live_filler.h                      \
+    $ngx_addon_dir/src/ngx_live_filler_json.h                 \
     $ngx_addon_dir/src/ngx_live_input_bufs.h                  \
     $ngx_addon_dir/src/ngx_live_json_commands.h               \
     $ngx_addon_dir/src/ngx_live_media_info.h                  \

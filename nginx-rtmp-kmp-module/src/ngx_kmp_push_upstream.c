@@ -23,19 +23,6 @@ typedef struct {
     ngx_uint_t                retries_left;
 } ngx_kmp_push_republish_call_ctx_t;
 
-enum {
-    NGX_KMP_UPSTREAM_URL,
-    NGX_KMP_UPSTREAM_ID,
-    NGX_KMP_UPSTREAM_AUTO_ACK,
-    NGX_KMP_UPSTREAM_PARAM_COUNT
-};
-
-static ngx_json_object_key_def_t  ngx_kmp_upstream_json_params[] = {
-    { ngx_string("url"),       NGX_JSON_STRING,  NGX_KMP_UPSTREAM_URL },
-    { ngx_string("id"),        NGX_JSON_STRING,  NGX_KMP_UPSTREAM_ID },
-    { ngx_string("auto_ack"),  NGX_JSON_BOOL,    NGX_KMP_UPSTREAM_AUTO_ACK },
-    { ngx_null_string, 0, 0 }
-};
 
 static ngx_str_t  kmp_url_prefix = ngx_string("kmp://");
 
@@ -179,35 +166,32 @@ ngx_kmp_push_upstream_connect(ngx_kmp_push_upstream_t *u, ngx_addr_t *addr)
 }
 
 static ngx_int_t
-ngx_kmp_push_upstream_parse_url(ngx_pool_t *pool, ngx_json_value_t *value,
+ngx_kmp_push_upstream_parse_url(ngx_pool_t *pool, ngx_str_t *url_str,
     ngx_url_t *url)
 {
-    ngx_str_t  url_str;
-
-    if (value == NULL) {
+    if (url_str->data == NGX_JSON_UNSET_PTR) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
             "ngx_kmp_push_upstream_parse_url: no upstream url in json");
         return NGX_ERROR;
     }
 
-    url_str = value->v.str;
-    if (url_str.len > kmp_url_prefix.len &&
-        ngx_strncasecmp(url_str.data,
+    if (url_str->len > kmp_url_prefix.len &&
+        ngx_strncasecmp(url_str->data,
             kmp_url_prefix.data,
             kmp_url_prefix.len) == 0) {
-        url_str.data += kmp_url_prefix.len;
-        url_str.len -= kmp_url_prefix.len;
+        url_str->data += kmp_url_prefix.len;
+        url_str->len -= kmp_url_prefix.len;
     }
 
     ngx_memzero(url, sizeof(*url));
-    url->url = url_str;
+    url->url = *url_str;
     url->no_resolve = 1;    /* accept only ips */
 
     if (ngx_parse_url(pool, url) != NGX_OK) {
         if (url->err) {
             ngx_log_error(NGX_LOG_ERR, pool->log, 0,
                 "ngx_kmp_push_upstream_parse_url: %s in \"%V\"",
-                url->err, &url_str);
+                url->err, url_str);
         }
         return NGX_ERROR;
     }
@@ -215,7 +199,7 @@ ngx_kmp_push_upstream_parse_url(ngx_pool_t *pool, ngx_json_value_t *value,
     if (url->naddrs == 0) {
         ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_kmp_push_upstream_parse_url: no addresses in \"%V\"",
-            &url_str);
+            url_str);
         return NGX_ERROR;
     }
 
@@ -252,32 +236,35 @@ ngx_kmp_push_upstream_free_notify(ngx_kmp_push_upstream_t *u)
 
 ngx_int_t
 ngx_kmp_push_upstream_from_json(ngx_pool_t *temp_pool,
-    ngx_kmp_push_track_t *track, ngx_json_object_t *json)
+    ngx_kmp_push_track_t *track, ngx_json_object_t *obj)
 {
-    ngx_str_t                 id;
-    ngx_url_t                 url;
-    ngx_json_value_t         *values[NGX_KMP_UPSTREAM_PARAM_COUNT];
-    ngx_kmp_push_upstream_t  *u;
+    ngx_url_t                      url;
+    ngx_kmp_push_upstream_t       *u;
+    ngx_kmp_push_upstream_json_t   json;
 
-    ngx_memzero(values, sizeof(values));
-    ngx_json_get_object_values(json, ngx_kmp_upstream_json_params, values);
+    ngx_memset(&json, 0xff, sizeof(json));
 
-    if (ngx_kmp_push_upstream_parse_url(temp_pool,
-        values[NGX_KMP_UPSTREAM_URL], &url) != NGX_OK)
+    if (ngx_json_object_parse(temp_pool, obj, ngx_kmp_push_upstream_json,
+            ngx_array_entries(ngx_kmp_push_upstream_json), &json)
+        != NGX_JSON_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
+            "ngx_kmp_push_upstream_from_json: failed to parse object");
+        return NGX_ERROR;
+    }
+
+    if (ngx_kmp_push_upstream_parse_url(temp_pool, &json.url, &url) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
             "ngx_kmp_push_upstream_from_json: parse url failed");
         return NGX_ERROR;
     }
 
-    if (values[NGX_KMP_UPSTREAM_ID] != NULL) {
-        id = values[NGX_KMP_UPSTREAM_ID]->v.str;
-
-    } else {
-        id.len = 0;
+    if (json.id.data == NGX_JSON_UNSET_PTR) {
+        json.id.len = 0;
     }
 
-    u = ngx_kmp_push_upstream_create(track, &id);
+    u = ngx_kmp_push_upstream_create(track, &json.id);
     if (u == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
             "ngx_kmp_push_upstream_from_json: create failed");
@@ -291,8 +278,7 @@ ngx_kmp_push_upstream_from_json(ngx_pool_t *temp_pool,
         return NGX_ERROR;
     }
 
-    if (values[NGX_KMP_UPSTREAM_AUTO_ACK] != NULL &&
-        values[NGX_KMP_UPSTREAM_AUTO_ACK]->v.boolean) {
+    if (json.auto_ack != NGX_CONF_UNSET && json.auto_ack) {
         u->auto_ack = 1;
     }
 
@@ -362,26 +348,35 @@ ngx_kmp_push_upstream_republish_handle(ngx_pool_t *temp_pool, void *arg,
     ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *body)
 {
     ngx_url_t                           url;
-    ngx_json_value_t                    json;
-    ngx_json_value_t                   *values[NGX_KMP_UPSTREAM_PARAM_COUNT];
+    ngx_json_value_t                    obj;
     ngx_kmp_push_upstream_t            *u;
+    ngx_kmp_push_upstream_json_t        json;
     ngx_kmp_push_republish_call_ctx_t  *ctx = arg;
 
     u = ctx->u;
 
     if (ngx_kmp_push_parse_json_response(temp_pool, &u->log, code,
-        content_type, body, &json) != NGX_OK) {
+        content_type, body, &obj) != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
             "ngx_kmp_push_upstream_republish_handle: parse response failed");
         goto retry;
     }
 
-    ngx_memzero(values, sizeof(values));
-    ngx_json_get_object_values(&json.v.obj, ngx_kmp_upstream_json_params,
-        values);
+    ngx_memset(&json, 0xff, sizeof(json));
 
-    if (ngx_kmp_push_upstream_parse_url(temp_pool,
-        values[NGX_KMP_UPSTREAM_URL], &url) != NGX_OK) {
+    if (ngx_json_object_parse(temp_pool, &obj.v.obj,
+            ngx_kmp_push_upstream_json,
+            ngx_array_entries(ngx_kmp_push_upstream_json), &json)
+        != NGX_JSON_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
+            "ngx_kmp_push_upstream_republish_handle: failed to parse object");
+        goto retry;
+    }
+
+    if (ngx_kmp_push_upstream_parse_url(temp_pool, &json.url, &url) != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
             "ngx_kmp_push_upstream_republish_handle: parse url failed");
         goto retry;
@@ -432,13 +427,14 @@ ngx_kmp_push_upstream_republish_send(ngx_kmp_push_upstream_t *u)
     ci.argsize = sizeof(ctx);
 
     ngx_log_error(NGX_LOG_INFO, &u->log, 0,
-        "ngx_kmp_push_upstream_connect: sending republish request to \"%V\"",
-        &url->url);
+        "ngx_kmp_push_upstream_republish_send: "
+        "sending republish request to \"%V\"", &url->url);
 
     u->republish_call = ngx_kmp_push_track_http_call_create(u->track, &ci);
     if (u->republish_call == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
-            "ngx_kmp_push_upstream_republish: failed to create http call");
+            "ngx_kmp_push_upstream_republish_send: "
+            "failed to create http call");
         return NGX_ERROR;
     }
 

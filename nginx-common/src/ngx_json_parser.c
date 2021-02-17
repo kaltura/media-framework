@@ -68,7 +68,7 @@ static ngx_json_status_t ngx_json_parser_int(
 
 // globals
 static ngx_json_type_t  ngx_json_string = {
-    NGX_JSON_STRING, sizeof(ngx_str_t), ngx_json_parser_string
+    NGX_JSON_STRING, sizeof(ngx_json_str_t), ngx_json_parser_string
 };
 
 static ngx_json_type_t  ngx_json_array = {
@@ -151,13 +151,14 @@ ngx_json_skip_spaces(ngx_json_parser_state_t *state)
 }
 
 static ngx_json_status_t
-ngx_json_parse_string(ngx_json_parser_state_t *state, ngx_str_t *result)
+ngx_json_parse_string(ngx_json_parser_state_t *state, ngx_json_str_t *result)
 {
     u_char  c;
 
     state->cur_pos++;       // skip the "
 
-    result->data = state->cur_pos;
+    result->escape = 0;
+    result->s.data = state->cur_pos;
 
     for ( ;; ) {
 
@@ -175,10 +176,11 @@ ngx_json_parse_string(ngx_json_parser_state_t *state, ngx_str_t *result)
                     "end of data while parsing string (1)%Z");
                 return NGX_JSON_BAD_DATA;
             }
+            result->escape = 1;
             break;
 
         case '"':
-            result->len = state->cur_pos - result->data;
+            result->s.len = state->cur_pos - result->s.data;
             state->cur_pos++;
             return NGX_JSON_OK;
         }
@@ -322,7 +324,7 @@ ngx_json_parse_fraction(ngx_json_parser_state_t *state,
     result->num = value;
     result->denom = denom;
 
-    return NGX_OK;
+    return NGX_JSON_OK;
 }
 
 static ngx_json_status_t
@@ -444,8 +446,8 @@ static ngx_json_status_t
 ngx_json_parse_object(ngx_json_parser_state_t *state,
     ngx_json_object_t *result)
 {
-    ngx_json_key_value_t  *cur_item;
     ngx_int_t              rc;
+    ngx_json_key_value_t  *cur_item;
 
     state->cur_pos++;       // skip the {
     ngx_json_skip_spaces(state);
@@ -523,21 +525,21 @@ static ngx_json_status_t
 ngx_json_parser_string(ngx_json_parser_state_t *state, void *result)
 {
     ASSERT_CHAR(state, '"');
-    return ngx_json_parse_string(state, (ngx_str_t*)result);
+    return ngx_json_parse_string(state, (ngx_json_str_t *) result);
 }
 
 static ngx_json_status_t
 ngx_json_parser_array(ngx_json_parser_state_t *state, void *result)
 {
     ASSERT_CHAR(state, '[');
-    return ngx_json_parse_array(state, (ngx_json_array_t*)result);
+    return ngx_json_parse_array(state, (ngx_json_array_t *) result);
 }
 
 static ngx_json_status_t
 ngx_json_parser_object(ngx_json_parser_state_t *state, void *result)
 {
     ASSERT_CHAR(state, '{');
-    return ngx_json_parse_object(state, (ngx_json_object_t*)result);
+    return ngx_json_parse_object(state, (ngx_json_object_t *) result);
 }
 
 static ngx_json_status_t
@@ -762,342 +764,210 @@ ngx_json_decode_string(ngx_str_t *dest, ngx_str_t *src)
 
     dest->len = p - dest->data;
 
-    return NGX_OK;
+    return NGX_JSON_OK;
 }
 
-void
-ngx_json_get_object_values(ngx_json_object_t *object,
-    ngx_json_object_key_def_t *key_defs, ngx_json_value_t **result)
+
+ngx_json_status_t
+ngx_json_object_parse(ngx_pool_t *pool, ngx_json_object_t *object,
+    ngx_json_prop_t **hash, ngx_uint_t size, void *dest)
 {
-    ngx_json_key_value_t       *cur_element = object->elts;
-    ngx_json_key_value_t       *last_element = cur_element + object->nelts;
-    ngx_json_object_key_def_t  *key_def;
+    ngx_json_prop_t       *prop;
+    ngx_json_status_t      rc;
+    ngx_json_key_value_t  *cur;
+    ngx_json_key_value_t  *last;
 
-    for (; cur_element < last_element; cur_element++) {
-
-        for (key_def = key_defs; key_def->key.len != 0; key_def++) {
-            if (key_def->key.len == cur_element->key.len &&
-                ngx_memcmp(key_def->key.data, cur_element->key.data,
-                    cur_element->key.len) == 0) {
-                break;
-            }
-        }
-
-        if (key_def->key.len == 0) {
-            continue;
-        }
-
-        if (cur_element->value.type == key_def->type ||
-            (cur_element->value.type == NGX_JSON_INT &&
-                key_def->type == NGX_JSON_FRAC)) {  // allow int for a fraction
-            result[key_def->index] = &cur_element->value;
-        }
-    }
-}
-
-#if 0       // XXXXX
-ngx_status_t
-ngx_json_init_hash(ngx_pool_t *pool, ngx_pool_t *temp_pool, char *hash_name,
-    void *elements, size_t element_size, ngx_hash_t *result)
-{
-    ngx_array_t       elements_arr;
-    ngx_hash_key_t   *hash_key;
-    ngx_hash_init_t   hash;
-    ngx_str_t        *cur_key;
-    u_char           *element;
-
-    if (ngx_array_init(&elements_arr, temp_pool, 32, sizeof(ngx_hash_key_t))
-        != NGX_OK) {
-        return ngx_palloc_FAILED;
-    }
-
-    for (element = elements; ; element += element_size) {
-        cur_key = (ngx_str_t*)element;
-        if (cur_key->len == 0) {
-            break;
-        }
-
-        hash_key = ngx_array_push(&elements_arr);
-        if (hash_key == NULL) {
-            return ngx_palloc_FAILED;
-        }
-
-        hash_key->key = *cur_key;
-        hash_key->key_hash = ngx_hash_key_lc(cur_key->data, cur_key->len);
-        hash_key->value = element;
-    }
-
-    hash.hash = result;
-    hash.key = ngx_hash_key_lc;
-    hash.max_size = 512;
-    hash.bucket_size = ngx_align(64, ngx_cacheline_size);
-    hash.name = hash_name;
-    hash.pool = pool;
-    hash.temp_pool = NULL;
-
-    if (ngx_hash_init(&hash, elements_arr.elts, elements_arr.nelts)
-        != NGX_OK) {
-        return ngx_palloc_FAILED;
-    }
-
-    return NGX_OK;
-}
-
-void
-ngx_json_get_object_values(ngx_json_object_t *object, ngx_hash_t *values_hash,
-    ngx_json_value_t **result)
-{
-    ngx_json_key_value_t       *cur_element = object->elts;
-    ngx_json_key_value_t       *last_element = cur_element + object->nelts;
-    ngx_json_object_key_def_t  *key_def;
-
-    for (; cur_element < last_element; cur_element++) {
-        key_def = ngx_hash_find(
-            values_hash,
-            cur_element->key_hash,
-            cur_element->key.data,
-            cur_element->key.len);
-        if (key_def == NULL) {
-            continue;
-        }
-
-        if (cur_element->value.type == key_def->type ||
-            (cur_element->value.type == NGX_JSON_INT &&
-                key_def->type == NGX_JSON_FRAC)) {  // allow int for fraction
-            result[key_def->index] = &cur_element->value;
-        }
-    }
-}
-
-ngx_status_t
-ngx_json_parse_object_values(ngx_json_object_t *object,
-    ngx_hash_t *values_hash, void *context, void *result)
-{
-    ngx_json_key_value_t     *cur_element = object->elts;
-    ngx_json_key_value_t     *last_element = cur_element + object->nelts;
-    json_object_value_def_t  *parser;
-    ngx_status_t              rc;
-
-    for (; cur_element < last_element; cur_element++) {
-
-        parser = ngx_hash_find(
-            values_hash,
-            cur_element->key_hash,
-            cur_element->key.data,
-            cur_element->key.len);
-        if (parser == NULL) {
-            continue;
-        }
-
-        if (cur_element->value.type != parser->type &&
-            (cur_element->value.type != NGX_JSON_INT ||
-                parser->type != NGX_JSON_FRAC)) {
-            continue;
-        }
-
-        rc = parser->parse(context, &cur_element->value,
-            (u_char*)result + parser->offset);
-        if (rc != NGX_OK) {
-            return rc;
-        }
-    }
-
-    return NGX_OK;
-}
-
-ngx_status_t
-ngx_json_parse_union(request_context_t *request_context,
-    ngx_json_object_t *object, ngx_str_t *type_field,
-    ngx_uint_t type_field_hash, ngx_hash_t *union_hash, void *context,
-    void **dest)
-{
-    u_char                         c;
-    u_char                        *cur_pos;
-    u_char                        *type_end;
-    ngx_str_t                      type = ngx_null_string;
-    ngx_uint_t                     key;
-    ngx_json_key_value_t          *cur;
-    ngx_json_key_value_t          *last;
-    json_parser_union_type_def_t  *type_def;
-
-    // get the object type
-    cur = (ngx_json_key_value_t*)object->elts;
+    cur = object->elts;
     last = cur + object->nelts;
 
     for (; cur < last; cur++) {
-        if (cur->key_hash != type_field_hash ||
-            cur->key.len != type_field->len ||
-            ngx_memcmp(cur->key.data, type_field->data, type_field->len)
-            != 0) {
+        prop = hash[cur->key_hash % size];
+        if (prop == NULL) {
             continue;
         }
 
-        if (cur->value.type != NGX_JSON_STRING) {
-            ngx_log_error(NGX_LOG_ERR, request_context->log, 0,
-                "ngx_json_parse_union: \"%V\" field has an invalid type %d",
-                type_field, cur->value.type);
-            return NGX_BAD_REQUEST;
-        }
-
-        type = cur->value.v.str;
-        break;
-    }
-
-    if (type.len == 0) {
-        ngx_log_error(NGX_LOG_ERR, request_context->log, 0,
-            "ngx_json_parse_union: missing \"%V\" field", type_field);
-        return NGX_BAD_REQUEST;
-    }
-
-    // calculate key and to lower
-    key = 0;
-
-    type_end = type.data + type.len;
-    for (cur_pos = type.data; cur_pos < type_end; cur_pos++) {
-        c = *cur_pos;
-        if (c >= 'A' && c <= 'Z') {
-            c |= 0x20;          // tolower
-            *cur_pos = c;
-        }
-
-        key = ngx_hash(key, c);
-    }
-
-    // find the type definition
-    type_def = ngx_hash_find(
-        union_hash,
-        key,
-        type.data,
-        type.len);
-    if (type_def == NULL) {
-        ngx_log_error(NGX_LOG_ERR, request_context->log, 0,
-            "ngx_json_parse_union: unknown object type \"%V\"", &type);
-        return NGX_BAD_REQUEST;
-    }
-
-    return type_def->parser(context, object, dest);
-}
-
-static ngx_json_key_value_t*
-ngx_json_get_object_value(ngx_json_object_t *object, ngx_uint_t key_hash,
-    ngx_str_t *key)
-{
-    ngx_json_key_value_t  *cur_element = object->elts;
-    ngx_json_key_value_t  *last_element = cur_element + object->nelts;
-
-    for (; cur_element < last_element; cur_element++) {
-        if (cur_element->key_hash == key_hash &&
-            cur_element->key.len == key->len &&
-            ngx_memcmp(cur_element->key.data, key->data, key->len) == 0) {
-            return cur_element;
-        }
-    }
-
-    return NULL;
-}
-
-static ngx_status_t
-ngx_json_replace_object(ngx_json_object_t *object1, ngx_json_object_t *object2)
-{
-    ngx_json_key_value_t  *cur_element;
-    ngx_json_key_value_t  *last_element;
-    ngx_json_key_value_t  *dest_element;
-
-    cur_element = object2->elts;
-    last_element = cur_element + object2->nelts;
-    for (; cur_element < last_element; cur_element++) {
-
-        dest_element = ngx_json_get_object_value(object1,
-            cur_element->key_hash, &cur_element->key);
-        if (dest_element != NULL) {
-            ngx_json_replace(&dest_element->value, &cur_element->value);
+        if (prop->type != cur->value.type
+            || prop->key_hash != cur->key_hash
+            || prop->key.len != cur->key.len
+            || ngx_strncmp(prop->key.data, cur->key.data, cur->key.len) != 0)
+        {
             continue;
         }
 
-        dest_element = (ngx_json_key_value_t*)ngx_array_push(object1);
-        if (dest_element == NULL) {
-            return ngx_palloc_FAILED;
-        }
-
-        *dest_element = *cur_element;
-    }
-
-    return NGX_OK;
-}
-
-static ngx_status_t
-ngx_json_replace_array(ngx_json_array_t *array1, ngx_json_array_t *array2)
-{
-    ngx_json_object_t  *cur_object1;
-    ngx_json_object_t  *cur_object2;
-    ngx_array_part_t   *part1;
-    ngx_array_part_t   *part2;
-    ngx_status_t        rc;
-
-    if (array1->type != NGX_JSON_OBJECT || array2->type != NGX_JSON_OBJECT) {
-        *array1 = *array2;
-        return NGX_OK;
-    }
-
-    part1 = &array1->part;
-    part2 = &array2->part;
-
-    for (cur_object1 = part1->first, cur_object2 = part2->first;
-        ;
-        cur_object1++, cur_object2++) {
-        if ((void*)cur_object2 >= part2->last) {
-            if (part2->next == NULL) {
-                break;
-            }
-
-            part2 = part2->next;
-            cur_object2 = part2->first;
-        }
-
-        if ((void*)cur_object1 >= part1->last) {
-            if (part1->next == NULL) {
-                // append the second array to the first
-                part2->first = cur_object2;
-                part2->count = (ngx_json_object_t*)part2->last - cur_object2;
-                part1->next = part2;
-                array1->count = array2->count;
-                break;
-            }
-
-            part1 = part1->next;
-            cur_object1 = part1->first;
-        }
-
-        rc = ngx_json_replace_object(cur_object1, cur_object2);
-        if (rc != NGX_OK) {
+        rc = prop->set(pool, &cur->value, prop, dest);
+        if (rc != NGX_JSON_OK) {
             return rc;
         }
     }
 
-    return NGX_OK;
+    return NGX_JSON_OK;
 }
 
-ngx_status_t
-ngx_json_replace(ngx_json_value_t *json1, ngx_json_value_t *json2)
+ngx_json_status_t
+ngx_json_set_num_slot(ngx_pool_t *pool, ngx_json_value_t *value,
+    ngx_json_prop_t *prop, void *dest)
 {
-    if (json1->type != json2->type) {
-        *json1 = *json2;
-        return NGX_OK;
+    char     *p = dest;
+    int64_t  *np;
+
+    np = (int64_t *) (p + prop->offset);
+
+    if (*np != NGX_JSON_UNSET) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_json_set_num_slot: duplicate key \"%V\"", &prop->key);
+        return NGX_JSON_BAD_DATA;
     }
 
-    switch (json1->type) {
+    *np = value->v.num.num;
 
-    case NGX_JSON_OBJECT:
-        return ngx_json_replace_object(&json1->v.obj, &json2->v.obj);
-
-    case NGX_JSON_ARRAY:
-        return ngx_json_replace_array(&json1->v.arr, &json2->v.arr);
-
-    default:
-        *json1 = *json2;
-        break;
-    }
-
-    return NGX_OK;
+    return NGX_JSON_OK;
 }
-#endif
+
+ngx_json_status_t
+ngx_json_set_flag_slot(ngx_pool_t *pool, ngx_json_value_t *value,
+    ngx_json_prop_t *prop, void *dest)
+{
+    char        *p = dest;
+    ngx_flag_t  *fp;
+
+    fp = (ngx_flag_t *) (p + prop->offset);
+
+    if (*fp != NGX_JSON_UNSET) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_json_set_flag_slot: duplicate key \"%V\"", &prop->key);
+        return NGX_JSON_BAD_DATA;
+    }
+
+    *fp = value->v.boolean;
+
+    return NGX_JSON_OK;
+}
+
+ngx_json_status_t
+ngx_json_set_str_slot(ngx_pool_t *pool, ngx_json_value_t *value,
+    ngx_json_prop_t *prop, void *dest)
+{
+    char       *p = dest;
+    ngx_str_t  *sp;
+
+    sp = (ngx_str_t *) (p + prop->offset);
+
+    if (sp->data != NGX_JSON_UNSET_PTR) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_json_set_str_slot: duplicate key \"%V\"", &prop->key);
+        return NGX_JSON_BAD_DATA;
+    }
+
+    if (value->v.str.escape) {
+        sp->data = value->v.str.s.data;
+        sp->len = 0;
+
+        if (ngx_json_decode_string(sp, &value->v.str.s) != NGX_JSON_OK) {
+            ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+                "ngx_json_set_str_slot: failed to decode string \"%V\"",
+                &value->v.str.s);
+            return NGX_JSON_BAD_DATA;
+        }
+
+    } else {
+        *sp = value->v.str.s;
+    }
+
+    return NGX_JSON_OK;
+}
+
+ngx_json_status_t
+ngx_json_set_raw_str_slot(ngx_pool_t *pool, ngx_json_value_t *value,
+    ngx_json_prop_t *prop, void *dest)
+{
+    char       *p = dest;
+    ngx_str_t  *sp;
+
+    sp = (ngx_str_t *) (p + prop->offset);
+
+    if (sp->data != NGX_JSON_UNSET_PTR) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_json_set_raw_str_slot: duplicate key \"%V\"", &prop->key);
+        return NGX_JSON_BAD_DATA;
+    }
+
+    *sp = value->v.str.s;
+
+    return NGX_JSON_OK;
+}
+
+ngx_json_status_t
+ngx_json_set_obj_slot(ngx_pool_t *pool, ngx_json_value_t *value,
+    ngx_json_prop_t *prop, void *dest)
+{
+    char                *p = dest;
+    ngx_json_object_t  **op;
+
+    op = (ngx_json_object_t **) (p + prop->offset);
+
+    if (*op != NGX_JSON_UNSET_PTR) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_json_set_obj_slot: duplicate key \"%V\"", &prop->key);
+        return NGX_JSON_BAD_DATA;
+    }
+
+    *op = &value->v.obj;
+
+    return NGX_JSON_OK;
+}
+
+ngx_json_status_t
+ngx_json_set_arr_slot(ngx_pool_t *pool, ngx_json_value_t *value,
+    ngx_json_prop_t *prop, void *dest)
+{
+    char               *p = dest;
+    ngx_json_array_t  **ap;
+
+    ap = (ngx_json_array_t **) (p + prop->offset);
+
+    if (*ap != NGX_JSON_UNSET_PTR) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_json_set_arr_slot: duplicate key \"%V\"", &prop->key);
+        return NGX_JSON_BAD_DATA;
+    }
+
+    *ap = &value->v.arr;
+
+    return NGX_JSON_OK;
+}
+
+ngx_json_status_t
+ngx_json_set_enum_slot(ngx_pool_t *pool, ngx_json_value_t *value,
+    ngx_json_prop_t *prop, void *dest)
+{
+    char        *p = dest;
+    ngx_str_t   *e;
+    ngx_uint_t  *np, i;
+
+    np = (ngx_uint_t *) (p + prop->offset);
+
+    if (*np != NGX_JSON_UNSET_UINT) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_json_set_enum_slot: duplicate key \"%V\"", &prop->key);
+        return NGX_JSON_BAD_DATA;
+    }
+
+    e = prop->post;
+
+    for (i = 0; e[i].len != 0; i++) {
+        if (e[i].len != value->v.str.s.len
+            || ngx_strncasecmp(e[i].data, value->v.str.s.data, e[i].len) != 0)
+        {
+            continue;
+        }
+
+        *np = i;
+
+        return NGX_JSON_OK;
+    }
+
+    ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+        "ngx_json_set_enum_slot: invalid value \"%V\" for \"%V\" field",
+        &value->v.str.s, &prop->key);
+    return NGX_JSON_BAD_DATA;
+}

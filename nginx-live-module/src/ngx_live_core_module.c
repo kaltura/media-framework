@@ -23,7 +23,7 @@ static char *ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
 static ngx_int_t ngx_live_core_set_mem_limit(void *ctx,
-    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log);
+    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
 
 
 typedef struct {
@@ -624,7 +624,7 @@ ngx_live_core_get_preset_conf(ngx_cycle_t *cycle, ngx_str_t *preset_name)
 
 static ngx_int_t
 ngx_live_core_set_mem_limit(void *ctx, ngx_live_json_command_t *cmd,
-    ngx_json_value_t *value, ngx_log_t *log)
+    ngx_json_value_t *value, ngx_pool_t *pool)
 {
     size_t               mem_limit;
     ngx_live_channel_t  *channel = ctx;
@@ -638,7 +638,7 @@ ngx_live_core_set_mem_limit(void *ctx, ngx_live_json_command_t *cmd,
         channel->mem_left -= channel->mem_limit - mem_limit;
 
     } else {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_live_core_set_mem_limit: "
             "new limit lower than used mem, new: %uz, old: %uz, left: %uz",
             mem_limit, channel->mem_limit, channel->mem_left);

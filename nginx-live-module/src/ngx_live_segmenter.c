@@ -221,7 +221,7 @@ static char *ngx_live_segmenter_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
 static ngx_int_t ngx_live_segmenter_set_segment_duration(void *ctx,
-    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log);
+    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
 
 
 static ngx_command_t  ngx_live_segmenter_commands[] = {
@@ -3196,10 +3196,10 @@ ngx_live_segmenter_set_segment_duration_internal(ngx_live_channel_t *channel,
 
 static ngx_int_t
 ngx_live_segmenter_set_segment_duration(void *ctx,
-    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log)
+    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool)
 {
     return ngx_live_segmenter_set_segment_duration_internal(
-        ctx, value->v.num.num, log);
+        ctx, value->v.num.num, pool->log);
 }
 
 

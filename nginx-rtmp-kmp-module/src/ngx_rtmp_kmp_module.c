@@ -278,19 +278,6 @@ ngx_module_t  ngx_rtmp_kmp_module = {
 };
 
 
-enum {
-    CONNECT_JSON_CODE,
-    CONNECT_JSON_MESSAGE,
-    CONNECT_JSON_PARAM_COUNT
-};
-
-static ngx_json_object_key_def_t  connect_json_params[] = {
-    { ngx_string("code"),       NGX_JSON_STRING,    CONNECT_JSON_CODE },
-    { ngx_string("message"),    NGX_JSON_STRING,    CONNECT_JSON_MESSAGE },
-    { ngx_null_string, 0, 0 }
-};
-
-
 static ngx_str_t  ngx_rtmp_kmp_code_ok = ngx_string("ok");
 
 
@@ -738,10 +725,9 @@ ngx_rtmp_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
 {
     ngx_log_t                        *log;
     ngx_str_t                         desc;
-    ngx_str_t                         code_str;
-    ngx_json_value_t                  json;
-    ngx_json_value_t                 *values[CONNECT_JSON_PARAM_COUNT];
+    ngx_json_value_t                  obj;
     ngx_rtmp_session_t               *s;
+    ngx_rtmp_kmp_connect_json_t       json;
     ngx_rtmp_kmp_connect_call_ctx_t  *cctx;
 
     cctx = arg;
@@ -750,28 +736,38 @@ ngx_rtmp_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
     log = s->connection->log;
 
     if (ngx_kmp_push_parse_json_response(temp_pool, log,
-        code, content_type, body, &json) != NGX_OK) {
+        code, content_type, body, &obj) != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_rtmp_kmp_connect_handle: parse response failed");
         goto retry;
     }
 
-    ngx_memzero(values, sizeof(values));
-    ngx_json_get_object_values(&json.v.obj, connect_json_params, values);
+    ngx_memset(&json, 0xff, sizeof(json));
 
-    if (values[CONNECT_JSON_CODE] == NULL) {
+    if (ngx_json_object_parse(temp_pool, &obj.v.obj,
+            ngx_rtmp_kmp_connect_json,
+            ngx_array_entries(ngx_rtmp_kmp_connect_json), &json)
+        != NGX_JSON_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_rtmp_kmp_connect_handle: failed to parse object");
+        goto retry;
+    }
+
+
+    if (json.code.data == NGX_JSON_UNSET_PTR) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_rtmp_kmp_connect_handle: missing \"code\" element in json");
         goto retry;
     }
 
-    code_str = values[CONNECT_JSON_CODE]->v.str;
-    if (code_str.len != ngx_rtmp_kmp_code_ok.len ||
-        ngx_strncasecmp(code_str.data, ngx_rtmp_kmp_code_ok.data,
-            ngx_rtmp_kmp_code_ok.len) != 0) {
-
-        if (values[CONNECT_JSON_MESSAGE] != NULL) {
-            desc = values[CONNECT_JSON_MESSAGE]->v.str;
+    if (json.code.len != ngx_rtmp_kmp_code_ok.len ||
+        ngx_strncasecmp(json.code.data, ngx_rtmp_kmp_code_ok.data,
+            ngx_rtmp_kmp_code_ok.len) != 0)
+    {
+        if (json.message.data != NGX_JSON_UNSET_PTR) {
+            desc = json.message;
             desc.data[desc.len] = '\0';
 
         } else {
@@ -781,7 +777,7 @@ ngx_rtmp_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
 
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_rtmp_kmp_connect_handle: "
-            "bad code \"%V\" in json, message=\"%V\"", &code_str, &desc);
+            "bad code \"%V\" in json, message=\"%V\"", &json.code, &desc);
 
         goto error;
     }

@@ -1,5 +1,5 @@
 
-static ngx_rtmp_kmp_track_rtmp_json ngx_rtmp_session_t ngx_rtmp_kmp_publish_t *pi
+out ngx_rtmp_kmp_track_rtmp_json ngx_rtmp_session_t ngx_rtmp_kmp_publish_t *pi
     app %V
     flashver %V
     swf_url %V
@@ -12,6 +12,6 @@ static ngx_rtmp_kmp_track_rtmp_json ngx_rtmp_session_t ngx_rtmp_kmp_publish_t *p
     type %V pi->
     args %V pi->
 
-static noobject ngx_rtmp_kmp_track_json ngx_rtmp_session_t ngx_rtmp_kmp_publish_t *pi
+out noobject ngx_rtmp_kmp_track_json ngx_rtmp_session_t ngx_rtmp_kmp_publish_t *pi
     input_type rtmp
     rtmp %func-ngx_rtmp_kmp_track_rtmp_json obj, pi

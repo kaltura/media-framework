@@ -7,6 +7,7 @@
 #include "ngx_live_segmenter.h"
 #include "ngx_live_timeline.h"
 #include "ngx_live_filler.h"
+#include "ngx_live_filler_json.h"
 
 
 #define NGX_LIVE_FILLER_MAX_SEGMENTS            128
@@ -90,7 +91,7 @@ static char *ngx_live_filler_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
 static ngx_int_t ngx_live_filler_set_channel(void *ctx,
-    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_log_t *log);
+    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
 
 static ngx_live_module_t  ngx_live_filler_module_ctx = {
     ngx_live_filler_preconfiguration,       /* preconfiguration */
@@ -116,19 +117,6 @@ ngx_module_t  ngx_live_filler_module = {
     NULL,                                   /* exit process */
     NULL,                                   /* exit master */
     NGX_MODULE_V1_PADDING
-};
-
-
-enum {
-    FILLER_PARAM_CHANNEL_ID,
-    FILLER_PARAM_TIMELINE_ID,
-    FILLER_PARAM_COUNT
-};
-
-static ngx_json_object_key_def_t  ngx_live_filler_params[] = {
-    { vod_string("channel_id"),  NGX_JSON_STRING, FILLER_PARAM_CHANNEL_ID },
-    { vod_string("timeline_id"), NGX_JSON_STRING, FILLER_PARAM_TIMELINE_ID },
-    { vod_null_string, 0, 0 }
 };
 
 
@@ -1226,29 +1214,36 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
 
 static ngx_int_t
 ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
-    ngx_json_value_t *value, ngx_log_t *log)
+    ngx_json_value_t *value, ngx_pool_t *pool)
 {
     ngx_str_t                       channel_id;
     ngx_str_t                       timeline_id;
-    ngx_json_value_t               *values[FILLER_PARAM_COUNT];
     ngx_live_channel_t             *dst = ctx;
     ngx_live_channel_t             *src;
     ngx_live_timeline_t            *src_timeline;
+    ngx_live_filler_json_t          json;
     ngx_live_filler_channel_ctx_t  *cctx;
 
-    ngx_memzero(values, sizeof(values));
-    ngx_json_get_object_values(&value->v.obj, ngx_live_filler_params, values);
+    ngx_memset(&json, 0xff, sizeof(json));
 
-    if (values[FILLER_PARAM_CHANNEL_ID] == NULL ||
-        values[FILLER_PARAM_TIMELINE_ID] == NULL)
+    if (ngx_json_object_parse(pool, &value->v.obj, ngx_live_filler_json,
+        ngx_array_entries(ngx_live_filler_json), &json) != NGX_JSON_OK)
     {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_live_filler_set_channel: failed to parse json");
+        return NGX_ERROR;
+    }
+
+    if (json.channel_id.data == NGX_JSON_UNSET_PTR ||
+        json.timeline_id.data == NGX_JSON_UNSET_PTR)
+    {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_live_filler_set_channel: missing mandatory params");
         return NGX_ERROR;
     }
 
-    channel_id = values[FILLER_PARAM_CHANNEL_ID]->v.str;
-    timeline_id = values[FILLER_PARAM_TIMELINE_ID]->v.str;
+    channel_id = json.channel_id;
+    timeline_id = json.timeline_id;
 
     cctx = ngx_live_get_module_ctx(dst, ngx_live_filler_module);
 
@@ -1264,7 +1259,7 @@ ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
             return NGX_OK;
         }
 
-        ngx_log_error(NGX_LOG_ERR, log, 0,
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_live_filler_set_channel: "
             "attempt to change filler of channel \"%V\""
             " from \"%V:%V\" to \"%V:%V\"",
@@ -1275,14 +1270,14 @@ ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
 
     src = ngx_live_channel_get(&channel_id);
     if (src == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_live_filler_set_channel: unknown channel \"%V\"",
             &channel_id);
         return NGX_ERROR;
     }
 
     if (src->blocked) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_live_filler_set_channel: channel \"%V\" is blocked",
             &channel_id);
         return NGX_ERROR;
@@ -1290,15 +1285,15 @@ ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
 
     src_timeline = ngx_live_timeline_get(src, &timeline_id);
     if (src_timeline == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_live_filler_set_channel: "
             "unknown timeline \"%V\" in channel \"%V\"",
             &timeline_id, &channel_id);
         return NGX_ERROR;
     }
 
-    if (ngx_live_filler_setup(dst, src, src_timeline, log) != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+    if (ngx_live_filler_setup(dst, src, src_timeline, pool->log) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_filler_set_channel: setup failed");
         return NGX_ERROR;
     }

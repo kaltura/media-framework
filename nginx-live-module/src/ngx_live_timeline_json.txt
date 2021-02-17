@@ -1,10 +1,11 @@
-static ngx_live_period_json ngx_live_period_t
+
+out ngx_live_period_json ngx_live_period_t
     time %L
     duration %uL
     segment_index %ui obj->node.key
     segment_count %uD
 
-ngx_live_timeline_conf_json ngx_live_timeline_t
+out nostatic ngx_live_timeline_conf_json ngx_live_timeline_t
     active %b obj->conf.
     no_truncate %b obj->conf.
     end_list %b obj->conf.
@@ -18,16 +19,16 @@ ngx_live_timeline_conf_json ngx_live_timeline_t
     manifest_expiry_threshold %uD obj->manifest.conf.expiry_threshold
     manifest_target_duration_segments %uD obj->manifest.conf.target_duration_segments
 
-ngx_live_timeline_json ngx_live_timeline_t
+out nostatic ngx_live_timeline_json ngx_live_timeline_t
     conf %func-ngx_live_timeline_conf_json obj
     period_count %uD
     segment_count %uD
     duration %uL
     last_periods %func-ngx_live_timeline_last_periods_json obj
 
-static noobject ngx_live_timelines_json ngx_live_timeline_channel_ctx_t
+out noobject ngx_live_timelines_json ngx_live_timeline_channel_ctx_t
     - %objQueue-ngx_live_timeline_json,ngx_live_timeline_t,queue,sn.str obj->queue
 
-static noobject ngx_live_timelines_module_json ngx_live_timeline_channel_ctx_t
+out noobject ngx_live_timelines_module_json ngx_live_timeline_channel_ctx_t
     timelines %func-ngx_live_timelines_json obj
     segment_list %func-ngx_live_segment_list_json &obj->segment_list

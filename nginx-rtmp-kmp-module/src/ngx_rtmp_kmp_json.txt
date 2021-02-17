@@ -1,5 +1,9 @@
 
-static ngx_rtmp_kmp_connect_rtmp_json ngx_rtmp_kmp_connect_t ngx_rtmp_session_t *s
+in ngx_rtmp_kmp_connect_json
+    code %V
+    message %V
+
+out ngx_rtmp_kmp_connect_rtmp_json ngx_rtmp_kmp_connect_t ngx_rtmp_session_t *s
     app %V
     flashver %V
     swf_url %V
@@ -8,7 +12,7 @@ static ngx_rtmp_kmp_connect_rtmp_json ngx_rtmp_kmp_connect_t ngx_rtmp_session_t 
     addr %V s->connection->addr_text
     connection %uA s->connection->number
 
-static ngx_rtmp_kmp_connect_json ngx_rtmp_kmp_connect_t ngx_rtmp_session_t *s
+out ngx_rtmp_kmp_connect_json ngx_rtmp_kmp_connect_t ngx_rtmp_session_t *s
     event_type connect
     input_type rtmp
     rtmp %func-ngx_rtmp_kmp_connect_rtmp_json obj, s

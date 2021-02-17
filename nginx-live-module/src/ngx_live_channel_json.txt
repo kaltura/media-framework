@@ -1,11 +1,12 @@
-static ngx_live_track_input ngx_live_track_input_t
+
+out ngx_live_track_input ngx_live_track_input_t
     - %return-null !obj->connection
     connection %uA
     remote_addr %V
     uptime %T (ngx_time() - obj->start_sec)
     received_bytes %O
 
-static ngx_live_track_json ngx_live_track_t
+out ngx_live_track_json ngx_live_track_t
     media_type %enum-ngx_live_track_media_type_names
     type %enum-ngx_live_track_type_names
     uptime %T (ngx_time() - obj->start_sec)
@@ -14,10 +15,10 @@ static ngx_live_track_json ngx_live_track_t
     last_segment_bitrate %uD
     - %func-ngx_live_core_json obj, obj->channel, NGX_LIVE_JSON_CTX_TRACK
 
-noobject ngx_live_tracks_json ngx_live_channel_t
+out nostatic noobject ngx_live_tracks_json ngx_live_channel_t
     - %objQueue-ngx_live_track_json,ngx_live_track_t,queue,sn.str obj->tracks.queue
 
-static ngx_live_variant_json ngx_live_variant_t
+out ngx_live_variant_json ngx_live_variant_t
     track_ids %objFunc-ngx_live_variant_json_track_ids obj
     opaque %bs
     label %V obj->conf.
@@ -25,14 +26,14 @@ static ngx_live_variant_json ngx_live_variant_t
     role %enum-ngx_live_variant_role_names obj->conf.
     is_default %b obj->conf.
 
-noobject ngx_live_variants_json ngx_live_channel_t
+out nostatic noobject ngx_live_variants_json ngx_live_channel_t
     - %objQueue-ngx_live_variant_json,ngx_live_variant_t,queue,sn.str obj->variants.queue
 
-ngx_live_channel_json ngx_live_channel_t
+out nostatic ngx_live_channel_json ngx_live_channel_t
     - %code ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj, ngx_live_core_module);
     uptime %T (ngx_time() - obj->start_sec)
+    preset %V cpcf->name
     opaque %bs
-    preset_name %V cpcf->name
     initial_segment_index %uD
     mem_left %uz
     mem_limit %uz
@@ -43,5 +44,5 @@ ngx_live_channel_json ngx_live_channel_t
     variants %func-ngx_live_variants_json obj
     - %func-ngx_live_core_json obj, obj, NGX_LIVE_JSON_CTX_CHANNEL
 
-noobject ngx_live_channels_json void
+out nostatic noobject ngx_live_channels_json void
     - %objQueue-ngx_live_channel_json,ngx_live_channel_t,queue,sn.str ngx_live_channels.queue

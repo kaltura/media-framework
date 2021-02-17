@@ -5,6 +5,28 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
+
+#define NGX_JSON_UNSET       -1
+#define NGX_JSON_UNSET_UINT  (ngx_uint_t) -1
+#define NGX_JSON_UNSET_PTR   (void *) -1
+
+
+#define ngx_json_set_value(dest, json)                                       \
+    if (json != NGX_JSON_UNSET) {                                            \
+        dest = json;                                                         \
+    }
+
+#define ngx_json_set_uint_value(dest, json)                                  \
+    if (json != NGX_JSON_UNSET_UINT) {                                       \
+        dest = json;                                                         \
+    }
+
+#define ngx_json_set_str_value(dest, json)                                   \
+    if (json.data != NGX_JSON_UNSET_PTR) {                                   \
+        dest = json;                                                         \
+    }
+
+
 // enums
 enum {
     NGX_JSON_NULL,
@@ -25,19 +47,23 @@ enum {
 };
 
 // typedefs
-typedef ngx_int_t ngx_json_status_t;
+typedef ngx_int_t                ngx_json_status_t;
+typedef ngx_array_t              ngx_json_object_t;
+typedef struct ngx_array_part_s  ngx_array_part_t;
+typedef struct ngx_json_prop_s   ngx_json_prop_t;
+
 
 typedef struct {
     int64_t                   num;
     uint64_t                  denom;
 } ngx_json_fraction_t;
 
-typedef struct ngx_array_part_s {
+struct ngx_array_part_s {
     void                     *first;
     void                     *last;
     size_t                    count;
-    struct ngx_array_part_s  *next;
-} ngx_array_part_t;
+    ngx_array_part_t         *next;
+};
 
 typedef struct {
     int                       type;
@@ -45,14 +71,17 @@ typedef struct {
     ngx_array_part_t          part;
 } ngx_json_array_t;
 
-typedef ngx_array_t ngx_json_object_t;
+typedef struct {
+    ngx_str_t                 s;
+    unsigned                  escape:1;
+} ngx_json_str_t;
 
 typedef struct {
     int                       type;
     union {
         ngx_flag_t            boolean;
         ngx_json_fraction_t   num;
-        ngx_str_t             str;  // Note: the string may be json escaped
+        ngx_json_str_t        str;  // Note: the string may be json escaped
         ngx_json_array_t      arr;
         ngx_json_object_t     obj;  // of ngx_json_key_value_t
     } v;
@@ -65,20 +94,48 @@ typedef struct {
 } ngx_json_key_value_t;
 
 
+struct ngx_json_prop_s {
+    ngx_str_t                 key;
+    ngx_uint_t                key_hash;
+    ngx_int_t                 type;
+    ngx_json_status_t       (*set)(ngx_pool_t *pool, ngx_json_value_t *value,
+                                   ngx_json_prop_t *prop, void *dest);
+    ngx_uint_t                offset;
+    void                     *post;
+};
+
+
 // functions
 ngx_json_status_t ngx_json_parse(ngx_pool_t *pool, u_char *string,
     ngx_json_value_t *result, u_char *error, size_t error_size);
 
 ngx_json_status_t ngx_json_decode_string(ngx_str_t *dest, ngx_str_t *src);
 
-// key extraction - use when the fields have to be parsed in a certain order
-typedef struct {
-    ngx_str_t                 key;
-    int                       type;
-    int                       index;
-} ngx_json_object_key_def_t;
 
-void ngx_json_get_object_values(ngx_json_object_t *object,
-    ngx_json_object_key_def_t *key_defs, ngx_json_value_t **result);
+ngx_json_status_t ngx_json_object_parse(ngx_pool_t *pool,
+    ngx_json_object_t *object, ngx_json_prop_t **hash, ngx_uint_t size,
+    void *dest);
+
+
+ngx_json_status_t ngx_json_set_num_slot(ngx_pool_t *pool,
+    ngx_json_value_t *value, ngx_json_prop_t *prop, void *dest);
+
+ngx_json_status_t ngx_json_set_flag_slot(ngx_pool_t *pool,
+    ngx_json_value_t *value, ngx_json_prop_t *prop, void *dest);
+
+ngx_json_status_t ngx_json_set_str_slot(ngx_pool_t *pool,
+    ngx_json_value_t *value, ngx_json_prop_t *prop, void *dest);
+
+ngx_json_status_t ngx_json_set_raw_str_slot(ngx_pool_t *pool,
+    ngx_json_value_t *value, ngx_json_prop_t *prop, void *dest);
+
+ngx_json_status_t ngx_json_set_obj_slot(ngx_pool_t *pool,
+    ngx_json_value_t *value, ngx_json_prop_t *prop, void *dest);
+
+ngx_json_status_t ngx_json_set_arr_slot(ngx_pool_t *pool,
+    ngx_json_value_t *value, ngx_json_prop_t *prop, void *dest);
+
+ngx_json_status_t ngx_json_set_enum_slot(ngx_pool_t *pool,
+    ngx_json_value_t *value, ngx_json_prop_t *prop, void *dest);
 
 #endif /*_NGX_JSON_PARSER_H_INCLUDED_ */

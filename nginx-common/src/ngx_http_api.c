@@ -314,12 +314,12 @@ ngx_http_api_multi_parse(ngx_http_request_t *r, ngx_json_object_t *obj,
 
         if (elts[i].value.type == NGX_JSON_STRING) {
             if (ngx_str_equals_c(elts[i].key, "uri")) {
-                req->uri = elts[i].value.v.str;
+                req->uri = elts[i].value.v.str.s;
                 continue;
 
             } else if (ngx_str_equals_c(elts[i].key, "method")) {
                 req->method = ngx_http_api_multi_get_method(
-                    &elts[i].value.v.str);
+                    &elts[i].value.v.str.s);
                 if (!req->method) {
                     ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                         "ngx_http_api_multi_parse: invalid method \"%V\"",

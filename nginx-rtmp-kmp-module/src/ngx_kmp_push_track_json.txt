@@ -1,5 +1,10 @@
 
-static noobject ngx_kmp_push_track_video_json ngx_kmp_push_track_t
+in ngx_kmp_push_track_json
+    channel_id %V
+    track_id %V
+    upstreams %a
+
+out noobject ngx_kmp_push_track_video_json ngx_kmp_push_track_t
     media_type video
     bitrate %uD obj->media_info.
     codec_id %uD obj->media_info.
@@ -9,7 +14,7 @@ static noobject ngx_kmp_push_track_video_json ngx_kmp_push_track_t
     frame_rate %.2F obj->media_info.u.video.
     cea_captions %b obj->media_info.u.video.
 
-static noobject ngx_kmp_push_track_audio_json ngx_kmp_push_track_t
+out noobject ngx_kmp_push_track_audio_json ngx_kmp_push_track_t
     media_type audio
     bitrate %uD obj->media_info.
     codec_id %uD obj->media_info.
@@ -19,11 +24,11 @@ static noobject ngx_kmp_push_track_audio_json ngx_kmp_push_track_t
     bits_per_sample %uD obj->media_info.u.audio.
     sample_rate %uD obj->media_info.u.audio.
 
-static noobject ngx_kmp_push_track_publish_json ngx_kmp_push_track_t
+out noobject ngx_kmp_push_track_publish_json ngx_kmp_push_track_t
     event_type publish
     input_id %V
 
-static noobject ngx_kmp_push_track_unpublish_json ngx_kmp_push_track_t
+out noobject ngx_kmp_push_track_unpublish_json ngx_kmp_push_track_t
     event_type unpublish
     input_id %V
     reason %V obj->unpublish_reason

@@ -1,4 +1,42 @@
-static ngx_http_live_api_json void
+
+in ngx_live_channel_json
+    id %V
+    preset %V
+    opaque %rV
+    read %b
+    initial_segment_index %L
+
+in ngx_live_variant_json
+    id %V
+    opaque %rV
+    label %V
+    lang %V
+    role %enum-ngx_live_variant_role_names
+    is_default %b
+    track_ids %o
+
+in ngx_live_track_json
+    id %V
+    media_type %enum-ngx_live_track_media_type_names
+    opaque %rV
+
+in ngx_live_timeline_json
+    id %V
+    source_id %V
+    active %b
+    no_truncate %b
+    end_list %b
+    period_gap %L
+    max_segments %L
+    max_duration %L
+    start %L
+    end %L
+    manifest_max_segments %L
+    manifest_max_duration %L
+    manifest_expiry_threshold %L
+    manifest_target_duration_segments %L
+
+out ngx_http_live_api_json void
     version %V ngx_http_live_version
     nginx_version %V ngx_http_live_nginx_version
     compiler %V ngx_http_live_compiler

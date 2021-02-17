@@ -7,26 +7,137 @@ import os
 def cEscapeString(fixed):
     return json.dumps(fixed)
 
+def writeErr(msg):
+    sys.stderr.write(msg + '\n')
+
+
+# json reader
+
+def ngx_hash(s):
+    res = 0
+    for ch in s:
+        res = (res * 31 + ord(ch)) & ((1 << 64) - 1)
+    return res
+
+def getHash(stringList):
+    hashMap = {ngx_hash(s): s for s in stringList}
+    if len(hashMap) != len(stringList):
+        writeErr('Error: hash conflict %s' % stringList)
+        sys.exit(1)
+
+    size = len(stringList)
+    while True:
+        cur = {x % size:hashMap[x] for x in hashMap}
+        if len(cur) == len(stringList):
+            break
+
+        if size >= 20 * len(stringList):
+            writeErr('Error: failed to find hash size %s' % stringList)
+            sys.exit(1)
+        size += 1
+
+    return size, cur
+
+def getObjectReader(objectInfo, properties):
+    structDef = []
+    propDefs = ''
+    for property in properties:
+        fieldName, format = property[:2]
+        post = 'NULL'
+        if format == '%V':
+            cTypeName = 'ngx_str_t'
+            jsonTypeName = 'NGX_JSON_STRING'
+            setterName = 'str'
+        elif format == '%rV':
+            cTypeName = 'ngx_str_t'
+            jsonTypeName = 'NGX_JSON_STRING'
+            setterName = 'raw_str'
+        elif format == '%b':
+            cTypeName = 'ngx_flag_t'
+            jsonTypeName = 'NGX_JSON_BOOL'
+            setterName = 'flag'
+        elif format == '%L':
+            cTypeName = 'int64_t'
+            jsonTypeName = 'NGX_JSON_INT'
+            setterName = 'num'
+        elif format == '%a':
+            cTypeName = 'ngx_json_array_t*'
+            jsonTypeName = 'NGX_JSON_ARRAY'
+            setterName = 'arr'
+        elif format == '%o':
+            cTypeName = 'ngx_json_object_t*'
+            jsonTypeName = 'NGX_JSON_OBJECT'
+            setterName = 'obj'
+        elif format.startswith('%enum-'):
+            cTypeName = 'ngx_uint_t'
+            jsonTypeName = 'NGX_JSON_STRING'
+            setterName = 'enum'
+            post = '&%s' % format[len('%enum-'):]
+        else:
+            writeErr('Error: unknown format %s' % format)
+            sys.exit(1)
+
+        structDef.append((cTypeName, fieldName))
+
+        propDefs += '''static ngx_json_prop_t %s_%s = {
+    ngx_string(%s),
+    %sULL,
+    %s,
+    ngx_json_set_%s_slot,
+    offsetof(%s_t, %s),
+    %s
+};\n\n''' % (objectInfo[0], fieldName, cEscapeString(fieldName),
+             ngx_hash(fieldName), jsonTypeName, setterName, objectInfo[0],
+             fieldName, post)
+
+
+    header = '/* %s reader */\n\n' % objectInfo[0]
+
+    # struct
+    maxTypeLen = max(map(lambda x: len(x[0]), structDef))
+    struct = 'typedef struct {\n'
+    for cTypeName, fieldName in structDef:
+        cTypeBaseName = cTypeName.rstrip('*')
+        cTypePtrs = cTypeName[len(cTypeBaseName):]
+        alignment = ' ' * (maxTypeLen - len(cTypeName))
+        struct += '    %s%s  %s%s;\n' % (cTypeBaseName, alignment, cTypePtrs,
+                                         fieldName)
+    struct += '} %s_t;\n\n' % objectInfo[0]
+
+    # hash
+    size, hash = getHash([x[1] for x in structDef])
+    hashText = 'static ngx_json_prop_t *%s[] = {\n' % objectInfo[0]
+    for index in range(size):
+        if index in hash:
+            hashText += '    &%s_%s,\n' % (objectInfo[0], hash[index])
+        else:
+            hashText += '    NULL,\n'
+    hashText += '};\n\n'
+
+    return header + struct + propDefs + hashText
+
+
+# json writer
+
 def fixedStringLen(fixed):
     return 'sizeof(%s) - 1' % fixed
 
 def fixedStringCopy(fixed):
-    if fixed[0] == '"' and fixed[-1] == '"' and \
-        (len(fixed) == 3 or (len(fixed) == 4 and fixed[1] == '\\')):
+    if (fixed[0] == '"' and fixed[-1] == '"' and
+        (len(fixed) == 3 or (len(fixed) == 4 and fixed[1] == '\\'))):
         return "*p++ = '%s';\n" % fixed[1:-1]
 
     return 'p = ngx_copy_fix(p, %s);\n' % (fixed)
 
-# not using set in order to retain order
 def listAdd(lst, item):
+    # Note: not using set in order to retain order
     if item not in lst:
         lst.append(item)
 
-def outputObject(objectInfo, properties):
-    # parse the object info
-    static = ''
-    if objectInfo[0] == 'static':
-        static = 'static '
+def getObjectWriter(objectInfo, properties):
+    static = 'static '
+    if objectInfo[0] == 'nostatic':
+        static = ''
         objectInfo = objectInfo[1:]
     if objectInfo[0] == 'noobject':
         prefix = suffix = ''
@@ -93,8 +204,8 @@ def outputObject(objectInfo, properties):
 
         if format.startswith('%'):
             format = format[1:]
-            if format.startswith('func-') or format.startswith('objFunc-') or \
-                format.startswith('arrFunc-'):
+            if (format.startswith('func-') or format.startswith('objFunc-') or
+                format.startswith('arrFunc-')):
                 baseFunc = format.split('-', 1)[1]
 
                 if format.startswith('objFunc-'):
@@ -237,12 +348,12 @@ for (n = 0; n < %s.nelts; ++n) {
             elif format == 'V':
                 fixed += '"';
                 nextFixed = '"'
-                valueWrite =                                                  \
-                    'p = (u_char *) ngx_escape_json(p, %s.data, %s.len);' %   \
-                    (expr, expr)
-                valueSize =                                                   \
-                    '%s.len + ngx_escape_json(NULL, %s.data, %s.len)' %       \
-                    (expr, expr, expr)
+                valueWrite = (
+                    'p = (u_char *) ngx_escape_json(p, %s.data, %s.len);' %
+                    (expr, expr))
+                valueSize =  (
+                    '%s.len + ngx_escape_json(NULL, %s.data, %s.len)' %
+                    (expr, expr, expr))
             elif format == 'bs':
                 fixed += '"';
                 nextFixed = '"'
@@ -251,16 +362,16 @@ for (n = 0; n < %s.nelts; ++n) {
             elif format == 'xV':
                 fixed += '"';
                 nextFixed = '"'
-                valueWrite = 'p = ngx_hex_dump(p, %s.data, %s.len);' %        \
-                    (expr, expr)
+                valueWrite = ('p = ngx_hex_dump(p, %s.data, %s.len);' %
+                    (expr, expr))
                 valueSize = '%s.len * 2' % expr
             elif format == '4cc':
                 fixed += '"';
                 nextFixed = '"'
-                valueWrite = 'p = (u_char *) ngx_escape_json(p, ' +           \
-                    '(u_char *) &%s, sizeof(uint32_t));' % expr
-                valueSize = 'sizeof(uint32_t) + ngx_escape_json(NULL, ' +     \
-                    '(u_char *) &%s, sizeof(uint32_t))' % expr
+                valueWrite = ('p = (u_char *) ngx_escape_json(p, ' +
+                    '(u_char *) &%s, sizeof(uint32_t));' % expr)
+                valueSize = ('sizeof(uint32_t) + ngx_escape_json(NULL, ' +
+                    '(u_char *) &%s, sizeof(uint32_t))' % expr)
             elif format == 'b':
                 valueSize = 'sizeof("false") - 1'
                 valueWrite = '''if (%s) {
@@ -281,8 +392,8 @@ for (n = 0; n < %s.nelts; ++n) {
                 valueSize = 'NGX_INT32_LEN + %s' % (1 + precision)
                 format = '%uD.%0' + str(precision) + 'uD'
                 printParams = '(uint32_t) (n / d)'
-                printParams += ', (uint32_t) (n %% d * %d) / d''' %           \
-                    (10 ** precision)
+                printParams += (', (uint32_t) (n %% d * %d) / d''' %
+                    (10 ** precision))
                 listAdd(writeDefs, 'uint32_t  n, d;')
                 valueWrite = '''d = %s.denom;
 if (d) {
@@ -295,8 +406,8 @@ if (d) {
             else:
                 match = re.match('^\.(\d+)f$', format)
                 if not match is None:
-                    valueSize = 'NGX_INT64_LEN + %s' %                        \
-                        (int(match.groups()[0]) + 1)
+                    valueSize = ('NGX_INT64_LEN + %s' %
+                        (int(match.groups()[0]) + 1))
                     cast = 'double'
                 elif format == 'L':
                     valueSize = 'NGX_INT64_LEN'
@@ -326,10 +437,10 @@ if (d) {
                     valueSize = 'NGX_OFF_T_LEN'
                     cast = 'off_t'
                 else:
-                    print('Unknown format %s' % format)
+                    writeErr('Error: unknown format %s' % format)
                     sys.exit(1)
-                valueWrite = 'p = ngx_sprintf(p, "%s", (%s) %s);' %            \
-                    ('%' + format, cast, expr)
+                valueWrite = ('p = ngx_sprintf(p, "%s", (%s) %s);' %
+                    ('%' + format, cast, expr))
 
         else:
             fixed += '"%s"' % format
@@ -371,8 +482,9 @@ if (d) {
     }
 ''' % (cond, size)
 
-    result = '''
-%ssize_t
+    result = '/* %s writer */\n\n' % outputBaseFunc
+
+    result += '''%ssize_t
 %s_get_size(%s)
 {
 %s    size_t  result =
@@ -403,10 +515,15 @@ if (d) {
 {
 %s    %s
     return p;
-}''' % (static, outputBaseFunc, args, funcDefs + writeDefs + checks,
+}
+
+''' % (static, outputBaseFunc, args, funcDefs + writeDefs + checks,
     writeCode.replace('\n', '\n    '))
 
-    writeText(result)
+    return result
+
+
+# main
 
 if len(sys.argv) < 2:
     print('Usage:\n\t%s <objects definition file>' % os.path.basename(__file__))
@@ -414,13 +531,7 @@ if len(sys.argv) < 2:
 
 inputFile = sys.argv[1]
 
-print('''/* auto-generated by %s */
-
-#ifndef ngx_copy_fix
-#define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
-#endif
-''' % os.path.basename(__file__))
-
+objects = []
 properties = []
 for curLine in open(inputFile):
     strippedLine = curLine.strip()
@@ -430,7 +541,7 @@ for curLine in open(inputFile):
     splittedLine = strippedLine.split()
     if not curLine.startswith('\t') and not curLine.startswith(' '):
         if len(properties) > 0:
-            outputObject(objectInfo, properties)
+            objects.append((objectInfo, properties))
         objectInfo = splittedLine
         properties = []
         continue
@@ -438,4 +549,32 @@ for curLine in open(inputFile):
     properties.append(splittedLine)
 
 if len(properties) > 0:
-    outputObject(objectInfo, properties)
+    objects.append((objectInfo, properties))
+
+
+result = '/* auto-generated by %s */\n\n' % os.path.basename(__file__)
+
+if 'in' in map(lambda x: x[0][0], objects):
+    result += '''#ifndef ngx_array_entries
+#define ngx_array_entries(x)     (sizeof(x) / sizeof(x[0]))
+#endif
+
+'''
+
+if 'out' in map(lambda x: x[0][0], objects):
+    result += '''#ifndef ngx_copy_fix
+#define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
+#endif
+
+'''
+
+for objectInfo, properties in objects:
+    if objectInfo[0] == 'in':
+        result += getObjectReader(objectInfo[1:], properties)
+    elif objectInfo[0] == 'out':
+        result += getObjectWriter(objectInfo[1:], properties)
+    else:
+        writeErr('Error: invalid object type %s, must be in/out' % objectInfo[0])
+        sys.exit(1)
+
+writeText(result.strip())
