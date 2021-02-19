@@ -1,7 +1,7 @@
 #ifndef _NGX_JSON_PARSER_H_INCLUDED_
 #define _NGX_JSON_PARSER_H_INCLUDED_
 
-// includes
+
 #include <ngx_config.h>
 #include <ngx_core.h>
 
@@ -27,7 +27,6 @@
     }
 
 
-// enums
 enum {
     NGX_JSON_NULL,
     NGX_JSON_BOOL,
@@ -38,6 +37,7 @@ enum {
     NGX_JSON_OBJECT,
 };
 
+
 enum {
     NGX_JSON_OK             = 0,
     NGX_JSON_BAD_DATA       = -1,
@@ -46,7 +46,7 @@ enum {
     NGX_JSON_BAD_TYPE       = -4,
 };
 
-// typedefs
+
 typedef ngx_int_t                ngx_json_status_t;
 typedef ngx_array_t              ngx_json_object_t;
 typedef struct ngx_array_part_s  ngx_array_part_t;
@@ -81,9 +81,9 @@ typedef struct {
     union {
         ngx_flag_t            boolean;
         ngx_json_fraction_t   num;
-        ngx_json_str_t        str;  // Note: the string may be json escaped
+        ngx_json_str_t        str;  /* Note: the string may be json escaped */
         ngx_json_array_t      arr;
-        ngx_json_object_t     obj;  // of ngx_json_key_value_t
+        ngx_json_object_t     obj;  /* ngx_json_key_value_t */
     } v;
 } ngx_json_value_t;
 
@@ -105,7 +105,6 @@ struct ngx_json_prop_s {
 };
 
 
-// functions
 ngx_json_status_t ngx_json_parse(ngx_pool_t *pool, u_char *string,
     ngx_json_value_t *result, u_char *error, size_t error_size);
 
