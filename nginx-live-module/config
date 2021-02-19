@@ -139,11 +139,8 @@ LIVE_MEDIA_DEPS="$LIVE_MEDIA_DEPS                             \
     $ngx_addon_dir/src/media/frames_source.h                  \
     $ngx_addon_dir/src/media/hevc_parser.h                    \
     $ngx_addon_dir/src/media/hls/adts_encoder_filter.h        \
-    $ngx_addon_dir/src/media/hls/aes_cbc_encrypt.h            \
     $ngx_addon_dir/src/media/hls/bit_fields.h                 \
     $ngx_addon_dir/src/media/hls/buffer_filter.h              \
-    $ngx_addon_dir/src/media/hls/eac3_encrypt_filter.h        \
-    $ngx_addon_dir/src/media/hls/frame_encrypt_filter.h       \
     $ngx_addon_dir/src/media/hls/frame_joiner_filter.h        \
     $ngx_addon_dir/src/media/hls/hls_encryption.h             \
     $ngx_addon_dir/src/media/hls/hls_muxer.h                  \
@@ -151,7 +148,6 @@ LIVE_MEDIA_DEPS="$LIVE_MEDIA_DEPS                             \
     $ngx_addon_dir/src/media/hls/media_filter.h               \
     $ngx_addon_dir/src/media/hls/mp4_to_annexb_filter.h       \
     $ngx_addon_dir/src/media/hls/mpegts_encoder_filter.h      \
-    $ngx_addon_dir/src/media/hls/sample_aes_avc_filter.h      \
     $ngx_addon_dir/src/media/media_format.h                   \
     $ngx_addon_dir/src/media/mp4/mp4_aes_ctr.h                \
     $ngx_addon_dir/src/media/mp4/mp4_cbcs_encrypt.h           \
