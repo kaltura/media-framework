@@ -23,9 +23,9 @@ def format_hex(data, start, end, pos_format, label, next_label, label_len):
         line += pos_format % pos
 
         raw = ''
-        for ch in chunk:
-            line += '%02x ' % ord(ch)
-            raw += ch if ord(ch) >= 32 and ord(ch) < 127 else '.'
+        for ch in bytearray(chunk):
+            line += '%02x ' % ch
+            raw += chr(ch) if ch >= 32 and ch < 127 else '.'
         line += '   ' * (16 - len(chunk))
         result += '%s %s\n' % (line, raw)
 
@@ -41,10 +41,10 @@ def print_blocks(data, start, end, pos_format, indent):
     pos = start
     while pos < end:
         if end - pos < 12:
-            print 'Error: failed to read block header, pos: %s' % pos
+            print('Error: failed to read block header, pos: %s' % pos)
             return
 
-        id = data[pos:(pos + 4)]
+        id = data[pos:(pos + 4)].decode('utf8')
         size, header_size = struct.unpack('<LL', data[(pos + 4):(pos + 12)])
 
         # print header
@@ -54,21 +54,21 @@ def print_blocks(data, start, end, pos_format, indent):
             header_size = size
 
         if header_size < 12:
-            print 'Error: header size too small, pos: %s' % pos
+            print('Error: header size too small, pos: %s' % pos)
             return
 
         data_pos = pos + header_size
         if data_pos > end:
-            print 'Error: header size overflow, pos: %s' % pos
+            print('Error: header size overflow, pos: %s' % pos)
             return
 
-        print format_hex(data, pos, data_pos, pos_format,
-            title_indent + id + ' header', next_indent, LABEL_LEN)
+        print(format_hex(data, pos, data_pos, pos_format,
+            title_indent + id + ' header', next_indent, LABEL_LEN))
 
         # print data
         next_pos = pos + size
         if next_pos > end:
-            print 'Error: data size overflow, pos: %s' % pos
+            print('Error: data size overflow, pos: %s' % pos)
             return
 
         if header_flags & PERSIST_HEADER_FLAG_COMPRESSED:
@@ -76,22 +76,22 @@ def print_blocks(data, start, end, pos_format, indent):
             if header_flags & PERSIST_HEADER_FLAG_CONTAINER:
                 print_blocks(cur_data, 0, len(cur_data), pos_format, next_indent)
             else:
-                print format_hex(cur_data, 0, len(cur_data), pos_format,
-                    title_indent + id + ' data', next_indent, LABEL_LEN)
+                print(format_hex(cur_data, 0, len(cur_data), pos_format,
+                    title_indent + id + ' data', next_indent, LABEL_LEN))
         else:
             if header_flags & PERSIST_HEADER_FLAG_CONTAINER:
                 print_blocks(data, data_pos, next_pos, pos_format, next_indent)
             elif data_pos < next_pos:
-                print format_hex(data, data_pos, next_pos, pos_format,
-                    title_indent + id + ' data', next_indent, LABEL_LEN)
+                print(format_hex(data, data_pos, next_pos, pos_format,
+                    title_indent + id + ' data', next_indent, LABEL_LEN))
 
         pos = next_pos
 
 if len(sys.argv) < 2:
-    print 'Usage:\n\t%s <input file>' % os.path.basename(sys.argv[0])
+    print('Usage:\n\t%s <input file>' % os.path.basename(sys.argv[0]))
     sys.exit(1)
 
-data = file(sys.argv[1], 'rb').read()
+data = open(sys.argv[1], 'rb').read()
 
 pos_chars = len('%x' % len(data))
 pos_chars = (pos_chars + 1) / 2 * 2
