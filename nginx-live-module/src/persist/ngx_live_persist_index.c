@@ -351,7 +351,6 @@ ngx_live_persist_index_read_channel(ngx_live_persist_block_header_t *header,
 {
     ngx_int_t                          rc;
     ngx_live_channel_t                *channel = obj;
-    ngx_live_persist_main_conf_t      *pmcf;
     ngx_live_persist_index_scope_t    *fs;
     ngx_live_persist_index_scope_t    *scope;
     ngx_live_persist_index_channel_t  *cp;
@@ -402,9 +401,8 @@ ngx_live_persist_index_read_channel(ngx_live_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
 
-    rc = ngx_live_persist_read_blocks(pmcf,
+    rc = ngx_live_persist_read_blocks(channel,
         NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL, rs, channel);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -482,7 +480,6 @@ ngx_live_persist_index_read_track(ngx_live_persist_block_header_t *header,
     ngx_int_t                        rc;
     ngx_live_track_t                *track;
     ngx_live_channel_t              *channel = obj;
-    ngx_live_persist_main_conf_t    *pmcf;
     ngx_live_persist_index_track_t  *tp;
 
     tp = ngx_mem_rstream_get_ptr(rs, sizeof(*tp));
@@ -510,9 +507,7 @@ ngx_live_persist_index_read_track(ngx_live_persist_block_header_t *header,
     }
 
 
-    pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
-
-    rc = ngx_live_persist_read_blocks(pmcf,
+    rc = ngx_live_persist_read_blocks(channel,
         NGX_LIVE_PERSIST_CTX_INDEX_TRACK, rs, track);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -736,12 +731,21 @@ ngx_live_persist_index_merge_preset_conf(ngx_conf_t *cf, void *parent,
 
 
 static ngx_live_persist_block_t  ngx_live_persist_index_blocks[] = {
-
+    /*
+     * persist header:
+     *   ngx_str_t                         channel_id;
+     *   ngx_live_persist_index_scope_t    scope;
+     *   ngx_live_persist_index_channel_t  p;
+     */
     { NGX_LIVE_PERSIST_BLOCK_CHANNEL, NGX_LIVE_PERSIST_CTX_INDEX_MAIN,
       NGX_LIVE_PERSIST_FLAG_SINGLE,
       ngx_live_persist_index_write_channel,
       ngx_live_persist_index_read_channel },
 
+    /*
+     * persist header:
+     *   ngx_live_persist_index_track_t  p;
+     */
     { NGX_LIVE_PERSIST_BLOCK_TRACK, NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL, 0,
       ngx_live_persist_index_write_track,
       ngx_live_persist_index_read_track },

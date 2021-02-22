@@ -252,7 +252,7 @@ ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
 }
 
 ngx_int_t
-ngx_live_persist_read_blocks(ngx_live_persist_main_conf_t *pmcf,
+ngx_live_persist_read_blocks_internal(ngx_live_persist_main_conf_t *pmcf,
     ngx_uint_t ctx, ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_hash_t                       *hash;
@@ -281,13 +281,25 @@ ngx_live_persist_read_blocks(ngx_live_persist_main_conf_t *pmcf,
         rc = block->read(header, &block_rs, obj);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_persist_read_blocks: read failed, id: %*s",
-                (size_t) sizeof(header->id), &header->id);
+                "ngx_live_persist_read_blocks_internal: "
+                "read failed, ctx: %ui, id: %*s",
+                ctx, (size_t) sizeof(header->id), &header->id);
             return rc;
         }
     }
 
     return NGX_OK;
+}
+
+ngx_int_t
+ngx_live_persist_read_blocks(ngx_live_channel_t *channel, ngx_uint_t ctx,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_live_persist_main_conf_t  *pmcf;
+
+    pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
+
+    return ngx_live_persist_read_blocks_internal(pmcf, ctx, rs, obj);
 }
 
 
@@ -458,7 +470,6 @@ ngx_live_persist_read_parse(ngx_live_channel_t *channel, ngx_str_t *buf,
     ngx_int_t                        rc;
     ngx_mem_rstream_t                rs;
     ngx_live_persist_file_t         *file_spec;
-    ngx_live_persist_main_conf_t    *pmcf;
     ngx_live_persist_preset_conf_t  *ppcf;
     ngx_live_persist_file_header_t  *header;
 
@@ -483,9 +494,7 @@ ngx_live_persist_read_parse(ngx_live_channel_t *channel, ngx_str_t *buf,
         return rc;
     }
 
-    pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
-
-    rc = ngx_live_persist_read_blocks(pmcf, file_spec->ctx, &rs, channel);
+    rc = ngx_live_persist_read_blocks(channel, file_spec->ctx, &rs, channel);
 
     ngx_free(ptr);
 

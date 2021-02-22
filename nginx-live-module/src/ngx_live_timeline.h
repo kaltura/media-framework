@@ -75,6 +75,7 @@ typedef struct {
     u_char                             id_buf[NGX_LIVE_TIMELINE_MAX_ID_LEN];
     ngx_live_channel_t                *channel;
     uint32_t                           int_id;
+    ngx_log_t                          log;
 
     ngx_rbtree_t                       rbtree;
     ngx_rbtree_node_t                  sentinel;

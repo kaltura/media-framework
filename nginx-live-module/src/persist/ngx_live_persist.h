@@ -24,6 +24,9 @@ enum {
     NGX_LIVE_PERSIST_CTX_INDEX_MAIN,
     NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL,
     NGX_LIVE_PERSIST_CTX_INDEX_TRACK,
+    NGX_LIVE_PERSIST_CTX_INDEX_TIMELINE,
+    NGX_LIVE_PERSIST_CTX_INDEX_SEGMENT_LIST,
+    NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO,
 
     NGX_LIVE_PERSIST_CTX_MEDIA_MAIN,
     NGX_LIVE_PERSIST_CTX_MEDIA_BUCKET,
@@ -101,5 +104,12 @@ ngx_int_t ngx_live_persist_read(ngx_live_channel_t *channel,
 
 ngx_live_persist_snap_t *ngx_live_persist_snap_create(
     ngx_live_channel_t *channel);
+
+
+ngx_int_t ngx_live_persist_read_blocks(ngx_live_channel_t *channel,
+    ngx_uint_t ctx, ngx_mem_rstream_t *rs, void *obj);
+
+ngx_int_t ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
+    ngx_live_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj);
 
 #endif /* _NGX_LIVE_PERSIST_H_INCLUDED_ */

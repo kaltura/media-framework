@@ -125,7 +125,6 @@ ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
 {
     ngx_int_t                              rc;
     ngx_live_channel_t                    *channel = obj;
-    ngx_live_persist_main_conf_t          *pmcf;
     ngx_live_persist_setup_channel_t      *cp;
     ngx_live_persist_setup_channel_ctx_t  *cctx;
 
@@ -167,9 +166,7 @@ ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
     }
 
 
-    pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
-
-    rc = ngx_live_persist_read_blocks(pmcf,
+    rc = ngx_live_persist_read_blocks(channel,
         NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, rs, channel);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -237,7 +234,6 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
     ngx_str_t                        id;
     ngx_live_track_t                *track;
     ngx_live_channel_t              *channel = obj;
-    ngx_live_persist_main_conf_t    *pmcf;
     ngx_live_persist_setup_track_t  *tp;
 
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
@@ -281,9 +277,7 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
     }
 
 
-    pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
-
-    rc = ngx_live_persist_read_blocks(pmcf,
+    rc = ngx_live_persist_read_blocks(channel,
         NGX_LIVE_PERSIST_CTX_SETUP_TRACK, rs, track);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -678,16 +672,36 @@ ngx_live_persist_setup_merge_preset_conf(ngx_conf_t *cf, void *parent,
 
 
 static ngx_live_persist_block_t  ngx_live_persist_setup_blocks[] = {
-
+    /*
+     * persist header:
+     *   ngx_str_t                         id;
+     *   ngx_live_persist_setup_channel_t  p;
+     *   ngx_str_t                         opaque;
+     */
     { NGX_LIVE_PERSIST_BLOCK_CHANNEL, NGX_LIVE_PERSIST_CTX_SETUP_MAIN,
       NGX_LIVE_PERSIST_FLAG_SINGLE,
       ngx_live_persist_setup_write_channel,
       ngx_live_persist_setup_read_channel },
 
+    /*
+     * persist header:
+     *   ngx_str_t                       id;
+     *   ngx_live_persist_setup_track_t  p;
+     *   ngx_str_t                       opaque;
+     */
     { NGX_LIVE_PERSIST_BLOCK_TRACK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, 0,
       ngx_live_persist_setup_write_track,
       ngx_live_persist_setup_read_track },
 
+    /*
+     * persist data:
+     *   ngx_str_t                         id;
+     *   ngx_live_persist_setup_variant_t  p;
+     *   ngx_str_t                         label;
+     *   ngx_str_t                         lang;
+     *   uint32_t                          track_id[p.track_count];
+     *   ngx_str_t                         opaque;
+     */
     { NGX_LIVE_PERSIST_BLOCK_VARIANT, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, 0,
       ngx_live_persist_setup_write_variant,
       ngx_live_persist_setup_read_variant },

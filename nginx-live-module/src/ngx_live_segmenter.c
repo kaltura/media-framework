@@ -3240,6 +3240,10 @@ ngx_live_segmenter_read_setup(ngx_live_persist_block_header_t *block,
         channel, conf.segment_duration, rs->log);
 }
 
+/*
+ * persist data:
+ *   ngx_live_segmenter_dyn_conf_t  conf;
+ */
 static ngx_live_persist_block_t  ngx_live_segmenter_block = {
     NGX_LIVE_SEGMENTER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL,
     NGX_LIVE_PERSIST_FLAG_SINGLE,

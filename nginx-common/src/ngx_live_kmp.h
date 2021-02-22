@@ -67,76 +67,76 @@ enum {
 
 /* basic types */
 typedef struct {
-    uint32_t             num;
-    uint32_t             denom;
+    uint32_t                num;
+    uint32_t                denom;
 } kmp_rational_t;
 
 typedef struct {
-    uint16_t             channels;
-    uint16_t             bits_per_sample;
-    uint32_t             sample_rate;
-    uint64_t             channel_layout;
+    uint16_t                channels;
+    uint16_t                bits_per_sample;
+    uint32_t                sample_rate;
+    uint64_t                channel_layout;
 } kmp_audio_media_info_t;
 
 typedef struct {
-    uint16_t             width;
-    uint16_t             height;
-    kmp_rational_t       frame_rate;
-    uint32_t             cea_captions;
+    uint16_t                width;
+    uint16_t                height;
+    kmp_rational_t          frame_rate;
+    uint32_t                cea_captions;
 } kmp_video_media_info_t;
 
-typedef struct kmp_media_info_s kmp_media_info_t;
-
-struct kmp_media_info_s {
-    uint32_t             media_type;
-    uint32_t             codec_id;
-    uint32_t             timescale;     /* currently hardcoded to 90k */
-    uint32_t             bitrate;       /* bps */
-    union {
-        kmp_video_media_info_t  video;
-        kmp_audio_media_info_t  audio;
-    } u;
-};
+typedef union {
+    kmp_video_media_info_t  video;
+    kmp_audio_media_info_t  audio;
+} kmp_media_info_union_t;
 
 typedef struct {
-    int64_t              created;
-    int64_t              dts;
-    uint32_t             flags;
-    uint32_t             pts_delay;
+    uint32_t                media_type;
+    uint32_t                codec_id;
+    uint32_t                timescale;     /* currently hardcoded to 90k */
+    uint32_t                bitrate;       /* bps */
+    kmp_media_info_union_t  u;
+} kmp_media_info_t;
+
+typedef struct {
+    int64_t                 created;
+    int64_t                 dts;
+    uint32_t                flags;
+    uint32_t                pts_delay;
 } kmp_frame_t;
 
 /* packets */
 typedef struct {
-    uint32_t             packet_type;
-    uint32_t             header_size;
-    uint32_t             data_size;
-    uint32_t             reserved;
+    uint32_t                packet_type;
+    uint32_t                header_size;
+    uint32_t                data_size;
+    uint32_t                reserved;
 } kmp_packet_header_t;
 
 typedef struct {
-    kmp_packet_header_t  header;
-    u_char               channel_id[KMP_MAX_CHANNEL_ID_LEN];
-    u_char               track_id[KMP_MAX_TRACK_ID_LEN];
-    uint64_t             initial_frame_id;
-    uint32_t             initial_offset;
-    uint32_t             padding;
+    kmp_packet_header_t     header;
+    u_char                  channel_id[KMP_MAX_CHANNEL_ID_LEN];
+    u_char                  track_id[KMP_MAX_TRACK_ID_LEN];
+    uint64_t                initial_frame_id;
+    uint32_t                initial_offset;
+    uint32_t                padding;
 } kmp_connect_packet_t;
 
 typedef struct {
-    kmp_packet_header_t  header;
-    kmp_media_info_t     m;
+    kmp_packet_header_t     header;
+    kmp_media_info_t        m;
 } kmp_media_info_packet_t;
 
 typedef struct {
-    kmp_packet_header_t  header;
-    kmp_frame_t          f;
+    kmp_packet_header_t     header;
+    kmp_frame_t             f;
 } kmp_frame_packet_t;
 
 typedef struct {
-    kmp_packet_header_t  header;
-    uint64_t             frame_id;
-    uint32_t             offset;
-    uint32_t             padding;
+    kmp_packet_header_t     header;
+    uint64_t                frame_id;
+    uint32_t                offset;
+    uint32_t                padding;
 } kmp_ack_frames_packet_t;
 
 #endif /* _NGX_LIVE_KMP_H_INCLUDED_ */

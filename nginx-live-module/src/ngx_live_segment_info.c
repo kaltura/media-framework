@@ -825,6 +825,10 @@ ngx_live_segment_info_read_index(ngx_live_persist_block_header_t *block,
     return NGX_OK;
 }
 
+/*
+ * persist data:
+ *   ngx_live_segment_info_elt_t  info[];
+ */
 static ngx_live_persist_block_t  ngx_live_segment_info_block = {
     NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_INDEX_TRACK, 0,
     ngx_live_segment_info_write_index,

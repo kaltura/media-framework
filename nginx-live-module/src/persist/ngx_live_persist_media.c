@@ -456,11 +456,12 @@ ngx_live_persist_media_read_segment(ngx_live_persist_block_header_t *block,
     track->frame_count = header->frame_count;
     track->start_dts = header->start_dts;
 
+
     ctx = rs->scope;
 
     save = *rs;
 
-    rc = ngx_live_persist_read_blocks(ctx->pmcf,
+    rc = ngx_live_persist_read_blocks_internal(ctx->pmcf,
         NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER, rs, track);
     if (rc != NGX_OK) {
         return rc;
@@ -468,7 +469,7 @@ ngx_live_persist_media_read_segment(ngx_live_persist_block_header_t *block,
 
     *rs = save;
 
-    rc = ngx_live_persist_read_blocks(ctx->pmcf,
+    rc = ngx_live_persist_read_blocks_internal(ctx->pmcf,
         NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_DATA, rs, track);
     if (rc != NGX_OK) {
         return rc;
@@ -504,7 +505,7 @@ ngx_live_persist_media_read_init_track(ngx_live_persist_media_read_ctx_t *ctx,
 
     track = &ctx->segment->tracks[ctx->read_tracks - 1];
 
-    rc = ngx_live_persist_read_blocks(ctx->pmcf,
+    rc = ngx_live_persist_read_blocks_internal(ctx->pmcf,
         NGX_LIVE_PERSIST_CTX_MEDIA_BUCKET, &rs, track);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
@@ -1530,14 +1531,25 @@ ngx_live_persist_media_merge_preset_conf(ngx_conf_t *cf, void *parent,
 
 
 static ngx_live_persist_block_t  ngx_live_persist_media_blocks[] = {
-
+    /*
+     * persist header:
+     *   ngx_str_t  channel_id;
+     */
     { NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY_LIST, NGX_LIVE_PERSIST_CTX_MEDIA_MAIN,
       0, ngx_live_persist_media_write_bucket, NULL },
 
+    /*
+     * persist header:
+     *   ngx_live_persist_segment_header_t  header;
+     */
     { NGX_LIVE_PERSIST_BLOCK_SEGMENT, NGX_LIVE_PERSIST_CTX_MEDIA_BUCKET, 0,
       ngx_live_persist_media_write_segments,
       ngx_live_persist_media_read_segment },
 
+    /*
+     * persist data:
+     *   input_frame_t  frame[];
+     */
     { NGX_LIVE_PERSIST_BLOCK_FRAME_LIST,
       NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER,
       NGX_LIVE_PERSIST_FLAG_SINGLE,

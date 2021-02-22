@@ -67,12 +67,9 @@ void ngx_live_persist_write_file_destroy(
     ngx_live_persist_write_file_ctx_t *ctx);
 
 
-ngx_int_t ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
-    ngx_live_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj);
-
-
-ngx_int_t ngx_live_persist_read_blocks(ngx_live_persist_main_conf_t *pmcf,
-    ngx_uint_t ctx, ngx_mem_rstream_t *rs, void *obj);
+ngx_int_t ngx_live_persist_read_blocks_internal(
+    ngx_live_persist_main_conf_t *pmcf, ngx_uint_t ctx, ngx_mem_rstream_t *rs,
+    void *obj);
 
 ngx_int_t ngx_live_persist_read_parse(ngx_live_channel_t *channel,
     ngx_str_t *buf, ngx_uint_t file, ngx_live_persist_index_scope_t *scope);

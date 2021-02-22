@@ -7,9 +7,6 @@
 #define NGX_LIVE_SEGMENT_LIST_NODE_ELTS             (118)
 
 
-#define NGX_LIVE_SEGMENT_LIST_PERSIST_BLOCK_PERIOD  (0x64706c73)    /* slpd */
-
-
 struct ngx_live_segment_list_node_s {
     ngx_rbtree_node_t           node;        /* key = segment_index */
     ngx_queue_t                 queue;
@@ -333,14 +330,15 @@ ngx_live_segment_list_write_node_part(ngx_live_segment_iter_t *iter,
 }
 
 ngx_int_t
-ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
-    ngx_live_persist_write_ctx_t *write_ctx)
+ngx_live_segment_list_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
+    void *obj)
 {
     uint32_t                         period_index;
     ngx_flag_t                       in_block;
     ngx_queue_t                     *q;
     ngx_live_persist_snap_t         *snap;
     ngx_live_segment_iter_t          iter;
+    ngx_live_segment_list_t         *segment_list = obj;
     ngx_live_segment_list_node_t    *node;
     ngx_live_segment_list_period_t   period;
 
@@ -373,7 +371,7 @@ ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
                 != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
-                "ngx_live_segment_list_write_index: "
+                "ngx_live_segment_list_write_periods: "
                 "start period failed (1)");
             return NGX_ERROR;
         }
@@ -384,7 +382,7 @@ ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
             write_ctx) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
-                "ngx_live_segment_list_write_index: write part failed (1)");
+                "ngx_live_segment_list_write_periods: write part failed (1)");
             return NGX_ERROR;
         }
 
@@ -426,7 +424,7 @@ ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
                     != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
-                    "ngx_live_segment_list_write_index: "
+                    "ngx_live_segment_list_write_periods: "
                     "start period failed (2)");
                 return NGX_ERROR;
             }
@@ -446,7 +444,7 @@ ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
                 write_ctx) != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
-                    "ngx_live_segment_list_write_index: write part failed");
+                    "ngx_live_segment_list_write_periods: write part failed");
                 return NGX_ERROR;
             }
 
@@ -457,7 +455,7 @@ ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
             node->nelts * sizeof(node->elts[0])) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
-                "ngx_live_segment_list_write_index: append failed (2)");
+                "ngx_live_segment_list_write_periods: append failed (2)");
             return NGX_ERROR;
         }
     }
@@ -469,20 +467,20 @@ ngx_live_segment_list_write_index(ngx_live_segment_list_t *segment_list,
     return NGX_OK;
 }
 
-static ngx_int_t
-ngx_live_segment_list_read_period(ngx_live_segment_list_t *segment_list,
-    ngx_mem_rstream_t *rs, ngx_live_persist_block_header_t *block,
-    ngx_flag_t is_first)
+ngx_int_t
+ngx_live_segment_list_read_period(ngx_live_persist_block_header_t *block,
+    ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                         period_index;
     uint32_t                         left;
     uint32_t                         count;
     uint32_t                         max_index;
     ngx_str_t                        data;
+    ngx_live_segment_list_t         *segment_list = obj;
     ngx_live_segment_repeat_t       *cur;
     ngx_live_segment_repeat_t       *next;
     ngx_live_segment_repeat_t       *dst;
-    ngx_live_segment_list_node_t    *last = NULL;
+    ngx_live_segment_list_node_t    *last;
     ngx_live_persist_index_scope_t  *scope;
     ngx_live_segment_list_period_t   period;
 
@@ -527,7 +525,9 @@ ngx_live_segment_list_read_period(ngx_live_segment_list_t *segment_list,
 
         period_index = last->period_index;
 
-        if (is_first && last->last_segment_index >= scope->min_index) {
+        if (segment_list->is_first &&
+            last->last_segment_index >= scope->min_index)
+        {
             /* can happen due to duplicate block */
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_segment_list_read_period: "
@@ -667,49 +667,10 @@ ngx_live_segment_list_read_period(ngx_live_segment_list_t *segment_list,
     }
 
     segment_list->last_time = period.time;
+    segment_list->is_first = 0;
 
     return NGX_OK;
 }
-
-ngx_int_t
-ngx_live_segment_list_read_index(ngx_live_segment_list_t *segment_list,
-    ngx_mem_rstream_t *rs, ngx_live_persist_block_header_t *block)
-{
-    ngx_int_t          rc;
-    ngx_flag_t         is_first;
-    ngx_mem_rstream_t  block_rs;
-
-    if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
-        return NGX_BAD_DATA;
-    }
-
-    is_first = 1;
-
-    while (!ngx_mem_rstream_eof(rs)) {
-
-        block = ngx_live_persist_read_block(rs, &block_rs);
-        if (block == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_segment_list_read_index: read block failed");
-            return NGX_BAD_DATA;
-        }
-
-        if (block->id != NGX_LIVE_SEGMENT_LIST_PERSIST_BLOCK_PERIOD) {
-            continue;
-        }
-
-        rc = ngx_live_segment_list_read_period(segment_list, &block_rs, block,
-            is_first);
-        if (rc != NGX_OK) {
-            return rc;
-        }
-
-        is_first = 0;
-    }
-
-    return NGX_OK;
-}
-
 
 size_t
 ngx_live_segment_list_json_get_size(ngx_live_segment_list_t *segment_list)

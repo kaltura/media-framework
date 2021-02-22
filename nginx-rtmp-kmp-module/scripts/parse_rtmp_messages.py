@@ -20,30 +20,27 @@ class Stream:
 
     def getBENum(self, n = 1):
         buf = self.get(n)
-        buf = '\0' * (4 - len(buf)) + buf
+        buf = b'\0' * (4 - len(buf)) + buf
         return struct.unpack('>L', buf)[0]
 
     def getLENum(self, n = 1):
         buf = self.get(n)
-        buf = buf + '\0' * (4 - len(buf))
+        buf = buf + b'\0' * (4 - len(buf))
         return struct.unpack('<L', buf)[0]
 
 class Csctx:
     def __init__(self):
-        self.msg = ''
+        self.msg = b''
         self.msid = -1
 
 if len(sys.argv) < 2:
-    print 'Usage:\n\t%s <input file>' % os.path.basename(__file__)
+    print('Usage:\n\t%s <input file>' % os.path.basename(__file__))
     sys.exit(1)
 
-d = file(sys.argv[1], 'rb').read()
+d = open(sys.argv[1], 'rb').read()
 s = Stream(d, 0xc01)     # after handshake
 
-ctx = []
-for i in xrange(64):
-    ctx.append(Csctx())
-
+ctx = {}
 chunkSize = 128
 
 while not s.eof():
@@ -60,7 +57,10 @@ while not s.eof():
         csid += s.getBENum(1)
         csid += s.getBENum(1) * 256
 
+    if csid not in ctx:
+        ctx[csid] = Csctx()
     curCtx = ctx[csid]
+
     if fmt <= 2:
         curCtx.timestamp = s.getBENum(3)
         if fmt <= 1:
@@ -75,27 +75,27 @@ while not s.eof():
     messageLeft = curCtx.mlen - len(curCtx.msg)
     curSize = min(messageLeft, chunkSize)
 
-    if curCtx.msg == '':
-        print '>START\ttype=%s\tmlen=%s\tcsid=%s\tmsid=%s' %   \
-            (curCtx.type, curCtx.mlen, csid, curCtx.msid)
+    if curCtx.msg == b'':
+        print('>START\ttype=%s\tmlen=%s\tcsid=%s\tmsid=%s' %
+            (curCtx.type, curCtx.mlen, csid, curCtx.msid))
 
     curCtx.msg += s.get(curSize)
 
-    print '\toffset=0x%x\tcsid=%s\tsize=%s\tleft=%s' %         \
-        (startPos, csid, curSize, curCtx.mlen - len(curCtx.msg))
+    print('\toffset=0x%x\tcsid=%s\tsize=%s\tleft=%s' %
+        (startPos, csid, curSize, curCtx.mlen - len(curCtx.msg)))
 
     if len(curCtx.msg) < curCtx.mlen:
         continue
 
-    print '>END\ttype=%s\tmlen=%s\tcsid=%s\tmsid=%s' %         \
-        (curCtx.type, curCtx.mlen, csid, curCtx.msid)
+    print('>END\ttype=%s\tmlen=%s\tcsid=%s\tmsid=%s' %
+        (curCtx.type, curCtx.mlen, csid, curCtx.msid))
 
-    file(TEMP_FILE, 'wb').write(curCtx.msg)
-    print ''
-    print subprocess.check_output('xxd %s' % TEMP_FILE)
+    open(TEMP_FILE, 'wb').write(curCtx.msg)
+    print()
+    print(subprocess.check_output('xxd %s' % TEMP_FILE).decode('utf8'))
 
     if curCtx.type == 1:
         chunkSize = struct.unpack('>L', curCtx.msg)[0]
-        print '\tchunk size changed to %s' % chunkSize
+        print('\tchunk size changed to %s' % chunkSize)
 
-    curCtx.msg = ''
+    curCtx.msg = b''

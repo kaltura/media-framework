@@ -684,11 +684,19 @@ ngx_live_syncer_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 
 
 static ngx_live_persist_block_t  ngx_live_syncer_blocks[] = {
+    /*
+     * persist data:
+     *   ngx_live_syncer_persist_channel_t  p;
+     */
     { NGX_LIVE_SYNCER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL,
       NGX_LIVE_PERSIST_FLAG_SINGLE,
       ngx_live_syncer_write_index,
       ngx_live_syncer_read_index },
 
+    /*
+     * persist data:
+     *   ngx_live_syncer_persist_track_t  p;
+     */
     { NGX_LIVE_SYNCER_PERSIST_BLOCK_TRACK, NGX_LIVE_PERSIST_CTX_INDEX_TRACK, 0,
       ngx_live_syncer_write_index_track,
       ngx_live_syncer_read_index_track },

@@ -142,7 +142,7 @@ class LogTracker:
         buffer = f.read()
         f.close()
 
-        buffer = re.sub(r'nginx: \[emerg\] bind\(\) to [^ ]+ failed', '', buffer)
+        buffer = re.sub(r'\[emerg\] [^ ]+ bind\(\) to [^ ]+ failed', '', buffer)
 
         if type(logLine) == list:
             found = False

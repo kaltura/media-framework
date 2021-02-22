@@ -83,15 +83,6 @@ typedef struct media_info_s {
     } u;
 } media_info_t;
 
-typedef struct input_frame_s input_frame_t;
-
-struct input_frame_s {
-    uint32_t size;
-    uint32_t key_frame;
-    uint32_t duration;
-    uint32_t pts_delay;
-};
-
 typedef struct {
     media_info_t* media_info;
 

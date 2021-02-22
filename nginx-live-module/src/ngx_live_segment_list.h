@@ -7,7 +7,9 @@
 #include "ngx_live.h"
 
 
-#define NGX_LIVE_SEGMENT_LIST_PERSIST_BLOCK  (0x74736c73)  /* slst */
+#define NGX_LIVE_SEGMENT_LIST_PERSIST_BLOCK         (0x74736c73)    /* slst */
+
+#define NGX_LIVE_SEGMENT_LIST_PERSIST_BLOCK_PERIOD  (0x64706c73)    /* slpd */
 
 
 typedef struct ngx_live_segment_list_node_s  ngx_live_segment_list_node_t;
@@ -28,6 +30,7 @@ typedef struct {
     ngx_log_t                     *log;
 
     int64_t                        last_time;
+    unsigned                       is_first:1;      /* temp during read */
 } ngx_live_segment_list_t;
 
 typedef struct {
@@ -61,13 +64,12 @@ ngx_int_t ngx_live_segment_list_get_period_end_time(
 void ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
     uint32_t min_segment_index);
 
-ngx_int_t ngx_live_segment_list_write_index(
-    ngx_live_segment_list_t *segment_list,
-    ngx_live_persist_write_ctx_t *write_ctx);
 
-ngx_int_t ngx_live_segment_list_read_index(
-    ngx_live_segment_list_t *segment_list, ngx_mem_rstream_t *rs,
-    ngx_live_persist_block_header_t *block);
+ngx_int_t ngx_live_segment_list_write_periods(
+    ngx_live_persist_write_ctx_t *write_ctx, void *obj);
+
+ngx_int_t ngx_live_segment_list_read_period(
+    ngx_live_persist_block_header_t *block, ngx_mem_rstream_t *rs, void *obj);
 
 
 size_t ngx_live_segment_list_json_get_size(
