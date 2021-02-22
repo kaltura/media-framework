@@ -61,3 +61,22 @@ ngx_rtmp_bit_read_golomb(ngx_rtmp_bit_reader_t *br)
 
     return ((uint64_t) 1 << n) + ngx_rtmp_bit_read(br, n) - 1;
 }
+
+
+int64_t
+ngx_rtmp_bit_read_golomb_signed(ngx_rtmp_bit_reader_t *br)
+{
+    int64_t  value;
+
+    value = ngx_rtmp_bit_read_golomb(br);
+    if (value > 0) {
+        if (value & 1) {        /* positive */
+            value = (value + 1) / 2;
+
+        } else {
+            value = -(value / 2);
+        }
+    }
+
+    return value;
+}

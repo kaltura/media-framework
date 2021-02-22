@@ -485,6 +485,26 @@ ngx_rtmp_codec_parse_aac_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
 
 
 static void
+ngx_rtmp_codec_avc_skip_scaling_list(ngx_rtmp_bit_reader_t *br,
+    ngx_int_t size_of_scaling_list)
+{
+    ngx_int_t  last_scale = 8;
+    ngx_int_t  next_scale = 8;
+    ngx_int_t  delta_scale;
+    ngx_int_t  j;
+
+    for (j = 0; j < size_of_scaling_list; j++) {
+        if (next_scale != 0) {
+            delta_scale = ngx_rtmp_bit_read_golomb_signed(br);
+            next_scale = (last_scale + delta_scale) & 0xff;
+        }
+
+        last_scale = (next_scale == 0) ? last_scale : next_scale;
+    }
+}
+
+
+static void
 ngx_rtmp_codec_parse_avc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
 {
     ngx_uint_t              profile_idc, width, height, crop_left, crop_right,
@@ -566,12 +586,12 @@ ngx_rtmp_codec_parse_avc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
 
                 /* seq scaling list present */
                 if (ngx_rtmp_bit_read(&br, 1)) {
-
-                    /* TODO: scaling_list()
                     if (n < 6) {
+                        ngx_rtmp_codec_avc_skip_scaling_list(&br, 16);
+
                     } else {
+                        ngx_rtmp_codec_avc_skip_scaling_list(&br, 64);
                     }
-                    */
                 }
             }
         }
