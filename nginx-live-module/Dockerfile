@@ -18,12 +18,8 @@ RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     mv nginx-${NGINX_VERSION} nginx && \
     cd /tmp/build
 
-RUN git clone https://github.com/simplresty/ngx_devel_kit && \
-    cd ngx_devel_kit && \
-    git checkout ${NGX_DEVEL_KIT}
-RUN git clone https://github.com/kaltura/set-misc-nginx-module && \
-    cd set-misc-nginx-module && \
-    git checkout ${SET_MISC_NGINX_MODULE}
+RUN git clone --branch ${NGX_DEVEL_KIT} https://github.com/simplresty/ngx_devel_kit
+RUN git clone --branch ${SET_MISC_NGINX_MODULE} https://github.com/kaltura/set-misc-nginx-module
 
 COPY nginx-live-module nginx-live-module
 COPY nginx-common nginx-common
