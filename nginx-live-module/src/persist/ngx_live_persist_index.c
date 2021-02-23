@@ -478,6 +478,7 @@ ngx_live_persist_index_read_track(ngx_live_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                        rc;
+    ngx_log_t                       *orig_log;
     ngx_live_track_t                *track;
     ngx_live_channel_t              *channel = obj;
     ngx_live_persist_index_track_t  *tp;
@@ -497,6 +498,9 @@ ngx_live_persist_index_read_track(ngx_live_persist_block_header_t *header,
         return NGX_OK;
     }
 
+    orig_log = rs->log;
+    rs->log = &track->log;
+
     track->has_last_segment = tp->has_last_segment;
     track->last_segment_bitrate = tp->last_segment_bitrate;
     track->last_frame_pts = tp->last_frame_pts;
@@ -514,6 +518,8 @@ ngx_live_persist_index_read_track(ngx_live_persist_block_header_t *header,
             "ngx_live_persist_index_read_track: read blocks failed");
         return rc;
     }
+
+    rs->log = orig_log;
 
     return NGX_OK;
 }
