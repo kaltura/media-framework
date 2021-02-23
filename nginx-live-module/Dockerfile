@@ -8,6 +8,8 @@ RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base 
 WORKDIR /tmp/build
 
 ARG NGINX_VERSION=1.17.8
+ARG NGX_DEVEL_KIT=v0.3.1
+ARG SET_MISC_NGINX_MODULE=v0.32
 
 #echo "pulling nginx source code"
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
@@ -15,6 +17,13 @@ RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     rm nginx-${NGINX_VERSION}.tar.gz -f && \
     mv nginx-${NGINX_VERSION} nginx && \
     cd /tmp/build
+
+RUN git clone https://github.com/simplresty/ngx_devel_kit && \
+    cd ngx_devel_kit && \
+    git checkout ${NGX_DEVEL_KIT}
+RUN git clone https://github.com/kaltura/set-misc-nginx-module && \
+    cd set-misc-nginx-module && \
+    git checkout ${SET_MISC_NGINX_MODULE}
 
 COPY nginx-live-module nginx-live-module
 COPY nginx-common nginx-common
@@ -28,6 +37,8 @@ RUN cd /tmp/build/nginx && \
             --with-http_stub_status_module \
             --add-module=/tmp/build/nginx-common \
             --add-module=/tmp/build/nginx-live-module \
+            --add-module=/tmp/build/ngx_devel_kit \
+            --add-module=/tmp/build/set-misc-nginx-module \
             --with-file-aio \
             --with-debug \
             --with-http_dav_module \
