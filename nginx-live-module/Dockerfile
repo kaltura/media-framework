@@ -8,8 +8,8 @@ RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base 
 WORKDIR /tmp/build
 
 ARG NGINX_VERSION=1.17.8
-ARG NGX_DEVEL_KIT=v0.3.1
-ARG SET_MISC_NGINX_MODULE=v0.32
+ARG NGX_DEVEL_KIT_VERSION=v0.3.1
+ARG SET_MISC_NGINX_MODULE_VERSION=v0.32
 
 #echo "pulling nginx source code"
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
@@ -18,8 +18,8 @@ RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     mv nginx-${NGINX_VERSION} nginx && \
     cd /tmp/build
 
-RUN git clone --branch ${NGX_DEVEL_KIT} https://github.com/simplresty/ngx_devel_kit
-RUN git clone --branch ${SET_MISC_NGINX_MODULE} https://github.com/kaltura/set-misc-nginx-module
+RUN git clone --branch ${NGX_DEVEL_KIT_VERSION} https://github.com/simplresty/ngx_devel_kit
+RUN git clone --branch ${SET_MISC_NGINX_MODULE_VERSION} https://github.com/kaltura/set-misc-nginx-module
 
 COPY nginx-live-module nginx-live-module
 COPY nginx-common nginx-common
