@@ -1819,6 +1819,14 @@ ngx_http_live_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
         conf->encryption_iv_seed = prev->encryption_iv_seed;
     }
 
+    if (conf->segment_metadata == NULL) {
+        conf->segment_metadata = prev->segment_metadata;
+    }
+
+    if (conf->output_buffer_pool == NULL) {
+        conf->output_buffer_pool = prev->output_buffer_pool;
+    }
+
     ngx_conf_merge_value(conf->empty_segments,
                          prev->empty_segments, 0);
 
