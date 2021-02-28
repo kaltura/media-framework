@@ -58,7 +58,7 @@ static int hw_decoder_init( transcode_codec_t * pContext,AVCodec* decoder,AVCode
     
     
     ret = av_hwframe_ctx_init(pContext->hw_frames_ctx);
-    LOGGER(CATEGORY_CODEC, AV_LOG_ERROR, "Initializing CUDA frames context: sw_format = %s, width = %d, height = %d",
+    LOGGER(CATEGORY_CODEC, AV_LOG_INFO, "Initializing CUDA frames context: sw_format = %s, width = %d, height = %d",
            av_get_pix_fmt_name(frames_ctx->sw_format), frames_ctx->width, frames_ctx->height);
 
     
