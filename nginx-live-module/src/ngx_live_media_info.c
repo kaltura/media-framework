@@ -159,7 +159,8 @@ ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
         dest->extra_data.data = alloc(alloc_ctx, dest->extra_data.len);
         if (dest->extra_data.data == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_media_info_parse: alloc failed");
+                "ngx_live_media_info_parse: alloc failed, size: %uz",
+                dest->extra_data.len);
             return NGX_ERROR;
         }
 
@@ -807,7 +808,7 @@ ngx_live_media_info_queue_copy_last(ngx_live_track_t *dst,
 
     q = ngx_queue_last(&ctx->active);
     if (q == ngx_queue_sentinel(&ctx->active)) {
-        ngx_log_error(NGX_LOG_NOTICE, &dst->log, 0,
+        ngx_log_error(NGX_LOG_ERR, &src->log, 0,
             "ngx_live_media_info_queue_copy_last: no media info");
         return NGX_ERROR;
     }
@@ -1579,7 +1580,7 @@ ngx_live_media_info_set_group_id(void *arg, ngx_live_json_command_t *cmd,
     if (value->v.str.s.len > NGX_LIVE_TRACK_MAX_GROUP_ID_LEN) {
         ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_live_media_info_set_group_id: group id \"%V\" too long",
-            &value->v.str);
+            &value->v.str.s);
         return NGX_ERROR;
     }
 

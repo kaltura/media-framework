@@ -623,7 +623,7 @@ ngx_live_segment_list_read_period(ngx_live_persist_block_header_t *block,
             segment_list->bp_idx);
         if (last == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_segment_list_read_period: alloc failed (1)");
+                "ngx_live_segment_list_read_period: alloc failed");
             return NGX_ERROR;
         }
 

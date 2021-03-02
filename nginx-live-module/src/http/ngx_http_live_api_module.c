@@ -368,7 +368,7 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
 
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                "ngx_http_live_api_channels_post: read failed");
+                "ngx_http_live_api_channels_post: read failed %i", rc);
             rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
             goto free;
         }
@@ -442,13 +442,12 @@ ngx_http_live_api_channel_put(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
 {
     ngx_int_t                 rc;
-    ngx_log_t                *log = r->connection->log;
     ngx_str_t                 channel_id;
     ngx_live_channel_t       *channel;
     ngx_live_channel_json_t   json;
 
     if (body->type != NGX_JSON_OBJECT) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_api_channel_put: "
             "invalid element type %d, expected object", body->type);
         return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
@@ -459,7 +458,7 @@ ngx_http_live_api_channel_put(ngx_http_request_t *r, ngx_str_t *params,
     if (ngx_json_object_parse(r->pool, &body->v.obj, ngx_live_channel_json,
         ngx_array_entries(ngx_live_channel_json), &json) != NGX_JSON_OK)
     {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_live_api_channel_put: failed to parse object");
         return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
     }
@@ -561,7 +560,7 @@ ngx_http_live_api_variant_init_tracks(ngx_live_channel_t *channel,
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_http_live_api_variant_init_tracks: "
                 "unknown track \"%V\" in channel \"%V\"",
-                &cur->value.v.str, &channel->sn.str);
+                &cur->value.v.str.s, &channel->sn.str);
             return NGX_HTTP_NOT_FOUND;
         }
 
@@ -959,7 +958,7 @@ ngx_http_live_api_track_put(ngx_http_request_t *r, ngx_str_t *params,
 
     if (body->type != NGX_JSON_OBJECT) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_live_api_tracks_post: "
+            "ngx_http_live_api_track_put: "
             "invalid element type %d, expected object", body->type);
         return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
     }

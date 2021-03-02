@@ -2531,7 +2531,7 @@ ngx_live_segmenter_create_segment(ngx_live_channel_t *channel)
         switch (rc) {
 
         case NGX_OK:
-            ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
+            ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
                 "ngx_live_segmenter_create_segment: "
                 "gaps filled, forcing new period");
 

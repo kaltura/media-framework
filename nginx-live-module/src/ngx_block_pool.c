@@ -179,7 +179,7 @@ ngx_block_pool_create(ngx_pool_t *pool, size_t *sizes, ngx_uint_t count,
         sizeof(block_pool->slots[0]) * (count - 1));
     if (block_pool == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_block_pool_create: alloc failed");
+            "ngx_block_pool_create: alloc failed, count: %ui", count);
         return NULL;
     }
 
