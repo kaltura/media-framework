@@ -2263,12 +2263,14 @@ static ngx_int_t
 ngx_live_timeline_read_index(ngx_live_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, void *obj)
 {
+    uint32_t                               hash;
     ngx_int_t                              rc;
     ngx_str_t                              id;
     ngx_log_t                             *orig_log;
     ngx_live_channel_t                    *channel = obj;
     ngx_live_timeline_t                   *timeline;
     ngx_live_timeline_persist_t           *tp;
+    ngx_live_timeline_channel_ctx_t       *cctx;
     ngx_live_timeline_persist_manifest_t  *mp;
 
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
@@ -2277,7 +2279,10 @@ ngx_live_timeline_read_index(ngx_live_persist_block_header_t *block,
         return NGX_BAD_DATA;
     }
 
-    timeline = ngx_live_timeline_get(channel, &id);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
+
+    hash = ngx_crc32_short(id.data, id.len);
+    timeline = (void *) ngx_str_rbtree_lookup(&cctx->rbtree, &id, hash);
     if (timeline == NULL) {
         ngx_log_error(NGX_LOG_WARN, rs->log, 0,
             "ngx_live_timeline_read_index: timeline \"%V\" not found", &id);
