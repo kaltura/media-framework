@@ -455,7 +455,7 @@ ngx_live_variant_free(ngx_live_variant_t *variant)
     ngx_live_channel_t  *channel = variant->channel;
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_variant_free: freeing %p", channel);
+        "ngx_live_variant_free: freeing %p", variant);
 
     ngx_live_channel_block_str_free(channel, &variant->opaque);
 

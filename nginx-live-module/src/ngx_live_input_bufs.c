@@ -258,7 +258,7 @@ ngx_live_input_bufs_get(ngx_live_track_t *track, ngx_buf_t *b)
 
     b->start = ngx_buf_queue_get(&input_bufs->buf_queue);
     if (b->start == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, input_bufs->buf_queue.log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_input_bufs_get: failed to get buffer");
         return NGX_ERROR;
     }
@@ -356,7 +356,7 @@ ngx_live_input_bufs_lock(ngx_live_track_t *track, uint32_t segment_index,
         }
 
         if (cur->ptr != ptr) {
-            ngx_log_error(NGX_LOG_ALERT, input_bufs->buf_queue.log, 0,
+            ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
                 "ngx_live_input_bufs_lock: "
                 "inconsistent ptr for segment %uD",
                 segment_index);
@@ -369,7 +369,7 @@ ngx_live_input_bufs_lock(ngx_live_track_t *track, uint32_t segment_index,
 
     cur = ngx_block_pool_alloc(ngx_live_input_bufs_pool, NGX_LIVE_BP_LOCK);
     if (cur == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, input_bufs->buf_queue.log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_input_bufs_lock: alloc failed");
         return NULL;
     }

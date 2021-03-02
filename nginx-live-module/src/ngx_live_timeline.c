@@ -496,7 +496,7 @@ ngx_live_timeline_conf_validate(ngx_live_timeline_conf_t *conf,
     if (conf->start >= conf->end) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_timeline_conf_validate: "
-            "start offset must be lower than end offset",
+            "start offset %L must be lower than end offset %L",
             conf->start, conf->end);
         return NGX_ERROR;
     }
@@ -2067,8 +2067,7 @@ ngx_live_timeline_read_periods(ngx_live_persist_block_header_t *block,
 
     if (ngx_mem_rstream_read(rs, &merge, sizeof(merge)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_timeline_read_periods: "
-            "read failed, timeline: %V", &timeline->sn.str);
+            "ngx_live_timeline_read_periods: read failed");
         return NGX_BAD_DATA;
     }
 

@@ -340,7 +340,7 @@ ngx_http_live_core_parse_uri_file_name(ngx_http_request_t *r,
             default:
                 ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                     "ngx_http_live_core_parse_uri_file_name: "
-                    "invalid media type");
+                    "invalid media type \"%c\"", *start_pos);
                 return NGX_HTTP_BAD_REQUEST;
             }
 
@@ -402,7 +402,8 @@ ngx_http_live_find_string(ngx_str_t *arr, ngx_int_t count, ngx_str_t *str)
     for (index = 0; index < count; index++) {
 
         if (arr[index].len == str->len &&
-            ngx_memcmp(arr[index].data, str->data, str->len) == 0) {
+            ngx_memcmp(arr[index].data, str->data, str->len) == 0)
+        {
             return index;
         }
     }
@@ -714,9 +715,10 @@ ngx_http_live_range_parse(ngx_str_t *range, off_t content_length,
     off_t              start, end, cutoff, cutlim;
     ngx_uint_t         suffix;
 
-    if (range->len < 7 ||
-        ngx_strncasecmp(range->data,
-        (u_char *) "bytes=", 6) != 0) {
+    if (range->len < 7
+        || ngx_strncasecmp(range->data,
+                        (u_char *) "bytes=", 6) != 0)
+    {
         return NGX_HTTP_RANGE_NOT_SATISFIABLE;
     }
 
@@ -808,10 +810,10 @@ found:
 static ngx_int_t
 ngx_http_live_set_expires(ngx_http_request_t *r, time_t expires_time)
 {
-    size_t               len;
-    time_t               now, max_age;
-    ngx_uint_t           i;
-    ngx_table_elt_t     *e, *cc, **ccp;
+    size_t            len;
+    time_t            now, max_age;
+    ngx_uint_t        i;
+    ngx_table_elt_t  *e, *cc, **ccp;
 
     e = r->headers_out.expires;
 
@@ -836,7 +838,7 @@ ngx_http_live_set_expires(ngx_http_request_t *r, time_t expires_time)
     if (ccp == NULL) {
 
         if (ngx_array_init(&r->headers_out.cache_control, r->pool,
-            1, sizeof(ngx_table_elt_t *))
+                           1, sizeof(ngx_table_elt_t *))
             != NGX_OK)
         {
             return NGX_ERROR;

@@ -256,7 +256,7 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_live_persist_setup_read_track: "
-            "create failed, track: %V", &id);
+            "create failed %i, track: %V", rc, &id);
 
         if (rc == NGX_EXISTS || rc == NGX_INVALID_ARG) {
             return NGX_BAD_DATA;
@@ -396,7 +396,7 @@ ngx_live_persist_setup_read_variant(ngx_live_persist_block_header_t *header,
     {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_live_persist_setup_read_variant: "
-            "create failed, variant: %V", &id);
+            "create failed %i, variant: %V", rc, &id);
 
         if (rc == NGX_EXISTS || rc == NGX_INVALID_ARG) {
             return NGX_BAD_DATA;

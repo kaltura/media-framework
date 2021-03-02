@@ -164,7 +164,8 @@ ngx_live_json_commands_exec(ngx_live_channel_t *channel,
         rc = cmd->set_handler(obj, cmd, &cur->value, pool);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                "ngx_live_json_commands_exec: handler failed %i", rc);
+                "ngx_live_json_commands_exec: handler failed %i, key: %V",
+                rc, &cur->key);
             return rc;
         }
 

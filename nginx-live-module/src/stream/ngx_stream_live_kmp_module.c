@@ -435,7 +435,8 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
             }
 
             if (ctx->packet_header.header_size < sizeof(ctx->packet_header) ||
-                ctx->packet_header.header_size > KMP_MAX_HEADER_SIZE) {
+                ctx->packet_header.header_size > KMP_MAX_HEADER_SIZE)
+            {
                 ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
                     "ngx_stream_live_kmp_process_buffer: "
                     "invalid header size %uD", ctx->packet_header.header_size);

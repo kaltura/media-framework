@@ -770,7 +770,8 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
         if (src_segment == NULL) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_filler_setup_track_segments: "
-                "failed to get segment %uD", segment_index);
+                "failed to get segment %uD, track: %V",
+                segment_index, &src_track->sn.str);
             return NGX_ERROR;
         }
 
@@ -923,7 +924,8 @@ ngx_live_filler_setup_get_cycle_duration(ngx_live_channel_t *src,
         if (src_segment == NULL) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_filler_setup_get_cycle_duration: "
-                "failed to get segment %uD (1)", segment_index);
+                "failed to get segment %uD (1), track: %V",
+                segment_index, &src_track->sn.str);
             return 0;
         }
 
@@ -935,7 +937,8 @@ ngx_live_filler_setup_get_cycle_duration(ngx_live_channel_t *src,
             if (src_segment == NULL) {
                 ngx_log_error(NGX_LOG_ERR, log, 0,
                     "ngx_live_filler_setup_get_cycle_duration: "
-                    "failed to get segment %uD (2)", last_segment_index);
+                    "failed to get segment %uD (2), track: %V",
+                    last_segment_index, &src_track->sn.str);
                 return 0;
             }
         }

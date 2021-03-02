@@ -678,7 +678,7 @@ ngx_live_persist_media_read(ngx_live_segment_read_req_t *req)
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_media_module);
 
     if (ngx_live_variables_init_ctx(channel, pool, &vctx) != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_persist_media_read: failed to init var ctx");
         return NGX_ERROR;
     }
@@ -895,7 +895,7 @@ ngx_live_persist_media_write_segment(ngx_live_persist_write_ctx_t *write_idx,
     }
 
     if (ngx_live_segment_index_lock(ctx->cln, segment) != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_persist_media_write_segment: lock segment failed");
         return NGX_ERROR;
     }
@@ -934,7 +934,7 @@ ngx_live_persist_media_write_segments(ngx_live_persist_write_ctx_t *write_idx,
             if (ngx_live_persist_media_write_segment(write_idx, segment)
                 != NGX_OK)
             {
-                ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                ngx_log_error(NGX_LOG_NOTICE, &cur_track->log, 0,
                     "ngx_live_persist_media_write_segments: write failed");
                 return NGX_ERROR;
             }
