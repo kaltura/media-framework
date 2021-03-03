@@ -32,8 +32,15 @@ RUN  cd ffmpeg && ./configure --disable-doc --enable-nonfree --disable-shared --
         make install
 
 
+RUN apt-get install valgrind
+
+RUN apt-get update && apt-get install -y sudo python3.8 python3-pip && python3 -m pip install pip
+RUN python3 -m pip install redis
+
 COPY . .
 
 #RUN cmake -DSTATICCOMPILE=ON   -DSTATIC=true . && make
 RUN make clean && make && make install
+
+
 

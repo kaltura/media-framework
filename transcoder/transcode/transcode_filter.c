@@ -136,6 +136,8 @@ end:
 int transcode_filter_close( transcode_filter_t *pFilter)
 {
     avfilter_graph_free(&pFilter->filter_graph);
+    free(pFilter->config);
+    memset(pFilter,0,sizeof(*pFilter));
     return 0;
 }
 

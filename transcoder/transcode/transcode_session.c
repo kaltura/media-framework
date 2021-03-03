@@ -142,7 +142,7 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
     return 0;
 }
 
-void get_filter_config(char *filterConfig,  transcode_codec_t *pDecoderContext, transcode_session_output_t *pOutput)
+void get_filter_config(transcode_session_t *pSession,char *filterConfig,  transcode_codec_t *pDecoderContext, transcode_session_output_t *pOutput)
 {
     if (pOutput->codec_type==AVMEDIA_TYPE_VIDEO)
     {
@@ -168,22 +168,30 @@ void get_filter_config(char *filterConfig,  transcode_codec_t *pDecoderContext, 
     }
     if (pOutput->codec_type==AVMEDIA_TYPE_AUDIO)
     {
-        sprintf(filterConfig,"aresample=async=1000");
+        //once initialized stick to encoder output format
+        transcode_codec_t *codec = pOutput->actualAudioParams.samplingRate > 0 ?
+            &pSession->encoder[pOutput->encoderId] : pDecoderContext;
+        char buf[64];
+        av_get_channel_layout_string(buf,sizeof(buf),
+            codec->ctx->channels,codec->ctx->channel_layout);
+        sprintf(filterConfig,"aresample=async=1000:out_sample_rate=%d:out_channel_layout=%s",
+            codec->ctx->sample_rate,buf);
     }
 }
 
 transcode_filter_t* GetFilter(transcode_session_t* pContext,transcode_session_output_t* pOutput, transcode_codec_t *pDecoderContext)
 {
     char filterConfig[MAX_URL_LENGTH]={0};
-    get_filter_config(filterConfig, pDecoderContext, pOutput);
+    get_filter_config(pContext,filterConfig, pDecoderContext, pOutput);
     
     transcode_filter_t* pFilter=NULL;
     pOutput->filterId=-1;
     for (int selectedFilter=0; selectedFilter<pContext->filters;selectedFilter++) {
         pFilter=&pContext->filter[selectedFilter];
-        if (strcmp(pFilter->config,filterConfig)==0) {
+        if (pFilter->config && strcmp(pFilter->config,filterConfig)==0) {
             pOutput->filterId=selectedFilter;
             LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Output %s - Resuing existing filter %s",pOutput->track_id,filterConfig);
+            break;
         }
     }
     if ( pOutput->filterId==-1) {
@@ -217,7 +225,7 @@ int config_encoder(transcode_session_output_t *pOutput,  transcode_codec_t *pDec
         AVBufferRef *hw_frames_ctx = pDecoderContext->ctx->hw_frames_ctx;
 
         if (pFilter) {
-            
+
             width=av_buffersink_get_w(pFilter->sink_ctx);
             height=av_buffersink_get_h(pFilter->sink_ctx);
             picFormat=av_buffersink_get_format(pFilter->sink_ctx);
@@ -226,7 +234,7 @@ int config_encoder(transcode_session_output_t *pOutput,  transcode_codec_t *pDec
             sample_aspect_ratio=av_buffersink_get_sample_aspect_ratio(pFilter->sink_ctx);
             frameRate=av_buffersink_get_frame_rate(pFilter->sink_ctx);
         }
-        
+
         ret=transcode_codec_init_video_encoder(pEncoderContext,
                                sample_aspect_ratio,
                                picFormat,
@@ -346,17 +354,90 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
     return 0;
 }
 
+static
+bool mediaTypesMatch(transcode_filter_t *pFilter,AVCodecContext *ctx)
+{
+    if(ctx->codec_type == AVMEDIA_TYPE_AUDIO)
+    {
+        uint64_t channelLayout=ctx->channel_layout;
+        if (channelLayout<=0) {
+             channelLayout=av_get_default_channel_layout(ctx->channels);
+        }
+        return ctx->sample_fmt == pFilter->src_ctx->outputs[0]->format
+            && channelLayout == pFilter->src_ctx->outputs[0]->channel_layout
+            && ctx->channels == pFilter->src_ctx->outputs[0]->channels
+            && ctx->sample_rate == pFilter->src_ctx->outputs[0]->sample_rate;
+    }
+    // video
+    return true;
+        /*return ctx->width != av_buffersink_get_width(pFilter->src_ctx)
+            || ctx->height != av_buffersink_get_height(pFilter->src_ctx)
+            || ctx->color_range != av_buffersink_get_color_range(pFilter->src_ctx);*/
+}
+
+static
+int getFilterForStream(transcode_session_t *pContext,int filterId,
+  transcode_codec_t* pDecoderContext,transcode_filter_t **ppFilter)
+{
+   *ppFilter = NULL;
+   transcode_filter_t *pFilter =  &pContext->filter[filterId];
+   if(mediaTypesMatch(pFilter,pDecoderContext->ctx))
+   {
+       *ppFilter = pFilter;
+   }
+   else
+   {
+      LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_WARNING,
+        "decoder and filter media types don\'t match => reinit filter %d",filterId);
+
+     // find output corresponding to filter
+     transcode_session_output_t *pOutput = &pContext->output[0],
+                                *sentinel = &pContext->output[pContext->outputs];
+     for (;pOutput<sentinel;pOutput++)
+     {
+         if (pOutput->filterId==filterId && pOutput->encoderId!=-1)
+         {
+            int temp = pContext->filters;
+            pContext->filters = filterId;
+            // free filter
+            transcode_filter_close(pFilter);
+            pOutput->filterId = -1;
+            // re-init filter
+            *ppFilter = GetFilter(pContext,pOutput,pDecoderContext);
+            if(*ppFilter)
+            {
+                av_buffersink_set_frame_size((*ppFilter)->sink_ctx, pContext->encoder[pOutput->encoderId].ctx->frame_size);
+            }
+            pContext->filters =  temp;
+            LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"reinited filter %d",filterId);
+            break;
+         }
+     }
+   }
+   return *ppFilter ? 0 : -1;
+}
+
 int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext* pDecoderContext, AVFrame *pFrame)
 {
-    
-    transcode_filter_t *pFilter=(transcode_filter_t *)&pContext->filter[filterId];
+    transcode_filter_t *pFilter;
+    int ret=getFilterForStream(pContext,filterId,&pContext->decoder[0],&pFilter);
+    if (ret<0) {
+         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"[%s] getFilterForStream failed for filterId %d (%s): %d (%s)",
+                pContext->name,
+                filterId,
+                pContext->filter[filterId].config,
+                ret,
+                av_err2str(ret));
+     }
+
+
     LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] sending frame to filter %d (%s) %s",
            pContext->name,
            filterId,
            pContext->filter[filterId].config,
            getFrameDesc(pFrame));
     
-    int ret=transcode_filter_send_frame(pFilter,pFrame);
+    ret=transcode_filter_send_frame(pFilter,pFrame);
     if (ret<0) {
         
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"[%s] failed sending frame to filterId %d (%s): %s %d (%s)",
