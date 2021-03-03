@@ -30,10 +30,9 @@ RUN cd /tmp/build/nginx &&  \
             --add-module=/tmp/build/nginx-common \
             --add-module=/tmp/build/nginx-rtmp-module \
             --add-module=/tmp/build/nginx-rtmp-kmp-module \
-            --with-debug \
             --with-file-aio \
             --with-http_ssl_module \
-            --with-cc-opt="-Wimplicit-fallthrough=0  -O0" \
+            --with-cc-opt="-O2" \
             --with-threads && \
     make -j $(getconf _NPROCESSORS_ONLN) && \
     make install

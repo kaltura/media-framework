@@ -36,11 +36,10 @@ RUN cd /tmp/build/nginx && \
             --add-module=/tmp/build/ngx_devel_kit \
             --add-module=/tmp/build/set-misc-nginx-module \
             --with-file-aio \
-            --with-debug \
             --with-http_dav_module \
             --with-stream \
             --with-http_ssl_module \
-            --with-cc-opt="-Wimplicit-fallthrough=0 -O0" \
+            --with-cc-opt="-O2" \
             --with-threads && \
     make -j $(getconf _NPROCESSORS_ONLN) && \
     make install
