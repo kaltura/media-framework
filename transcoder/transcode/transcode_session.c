@@ -369,10 +369,9 @@ bool mediaTypesMatch(transcode_filter_t *pFilter,AVCodecContext *ctx)
             && ctx->sample_rate == pFilter->src_ctx->outputs[0]->sample_rate;
     }
     // video
-    return true;
-        /*return ctx->width != av_buffersink_get_width(pFilter->src_ctx)
-            || ctx->height != av_buffersink_get_height(pFilter->src_ctx)
-            || ctx->color_range != av_buffersink_get_color_range(pFilter->src_ctx);*/
+    //TODO: get more video related props to compare
+    return ctx->width == pFilter->src_ctx->outputs[0]->w
+       && ctx->height == pFilter->src_ctx->outputs[0]->h;
 }
 
 static
