@@ -144,7 +144,7 @@ ngx_module_t  ngx_http_live_hls_module = {
 static ngx_str_t  ngx_http_live_hls_content_type_m3u8 =
     ngx_string("application/vnd.apple.mpegurl");
 static ngx_str_t  ngx_http_live_hls_content_type_mpeg_ts =
-    ngx_string("video/MP2T");
+    ngx_string("video/mp2t");
 static ngx_str_t  ngx_http_live_hls_content_type_enc_key =
     ngx_string("application/octet-stream");
 
