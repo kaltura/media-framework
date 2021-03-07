@@ -80,86 +80,86 @@ seg-21-svar1.ts
 #EXT-X-ENDLIST
 
 URL: /seg-1-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 57716, MD5: de4fbf4a8af36be778d675dc33d5c87a
 
 URL: /seg-2-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 72756, MD5: 369a2a30e1676170fa569b0a61add5d7
 
 URL: /seg-3-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 69748, MD5: 2b5e52ba220028142d369512187b7a9c
 
 URL: /seg-4-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 66740, MD5: fd0eeddb1cba06fa2b6d107ac91ba553
 
 URL: /seg-5-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 69748, MD5: 144f240e770b6f1daf92e8ad9ecbfe93
 
 URL: /seg-6-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 60724, MD5: 3fb69ed0acedc4dd4f38cf74bb57b879
 
 URL: /seg-7-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 27636, MD5: 84a648c1290d67b89c2a7fa189f37990
 
 URL: /seg-8-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 57716, MD5: 35e1ccfb3383f93658b0ff9c92a1cb09
 
 URL: /seg-9-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 60724, MD5: 7cc7bbcbefc3281920f2f91b23ff76dd
 
 URL: /seg-10-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 72756, MD5: 0b13ab59c8fd7e8ec20283de75b70d28
 
 URL: /seg-11-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 66740, MD5: c620698ee78d869b3e29cd73c2bc0d58
 
 URL: /seg-12-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 66740, MD5: d7ccfa83557c31692f66616dba56dcef
 
 URL: /seg-13-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 69748, MD5: 8d85c1f12c28412ce36e97e0f9be3009
 
 URL: /seg-14-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 33652, MD5: f307d4b23d352c79edfc097a7b27f3c2
 
 URL: /seg-15-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 66740, MD5: fa0820b06aa7f4ce8f4801c16aa229b3
 
 URL: /seg-16-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 60724, MD5: bf5cd6cb9ce08aa07d8daca6ec5a37c4
 
 URL: /seg-17-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 54708, MD5: 31d29c8d30c41ae901602c3007ec87bd
 
 URL: /seg-18-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 57716, MD5: 9f8209392047f3eaaa8c71c0a0b7a761
 
 URL: /seg-19-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 66740, MD5: fe9a583d04cf6d88d21bdfc33815e166
 
 URL: /seg-20-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 69748, MD5: 2984c76adac3d353d88033bb72ed0d56
 
 URL: /seg-21-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 33652, MD5: 524e1eeebd0ba5e37fb1d9bcff2594e9
 

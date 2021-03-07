@@ -33,18 +33,18 @@ seg-4-svar1.ts
 #EXT-X-ENDLIST
 
 URL: /seg-1-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 57716, MD5: ca0d7f9f832b4bc73ac815f6a904967c
 
 URL: /seg-2-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 75764, MD5: bf23876fa5d2bdfb69205b8507ca0d4c
 
 URL: /seg-3-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 57716, MD5: 34b38f40270c28bfcccd449ad606a1b0
 
 URL: /seg-4-svar1.ts
-HEADERS: 200 video/MP2T
+HEADERS: 200 video/mp2t
 BODY: SIZE: 75764, MD5: a400b76a1327c27df0dccd775138c8b8
 
