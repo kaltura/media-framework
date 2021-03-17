@@ -12,14 +12,6 @@
 #define NGX_HTTP_CONFLICT                  409
 
 
-#define ngx_live_persist_block_id_key(id)                                   \
-    ngx_hash(ngx_hash(ngx_hash(                                             \
-        ( (id)        & 0xff) ,                                             \
-        (((id) >> 8)  & 0xff)),                                             \
-        (((id) >> 16) & 0xff)),                                             \
-        (((id) >> 24) & 0xff))
-
-
 static ngx_int_t ngx_live_persist_postconfiguration(ngx_conf_t *cf);
 
 static void *ngx_live_persist_create_main_conf(ngx_conf_t *cf);
@@ -60,14 +52,8 @@ typedef struct {
 
 /* conf */
 
-typedef struct {
-    ngx_hash_t                         hash;
-    ngx_array_t                        arr;
-    ngx_hash_keys_arrays_t            *keys;
-} ngx_live_persist_block_ctx_t;
-
 struct ngx_live_persist_main_conf_s {
-    ngx_live_persist_block_ctx_t       blocks[NGX_LIVE_PERSIST_CTX_COUNT];
+    ngx_live_persist_conf_t           *conf;
 };
 
 
@@ -204,91 +190,19 @@ ngx_int_t
 ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
     ngx_live_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj)
 {
-    ngx_array_t                   *arr;
-    ngx_live_persist_block_t      *cur;
-    ngx_live_persist_block_t      *last;
     ngx_live_persist_main_conf_t  *pmcf;
-
-    /* set the header size explicitly in case there are no child blocks */
-    ngx_live_persist_write_block_set_header(write_ctx,
-        NGX_LIVE_PERSIST_HEADER_FLAG_CONTAINER);
 
     pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
 
-    arr = &pmcf->blocks[block_ctx].arr;
-    cur = arr->elts;
-    last = cur + arr->nelts;
-
-    for (; cur < last; cur++) {
-
-        if (!(cur->flags & NGX_LIVE_PERSIST_FLAG_SINGLE)) {
-            if (cur->write(write_ctx, obj) != NGX_OK) {
-                ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-                    "ngx_live_persist_write_blocks: write failed, id: %*s",
-                    (size_t) sizeof(cur->id), &cur->id);
-                return NGX_ERROR;
-            }
-            continue;
-        }
-
-        if (ngx_live_persist_write_block_open(write_ctx, cur->id) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-                "ngx_live_persist_write_blocks: open failed, id: %*s",
-                (size_t) sizeof(cur->id), &cur->id);
-            return NGX_ERROR;
-        }
-
-        if (cur->write(write_ctx, obj) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-                "ngx_live_persist_write_blocks: write failed, id: %*s",
-                (size_t) sizeof(cur->id), &cur->id);
-            return NGX_ERROR;
-        }
-
-        ngx_live_persist_write_block_close(write_ctx);
-    }
-
-    return NGX_OK;
+    return ngx_live_persist_conf_write_blocks(pmcf->conf, &channel->log,
+        write_ctx, block_ctx, obj);
 }
 
 ngx_int_t
 ngx_live_persist_read_blocks_internal(ngx_live_persist_main_conf_t *pmcf,
     ngx_uint_t ctx, ngx_mem_rstream_t *rs, void *obj)
 {
-    ngx_hash_t                       *hash;
-    ngx_int_t                         rc;
-    ngx_uint_t                        key;
-    ngx_mem_rstream_t                 block_rs;
-    ngx_live_persist_block_t         *block;
-    ngx_live_persist_block_header_t  *header;
-
-    hash = &pmcf->blocks[ctx].hash;
-
-    while (!ngx_mem_rstream_eof(rs)) {
-
-        header = ngx_live_persist_read_block(rs, &block_rs);
-        if (header == NULL) {
-            return NGX_BAD_DATA;
-        }
-
-        key = ngx_live_persist_block_id_key(header->id);
-        block = ngx_hash_find(hash, key, (u_char *) &header->id,
-            sizeof(header->id));
-        if (block == NULL) {
-            continue;
-        }
-
-        rc = block->read(header, &block_rs, obj);
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_persist_read_blocks_internal: "
-                "read failed, ctx: %ui, id: %*s",
-                ctx, (size_t) sizeof(header->id), &header->id);
-            return rc;
-        }
-    }
-
-    return NGX_OK;
+    return ngx_live_persist_conf_read_blocks(pmcf->conf, ctx, rs, obj);
 }
 
 ngx_int_t
@@ -300,6 +214,31 @@ ngx_live_persist_read_blocks(ngx_live_channel_t *channel, ngx_uint_t ctx,
     pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
 
     return ngx_live_persist_read_blocks_internal(pmcf, ctx, rs, obj);
+}
+
+
+ngx_int_t
+ngx_live_persist_read_channel_id(ngx_live_channel_t *channel,
+    ngx_mem_rstream_t *rs)
+{
+    ngx_str_t  id;
+
+    if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_read_channel_id: read id failed");
+        return NGX_BAD_DATA;
+    }
+
+    if (id.len != channel->sn.str.len ||
+        ngx_memcmp(id.data, channel->sn.str.data, id.len) != 0)
+    {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_read_channel_id: "
+            "channel id \"%V\" mismatch", &id);
+        return NGX_BAD_DATA;
+    }
+
+    return NGX_OK;
 }
 
 
@@ -785,128 +724,15 @@ ngx_live_persist_snap_create(ngx_live_channel_t *channel)
 }
 
 
-static ngx_int_t
-ngx_live_persist_init_block_hash_keys(ngx_conf_t *cf,
-    ngx_live_persist_main_conf_t *pmcf)
-{
-    ngx_uint_t               i;
-    ngx_hash_keys_arrays_t  *keys;
-
-    for (i = 0; i < NGX_LIVE_PERSIST_CTX_COUNT; i++) {
-        if (ngx_array_init(&pmcf->blocks[i].arr, cf->pool, 5,
-            sizeof(ngx_live_persist_block_t)) != NGX_OK)
-        {
-            return NGX_ERROR;
-        }
-
-        keys = ngx_pcalloc(cf->temp_pool, sizeof(ngx_hash_keys_arrays_t));
-        if (keys == NULL) {
-            return NGX_ERROR;
-        }
-
-        keys->pool = cf->pool;
-        keys->temp_pool = cf->pool;
-
-        if (ngx_hash_keys_array_init(keys, NGX_HASH_SMALL) != NGX_OK) {
-            return NGX_ERROR;
-        }
-
-        pmcf->blocks[i].keys = keys;
-    }
-
-    return NGX_OK;
-}
-
 ngx_int_t
-ngx_ngx_live_persist_add_block(ngx_conf_t *cf, ngx_live_persist_block_t *block)
-{
-    ngx_int_t                      rc;
-    ngx_str_t                      id;
-    ngx_live_persist_block_t      *blk;
-    ngx_live_persist_main_conf_t  *pmcf;
-
-    if (block->ctx >= NGX_LIVE_PERSIST_CTX_COUNT) {
-        ngx_conf_log_error(NGX_LOG_ALERT, cf, 0,
-            "invalid block ctx %uD", block->ctx);
-        return NGX_ERROR;
-    }
-
-    pmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_persist_module);
-
-    blk = ngx_array_push(&pmcf->blocks[block->ctx].arr);
-    if (blk == NULL) {
-        return NGX_ERROR;
-    }
-
-    *blk = *block;
-
-    if (block->read == NULL) {
-        return NGX_OK;
-    }
-
-    id.data = (u_char *) &blk->id;
-    id.len = sizeof(blk->id);
-
-    rc = ngx_hash_add_key(pmcf->blocks[block->ctx].keys, &id, blk,
-        NGX_HASH_READONLY_KEY);
-
-    if (rc == NGX_ERROR) {
-        return NGX_ERROR;
-    }
-
-    if (rc == NGX_BUSY) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-            "conflicting block name \"%V\"", &id);
-        return NGX_ERROR;
-    }
-
-    return NGX_OK;
-}
-
-ngx_int_t
-ngx_ngx_live_persist_add_blocks(ngx_conf_t *cf,
+ngx_live_persist_add_blocks(ngx_conf_t *cf,
     ngx_live_persist_block_t *blocks)
 {
-    ngx_live_persist_block_t  *block;
-
-    for (block = blocks; block->id; block++) {
-        if (ngx_ngx_live_persist_add_block(cf, block) != NGX_OK) {
-            return NGX_ERROR;
-        }
-    }
-
-    return NGX_OK;
-}
-
-static ngx_int_t
-ngx_live_persist_init_block_hash(ngx_conf_t *cf)
-{
-    ngx_uint_t                     i;
-    ngx_hash_init_t                hash;
     ngx_live_persist_main_conf_t  *pmcf;
 
     pmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_persist_module);
 
-    hash.key = ngx_hash_key;
-    hash.max_size = 1024;
-    hash.bucket_size = 64;
-    hash.name = "blocks_hash";
-    hash.pool = cf->pool;
-    hash.temp_pool = NULL;
-
-    for (i = 0; i < NGX_LIVE_PERSIST_CTX_COUNT; i++) {
-        hash.hash = &pmcf->blocks[i].hash;
-
-        if (ngx_hash_init(&hash, pmcf->blocks[i].keys->keys.elts,
-            pmcf->blocks[i].keys->keys.nelts) != NGX_OK)
-        {
-            return NGX_ERROR;
-        }
-
-        pmcf->blocks[i].keys = NULL;
-    }
-
-    return NGX_OK;
+    return ngx_live_persist_conf_add_blocks(cf, pmcf->conf, blocks);
 }
 
 
@@ -952,7 +778,8 @@ ngx_live_persist_create_main_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    if (ngx_live_persist_init_block_hash_keys(cf, pmcf) != NGX_OK) {
+    pmcf->conf = ngx_live_persist_conf_create(cf, NGX_LIVE_PERSIST_CTX_COUNT);
+    if (pmcf->conf == NULL) {
         return NULL;
     }
 
@@ -1059,6 +886,8 @@ static ngx_live_json_writer_def_t  ngx_live_persist_json_writers[] = {
 static ngx_int_t
 ngx_live_persist_postconfiguration(ngx_conf_t *cf)
 {
+    ngx_live_persist_main_conf_t  *pmcf;
+
     if (ngx_live_core_channel_events_add(cf,
         ngx_live_persist_channel_events) != NGX_OK)
     {
@@ -1071,7 +900,9 @@ ngx_live_persist_postconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    if (ngx_live_persist_init_block_hash(cf) != NGX_OK) {
+    pmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_persist_module);
+
+    if (ngx_live_persist_conf_init(cf, pmcf->conf) != NGX_OK) {
         return NGX_ERROR;
     }
 

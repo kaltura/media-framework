@@ -5,7 +5,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_live_kmp.h>
-#include "ngx_buf_chain.h"
+#include <ngx_buf_chain.h>
 #include "ngx_live.h"
 
 

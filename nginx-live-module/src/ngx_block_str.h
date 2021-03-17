@@ -4,9 +4,9 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
+#include <ngx_wstream.h>
+#include <ngx_mem_rstream.h>
 #include "ngx_block_pool.h"
-#include "ngx_mem_rstream.h"
-#include "ngx_wstream.h"
 
 
 #define ngx_block_str_free(str, pool, index)    \

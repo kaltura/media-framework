@@ -825,20 +825,111 @@ ngx_live_segment_info_read_index(ngx_live_persist_block_header_t *block,
     return NGX_OK;
 }
 
-/*
- * persist data:
- *   ngx_live_segment_info_elt_t  info[];
- */
-static ngx_live_persist_block_t  ngx_live_segment_info_block = {
-    NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_INDEX_TRACK, 0,
-    ngx_live_segment_info_write_index,
-    ngx_live_segment_info_read_index
+
+static ngx_int_t
+ngx_live_segment_info_write_serve(ngx_live_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_queue_t                        *q;
+    ngx_live_track_t                   *track;
+    ngx_live_segment_info_elt_t         elt;
+    ngx_live_segment_info_elt_t        *first, *last;
+    ngx_live_segment_info_node_t       *node;
+    ngx_live_persist_serve_scope_t     *scope;
+    ngx_live_segment_info_track_ctx_t  *ctx;
+
+    scope = ngx_live_persist_write_ctx(write_ctx);
+    if (!(scope->flags & NGX_LIVE_SERVE_SEGMENT_INFO)) {
+        return NGX_OK;
+    }
+
+    track = obj;
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_info_module);
+
+    if (ngx_live_persist_write_block_open(write_ctx,
+            NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK) != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    ngx_live_persist_write_block_set_header(write_ctx, 0);
+
+    /* TODO: save only the minimum according to the manifest timeline in scope,
+        and scope->segment_index (need to save one node before each period). */
+
+    q = ngx_queue_head(&ctx->queue);
+    if (q == ngx_queue_sentinel(&ctx->queue)) {
+        elt.index = 0;
+        elt.bitrate = ctx->initial_bitrate;
+
+        if (ngx_live_persist_write(write_ctx, &elt, sizeof(elt)) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+        goto done;
+    }
+
+    node = ngx_queue_data(q, ngx_live_segment_info_node_t, queue);
+    if (node->elts[0].index > 0) {
+        elt.index = 0;
+        elt.bitrate = ctx->initial_bitrate;
+
+        if (ngx_live_persist_write(write_ctx, &elt, sizeof(elt)) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
+
+    for ( ;; ) {
+        first = &node->elts[0];
+        last = &node->elts[node->nelts];
+
+        if (ngx_live_persist_write_append(write_ctx, first,
+            (u_char *) last - (u_char *) first) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_segment_info_write_serve: append failed");
+            return NGX_ERROR;
+        }
+
+        q = ngx_queue_next(q);
+        if (q == ngx_queue_sentinel(&ctx->queue)) {
+            break;
+        }
+
+        node = ngx_queue_data(q, ngx_live_segment_info_node_t, queue);
+    }
+
+done:
+
+    ngx_live_persist_write_block_close(write_ctx);
+
+    return NGX_OK;
+}
+
+
+static ngx_live_persist_block_t  ngx_live_segment_info_blocks[] = {
+    /*
+     * persist data:
+     *   ngx_live_segment_info_elt_t  info[];
+     */
+    { NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_INDEX_TRACK, 0,
+      ngx_live_segment_info_write_index,
+      ngx_live_segment_info_read_index },
+
+    /*
+     * persist data:
+     *   ngx_live_segment_info_elt_t  info[];
+     */
+    { NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SERVE_TRACK, 0,
+      ngx_live_segment_info_write_serve, NULL },
+
+    ngx_live_null_persist_block
 };
 
 static ngx_int_t
 ngx_live_segment_info_preconfiguration(ngx_conf_t *cf)
 {
-    if (ngx_ngx_live_persist_add_block(cf, &ngx_live_segment_info_block)
+    if (ngx_live_persist_add_blocks(cf, ngx_live_segment_info_blocks)
         != NGX_OK)
     {
         return NGX_ERROR;

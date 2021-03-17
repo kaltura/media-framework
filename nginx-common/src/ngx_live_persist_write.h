@@ -4,9 +4,9 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
+#include <ngx_wstream.h>
 #include "ngx_live_persist_format.h"
-#include "../ngx_buf_chain.h"
-#include "../ngx_wstream.h"
+#include "ngx_buf_chain.h"
 
 
 #define ngx_live_persist_write_stream(c)                                    \

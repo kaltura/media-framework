@@ -69,7 +69,7 @@ typedef struct {
 } ngx_live_manifest_timeline_t;
 
 
-typedef struct {
+struct ngx_live_timeline_s {
     ngx_str_node_t                     sn;
     ngx_queue_t                        queue;
     u_char                             id_buf[NGX_LIVE_TIMELINE_MAX_ID_LEN];
@@ -92,7 +92,7 @@ typedef struct {
     uint64_t                           duration;
     uint32_t                           segment_count;
     uint32_t                           period_count;
-} ngx_live_timeline_t;
+};
 
 
 void ngx_live_timeline_conf_default(ngx_live_timeline_conf_t *conf,

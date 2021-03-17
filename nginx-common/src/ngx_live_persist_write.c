@@ -1,6 +1,5 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include "ngx_live_persist_format.h"
 #include "ngx_live_persist_write.h"
 
 #include <zlib.h>
@@ -393,6 +392,7 @@ ngx_live_persist_write_get_size(ngx_live_persist_write_ctx_t *ctx)
 {
     return ctx->size;
 }
+
 
 void
 ngx_live_persist_write_block_set_header(ngx_live_persist_write_ctx_t *ctx,

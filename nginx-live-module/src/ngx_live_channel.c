@@ -438,6 +438,8 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
     ngx_rbtree_insert(&channel->variants.rbtree, &variant->sn.node);
     ngx_queue_insert_tail(&channel->variants.queue, &variant->queue);
 
+    channel->variants.count++;
+
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
         "ngx_live_variant_create: created %p, variant: %V",
         variant, &variant->sn.str);
@@ -456,6 +458,8 @@ ngx_live_variant_free(ngx_live_variant_t *variant)
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
         "ngx_live_variant_free: freeing %p", variant);
+
+    channel->variants.count--;
 
     ngx_live_channel_block_str_free(channel, &variant->opaque);
 

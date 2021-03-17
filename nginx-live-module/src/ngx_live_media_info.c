@@ -2000,6 +2000,71 @@ ngx_live_media_info_write_media_segment(
 }
 
 
+static ngx_int_t
+ngx_live_media_info_write_serve_queue(ngx_live_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_live_track_t                *track;
+    ngx_live_persist_serve_scope_t  *scope;
+
+    scope = ngx_live_persist_write_ctx(write_ctx);
+    if (!(scope->flags & NGX_LIVE_SERVE_MEDIA_INFO)) {
+        return NGX_OK;
+    }
+
+    track = obj;
+
+    if (ngx_live_persist_write_block_open(write_ctx,
+            NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_QUEUE) != NGX_OK ||
+        ngx_live_persist_write_blocks(track->channel, write_ctx,
+            NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO, track) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_media_info_write_serve_queue: write failed");
+        return NGX_ERROR;
+    }
+
+    ngx_live_persist_write_block_close(write_ctx);
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_media_info_write_serve(ngx_live_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_queue_t                      *q;
+    ngx_live_track_t                 *track = obj;
+    ngx_live_media_info_node_t       *node;
+    ngx_live_media_info_persist_t     mp;
+    ngx_live_media_info_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
+
+    /* TODO: save only the minimum according to the manifest timeline in scope,
+        and scope->segment_index (need to save one node before each period). */
+
+    for (q = ngx_queue_head(&ctx->active);
+        q != ngx_queue_sentinel(&ctx->active);
+        q = ngx_queue_next(q))
+    {
+        node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+
+        mp.track_id = node->track_id;
+        mp.start_segment_index = node->node.key;
+
+        if (ngx_live_media_info_write(write_ctx, &mp, &node->kmp_media_info,
+            &node->media_info.extra_data) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_media_info_write_index: write failed");
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
 
 static ngx_live_persist_block_t  ngx_live_media_info_blocks[] = {
     /*
@@ -2041,9 +2106,21 @@ static ngx_live_persist_block_t  ngx_live_media_info_blocks[] = {
      *   kmp_media_info_t               kmp;
      */
     { NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO,
-      NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER, 0,
-      ngx_live_media_info_write_media_segment,
-      NULL },
+      NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, 0,
+      ngx_live_media_info_write_media_segment, NULL },
+
+    { NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_QUEUE,
+      NGX_LIVE_PERSIST_CTX_SERVE_TRACK, 0,
+      ngx_live_media_info_write_serve_queue, NULL },
+
+    /*
+     * persist header:
+     *   ngx_live_media_info_persist_t  p;
+     *   kmp_media_info_t               kmp;
+     */
+    { NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO,
+      NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO, 0,
+      ngx_live_media_info_write_serve, NULL },
 
     ngx_live_null_persist_block
 };
@@ -2052,7 +2129,7 @@ static ngx_live_persist_block_t  ngx_live_media_info_blocks[] = {
 static ngx_int_t
 ngx_live_media_info_preconfiguration(ngx_conf_t *cf)
 {
-    if (ngx_ngx_live_persist_add_blocks(cf, ngx_live_media_info_blocks)
+    if (ngx_live_persist_add_blocks(cf, ngx_live_media_info_blocks)
         != NGX_OK)
     {
         return NGX_ERROR;

@@ -165,19 +165,17 @@ def print_fields(key, data, start, end, label_len):
         start += 12
 
     output = []
-    parse_fields(spec[key], data, start, end, 'struct', '', {}, output)
+    end = parse_fields(spec[key], data, start, end, 'struct', '', {}, output)
 
     fmt = ''
     for i in range(2):
         fmt += '{:<%s}' % (max([len(str(x[i])) for x in output]) + 2)
     fmt += '{}'
 
-    print()
-    print('%s:' % key)
     for type, name, value in output:
-        print(' ' * (label_len - 1), fmt.format(type, name, value))
-    print()
+        print(' ' * label_len + fmt.format(type, name, value))
 
+    return end
 
 def print_data(key, data, start, end, pos_format, label, next_label,
     label_len):
@@ -186,8 +184,16 @@ def print_data(key, data, start, end, pos_format, label, next_label,
     print_hex(data, start, end, pos_format, label, next_label, label_len)
 
     if key in spec:
-        print_fields(key, data, start, end, label_len)
+        indent = ' ' * (len(next_label) - 2)
+        print('')
+        print(indent + '%s:' % key)
+        parse_end = print_fields(key, data, start, end, label_len)
+        print('')
 
+        if parse_end < end:
+            print_hex(data, parse_end, end, pos_format, indent + 'unparsed:',
+                '', label_len)
+            print('')
 
 def print_blocks(data, start, end, pos_format, indent):
     global file_type

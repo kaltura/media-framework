@@ -18,7 +18,7 @@
 
 #define NGX_HTTP_LIVE_REQUEST_EXPIRING              (0x1)
 
-#define NGX_HTTP_LIVE_MAX_VARIANT_IDS (8)
+#define NGX_HTTP_LIVE_MAX_VARIANT_IDS  (8)
 
 
 #define ngx_http_live_match_file_name(start_pos, end_pos, prefix, postfix)  \

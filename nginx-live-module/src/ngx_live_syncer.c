@@ -707,7 +707,7 @@ static ngx_live_persist_block_t  ngx_live_syncer_blocks[] = {
 static ngx_int_t
 ngx_live_syncer_preconfiguration(ngx_conf_t *cf)
 {
-    if (ngx_ngx_live_persist_add_blocks(cf, ngx_live_syncer_blocks)
+    if (ngx_live_persist_add_blocks(cf, ngx_live_syncer_blocks)
         != NGX_OK)
     {
         return NGX_ERROR;

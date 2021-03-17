@@ -7,10 +7,10 @@
 #include <ngx_event.h>
 #include <ngx_live_kmp.h>
 #include <ngx_buf_queue.h>
+#include <ngx_buf_chain.h>
 #include "media/media_format.h"
 #include "ngx_live_config.h"
 #include "ngx_block_pool.h"
-#include "ngx_buf_chain.h"
 #include "ngx_block_str.h"
 
 
@@ -46,8 +46,6 @@
         (ch)->bp_idx[NGX_LIVE_CORE_BP_BUF_CHAIN], (head), (tail))
 
 
-typedef struct ngx_live_track_s  ngx_live_track_t;
-
 typedef void (*ngx_live_track_ack_frames_pt)(ngx_live_track_t *track,
     uint64_t next_frame_id);
 
@@ -58,6 +56,7 @@ typedef void (*ngx_live_track_disconnect_pt)(ngx_live_track_t *track,
 typedef struct {
     ngx_rbtree_t                   rbtree;
     ngx_rbtree_node_t              sentinel;
+    uint32_t                       count;
     ngx_queue_t                    queue;
 } ngx_live_channel_variants_t;
 
@@ -152,6 +151,7 @@ struct ngx_live_track_s {
         has_last_segment = 0 while last_segment_bitrate != 0 */
     uint32_t                       last_segment_bitrate;
     unsigned                       has_last_segment:1;
+    unsigned                       output:1;    /* temporary during serve */
 };
 
 

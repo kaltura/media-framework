@@ -396,15 +396,43 @@ ngx_live_dynamic_var_read_setup(ngx_live_persist_block_header_t *block,
     return NGX_OK;
 }
 
-/*
- * persist data:
- *   ngx_str_t  key;
- *   ngx_str_t  value;
- */
-static ngx_live_persist_block_t  ngx_live_dynamic_var_block = {
-    NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, 0,
-    ngx_live_dynamic_var_write_setup,
-    ngx_live_dynamic_var_read_setup,
+
+static ngx_int_t
+ngx_live_dynamic_var_serve_write(ngx_live_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_live_persist_serve_scope_t  *scope;
+
+    scope = ngx_live_persist_write_ctx(write_ctx);
+    if (!(scope->flags & NGX_LIVE_SERVE_DYNAMIC_VAR)) {
+        return NGX_OK;
+    }
+
+    return ngx_live_dynamic_var_write_setup(write_ctx, obj);
+}
+
+
+static ngx_live_persist_block_t  ngx_live_dynamic_var_blocks[] = {
+    /*
+     * persist data:
+     *   ngx_str_t  key;
+     *   ngx_str_t  value;
+     */
+    { NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL,
+      0,
+      ngx_live_dynamic_var_write_setup,
+      ngx_live_dynamic_var_read_setup },
+
+    /*
+     * persist data:
+     *   ngx_str_t  key;
+     *   ngx_str_t  value;
+     */
+    { NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL,
+      0,
+      ngx_live_dynamic_var_serve_write, NULL },
+
+    ngx_live_null_persist_block
 };
 
 
@@ -415,7 +443,7 @@ ngx_live_dynamic_var_preconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    if (ngx_ngx_live_persist_add_block(cf, &ngx_live_dynamic_var_block)
+    if (ngx_live_persist_add_blocks(cf, ngx_live_dynamic_var_blocks)
         != NGX_OK)
     {
         return NGX_ERROR;

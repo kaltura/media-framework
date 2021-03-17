@@ -2095,10 +2095,12 @@ ngx_live_filler_read_setup(ngx_live_persist_block_header_t *block,
 }
 
 
-static ngx_live_persist_block_t  ngx_live_filler_block = {
-    NGX_LIVE_FILLER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, 0,
-    ngx_live_filler_write_setup,
-    ngx_live_filler_read_setup,
+static ngx_live_persist_block_t  ngx_live_filler_blocks[] = {
+    { NGX_LIVE_FILLER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, 0,
+      ngx_live_filler_write_setup,
+      ngx_live_filler_read_setup },
+
+    ngx_live_null_persist_block
 };
 
 
@@ -2156,7 +2158,7 @@ ngx_live_filler_preconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    if (ngx_ngx_live_persist_add_block(cf, &ngx_live_filler_block) != NGX_OK) {
+    if (ngx_live_persist_add_blocks(cf, ngx_live_filler_blocks) != NGX_OK) {
         return NGX_ERROR;
     }
 

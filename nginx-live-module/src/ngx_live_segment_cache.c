@@ -26,6 +26,7 @@ typedef struct {
 } ngx_live_segment_cache_source_state_t;
 
 
+static ngx_int_t ngx_live_segment_cache_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_segment_cache_postconfiguration(ngx_conf_t *cf);
 
 static char *ngx_live_segment_cache_merge_preset_conf(ngx_conf_t *cf,
@@ -33,7 +34,7 @@ static char *ngx_live_segment_cache_merge_preset_conf(ngx_conf_t *cf,
 
 
 static ngx_live_module_t  ngx_live_segment_cache_module_ctx = {
-    NULL,                                     /* preconfiguration */
+    ngx_live_segment_cache_preconfiguration,  /* preconfiguration */
     ngx_live_segment_cache_postconfiguration, /* postconfiguration */
 
     NULL,                                     /* create main configuration */
@@ -62,6 +63,9 @@ ngx_module_t  ngx_live_segment_cache_module = {
 
 static ngx_live_read_segment_pt  ngx_live_next_read;
 ngx_live_read_segment_pt         ngx_live_read_segment = NULL;
+
+static ngx_live_copy_segment_pt  ngx_live_next_copy;
+ngx_live_copy_segment_pt         ngx_live_copy_segment = NULL;
 
 static ngx_str_t  ngx_live_segment_cache_source_name = ngx_string("cache");
 
@@ -548,6 +552,175 @@ ngx_live_segment_cache_read(ngx_live_segment_read_req_t *req)
     return NGX_OK;
 }
 
+
+static ngx_int_t
+ngx_live_segment_cache_write_frame_list(
+    ngx_live_persist_write_ctx_t *write_data, void *obj)
+{
+    ngx_live_segment_t  *segment = obj;
+
+    if (ngx_live_persist_write_list_data(write_data, &segment->frames)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_segment_cache_write_frame_data(
+    ngx_live_persist_write_ctx_t *write_data, void *obj)
+{
+    ngx_live_segment_t  *segment = obj;
+
+    if (ngx_live_persist_write_append_buf_chain(write_data, segment->data_head)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_live_segment_cache_write(ngx_live_persist_write_ctx_t *write_ctx,
+    ngx_live_segment_t *segment, ngx_live_segment_cleanup_t *cln,
+    uint32_t *header_size)
+{
+    size_t                              start;
+    ngx_live_track_t                   *track;
+    ngx_live_channel_t                 *channel;
+    ngx_live_persist_segment_header_t   header;
+
+    track = segment->track;
+    channel = track->channel;
+
+    /* segment header */
+    start = ngx_live_persist_write_get_size(write_ctx);
+
+    header.frame_count = segment->frame_count;
+    header.start_dts = segment->start_dts;
+    header.reserved = 0;
+
+    if (ngx_live_persist_write_block_open(write_ctx,
+            NGX_LIVE_PERSIST_BLOCK_SEGMENT) != NGX_OK ||
+        ngx_live_persist_write(write_ctx, &header, sizeof(header)) != NGX_OK ||
+        ngx_live_persist_write_blocks(channel, write_ctx,
+            NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, segment) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_segment_cache_write: write failed (1)");
+        return NGX_ERROR;
+    }
+
+    *header_size = ngx_live_persist_write_get_size(write_ctx) - start;
+
+    /* segment data */
+    if (ngx_live_persist_write_blocks(channel, write_ctx,
+            NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_DATA, segment) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_segment_cache_write: write failed (2)");
+        return NGX_ERROR;
+    }
+
+    ngx_live_persist_write_block_close(write_ctx);     /* segment */
+
+    /* lock the segment data */
+    if (ngx_live_segment_index_lock(cln, segment) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_segment_cache_write: lock segment failed");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_live_segment_cache_copy(ngx_live_segment_copy_req_t *req)
+{
+    uint32_t                     ignore;
+    uint32_t                     segment_index;
+    ngx_flag_t                   found;
+    ngx_pool_t                  *pool;
+    ngx_live_segment_t          *segment;
+    ngx_live_track_ref_t        *cur, *last;
+    ngx_live_segment_index_t    *index;
+    ngx_live_segment_cleanup_t  *cln;
+
+    pool = req->pool;
+    segment_index = req->segment_index;
+
+    index = ngx_live_segment_index_get(req->channel, segment_index);
+    if (index == NULL) {
+        if (ngx_live_next_copy != NULL) {
+            return ngx_live_next_copy(req);
+        }
+
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_segment_cache_copy: "
+            "segment %uD not found", segment_index);
+        return NGX_ABORT;
+    }
+
+    cln = ngx_live_segment_index_cleanup_add(pool, index, req->track_count);
+    if (cln == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_segment_cache_copy: cleanup add failed");
+        return NGX_ERROR;
+    }
+
+    cln->handler = req->cleanup;
+    cln->data = req->arg;
+
+    found = 0;
+
+    last = req->tracks + req->track_count;
+    for (cur = req->tracks; cur < last; cur++) {
+
+        if (cur->track == NULL) {
+            if (ngx_live_next_copy != NULL) {
+                return ngx_live_next_copy(req);
+            }
+
+            ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+                "ngx_live_segment_cache_copy: "
+                "segment %uD refers to a missing track id %uD",
+                segment_index, cur->id);
+            return NGX_ERROR;
+        }
+
+        segment = ngx_live_segment_cache_get(cur->track, segment_index);
+        if (segment == NULL) {
+            continue;
+        }
+
+        if (ngx_live_segment_cache_write(req->write_ctx, segment, cln, &ignore)
+            != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+                "ngx_live_segment_cache_copy: write segment failed");
+            return NGX_ERROR;
+        }
+
+        found = 1;
+    }
+
+    if (!found) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_segment_cache_copy: "
+            "segment %uD not found on any track", segment_index);
+        return NGX_ABORT;
+    }
+
+    return NGX_OK;
+}
+
+
 static size_t
 ngx_live_segment_cache_track_json_get_size(void *obj)
 {
@@ -651,6 +824,44 @@ ngx_live_segment_cache_track_channel_free(ngx_live_track_t *track, void *ectx)
 }
 
 
+static ngx_live_persist_block_t  ngx_live_segment_cache_blocks[] = {
+    /*
+     * persist data:
+     *   input_frame_t  frame[];
+     */
+    { NGX_LIVE_PERSIST_BLOCK_FRAME_LIST,
+      NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER,
+      NGX_LIVE_PERSIST_FLAG_SINGLE,
+      ngx_live_segment_cache_write_frame_list, NULL },
+
+    { NGX_LIVE_PERSIST_BLOCK_FRAME_DATA,
+      NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_DATA,
+      NGX_LIVE_PERSIST_FLAG_SINGLE,
+      ngx_live_segment_cache_write_frame_data, NULL },
+
+    /*
+     * persist header:
+     *   ngx_live_persist_segment_header_t  header;
+     */
+    { NGX_LIVE_PERSIST_BLOCK_SEGMENT, NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL, 0,
+      NULL, NULL },
+
+      ngx_live_null_persist_block
+};
+
+static ngx_int_t
+ngx_live_segment_cache_preconfiguration(ngx_conf_t *cf)
+{
+    if (ngx_live_persist_add_blocks(cf, ngx_live_segment_cache_blocks)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
 static ngx_live_track_event_t      ngx_live_segment_cache_track_events[] = {
     { ngx_live_segment_cache_track_init, NGX_LIVE_EVENT_TRACK_INIT },
     { ngx_live_segment_cache_track_free, NGX_LIVE_EVENT_TRACK_FREE },
@@ -684,6 +895,9 @@ ngx_live_segment_cache_postconfiguration(ngx_conf_t *cf)
 
     ngx_live_next_read = ngx_live_read_segment;
     ngx_live_read_segment = ngx_live_segment_cache_read;
+
+    ngx_live_next_copy = ngx_live_copy_segment;
+    ngx_live_copy_segment = ngx_live_segment_cache_copy;
 
     return NGX_OK;
 }

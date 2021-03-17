@@ -1,25 +1,37 @@
 ngx_addon_name=ngx_live_common
 
-LIVE_COMMON_CORE_SRCS="                       \
-    $ngx_addon_dir/src/ngx_buf_queue.c        \
-    $ngx_addon_dir/src/ngx_buf_queue_reader.c \
-    $ngx_addon_dir/src/ngx_http_call.c        \
-    $ngx_addon_dir/src/ngx_json_parser.c      \
-    $ngx_addon_dir/src/ngx_lba.c              \
+LIVE_COMMON_CORE_SRCS="                             \
+    $ngx_addon_dir/src/ngx_buf_chain.c              \
+    $ngx_addon_dir/src/ngx_buf_queue.c              \
+    $ngx_addon_dir/src/ngx_buf_queue_reader.c       \
+    $ngx_addon_dir/src/ngx_http_call.c              \
+    $ngx_addon_dir/src/ngx_json_parser.c            \
+    $ngx_addon_dir/src/ngx_lba.c                    \
+    $ngx_addon_dir/src/ngx_live_persist.c           \
+    $ngx_addon_dir/src/ngx_live_persist_read.c      \
+    $ngx_addon_dir/src/ngx_live_persist_write.c     \
+    $ngx_addon_dir/src/ngx_mem_rstream.c            \
     "
 
-LIVE_COMMON_HTTP_SRCS="                       \
-    $ngx_addon_dir/src/ngx_http_api.c         \
+LIVE_COMMON_HTTP_SRCS="                             \
+    $ngx_addon_dir/src/ngx_http_api.c               \
     "
 
-LIVE_COMMON_DEPS="                            \
-    $ngx_addon_dir/src/ngx_buf_queue.h        \
-    $ngx_addon_dir/src/ngx_buf_queue_reader.h \
-    $ngx_addon_dir/src/ngx_http_api.h         \
-    $ngx_addon_dir/src/ngx_http_call.h        \
-    $ngx_addon_dir/src/ngx_json_parser.h      \
-    $ngx_addon_dir/src/ngx_lba.h              \
-    $ngx_addon_dir/src/ngx_live_kmp.h         \
+LIVE_COMMON_DEPS="                                  \
+    $ngx_addon_dir/src/ngx_buf_chain.h              \
+    $ngx_addon_dir/src/ngx_buf_queue.h              \
+    $ngx_addon_dir/src/ngx_buf_queue_reader.h       \
+    $ngx_addon_dir/src/ngx_http_api.h               \
+    $ngx_addon_dir/src/ngx_http_call.h              \
+    $ngx_addon_dir/src/ngx_json_parser.h            \
+    $ngx_addon_dir/src/ngx_lba.h                    \
+    $ngx_addon_dir/src/ngx_live_kmp.h               \
+    $ngx_addon_dir/src/ngx_live_persist.h           \
+    $ngx_addon_dir/src/ngx_live_persist_read.h      \
+    $ngx_addon_dir/src/ngx_live_persist_write.h     \
+    $ngx_addon_dir/src/ngx_live_persist_format.h    \
+    $ngx_addon_dir/src/ngx_mem_rstream.h            \
+    $ngx_addon_dir/src/ngx_wstream.h                \
     "
 
 LIVE_COMMON_INCS="$ngx_addon_dir/src"

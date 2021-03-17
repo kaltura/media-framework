@@ -11,13 +11,13 @@
 
 typedef struct ngx_live_segment_index_s  ngx_live_segment_index_t;
 
-typedef struct {
+struct ngx_live_segment_cleanup_s {
     ngx_queue_t                    queue;
     ngx_live_segment_cleanup_pt    handler;
     void                          *data;
     ngx_live_input_bufs_lock_t   **locks;
     ngx_live_input_bufs_lock_t   **locks_end;
-} ngx_live_segment_cleanup_t;
+};
 
 
 ngx_int_t ngx_live_segment_index_create(ngx_live_channel_t *channel,

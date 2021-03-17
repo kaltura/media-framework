@@ -6,8 +6,8 @@
 #include <ngx_core.h>
 #include "ngx_live.h"
 #include <ngx_live_kmp.h>
+#include <ngx_buf_chain.h>
 #include "media/media_format.h"
-#include "ngx_buf_chain.h"
 
 
 typedef struct ngx_live_media_info_node_s  ngx_live_media_info_node_t;

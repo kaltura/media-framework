@@ -22,7 +22,7 @@ def parse_source(data):
                 block += cur_line + '\n'
                 continue
             if name is None:
-                name = cur_line[1:].lstrip().rstrip('\n;')
+                name = cur_line[1:].strip().rstrip(';')
             typedefs[name] = (block, state)
             state = STATE_INITIAL
             continue
@@ -69,7 +69,7 @@ def parse_source(data):
             name = cur_line.split()[1]
             block = ''
 
-        elif cur_line.endswith('/*'):
+        elif cur_line.strip().endswith('/*'):
             state = STATE_COMMENT
             block = ''
 
@@ -143,7 +143,7 @@ def print_fields(fields, indent='\t'):
 def print_block(file_type, block_id, type, fields):
     print('_'.join([file_type, block_id, type]))
     print_fields(fields)
-    print()
+    print('')
 
 def print_spec():
     global defines, specs
