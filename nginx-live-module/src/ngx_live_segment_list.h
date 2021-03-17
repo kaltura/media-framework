@@ -66,10 +66,10 @@ void ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
 
 
 ngx_int_t ngx_live_segment_list_write_periods(
-    ngx_live_persist_write_ctx_t *write_ctx, void *obj);
+    ngx_persist_write_ctx_t *write_ctx, void *obj);
 
 ngx_int_t ngx_live_segment_list_read_period(
-    ngx_live_persist_block_header_t *block, ngx_mem_rstream_t *rs, void *obj);
+    ngx_persist_block_header_t *block, ngx_mem_rstream_t *rs, void *obj);
 
 
 size_t ngx_live_segment_list_json_get_size(

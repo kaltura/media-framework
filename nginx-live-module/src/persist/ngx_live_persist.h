@@ -4,7 +4,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_live_persist.h>
+#include <ngx_persist.h>
 #include "ngx_live_store.h"
 
 
@@ -162,7 +162,7 @@ char *ngx_live_persist_set_store(ngx_conf_t *cf, ngx_live_store_t *store);
 
 
 ngx_int_t ngx_live_persist_add_blocks(ngx_conf_t *cf,
-    ngx_live_persist_block_t *blocks);
+    ngx_persist_block_t *blocks);
 
 
 ngx_int_t ngx_live_persist_read(ngx_live_channel_t *channel,
@@ -178,6 +178,6 @@ ngx_int_t ngx_live_persist_read_blocks(ngx_live_channel_t *channel,
     ngx_uint_t ctx, ngx_mem_rstream_t *rs, void *obj);
 
 ngx_int_t ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
-    ngx_live_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj);
+    ngx_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj);
 
 #endif /* _NGX_LIVE_PERSIST_H_INCLUDED_ */

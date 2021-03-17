@@ -16,24 +16,24 @@ typedef ngx_int_t (*ngx_http_live_ksmp_args_handler_pt)(void *data,
 
 
 typedef struct {
-    ngx_http_request_t            *r;
-    ngx_live_persist_write_ctx_t  *write_ctx;
+    ngx_http_request_t       *r;
+    ngx_persist_write_ctx_t  *write_ctx;
 } ngx_http_live_ksmp_ctx_t;
 
 
 typedef struct {
-    ngx_http_request_t            *r;
+    ngx_http_request_t       *r;
 
-    ngx_str_t                      channel_id;
-    ngx_str_t                      timeline_id;
-    ngx_str_t                      variant_ids;
-    uint32_t                       media_type_mask;
-    uint32_t                       segment_index;
-    uint32_t                       flags;
+    ngx_str_t                 channel_id;
+    ngx_str_t                 timeline_id;
+    ngx_str_t                 variant_ids;
+    uint32_t                  media_type_mask;
+    uint32_t                  segment_index;
+    uint32_t                  flags;
 
-    uint32_t                       err_code;
-    ngx_str_t                      err_msg;
-    u_char                         err_buf[NGX_MAX_ERROR_STR];  /* last */
+    uint32_t                  err_code;
+    ngx_str_t                 err_msg;
+    u_char                    err_buf[NGX_MAX_ERROR_STR];  /* last */
 } ngx_http_live_ksmp_params_t;
 
 
@@ -357,15 +357,15 @@ ngx_http_live_ksmp_parse(ngx_http_request_t *r,
 
 static ngx_int_t
 ngx_http_live_ksmp_output(ngx_http_request_t *r,
-    ngx_live_persist_write_ctx_t *write_ctx)
+    ngx_persist_write_ctx_t *write_ctx)
 {
     size_t        size;
     ngx_int_t     rc;
     ngx_chain_t  *cl;
 
-    ngx_live_persist_write_block_close(write_ctx);      /* channel/error */
+    ngx_persist_write_block_close(write_ctx);      /* channel/error */
 
-    cl = ngx_live_persist_write_close(write_ctx, &size);
+    cl = ngx_persist_write_close(write_ctx, &size);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_live_ksmp_output: close failed");
@@ -398,13 +398,13 @@ static ngx_int_t
 ngx_http_live_ksmp_output_error_str(ngx_http_request_t *r, uint32_t code,
     ngx_str_t *message)
 {
-    ngx_wstream_t                 *ws;
-    ngx_live_persist_write_ctx_t  *write_ctx;
+    ngx_wstream_t            *ws;
+    ngx_persist_write_ctx_t  *write_ctx;
 
     ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
         "ngx_http_live_ksmp_output_error_str: %V", message);
 
-    write_ctx = ngx_live_persist_write_init(r->pool,
+    write_ctx = ngx_persist_write_init(r->pool,
         NGX_LIVE_PERSIST_TYPE_SERVE, 0);
     if (write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
@@ -412,11 +412,11 @@ ngx_http_live_ksmp_output_error_str(ngx_http_request_t *r, uint32_t code,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    ws = ngx_live_persist_write_stream(write_ctx);
+    ws = ngx_persist_write_stream(write_ctx);
 
-    if (ngx_live_persist_write_block_open(write_ctx,
+    if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_PERSIST_BLOCK_ERROR) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &code, sizeof(code)) != NGX_OK ||
+        ngx_persist_write(write_ctx, &code, sizeof(code)) != NGX_OK ||
         ngx_wstream_str(ws, message) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
@@ -830,14 +830,14 @@ static ngx_int_t
 ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
     ngx_live_persist_serve_scope_t *scope)
 {
-    ngx_int_t                      rc;
-    ngx_int_t                      comp_level;
-    ngx_wstream_t                 *ws;
-    ngx_http_request_t            *r = params->r;
-    ngx_live_channel_t            *channel = scope->channel;
-    ngx_http_live_ksmp_ctx_t      *ctx;
-    ngx_live_segment_copy_req_t    req;
-    ngx_live_persist_write_ctx_t  *write_ctx;
+    ngx_int_t                     rc;
+    ngx_int_t                     comp_level;
+    ngx_wstream_t                *ws;
+    ngx_http_request_t           *r = params->r;
+    ngx_live_channel_t           *channel = scope->channel;
+    ngx_persist_write_ctx_t      *write_ctx;
+    ngx_http_live_ksmp_ctx_t     *ctx;
+    ngx_live_segment_copy_req_t   req;
 
     if (scope->flags & ~NGX_LIVE_SERVE_MEDIA) {
         comp_level = 6;     /* TODO: add loc conf param */
@@ -846,7 +846,7 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
         comp_level = 0;
     }
 
-    write_ctx = ngx_live_persist_write_init(r->pool,
+    write_ctx = ngx_persist_write_init(r->pool,
         NGX_LIVE_PERSIST_TYPE_SERVE, comp_level);
     if (write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
@@ -854,13 +854,13 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    ngx_live_persist_write_ctx(write_ctx) = scope;
+    ngx_persist_write_ctx(write_ctx) = scope;
 
-    ws = ngx_live_persist_write_stream(write_ctx);
+    ws = ngx_persist_write_stream(write_ctx);
 
     channel = scope->channel;
 
-    if (ngx_live_persist_write_block_open(write_ctx,
+    if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_PERSIST_BLOCK_CHANNEL) != NGX_OK ||
         ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
         ngx_live_persist_write_blocks(channel, write_ctx,

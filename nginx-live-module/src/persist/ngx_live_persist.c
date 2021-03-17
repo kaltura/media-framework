@@ -53,7 +53,7 @@ typedef struct {
 /* conf */
 
 struct ngx_live_persist_main_conf_s {
-    ngx_live_persist_conf_t           *conf;
+    ngx_persist_conf_t                *conf;
 };
 
 
@@ -188,13 +188,13 @@ static ngx_live_persist_file_t  ngx_live_persist_files[] = {
 
 ngx_int_t
 ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
-    ngx_live_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj)
+    ngx_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj)
 {
     ngx_live_persist_main_conf_t  *pmcf;
 
     pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
 
-    return ngx_live_persist_conf_write_blocks(pmcf->conf, &channel->log,
+    return ngx_persist_conf_write_blocks(pmcf->conf, &channel->log,
         write_ctx, block_ctx, obj);
 }
 
@@ -202,7 +202,7 @@ ngx_int_t
 ngx_live_persist_read_blocks_internal(ngx_live_persist_main_conf_t *pmcf,
     ngx_uint_t ctx, ngx_mem_rstream_t *rs, void *obj)
 {
-    return ngx_live_persist_conf_read_blocks(pmcf->conf, ctx, rs, obj);
+    return ngx_persist_conf_read_blocks(pmcf->conf, ctx, rs, obj);
 }
 
 ngx_int_t
@@ -280,9 +280,9 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
     size_t                              size;
     ngx_int_t                           rc;
     ngx_pool_t                         *pool;
+    ngx_persist_write_ctx_t            *write_ctx;
     ngx_live_persist_file_t            *file_spec;
     ngx_live_variables_ctx_t            vctx;
-    ngx_live_persist_write_ctx_t       *write_ctx;
     ngx_live_store_write_request_t      request;
     ngx_live_persist_preset_conf_t     *ppcf;
     ngx_live_persist_channel_ctx_t     *cctx;
@@ -323,7 +323,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
     }
 
     file_spec = &ngx_live_persist_files[file];
-    write_ctx = ngx_live_persist_write_init(pool, file_spec->type,
+    write_ctx = ngx_persist_write_init(pool, file_spec->type,
         file_spec->compress ? ppcf->comp_level : 0);
     if (write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
@@ -331,7 +331,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
         goto failed;
     }
 
-    ngx_live_persist_write_ctx(write_ctx) = data;
+    ngx_persist_write_ctx(write_ctx) = data;
 
     if (ngx_live_persist_write_blocks(channel, write_ctx, file_spec->ctx,
         channel) != NGX_OK)
@@ -341,7 +341,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
         goto failed;
     }
 
-    size = ngx_live_persist_write_get_size(write_ctx);
+    size = ngx_persist_write_get_size(write_ctx);
     if (ppcf->files[file].max_size && size > ppcf->files[file].max_size) {
         ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
             "ngx_live_persist_write_file: size %uz exceeds limit %uz",
@@ -349,7 +349,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
         goto failed;
     }
 
-    request.cl = ngx_live_persist_write_close(write_ctx, &size);
+    request.cl = ngx_persist_write_close(write_ctx, &size);
     if (request.cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_write_file: close failed");
@@ -409,12 +409,12 @@ ngx_live_persist_read_parse(ngx_live_channel_t *channel, ngx_str_t *buf,
     ngx_int_t                        rc;
     ngx_mem_rstream_t                rs;
     ngx_live_persist_file_t         *file_spec;
+    ngx_persist_file_header_t       *header;
     ngx_live_persist_preset_conf_t  *ppcf;
-    ngx_live_persist_file_header_t  *header;
 
     file_spec = &ngx_live_persist_files[file];
 
-    header = ngx_live_persist_read_file_header(buf, file_spec->type,
+    header = ngx_persist_read_file_header(buf, file_spec->type,
         &channel->log, scope, &rs);
     if (header == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
@@ -425,7 +425,7 @@ ngx_live_persist_read_parse(ngx_live_channel_t *channel, ngx_str_t *buf,
 
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
 
-    rc = ngx_live_persist_read_inflate(header, ppcf->files[file].max_size, &rs,
+    rc = ngx_persist_read_inflate(header, ppcf->files[file].max_size, &rs,
         &ptr);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
@@ -725,14 +725,13 @@ ngx_live_persist_snap_create(ngx_live_channel_t *channel)
 
 
 ngx_int_t
-ngx_live_persist_add_blocks(ngx_conf_t *cf,
-    ngx_live_persist_block_t *blocks)
+ngx_live_persist_add_blocks(ngx_conf_t *cf, ngx_persist_block_t *blocks)
 {
     ngx_live_persist_main_conf_t  *pmcf;
 
     pmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_persist_module);
 
-    return ngx_live_persist_conf_add_blocks(cf, pmcf->conf, blocks);
+    return ngx_persist_conf_add_blocks(cf, pmcf->conf, blocks);
 }
 
 
@@ -778,7 +777,7 @@ ngx_live_persist_create_main_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    pmcf->conf = ngx_live_persist_conf_create(cf, NGX_LIVE_PERSIST_CTX_COUNT);
+    pmcf->conf = ngx_persist_conf_create(cf, NGX_LIVE_PERSIST_CTX_COUNT);
     if (pmcf->conf == NULL) {
         return NULL;
     }
@@ -902,7 +901,7 @@ ngx_live_persist_postconfiguration(ngx_conf_t *cf)
 
     pmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_persist_module);
 
-    if (ngx_live_persist_conf_init(cf, pmcf->conf) != NGX_OK) {
+    if (ngx_persist_conf_init(cf, pmcf->conf) != NGX_OK) {
         return NGX_ERROR;
     }
 

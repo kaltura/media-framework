@@ -61,7 +61,7 @@ typedef struct {
     ngx_live_track_ref_t               *tracks;
     uint32_t                            track_count;
     uint32_t                            segment_index;
-    ngx_live_persist_write_ctx_t       *write_ctx;
+    ngx_persist_write_ctx_t            *write_ctx;
     ngx_live_copy_segment_callback_pt   callback;
     ngx_live_segment_cleanup_pt         cleanup;
     void                               *arg;
@@ -94,9 +94,9 @@ void ngx_live_segment_cache_finalize(ngx_live_segment_t *segment);
 ngx_live_segment_t *ngx_live_segment_cache_get(ngx_live_track_t *track,
     uint32_t segment_index);
 
-ngx_int_t ngx_live_segment_cache_write(
-    ngx_live_persist_write_ctx_t *write_ctx, ngx_live_segment_t *segment,
-    ngx_live_segment_cleanup_t *cln, uint32_t *header_size);
+ngx_int_t ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
+    ngx_live_segment_t *segment, ngx_live_segment_cleanup_t *cln,
+    uint32_t *header_size);
 
 void ngx_live_segment_cache_free_input_bufs(ngx_live_track_t *track);
 

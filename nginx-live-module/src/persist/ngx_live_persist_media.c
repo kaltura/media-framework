@@ -222,18 +222,18 @@ static ngx_int_t
 ngx_live_persist_media_read_parse_header(
     ngx_live_persist_media_read_ctx_t *ctx, ngx_str_t *buf)
 {
-    uint32_t                          i;
-    uint32_t                          found_tracks;
-    uint32_t                          channel_id_hash;
-    uint64_t                          offset;
-    ngx_log_t                        *log = ctx->pool->log;
-    ngx_str_t                         channel_id;
-    ngx_mem_rstream_t                 rs;
-    ngx_mem_rstream_t                 block_rs;
-    ngx_live_persist_media_entry_t   *entry;
-    ngx_live_persist_block_header_t  *block;
+    uint32_t                         i;
+    uint32_t                         found_tracks;
+    uint32_t                         channel_id_hash;
+    uint64_t                         offset;
+    ngx_log_t                       *log = ctx->pool->log;
+    ngx_str_t                        channel_id;
+    ngx_mem_rstream_t                rs;
+    ngx_mem_rstream_t                block_rs;
+    ngx_persist_block_header_t      *block;
+    ngx_live_persist_media_entry_t  *entry;
 
-    if (ngx_live_persist_read_file_header(buf, NGX_LIVE_PERSIST_TYPE_MEDIA,
+    if (ngx_persist_read_file_header(buf, NGX_LIVE_PERSIST_TYPE_MEDIA,
         log, NULL, &rs) == NULL)
     {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
@@ -242,7 +242,7 @@ ngx_live_persist_media_read_parse_header(
         return NGX_HTTP_BAD_GATEWAY;
     }
 
-    block = ngx_live_persist_read_block(&rs, &rs);
+    block = ngx_persist_read_block(&rs, &rs);
     if (block == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_persist_media_read_parse_header: read block failed (1)");
@@ -271,7 +271,7 @@ ngx_live_persist_media_read_parse_header(
         return NGX_HTTP_BAD_GATEWAY;
     }
 
-    if (ngx_live_persist_read_skip_block_header(&rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(&rs, block) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_persist_media_read_parse_header: skip header failed");
         return NGX_HTTP_BAD_GATEWAY;
@@ -283,7 +283,7 @@ ngx_live_persist_media_read_parse_header(
 
     while (!ngx_mem_rstream_eof(&rs)) {
 
-        block = ngx_live_persist_read_block(&rs, &block_rs);
+        block = ngx_persist_read_block(&rs, &block_rs);
         if (block == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_persist_media_read_parse_header: "
@@ -342,7 +342,7 @@ ngx_live_persist_media_read_parse_header(
 
 
 static ngx_int_t
-ngx_live_persist_media_read_frame_list(ngx_live_persist_block_header_t *header,
+ngx_live_persist_media_read_frame_list(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     media_segment_track_t  *track = obj;
@@ -353,7 +353,7 @@ ngx_live_persist_media_read_frame_list(ngx_live_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    if (ngx_live_persist_read_skip_block_header(rs, header) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_live_persist_media_read_frame_list: skip header failed");
         return NGX_BAD_DATA;
@@ -375,7 +375,7 @@ ngx_live_persist_media_read_frame_list(ngx_live_persist_block_header_t *header,
 
 
 static ngx_int_t
-ngx_live_persist_media_read_frame_data(ngx_live_persist_block_header_t *header,
+ngx_live_persist_media_read_frame_data(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_str_t                           data;
@@ -388,7 +388,7 @@ ngx_live_persist_media_read_frame_data(ngx_live_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    if (ngx_live_persist_read_skip_block_header(rs, header) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_live_persist_media_read_frame_data: skip header failed");
         return NGX_BAD_DATA;
@@ -415,7 +415,7 @@ ngx_live_persist_media_read_frame_data(ngx_live_persist_block_header_t *header,
 
 
 static ngx_int_t
-ngx_live_persist_media_read_segment(ngx_live_persist_block_header_t *block,
+ngx_live_persist_media_read_segment(ngx_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                           rc;
@@ -447,7 +447,7 @@ ngx_live_persist_media_read_segment(ngx_live_persist_block_header_t *block,
         return NGX_BAD_DATA;
     }
 
-    if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_live_persist_media_read_segment: skip header failed");
         return NGX_BAD_DATA;
@@ -768,7 +768,7 @@ typedef struct {
     ngx_live_channel_t                       *channel;
     uint32_t                                  channel_id_hash;
 
-    ngx_live_persist_write_ctx_t             *write_ctx;
+    ngx_persist_write_ctx_t                  *write_ctx;
     ngx_live_copy_segment_callback_pt         callback;
     void                                     *arg;
 
@@ -789,18 +789,18 @@ static ngx_int_t
 ngx_live_persist_media_copy_parse_header(
     ngx_live_persist_media_copy_ctx_t *ctx, ngx_str_t *buf)
 {
-    uint32_t                          i;
-    uint32_t                          found_tracks;
-    uint32_t                          channel_id_hash;
-    uint64_t                          offset;
-    ngx_log_t                        *log = ctx->pool->log;
-    ngx_str_t                         channel_id;
-    ngx_mem_rstream_t                 rs;
-    ngx_mem_rstream_t                 block_rs;
-    ngx_live_persist_media_entry_t   *entry;
-    ngx_live_persist_block_header_t  *block;
+    uint32_t                         i;
+    uint32_t                         found_tracks;
+    uint32_t                         channel_id_hash;
+    uint64_t                         offset;
+    ngx_log_t                       *log = ctx->pool->log;
+    ngx_str_t                        channel_id;
+    ngx_mem_rstream_t                rs;
+    ngx_mem_rstream_t                block_rs;
+    ngx_persist_block_header_t      *block;
+    ngx_live_persist_media_entry_t  *entry;
 
-    if (ngx_live_persist_read_file_header(buf, NGX_LIVE_PERSIST_TYPE_MEDIA,
+    if (ngx_persist_read_file_header(buf, NGX_LIVE_PERSIST_TYPE_MEDIA,
         log, NULL, &rs) == NULL)
     {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
@@ -809,7 +809,7 @@ ngx_live_persist_media_copy_parse_header(
         return NGX_HTTP_BAD_GATEWAY;
     }
 
-    block = ngx_live_persist_read_block(&rs, &rs);
+    block = ngx_persist_read_block(&rs, &rs);
     if (block == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_persist_media_copy_parse_header: read block failed (1)");
@@ -838,7 +838,7 @@ ngx_live_persist_media_copy_parse_header(
         return NGX_HTTP_BAD_GATEWAY;
     }
 
-    if (ngx_live_persist_read_skip_block_header(&rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(&rs, block) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_persist_media_copy_parse_header: skip header failed");
         return NGX_HTTP_BAD_GATEWAY;
@@ -850,7 +850,7 @@ ngx_live_persist_media_copy_parse_header(
 
     while (!ngx_mem_rstream_eof(&rs)) {
 
-        block = ngx_live_persist_read_block(&rs, &block_rs);
+        block = ngx_persist_read_block(&rs, &block_rs);
         if (block == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_persist_media_copy_parse_header: "
@@ -939,7 +939,7 @@ ngx_live_persist_media_copy_complete(void *arg, ngx_int_t rc,
 
     } else {
 
-        if (ngx_live_persist_write_append(ctx->write_ctx, buf.data, buf.len)
+        if (ngx_persist_write_append(ctx->write_ctx, buf.data, buf.len)
             != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
@@ -1148,23 +1148,23 @@ typedef struct {
 typedef struct {
     ngx_live_segment_cleanup_t      *cln;
     ngx_live_persist_media_scope_t   scope;
-    ngx_live_persist_write_ctx_t    *write_data;
+    ngx_persist_write_ctx_t         *write_data;
 } ngx_live_persist_media_write_ctx_t;
 
 
 static ngx_int_t
-ngx_live_persist_media_write_segment(ngx_live_persist_write_ctx_t *write_idx,
+ngx_live_persist_media_write_segment(ngx_persist_write_ctx_t *write_idx,
     ngx_live_segment_t *segment)
 {
     size_t                               start;
     uint32_t                             header_size;
+    ngx_persist_block_header_t           block;
     ngx_live_persist_media_entry_t       entry;
-    ngx_live_persist_block_header_t      block;
     ngx_live_persist_media_write_ctx_t  *ctx;
 
-    ctx = ngx_live_persist_write_ctx(write_idx);
+    ctx = ngx_persist_write_ctx(write_idx);
 
-    start = ngx_live_persist_write_get_size(ctx->write_data);
+    start = ngx_persist_write_get_size(ctx->write_data);
 
     if (ngx_live_segment_cache_write(ctx->write_data, segment, ctx->cln,
         &header_size) != NGX_OK)
@@ -1174,13 +1174,13 @@ ngx_live_persist_media_write_segment(ngx_live_persist_write_ctx_t *write_idx,
 
     /* add segment entry */
     block.id = NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY;
-    block.header_size = header_size | NGX_LIVE_PERSIST_HEADER_FLAG_INDEX;
+    block.header_size = header_size | NGX_PERSIST_HEADER_FLAG_INDEX;
 
     entry.track_id = segment->track->in.key;
     entry.segment_id = segment->node.key;
-    entry.size = ngx_live_persist_write_get_size(ctx->write_data) - start;
+    entry.size = ngx_persist_write_get_size(ctx->write_data) - start;
 
-    if (ngx_live_persist_write_block(write_idx, &block, &entry,
+    if (ngx_persist_write_block(write_idx, &block, &entry,
         sizeof(entry)) != NGX_OK)
     {
         return NGX_ERROR;
@@ -1190,7 +1190,7 @@ ngx_live_persist_media_write_segment(ngx_live_persist_write_ctx_t *write_idx,
 }
 
 static ngx_int_t
-ngx_live_persist_media_write_segments(ngx_live_persist_write_ctx_t *write_idx,
+ngx_live_persist_media_write_segments(ngx_persist_write_ctx_t *write_idx,
     void *obj)
 {
     uint32_t                             max_segments;
@@ -1203,7 +1203,7 @@ ngx_live_persist_media_write_segments(ngx_live_persist_write_ctx_t *write_idx,
     ngx_live_segment_index_t            *index;
     ngx_live_persist_media_write_ctx_t  *ctx;
 
-    ctx = ngx_live_persist_write_ctx(write_idx);
+    ctx = ngx_persist_write_ctx(write_idx);
 
     for (segment_index = ctx->scope.min_index;
         segment_index < ctx->scope.max_index;
@@ -1229,7 +1229,7 @@ ngx_live_persist_media_write_segments(ngx_live_persist_write_ctx_t *write_idx,
                     return NGX_ERROR;
                 }
 
-                pool = ngx_live_persist_write_pool(write_idx);
+                pool = ngx_persist_write_pool(write_idx);
                 max_segments = (ctx->scope.max_index - ctx->scope.min_index) *
                     channel->tracks.count;
 
@@ -1257,7 +1257,7 @@ ngx_live_persist_media_write_segments(ngx_live_persist_write_ctx_t *write_idx,
 }
 
 static ngx_int_t
-ngx_live_persist_media_write_bucket(ngx_live_persist_write_ctx_t *write_idx,
+ngx_live_persist_media_write_bucket(ngx_persist_write_ctx_t *write_idx,
     void *obj)
 {
     ngx_pool_t                          *pool;
@@ -1267,9 +1267,9 @@ ngx_live_persist_media_write_bucket(ngx_live_persist_write_ctx_t *write_idx,
 
     channel = obj;
 
-    ws = ngx_live_persist_write_stream(write_idx);
+    ws = ngx_persist_write_stream(write_idx);
 
-    if (ngx_live_persist_write_block_open(write_idx,
+    if (ngx_persist_write_block_open(write_idx,
             NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY_LIST) != NGX_OK ||
         ngx_wstream_str(ws, &channel->sn.str) != NGX_OK)
     {
@@ -1278,18 +1278,18 @@ ngx_live_persist_media_write_bucket(ngx_live_persist_write_ctx_t *write_idx,
         return NGX_ERROR;
     }
 
-    pool = ngx_live_persist_write_pool(write_idx);
+    pool = ngx_persist_write_pool(write_idx);
 
-    ctx = ngx_live_persist_write_ctx(write_idx);
+    ctx = ngx_persist_write_ctx(write_idx);
 
-    ctx->write_data = ngx_live_persist_write_init(pool, 0, 0);
+    ctx->write_data = ngx_persist_write_init(pool, 0, 0);
     if (ctx->write_data == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_media_write_bucket: write init failed");
         return NGX_ERROR;
     }
 
-    ngx_live_persist_write_ctx(ctx->write_data) = ctx;
+    ngx_persist_write_ctx(ctx->write_data) = ctx;
 
     if (ngx_live_persist_write_blocks(channel, write_idx,
         NGX_LIVE_PERSIST_CTX_MEDIA_BUCKET, channel) != NGX_OK)
@@ -1306,9 +1306,9 @@ ngx_live_persist_media_write_bucket(ngx_live_persist_write_ctx_t *write_idx,
         return NGX_ERROR;
     }
 
-    ngx_live_persist_write_block_close(write_idx);  /* segment entry list */
+    ngx_persist_write_block_close(write_idx);  /* segment entry list */
 
-    if (ngx_live_persist_write_chain(write_idx, ctx->write_data) != NGX_OK) {
+    if (ngx_persist_write_chain(write_idx, ctx->write_data) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_media_write_bucket: chain failed");
         return NGX_ERROR;
@@ -1836,7 +1836,7 @@ ngx_live_persist_media_merge_preset_conf(ngx_conf_t *cf, void *parent,
 }
 
 
-static ngx_live_persist_block_t  ngx_live_persist_media_blocks[] = {
+static ngx_persist_block_t  ngx_live_persist_media_blocks[] = {
     /*
      * persist header:
      *   ngx_str_t  channel_id;
@@ -1858,17 +1858,17 @@ static ngx_live_persist_block_t  ngx_live_persist_media_blocks[] = {
      */
     { NGX_LIVE_PERSIST_BLOCK_FRAME_LIST,
       NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER,
-      NGX_LIVE_PERSIST_FLAG_SINGLE,
+      NGX_PERSIST_FLAG_SINGLE,
       NULL,
       ngx_live_persist_media_read_frame_list },
 
     { NGX_LIVE_PERSIST_BLOCK_FRAME_DATA,
       NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_DATA,
-      NGX_LIVE_PERSIST_FLAG_SINGLE,
+      NGX_PERSIST_FLAG_SINGLE,
       NULL,
       ngx_live_persist_media_read_frame_data },
 
-      ngx_live_null_persist_block
+      ngx_null_persist_block
 };
 
 static ngx_int_t

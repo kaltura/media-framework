@@ -50,7 +50,7 @@ ngx_module_t  ngx_live_persist_serve_module = {
 
 
 static ngx_int_t
-ngx_live_persist_serve_write_variant(ngx_live_persist_write_ctx_t *write_ctx,
+ngx_live_persist_serve_write_variant(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     uint32_t                          *cur_id;
@@ -63,9 +63,9 @@ ngx_live_persist_serve_write_variant(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_persist_serve_scope_t    *scope;
     ngx_live_persist_serve_variant_t   v;
 
-    scope = ngx_live_persist_write_ctx(write_ctx);
+    scope = ngx_persist_write_ctx(write_ctx);
 
-    ws = ngx_live_persist_write_stream(write_ctx);
+    ws = ngx_persist_write_stream(write_ctx);
 
     for (i = 0; i < scope->variant_count; i++) {
 
@@ -85,13 +85,13 @@ ngx_live_persist_serve_write_variant(ngx_live_persist_write_ctx_t *write_ctx,
         v.is_default = cur_variant->conf.is_default;
         v.track_count = cur_id - track_ids;
 
-        if (ngx_live_persist_write_block_open(write_ctx,
+        if (ngx_persist_write_block_open(write_ctx,
                 NGX_LIVE_PERSIST_BLOCK_VARIANT) != NGX_OK ||
             ngx_wstream_str(ws, &cur_variant->sn.str) != NGX_OK ||
-            ngx_live_persist_write(write_ctx, &v, sizeof(v)) != NGX_OK ||
+            ngx_persist_write(write_ctx, &v, sizeof(v)) != NGX_OK ||
             ngx_wstream_str(ws, &cur_variant->conf.label) != NGX_OK ||
             ngx_wstream_str(ws, &cur_variant->conf.lang) != NGX_OK ||
-            ngx_live_persist_write(write_ctx, track_ids,
+            ngx_persist_write(write_ctx, track_ids,
                 (u_char *) cur_id - (u_char *) track_ids) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
@@ -100,7 +100,7 @@ ngx_live_persist_serve_write_variant(ngx_live_persist_write_ctx_t *write_ctx,
             return NGX_ERROR;
         }
 
-        ngx_live_persist_write_block_close(write_ctx);
+        ngx_persist_write_block_close(write_ctx);
     }
 
     return NGX_OK;
@@ -108,7 +108,7 @@ ngx_live_persist_serve_write_variant(ngx_live_persist_write_ctx_t *write_ctx,
 
 
 static ngx_int_t
-ngx_live_persist_serve_write_track(ngx_live_persist_write_ctx_t *write_ctx,
+ngx_live_persist_serve_write_track(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     ngx_uint_t                       i, j;
@@ -118,7 +118,7 @@ ngx_live_persist_serve_write_track(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_persist_serve_track_t   tp;
     ngx_live_persist_serve_scope_t  *scope;
 
-    scope = ngx_live_persist_write_ctx(write_ctx);
+    scope = ngx_persist_write_ctx(write_ctx);
 
     for (i = 0; i < scope->variant_count; i++) {
 
@@ -136,9 +136,9 @@ ngx_live_persist_serve_write_track(ngx_live_persist_write_ctx_t *write_ctx,
             tp.track_id = cur_track->in.key;
             tp.media_type = cur_track->media_type;
 
-            if (ngx_live_persist_write_block_open(write_ctx,
+            if (ngx_persist_write_block_open(write_ctx,
                     NGX_LIVE_PERSIST_BLOCK_TRACK) != NGX_OK ||
-                ngx_live_persist_write(write_ctx, &tp, sizeof(tp)) != NGX_OK ||
+                ngx_persist_write(write_ctx, &tp, sizeof(tp)) != NGX_OK ||
                 ngx_live_persist_write_blocks(channel, write_ctx,
                     NGX_LIVE_PERSIST_CTX_SERVE_TRACK, cur_track) != NGX_OK)
             {
@@ -147,7 +147,7 @@ ngx_live_persist_serve_write_track(ngx_live_persist_write_ctx_t *write_ctx,
                 return NGX_ERROR;
             }
 
-            ngx_live_persist_write_block_close(write_ctx);
+            ngx_persist_write_block_close(write_ctx);
         }
     }
 
@@ -157,13 +157,13 @@ ngx_live_persist_serve_write_track(ngx_live_persist_write_ctx_t *write_ctx,
 
 static ngx_int_t
 ngx_live_persist_serve_write_segment_index(
-    ngx_live_persist_write_ctx_t *write_ctx, void *obj)
+    ngx_persist_write_ctx_t *write_ctx, void *obj)
 {
     ngx_live_channel_t                *channel = obj;
     ngx_live_persist_serve_scope_t    *scope;
     ngx_live_persist_segment_index_t   si;
 
-    scope = ngx_live_persist_write_ctx(write_ctx);
+    scope = ngx_persist_write_ctx(write_ctx);
     if (scope->segment_index == NGX_LIVE_INVALID_SEGMENT_INDEX) {
         return NGX_OK;
     }
@@ -172,22 +172,22 @@ ngx_live_persist_serve_write_segment_index(
     si.reserved = 0;
     si.correction = scope->correction;
 
-    if (ngx_live_persist_write_block_open(write_ctx,
+    if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_PERSIST_BLOCK_SEGMENT_INDEX) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &si, sizeof(si)) != NGX_OK)
+        ngx_persist_write(write_ctx, &si, sizeof(si)) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_serve_write_segment_index: write failed");
         return NGX_ERROR;
     }
 
-    ngx_live_persist_write_block_close(write_ctx);
+    ngx_persist_write_block_close(write_ctx);
 
     return NGX_OK;
 }
 
 
-static ngx_live_persist_block_t  ngx_live_persist_serve_blocks[] = {
+static ngx_persist_block_t  ngx_live_persist_serve_blocks[] = {
     /*
      * persist header:
      *   ngx_str_t  id;
@@ -229,7 +229,7 @@ static ngx_live_persist_block_t  ngx_live_persist_serve_blocks[] = {
     { NGX_LIVE_PERSIST_BLOCK_ERROR, NGX_LIVE_PERSIST_CTX_SERVE_MAIN,
       0, NULL, NULL },
 
-      ngx_live_null_persist_block
+      ngx_null_persist_block
 };
 
 static ngx_int_t

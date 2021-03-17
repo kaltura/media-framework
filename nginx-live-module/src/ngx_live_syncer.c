@@ -509,7 +509,7 @@ ngx_live_syncer_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
 }
 
 static ngx_int_t
-ngx_live_syncer_write_index_track(ngx_live_persist_write_ctx_t *write_ctx,
+ngx_live_syncer_write_index_track(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     ngx_live_track_t                 *track = obj;
@@ -517,7 +517,7 @@ ngx_live_syncer_write_index_track(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_syncer_snap_channel_t   *cs;
     ngx_live_syncer_persist_track_t  *tp;
 
-    snap = ngx_live_persist_write_ctx(write_ctx);
+    snap = ngx_persist_write_ctx(write_ctx);
 
     cs = ngx_live_get_module_ctx(snap, ngx_live_syncer_module);
 
@@ -536,20 +536,20 @@ ngx_live_syncer_write_index_track(ngx_live_persist_write_ctx_t *write_ctx,
 
     tp = &cs->cur->tp;
 
-    if (ngx_live_persist_write_block_open(write_ctx,
+    if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_SYNCER_PERSIST_BLOCK_TRACK) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, tp, sizeof(*tp)) != NGX_OK)
+        ngx_persist_write(write_ctx, tp, sizeof(*tp)) != NGX_OK)
     {
         return NGX_ERROR;
     }
 
-    ngx_live_persist_write_block_close(write_ctx);
+    ngx_persist_write_block_close(write_ctx);
 
     return NGX_OK;
 }
 
 static ngx_int_t
-ngx_live_syncer_read_index_track(ngx_live_persist_block_header_t *block,
+ngx_live_syncer_read_index_track(ngx_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_track_t                 *track = obj;
@@ -584,18 +584,18 @@ ngx_live_syncer_read_index_track(ngx_live_persist_block_header_t *block,
 }
 
 static ngx_int_t
-ngx_live_syncer_write_index(ngx_live_persist_write_ctx_t *write_ctx,
+ngx_live_syncer_write_index(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     ngx_live_channel_t              *channel = obj;
     ngx_live_persist_snap_index_t   *snap;
     ngx_live_syncer_snap_channel_t  *cs;
 
-    snap = ngx_live_persist_write_ctx(write_ctx);
+    snap = ngx_persist_write_ctx(write_ctx);
 
     cs = ngx_live_get_module_ctx(snap, ngx_live_syncer_module);
 
-    if (ngx_live_persist_write(write_ctx, &cs->cp, sizeof(cs->cp)) != NGX_OK) {
+    if (ngx_persist_write(write_ctx, &cs->cp, sizeof(cs->cp)) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_syncer_write_index: write failed");
         return NGX_ERROR;
@@ -605,7 +605,7 @@ ngx_live_syncer_write_index(ngx_live_persist_write_ctx_t *write_ctx,
 }
 
 static ngx_int_t
-ngx_live_syncer_read_index(ngx_live_persist_block_header_t *block,
+ngx_live_syncer_read_index(ngx_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_channel_t                 *channel = obj;
@@ -683,13 +683,13 @@ ngx_live_syncer_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 }
 
 
-static ngx_live_persist_block_t  ngx_live_syncer_blocks[] = {
+static ngx_persist_block_t  ngx_live_syncer_blocks[] = {
     /*
      * persist data:
      *   ngx_live_syncer_persist_channel_t  p;
      */
     { NGX_LIVE_SYNCER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL,
-      NGX_LIVE_PERSIST_FLAG_SINGLE,
+      NGX_PERSIST_FLAG_SINGLE,
       ngx_live_syncer_write_index,
       ngx_live_syncer_read_index },
 
@@ -701,7 +701,7 @@ static ngx_live_persist_block_t  ngx_live_syncer_blocks[] = {
       ngx_live_syncer_write_index_track,
       ngx_live_syncer_read_index_track },
 
-    ngx_live_null_persist_block
+    ngx_null_persist_block
 };
 
 static ngx_int_t

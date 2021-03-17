@@ -1,9 +1,9 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include "ngx_live_persist.h"
+#include "ngx_persist.h"
 
 
-#define ngx_live_persist_block_id_key(id)                                   \
+#define ngx_persist_block_id_key(id)                                        \
     ngx_hash(ngx_hash(ngx_hash(                                             \
         ( (id)        & 0xff) ,                                             \
         (((id) >> 8)  & 0xff)),                                             \
@@ -12,25 +12,25 @@
 
 
 typedef struct {
-    ngx_hash_t                     hash;
-    ngx_array_t                    arr;
-    ngx_hash_keys_arrays_t        *keys;
-} ngx_live_persist_block_ctx_t;
+    ngx_hash_t                hash;
+    ngx_array_t               arr;
+    ngx_hash_keys_arrays_t   *keys;
+} ngx_persist_block_ctx_t;
 
-struct ngx_live_persist_conf_s {
-    ngx_uint_t                     ctx_count;
-    ngx_live_persist_block_ctx_t   blocks[1];        /* must be last */
+struct ngx_persist_conf_s {
+    ngx_uint_t                ctx_count;
+    ngx_persist_block_ctx_t   blocks[1];        /* must be last */
 };
 
 
-ngx_live_persist_conf_t *
-ngx_live_persist_conf_create(ngx_conf_t *cf, ngx_uint_t ctx_count)
+ngx_persist_conf_t *
+ngx_persist_conf_create(ngx_conf_t *cf, ngx_uint_t ctx_count)
 {
-    ngx_uint_t                i;
-    ngx_hash_keys_arrays_t   *keys;
-    ngx_live_persist_conf_t  *conf;
+    ngx_uint_t               i;
+    ngx_persist_conf_t      *conf;
+    ngx_hash_keys_arrays_t  *keys;
 
-    conf = ngx_palloc(cf->pool, offsetof(ngx_live_persist_conf_t, blocks) +
+    conf = ngx_palloc(cf->pool, offsetof(ngx_persist_conf_t, blocks) +
         sizeof(conf->blocks[0]) * ctx_count);
     if (conf == NULL) {
         return NULL;
@@ -40,7 +40,7 @@ ngx_live_persist_conf_create(ngx_conf_t *cf, ngx_uint_t ctx_count)
 
     for (i = 0; i < ctx_count; i++) {
         if (ngx_array_init(&conf->blocks[i].arr, cf->pool, 5,
-            sizeof(ngx_live_persist_block_t)) != NGX_OK)
+            sizeof(ngx_persist_block_t)) != NGX_OK)
         {
             return NULL;
         }
@@ -65,12 +65,12 @@ ngx_live_persist_conf_create(ngx_conf_t *cf, ngx_uint_t ctx_count)
 
 
 static ngx_int_t
-ngx_live_persist_conf_add_block(ngx_conf_t *cf, ngx_live_persist_conf_t *conf,
-    ngx_live_persist_block_t *block)
+ngx_persist_conf_add_block(ngx_conf_t *cf, ngx_persist_conf_t *conf,
+    ngx_persist_block_t *block)
 {
-    ngx_int_t                  rc;
-    ngx_str_t                  id;
-    ngx_live_persist_block_t  *blk;
+    ngx_int_t             rc;
+    ngx_str_t             id;
+    ngx_persist_block_t  *blk;
 
     if (block->ctx >= conf->ctx_count) {
         ngx_conf_log_error(NGX_LOG_ALERT, cf, 0,
@@ -112,13 +112,13 @@ ngx_live_persist_conf_add_block(ngx_conf_t *cf, ngx_live_persist_conf_t *conf,
 
 
 ngx_int_t
-ngx_live_persist_conf_add_blocks(ngx_conf_t *cf, ngx_live_persist_conf_t *conf,
-    ngx_live_persist_block_t *blocks)
+ngx_persist_conf_add_blocks(ngx_conf_t *cf, ngx_persist_conf_t *conf,
+    ngx_persist_block_t *blocks)
 {
-    ngx_live_persist_block_t  *block;
+    ngx_persist_block_t  *block;
 
     for (block = blocks; block->id; block++) {
-        if (ngx_live_persist_conf_add_block(cf, conf, block) != NGX_OK) {
+        if (ngx_persist_conf_add_block(cf, conf, block) != NGX_OK) {
             return NGX_ERROR;
         }
     }
@@ -128,7 +128,7 @@ ngx_live_persist_conf_add_blocks(ngx_conf_t *cf, ngx_live_persist_conf_t *conf,
 
 
 ngx_int_t
-ngx_live_persist_conf_init(ngx_conf_t *cf, ngx_live_persist_conf_t *conf)
+ngx_persist_conf_init(ngx_conf_t *cf, ngx_persist_conf_t *conf)
 {
     ngx_uint_t       i;
     ngx_hash_init_t  hash;
@@ -157,17 +157,16 @@ ngx_live_persist_conf_init(ngx_conf_t *cf, ngx_live_persist_conf_t *conf)
 
 
 ngx_int_t
-ngx_live_persist_conf_write_blocks(ngx_live_persist_conf_t *conf,
-    ngx_log_t *log, ngx_live_persist_write_ctx_t *write_ctx,
-    ngx_uint_t block_ctx, void *obj)
+ngx_persist_conf_write_blocks(ngx_persist_conf_t *conf, ngx_log_t *log,
+    ngx_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj)
 {
-    ngx_array_t               *arr;
-    ngx_live_persist_block_t  *cur;
-    ngx_live_persist_block_t  *last;
+    ngx_array_t          *arr;
+    ngx_persist_block_t  *cur;
+    ngx_persist_block_t  *last;
 
     /* set the header size explicitly in case there are no child blocks */
-    ngx_live_persist_write_block_set_header(write_ctx,
-        NGX_LIVE_PERSIST_HEADER_FLAG_CONTAINER);
+    ngx_persist_write_block_set_header(write_ctx,
+        NGX_PERSIST_HEADER_FLAG_CONTAINER);
 
     arr = &conf->blocks[block_ctx].arr;
     cur = arr->elts;
@@ -175,10 +174,10 @@ ngx_live_persist_conf_write_blocks(ngx_live_persist_conf_t *conf,
 
     for (; cur < last; cur++) {
 
-        if (!(cur->flags & NGX_LIVE_PERSIST_FLAG_SINGLE)) {
+        if (!(cur->flags & NGX_PERSIST_FLAG_SINGLE)) {
             if (cur->write(write_ctx, obj) != NGX_OK) {
                 ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                    "ngx_live_persist_conf_write_blocks: "
+                    "ngx_persist_conf_write_blocks: "
                     "write failed, id: %*s",
                     (size_t) sizeof(cur->id), &cur->id);
                 return NGX_ERROR;
@@ -186,21 +185,21 @@ ngx_live_persist_conf_write_blocks(ngx_live_persist_conf_t *conf,
             continue;
         }
 
-        if (ngx_live_persist_write_block_open(write_ctx, cur->id) != NGX_OK) {
+        if (ngx_persist_write_block_open(write_ctx, cur->id) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_persist_conf_write_blocks: open failed, id: %*s",
+                "ngx_persist_conf_write_blocks: open failed, id: %*s",
                 (size_t) sizeof(cur->id), &cur->id);
             return NGX_ERROR;
         }
 
         if (cur->write(write_ctx, obj) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_persist_conf_write_blocks: write failed, id: %*s",
+                "ngx_persist_conf_write_blocks: write failed, id: %*s",
                 (size_t) sizeof(cur->id), &cur->id);
             return NGX_ERROR;
         }
 
-        ngx_live_persist_write_block_close(write_ctx);
+        ngx_persist_write_block_close(write_ctx);
     }
 
     return NGX_OK;
@@ -208,26 +207,26 @@ ngx_live_persist_conf_write_blocks(ngx_live_persist_conf_t *conf,
 
 
 ngx_int_t
-ngx_live_persist_conf_read_blocks(ngx_live_persist_conf_t *conf,
-    ngx_uint_t ctx, ngx_mem_rstream_t *rs, void *obj)
+ngx_persist_conf_read_blocks(ngx_persist_conf_t *conf, ngx_uint_t ctx,
+    ngx_mem_rstream_t *rs, void *obj)
 {
-    ngx_hash_t                       *hash;
-    ngx_int_t                         rc;
-    ngx_uint_t                        key;
-    ngx_mem_rstream_t                 block_rs;
-    ngx_live_persist_block_t         *block;
-    ngx_live_persist_block_header_t  *header;
+    ngx_hash_t                  *hash;
+    ngx_int_t                    rc;
+    ngx_uint_t                   key;
+    ngx_mem_rstream_t            block_rs;
+    ngx_persist_block_t         *block;
+    ngx_persist_block_header_t  *header;
 
     hash = &conf->blocks[ctx].hash;
 
     while (!ngx_mem_rstream_eof(rs)) {
 
-        header = ngx_live_persist_read_block(rs, &block_rs);
+        header = ngx_persist_read_block(rs, &block_rs);
         if (header == NULL) {
             return NGX_BAD_DATA;
         }
 
-        key = ngx_live_persist_block_id_key(header->id);
+        key = ngx_persist_block_id_key(header->id);
         block = ngx_hash_find(hash, key, (u_char *) &header->id,
             sizeof(header->id));
         if (block == NULL) {
@@ -237,7 +236,7 @@ ngx_live_persist_conf_read_blocks(ngx_live_persist_conf_t *conf,
         rc = block->read(header, &block_rs, obj);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_persist_conf_read_blocks: "
+                "ngx_persist_conf_read_blocks: "
                 "read failed, ctx: %ui, id: %*s",
                 ctx, (size_t) sizeof(header->id), &header->id);
             return rc;

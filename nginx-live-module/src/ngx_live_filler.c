@@ -1384,7 +1384,7 @@ ngx_live_filler_track_channel_free(ngx_live_track_t *track, void *ectx)
 
 
 static ngx_int_t
-ngx_live_filler_write_setup_segment(ngx_live_persist_write_ctx_t *write_ctx,
+ngx_live_filler_write_setup_segment(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_track_t *track, ngx_live_filler_segment_t *segment,
     int64_t timeline_pts)
 {
@@ -1397,9 +1397,9 @@ ngx_live_filler_write_setup_segment(ngx_live_persist_write_ctx_t *write_ctx,
     sp.start_dts = timeline_pts - segment->pts_delay;
     sp.reserved = 0;
 
-    if (ngx_live_persist_write_block_open(write_ctx,
+    if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_PERSIST_BLOCK_SEGMENT) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &sp, sizeof(sp)) != NGX_OK)
+        ngx_persist_write(write_ctx, &sp, sizeof(sp)) != NGX_OK)
     {
         return NGX_ERROR;
     }
@@ -1425,33 +1425,33 @@ ngx_live_filler_write_setup_segment(ngx_live_persist_write_ctx_t *write_ctx,
         }
     }
 
-    if (ngx_live_persist_write_block_open(write_ctx,
+    if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_PERSIST_BLOCK_FRAME_LIST) != NGX_OK ||
-        ngx_live_persist_write_list_data(write_ctx, &segment->frames)
+        ngx_persist_write_list_data(write_ctx, &segment->frames)
             != NGX_OK)
     {
         return NGX_ERROR;
     }
 
-    ngx_live_persist_write_block_close(write_ctx);      /* frame list */
+    ngx_persist_write_block_close(write_ctx);      /* frame list */
 
-    if (ngx_live_persist_write_block_open(write_ctx,
+    if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_PERSIST_BLOCK_FRAME_DATA) != NGX_OK ||
-        ngx_live_persist_write_append_buf_chain_n(write_ctx,
+        ngx_persist_write_append_buf_chain_n(write_ctx,
             segment->data_head, segment->data_size) != NGX_OK)
     {
         return NGX_ERROR;
     }
 
-    ngx_live_persist_write_block_close(write_ctx);      /* frame data */
+    ngx_persist_write_block_close(write_ctx);      /* frame data */
 
-    ngx_live_persist_write_block_close(write_ctx);      /* segment data */
+    ngx_persist_write_block_close(write_ctx);      /* segment data */
 
     return NGX_OK;
 }
 
 static ngx_int_t
-ngx_live_filler_write_setup_track(ngx_live_persist_write_ctx_t *write_ctx,
+ngx_live_filler_write_setup_track(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_filler_track_ctx_t *ctx, ngx_live_filler_channel_ctx_t *cctx)
 {
     int64_t            timeline_pts;
@@ -1460,15 +1460,15 @@ ngx_live_filler_write_setup_track(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_wstream_t     *ws;
     ngx_live_track_t  *track;
 
-    ws = ngx_live_persist_write_stream(write_ctx);
+    ws = ngx_persist_write_stream(write_ctx);
 
     track = ctx->track;
     media_type = track->media_type;
 
-    if (ngx_live_persist_write_block_open(write_ctx,
+    if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_FILLER_PERSIST_BLOCK_TRACK) != NGX_OK ||
         ngx_wstream_str(ws, &track->sn.str) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &media_type, sizeof(media_type))
+        ngx_persist_write(write_ctx, &media_type, sizeof(media_type))
             != NGX_OK)
     {
         return NGX_ERROR;
@@ -1486,13 +1486,13 @@ ngx_live_filler_write_setup_track(ngx_live_persist_write_ctx_t *write_ctx,
         timeline_pts += cctx->durations[i];
     }
 
-    ngx_live_persist_write_block_close(write_ctx);
+    ngx_persist_write_block_close(write_ctx);
 
     return NGX_OK;
 }
 
 static ngx_int_t
-ngx_live_filler_write_setup(ngx_live_persist_write_ctx_t *write_ctx,
+ngx_live_filler_write_setup(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     ngx_queue_t                    *q;
@@ -1507,16 +1507,16 @@ ngx_live_filler_write_setup(ngx_live_persist_write_ctx_t *write_ctx,
         return NGX_OK;
     }
 
-    ws = ngx_live_persist_write_stream(write_ctx);
+    ws = ngx_persist_write_stream(write_ctx);
 
-    if (ngx_live_persist_write_block_open(write_ctx,
+    if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_FILLER_PERSIST_BLOCK) != NGX_OK ||
         ngx_wstream_str(ws, &cctx->channel_id) != NGX_OK ||
         ngx_wstream_str(ws, &cctx->timeline_id) != NGX_OK ||
         ngx_wstream_str(ws, &cctx->preset_name) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &cctx->count, sizeof(cctx->count))
+        ngx_persist_write(write_ctx, &cctx->count, sizeof(cctx->count))
             != NGX_OK ||
-        ngx_live_persist_write(write_ctx, cctx->durations,
+        ngx_persist_write(write_ctx, cctx->durations,
             cctx->count * sizeof(cctx->durations[0])) != NGX_OK)
     {
         return NGX_ERROR;
@@ -1535,7 +1535,7 @@ ngx_live_filler_write_setup(ngx_live_persist_write_ctx_t *write_ctx,
         }
     }
 
-    ngx_live_persist_write_block_close(write_ctx);
+    ngx_persist_write_block_close(write_ctx);
 
     return NGX_OK;
 }
@@ -1573,7 +1573,7 @@ ngx_live_filler_get_frames_info(ngx_live_segment_t *segment, size_t *size,
 }
 
 static ngx_int_t
-ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
+ngx_live_filler_read_segment_block(ngx_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, ngx_live_segment_t *segment,
     ngx_live_persist_segment_header_t *sp)
 {
@@ -1595,7 +1595,7 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
             return NGX_BAD_DATA;
         }
 
-        if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
+        if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
             return NGX_BAD_DATA;
         }
 
@@ -1626,7 +1626,7 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
             return NGX_BAD_DATA;
         }
 
-        if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
+        if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
             return NGX_BAD_DATA;
         }
 
@@ -1648,7 +1648,7 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
             return NGX_BAD_DATA;
         }
 
-        if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
+        if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
             return NGX_BAD_DATA;
         }
 
@@ -1679,7 +1679,7 @@ ngx_live_filler_read_segment_block(ngx_live_persist_block_header_t *block,
 
 static ngx_int_t
 ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
-    ngx_live_persist_block_header_t *block, ngx_mem_rstream_t *rs,
+    ngx_persist_block_header_t *block, ngx_mem_rstream_t *rs,
     int64_t timeline_pts)
 {
     size_t                              size;
@@ -1706,7 +1706,7 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
         return NGX_BAD_DATA;
     }
 
-    if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 
@@ -1720,7 +1720,7 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
 
     while (!ngx_mem_rstream_eof(rs)) {
 
-        block = ngx_live_persist_read_block(rs, &block_rs);
+        block = ngx_persist_read_block(rs, &block_rs);
         if (block == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
                 "ngx_live_filler_read_segment: read block failed");
@@ -1778,18 +1778,18 @@ static ngx_int_t
 ngx_live_filler_read_segments(ngx_live_track_t *track, ngx_mem_rstream_t *rs,
     ngx_live_filler_read_setup_ctx_t *read_ctx)
 {
-    int64_t                           timeline_pts;
-    uint32_t                          segment_index;
-    ngx_int_t                         rc;
-    ngx_mem_rstream_t                 block_rs;
-    ngx_live_persist_block_header_t  *block;
+    int64_t                      timeline_pts;
+    uint32_t                     segment_index;
+    ngx_int_t                    rc;
+    ngx_mem_rstream_t            block_rs;
+    ngx_persist_block_header_t  *block;
 
     segment_index = 0;
     timeline_pts = 0;
 
     while (!ngx_mem_rstream_eof(rs)) {
 
-        block = ngx_live_persist_read_block(rs, &block_rs);
+        block = ngx_persist_read_block(rs, &block_rs);
         if (block == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
                 "ngx_live_filler_read_segments: read block failed");
@@ -1832,16 +1832,16 @@ static ngx_int_t
 ngx_live_filler_read_tracks(ngx_live_channel_t *channel, ngx_mem_rstream_t *rs,
     ngx_live_filler_read_setup_ctx_t *read_ctx)
 {
-    uint32_t                          media_type;
-    ngx_int_t                         rc;
-    ngx_str_t                         track_id;
-    ngx_live_track_t                 *cur_track;
-    ngx_mem_rstream_t                 block_rs;
-    ngx_live_persist_block_header_t  *block;
+    uint32_t                     media_type;
+    ngx_int_t                    rc;
+    ngx_str_t                    track_id;
+    ngx_live_track_t            *cur_track;
+    ngx_mem_rstream_t            block_rs;
+    ngx_persist_block_header_t  *block;
 
     while (!ngx_mem_rstream_eof(rs)) {
 
-        block = ngx_live_persist_read_block(rs, &block_rs);
+        block = ngx_persist_read_block(rs, &block_rs);
         if (block == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
                 "ngx_live_filler_read_tracks: read block failed");
@@ -1861,7 +1861,7 @@ ngx_live_filler_read_tracks(ngx_live_channel_t *channel, ngx_mem_rstream_t *rs,
             return NGX_BAD_DATA;
         }
 
-        if (ngx_live_persist_read_skip_block_header(&block_rs, block)
+        if (ngx_persist_read_skip_block_header(&block_rs, block)
             != NGX_OK)
         {
             return NGX_BAD_DATA;
@@ -1929,7 +1929,7 @@ ngx_live_filler_read_setup_timeline(ngx_live_channel_t *channel, ngx_str_t *id,
 }
 
 static ngx_int_t
-ngx_live_filler_read_setup_channel(ngx_live_persist_block_header_t *block,
+ngx_live_filler_read_setup_channel(ngx_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, ngx_str_t *channel_id, ngx_str_t *timeline_id,
     ngx_live_filler_source_t *src)
 {
@@ -1964,7 +1964,7 @@ ngx_live_filler_read_setup_channel(ngx_live_persist_block_header_t *block,
         return NGX_BAD_DATA;
     }
 
-    if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 
@@ -2023,7 +2023,7 @@ failed:
 }
 
 static ngx_int_t
-ngx_live_filler_read_setup(ngx_live_persist_block_header_t *block,
+ngx_live_filler_read_setup(ngx_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                       rc;
@@ -2095,12 +2095,12 @@ ngx_live_filler_read_setup(ngx_live_persist_block_header_t *block,
 }
 
 
-static ngx_live_persist_block_t  ngx_live_filler_blocks[] = {
+static ngx_persist_block_t  ngx_live_filler_blocks[] = {
     { NGX_LIVE_FILLER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, 0,
       ngx_live_filler_write_setup,
       ngx_live_filler_read_setup },
 
-    ngx_live_null_persist_block
+    ngx_null_persist_block
 };
 
 

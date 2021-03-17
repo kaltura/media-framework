@@ -286,7 +286,7 @@ ngx_live_segment_list_get_period_end_time(
 
 static ngx_int_t
 ngx_live_segment_list_write_node_part(ngx_live_segment_iter_t *iter,
-    uint32_t segment_index, ngx_live_persist_write_ctx_t *write_ctx)
+    uint32_t segment_index, ngx_persist_write_ctx_t *write_ctx)
 {
     uint32_t                    max_index;
     uint32_t                    next_index;
@@ -294,7 +294,7 @@ ngx_live_segment_list_write_node_part(ngx_live_segment_iter_t *iter,
     ngx_live_segment_repeat_t   elt;
     ngx_live_segment_repeat_t  *cur, *last;
 
-    snap = ngx_live_persist_write_ctx(write_ctx);
+    snap = ngx_persist_write_ctx(write_ctx);
 
     max_index = snap->scope.max_index + 1;
 
@@ -310,10 +310,10 @@ ngx_live_segment_list_write_node_part(ngx_live_segment_iter_t *iter,
 
         if (next_index >= max_index) {
             elt.repeat_count = max_index - segment_index;
-            return ngx_live_persist_write(write_ctx, &elt, sizeof(elt));
+            return ngx_persist_write(write_ctx, &elt, sizeof(elt));
         }
 
-        if (ngx_live_persist_write(write_ctx, &elt, sizeof(elt)) != NGX_OK) {
+        if (ngx_persist_write(write_ctx, &elt, sizeof(elt)) != NGX_OK) {
             return NGX_ERROR;
         }
 
@@ -330,7 +330,7 @@ ngx_live_segment_list_write_node_part(ngx_live_segment_iter_t *iter,
 }
 
 ngx_int_t
-ngx_live_segment_list_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
+ngx_live_segment_list_write_periods(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     uint32_t                         period_index;
@@ -342,7 +342,7 @@ ngx_live_segment_list_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_segment_list_node_t    *node;
     ngx_live_segment_list_period_t   period;
 
-    snap = ngx_live_persist_write_ctx(write_ctx);
+    snap = ngx_persist_write_ctx(write_ctx);
 
     period.padding = 0;
 
@@ -365,9 +365,9 @@ ngx_live_segment_list_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
             }
         }
 
-        if (ngx_live_persist_write_block_open(write_ctx,
+        if (ngx_persist_write_block_open(write_ctx,
                 NGX_LIVE_SEGMENT_LIST_PERSIST_BLOCK_PERIOD) != NGX_OK ||
-            ngx_live_persist_write(write_ctx, &period, sizeof(period))
+            ngx_persist_write(write_ctx, &period, sizeof(period))
                 != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
@@ -376,7 +376,7 @@ ngx_live_segment_list_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
             return NGX_ERROR;
         }
 
-        ngx_live_persist_write_block_set_header(write_ctx, 0);
+        ngx_persist_write_block_set_header(write_ctx, 0);
 
         if (ngx_live_segment_list_write_node_part(&iter, period.segment_index,
             write_ctx) != NGX_OK)
@@ -409,7 +409,7 @@ ngx_live_segment_list_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
         if (!in_block || node->period_index != period_index) {
 
             if (in_block) {
-                ngx_live_persist_write_block_close(write_ctx);
+                ngx_persist_write_block_close(write_ctx);
 
             } else {
                 in_block = 1;
@@ -418,9 +418,9 @@ ngx_live_segment_list_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
             period.time = node->time;
             period.segment_index = node->node.key;
 
-            if (ngx_live_persist_write_block_open(write_ctx,
+            if (ngx_persist_write_block_open(write_ctx,
                     NGX_LIVE_SEGMENT_LIST_PERSIST_BLOCK_PERIOD) != NGX_OK ||
-                ngx_live_persist_write(write_ctx, &period, sizeof(period))
+                ngx_persist_write(write_ctx, &period, sizeof(period))
                     != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
@@ -429,7 +429,7 @@ ngx_live_segment_list_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
                 return NGX_ERROR;
             }
 
-            ngx_live_persist_write_block_set_header(write_ctx, 0);
+            ngx_persist_write_block_set_header(write_ctx, 0);
 
             period_index = node->period_index;
         }
@@ -451,7 +451,7 @@ ngx_live_segment_list_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
             break;
         }
 
-        if (ngx_live_persist_write_append(write_ctx, node->elts,
+        if (ngx_persist_write_append(write_ctx, node->elts,
             node->nelts * sizeof(node->elts[0])) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
@@ -461,14 +461,14 @@ ngx_live_segment_list_write_periods(ngx_live_persist_write_ctx_t *write_ctx,
     }
 
     if (in_block) {
-        ngx_live_persist_write_block_close(write_ctx);
+        ngx_persist_write_block_close(write_ctx);
     }
 
     return NGX_OK;
 }
 
 ngx_int_t
-ngx_live_segment_list_read_period(ngx_live_persist_block_header_t *block,
+ngx_live_segment_list_read_period(ngx_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                         period_index;
@@ -502,7 +502,7 @@ ngx_live_segment_list_read_period(ngx_live_persist_block_header_t *block,
         return NGX_BAD_DATA;
     }
 
-    if (ngx_live_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 

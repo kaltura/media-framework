@@ -90,7 +90,7 @@ ngx_module_t  ngx_live_persist_setup_module = {
 
 
 static ngx_int_t
-ngx_live_persist_setup_write_channel(ngx_live_persist_write_ctx_t *write_ctx,
+ngx_live_persist_setup_write_channel(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     uint32_t                          *version;
@@ -98,15 +98,15 @@ ngx_live_persist_setup_write_channel(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_channel_t                *channel = obj;
     ngx_live_persist_setup_channel_t   cp;
 
-    ws = ngx_live_persist_write_stream(write_ctx);
-    version = ngx_live_persist_write_ctx(write_ctx);
+    ws = ngx_persist_write_stream(write_ctx);
+    version = ngx_persist_write_ctx(write_ctx);
 
     cp.version = *version;
     cp.initial_segment_index = channel->initial_segment_index;
     cp.start_sec = channel->start_sec;
 
     if (ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &cp, sizeof(cp)) != NGX_OK ||
+        ngx_persist_write(write_ctx, &cp, sizeof(cp)) != NGX_OK ||
         ngx_block_str_write(ws, &channel->opaque) != NGX_OK ||
         ngx_live_persist_write_blocks(channel, write_ctx,
             NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, channel) != NGX_OK)
@@ -120,7 +120,7 @@ ngx_live_persist_setup_write_channel(ngx_live_persist_write_ctx_t *write_ctx,
 }
 
 static ngx_int_t
-ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
+ngx_live_persist_setup_read_channel(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                              rc;
@@ -161,7 +161,7 @@ ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
         return rc;
     }
 
-    if (ngx_live_persist_read_skip_block_header(rs, header) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 
@@ -179,7 +179,7 @@ ngx_live_persist_setup_read_channel(ngx_live_persist_block_header_t *header,
 
 
 static ngx_int_t
-ngx_live_persist_setup_write_track(ngx_live_persist_write_ctx_t *write_ctx,
+ngx_live_persist_setup_write_track(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     ngx_queue_t                     *q;
@@ -188,7 +188,7 @@ ngx_live_persist_setup_write_track(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_channel_t              *channel = obj;
     ngx_live_persist_setup_track_t   tp;
 
-    ws = ngx_live_persist_write_stream(write_ctx);
+    ws = ngx_persist_write_stream(write_ctx);
 
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
@@ -207,10 +207,10 @@ ngx_live_persist_setup_write_track(ngx_live_persist_write_ctx_t *write_ctx,
         tp.reserved = 0;
         tp.start_sec = cur_track->start_sec;
 
-        if (ngx_live_persist_write_block_open(write_ctx,
+        if (ngx_persist_write_block_open(write_ctx,
                 NGX_LIVE_PERSIST_BLOCK_TRACK) != NGX_OK ||
             ngx_wstream_str(ws, &cur_track->sn.str) != NGX_OK ||
-            ngx_live_persist_write(write_ctx, &tp, sizeof(tp)) != NGX_OK ||
+            ngx_persist_write(write_ctx, &tp, sizeof(tp)) != NGX_OK ||
             ngx_block_str_write(ws, &cur_track->opaque) != NGX_OK ||
             ngx_live_persist_write_blocks(channel, write_ctx,
                 NGX_LIVE_PERSIST_CTX_SETUP_TRACK, cur_track) != NGX_OK)
@@ -220,14 +220,14 @@ ngx_live_persist_setup_write_track(ngx_live_persist_write_ctx_t *write_ctx,
             return NGX_ERROR;
         }
 
-        ngx_live_persist_write_block_close(write_ctx);
+        ngx_persist_write_block_close(write_ctx);
     }
 
     return NGX_OK;
 }
 
 static ngx_int_t
-ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
+ngx_live_persist_setup_read_track(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                        rc;
@@ -276,7 +276,7 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
         return rc;
     }
 
-    if (ngx_live_persist_read_skip_block_header(rs, header) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 
@@ -296,7 +296,7 @@ ngx_live_persist_setup_read_track(ngx_live_persist_block_header_t *header,
 
 
 static ngx_int_t
-ngx_live_persist_setup_write_variant(ngx_live_persist_write_ctx_t *write_ctx,
+ngx_live_persist_setup_write_variant(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     uint32_t                           i;
@@ -309,7 +309,7 @@ ngx_live_persist_setup_write_variant(ngx_live_persist_write_ctx_t *write_ctx,
     ngx_live_variant_t                *cur_variant;
     ngx_live_persist_setup_variant_t   v;
 
-    ws = ngx_live_persist_write_stream(write_ctx);
+    ws = ngx_persist_write_stream(write_ctx);
 
     for (q = ngx_queue_head(&channel->variants.queue);
         q != ngx_queue_sentinel(&channel->variants.queue);
@@ -329,13 +329,13 @@ ngx_live_persist_setup_write_variant(ngx_live_persist_write_ctx_t *write_ctx,
         v.is_default = cur_variant->conf.is_default;
         v.track_count = cur_id - track_ids;
 
-        if (ngx_live_persist_write_block_open(write_ctx,
+        if (ngx_persist_write_block_open(write_ctx,
                 NGX_LIVE_PERSIST_BLOCK_VARIANT) != NGX_OK ||
             ngx_wstream_str(ws, &cur_variant->sn.str) != NGX_OK ||
-            ngx_live_persist_write(write_ctx, &v, sizeof(v)) != NGX_OK ||
+            ngx_persist_write(write_ctx, &v, sizeof(v)) != NGX_OK ||
             ngx_wstream_str(ws, &cur_variant->conf.label) != NGX_OK ||
             ngx_wstream_str(ws, &cur_variant->conf.lang) != NGX_OK ||
-            ngx_live_persist_write(write_ctx, track_ids,
+            ngx_persist_write(write_ctx, track_ids,
                 (u_char *) cur_id - (u_char *) track_ids) != NGX_OK ||
             ngx_block_str_write(ws, &cur_variant->opaque) != NGX_OK)
         {
@@ -345,14 +345,14 @@ ngx_live_persist_setup_write_variant(ngx_live_persist_write_ctx_t *write_ctx,
             return NGX_ERROR;
         }
 
-        ngx_live_persist_write_block_close(write_ctx);
+        ngx_persist_write_block_close(write_ctx);
     }
 
     return NGX_OK;
 }
 
 static ngx_int_t
-ngx_live_persist_setup_read_variant(ngx_live_persist_block_header_t *header,
+ngx_live_persist_setup_read_variant(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                           i;
@@ -677,7 +677,7 @@ ngx_live_persist_setup_merge_preset_conf(ngx_conf_t *cf, void *parent,
 }
 
 
-static ngx_live_persist_block_t  ngx_live_persist_setup_blocks[] = {
+static ngx_persist_block_t  ngx_live_persist_setup_blocks[] = {
     /*
      * persist header:
      *   ngx_str_t                         id;
@@ -685,7 +685,7 @@ static ngx_live_persist_block_t  ngx_live_persist_setup_blocks[] = {
      *   ngx_str_t                         opaque;
      */
     { NGX_LIVE_PERSIST_BLOCK_CHANNEL, NGX_LIVE_PERSIST_CTX_SETUP_MAIN,
-      NGX_LIVE_PERSIST_FLAG_SINGLE,
+      NGX_PERSIST_FLAG_SINGLE,
       ngx_live_persist_setup_write_channel,
       ngx_live_persist_setup_read_channel },
 
@@ -712,7 +712,7 @@ static ngx_live_persist_block_t  ngx_live_persist_setup_blocks[] = {
       ngx_live_persist_setup_write_variant,
       ngx_live_persist_setup_read_variant },
 
-      ngx_live_null_persist_block
+      ngx_null_persist_block
 };
 
 static ngx_int_t

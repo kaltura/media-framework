@@ -554,12 +554,12 @@ ngx_live_segment_cache_read(ngx_live_segment_read_req_t *req)
 
 
 static ngx_int_t
-ngx_live_segment_cache_write_frame_list(
-    ngx_live_persist_write_ctx_t *write_data, void *obj)
+ngx_live_segment_cache_write_frame_list(ngx_persist_write_ctx_t *write_data,
+    void *obj)
 {
     ngx_live_segment_t  *segment = obj;
 
-    if (ngx_live_persist_write_list_data(write_data, &segment->frames)
+    if (ngx_persist_write_list_data(write_data, &segment->frames)
         != NGX_OK)
     {
         return NGX_ERROR;
@@ -570,12 +570,12 @@ ngx_live_segment_cache_write_frame_list(
 
 
 static ngx_int_t
-ngx_live_segment_cache_write_frame_data(
-    ngx_live_persist_write_ctx_t *write_data, void *obj)
+ngx_live_segment_cache_write_frame_data(ngx_persist_write_ctx_t *write_data,
+    void *obj)
 {
     ngx_live_segment_t  *segment = obj;
 
-    if (ngx_live_persist_write_append_buf_chain(write_data, segment->data_head)
+    if (ngx_persist_write_append_buf_chain(write_data, segment->data_head)
         != NGX_OK)
     {
         return NGX_ERROR;
@@ -586,7 +586,7 @@ ngx_live_segment_cache_write_frame_data(
 
 
 ngx_int_t
-ngx_live_segment_cache_write(ngx_live_persist_write_ctx_t *write_ctx,
+ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_segment_t *segment, ngx_live_segment_cleanup_t *cln,
     uint32_t *header_size)
 {
@@ -599,15 +599,15 @@ ngx_live_segment_cache_write(ngx_live_persist_write_ctx_t *write_ctx,
     channel = track->channel;
 
     /* segment header */
-    start = ngx_live_persist_write_get_size(write_ctx);
+    start = ngx_persist_write_get_size(write_ctx);
 
     header.frame_count = segment->frame_count;
     header.start_dts = segment->start_dts;
     header.reserved = 0;
 
-    if (ngx_live_persist_write_block_open(write_ctx,
+    if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_PERSIST_BLOCK_SEGMENT) != NGX_OK ||
-        ngx_live_persist_write(write_ctx, &header, sizeof(header)) != NGX_OK ||
+        ngx_persist_write(write_ctx, &header, sizeof(header)) != NGX_OK ||
         ngx_live_persist_write_blocks(channel, write_ctx,
             NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, segment) != NGX_OK)
     {
@@ -616,7 +616,7 @@ ngx_live_segment_cache_write(ngx_live_persist_write_ctx_t *write_ctx,
         return NGX_ERROR;
     }
 
-    *header_size = ngx_live_persist_write_get_size(write_ctx) - start;
+    *header_size = ngx_persist_write_get_size(write_ctx) - start;
 
     /* segment data */
     if (ngx_live_persist_write_blocks(channel, write_ctx,
@@ -627,7 +627,7 @@ ngx_live_segment_cache_write(ngx_live_persist_write_ctx_t *write_ctx,
         return NGX_ERROR;
     }
 
-    ngx_live_persist_write_block_close(write_ctx);     /* segment */
+    ngx_persist_write_block_close(write_ctx);     /* segment */
 
     /* lock the segment data */
     if (ngx_live_segment_index_lock(cln, segment) != NGX_OK) {
@@ -824,19 +824,19 @@ ngx_live_segment_cache_track_channel_free(ngx_live_track_t *track, void *ectx)
 }
 
 
-static ngx_live_persist_block_t  ngx_live_segment_cache_blocks[] = {
+static ngx_persist_block_t  ngx_live_segment_cache_blocks[] = {
     /*
      * persist data:
      *   input_frame_t  frame[];
      */
     { NGX_LIVE_PERSIST_BLOCK_FRAME_LIST,
       NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER,
-      NGX_LIVE_PERSIST_FLAG_SINGLE,
+      NGX_PERSIST_FLAG_SINGLE,
       ngx_live_segment_cache_write_frame_list, NULL },
 
     { NGX_LIVE_PERSIST_BLOCK_FRAME_DATA,
       NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_DATA,
-      NGX_LIVE_PERSIST_FLAG_SINGLE,
+      NGX_PERSIST_FLAG_SINGLE,
       ngx_live_segment_cache_write_frame_data, NULL },
 
     /*
@@ -846,7 +846,7 @@ static ngx_live_persist_block_t  ngx_live_segment_cache_blocks[] = {
     { NGX_LIVE_PERSIST_BLOCK_SEGMENT, NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL, 0,
       NULL, NULL },
 
-      ngx_live_null_persist_block
+      ngx_null_persist_block
 };
 
 static ngx_int_t
