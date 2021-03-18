@@ -31,7 +31,10 @@ RUN cd /tmp/build/nginx &&  \
             --add-module=/tmp/build/nginx-rtmp-module \
             --add-module=/tmp/build/nginx-rtmp-kmp-module \
             --with-file-aio \
+            --with-stream \
             --with-http_ssl_module \
+            --with-stream_ssl_module \
+            --with-debug \
             --with-cc-opt="-O2" \
             --with-threads && \
     make -j $(getconf _NPROCESSORS_ONLN) && \
