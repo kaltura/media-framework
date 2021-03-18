@@ -562,13 +562,11 @@ ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
     uint32_t media_type_mask)
 {
     uint32_t             media_type_flag;
-    ngx_flag_t           result;
     ngx_uint_t           media_type;
     ngx_live_track_t    *cur_track;
     ngx_live_channel_t  *channel;
 
     channel = variant->channel;
-    result = 0;
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
@@ -583,7 +581,6 @@ ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
                 return 1;
             }
 
-            result = 1;
             continue;
         }
 
@@ -595,7 +592,7 @@ ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
         return cur_track->has_last_segment;
     }
 
-    return result;
+    return 0;
 }
 
 static size_t

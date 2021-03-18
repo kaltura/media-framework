@@ -160,6 +160,7 @@ ngx_live_variant_json_get_size(ngx_live_variant_t *obj)
         sizeof("\",\"role\":\"") - 1 +
             ngx_live_variant_role_names[obj->conf.role].len +
         sizeof("\",\"is_default\":") - 1 + sizeof("false") - 1 +
+        sizeof(",\"active\":") - 1 + sizeof("false") - 1 +
         sizeof("}") - 1;
 
     return result;
@@ -181,6 +182,12 @@ ngx_live_variant_json_write(u_char *p, ngx_live_variant_t *obj)
     p = ngx_sprintf(p, "%V", &ngx_live_variant_role_names[obj->conf.role]);
     p = ngx_copy_fix(p, "\",\"is_default\":");
     if (obj->conf.is_default) {
+        p = ngx_copy_fix(p, "true");
+    } else {
+        p = ngx_copy_fix(p, "false");
+    }
+    p = ngx_copy_fix(p, ",\"active\":");
+    if (ngx_live_variant_is_main_track_active(obj, UINT_MAX)) {
         p = ngx_copy_fix(p, "true");
     } else {
         p = ngx_copy_fix(p, "false");
