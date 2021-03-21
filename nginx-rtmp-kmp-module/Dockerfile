@@ -22,9 +22,12 @@ COPY nginx-common nginx-common
 
 ARG APP_VERSION=1.0
 
+ARG DEBUG_BUILD=0
+
 ENV RTMP_KMP_VERSION="${APP_VERSION}"
 
-RUN cd /tmp/build/nginx &&  \
+RUN [ "${DEBUG_BUILD}" -eq "1" ] && debug_option=--with-debug; \
+    cd /tmp/build/nginx &&  \
     ./configure --with-http_secure_link_module \
             --with-http_stub_status_module \
             --add-module=/tmp/build/nginx-common \
@@ -33,8 +36,8 @@ RUN cd /tmp/build/nginx &&  \
             --with-file-aio \
             --with-stream \
             --with-http_ssl_module \
-            --with-stream_ssl_module \
-            --with-debug \
+            --with-stream_ssl_module  $debug_option \
+            $debug_option \
             --with-cc-opt="-O2" \
             --with-threads && \
     make -j $(getconf _NPROCESSORS_ONLN) && \
