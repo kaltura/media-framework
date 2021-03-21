@@ -21,6 +21,9 @@ typedef struct {
 typedef struct {
     uint32_t                     track_id;
     uint32_t                     start_segment_index;
+    uint64_t                     bitrate_sum;
+    uint32_t                     bitrate_count;
+    uint32_t                     bitrate_max;
 } ngx_live_media_info_persist_t;
 
 
@@ -42,6 +45,8 @@ void ngx_live_media_info_pending_free_all(ngx_live_track_t *track);
 
 
 /* active */
+void ngx_live_media_info_update_bitrate(ngx_live_track_t *track);
+
 media_info_t *ngx_live_media_info_queue_get(ngx_live_track_t *track,
     uint32_t segment_index, uint32_t *track_id);
 
