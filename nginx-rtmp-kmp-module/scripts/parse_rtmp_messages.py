@@ -1,21 +1,65 @@
-import subprocess
 import struct
 import sys
 import os
 
-TEMP_FILE = 'parse_rtmp_packet.tmp'
+def print_hex(data):
+    result = ''
+    indent = 10
+    pos = 0
+    while pos < len(data):
+        next_pos = min(pos + 16, len(data))
+        chunk = data[pos:next_pos]
+
+        line = ' ' * indent + '%04x: ' % pos
+
+        raw = ''
+        for ch in bytearray(chunk):
+            line += '%02x ' % ch
+            raw += chr(ch) if ch >= 32 and ch < 127 else '.'
+        line += '   ' * (16 - len(chunk))
+        result += '%s %s\n' % (line, raw)
+
+        pos = next_pos
+
+    print(result)
 
 class Stream:
-    def __init__(self, d, pos = 0):
-        self.d = d
-        self.pos = pos
+    def __init__(self, files):
+        self.files = files
+        self.file_idx = 0
+        self.f = None
+        self.max = 0
+        self.buf = b''
+        self.pos = 0
+
+    def read(self):
+        while True:
+            if self.f is not None:
+                self.buf = self.f.read(102400)
+                if len(self.buf) > 0:
+                    return True
+
+            if self.file_idx >= len(self.files):
+                return False
+
+            path = self.files[self.file_idx]
+            self.f = open(path, 'rb')
+            self.max = os.path.getsize(path)
+            self.file_idx += 1
 
     def eof(self):
-        return self.pos >= len(self.d)
+        return self.pos >= len(self.buf) and self.file_idx >= len(self.files) and self.f.tell() >= self.max
 
     def get(self, n = 1):
-        result = self.d[self.pos:(self.pos + n)]
-        self.pos += n
+        result = b''
+        while len(result) < n:
+            if self.pos >= len(self.buf):
+                if not self.read():
+                    break
+                self.pos = 0
+            size = n - len(result)
+            result += self.buf[self.pos:(self.pos + size)]
+            self.pos += size
         return result
 
     def getBENum(self, n = 1):
@@ -34,11 +78,11 @@ class Csctx:
         self.msid = -1
 
 if len(sys.argv) < 2:
-    print('Usage:\n\t%s <input file>' % os.path.basename(__file__))
+    print('Usage:\n\t%s <input file1> [<input file2> ... ]' % os.path.basename(__file__))
     sys.exit(1)
 
-d = open(sys.argv[1], 'rb').read()
-s = Stream(d, 0xc01)     # after handshake
+s = Stream(sys.argv[1:])
+s.get(0xc01)     # skip handshake
 
 ctx = {}
 chunkSize = 128
@@ -76,8 +120,8 @@ while not s.eof():
     curSize = min(messageLeft, chunkSize)
 
     if curCtx.msg == b'':
-        print('>START\ttype=%s\tmlen=%s\tcsid=%s\tmsid=%s' %
-            (curCtx.type, curCtx.mlen, csid, curCtx.msid))
+        print('>START\ttype=%s\tmlen=%s\tcsid=%s\tmsid=%s\tts=%s' %
+            (curCtx.type, curCtx.mlen, csid, curCtx.msid, curCtx.timestamp))
 
     curCtx.msg += s.get(curSize)
 
@@ -90,9 +134,8 @@ while not s.eof():
     print('>END\ttype=%s\tmlen=%s\tcsid=%s\tmsid=%s' %
         (curCtx.type, curCtx.mlen, csid, curCtx.msid))
 
-    open(TEMP_FILE, 'wb').write(curCtx.msg)
-    print()
-    print(subprocess.check_output('xxd %s' % TEMP_FILE).decode('utf8'))
+    print('')
+    print_hex(curCtx.msg)
 
     if curCtx.type == 1:
         chunkSize = struct.unpack('>L', curCtx.msg)[0]
