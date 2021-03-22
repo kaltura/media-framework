@@ -13,8 +13,6 @@ PERSIST_HEADER_FLAG_COMPRESSED = 0x40000000
 
 
 def print_hex(data, start, end, pos_format, label, next_label, label_len):
-    global spec
-
     result = ''
 
     pos = start

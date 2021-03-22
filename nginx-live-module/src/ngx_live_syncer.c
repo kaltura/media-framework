@@ -9,6 +9,9 @@
 
 #define NGX_LIVE_SYNCER_LOG_COUNT            (3)
 
+#define NGX_LIVE_SYNCER_PTS_JUMP_PERIOD      (5)
+
+
 #define ngx_live_syncer_wraparound_value(timescale)     \
     (0x100000000L * ((timescale) / 1000))
 
@@ -32,6 +35,7 @@ typedef struct {
 typedef struct {
     int64_t                last_pts;
     int64_t                correction;
+    time_t                 pts_jump_time;
     uint32_t               force_sync_count;
     uint32_t               count;
     ngx_live_syncer_log_t  log[NGX_LIVE_SYNCER_LOG_COUNT];
@@ -288,6 +292,19 @@ ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
     if (track->media_type == KMP_MEDIA_VIDEO &&
         (frame->flags & KMP_FRAME_FLAG_KEY) == 0)
     {
+        if ((uint64_t) ngx_abs_diff(pts, ctx->last_pts) >
+            spcf->jump_threshold * spcf->timescale &&
+            ngx_time() >= ctx->pts_jump_time)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_syncer_add_frame: "
+                "non key pts jump, cur: %L, last %L",
+                pts, ctx->last_pts);
+
+            /* avoid writing to log too often */
+            ctx->pts_jump_time = ngx_time() + NGX_LIVE_SYNCER_PTS_JUMP_PERIOD;
+        }
+
         goto done;
     }
 
