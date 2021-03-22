@@ -21,7 +21,7 @@ ngx_rtmp_amf_reverse_copy(void *dst, void* src, size_t len)
     }
 
     for(k = 0; k < len; ++k) {
-        ((u_char*)dst)[k] = ((u_char*)src)[len - 1 - k];
+        ((u_char *) dst)[k] = ((u_char *) src)[len - 1 - k];
     }
 
     return dst;
@@ -91,7 +91,7 @@ ngx_rtmp_amf_get(ngx_rtmp_amf_ctx_t *ctx, void *p, size_t n)
             ctx->link = l;
 
 #ifdef NGX_DEBUG
-            ngx_rtmp_amf_debug("read", ctx->log, (u_char*)op, on);
+            ngx_rtmp_amf_debug("read", ctx->log, (u_char *) op, on);
 #endif
 
             return NGX_OK;
@@ -121,7 +121,7 @@ ngx_rtmp_amf_put(ngx_rtmp_amf_ctx_t *ctx, void *p, size_t n)
     ngx_chain_t    *l, *ln;
 
 #ifdef NGX_DEBUG
-    ngx_rtmp_amf_debug("write", ctx->log, (u_char*)p, n);
+    ngx_rtmp_amf_debug("write", ctx->log, (u_char *) p, n);
 #endif
 
     l = ctx->link;
@@ -161,7 +161,7 @@ ngx_rtmp_amf_put(ngx_rtmp_amf_ctx_t *ctx, void *p, size_t n)
         }
 
         b->last = ngx_cpymem(b->last, p, size);
-        p = (u_char*)p + size;
+        p = (u_char *) p + size;
         n -= size;
     }
 
@@ -377,12 +377,12 @@ ngx_rtmp_amf_read(ngx_rtmp_amf_ctx_t *ctx, ngx_rtmp_amf_elt_t *elts,
                     rc = ngx_rtmp_amf_get(ctx, data, elts->len - 1);
                     if (rc != NGX_OK)
                         return NGX_ERROR;
-                    ((char*)data)[elts->len - 1] = 0;
+                    ((char*) data)[elts->len - 1] = 0;
                     rc = ngx_rtmp_amf_get(ctx, NULL, len - elts->len + 1);
 
                 } else {
                     rc = ngx_rtmp_amf_get(ctx, data, len);
-                    ((char*)data)[len] = 0;
+                    ((char*) data)[len] = 0;
                 }
 
                 if (rc != NGX_OK) {
@@ -547,7 +547,7 @@ ngx_rtmp_amf_write(ngx_rtmp_amf_ctx_t *ctx,
         if (type & NGX_RTMP_AMF_TYPELESS) {
             type &= ~NGX_RTMP_AMF_TYPELESS;
         } else {
-            type8 = (uint8_t)type;
+            type8 = (uint8_t) type;
             if (ngx_rtmp_amf_put(ctx, &type8, 1) != NGX_OK)
                 return NGX_ERROR;
         }
@@ -570,7 +570,7 @@ ngx_rtmp_amf_write(ngx_rtmp_amf_ctx_t *ctx,
 
             case NGX_RTMP_AMF_STRING:
                 if (len == 0 && data) {
-                    len = (uint16_t) ngx_strlen((u_char*) data);
+                    len = (uint16_t) ngx_strlen((u_char *) data);
                 }
 
                 if (ngx_rtmp_amf_put(ctx,

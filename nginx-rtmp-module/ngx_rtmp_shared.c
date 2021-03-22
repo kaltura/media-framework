@@ -34,10 +34,10 @@ ngx_rtmp_alloc_shared_buf(ngx_rtmp_core_srv_conf_t *cscf)
         }
 
         p += NGX_RTMP_REFCOUNT_BYTES;
-        out = (ngx_chain_t *)p;
+        out = (ngx_chain_t *) p;
 
         p += sizeof(ngx_chain_t);
-        out->buf = (ngx_buf_t *)p;
+        out->buf = (ngx_buf_t *) p;
 
         p += sizeof(ngx_buf_t);
         out->buf->start = p;

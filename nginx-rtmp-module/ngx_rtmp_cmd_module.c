@@ -100,7 +100,7 @@ ngx_rtmp_cmd_fill_args(u_char name[NGX_RTMP_MAX_NAME],
 {
     u_char      *p;
 
-    p = (u_char *)ngx_strchr(name, '?');
+    p = (u_char *) ngx_strchr(name, '?');
     if (p == NULL) {
         return;
     }
@@ -139,8 +139,8 @@ ngx_rtmp_cmd_connect_update_session(ngx_rtmp_session_t *s,
         s->app.len = (p - s->app.data);
     }
 
-    s->acodecs = (uint32_t)v->acodecs;
-    s->vcodecs = (uint32_t)v->vcodecs;
+    s->acodecs = (uint32_t) v->acodecs;
+    s->vcodecs = (uint32_t) v->vcodecs;
 
     /* find application & set app_conf */
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
@@ -241,8 +241,8 @@ ngx_rtmp_cmd_connect_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             "tc_url='%s' page_url='%s' acodecs=%uD vcodecs=%uD "
             "object_encoding=%ui",
             v.app, v.args, v.flashver, v.swf_url, v.tc_url, v.page_url,
-            (uint32_t)v.acodecs, (uint32_t)v.vcodecs,
-            (ngx_int_t)v.object_encoding);
+            (uint32_t) v.acodecs, (uint32_t) v.vcodecs,
+            (ngx_int_t) v.object_encoding);
 
     if (ngx_rtmp_cmd_connect_update_session(s, &v) != NGX_OK) {
         return NGX_ERROR;

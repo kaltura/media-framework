@@ -438,7 +438,7 @@ ngx_int_t ngx_rtmp_set_chunk_size(ngx_rtmp_session_t *s, ngx_uint_t size);
 void * ngx_rtmp_rmemcpy(void *dst, const void* src, size_t n);
 
 #define ngx_rtmp_rcpymem(dst, src, n) \
-    (((u_char*)ngx_rtmp_rmemcpy(dst, src, n)) + (n))
+    (((u_char *) ngx_rtmp_rmemcpy(dst, src, n)) + (n))
 
 
 static ngx_inline uint16_t

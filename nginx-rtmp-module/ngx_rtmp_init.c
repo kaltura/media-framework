@@ -168,7 +168,7 @@ ngx_rtmp_open_dump_file(ngx_rtmp_session_t *s)
         &cscf->dump_folder, NGX_RTMP_ISO8601_DATE_LEN,
         ngx_cached_http_log_iso8601.data, ngx_pid, s->connection->number);
 
-    fd = ngx_open_file((char*)name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
+    fd = ngx_open_file((char*) name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
         NGX_FILE_DEFAULT_ACCESS);
     if (fd == NGX_INVALID_FILE) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,

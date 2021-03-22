@@ -179,7 +179,7 @@ ngx_rtmp_ping(ngx_event_t *pev)
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "ping: schedule %Mms", cscf->ping_timeout);
 
-    if (ngx_rtmp_send_ping_request(s, (uint32_t)ngx_current_msec) != NGX_OK) {
+    if (ngx_rtmp_send_ping_request(s, (uint32_t) ngx_current_msec) != NGX_OK) {
         ngx_rtmp_finalize_session(s);
         return;
     }
@@ -319,23 +319,23 @@ ngx_rtmp_recv(ngx_event_t *rev)
                 if (b->last - p < 1)
                     continue;
                 csid = 64;
-                csid += *(uint8_t*)p++;
+                csid += *(uint8_t *) p++;
 
             } else if (csid == 1) {
                 if (b->last - p < 2)
                     continue;
                 csid = 64;
-                csid += *(uint8_t*)p++;
-                csid += (uint32_t)256 * (*(uint8_t*)p++);
+                csid += *(uint8_t *) p++;
+                csid += (uint32_t) 256 * (*(uint8_t *) p++);
             }
 
 #if (NGX_RTMP_VERBOSE)
             ngx_log_debug2(NGX_LOG_DEBUG_RTMP, c->log, 0,
                     "RTMP bheader fmt=%d csid=%D",
-                    (int)fmt, csid);
+                    (int) fmt, csid);
 #endif
 
-            if (csid >= (uint32_t)cscf->max_streams) {
+            if (csid >= (uint32_t) cscf->max_streams) {
                 ngx_log_error(NGX_LOG_INFO, c->log, 0,
                     "RTMP in chunk stream too big: %D >= %D",
                     csid, cscf->max_streams);
@@ -365,12 +365,12 @@ ngx_rtmp_recv(ngx_event_t *rev)
 
             ext = st->ext;
             timestamp = st->dtime;
-            if (fmt <= 2 ) {
+            if (fmt <= 2) {
                 if (b->last - p < 3)
                     continue;
                 /* timestamp:
                  *  big-endian 3b -> little-endian 4b */
-                pp = (u_char*)&timestamp;
+                pp = (u_char *) &timestamp;
                 pp[2] = *p++;
                 pp[1] = *p++;
                 pp[0] = *p++;
@@ -385,19 +385,19 @@ ngx_rtmp_recv(ngx_event_t *rev)
                      *  big-endian 3b -> little-endian 4b
                      * type:
                      *  1b -> 1b*/
-                    pp = (u_char*)&h->mlen;
+                    pp = (u_char *) &h->mlen;
                     pp[2] = *p++;
                     pp[1] = *p++;
                     pp[0] = *p++;
                     pp[3] = 0;
-                    h->type = *(uint8_t*)p++;
+                    h->type = *(uint8_t *) p++;
 
                     if (fmt == 0) {
                         if (b->last - p < 4)
                             continue;
                         /* stream:
                          *  little-endian 4b -> little-endian 4b */
-                        pp = (u_char*)&h->msid;
+                        pp = (u_char *) &h->msid;
                         pp[0] = *p++;
                         pp[1] = *p++;
                         pp[2] = *p++;
@@ -410,7 +410,7 @@ ngx_rtmp_recv(ngx_event_t *rev)
             if (ext) {
                 if (b->last - p < 4)
                     continue;
-                pp = (u_char*)&timestamp;
+                pp = (u_char *) &timestamp;
                 pp[3] = *p++;
                 pp[2] = *p++;
                 pp[1] = *p++;
@@ -436,7 +436,7 @@ ngx_rtmp_recv(ngx_event_t *rev)
             ngx_log_debug8(NGX_LOG_DEBUG_RTMP, c->log, 0,
                     "RTMP mheader fmt=%d %s (%d) "
                     "time=%uD+%uD mlen=%D len=%D msid=%D",
-                    (int)fmt, ngx_rtmp_message_type(h->type), (int)h->type,
+                    (int) fmt, ngx_rtmp_message_type(h->type), (int) h->type,
                     h->timestamp, st->dtime, h->mlen, st->len, h->msid);
 #endif
 
@@ -594,7 +594,7 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     c = s->connection;
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
-    if (h->csid >= (uint32_t)cscf->max_streams) {
+    if (h->csid >= (uint32_t) cscf->max_streams) {
         ngx_log_error(NGX_LOG_INFO, c->log, 0,
                 "RTMP out chunk stream too big: %D >= %D",
                 h->csid, cscf->max_streams);
@@ -634,7 +634,7 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_log_debug8(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "RTMP prep %s (%d) fmt=%d csid=%uD timestamp=%uD "
             "mlen=%uD msid=%uD nbufs=%d",
-            ngx_rtmp_message_type(h->type), (int)h->type, (int)fmt,
+            ngx_rtmp_message_type(h->type), (int) h->type, (int) fmt,
             h->csid, timestamp, mlen, h->msid, nbufs);
 
     ext_timestamp = 0;
@@ -658,14 +658,14 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     /* basic header */
     *p = (fmt << 6);
     if (h->csid >= 2 && h->csid <= 63) {
-        *p++ |= (((uint8_t)h->csid) & 0x3f);
+        *p++ |= (((uint8_t) h->csid) & 0x3f);
     } else if (h->csid >= 64 && h->csid < 320) {
         ++p;
-        *p++ = (uint8_t)(h->csid - 64);
+        *p++ = (uint8_t) (h->csid - 64);
     } else {
         *p++ |= 1;
-        *p++ = (uint8_t)(h->csid - 64);
-        *p++ = (uint8_t)((h->csid - 64) >> 8);
+        *p++ = (uint8_t) (h->csid - 64);
+        *p++ = (uint8_t) ((h->csid - 64) >> 8);
     }
 
     /* create fmt3 header for successive fragments */
@@ -675,18 +675,18 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     /* message header */
     if (fmt <= 2) {
-        pp = (u_char*)&timestamp;
+        pp = (u_char *) &timestamp;
         *p++ = pp[2];
         *p++ = pp[1];
         *p++ = pp[0];
         if (fmt <= 1) {
-            pp = (u_char*)&mlen;
+            pp = (u_char *) &mlen;
             *p++ = pp[2];
             *p++ = pp[1];
             *p++ = pp[0];
             *p++ = h->type;
             if (fmt == 0) {
-                pp = (u_char*)&h->msid;
+                pp = (u_char *) &h->msid;
                 *p++ = pp[0];
                 *p++ = pp[1];
                 *p++ = pp[2];
@@ -697,7 +697,7 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     /* extended header */
     if (ext_timestamp) {
-        pp = (u_char*)&ext_timestamp;
+        pp = (u_char *) &ext_timestamp;
         *p++ = pp[3];
         *p++ = pp[2];
         *p++ = pp[1];
@@ -794,14 +794,14 @@ ngx_rtmp_receive_message(ngx_rtmp_session_t *s,
         ngx_log_debug8(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "RTMP recv %s (%d) csid=%D timestamp=%D "
                 "mlen=%D msid=%D nbufs=%d real_mlen=%D",
-                ngx_rtmp_message_type(h->type), (int)h->type,
+                ngx_rtmp_message_type(h->type), (int) h->type,
                 h->csid, h->timestamp, h->mlen, h->msid, nbufs, mlen);
     }
 #endif
 
     if (h->type > NGX_RTMP_MSG_MAX) {
         ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                "unexpected RTMP message type: %d", (int)h->type);
+                "unexpected RTMP message type: %d", (int) h->type);
         return NGX_OK;
     }
 
