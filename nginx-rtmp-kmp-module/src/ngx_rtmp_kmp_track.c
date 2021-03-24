@@ -226,6 +226,7 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_push_track_t *track,
     u_char                     frame_info;
     u_char                     packet_type;
     u_char                     codec_id;
+    int32_t                    pts_delay;
     uint32_t                   rtmpscale;
     ngx_int_t                  rc;
     ngx_rtmp_kmp_track_ctx_t  *ctx = track->ctx;
@@ -280,10 +281,17 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_push_track_t *track,
             *sequence_header = 1;
         }
 
-        frame->f.pts_delay =
-            ((avc_header.comp_time[0] << 16) |
+        pts_delay =
+            (avc_header.comp_time[0] << 16) |
             (avc_header.comp_time[1] << 8) |
-            avc_header.comp_time[2]) * rtmpscale;
+             avc_header.comp_time[2];
+
+        /* sign extend */
+        if (pts_delay & 0x800000) {
+            pts_delay |= 0xff000000;
+        }
+
+        frame->f.pts_delay = pts_delay * rtmpscale;
         break;
 
     case NGX_RTMP_MSG_AUDIO:
