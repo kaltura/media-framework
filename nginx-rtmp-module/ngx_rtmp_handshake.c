@@ -288,7 +288,7 @@ ngx_rtmp_handshake_parse_challenge(ngx_rtmp_session_t *s,
     if (*b->pos != '\x03') {
         ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                 "handshake: unexpected RTMP version: %i",
-                (ngx_int_t)*b->pos);
+                (ngx_int_t) *b->pos);
         return NGX_ERROR;
     }
     ++b->pos;
@@ -298,10 +298,10 @@ ngx_rtmp_handshake_parse_challenge(ngx_rtmp_session_t *s,
     p = b->pos + 4;
     ngx_log_debug5(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "handshake: peer version=%i.%i.%i.%i epoch=%uD",
-            (ngx_int_t)p[3], (ngx_int_t)p[2],
-            (ngx_int_t)p[1], (ngx_int_t)p[0],
-            (uint32_t)s->peer_epoch);
-    if (*(uint32_t *)p == 0) {
+            (ngx_int_t) p[3], (ngx_int_t) p[2],
+            (ngx_int_t) p[1], (ngx_int_t) p[0],
+            (uint32_t) s->peer_epoch);
+    if (*(uint32_t *) p == 0) {
         s->hs_old = 1;
         return NGX_OK;
     }

@@ -472,7 +472,7 @@ ngx_rtmp_init_event_handlers(ngx_conf_t *cf, ngx_rtmp_core_main_conf_t *cmcf)
             }
         }
 
-        eh = ngx_array_push((ngx_array_t*)ha->value);
+        eh = ngx_array_push((ngx_array_t *) ha->value);
         *eh = h->handler;
     }
 
@@ -841,9 +841,9 @@ ngx_rtmp_rmemcpy(void *dst, const void* src, size_t n)
     u_char     *d, *s;
 
     d = dst;
-    s = (u_char*)src + n - 1;
+    s = (u_char *) src + n - 1;
 
-    while(s >= (u_char*)src) {
+    while(s >= (u_char *) src) {
         *d++ = *s--;
     }
 

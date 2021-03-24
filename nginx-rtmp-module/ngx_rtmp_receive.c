@@ -26,11 +26,11 @@ ngx_rtmp_protocol_message_handler(ngx_rtmp_session_t *s,
     if (b->last - b->pos < 4) {
         ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "too small buffer for %d message: %d",
-                (int)h->type, b->last - b->pos);
+                (int) h->type, b->last - b->pos);
         return NGX_OK;
     }
 
-    p = (u_char*)&val;
+    p = (u_char *) &val;
     p[0] = b->pos[3];
     p[1] = b->pos[2];
     p[2] = b->pos[1];
@@ -61,14 +61,14 @@ ngx_rtmp_protocol_message_handler(ngx_rtmp_session_t *s,
 
         case NGX_RTMP_MSG_BANDWIDTH:
             if (b->last - b->pos >= 5) {
-                limit = *(uint8_t*)&b->pos[4];
+                limit = *(uint8_t *) &b->pos[4];
 
-                (void)val;
-                (void)limit;
+                (void) val;
+                (void) limit;
 
                 ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                     "receive bandwidth=%uD limit=%d",
-                    val, (int)limit);
+                    val, (int) limit);
 
                 /* receive window size =val
                  * && limit */
@@ -101,7 +101,7 @@ ngx_rtmp_user_message_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_OK;
     }
 
-    p = (u_char*)&evt;
+    p = (u_char *) &evt;
 
     p[0] = b->pos[1];
     p[1] = b->pos[0];
@@ -399,7 +399,7 @@ ngx_rtmp_amf_message_handler(ngx_rtmp_session_t *s,
          && in->buf->last > in->buf->pos)
     {
         ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                "AMF3 prefix: %ui", (ngx_int_t)*in->buf->pos);
+                "AMF3 prefix: %ui", (ngx_int_t) *in->buf->pos);
         ++in->buf->pos;
     }
 

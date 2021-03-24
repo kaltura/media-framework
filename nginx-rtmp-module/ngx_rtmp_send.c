@@ -34,13 +34,13 @@
     *(__b->last++) = (u_char)(utype);
 
 #define NGX_RTMP_USER_OUT1(v)                                               \
-    *(__b->last++) = ((u_char*)&v)[0];
+    *(__b->last++) = ((u_char *) &v)[0];
 
 #define NGX_RTMP_USER_OUT4(v)                                               \
-    *(__b->last++) = ((u_char*)&v)[3];                                      \
-    *(__b->last++) = ((u_char*)&v)[2];                                      \
-    *(__b->last++) = ((u_char*)&v)[1];                                      \
-    *(__b->last++) = ((u_char*)&v)[0];
+    *(__b->last++) = ((u_char *) &v)[3];                                    \
+    *(__b->last++) = ((u_char *) &v)[2];                                    \
+    *(__b->last++) = ((u_char *) &v)[1];                                    \
+    *(__b->last++) = ((u_char *) &v)[0];
 
 #define NGX_RTMP_USER_END(s)                                                \
     ngx_rtmp_prepare_message(s, &__h, NULL, __l);                           \
@@ -171,7 +171,7 @@ ngx_rtmp_create_bandwidth(ngx_rtmp_session_t *s, uint32_t ack_size,
 {
     ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "create: bandwidth ack_size=%uD limit=%d",
-                   ack_size, (int)limit_type);
+                   ack_size, (int) limit_type);
 
     {
         NGX_RTMP_USER_START(s, NGX_RTMP_MSG_BANDWIDTH);
@@ -370,7 +370,7 @@ ngx_rtmp_send_ping_response(ngx_rtmp_session_t *s, uint32_t timestamp)
 static ngx_chain_t *
 ngx_rtmp_alloc_amf_buf(void *arg)
 {
-    return ngx_rtmp_alloc_shared_buf((ngx_rtmp_core_srv_conf_t *)arg);
+    return ngx_rtmp_alloc_shared_buf((ngx_rtmp_core_srv_conf_t *) arg);
 }
 
 

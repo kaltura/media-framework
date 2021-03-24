@@ -326,8 +326,8 @@ ngx_rtmp_core_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_rtmp_core_app_conf_t *prev = parent;
     ngx_rtmp_core_app_conf_t *conf = child;
 
-    (void)prev;
-    (void)conf;
+    (void) prev;
+    (void) conf;
 
     return NGX_CONF_OK;
 }

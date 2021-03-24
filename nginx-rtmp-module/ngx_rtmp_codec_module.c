@@ -132,7 +132,7 @@ video_codecs[] = {
 u_char *
 ngx_rtmp_get_audio_codec_name(ngx_uint_t id)
 {
-    return (u_char *)(id < sizeof(audio_codecs) / sizeof(audio_codecs[0])
+    return (u_char *) (id < sizeof(audio_codecs) / sizeof(audio_codecs[0])
         ? audio_codecs[id]
         : "");
 }
@@ -141,7 +141,7 @@ ngx_rtmp_get_audio_codec_name(ngx_uint_t id)
 u_char *
 ngx_rtmp_get_video_codec_name(ngx_uint_t id)
 {
-    return (u_char *)(id < sizeof(video_codecs) / sizeof(video_codecs[0])
+    return (u_char *) (id < sizeof(video_codecs) / sizeof(video_codecs[0])
         ? video_codecs[id]
         : "");
 }
@@ -1029,7 +1029,7 @@ ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             "codec: data frame: "
             "width=%ui height=%ui duration=%ui frame_rate=%ui "
             "video=%s (%ui) audio=%s (%ui)",
-            ctx->width, ctx->height, ctx->duration, (ngx_uint_t)ctx->frame_rate,
+            ctx->width, ctx->height, ctx->duration, (ngx_uint_t) ctx->frame_rate,
             ngx_rtmp_get_video_codec_name(ctx->video_codec_id),
             ctx->video_codec_id,
             ngx_rtmp_get_audio_codec_name(ctx->audio_codec_id),
