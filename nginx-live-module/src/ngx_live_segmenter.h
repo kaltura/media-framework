@@ -9,10 +9,11 @@
 #include "ngx_live.h"
 
 
-#define NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT  (16384)
+#define NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT   (16384)
 
 /* KMP_FRAME_FLAG_KEY = 0x01 */
-#define NGX_LIVE_FRAME_FLAG_SPLIT           (0x10)
+#define NGX_LIVE_FRAME_FLAG_SPLIT            (0x10)
+#define NGX_LIVE_FRAME_FLAG_RESET_DTS_SHIFT  (0x20)
 
 
 typedef struct {

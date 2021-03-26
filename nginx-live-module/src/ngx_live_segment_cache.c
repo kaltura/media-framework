@@ -242,6 +242,35 @@ ngx_live_segment_cache_validate(ngx_live_segment_t *segment)
 #endif
 
 void
+ngx_live_segment_cache_shift_dts(ngx_live_segment_t *segment, uint32_t shift)
+{
+    ngx_uint_t        i;
+    input_frame_t    *frames;
+    ngx_list_part_t  *part;
+
+    part = &segment->frames.part;
+    frames = part->elts;
+
+    for (i = 0;; i++) {
+
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            frames = part->elts;
+            i = 0;
+        }
+
+        frames[i].pts_delay += shift;
+    }
+
+    segment->start_dts -= shift;
+    segment->end_dts -= shift;
+}
+
+void
 ngx_live_segment_cache_finalize(ngx_live_segment_t *segment)
 {
     int64_t                       min_duration;
