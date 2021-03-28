@@ -65,6 +65,7 @@ typedef struct {
     ngx_live_copy_segment_callback_pt   callback;
     ngx_live_segment_cleanup_pt         cleanup;
     void                               *arg;
+    ngx_str_t                           source;
 } ngx_live_segment_copy_req_t;
 
 

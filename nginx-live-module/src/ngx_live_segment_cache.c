@@ -719,6 +719,7 @@ ngx_live_segment_cache_copy(ngx_live_segment_copy_req_t *req)
         return NGX_ABORT;
     }
 
+    req->source = ngx_live_segment_cache_source_name;
     return NGX_OK;
 }
 
