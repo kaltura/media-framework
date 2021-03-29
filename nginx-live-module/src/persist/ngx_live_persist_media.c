@@ -1096,7 +1096,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
         return NGX_ERROR;
     }
 
-    /* TODO: call store->get_info to make the source name available */
+    store->get_info(channel, &req->source);
 
     ctx->read = store->read;
 

@@ -7,6 +7,17 @@
 #include "../ngx_live_timeline.h"
 
 
+static ngx_int_t ngx_http_live_ksmp_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_live_ksmp_uint32_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
+
+static ngx_int_t ngx_http_live_ksmp_add_variables(ngx_conf_t *cf);
+
+static void *ngx_http_live_ksmp_create_loc_conf(ngx_conf_t *cf);
+static char *ngx_http_live_ksmp_merge_loc_conf(ngx_conf_t *cf, void *parent,
+    void *child);
+
 static char *ngx_http_live_ksmp(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 
@@ -16,8 +27,15 @@ typedef ngx_int_t (*ngx_http_live_ksmp_args_handler_pt)(void *data,
 
 
 typedef struct {
-    ngx_http_request_t       *r;
+    ngx_int_t                 level;
+} ngx_http_live_ksmp_loc_conf_t;
+
+
+typedef struct {
     ngx_persist_write_ctx_t  *write_ctx;
+    ngx_str_t                 source;
+    ngx_str_t                 err_msg;
+    uint32_t                  err_code;
 } ngx_http_live_ksmp_ctx_t;
 
 
@@ -37,6 +55,10 @@ typedef struct {
 } ngx_http_live_ksmp_params_t;
 
 
+static ngx_conf_num_bounds_t  ngx_http_live_ksmp_comp_level_bounds = {
+    ngx_conf_check_num_bounds, 1, 9
+};
+
 static ngx_command_t  ngx_http_live_ksmp_commands[] = {
 
     { ngx_string("live_ksmp"),
@@ -46,12 +68,19 @@ static ngx_command_t  ngx_http_live_ksmp_commands[] = {
       0,
       NULL},
 
+    { ngx_string("live_ksmp_comp_level"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_live_ksmp_loc_conf_t, level),
+      &ngx_http_live_ksmp_comp_level_bounds },
+
       ngx_null_command
 };
 
 
 static ngx_http_module_t  ngx_http_live_ksmp_module_ctx = {
-    NULL,                                   /* preconfiguration */
+    ngx_http_live_ksmp_add_variables,       /* preconfiguration */
     NULL,                                   /* postconfiguration */
 
     NULL,                                   /* create main configuration */
@@ -60,8 +89,8 @@ static ngx_http_module_t  ngx_http_live_ksmp_module_ctx = {
     NULL,                                   /* create server configuration */
     NULL,                                   /* merge server configuration */
 
-    NULL,                                   /* create location configuration */
-    NULL                                    /* merge location configuration */
+    ngx_http_live_ksmp_create_loc_conf,     /* create location configuration */
+    ngx_http_live_ksmp_merge_loc_conf       /* merge location configuration */
 };
 
 
@@ -78,6 +107,22 @@ ngx_module_t  ngx_http_live_ksmp_module = {
     NULL,                                   /* exit process */
     NULL,                                   /* exit master */
     NGX_MODULE_V1_PADDING
+};
+
+
+static ngx_http_variable_t  ngx_http_live_ksmp_vars[] = {
+
+    { ngx_string("live_ksmp_source"), NULL, ngx_http_live_ksmp_variable,
+      offsetof(ngx_http_live_ksmp_ctx_t, source), 0, 0 },
+
+    { ngx_string("live_ksmp_err_msg"), NULL, ngx_http_live_ksmp_variable,
+      offsetof(ngx_http_live_ksmp_ctx_t, err_msg), 0, 0 },
+
+    { ngx_string("live_ksmp_err_code"), NULL,
+      ngx_http_live_ksmp_uint32_variable,
+      offsetof(ngx_http_live_ksmp_ctx_t, err_code), 0, 0 },
+
+      ngx_http_null_variable
 };
 
 
@@ -398,11 +443,21 @@ static ngx_int_t
 ngx_http_live_ksmp_output_error_str(ngx_http_request_t *r, uint32_t code,
     ngx_str_t *message)
 {
-    ngx_wstream_t            *ws;
-    ngx_persist_write_ctx_t  *write_ctx;
+    ngx_wstream_t             *ws;
+    ngx_persist_write_ctx_t   *write_ctx;
+    ngx_http_live_ksmp_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_live_ksmp_module);
 
     ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-        "ngx_http_live_ksmp_output_error_str: %V", message);
+        "ngx_http_live_ksmp_output_error_str: %V, code: %uD", message, code);
+
+    ctx->err_msg.data = ngx_pnalloc(r->pool, message->len);
+    if (ctx->err_msg.data != NULL) {
+        ngx_memcpy(ctx->err_msg.data, message->data, message->len);
+        ctx->err_msg.len = message->len;
+    }
+    ctx->err_code = code;
 
     write_ctx = ngx_persist_write_init(r->pool,
         NGX_LIVE_PERSIST_TYPE_SERVE, 0);
@@ -708,10 +763,10 @@ static void
 ngx_http_live_ksmp_output_async(void *arg, ngx_int_t rc)
 {
     ngx_connection_t          *c;
-    ngx_http_request_t        *r;
-    ngx_http_live_ksmp_ctx_t  *ctx = arg;
+    ngx_http_request_t        *r = arg;
+    ngx_http_live_ksmp_ctx_t  *ctx;
 
-    r = ctx->r;
+    ctx = ngx_http_get_module_ctx(r, ngx_http_live_ksmp_module);
 
     switch (rc) {
 
@@ -851,17 +906,20 @@ static ngx_int_t
 ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
     ngx_live_persist_serve_scope_t *scope)
 {
-    ngx_int_t                     rc;
-    ngx_int_t                     comp_level;
-    ngx_wstream_t                *ws;
-    ngx_http_request_t           *r = params->r;
-    ngx_live_channel_t           *channel = scope->channel;
-    ngx_persist_write_ctx_t      *write_ctx;
-    ngx_http_live_ksmp_ctx_t     *ctx;
-    ngx_live_segment_copy_req_t   req;
+    ngx_int_t                       rc;
+    ngx_int_t                       comp_level;
+    ngx_wstream_t                  *ws;
+    ngx_http_request_t             *r = params->r;
+    ngx_live_channel_t             *channel = scope->channel;
+    ngx_persist_write_ctx_t        *write_ctx;
+    ngx_http_live_ksmp_ctx_t       *ctx;
+    ngx_live_segment_copy_req_t     req;
+    ngx_http_live_ksmp_loc_conf_t  *klcf;
 
     if (scope->flags & ~NGX_LIVE_SERVE_MEDIA) {
-        comp_level = 6;     /* TODO: add loc conf param */
+        klcf = ngx_http_get_module_loc_conf(r, ngx_http_live_ksmp_module);
+
+        comp_level = klcf->level;
 
     } else {
         comp_level = 0;
@@ -896,14 +954,8 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
         goto done;
     }
 
-    ctx = ngx_palloc(r->pool, sizeof(*ctx));
-    if (ctx == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_live_ksmp_write: alloc ctx failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
+    ctx = ngx_http_get_module_ctx(r, ngx_http_live_ksmp_module);
 
-    ctx->r = r;
     ctx->write_ctx = write_ctx;
 
     req.pool = r->pool;
@@ -915,17 +967,20 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
 
     req.callback = ngx_http_live_ksmp_output_async;
     req.cleanup = ngx_http_live_ksmp_cleanup;
-    req.arg = ctx;
+    req.arg = r;
+    req.source.len = 0;
 
     rc = ngx_live_copy_segment(&req);
     switch (rc) {
 
     case NGX_DONE:
+        ctx->source = req.source;
         r->main->count++;
         return NGX_DONE;
 
     case NGX_OK:
     case NGX_ABORT:
+        ctx->source = req.source;
         break;
 
     default:
@@ -944,6 +999,7 @@ static ngx_int_t
 ngx_http_live_ksmp_handler(ngx_http_request_t *r)
 {
     ngx_int_t                       rc;
+    ngx_http_live_ksmp_ctx_t       *ctx;
     ngx_http_live_ksmp_params_t     params;
     ngx_live_persist_serve_scope_t  scope;
 
@@ -965,12 +1021,127 @@ ngx_http_live_ksmp_handler(ngx_http_request_t *r)
         return rc;
     }
 
+    ctx = ngx_pcalloc(r->pool, sizeof(*ctx));
+    if (ctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_live_ksmp_handler: alloc ctx failed");
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    ngx_http_set_ctx(r, ctx, ngx_http_live_ksmp_module);
+
     rc = ngx_http_live_ksmp_init_scope(&params, &scope);
     if (rc != NGX_OK || r->header_sent) {
         return rc;
     }
 
     return ngx_http_live_ksmp_write(&params, &scope);
+}
+
+
+static ngx_int_t
+ngx_http_live_ksmp_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_str_t                 *s;
+    ngx_http_live_ksmp_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_live_ksmp_module);
+    if (ctx == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    s = (ngx_str_t *) ((char *) ctx + data);
+
+    if (s->len) {
+        v->len = s->len;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = s->data;
+
+    } else {
+        v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_live_ksmp_uint32_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    uint32_t                   n;
+    ngx_http_live_ksmp_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_live_ksmp_module);
+    if (ctx == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    v->data = ngx_pnalloc(r->pool, NGX_INT32_LEN);
+    if (v->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    n = *(uint32_t *) ((char *) ctx + data);
+    v->len = ngx_sprintf(v->data, "%uD", n) - v->data;
+
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_live_ksmp_add_variables(ngx_conf_t *cf)
+{
+    ngx_http_variable_t  *var, *v;
+
+    for (v = ngx_http_live_ksmp_vars; v->name.len; v++) {
+        var = ngx_http_add_variable(cf, &v->name, v->flags);
+        if (var == NULL) {
+            return NGX_ERROR;
+        }
+
+        var->get_handler = v->get_handler;
+        var->data = v->data;
+    }
+
+    return NGX_OK;
+}
+
+
+static void *
+ngx_http_live_ksmp_create_loc_conf(ngx_conf_t *cf)
+{
+    ngx_http_live_ksmp_loc_conf_t  *conf;
+
+    conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_live_ksmp_loc_conf_t));
+    if (conf == NULL) {
+        return NULL;
+    }
+
+    conf->level = NGX_CONF_UNSET;
+
+    return conf;
+}
+
+
+static char *
+ngx_http_live_ksmp_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
+{
+    ngx_http_live_ksmp_loc_conf_t  *prev = parent;
+    ngx_http_live_ksmp_loc_conf_t  *conf = child;
+
+    ngx_conf_merge_value(conf->level, prev->level, 6);
+
+    return NGX_CONF_OK;
 }
 
 
