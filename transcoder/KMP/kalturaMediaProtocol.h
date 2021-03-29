@@ -59,7 +59,7 @@ typedef struct {
     int64_t created;
     int64_t dts;
     uint32_t flags;
-    uint32_t pts_delay;
+    int32_t pts_delay;
 } kmp_frame_t;
 
 #define KMP_FRAME_FLAG_KEY (0x01)

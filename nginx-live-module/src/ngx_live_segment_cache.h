@@ -89,6 +89,9 @@ void ngx_live_segment_cache_free(ngx_live_segment_t *segment);
 void ngx_live_segment_cache_free_by_index(ngx_live_channel_t *channel,
     uint32_t segment_index);
 
+void ngx_live_segment_cache_shift_dts(ngx_live_segment_t *segment,
+    uint32_t shift);
+
 void ngx_live_segment_cache_finalize(ngx_live_segment_t *segment);
 
 ngx_live_segment_t *ngx_live_segment_cache_get(ngx_live_track_t *track,

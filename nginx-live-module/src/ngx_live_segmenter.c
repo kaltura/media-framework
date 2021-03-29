@@ -113,6 +113,7 @@ typedef struct {
     ngx_live_segmenter_frame_part_t  *last;
     ngx_live_segmenter_frame_part_t   part;
     ngx_buf_chain_t                  *last_data_part;
+    uint32_t                          dts_shift;
 } ngx_live_segmenter_frame_list_t;
 
 typedef struct {
@@ -161,6 +162,7 @@ typedef struct {
     int64_t                           last_key_pts;
     int64_t                           pending_duration;
     u_char                           *last_data_ptr;
+    uint32_t                          next_flags;
 
     ngx_live_segmenter_kf_list_t      key_frames;
 
@@ -180,8 +182,6 @@ typedef struct {
     ngx_uint_t                        dropped_frames;
 
     ngx_event_t                       inactive;
-
-    unsigned                          force_split:1;
 } ngx_live_segmenter_track_ctx_t;
 
 typedef struct {
@@ -596,6 +596,15 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
 
         ngx_live_channel_buf_chain_free_list(list->track->channel,
             cur->data, data_tail);
+
+        if ((cur->flags & NGX_LIVE_FRAME_FLAG_RESET_DTS_SHIFT) &&
+            list->dts_shift > 0)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &list->track->log, 0,
+                "ngx_live_segmenter_frame_list_remove: "
+                "resetting dts shift (1), prev: %uD", list->dts_shift);
+            list->dts_shift = 0;
+        }
     }
 
     ngx_memzero(res, sizeof(*res));
@@ -639,6 +648,15 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
             if (cur->flags & NGX_LIVE_FRAME_FLAG_SPLIT) {
                 res->split_duration += cur->pts - prev_pts;
                 (*split_count)--;
+
+                if ((cur->flags & NGX_LIVE_FRAME_FLAG_RESET_DTS_SHIFT) &&
+                    list->dts_shift > 0)
+                {
+                    ngx_log_error(NGX_LOG_NOTICE, &list->track->log, 0,
+                        "ngx_live_segmenter_frame_list_remove: "
+                        "resetting dts shift (2), prev: %uD", list->dts_shift);
+                    list->dts_shift = 0;
+                }
             }
 
             if (!left) {
@@ -842,8 +860,10 @@ static ngx_int_t
 ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
     ngx_live_segment_t *segment, uint32_t count)
 {
-    ngx_uint_t                        left;
     size_t                            size;
+    int32_t                           pts_delay;
+    uint32_t                          dts_shift;
+    ngx_uint_t                        left;
     input_frame_t                    *dest, *prev_dest;
     ngx_live_segmenter_frame_t       *last;
     ngx_live_segmenter_frame_t       *src, *prev_src;
@@ -852,13 +872,23 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
     prev_src = NULL;
     prev_dest = NULL;
     size = 0;
+    dts_shift = 0;
 
     part = &list->part;
     src = part->elts;
     last = src + part->nelts;
 
+    if ((src[0].flags & NGX_LIVE_FRAME_FLAG_RESET_DTS_SHIFT) &&
+        list->dts_shift > 0)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &list->track->log, 0,
+            "ngx_live_segmenter_frame_list_copy: "
+            "resetting dts shift, prev: %uD", list->dts_shift);
+        list->dts_shift = 0;
+    }
+
     segment->frame_count = count;
-    segment->start_dts = src[0].dts;
+    segment->start_dts = src[0].dts - list->dts_shift;
     segment->data_head = src[0].data;
 
     for (left = count ;; left--, src++) {
@@ -888,10 +918,16 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
             return NGX_ERROR;
         }
 
+        pts_delay = src->pts + list->dts_shift - src->dts;
+        if (pts_delay < 0) {
+            dts_shift = ngx_max(dts_shift, (uint32_t) -pts_delay);
+        }
+
         dest->key_frame = (src->flags & KMP_FRAME_FLAG_KEY) ? 1 : 0;
-        dest->pts_delay = src->pts - src->dts;
+        dest->pts_delay = pts_delay;
         dest->size = src->size;
         /* duration is set when the next frame arrives */
+
 
         size += src->size;
 
@@ -910,7 +946,17 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
         prev_dest->duration = 0;
     }
 
-    segment->end_dts = prev_src->dts + prev_dest->duration;
+    segment->end_dts = prev_src->dts + prev_dest->duration - list->dts_shift;
+
+    if (dts_shift > 0) {
+        ngx_log_error(NGX_LOG_NOTICE, &list->track->log, 0,
+            "ngx_live_segmenter_frame_list_copy: "
+            "applying dts shift %uD, prev: %uD", dts_shift, list->dts_shift);
+
+        ngx_live_segment_cache_shift_dts(segment, dts_shift);
+
+        list->dts_shift += dts_shift;
+    }
 
     segment->data_tail = ngx_live_segmenter_terminate_frame_chain(prev_src);
     segment->data_size = size;
@@ -1715,7 +1761,7 @@ ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
         }
 
     } else {
-        ctx->force_split = 1;
+        ctx->next_flags |= NGX_LIVE_FRAME_FLAG_SPLIT;
     }
 
 done:
@@ -2707,7 +2753,9 @@ ngx_live_segmenter_add_media_info(ngx_live_track_t *track,
     switch (rc) {
 
     case NGX_OK:
-        ctx->force_split = 1;   /* force a split on the next frame to arrive */
+        /* force a split on the next frame to arrive */
+        ctx->next_flags |= NGX_LIVE_FRAME_FLAG_SPLIT |
+            NGX_LIVE_FRAME_FLAG_RESET_DTS_SHIFT;
 
         /* fall through */
 
@@ -2736,11 +2784,13 @@ ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
 
     ngx_log_debug6(NGX_LOG_DEBUG_LIVE, &track->log, 0,
         "ngx_live_segmenter_add_frame: track: %V, created: %L, size: %uz, "
-        "dts: %L, flags: 0x%uxD, ptsDelay: %uD",
+        "dts: %L, flags: 0x%uxD, ptsDelay: %D",
         &track->sn.str, frame_info->created, req->size, frame_info->dts,
         frame_info->flags, frame_info->pts_delay);
 
-    if (frame_info->dts >= NGX_LIVE_INVALID_PTS - frame_info->pts_delay) {
+    if (frame_info->dts >= NGX_LIVE_INVALID_PTS - frame_info->pts_delay &&
+        frame_info->pts_delay >= 0)
+    {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_live_segmenter_add_frame: invalid dts %L", frame_info->dts);
         return NGX_ERROR;
@@ -2788,13 +2838,14 @@ ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
     if (track->media_type != KMP_MEDIA_VIDEO ||
         (frame->flags & KMP_FRAME_FLAG_KEY))
     {
-        if (ctx->force_split) {
+        if (ctx->next_flags) {
             ngx_log_error(NGX_LOG_INFO, &track->log, 0,
                 "ngx_live_segmenter_add_frame: "
-                "enabling split on current frame, pts: %L", frame->pts);
+                "enabling split on current frame, pts: %L, flags: 0x%uxD",
+                frame->pts, ctx->next_flags);
 
-            frame->flags |= NGX_LIVE_FRAME_FLAG_SPLIT;
-            ctx->force_split = 0;
+            frame->flags |= ctx->next_flags;
+            ctx->next_flags = 0;
         }
 
         if (ctx->frame_count > 0) {
