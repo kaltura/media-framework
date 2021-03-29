@@ -20,8 +20,6 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 
-#define DUMMY_NOPTS_VALUE -999999
-
 
 static ssize_t KMP_send( KMP_session_t *context,const void *buf, size_t len)
 {
@@ -326,11 +324,7 @@ int KMP_send_packet( KMP_session_t *context,AVPacket* packet)
     packetHeader.header_size=sizeof(sample)+sizeof(packetHeader);
     packetHeader.reserved=0;
     packetHeader.data_size = context->input_is_annex_b ? kk_avc_parse_nal_units(NULL,packet->data,packet->size) : packet->size;
-    if (AV_NOPTS_VALUE!=packet->pts) {
-        sample.pts_delay=(uint32_t)(packet->pts - packet->dts);
-    } else {
-        sample.pts_delay=DUMMY_NOPTS_VALUE;
-    }
+    sample.pts_delay=packet->pts - packet->dts;
     sample.dts=packet->dts;
     sample.created=packet->pos;
     sample.flags=((packet->flags& AV_PKT_FLAG_KEY)==AV_PKT_FLAG_KEY)? KMP_FRAME_FLAG_KEY : 0;
@@ -675,11 +669,7 @@ int KMP_read_packet( KMP_session_t *context,kmp_packet_header_t *header,AVPacket
     
     av_new_packet(packet,(int)header->data_size);
     packet->dts=sample.dts;
-    if (sample.pts_delay!=DUMMY_NOPTS_VALUE) {
-        packet->pts=sample.dts+sample.pts_delay;
-    } else {
-        packet->pts=AV_NOPTS_VALUE;
-    }
+    packet->pts=sample.dts+sample.pts_delay;
     packet->duration=0;
     packet->pos=sample.created;
     packet->flags=((sample.flags& KMP_FRAME_FLAG_KEY )==KMP_FRAME_FLAG_KEY)? AV_PKT_FLAG_KEY : 0;
