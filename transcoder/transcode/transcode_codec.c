@@ -224,8 +224,8 @@ init_video_encoder(transcode_codec_t * pContext,
     enc_ctx->width = width;
     enc_ctx->sample_aspect_ratio = inputAspectRatio;
     enc_ctx->pix_fmt = inputPixelFormat;
-    enc_ctx->bit_rate = 1000*pOutput->bitrate;
-    enc_ctx->bit_rate_tolerance = pOutput->bitrate*100; //10%
+    enc_ctx->bit_rate = pOutput->bitrate;
+    enc_ctx->bit_rate_tolerance = enc_ctx->bit_rate/10; //10%
     if (hw_frames_ctx!=NULL) {
         inputPixelFormat=AV_PIX_FMT_CUDA;
         enc_ctx->hw_frames_ctx = av_buffer_ref(hw_frames_ctx);
@@ -358,7 +358,7 @@ int transcode_codec_init_audio_encoder( transcode_codec_t * pContext,transcode_f
     enc_ctx->sample_rate = av_buffersink_get_sample_rate(pFilter->sink_ctx);
     enc_ctx->time_base = standard_timebase;// !
     enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-    enc_ctx->bit_rate=pOutput->bitrate*1000;
+    enc_ctx->bit_rate=pOutput->bitrate;
     ret = avcodec_open2(enc_ctx, codec,NULL);
     if (ret<0) {
         LOGGER(CATEGORY_CODEC,AV_LOG_ERROR,"error initilizing audio encoder %d (%s)",ret,av_err2str(ret));

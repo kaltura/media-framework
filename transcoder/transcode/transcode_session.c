@@ -279,7 +279,7 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
         }
         
         pOutput->encoderId=pContext->encoders++;
-        LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Output %s - Added encoder %d bitrate=%d",pOutput->track_id,pOutput->encoderId,pOutput->bitrate*1000);
+        LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Output %s - Added encoder %d bitrate=%d",pOutput->track_id,pOutput->encoderId,pOutput->bitrate);
         
         transcode_mediaInfo_t extra;
         extra.frameRate=pEncoderContext->ctx->framerate;
