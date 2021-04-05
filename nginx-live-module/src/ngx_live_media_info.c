@@ -8,9 +8,10 @@
 #include "ngx_live_media_info_json.h"
 
 
-#define NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_SETUP   (0x7073696d)    /* misp */
+#define NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_QUEUE                             \
+    NGX_KSMP_BLOCK_MEDIA_INFO_QUEUE
 
-#define NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_QUEUE   (0x7571696d)    /* miqu */
+#define NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_SETUP   (0x7073696d)    /* misp */
 
 #define NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_SOURCE  (0x6372736d)    /* msrc */
 
@@ -2120,18 +2121,22 @@ static ngx_int_t
 ngx_live_media_info_write_serve_queue(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    ngx_live_track_t                *track;
-    ngx_live_persist_serve_scope_t  *scope;
+    ngx_live_track_t                    *track;
+    ngx_persist_write_marker_t           marker;
+    ngx_live_persist_serve_scope_t      *scope;
+    ngx_ksmp_media_info_queue_header_t   header;
 
     scope = ngx_persist_write_ctx(write_ctx);
-    if (!(scope->flags & NGX_LIVE_SERVE_MEDIA_INFO)) {
+    if (!(scope->flags & NGX_KSMP_FLAG_MEDIA_INFO)) {
         return NGX_OK;
     }
 
     track = obj;
 
     if (ngx_persist_write_block_open(write_ctx,
-            NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_QUEUE) != NGX_OK ||
+            NGX_KSMP_BLOCK_MEDIA_INFO_QUEUE) != NGX_OK ||
+        ngx_persist_write_reserve(write_ctx, sizeof(header), &marker)
+            != NGX_OK ||
         ngx_live_persist_write_blocks(track->channel, write_ctx,
             NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO, track) != NGX_OK)
     {
@@ -2142,6 +2147,9 @@ ngx_live_media_info_write_serve_queue(ngx_persist_write_ctx_t *write_ctx,
 
     ngx_persist_write_block_close(write_ctx);
 
+    header.count = scope->media_info_count;
+    ngx_persist_write_marker_write(&marker, &header, sizeof(header));
+
     return NGX_OK;
 }
 
@@ -2149,15 +2157,19 @@ static ngx_int_t
 ngx_live_media_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
+    ngx_uint_t                        count;
     ngx_queue_t                      *q;
     ngx_live_track_t                 *track = obj;
     ngx_live_media_info_node_t       *node;
+    ngx_live_persist_serve_scope_t   *scope;
     ngx_live_media_info_track_ctx_t  *ctx;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     /* TODO: save only the minimum according to the manifest timeline in scope,
         and scope->segment_index (need to save one node before each period). */
+
+    count = 0;
 
     for (q = ngx_queue_head(&ctx->active);
         q != ngx_queue_sentinel(&ctx->active);
@@ -2170,7 +2182,13 @@ ngx_live_media_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
                 "ngx_live_media_info_write_serve: write failed");
             return NGX_ERROR;
         }
+
+        count++;
     }
+
+    scope = ngx_persist_write_ctx(write_ctx);
+
+    scope->media_info_count = count;
 
     return NGX_OK;
 }
@@ -2214,20 +2232,24 @@ static ngx_persist_block_t  ngx_live_media_info_blocks[] = {
      * persist header:
      *   kmp_media_info_t  kmp;
      */
-    { NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO,
+    { NGX_KSMP_BLOCK_MEDIA_INFO,
       NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, 0,
       ngx_live_media_info_write_media_segment, NULL },
 
-    { NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_QUEUE,
+    /*
+     * persist header:
+     *   ngx_ksmp_media_info_queue_header_t  p;
+     */
+    { NGX_KSMP_BLOCK_MEDIA_INFO_QUEUE,
       NGX_LIVE_PERSIST_CTX_SERVE_TRACK, 0,
       ngx_live_media_info_write_serve_queue, NULL },
 
     /*
      * persist header:
-     *   ngx_live_media_info_persist_t  p;
-     *   kmp_media_info_t               kmp;
+     *   ngx_ksmp_media_info_header_t  p;
+     *   kmp_media_info_t              kmp;
      */
-    { NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO,
+    { NGX_KSMP_BLOCK_MEDIA_INFO,
       NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO, 0,
       ngx_live_media_info_write_serve, NULL },
 

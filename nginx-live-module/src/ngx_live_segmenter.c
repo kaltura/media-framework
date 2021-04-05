@@ -3291,11 +3291,11 @@ ngx_live_segmenter_read_setup(ngx_persist_block_header_t *block,
         channel, conf.segment_duration, rs->log);
 }
 
-/*
- * persist data:
- *   ngx_live_segmenter_dyn_conf_t  conf;
- */
 static ngx_persist_block_t  ngx_live_segmenter_blocks[] = {
+    /*
+     * persist data:
+     *   ngx_live_segmenter_dyn_conf_t  conf;
+     */
     { NGX_LIVE_SEGMENTER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL,
       NGX_PERSIST_FLAG_SINGLE,
       ngx_live_segmenter_write_setup,

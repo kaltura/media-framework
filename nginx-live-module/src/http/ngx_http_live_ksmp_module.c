@@ -388,7 +388,7 @@ ngx_http_live_ksmp_parse(ngx_http_request_t *r,
     }
 
     if (params->segment_index == NGX_LIVE_INVALID_SEGMENT_INDEX &&
-        (params->flags & NGX_LIVE_SERVE_MEDIA))
+        (params->flags & NGX_KSMP_FLAG_MEDIA))
     {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_ksmp_parse: "
@@ -459,8 +459,7 @@ ngx_http_live_ksmp_output_error_str(ngx_http_request_t *r, uint32_t code,
     }
     ctx->err_code = code;
 
-    write_ctx = ngx_persist_write_init(r->pool,
-        NGX_LIVE_PERSIST_TYPE_SERVE, 0);
+    write_ctx = ngx_persist_write_init(r->pool, NGX_KSMP_PERSIST_TYPE, 0);
     if (write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_live_ksmp_output_error_str: write init failed");
@@ -470,7 +469,7 @@ ngx_http_live_ksmp_output_error_str(ngx_http_request_t *r, uint32_t code,
     ws = ngx_persist_write_stream(write_ctx);
 
     if (ngx_persist_write_block_open(write_ctx,
-            NGX_LIVE_PERSIST_BLOCK_ERROR) != NGX_OK ||
+            NGX_KSMP_BLOCK_ERROR) != NGX_OK ||
         ngx_persist_write(write_ctx, &code, sizeof(code)) != NGX_OK ||
         ngx_wstream_str(ws, message) != NGX_OK)
     {
@@ -547,12 +546,12 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
     ngx_flag_t         found;
     ngx_live_track_t  *cur_track;
 
-    if ((params->flags & NGX_LIVE_SERVE_ACTIVE_ONLY) &&
+    if ((params->flags & NGX_KSMP_FLAG_ACTIVE_ONLY) &&
         !ngx_live_variant_is_main_track_active(variant,
             params->media_type_mask))
     {
         ngx_http_live_ksmp_set_error(params,
-            NGX_LIVE_SERVE_ERR_VARIANT_INACTIVE,
+            NGX_KSMP_ERR_VARIANT_INACTIVE,
             "variant inactive, mask: 0x%uxD, variant: %V, channel: %V",
             params->media_type_mask, &variant->sn.str,
             &variant->channel->sn.str);
@@ -576,7 +575,7 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
                 &track_id) == NULL)
             {
                 ngx_http_live_ksmp_set_error(params,
-                    NGX_LIVE_SERVE_ERR_MEDIA_INFO_NOT_FOUND,
+                    NGX_KSMP_ERR_MEDIA_INFO_NOT_FOUND,
                     "no media info, index: %uD, track: %V, variant: %V"
                     ", channel: %V",
                     params->segment_index, &cur_track->sn.str,
@@ -596,7 +595,7 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
         } else {
             if (ngx_live_media_info_queue_get_last(cur_track, NULL) == NULL) {
                 ngx_http_live_ksmp_set_error(params,
-                    NGX_LIVE_SERVE_ERR_MEDIA_INFO_NOT_FOUND,
+                    NGX_KSMP_ERR_MEDIA_INFO_NOT_FOUND,
                     "no media info, track: %V, variant: %V, channel: %V",
                     &cur_track->sn.str, &variant->sn.str,
                     &variant->channel->sn.str);
@@ -606,12 +605,13 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
         }
 
         cur_track->output = 1;
+        cur_track->written = 0;
         found = 1;
     }
 
     if (!found) {
         ngx_http_live_ksmp_set_error(params,
-            NGX_LIVE_SERVE_ERR_TRACK_NOT_FOUND,
+            NGX_KSMP_ERR_TRACK_NOT_FOUND,
             "no tracks found, mask: 0x%uxD, variant: %V, channel: %V",
             params->media_type_mask, &variant->sn.str,
             &variant->channel->sn.str);
@@ -725,7 +725,7 @@ ngx_http_live_ksmp_parse_variant_ids(ngx_http_request_t *r,
 
         } else {
             ngx_http_live_ksmp_set_error(params,
-                NGX_LIVE_SERVE_ERR_VARIANT_NOT_FOUND,
+                NGX_KSMP_ERR_VARIANT_NOT_FOUND,
                 "unknown variant \"%V\", channel: %V", &cur, &channel->sn.str);
         }
 
@@ -797,13 +797,13 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
     channel = ngx_live_channel_get(&params->channel_id);
     if (channel == NULL) {
         return ngx_http_live_ksmp_output_error(r,
-            NGX_LIVE_SERVE_ERR_CHANNEL_NOT_FOUND,
+            NGX_KSMP_ERR_CHANNEL_NOT_FOUND,
             "unknown channel \"%V\"", &params->channel_id);
     }
 
     if (channel->blocked) {
         return ngx_http_live_ksmp_output_error(r,
-            NGX_LIVE_SERVE_ERR_CHANNEL_BLOCKED,
+            NGX_KSMP_ERR_CHANNEL_BLOCKED,
             "channel \"%V\" is blocked", &params->channel_id);
     }
 
@@ -813,7 +813,7 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
     timeline = ngx_live_timeline_get(channel, &params->timeline_id);
     if (timeline == NULL) {
         return ngx_http_live_ksmp_output_error(r,
-            NGX_LIVE_SERVE_ERR_TIMELINE_NOT_FOUND,
+            NGX_KSMP_ERR_TIMELINE_NOT_FOUND,
             "unknown timeline \"%V\", channel: %V",
             &params->timeline_id, &params->channel_id);
     }
@@ -821,22 +821,22 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
     if (timeline->manifest.segment_count <= 0) {
         if (timeline->manifest.target_duration_segments) {
             return ngx_http_live_ksmp_output_error(r,
-                NGX_LIVE_SERVE_ERR_TIMELINE_EMPTIED,
+                NGX_KSMP_ERR_TIMELINE_EMPTIED,
                 "timeline \"%V\" no longer has segments, channel: %V",
                 &params->timeline_id, &params->channel_id);
         }
 
         return ngx_http_live_ksmp_output_error(r,
-            NGX_LIVE_SERVE_ERR_TIMELINE_EMPTY,
+            NGX_KSMP_ERR_TIMELINE_EMPTY,
             "no segments in timeline \"%V\", channel: %V",
             &params->timeline_id, &params->channel_id);
     }
 
-    if ((params->flags & NGX_LIVE_SERVE_CHECK_EXPIRY) &&
+    if ((params->flags & NGX_KSMP_FLAG_CHECK_EXPIRY) &&
         ngx_live_timeline_is_expired(timeline))
     {
         return ngx_http_live_ksmp_output_error(r,
-            NGX_LIVE_SERVE_ERR_TIMELINE_EXPIRED,
+            NGX_KSMP_ERR_TIMELINE_EXPIRED,
             "timeline \"%V\" is expired, channel: %V",
             &params->timeline_id, &params->channel_id);
     }
@@ -846,7 +846,7 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
             params->segment_index, &scope->correction))
         {
             return ngx_http_live_ksmp_output_error(r,
-                NGX_LIVE_SERVE_ERR_SEGMENT_NOT_FOUND,
+                NGX_KSMP_ERR_SEGMENT_NOT_FOUND,
                 "segment %uD does not exist, timeline: %V, channel: %V",
                 params->segment_index, &params->timeline_id,
                 &params->channel_id);
@@ -856,7 +856,7 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
     scope->timeline = timeline;
 
     /* scope */
-    if (params->flags & NGX_LIVE_SERVE_MEDIA) {
+    if (params->flags & NGX_KSMP_FLAG_MEDIA) {
         scope->track_refs = ngx_array_create(r->pool, KMP_MEDIA_COUNT,
             sizeof(ngx_live_track_ref_t));
         if (scope->track_refs == NULL) {
@@ -892,11 +892,13 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
 
         } else {
             return ngx_http_live_ksmp_output_error(r,
-                NGX_LIVE_SERVE_ERR_VARIANT_NO_MATCH,
+                NGX_KSMP_ERR_VARIANT_NO_MATCH,
                 "no variant matches the request, channel: %V",
                 &params->channel_id);
         }
     }
+
+    scope->track_count = 0;
 
     return NGX_OK;
 }
@@ -913,10 +915,12 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
     ngx_live_channel_t             *channel = scope->channel;
     ngx_persist_write_ctx_t        *write_ctx;
     ngx_http_live_ksmp_ctx_t       *ctx;
+    ngx_ksmp_channel_header_t       header;
+    ngx_persist_write_marker_t      marker;
     ngx_live_segment_copy_req_t     req;
     ngx_http_live_ksmp_loc_conf_t  *klcf;
 
-    if (scope->flags & ~NGX_LIVE_SERVE_MEDIA) {
+    if (scope->flags & ~NGX_KSMP_FLAG_MEDIA) {
         klcf = ngx_http_get_module_loc_conf(r, ngx_http_live_ksmp_module);
 
         comp_level = klcf->level;
@@ -925,8 +929,8 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
         comp_level = 0;
     }
 
-    write_ctx = ngx_persist_write_init(r->pool,
-        NGX_LIVE_PERSIST_TYPE_SERVE, comp_level);
+    write_ctx = ngx_persist_write_init(r->pool, NGX_KSMP_PERSIST_TYPE,
+        comp_level);
     if (write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_live_ksmp_write: write init failed");
@@ -940,8 +944,10 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
     channel = scope->channel;
 
     if (ngx_persist_write_block_open(write_ctx,
-            NGX_LIVE_PERSIST_BLOCK_CHANNEL) != NGX_OK ||
+            NGX_KSMP_BLOCK_CHANNEL) != NGX_OK ||
         ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
+        ngx_persist_write_reserve(write_ctx, sizeof(header), &marker)
+            != NGX_OK ||
         ngx_live_persist_write_blocks(channel, write_ctx,
             NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL, channel) != NGX_OK)
     {
@@ -950,7 +956,11 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    if (!(params->flags & NGX_LIVE_SERVE_MEDIA)) {
+    header.track_count = scope->track_count;
+    header.variant_count = scope->variant_count;
+    ngx_persist_write_marker_write(&marker, &header, sizeof(header));
+
+    if (!(params->flags & NGX_KSMP_FLAG_MEDIA)) {
         goto done;
     }
 

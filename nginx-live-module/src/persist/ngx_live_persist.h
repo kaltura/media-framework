@@ -15,59 +15,20 @@
 
 #define NGX_LIVE_PERSIST_TYPE_MEDIA              (0x73746773)    /* sgts */
 
-#define NGX_LIVE_PERSIST_TYPE_SERVE              (0x76726573)    /* serv */
+#define NGX_LIVE_PERSIST_TYPE_SERVE              NGX_KSMP_PERSIST_TYPE
+
+
+#define NGX_LIVE_PERSIST_BLOCK_CHANNEL           NGX_KSMP_BLOCK_CHANNEL
+#define NGX_LIVE_PERSIST_BLOCK_VARIANT           NGX_KSMP_BLOCK_VARIANT
+#define NGX_LIVE_PERSIST_BLOCK_TRACK             NGX_KSMP_BLOCK_TRACK
+#define NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO        NGX_KSMP_BLOCK_MEDIA_INFO
+#define NGX_LIVE_PERSIST_BLOCK_SEGMENT           NGX_KSMP_BLOCK_SEGMENT
+#define NGX_LIVE_PERSIST_BLOCK_FRAME_LIST        NGX_KSMP_BLOCK_FRAME_LIST
+#define NGX_LIVE_PERSIST_BLOCK_FRAME_DATA        NGX_KSMP_BLOCK_FRAME_DATA
 
 
 /* block ids */
-#define NGX_LIVE_PERSIST_BLOCK_CHANNEL           (0x6c6e6863)    /* chnl */
-
-#define NGX_LIVE_PERSIST_BLOCK_VARIANT           (0x746e7276)    /* vrnt */
-
-#define NGX_LIVE_PERSIST_BLOCK_TRACK             (0x6b617274)    /* trak */
-
-#define NGX_LIVE_PERSIST_BLOCK_SEGMENT_INDEX     (0x78696773)    /* sgix */
-
-#define NGX_LIVE_PERSIST_BLOCK_SEGMENT           (0x746d6773)    /* sgmt */
-#define NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO        (0x666e696d)    /* minf */
-#define NGX_LIVE_PERSIST_BLOCK_FRAME_LIST        (0x6e757274)    /* trun */
-#define NGX_LIVE_PERSIST_BLOCK_FRAME_DATA        (0x7461646d)    /* mdat */
-
-#define NGX_LIVE_PERSIST_BLOCK_ERROR             (0x72727265)    /* errr */
-
-
 #define NGX_LIVE_PERSIST_INVALID_SNAP  ((void *) -1)
-
-
-#define NGX_LIVE_SERVE_MEDIA             (0x00000001)
-#define NGX_LIVE_SERVE_TIMELINE          (0x00000002)
-#define NGX_LIVE_SERVE_MEDIA_INFO        (0x00000004)
-#define NGX_LIVE_SERVE_SEGMENT_INFO      (0x00000008)
-#define NGX_LIVE_SERVE_DYNAMIC_VAR       (0x00000010)
-
-#define NGX_LIVE_SERVE_ACTIVE_ONLY       (0x01000000)
-#define NGX_LIVE_SERVE_CHECK_EXPIRY      (0x02000000)
-
-
-/* ordered by desc prio */
-enum {
-    NGX_LIVE_SERVE_ERR_CHANNEL_NOT_FOUND = 10,
-    NGX_LIVE_SERVE_ERR_CHANNEL_BLOCKED,
-
-    NGX_LIVE_SERVE_ERR_TIMELINE_NOT_FOUND = 20,
-    NGX_LIVE_SERVE_ERR_TIMELINE_EMPTY,
-    NGX_LIVE_SERVE_ERR_TIMELINE_EMPTIED,
-    NGX_LIVE_SERVE_ERR_TIMELINE_EXPIRED,
-
-    NGX_LIVE_SERVE_ERR_SEGMENT_NOT_FOUND = 30,
-
-    NGX_LIVE_SERVE_ERR_VARIANT_NOT_FOUND = 40,
-    NGX_LIVE_SERVE_ERR_VARIANT_INACTIVE,
-    NGX_LIVE_SERVE_ERR_VARIANT_NO_MATCH,
-
-    NGX_LIVE_SERVE_ERR_MEDIA_INFO_NOT_FOUND = 50,
-
-    NGX_LIVE_SERVE_ERR_TRACK_NOT_FOUND = 60,
-};
 
 
 enum {
@@ -106,18 +67,7 @@ typedef enum {
 } ngx_live_persist_snap_close_action_e;
 
 
-typedef struct {
-    uint32_t     segment_index;
-    uint32_t     reserved;
-    int64_t      correction;
-} ngx_live_persist_segment_index_t;
-
-
-typedef struct {
-    uint32_t     frame_count;
-    uint32_t     reserved;
-    int64_t      start_dts;
-} ngx_live_persist_segment_header_t;
+typedef ngx_ksmp_segment_header_t  ngx_live_persist_segment_header_t;
 
 
 typedef struct {
@@ -152,6 +102,8 @@ typedef struct {
     uint32_t                          segment_index;
     uint32_t                          flags;
     int64_t                           correction;
+    ngx_uint_t                        track_count;
+    ngx_uint_t                        media_info_count;
 } ngx_live_persist_serve_scope_t;
 
 

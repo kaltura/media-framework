@@ -426,7 +426,8 @@ ngx_live_core_prepare_preset(ngx_conf_t *cf, ngx_live_core_preset_conf_t *cpcf)
 
     } else {
         elts = ngx_live_core_default_block_sizes;
-        n = vod_array_entries(ngx_live_core_default_block_sizes);
+        n = sizeof(ngx_live_core_default_block_sizes) /
+            sizeof(ngx_live_core_default_block_sizes[0]);
     }
 
     bs = ngx_array_push_n(cpcf->mem_temp_blocks, n);

@@ -637,7 +637,7 @@ ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
     header.reserved = 0;
 
     if (ngx_persist_write_block_open(write_ctx,
-            NGX_LIVE_PERSIST_BLOCK_SEGMENT) != NGX_OK ||
+            NGX_KSMP_BLOCK_SEGMENT) != NGX_OK ||
         ngx_persist_write(write_ctx, &header, sizeof(header)) != NGX_OK ||
         ngx_live_persist_write_blocks(channel, write_ctx,
             NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, segment) != NGX_OK)
@@ -859,23 +859,23 @@ ngx_live_segment_cache_track_channel_free(ngx_live_track_t *track, void *ectx)
 static ngx_persist_block_t  ngx_live_segment_cache_blocks[] = {
     /*
      * persist data:
-     *   input_frame_t  frame[];
+     *   ngx_ksmp_frame_t  frame[];
      */
-    { NGX_LIVE_PERSIST_BLOCK_FRAME_LIST,
+    { NGX_KSMP_BLOCK_FRAME_LIST,
       NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER,
       NGX_PERSIST_FLAG_SINGLE,
       ngx_live_segment_cache_write_frame_list, NULL },
 
-    { NGX_LIVE_PERSIST_BLOCK_FRAME_DATA,
+    { NGX_KSMP_BLOCK_FRAME_DATA,
       NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_DATA,
       NGX_PERSIST_FLAG_SINGLE,
       ngx_live_segment_cache_write_frame_data, NULL },
 
     /*
      * persist header:
-     *   ngx_live_persist_segment_header_t  header;
+     *   ngx_ksmp_segment_header_t  header;
      */
-    { NGX_LIVE_PERSIST_BLOCK_SEGMENT, NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL, 0,
+    { NGX_KSMP_BLOCK_SEGMENT, NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL, 0,
       NULL, NULL },
 
       ngx_null_persist_block

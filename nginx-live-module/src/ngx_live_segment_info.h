@@ -7,7 +7,8 @@
 #include "ngx_live.h"
 
 
-typedef struct ngx_live_segment_info_elt_s   ngx_live_segment_info_elt_t;
+typedef ngx_ksmp_segment_info_elt_t  ngx_live_segment_info_elt_t;
+
 typedef struct ngx_live_segment_info_node_s  ngx_live_segment_info_node_t;
 
 typedef struct {
