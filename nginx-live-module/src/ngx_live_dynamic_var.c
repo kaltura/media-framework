@@ -3,7 +3,7 @@
 #include "ngx_live.h"
 
 
-#define NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK       (0x766e7964)    /* dynv */
+#define NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK       NGX_KSMP_BLOCK_DYNAMIC_VAR
 
 
 enum {
@@ -404,7 +404,7 @@ ngx_live_dynamic_var_serve_write(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_persist_serve_scope_t  *scope;
 
     scope = ngx_persist_write_ctx(write_ctx);
-    if (!(scope->flags & NGX_LIVE_SERVE_DYNAMIC_VAR)) {
+    if (!(scope->flags & NGX_KSMP_FLAG_DYNAMIC_VAR)) {
         return NGX_OK;
     }
 
@@ -428,8 +428,7 @@ static ngx_persist_block_t  ngx_live_dynamic_var_blocks[] = {
      *   ngx_str_t  key;
      *   ngx_str_t  value;
      */
-    { NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL,
-      0,
+    { NGX_KSMP_BLOCK_DYNAMIC_VAR, NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL, 0,
       ngx_live_dynamic_var_serve_write, NULL },
 
     ngx_null_persist_block

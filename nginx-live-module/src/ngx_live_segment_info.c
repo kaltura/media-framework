@@ -4,7 +4,7 @@
 #include "ngx_live_segment_info.h"
 
 
-#define NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK  (0x666e6773)  /* sgnf */
+#define NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK  NGX_KSMP_BLOCK_SEGMENT_INFO
 
 /* sizeof ngx_live_segment_info_node_t = 512 */
 #define NGX_LIVE_SEGMENT_INFO_NODE_ELTS    (56)
@@ -26,11 +26,6 @@ typedef struct {
     ngx_uint_t                     bp_idx[NGX_LIVE_BP_COUNT];
 } ngx_live_segment_info_preset_conf_t;
 
-
-struct ngx_live_segment_info_elt_s {
-    uint32_t                       index;
-    uint32_t                       bitrate;
-};
 
 struct ngx_live_segment_info_node_s {
     ngx_rbtree_node_t              node;        /* key = segment_index */
@@ -839,7 +834,7 @@ ngx_live_segment_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_segment_info_track_ctx_t  *ctx;
 
     scope = ngx_persist_write_ctx(write_ctx);
-    if (!(scope->flags & NGX_LIVE_SERVE_SEGMENT_INFO)) {
+    if (!(scope->flags & NGX_KSMP_FLAG_SEGMENT_INFO)) {
         return NGX_OK;
     }
 
@@ -847,7 +842,7 @@ ngx_live_segment_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
     ctx = ngx_live_get_module_ctx(track, ngx_live_segment_info_module);
 
     if (ngx_persist_write_block_open(write_ctx,
-            NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK) != NGX_OK)
+            NGX_KSMP_BLOCK_SEGMENT_INFO) != NGX_OK)
     {
         return NGX_ERROR;
     }
@@ -918,9 +913,9 @@ static ngx_persist_block_t  ngx_live_segment_info_blocks[] = {
 
     /*
      * persist data:
-     *   ngx_live_segment_info_elt_t  info[];
+     *   ngx_ksmp_segment_info_elt_t  info[];
      */
-    { NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SERVE_TRACK, 0,
+    { NGX_KSMP_BLOCK_SEGMENT_INFO, NGX_LIVE_PERSIST_CTX_SERVE_TRACK, 0,
       ngx_live_segment_info_write_serve, NULL },
 
     ngx_null_persist_block

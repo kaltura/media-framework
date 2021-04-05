@@ -7,6 +7,7 @@
 #include <ngx_http.h>
 #include "../ngx_live.h"
 #include "../ngx_live_timeline.h"
+#include "../media/media_format.h"
 
 
 #define NGX_HTTP_GONE                      410

@@ -10,14 +10,6 @@
 
 
 typedef struct {
-    size_t                        size;
-    ngx_chain_t                 **next;
-    ngx_buf_t                    *buf;
-    u_char                       *pos;
-} ngx_persist_write_marker_t;
-
-
-typedef struct {
     ngx_persist_write_marker_t    marker;
     ngx_persist_block_header_t    header;
 } ngx_persist_write_block_t;
@@ -216,7 +208,7 @@ ngx_persist_write(ngx_persist_write_ctx_t *ctx, void *buf,
     return NGX_OK;
 }
 
-static ngx_int_t
+ngx_int_t
 ngx_persist_write_reserve(ngx_persist_write_ctx_t *ctx, size_t size,
     ngx_persist_write_marker_t *marker)
 {
@@ -266,7 +258,7 @@ ngx_persist_write_reserve(ngx_persist_write_ctx_t *ctx, size_t size,
     return NGX_OK;
 }
 
-static void
+void
 ngx_persist_write_marker_write(ngx_persist_write_marker_t *marker,
     void *buf, size_t size)
 {
@@ -432,7 +424,7 @@ ngx_persist_write_block_open(ngx_persist_write_ctx_t *ctx,
     block->header.id = id;
     block->header.header_size = 0;
 
-    if (ngx_persist_write_reserve(ctx, sizeof(ngx_persist_block_header_t), 
+    if (ngx_persist_write_reserve(ctx, sizeof(ngx_persist_block_header_t),
             &block->marker) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,

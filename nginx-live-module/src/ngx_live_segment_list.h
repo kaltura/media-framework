@@ -12,13 +12,10 @@
 #define NGX_LIVE_SEGMENT_LIST_PERSIST_BLOCK_PERIOD  (0x64706c73)    /* slpd */
 
 
+typedef ngx_ksmp_segment_repeat_t  ngx_live_segment_repeat_t;
+
 typedef struct ngx_live_segment_list_node_s  ngx_live_segment_list_node_t;
 
-
-typedef struct {
-    uint32_t                       repeat_count;
-    uint32_t                       duration;
-} ngx_live_segment_repeat_t;
 
 typedef struct {
     ngx_rbtree_t                   rbtree;

@@ -6,6 +6,7 @@
 #include <ngx_core.h>
 #include <ngx_buf_chain.h>
 #include "ngx_live.h"
+#include "media/media_format.h"
 
 
 #define NGX_LIVE_READ_FLAG_LOCK_DATA  (0x01)

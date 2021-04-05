@@ -10,21 +10,14 @@
 #include "media/media_format.h"
 
 
+typedef ngx_ksmp_media_info_header_t  ngx_live_media_info_persist_t;
+
 typedef struct ngx_live_media_info_node_s  ngx_live_media_info_node_t;
 
 typedef struct {
     ngx_live_media_info_node_t  *cur;
     ngx_queue_t                 *sentinel;
 } ngx_live_media_info_iter_t;
-
-
-typedef struct {
-    uint32_t                     track_id;
-    uint32_t                     start_segment_index;
-    uint64_t                     bitrate_sum;
-    uint32_t                     bitrate_count;
-    uint32_t                     bitrate_max;
-} ngx_live_media_info_persist_t;
 
 
 media_info_t *ngx_live_media_info_clone(ngx_pool_t *pool, media_info_t *src);

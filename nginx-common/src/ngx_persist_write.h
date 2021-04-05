@@ -23,6 +23,14 @@ typedef struct {
 } ngx_persist_write_base_t;
 
 
+typedef struct {
+    size_t          size;
+    ngx_chain_t   **next;
+    ngx_buf_t      *buf;
+    u_char         *pos;
+} ngx_persist_write_marker_t;
+
+
 ngx_persist_write_ctx_t *ngx_persist_write_init(ngx_pool_t *pool,
     uint32_t type, int comp_level);
 
@@ -44,6 +52,11 @@ ngx_int_t ngx_persist_write(ngx_persist_write_ctx_t *ctx,
 ngx_int_t ngx_persist_write_list_data(ngx_persist_write_ctx_t *ctx,
     ngx_list_t *list);
 
+ngx_int_t ngx_persist_write_reserve(ngx_persist_write_ctx_t *ctx, size_t size,
+    ngx_persist_write_marker_t *marker);
+
+void ngx_persist_write_marker_write(ngx_persist_write_marker_t *marker,
+    void *buf, size_t size);
 
 /* no copy functions - original buffer must remain valid! */
 ngx_int_t ngx_persist_write_append(ngx_persist_write_ctx_t *ctx,

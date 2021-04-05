@@ -5,10 +5,9 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_event.h>
-#include <ngx_live_kmp.h>
+#include <ngx_ksmp.h>
 #include <ngx_buf_queue.h>
 #include <ngx_buf_chain.h>
-#include "media/media_format.h"
 #include "ngx_live_config.h"
 #include "ngx_block_pool.h"
 #include "ngx_block_str.h"
@@ -152,6 +151,7 @@ struct ngx_live_track_s {
     uint32_t                       last_segment_bitrate;
     unsigned                       has_last_segment:1;
     unsigned                       output:1;    /* temporary during serve */
+    unsigned                       written:1;    /* temporary during serve */
 };
 
 

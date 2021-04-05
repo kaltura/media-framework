@@ -534,7 +534,7 @@ ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
     ngx_live_track_t  *cur_track;
 
     track_count = 0;
-    for (i = 0; i < MEDIA_TYPE_COUNT; i++) {
+    for (i = 0; i < KMP_MEDIA_COUNT; i++) {
         cur_track = tracks[i];
         if (cur_track == NULL) {
             continue;
