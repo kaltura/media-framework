@@ -43,7 +43,7 @@ int print_output(transcode_session_output_t* pOutput) {
     if (pOutput->codec_type==AVMEDIA_TYPE_VIDEO) {
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"(%s) output configuration: mode: transcode bitrate: %d Kbit/s  resolution: %dx%d  profile: %s preset: %s",
                pOutput->track_id,
-               pOutput->bitrate,
+               pOutput->bitrate / 1000,
                pOutput->videoParams.width,
                pOutput->videoParams.height,
                pOutput->videoParams.profile,
@@ -53,7 +53,7 @@ int print_output(transcode_session_output_t* pOutput) {
     if (pOutput->codec_type==AVMEDIA_TYPE_AUDIO) {
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"(%s) output configuration: mode: transcode bitrate: %d Kbit/s  %d channels, %d Hz",
                pOutput->track_id,
-               pOutput->bitrate,
+               pOutput->bitrate / 1000,
                pOutput->audioParams.channels,
                pOutput->audioParams.samplingRate
                )
@@ -259,7 +259,7 @@ int transcode_session_output_get_diagnostics(transcode_session_output_t *pOutput
     JSON_SERIALIZE_STRING("codecData",codecData)
     JSON_SERIALIZE_INT64("lastAck", pOutput->lastAck)
     JSON_SERIALIZE_INT64("lastDts",pOutput->stats.lastDts)
-    JSON_SERIALIZE_INT("bitrate",pOutput->bitrate > 0 ? pOutput->bitrate* 1000 : -1)
+    JSON_SERIALIZE_INT("bitrate",pOutput->bitrate > 0 ? pOutput->bitrate : -1)
     JSON_SERIALIZE_INT("currenBitrate",pOutput->stats.currentBitRate)
    
     JSON_SERIALIZE_END()
