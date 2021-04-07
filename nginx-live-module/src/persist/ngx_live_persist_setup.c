@@ -544,16 +544,18 @@ ngx_live_persist_setup_read_handler(ngx_live_channel_t *channel,
     ngx_uint_t file, ngx_str_t *buf, uint32_t *min_index)
 {
     ngx_int_t                              rc;
+    ngx_flag_t                             enabled;
     ngx_live_persist_setup_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_setup_module);
 
     /* avoid triggering setup write due to changes made while reading */
+    enabled = cctx->enabled;
     cctx->enabled = 0;
 
     rc = ngx_live_persist_read_parse(channel, buf, file, NULL);
 
-    cctx->enabled = 1;
+    cctx->enabled = enabled;
 
     if (rc != NGX_OK) {
         return rc;
