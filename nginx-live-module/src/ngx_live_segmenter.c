@@ -3490,13 +3490,13 @@ ngx_live_segmenter_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
                               prev->forward_skip_threshold, 1000);
 
     ngx_conf_merge_msec_value(conf->forward_jump_threshold,
-                              prev->forward_jump_threshold, 1000);
+                              prev->forward_jump_threshold, 10000);
 
     ngx_conf_merge_msec_value(conf->backward_jump_threshold,
                               prev->backward_jump_threshold, 0);
 
     ngx_conf_merge_msec_value(conf->inactive_timeout,
-                              prev->inactive_timeout, 2000);
+                              prev->inactive_timeout, 10000);
 
     ngx_conf_merge_msec_value(conf->start_truncate_limit,
                               prev->start_truncate_limit, 5000);
