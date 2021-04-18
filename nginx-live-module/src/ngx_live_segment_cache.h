@@ -22,7 +22,7 @@ struct ngx_live_segment_s {
     media_info_t           *media_info;
     kmp_media_info_t       *kmp_media_info;
 
-    ngx_list_t              frames;        /* input_frame_t */
+    ngx_list_t              frames;        /* ngx_live_frame_t */
     ngx_uint_t              frame_count;
     int64_t                 start_dts;
     int64_t                 end_dts;

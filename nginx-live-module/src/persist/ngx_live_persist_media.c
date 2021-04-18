@@ -180,7 +180,7 @@ ngx_live_persist_media_source_init(ngx_pool_t *pool, ngx_str_t *buffer)
 }
 
 static vod_status_t
-ngx_live_persist_media_source_start_frame(void *ctx, input_frame_t *frame)
+ngx_live_persist_media_source_start_frame(void *ctx, ngx_live_frame_t *frame)
 {
     ngx_live_persist_media_read_source_t  *state = ctx;
 
@@ -361,7 +361,7 @@ ngx_live_persist_media_read_frame_list(ngx_persist_block_header_t *header,
 
 
     track->frames.part.elts = ngx_mem_rstream_get_ptr(rs,
-        track->frame_count * sizeof(input_frame_t));
+        track->frame_count * sizeof(ngx_live_frame_t));
     if (track->frames.part.elts == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_media_read_frame_list: read frame list failed");
@@ -1882,7 +1882,7 @@ static ngx_persist_block_t  ngx_live_persist_media_blocks[] = {
 
     /*
      * persist data:
-     *   input_frame_t  frame[];
+     *   ngx_live_frame_t  frame[];
      */
     { NGX_LIVE_PERSIST_BLOCK_FRAME_LIST,
       NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER,

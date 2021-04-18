@@ -120,7 +120,7 @@ ngx_live_persist_serve_write_track(ngx_persist_write_ctx_t *write_ctx,
                 continue;
             }
 
-            tp.track_id = cur_track->in.key;
+            tp.id = cur_track->in.key;
             tp.media_type = cur_track->media_type;
 
             if (ngx_persist_write_block_open(write_ctx,

@@ -538,7 +538,7 @@ ngx_live_media_info_node_write(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_media_info_persist_t  mp;
 
     mp.track_id = node->track_id;
-    mp.start_segment_index = node->node.key;
+    mp.segment_index = node->node.key;
 
     mp.bitrate_sum = node->bitrate_sum;
     mp.bitrate_count = node->bitrate_count;
@@ -2058,17 +2058,17 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *block,
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
-    if (mp->start_segment_index < min_index &&
+    if (mp->segment_index < min_index &&
         !ngx_queue_empty(&ctx->active))
     {
         /* update bitrate stats */
         node = ngx_live_media_info_queue_get_exact(ctx,
-            mp->start_segment_index);
+            mp->segment_index);
         if (node == NULL) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_media_info_read_index: "
                 "segment index %uD is before min %uD and does not exist",
-                mp->start_segment_index, min_index);
+                mp->segment_index, min_index);
             return NGX_BAD_DATA;
         }
 
@@ -2079,15 +2079,15 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *block,
         return NGX_OK;
     }
 
-    if (mp->start_segment_index > scope->max_index) {
+    if (mp->segment_index > scope->max_index) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_media_info_read_index: "
             "segment index %uD greater than max segment index %uD",
-            mp->start_segment_index, scope->max_index);
+            mp->segment_index, scope->max_index);
         return NGX_BAD_DATA;
     }
 
-    min_index = mp->start_segment_index + 1;
+    min_index = mp->segment_index + 1;
 
     if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
         return NGX_BAD_DATA;
@@ -2116,7 +2116,7 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *block,
     node->bitrate_count = mp->bitrate_count;
     node->bitrate_max = mp->bitrate_max;
 
-    ngx_live_media_info_queue_push(track, node, mp->start_segment_index);
+    ngx_live_media_info_queue_push(track, node, mp->segment_index);
 
     return NGX_OK;
 }

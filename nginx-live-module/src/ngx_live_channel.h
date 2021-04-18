@@ -5,7 +5,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_event.h>
-#include <ngx_ksmp.h>
 #include <ngx_buf_queue.h>
 #include <ngx_buf_chain.h>
 #include "ngx_live_config.h"

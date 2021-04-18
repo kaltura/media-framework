@@ -4,6 +4,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
+#include <ngx_ksmp.h>
 
 
 typedef struct ngx_live_channel_s          ngx_live_channel_t;
@@ -12,6 +13,8 @@ typedef struct ngx_live_timeline_s         ngx_live_timeline_t;
 typedef struct ngx_live_segment_s          ngx_live_segment_t;
 typedef struct ngx_live_segment_cleanup_s  ngx_live_segment_cleanup_t;
 typedef struct ngx_live_media_info_node_s  ngx_live_media_info_node_t;
+
+typedef ngx_ksmp_frame_t  ngx_live_frame_t;
 
 
 #include "ngx_live_variables.h"

@@ -21,16 +21,16 @@ ngx_pckg_media_info_iter_get(ngx_pckg_media_info_iter_t *iter,
     }
 
     while (iter->cur + 1 < iter->last &&
-        iter->cur[1].header->start_segment_index <= segment_index)
+        iter->cur[1].header->segment_index <= segment_index)
     {
         iter->cur++;
     }
 
-    if (segment_index >= iter->cur->header->start_segment_index) {
+    if (segment_index >= iter->cur->header->segment_index) {
         *media_info = &iter->cur->media_info;
     }
 
-    return iter->cur->header->start_segment_index;
+    return iter->cur->header->segment_index;
 }
 
 

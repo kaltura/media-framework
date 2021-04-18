@@ -21,7 +21,7 @@
 
 typedef struct {
     int32_t                        pts_delay;
-    ngx_list_t                     frames;        /* input_frame_t */
+    ngx_list_t                     frames;        /* ngx_live_frame_t */
     ngx_uint_t                     frame_count;
 
     ngx_buf_chain_t               *data_head;
@@ -32,8 +32,8 @@ typedef struct {
 
 typedef struct {
     ngx_list_part_t               *part;
-    input_frame_t                 *cur;
-    input_frame_t                 *last;
+    ngx_live_frame_t              *cur;
+    ngx_live_frame_t              *last;
     uint32_t                       dts_offset;
 } ngx_live_filler_frame_iter_t;
 
@@ -147,10 +147,10 @@ ngx_live_filler_frame_iter_init(ngx_live_filler_frame_iter_t *iter,
     iter->dts_offset = 0;
 }
 
-static input_frame_t *
+static ngx_live_frame_t *
 ngx_live_filler_frame_iter_get(ngx_live_filler_frame_iter_t *iter)
 {
-    input_frame_t  *frame;
+    ngx_live_frame_t  *frame;
 
     if (iter->cur >= iter->last) {
 
@@ -262,7 +262,7 @@ ngx_live_filler_track_fill(ngx_live_track_t *track, uint32_t segment_count,
     uint32_t                        max_pts;
     uint32_t                        dts_offset;
     media_info_t                   *media_info;
-    input_frame_t                  *src, *dst;
+    ngx_live_frame_t               *src, *dst;
     kmp_media_info_t               *kmp_media_info;
     ngx_live_channel_t             *channel;
     ngx_live_segment_t             *segment;
@@ -621,9 +621,9 @@ ngx_live_filler_setup_copy_frames(ngx_live_filler_segment_t *dst_segment,
     ngx_live_segment_t *src_segment, uint32_t initial_pts_delay,
     ngx_flag_t is_last, uint64_t duration, ngx_log_t *log)
 {
-    input_frame_t    *dst;
-    input_frame_t    *cur, *last;
-    ngx_list_part_t  *part;
+    ngx_list_part_t   *part;
+    ngx_live_frame_t  *dst;
+    ngx_live_frame_t  *cur, *last;
 
     dst = NULL;
     dst_segment->frame_count = 0;
@@ -739,7 +739,7 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
     uint32_t                        initial_pts_delay;
     ngx_int_t                       rc;
     ngx_flag_t                      is_last;
-    input_frame_t                  *first_frame;
+    ngx_live_frame_t               *first_frame;
     ngx_live_segment_t             *src_segment;
     ngx_live_filler_segment_t      *dst_segment;
     ngx_live_filler_track_ctx_t    *ctx;
@@ -778,7 +778,7 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
         /* copy the frames */
         dst_segment = &ctx->segments[i];
         if (ngx_list_init(&dst_segment->frames, ctx->pool, 10,
-            sizeof(input_frame_t)) != NGX_OK)
+            sizeof(ngx_live_frame_t)) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_filler_setup_track_segments: "
@@ -1001,11 +1001,11 @@ static void
 ngx_live_filler_setup_validate_segment(ngx_live_filler_segment_t *segment,
     uint64_t *duration, ngx_log_t *log)
 {
-    size_t            data_size;
-    size_t            frames_size;
-    input_frame_t    *cur, *last;
-    ngx_buf_chain_t  *data;
-    ngx_list_part_t  *part;
+    size_t             data_size;
+    size_t             frames_size;
+    ngx_buf_chain_t   *data;
+    ngx_list_part_t   *part;
+    ngx_live_frame_t  *cur, *last;
 
     /* get the total size and duration of the frames */
     frames_size = 0;
@@ -1543,8 +1543,8 @@ static void
 ngx_live_filler_get_frames_info(ngx_live_segment_t *segment, size_t *size,
     int64_t *duration)
 {
-    input_frame_t    *cur, *last;
-    ngx_list_part_t  *part;
+    ngx_list_part_t   *part;
+    ngx_live_frame_t  *cur, *last;
 
     *size = 0;
     *duration = 0;

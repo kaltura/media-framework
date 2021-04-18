@@ -91,7 +91,7 @@ ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
         goto error;
     }
 
-    if (ngx_list_init(&segment->frames, pool, 10, sizeof(input_frame_t))
+    if (ngx_list_init(&segment->frames, pool, 10, sizeof(ngx_live_frame_t))
         != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
@@ -151,14 +151,14 @@ ngx_live_segment_cache_free(ngx_live_segment_t *segment)
 static void
 ngx_live_segment_cache_validate(ngx_live_segment_t *segment)
 {
-    size_t            data_size;
-    size_t            frames_size;
-    int64_t           end_dts;
-    uint32_t          frame_count;
-    ngx_uint_t        i;
-    input_frame_t    *frames;
-    ngx_buf_chain_t  *data;
-    ngx_list_part_t  *part;
+    size_t             data_size;
+    size_t             frames_size;
+    int64_t            end_dts;
+    uint32_t           frame_count;
+    ngx_uint_t         i;
+    ngx_buf_chain_t   *data;
+    ngx_list_part_t   *part;
+    ngx_live_frame_t  *frames;
 
     /* get the chain size, and validate data_tail */
     data_size = 0;
@@ -244,9 +244,9 @@ ngx_live_segment_cache_validate(ngx_live_segment_t *segment)
 void
 ngx_live_segment_cache_shift_dts(ngx_live_segment_t *segment, uint32_t shift)
 {
-    ngx_uint_t        i;
-    input_frame_t    *frames;
-    ngx_list_part_t  *part;
+    ngx_uint_t         i;
+    ngx_list_part_t   *part;
+    ngx_live_frame_t  *frames;
 
     part = &segment->frames.part;
     frames = part->elts;
@@ -421,7 +421,7 @@ ngx_live_segment_cache_source_init(ngx_pool_t *pool, ngx_buf_chain_t *chain,
 }
 
 static vod_status_t
-ngx_live_segment_cache_source_start_frame(void *ctx, input_frame_t *frame)
+ngx_live_segment_cache_source_start_frame(void *ctx, ngx_live_frame_t *frame)
 {
     ngx_live_segment_cache_source_state_t  *state = ctx;
 

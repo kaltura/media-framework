@@ -864,7 +864,7 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
     int32_t                           pts_delay;
     uint32_t                          dts_shift;
     ngx_uint_t                        left;
-    input_frame_t                    *dest, *prev_dest;
+    ngx_live_frame_t                 *dest, *prev_dest;
     ngx_live_segmenter_frame_t       *last;
     ngx_live_segmenter_frame_t       *src, *prev_src;
     ngx_live_segmenter_frame_part_t  *part;
