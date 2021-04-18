@@ -4,9 +4,9 @@ BODY: #EXTM3U
 #EXT-X-INDEPENDENT-SEGMENTS
 
 #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=23840,CODECS="mp4a.40.2"
-index-svar1.m3u8
+index-svar1-a.m3u8
 
-URL: /index-svar1.m3u8
+URL: /index-svar1-a.m3u8
 HEADERS: 200 application/vnd.apple.mpegurl
 BODY: #EXTM3U
 #EXT-X-TARGETDURATION:4
@@ -18,94 +18,94 @@ BODY: #EXTM3U
 #EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:00.000+00:00
 #EXTINF:4.000,
 #EXT-X-BITRATE:23
-seg-1-svar1.ts
+seg-1-svar1-a.ts
 #EXTINF:4.000,
-seg-2-svar1.ts
+seg-2-svar1-a.ts
 #EXTINF:4.000,
-seg-3-svar1.ts
+seg-3-svar1-a.ts
 #EXTINF:4.000,
-seg-4-svar1.ts
+seg-4-svar1-a.ts
 #EXTINF:4.000,
-seg-5-svar1.ts
+seg-5-svar1-a.ts
 #EXTINF:4.000,
-seg-6-svar1.ts
+seg-6-svar1-a.ts
 #EXTINF:4.000,
-seg-7-svar1.ts
+seg-7-svar1-a.ts
 #EXTINF:4.000,
-seg-8-svar1.ts
+seg-8-svar1-a.ts
 #EXTINF:4.000,
-seg-9-svar1.ts
+seg-9-svar1-a.ts
 #EXTINF:4.000,
-seg-10-svar1.ts
+seg-10-svar1-a.ts
 #EXTINF:4.000,
-seg-11-svar1.ts
+seg-11-svar1-a.ts
 #EXTINF:4.000,
-seg-12-svar1.ts
+seg-12-svar1-a.ts
 #EXTINF:4.000,
-seg-13-svar1.ts
+seg-13-svar1-a.ts
 #EXTINF:4.000,
-seg-14-svar1.ts
+seg-14-svar1-a.ts
 #EXTINF:3.977,
-seg-15-svar1.ts
+seg-15-svar1-a.ts
 #EXT-X-ENDLIST
 
-URL: /seg-1-svar1.ts
+URL: /seg-1-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: cca70426f0bc5e75f5feb8ae737067ea
 
-URL: /seg-2-svar1.ts
+URL: /seg-2-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: b082b66f0e51f7dbc35feed6f8d83ea8
 
-URL: /seg-3-svar1.ts
+URL: /seg-3-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: 45983623edb89ac62ef683ebef43c5e2
 
-URL: /seg-4-svar1.ts
+URL: /seg-4-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: 557a2ec8f67fddcb1fb9fecc782f2530
 
-URL: /seg-5-svar1.ts
+URL: /seg-5-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: 4cba0168adddb80cd937f2f4464819c3
 
-URL: /seg-6-svar1.ts
+URL: /seg-6-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: 2be05832f0c3634233db1ee1a7b020a9
 
-URL: /seg-7-svar1.ts
+URL: /seg-7-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: 681bb6cbc0ae37c0f5c21a28dce0f7d0
 
-URL: /seg-8-svar1.ts
+URL: /seg-8-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: cc283c22f987f974557cb44d0f6e21f9
 
-URL: /seg-9-svar1.ts
+URL: /seg-9-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: 6ea854db051d71b4c652dd1c408eac0c
 
-URL: /seg-10-svar1.ts
+URL: /seg-10-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: 9b07cd420555cb8c8c27dfbfa0cc8e2e
 
-URL: /seg-11-svar1.ts
+URL: /seg-11-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: d567b504705ac09ef08abab018d14484
 
-URL: /seg-12-svar1.ts
+URL: /seg-12-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: 1acc463bc5a94781498dff0c07173ad2
 
-URL: /seg-13-svar1.ts
+URL: /seg-13-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: 827414a061c16029dbd0ffeadea27973
 
-URL: /seg-14-svar1.ts
+URL: /seg-14-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: b03579c2211f6722831b3e63f65f3417
 
-URL: /seg-15-svar1.ts
+URL: /seg-15-svar1-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 12596, MD5: 4d4be454342523bf5cd8eeeed702a544
 
