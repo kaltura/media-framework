@@ -1386,12 +1386,14 @@ ngx_live_filler_track_channel_free(ngx_live_track_t *track, void *ectx)
 static ngx_int_t
 ngx_live_filler_write_setup_segment(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_track_t *track, ngx_live_filler_segment_t *segment,
-    int64_t timeline_pts)
+    uint32_t segment_index, int64_t timeline_pts)
 {
     media_info_t                       *media_info;
     kmp_media_info_t                   *kmp_media_info;
     ngx_live_persist_segment_header_t   sp;
 
+    sp.track_id = track->in.key;
+    sp.segment_index = segment_index;
     sp.frame_count = segment->frame_count;
     sp.start_dts = timeline_pts - segment->pts_delay;
     sp.reserved = 0;
@@ -1474,7 +1476,7 @@ ngx_live_filler_write_setup_track(ngx_persist_write_ctx_t *write_ctx,
     for (i = 0; i < cctx->count; i++) {
 
         if (ngx_live_filler_write_setup_segment(write_ctx, track,
-                &ctx->segments[i], timeline_pts) != NGX_OK)
+                &ctx->segments[i], i, timeline_pts) != NGX_OK)
         {
             return NGX_ERROR;
         }

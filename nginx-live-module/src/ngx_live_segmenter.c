@@ -1309,8 +1309,9 @@ ngx_live_segmenter_set_state(ngx_live_track_t *track,
             "ngx_live_segmenter_set_state: %d -> %d", old_state, new_state);
 
     } else {
-        ngx_log_debug2(NGX_LOG_DEBUG_LIVE, &track->log, 0,
-            "ngx_live_segmenter_set_state: %d -> %d", old_state, new_state);
+        ngx_log_debug3(NGX_LOG_DEBUG_LIVE, &track->log, 0,
+            "ngx_live_segmenter_set_state: %d -> %d, track: %V",
+            old_state, new_state, &track->sn.str);
     }
 
     cctx = ngx_live_get_module_ctx(track->channel, ngx_live_segmenter_module);
@@ -2312,7 +2313,7 @@ ngx_live_segmenter_fill(ngx_live_channel_t *channel, uint32_t media_types_mask,
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
-    missing_media_types = ((1 << KMP_MEDIA_COUNT) - 1) & ~media_types_mask;
+    missing_media_types = KMP_MEDIA_TYPE_MASK & ~media_types_mask;
 
     if (media_types_mask & (1 << KMP_MEDIA_VIDEO)) {
         /* have video tracks, force the filler to align to that */
@@ -2782,11 +2783,14 @@ ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
     track = req->track;
     frame_info = req->frame;
 
-    ngx_log_debug6(NGX_LOG_DEBUG_LIVE, &track->log, 0,
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
+
+    ngx_log_debug7(NGX_LOG_DEBUG_LIVE, &track->log, 0,
         "ngx_live_segmenter_add_frame: track: %V, created: %L, size: %uz, "
-        "dts: %L, flags: 0x%uxD, ptsDelay: %D",
+        "dts: %L, flags: 0x%uxD, ptsDelay: %D, ptsDelta: %L",
         &track->sn.str, frame_info->created, req->size, frame_info->dts,
-        frame_info->flags, frame_info->pts_delay);
+        frame_info->flags, frame_info->pts_delay,
+        frame_info->dts + frame_info->pts_delay - ctx->last_pts);
 
     if (frame_info->dts >= NGX_LIVE_INVALID_PTS - frame_info->pts_delay &&
         frame_info->pts_delay >= 0)
@@ -2795,8 +2799,6 @@ ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
             "ngx_live_segmenter_add_frame: invalid dts %L", frame_info->dts);
         return NGX_ERROR;
     }
-
-    ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
 
     if (ctx->frame_count >= NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,

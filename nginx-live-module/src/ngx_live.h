@@ -11,6 +11,7 @@ typedef struct ngx_live_track_s            ngx_live_track_t;
 typedef struct ngx_live_timeline_s         ngx_live_timeline_t;
 typedef struct ngx_live_segment_s          ngx_live_segment_t;
 typedef struct ngx_live_segment_cleanup_s  ngx_live_segment_cleanup_t;
+typedef struct ngx_live_media_info_node_s  ngx_live_media_info_node_t;
 
 
 #include "ngx_live_variables.h"

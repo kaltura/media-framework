@@ -16,6 +16,8 @@
 #define KMP_FRAME_FLAG_KEY      (0x01)
 #define KMP_FRAME_FLAG_MASK     (KMP_FRAME_FLAG_KEY)
 
+#define KMP_MEDIA_TYPE_MASK     ((1 << KMP_MEDIA_COUNT) - 1)
+
 /* matches ffmpeg AV_CH_XXX */
 #define KMP_CH_FRONT_LEFT       0x00000001
 #define KMP_CH_FRONT_RIGHT      0x00000002

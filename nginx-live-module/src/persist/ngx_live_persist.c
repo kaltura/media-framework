@@ -426,7 +426,7 @@ ngx_live_persist_read_parse(ngx_live_channel_t *channel, ngx_str_t *buf,
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
 
     rc = ngx_persist_read_inflate(header, ppcf->files[file].max_size, &rs,
-        &ptr);
+        NULL, &ptr);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_read_parse: inflate failed, file: %ui", file);

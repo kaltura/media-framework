@@ -269,7 +269,7 @@ ngx_http_live_core_parse_uri_file_name(ngx_http_request_t *r,
 {
     uint32_t  media_type;
 
-    result->media_type_mask = (1 << KMP_MEDIA_COUNT) - 1;
+    result->media_type_mask = KMP_MEDIA_TYPE_MASK;
 
     /* required params */
     if ((flags & NGX_HTTP_LIVE_PARSE_REQUIRE_INDEX) != 0) {
@@ -380,7 +380,7 @@ ngx_http_live_write_media_type_mask(u_char *p, uint32_t media_type_mask)
 {
     uint32_t  i;
 
-    if (media_type_mask == (1 << KMP_MEDIA_COUNT) - 1) {
+    if (media_type_mask == KMP_MEDIA_TYPE_MASK) {
         return p;
     }
 
@@ -1235,7 +1235,7 @@ ngx_http_live_finalize_segment_response(ngx_http_live_core_ctx_t *ctx)
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    /* if we everything was already sent, just signal completion and return */
+    /* if everything was already sent, just signal completion and return */
     if (r->header_sent) {
 
         if (ctx->segment_writer_ctx.total_size != ctx->content_length &&

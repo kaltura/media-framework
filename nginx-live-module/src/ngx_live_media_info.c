@@ -856,6 +856,24 @@ ngx_live_media_info_queue_get(ngx_live_track_t *track, uint32_t segment_index,
     return &node->media_info;
 }
 
+ngx_live_media_info_node_t *
+ngx_live_media_info_queue_get_node(ngx_live_track_t *track,
+    uint32_t segment_index, uint32_t *track_id)
+{
+    ngx_live_media_info_node_t       *node;
+    ngx_live_media_info_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
+
+    node = ngx_live_media_info_queue_get_before(ctx, segment_index);
+    if (node == NULL) {
+        return NULL;
+    }
+
+    *track_id = node->track_id;
+    return node;
+}
+
 media_info_t *
 ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
     kmp_media_info_t **kmp_media_info)
@@ -2164,10 +2182,18 @@ ngx_live_media_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_persist_serve_scope_t   *scope;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
+    scope = ngx_persist_write_ctx(write_ctx);
+
+    if (scope->segment_index != NGX_LIVE_INVALID_SEGMENT_INDEX) {
+        scope->media_info_count = 1;
+        return ngx_live_media_info_node_write(write_ctx,
+            track->media_info_node);
+    }
 
     /* TODO: save only the minimum according to the manifest timeline in scope,
-        and scope->segment_index (need to save one node before each period). */
+        (need to save one node before each period). */
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     count = 0;
 
@@ -2186,7 +2212,6 @@ ngx_live_media_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
         count++;
     }
 
-    scope = ngx_persist_write_ctx(write_ctx);
 
     scope->media_info_count = count;
 

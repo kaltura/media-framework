@@ -375,7 +375,7 @@ ngx_http_live_hls_group_variants(ngx_http_request_t *r,
 
         switch (variant->conf.role) {
 
-        case ngx_live_variant_role_alternate:
+        case ngx_ksmp_variant_role_alternate:
 
             /* Note: supporting only alternative audio */
 
@@ -404,7 +404,7 @@ ngx_http_live_hls_group_variants(ngx_http_request_t *r,
             variant_arr = &group->variants;
             break;
 
-        default:    /* ngx_live_variant_role_main */
+        default:    /* ngx_ksmp_variant_role_main */
             variant_arr = &result->streams;
             break;
         }
