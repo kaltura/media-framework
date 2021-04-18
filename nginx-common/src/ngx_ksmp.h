@@ -102,7 +102,7 @@ typedef struct {
 
 
 typedef struct {
-    uint32_t    repeat_count;
+    uint32_t    count;
     uint32_t    duration;
 } ngx_ksmp_segment_repeat_t;
 
@@ -120,7 +120,7 @@ typedef struct {
 
 
 typedef struct {
-    uint32_t    track_id;
+    uint32_t    id;
     uint32_t    media_type;
 } ngx_ksmp_track_header_t;
 
@@ -132,7 +132,7 @@ typedef struct {
 
 typedef struct {
     uint32_t    track_id;
-    uint32_t    start_segment_index;
+    uint32_t    segment_index;
     uint64_t    bitrate_sum;
     uint32_t    bitrate_count;
     uint32_t    bitrate_max;

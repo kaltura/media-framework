@@ -1061,12 +1061,12 @@ ngx_http_live_hls_write_period_segments(u_char *p, ngx_live_period_t *period,
 
         ngx_live_segment_iter_get_element(&segment_iter, &segment_duration);
 
-        if (segment_duration.repeat_count > segment_count) {
-            segment_duration.repeat_count = segment_count;
+        if (segment_duration.count > segment_count) {
+            segment_duration.count = segment_count;
         }
-        segment_count -= segment_duration.repeat_count;
+        segment_count -= segment_duration.count;
 
-        last_segment_index = segment_index + segment_duration.repeat_count;
+        last_segment_index = segment_index + segment_duration.count;
 
         for (; segment_index < last_segment_index; )
         {

@@ -293,14 +293,14 @@ ngx_pckg_ksmp_read_period(ngx_persist_block_header_t *block,
     for (i = 0; i < period->nelts; i++) {
         elt = &period->elts[i];
 
-        if (elt->repeat_count <= 0 || elt->duration <= 0) {
+        if (elt->count <= 0 || elt->duration <= 0) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_pckg_ksmp_read_period: zero repeat/duration");
             return NGX_BAD_DATA;
         }
 
-        count += elt->repeat_count;
-        duration += (uint64_t) elt->repeat_count * elt->duration;
+        count += elt->count;
+        duration += (uint64_t) elt->count * elt->duration;
     }
 
     if (count > NGX_KSMP_INVALID_SEGMENT_INDEX - header->segment_index) {
@@ -409,7 +409,7 @@ ngx_pckg_ksmp_track_ptr_compare(const void *one, const void *two)
     ngx_pckg_track_t  *first = *(ngx_pckg_track_t **) one;
     ngx_pckg_track_t  *second = *(ngx_pckg_track_t **) two;
 
-    return (int) first->header->track_id - (int) second->header->track_id;
+    return (int) first->header->id - (int) second->header->id;
 }
 
 
@@ -460,10 +460,10 @@ ngx_pckg_ksmp_track_get(ngx_pckg_channel_t *channel, uint32_t id)
         index = (left + right) / 2;
         track = channel->sorted_tracks[index];
 
-        if (track->header->track_id < id) {
+        if (track->header->id < id) {
             left = index + 1;
 
-        } else if (track->header->track_id > id) {
+        } else if (track->header->id > id) {
             right = index - 1;
 
         } else {
@@ -732,14 +732,14 @@ ngx_pckg_ksmp_read_media_info(ngx_persist_block_header_t *block,
     }
 
     if (track->last_media_info != NULL &&
-        header->start_segment_index <=
-            track->last_media_info->header->start_segment_index)
+        header->segment_index <=
+            track->last_media_info->header->segment_index)
     {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_pckg_ksmp_read_media_info: "
             "segment index %uD less than previous segment index %uD",
-            header->start_segment_index,
-            track->last_media_info->header->start_segment_index);
+            header->segment_index,
+            track->last_media_info->header->segment_index);
         return NGX_BAD_DATA;
     }
 
@@ -1004,7 +1004,7 @@ ngx_pckg_ksmp_read_segment(ngx_persist_block_header_t *block,
         if (cur_track->segment != NULL) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_pckg_ksmp_read_segment: track %uD already has a segment",
-                cur_track->header->track_id);
+                cur_track->header->id);
             return NGX_BAD_DATA;
         }
 

@@ -215,7 +215,7 @@ ngx_live_period_get_max_duration(ngx_live_period_t *period,
 
     iter = period->segment_iter;
 
-    for (i = period->segment_count; ; i -= segment_duration.repeat_count) {
+    for (i = period->segment_count; ; i -= segment_duration.count) {
 
         ngx_live_segment_iter_get_element(&iter, &segment_duration);
 
@@ -223,7 +223,7 @@ ngx_live_period_get_max_duration(ngx_live_period_t *period,
             *max_duration = segment_duration.duration;
         }
 
-        if (i <= segment_duration.repeat_count) {
+        if (i <= segment_duration.count) {
             break;
         }
     }
@@ -275,16 +275,16 @@ ngx_live_period_validate(ngx_live_period_t *period, ngx_log_t *log)
 
     for (i = period->segment_count;
         i > 0;
-        i -= segment_duration.repeat_count)
+        i -= segment_duration.count)
     {
         ngx_live_segment_iter_get_element(&iter, &segment_duration);
 
-        if (segment_duration.repeat_count > i) {
-            segment_duration.repeat_count = i;
+        if (segment_duration.count > i) {
+            segment_duration.count = i;
         }
 
         duration += (uint64_t) segment_duration.duration *
-            segment_duration.repeat_count;
+            segment_duration.count;
     }
 
     if (period->duration != duration) {
@@ -2506,11 +2506,11 @@ ngx_live_timeline_serve_write_periods(ngx_persist_write_ctx_t *write_ctx,
 
         iter = period->segment_iter;
 
-        for (i = period->segment_count; i > 0; i -= sd.repeat_count) {
+        for (i = period->segment_count; i > 0; i -= sd.count) {
             ngx_live_segment_iter_get_element(&iter, &sd);
 
-            if (sd.repeat_count > i) {
-                sd.repeat_count = i;
+            if (sd.count > i) {
+                sd.count = i;
             }
 
             if (ngx_persist_write(write_ctx, &sd, sizeof(sd)) != NGX_OK) {

@@ -890,7 +890,7 @@ ngx_http_pckg_hls_period_get_bitrate_count(ngx_pckg_period_t *period,
     for (i = 0; i < n; i++) {
         elt = &period->elts[i];
 
-        for (last_segment_index = segment_index + elt->repeat_count;
+        for (last_segment_index = segment_index + elt->count;
             segment_index < last_segment_index;
             segment_index++)
         {
@@ -999,7 +999,7 @@ ngx_http_pckg_hls_write_period_segments(u_char *p, ngx_pckg_period_t *period,
     for (i = 0; i < n; i++) {
         elt = &period->elts[i];
 
-        last_segment_index = segment_index + elt->repeat_count;
+        last_segment_index = segment_index + elt->count;
 
         for (; segment_index < last_segment_index; )
         {
