@@ -23,10 +23,10 @@
 #define NGX_LIVE_TRACK_MAX_ID_LEN       (KMP_MAX_TRACK_ID_LEN)
 
 #define NGX_LIVE_INVALID_TRACK_ID       (0)
-#define NGX_LIVE_INVALID_SEGMENT_INDEX  (NGX_MAX_UINT32_VALUE)
+#define NGX_LIVE_INVALID_SEGMENT_INDEX  (NGX_KSMP_INVALID_SEGMENT_INDEX)
 #define NGX_LIVE_INVALID_TIMESTAMP      (LLONG_MAX)
 
-#define NGX_LIVE_SEGMENT_NO_BITRATE     (1)
+#define NGX_LIVE_SEGMENT_NO_BITRATE     (NGX_KSMP_SEGMENT_NO_BITRATE)
 
 
 #define ngx_live_channel_auto_alloc(channel, size)                          \
@@ -146,24 +146,22 @@ struct ngx_live_track_s {
     int64_t                        last_frame_pts;
     uint64_t                       next_frame_id;
 
+    ngx_live_media_info_node_t    *media_info_node;     /* temp during serve */
+
     /* Note: when a track gets a segment from another track (gap filling),
         has_last_segment = 0 while last_segment_bitrate != 0 */
     uint32_t                       last_segment_bitrate;
     unsigned                       has_last_segment:1;
-    unsigned                       output:1;    /* temporary during serve */
-    unsigned                       written:1;    /* temporary during serve */
+
+    unsigned                       output:1;            /* temp during serve */
+    unsigned                       written:1;           /* temp during serve */
 };
 
-
-typedef enum {
-    ngx_live_variant_role_main,
-    ngx_live_variant_role_alternate,
-} ngx_live_variant_role_e;
 
 typedef struct {
     ngx_str_t                      label;
     ngx_str_t                      lang;
-    ngx_live_variant_role_e        role;
+    ngx_ksmp_variant_role_e        role;
     unsigned                       is_default:1;
 } ngx_live_variant_conf_t;
 

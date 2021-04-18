@@ -37,7 +37,14 @@ typedef void (*ngx_live_segment_cleanup_pt)(void *data);
 
 typedef void (*ngx_live_read_segment_callback_pt)(void *arg, ngx_int_t rc);
 
-typedef void (*ngx_live_copy_segment_callback_pt)(void *arg, ngx_int_t rc);
+
+typedef ngx_int_t (*ngx_live_copy_segment_set_size_pt)(void *arg, size_t size);
+
+typedef ngx_int_t (*ngx_live_copy_segment_write_pt)(void *arg,
+    ngx_chain_t *cl);
+
+typedef void (*ngx_live_copy_segment_close_pt)(void *arg, ngx_int_t rc);
+
 
 typedef struct {
     uint32_t                            id;
@@ -57,15 +64,24 @@ typedef struct {
 
 
 typedef struct {
+    ngx_live_copy_segment_set_size_pt   set_size;
+    ngx_live_copy_segment_write_pt      write;
+    ngx_live_copy_segment_close_pt      close;
+    ngx_live_segment_cleanup_pt         cleanup;
+    void                               *arg;
+} ngx_live_segment_writer_t;
+
+
+typedef struct {
     ngx_pool_t                         *pool;
     ngx_live_channel_t                 *channel;
     ngx_live_track_ref_t               *tracks;
     uint32_t                            track_count;
     uint32_t                            segment_index;
-    ngx_persist_write_ctx_t            *write_ctx;
-    ngx_live_copy_segment_callback_pt   callback;
-    ngx_live_segment_cleanup_pt         cleanup;
-    void                               *arg;
+    ngx_live_segment_writer_t           writer;
+
+    size_t                              size;
+    ngx_chain_t                        *chain;
     ngx_str_t                           source;
 } ngx_live_segment_copy_req_t;
 

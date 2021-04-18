@@ -2468,13 +2468,20 @@ static ngx_int_t
 ngx_live_timeline_serve_write_periods(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    uint32_t                    i;
-    ngx_live_period_t          *period;
-    ngx_live_timeline_t        *timeline = obj;
-    ngx_live_segment_iter_t     iter;
-    ngx_ksmp_period_header_t    pp;
-    ngx_live_segment_repeat_t   sd;
+    uint32_t                         i;
+    ngx_live_period_t               *period;
+    ngx_live_timeline_t             *timeline;
+    ngx_live_segment_iter_t          iter;
+    ngx_ksmp_period_header_t         pp;
+    ngx_live_segment_repeat_t        sd;
+    ngx_live_persist_serve_scope_t  *scope;
 
+    scope = ngx_persist_write_ctx(write_ctx);
+    if (!(scope->flags & NGX_KSMP_FLAG_PERIODS)) {
+        return NGX_OK;
+    }
+
+    timeline = obj;
     pp.reserved = 0;
 
     for (period = &timeline->manifest.first_period;

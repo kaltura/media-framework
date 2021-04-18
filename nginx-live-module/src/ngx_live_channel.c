@@ -26,7 +26,7 @@ ngx_str_t  ngx_live_track_type_names[] = {
     ngx_null_string
 };
 
-/* must match ngx_live_variant_role_e */
+/* must match ngx_ksmp_variant_role_e */
 ngx_str_t  ngx_live_variant_role_names[] = {
     ngx_string("main"),
     ngx_string("alternate"),
@@ -361,7 +361,7 @@ ngx_live_variant_validate_conf(ngx_live_variant_conf_t *conf, ngx_log_t *log)
         return NGX_ERROR;
     }
 
-    if (conf->role == ngx_live_variant_role_alternate &&
+    if (conf->role == ngx_ksmp_variant_role_alternate &&
         conf->label.len == 0)
     {
         ngx_log_error(NGX_LOG_ERR, log, 0,

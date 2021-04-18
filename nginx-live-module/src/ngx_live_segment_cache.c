@@ -632,6 +632,8 @@ ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
     /* segment header */
     start = ngx_persist_write_get_size(write_ctx);
 
+    header.track_id = segment->track->in.key;
+    header.segment_index = segment->node.key;
     header.frame_count = segment->frame_count;
     header.start_dts = segment->start_dts;
     header.reserved = 0;
@@ -676,10 +678,10 @@ ngx_live_segment_cache_copy(ngx_live_segment_copy_req_t *req)
 {
     uint32_t                     ignore;
     uint32_t                     segment_index;
-    ngx_flag_t                   found;
     ngx_pool_t                  *pool;
     ngx_live_segment_t          *segment;
     ngx_live_track_ref_t        *cur, *last;
+    ngx_persist_write_ctx_t     *write_ctx;
     ngx_live_segment_index_t    *index;
     ngx_live_segment_cleanup_t  *cln;
 
@@ -695,7 +697,7 @@ ngx_live_segment_cache_copy(ngx_live_segment_copy_req_t *req)
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_segment_cache_copy: "
             "segment %uD not found", segment_index);
-        return NGX_ABORT;
+        return NGX_OK;
     }
 
     cln = ngx_live_segment_index_cleanup_add(pool, index, req->track_count);
@@ -705,10 +707,10 @@ ngx_live_segment_cache_copy(ngx_live_segment_copy_req_t *req)
         return NGX_ERROR;
     }
 
-    cln->handler = req->cleanup;
-    cln->data = req->arg;
+    cln->handler = req->writer.cleanup;
+    cln->data = req->writer.arg;
 
-    found = 0;
+    write_ctx = NULL;
 
     last = req->tracks + req->track_count;
     for (cur = req->tracks; cur < last; cur++) {
@@ -730,22 +732,36 @@ ngx_live_segment_cache_copy(ngx_live_segment_copy_req_t *req)
             continue;
         }
 
-        if (ngx_live_segment_cache_write(req->write_ctx, segment, cln, &ignore)
+        if (write_ctx == NULL) {
+            write_ctx = ngx_persist_write_init(req->pool, 0, 0);
+            if (write_ctx == NULL) {
+                ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                    "ngx_live_segment_cache_copy: write init failed");
+                return NGX_ERROR;
+            }
+        }
+
+        if (ngx_live_segment_cache_write(write_ctx, segment, cln, &ignore)
             != NGX_OK)
         {
-            ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
                 "ngx_live_segment_cache_copy: write segment failed");
             return NGX_ERROR;
         }
-
-        found = 1;
     }
 
-    if (!found) {
+    if (write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_segment_cache_copy: "
             "segment %uD not found on any track", segment_index);
-        return NGX_ABORT;
+        return NGX_OK;
+    }
+
+    req->chain = ngx_persist_write_close(write_ctx, &req->size);
+    if (req->chain == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_segment_cache_copy: write close failed");
+        return NGX_ERROR;
     }
 
     req->source = ngx_live_segment_cache_source_name;

@@ -12,7 +12,6 @@
 
 typedef ngx_ksmp_media_info_header_t  ngx_live_media_info_persist_t;
 
-typedef struct ngx_live_media_info_node_s  ngx_live_media_info_node_t;
 
 typedef struct {
     ngx_live_media_info_node_t  *cur;
@@ -39,6 +38,9 @@ void ngx_live_media_info_pending_free_all(ngx_live_track_t *track);
 
 /* active */
 void ngx_live_media_info_update_bitrate(ngx_live_track_t *track);
+
+ngx_live_media_info_node_t *ngx_live_media_info_queue_get_node(
+    ngx_live_track_t *track, uint32_t segment_index, uint32_t *track_id);
 
 media_info_t *ngx_live_media_info_queue_get(ngx_live_track_t *track,
     uint32_t segment_index, uint32_t *track_id);

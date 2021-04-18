@@ -27,16 +27,30 @@
 
 #define NGX_KSMP_FLAG_MEDIA                 (0x00000001)
 #define NGX_KSMP_FLAG_TIMELINE              (0x00000002)
-#define NGX_KSMP_FLAG_MEDIA_INFO            (0x00000004)
-#define NGX_KSMP_FLAG_SEGMENT_INFO          (0x00000008)
-#define NGX_KSMP_FLAG_DYNAMIC_VAR           (0x00000010)
+#define NGX_KSMP_FLAG_PERIODS               (0x00000004)
+#define NGX_KSMP_FLAG_MEDIA_INFO            (0x00000008)
+#define NGX_KSMP_FLAG_SEGMENT_INFO          (0x00000010)
+#define NGX_KSMP_FLAG_DYNAMIC_VAR           (0x00000020)
 
 #define NGX_KSMP_FLAG_ACTIVE_ONLY           (0x01000000)
 #define NGX_KSMP_FLAG_CHECK_EXPIRY          (0x02000000)
 
 
+#define NGX_KSMP_INVALID_SEGMENT_INDEX      (NGX_MAX_UINT32_VALUE)
+
+#define NGX_KSMP_SEGMENT_NO_BITRATE         (1)
+
+
+#define NGX_KSMP_MAX_TRACKS                 (1024)
+#define NGX_KSMP_MAX_VARIANTS               (1024)
+#define NGX_KSMP_MAX_PERIODS                (65536)
+#define NGX_KSMP_MAX_MEDIA_INFOS            (65536)
+
+
 /* Note: ordered by desc prio */
 enum {
+    NGX_KSMP_ERR_SUCCESS = 0,
+
     NGX_KSMP_ERR_CHANNEL_NOT_FOUND = 10,
     NGX_KSMP_ERR_CHANNEL_BLOCKED,
 
@@ -60,6 +74,9 @@ enum {
 typedef struct {
     uint32_t    track_count;
     uint32_t    variant_count;
+    uint32_t    timescale;
+    uint32_t    media_type_mask;
+    int64_t     last_modified;
 } ngx_ksmp_channel_header_t;
 
 
@@ -89,6 +106,11 @@ typedef struct {
     uint32_t    duration;
 } ngx_ksmp_segment_repeat_t;
 
+
+typedef enum {
+    ngx_ksmp_variant_role_main,
+    ngx_ksmp_variant_role_alternate,
+} ngx_ksmp_variant_role_e;
 
 typedef struct {
     uint32_t    role;
@@ -131,6 +153,8 @@ typedef struct {
 
 
 typedef struct {
+    uint32_t    track_id;
+    uint32_t    segment_index;
     uint32_t    frame_count;
     uint32_t    reserved;
     int64_t     start_dts;

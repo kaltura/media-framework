@@ -60,7 +60,7 @@ ngx_persist_read_file_header(ngx_str_t *buf, uint32_t type, ngx_log_t *log,
 
 ngx_int_t
 ngx_persist_read_inflate(ngx_persist_file_header_t *header, size_t max_size,
-    ngx_mem_rstream_t *rs, void **ptr)
+    ngx_mem_rstream_t *rs, ngx_pool_t *pool, void **ptr)
 {
     int         rc;
     uLongf      size;
@@ -69,7 +69,9 @@ ngx_persist_read_inflate(ngx_persist_file_header_t *header, size_t max_size,
     ngx_str_t   buf;
 
     if (!(header->header_size & NGX_PERSIST_HEADER_FLAG_COMPRESSED)) {
-        *ptr = NULL;
+        if (ptr != NULL) {
+            *ptr = NULL;
+        }
         return NGX_OK;
     }
 
@@ -93,7 +95,13 @@ ngx_persist_read_inflate(ngx_persist_file_header_t *header, size_t max_size,
 
     size = header->uncomp_size - header_size;
 
-    p = ngx_alloc(size, rs->log);
+    if (pool != NULL) {
+        p = ngx_palloc(pool, size);
+
+    } else {
+        p = ngx_alloc(size, rs->log);
+    }
+
     if (p == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_persist_read_inflate: alloc failed");
@@ -112,7 +120,10 @@ ngx_persist_read_inflate(ngx_persist_file_header_t *header, size_t max_size,
     }
 
     ngx_mem_rstream_set(rs, p, p + size, rs->log, rs->scope);
-    *ptr = p;
+
+    if (ptr != NULL) {
+        *ptr = p;
+    }
 
     return NGX_OK;
 }
