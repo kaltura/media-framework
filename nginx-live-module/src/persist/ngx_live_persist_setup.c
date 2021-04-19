@@ -454,12 +454,12 @@ void
 ngx_live_persist_setup_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
     ngx_int_t rc)
 {
-    uint32_t                               version;
+    uint32_t                              *version;
     ngx_live_channel_t                    *channel;
     ngx_live_persist_setup_channel_ctx_t  *cctx;
 
     channel = ctx->channel;
-    version = *(uint32_t *) ctx->scope;
+    version = (void *) ctx->scope;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_setup_module);
 
@@ -468,17 +468,17 @@ ngx_live_persist_setup_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_setup_write_complete: "
-            "write failed %i, version: %uD", rc, version);
+            "write failed %i, version: %uD", rc, *version);
 
     } else {
         ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
             "ngx_live_persist_setup_write_complete: "
-            "write success, version: %uD", version);
+            "write success, version: %uD", *version);
 
-        cctx->success_version = version;
+        cctx->success_version = *version;
     }
 
-    if (version != cctx->version) {
+    if (*version != cctx->version) {
         ngx_add_timer(&cctx->timer, 1);
     }
 

@@ -1259,6 +1259,9 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
 
         size += sizeof("&variant_ids=") - 1 + req->variant_ids.len +
             variants_escape;
+
+    } else {
+        variants_escape = 0;    /* suppress warning */
     }
 
     if (req->segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {

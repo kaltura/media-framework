@@ -523,17 +523,19 @@ ngx_live_persist_media_read_init_track(ngx_live_persist_media_read_ctx_t *ctx,
 }
 
 static void
-ngx_live_persist_media_read_complete(void *arg, ngx_int_t rc,
+ngx_live_persist_media_read_complete(void *arg, ngx_int_t code,
     ngx_buf_t *response)
 {
+    ngx_int_t                                 rc;
     ngx_str_t                                 buf;
     ngx_live_persist_media_read_ctx_t        *ctx = arg;
     ngx_live_persist_media_channel_ctx_t     *cctx;
     ngx_live_persist_media_read_track_ctx_t  *tctx;
 
-    if (rc != NGX_OK) {
+    if (code != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_read_complete: read failed %i", rc);
+            "ngx_live_persist_media_read_complete: read failed %i", code);
+        rc = code;
         goto done;
     }
 
@@ -593,7 +595,7 @@ done:
         cctx = ngx_live_get_module_ctx(ctx->channel,
             ngx_live_persist_media_module);
 
-        if (rc == NGX_OK) {
+        if (code == NGX_OK) {
             cctx->read_stats.success++;
             cctx->read_stats.success_msec += ngx_current_msec - ctx->start;
             cctx->read_stats.success_size += ctx->size;
@@ -917,19 +919,21 @@ ngx_live_persist_media_copy_parse_header(
 }
 
 static void
-ngx_live_persist_media_copy_complete(void *arg, ngx_int_t rc,
+ngx_live_persist_media_copy_complete(void *arg, ngx_int_t code,
     ngx_buf_t *response)
 {
     ngx_buf_t                                *b;
+    ngx_int_t                                 rc;
     ngx_str_t                                 buf;
     ngx_chain_t                              *cl;
     ngx_live_persist_media_copy_ctx_t        *ctx = arg;
     ngx_live_persist_media_channel_ctx_t     *cctx;
     ngx_live_persist_media_read_track_ctx_t  *tctx;
 
-    if (rc != NGX_OK) {
+    if (code != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_copy_complete: read failed %i", rc);
+            "ngx_live_persist_media_copy_complete: read failed %i", code);
+        rc = code;
         goto done;
     }
 
@@ -1009,7 +1013,7 @@ done:
         cctx = ngx_live_get_module_ctx(ctx->channel,
             ngx_live_persist_media_module);
 
-        if (rc == NGX_OK) {
+        if (code == NGX_OK) {
             cctx->read_stats.success++;
             cctx->read_stats.success_msec += ngx_current_msec - ctx->start;
             cctx->read_stats.success_size += ctx->size;
@@ -1350,26 +1354,26 @@ ngx_live_persist_media_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
     ngx_int_t rc)
 {
     ngx_live_channel_t              *channel;
-    ngx_live_persist_media_scope_t   scope;
+    ngx_live_persist_media_scope_t  *scope;
 
     channel = ctx->channel;
-    scope = *(ngx_live_persist_media_scope_t *) ctx->scope;
+    scope = (void *) ctx->scope;
 
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_media_write_complete: "
-            "write failed %i, bucket_id: %uD", rc, scope.bucket_id);
+            "write failed %i, bucket_id: %uD", rc, scope->bucket_id);
 
     } else {
         ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
             "ngx_live_persist_media_write_complete: "
-            "write success, bucket_id: %uD", scope.bucket_id);
+            "write success, bucket_id: %uD", scope->bucket_id);
     }
 
     ngx_live_persist_write_file_destroy(ctx);
 
-    ngx_live_segment_index_persisted(channel, scope.min_index,
-        scope.max_index, rc);
+    ngx_live_segment_index_persisted(channel, scope->min_index,
+        scope->max_index, rc);
 }
 
 static void
