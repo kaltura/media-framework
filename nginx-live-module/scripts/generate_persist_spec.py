@@ -8,6 +8,8 @@ STATE_STRUCT = 'struct'
 STATE_UNION = 'union'
 STATE_PERSIST = 'persist'
 
+TYPEDEF_ALIAS = 'alias'
+
 defines = {}
 typedefs = {}
 specs = []
@@ -64,6 +66,12 @@ def parse_source(data):
             name = None
             block = ''
 
+        elif cur_line.startswith('typedef '):
+            split = cur_line.split()
+            if len(split) == 3:
+                name = split[2].strip(';')
+                typedefs[name] = (split[1], TYPEDEF_ALIAS)
+
         elif cur_line.startswith('struct '):
             state = STATE_STRUCT
             name = cur_line.split()[1]
@@ -82,6 +90,11 @@ def scan_source_dir(top):
             parse_source(data)
 
 def get_id_value(s):
+    global defines
+
+    while s in defines:
+        s = defines[s]
+
     comment_pos = s.find('/*')
     if comment_pos >= 0:
         s = s[:comment_pos]
@@ -122,11 +135,15 @@ def parse_struct(s):
         else:
             array_count = '1'
 
-        struct_def = ''
-        if type_name in typedefs:
-            struct_def, type_name = typedefs[type_name]
-        elif type_name.endswith('_t') and (type_name[:-2] + '_s') in typedefs:
-            struct_def, type_name = typedefs[type_name[:-2] + '_s']
+        while True:
+            struct_def = ''
+            if type_name in typedefs:
+                struct_def, type_name = typedefs[type_name]
+            elif type_name.endswith('_t') and (type_name[:-2] + '_s') in typedefs:
+                struct_def, type_name = typedefs[type_name[:-2] + '_s']
+            if type_name != TYPEDEF_ALIAS:
+                break
+            type_name = struct_def
 
         result.append((type_name, var_name, array_count,
             parse_struct(struct_def)))
@@ -146,23 +163,19 @@ def print_block(file_type, block_id, type, fields):
     print('')
 
 def print_spec():
-    global defines, specs
+    global specs
 
     for format, params in specs:
         id, ctx = params[:2]
-        if not id in defines:
-            print('Error: id "%s" is not defined' % id)
-            continue
 
-        block_id = get_id_value(defines[id])
+        block_id = get_id_value(id)
 
         if not ctx.startswith('NGX_LIVE_PERSIST_CTX_'):
             print('Error: invalid prefix for ctx "%s"' % ctx)
             continue
         ctx = ctx[len('NGX_LIVE_PERSIST_CTX_'):]
         file_type = ctx.split('_')[0]
-        file_type = get_id_value(defines['NGX_LIVE_PERSIST_TYPE_%s' %
-            file_type])
+        file_type = get_id_value('NGX_LIVE_PERSIST_TYPE_%s' % file_type)
 
         fields = []
         cur_struct = ''
