@@ -517,8 +517,7 @@ ngx_rtmp_cmd_delete_stream(ngx_rtmp_session_t *s, ngx_rtmp_delete_stream_t *v)
         s->in_msid = 0;
 
         in_msid = v->stream;
-        if (in_msid < cscf->max_streams &&
-            in_msid != 0 && in_msid != 2) {
+        if (in_msid > 0 && in_msid < cscf->max_streams && in_msid != 2) {
             in_stream = &s->in_streams[in_msid];
             if (in_stream->allocated && in_stream->ctx) {
                 s->in_stream = in_stream;

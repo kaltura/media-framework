@@ -201,7 +201,7 @@ ngx_rtmp_recv(ngx_event_t *rev)
     ngx_chain_t                *in, *head;
     ngx_buf_t                  *b;
     u_char                     *p, *pp, *old_pos;
-    size_t                      size, fsize, old_size;
+    size_t                      size, fsize, old_size, copy_size;
     uint8_t                     fmt, ext;
     uint32_t                    csid, timestamp;
 
@@ -243,16 +243,32 @@ ngx_rtmp_recv(ngx_event_t *rev)
 #endif
 
             b->pos = b->start;
-            b->last = ngx_movemem(b->pos, old_pos, old_size);
 
-            if (s->in_chunk_size_changing) {
-                ngx_rtmp_finalize_set_chunk_size(s);
+            copy_size = b->end - b->pos;
+            if (old_size < copy_size) {
+                copy_size = old_size;
+            }
+
+            b->last = ngx_movemem(b->pos, old_pos, copy_size);
+
+            old_size -= copy_size;
+            if (!old_size) {
+
+                if (s->in_chunk_size_changing) {
+                    ngx_rtmp_finalize_set_chunk_size(s);
+                }
+
+                old_pos = NULL;
+
+            } else {
+                old_pos += copy_size;
             }
 
         } else {
 
             if (old_pos) {
                 b->pos = b->last = b->start;
+                old_pos = NULL;
             }
 
             n = c->recv(c, b->last, b->end - b->last);
@@ -304,9 +320,6 @@ ngx_rtmp_recv(ngx_event_t *rev)
             }
         }
 
-        old_pos = NULL;
-        old_size = 0;
-
         /* parse headers */
         if (b->pos == b->start) {
             p = b->pos;
@@ -348,6 +361,9 @@ ngx_rtmp_recv(ngx_event_t *rev)
 
                 /* unlink from stream #0 */
                 st->in = st->in->next;
+
+                /* Note: the buffers are kept in a cyclic list, st->in is
+                    the newest item, st->in->next is the oldest item */
 
                 /* link to new stream */
                 s->in_csid = csid;
@@ -463,17 +479,31 @@ ngx_rtmp_recv(ngx_event_t *rev)
             /* collect fragmented chunks */
             st->len += s->in_chunk_size;
             b->last = b->pos + s->in_chunk_size;
-            old_pos = b->last;
-            old_size = size - s->in_chunk_size;
+
+            if (old_size) {
+                old_pos -= size - s->in_chunk_size;
+
+            } else {
+                old_pos = b->last;
+            }
+            old_size += size - s->in_chunk_size;
 
         } else {
             /* handle! */
+            st->len = 0;
+            b->last = b->pos + fsize;
+
+            if (old_size) {
+                old_pos -= size - fsize;
+
+            } else {
+                old_pos = b->last;
+            }
+            old_size += size - fsize;
+
             head = st->in->next;
             st->in->next = NULL;
-            b->last = b->pos + fsize;
-            old_pos = b->last;
-            old_size = size - fsize;
-            st->len = 0;
+
             h->timestamp += st->dtime;
 
             if (ngx_rtmp_receive_message(s, h, head) != NGX_OK) {
@@ -492,8 +522,9 @@ ngx_rtmp_recv(ngx_event_t *rev)
                 st0 = &s->in_chunk_streams[0];
                 st->in->next = st0->in;
                 st0->in = head;
-                st->in = NULL;
             }
+
+            st->in = NULL;
         }
 
         s->in_csid = 0;
@@ -856,71 +887,88 @@ ngx_rtmp_set_chunk_size(ngx_rtmp_session_t *s, ngx_uint_t size)
 {
     ngx_rtmp_core_srv_conf_t           *cscf;
     ngx_chain_t                        *li, *fli, *lo, *flo;
+    ngx_pool_t                         *pool;
     ngx_buf_t                          *bi, *bo;
     ngx_int_t                           n;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
         "setting chunk_size=%ui", size);
 
+    if (size < 1) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "too small RTMP chunk size:%ui", size);
+        return NGX_ERROR;
+    }
+
     if (size > NGX_RTMP_MAX_CHUNK_SIZE) {
-        ngx_log_error(NGX_LOG_ALERT, s->connection->log, 0,
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                       "too big RTMP chunk size:%ui", size);
         return NGX_ERROR;
     }
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
+    pool = ngx_create_pool(4096, s->connection->log);
+    if (pool == NULL) {
+        return NGX_ERROR;
+    }
+
     s->in_old_pool = s->in_pool;
     s->in_chunk_size = size;
-    s->in_pool = ngx_create_pool(4096, s->connection->log);
+    s->in_pool = pool;
 
     /* copy existing chunk data */
-    if (s->in_old_pool) {
-        s->in_chunk_size_changing = 1;
-        s->in_chunk_streams[0].in = NULL;
+    if (!s->in_old_pool) {
+        return NGX_OK;
+    }
 
-        for(n = 1; n < cscf->max_streams; ++n) {
-            /* stream buffer is circular
-             * for all streams except for the current one
-             * (which caused this chunk size change);
-             * we can simply ignore it */
-            li = s->in_chunk_streams[n].in;
-            if (li == NULL || li->next == NULL) {
-                s->in_chunk_streams[n].in = NULL;
+    s->in_chunk_size_changing = 1;
+    s->in_chunk_streams[0].in = NULL;
+
+    for(n = 1; n < cscf->max_streams; ++n) {
+
+        /* stream buffer is circular
+            * for all streams except for the current one
+            * (which caused this chunk size change);
+            * we can simply ignore it */
+
+        li = s->in_chunk_streams[n].in;
+        if (li == NULL || li->next == NULL) {
+            s->in_chunk_streams[n].in = NULL;
+            continue;
+        }
+        /* move from last to the first */
+        li = li->next;
+        fli = li;
+        lo = ngx_rtmp_alloc_in_buf(s);
+        if (lo == NULL) {
+            return NGX_ERROR;
+        }
+        flo = lo;
+        for ( ;; ) {
+            bi = li->buf;
+            bo = lo->buf;
+
+            if (bo->end - bo->last >= bi->last - bi->pos) {
+                bo->last = ngx_cpymem(bo->last, bi->pos,
+                        bi->last - bi->pos);
+                li = li->next;
+                if (li == fli)  {
+                    lo->next = flo;
+                    s->in_chunk_streams[n].in = lo;
+                    break;
+                }
                 continue;
             }
-            /* move from last to the first */
-            li = li->next;
-            fli = li;
-            lo = ngx_rtmp_alloc_in_buf(s);
+
+            bi->pos += (ngx_cpymem(bo->last, bi->pos,
+                        bo->end - bo->last) - bo->last);
+            bo->last = bo->end;
+
+            lo->next = ngx_rtmp_alloc_in_buf(s);
+            lo = lo->next;
             if (lo == NULL) {
                 return NGX_ERROR;
-            }
-            flo = lo;
-            for ( ;; ) {
-                bi = li->buf;
-                bo = lo->buf;
-
-                if (bo->end - bo->last >= bi->last - bi->pos) {
-                    bo->last = ngx_cpymem(bo->last, bi->pos,
-                            bi->last - bi->pos);
-                    li = li->next;
-                    if (li == fli)  {
-                        lo->next = flo;
-                        s->in_chunk_streams[n].in = lo;
-                        break;
-                    }
-                    continue;
-                }
-
-                bi->pos += (ngx_cpymem(bo->last, bi->pos,
-                            bo->end - bo->last) - bo->last);
-                bo->last = bo->end;
-                lo->next = ngx_rtmp_alloc_in_buf(s);
-                lo = lo->next;
-                if (lo == NULL) {
-                    return NGX_ERROR;
-                }
             }
         }
     }

@@ -113,7 +113,9 @@ typedef struct {
 
 #define NGX_LOG_DEBUG_RTMP              NGX_LOG_DEBUG_CORE
 
+#ifndef NGX_RTMP_VERBOSE
 #define NGX_RTMP_VERBOSE                0
+#endif
 
 #define NGX_RTMP_DEFAULT_CHUNK_SIZE     128
 
