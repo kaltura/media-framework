@@ -93,8 +93,7 @@ int transcode_session_async_send_packet(transcode_session_t *ctx, struct AVPacke
 
     ctx->lastQueuedDts=packet->dts;
     //samples_stats_log(CATEGORY_RECEIVER,AV_LOG_DEBUG,&ctx->receiverStats,session->stream_name);
-    packet_queue_write_packet(&ctx->packetQueue, packet);
-    return 0;
+    return packet_queue_write_packet(&ctx->packetQueue, packet);
 }
 
 int64_t transcode_session_get_ack_frame_id(transcode_session_t *ctx)
@@ -137,6 +136,7 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
     sprintf(pDecoderContext->name,"Decoder for input %s",ctx->name);
     ctx->decoders++;
     if (init_outputs_from_config(ctx)<0) {
+        LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"init_outputs_from_config failed");
         exit(-1);
     }
     return 0;
@@ -347,11 +347,11 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
         
         pOutPacket->pos=clock_estimator_get_clock(&pContext->clock_estimator,pOutPacket->dts);
         
-        transcode_session_output_send_output_packet(pOutput,pOutPacket);
-        
+        ret = transcode_session_output_send_output_packet(pOutput,pOutPacket);
+
         av_packet_free(&pOutPacket);
     }
-    return 0;
+    return ret;
 }
 
 static
@@ -471,7 +471,7 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
             transcode_session_output_t *pOutput=&pContext->output[outputId];
             if (pOutput->filterId==filterId && pOutput->encoderId!=-1){
                 LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] sending frame from filterId %d to encoderId %d",pOutput->track_id,filterId,pOutput->encoderId);
-                encodeFrame(pContext,pOutput->encoderId,outputId,pOutFrame);
+                _S(encodeFrame(pContext,pOutput->encoderId,outputId,pOutFrame));
             }
         }
         av_frame_free(&pOutFrame);
@@ -488,7 +488,7 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
             transcode_session_output_t *pOutput=&ctx->output[outputId];
             if (pOutput->encoderId!=-1){
                 LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] flushing encoderId %d for output %s",ctx->name,pOutput->encoderId,pOutput->track_id);
-                encodeFrame(ctx,pOutput->encoderId,outputId,NULL);
+                _S(encodeFrame(ctx,pOutput->encoderId,outputId,NULL));
             }
         }
         return 0;
@@ -501,7 +501,7 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
     }
     for (int filterId=0;filterId<ctx->filters;filterId++) {
         
-        sendFrameToFilter(ctx,filterId,decoderCtx,frame);
+        _S(sendFrameToFilter(ctx,filterId,decoderCtx,frame));
        
     }
     
@@ -509,7 +509,7 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
         transcode_session_output_t *pOutput=&ctx->output[outputId];
         if (pOutput->filterId==-1 && pOutput->encoderId!=-1){
             LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] sending frame directly from decoder to encoderId %d for output %s",ctx->name,pOutput->encoderId,pOutput->track_id);
-            encodeFrame(ctx,pOutput->encoderId,outputId,frame);
+            _S(encodeFrame(ctx,pOutput->encoderId,outputId,frame));
         }
     }
     
@@ -543,7 +543,7 @@ int decodePacket(transcode_session_t *transcodingContext,const AVPacket* pkt) {
             av_frame_free(&pFrame);
             if (ret == AVERROR_EOF) {
                 LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"[%d] EOS from decode",0)
-                OnDecodedFrame(transcodingContext,pDecoder->ctx,NULL);
+                _S(OnDecodedFrame(transcodingContext,pDecoder->ctx,NULL));
             }
             return 0;
         }
@@ -552,7 +552,7 @@ int decodePacket(transcode_session_t *transcodingContext,const AVPacket* pkt) {
             LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"[%d] Error during decoding %d (%s)",pkt->stream_index,ret,av_err2str(ret));
             return ret;
         }
-        OnDecodedFrame(transcodingContext,pDecoder->ctx,pFrame);
+        ret = OnDecodedFrame(transcodingContext,pDecoder->ctx,pFrame);
         
         av_frame_free(&pFrame);
     }
@@ -561,6 +561,7 @@ int decodePacket(transcode_session_t *transcodingContext,const AVPacket* pkt) {
 
 int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* packet)
 {
+    int ret = 0;
     if (packet!=NULL) {
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG, "Processing packet %s",getPacketDesc(packet));
         clock_estimator_push_frame(&ctx->clock_estimator,packet->dts,packet->pos);
@@ -572,7 +573,7 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
         transcode_session_output_t *pOutput=&ctx->output[i];
         if (pOutput->passthrough)
         {
-            transcode_session_output_send_output_packet(pOutput,packet);
+            ret = transcode_session_output_send_output_packet(pOutput,packet);
         }
         else
         {
@@ -583,7 +584,7 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
         
         if (packet==NULL || !ctx->dropper.enabled || !transcode_dropper_should_drop_packet(&ctx->dropper,ctx->lastQueuedDts,packet))
         {
-            decodePacket(ctx,packet);
+            ret = decodePacket(ctx,packet);
         }
     }
     if (ctx->onProcessedFrame) {
@@ -594,22 +595,23 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
     } else {
         ctx->completed_frame_id++;
     }
-    return 0;
+    return ret;
 }
 
 
 /* shutting down */
 
-int transcode_session_close(transcode_session_t *session) {
+int transcode_session_close(transcode_session_t *session,int exitErrorCode) {
     
     if (session->packetQueue.queueSize>0) {
         packet_queue_destroy(&session->packetQueue);
     }
-    
-    LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO, "Flushing started");
-    transcode_session_send_packet(session,NULL);
 
-    LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO, "Flushing completed");
+    if(exitErrorCode >= 0) {
+        LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO, "Flushing started");
+        transcode_session_send_packet(session,NULL);
+        LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO, "Flushing completed");
+    }
     
     for (int i=0;i<session->decoders;i++) {
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Closing decoder %d",i);

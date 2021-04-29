@@ -72,18 +72,19 @@ void* processClient(void *vargp)
     session->diagnosticsIntervalInSeconds*=1000LL*1000LL;
     
     session->lastStatsUpdated=0;
-    
+    int retval = -1;
     uint64_t received_frame_ack_id=0;
     uint64_t received_frame_id=0;
     while (session->kmpClient.socket) {
         
-        if( KMP_read_header(&session->kmpClient,&header)  <= 0 )
+        if( KMP_read_header(&session->kmpClient,&header) <= 0 )
         {
             LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] KMP_read_header",session->stream_name);
             break;
         }
         if (header.packet_type==KMP_PACKET_EOS) {
             LOGGER(CATEGORY_KMP,AV_LOG_INFO,"[%s] recieved termination packet",session->stream_name);
+            retval = 0;
             break;
         }
         if (header.packet_type==KMP_PACKET_CONNECT) {
@@ -137,17 +138,17 @@ void* processClient(void *vargp)
         }
 
     }
-    LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] Destorying receive thread",session->stream_name);
+    LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] Destorying receive thread. exit code is %d",session->stream_name,retval);
     
     if (transcode_session!=NULL)
     {
-        transcode_session_close(transcode_session);
+        transcode_session_close(transcode_session,retval);
     }
     
     KMP_close(&session->kmpClient);
     
     LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] Completed receive thread",session->stream_name);
-    return NULL;
+    return (void*)retval;
 }
 
 void* listenerThread(void *vargp)
@@ -174,17 +175,15 @@ void* listenerThread(void *vargp)
         
         LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"Waiting for accept on %s",socketAddress(&server->kmpServer.address));
         KMP_init(&session->kmpClient);
-        if (KMP_accept(&server->kmpServer,&session->kmpClient)<0) {
-            return NULL;
-        }
+        _S(KMP_accept(&server->kmpServer,&session->kmpClient));
+
         LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"Accepted client %s",socketAddress(&session->kmpClient.address));
 
         if (server->multiThreaded)
         {
             pthread_create(&session->thread_id, NULL, processClient, session);
         } else {
-            processClient(session);
-            break;
+            return processClient(session);
         }
     }
     
@@ -220,8 +219,7 @@ int receiver_server_async_listen(receiver_server_t *server)
 int receiver_server_sync_listen(receiver_server_t *server)
 {
     server->multiThreaded=false;
-    listenerThread(server);
-    return 0;
+    return (int)listenerThread(server);
 }
 
 void receiver_server_close(receiver_server_t *server)

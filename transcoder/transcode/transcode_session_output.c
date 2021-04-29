@@ -240,6 +240,7 @@ int transcode_session_output_close(transcode_session_output_t* pOutput)
         KMP_close(pOutput->sender);
 
         av_free(pOutput->sender);
+        pOutput->sender = NULL;
     }
     return 0;
 }
