@@ -44,7 +44,7 @@ enum {
 
 
 typedef struct {
-    ngx_str_t                         uri;
+    ngx_http_complex_value_t         *uri;
     size_t                            max_uncomp_size;
     ngx_http_complex_value_t         *channel_id;
     ngx_http_complex_value_t         *timeline_id;

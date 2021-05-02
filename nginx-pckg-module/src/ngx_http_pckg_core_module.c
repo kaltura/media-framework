@@ -67,7 +67,7 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
 
     { ngx_string("pckg_uri"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_str_slot,
+      ngx_http_set_complex_value_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, uri),
       NULL},
@@ -974,6 +974,7 @@ ngx_http_pckg_core_subrequest(ngx_http_request_t *r,
     ngx_pckg_ksmp_req_t *params)
 {
     ngx_int_t                       rc;
+    ngx_str_t                       uri;
     ngx_str_t                       args;
     ngx_http_request_t             *sr;
     ngx_http_post_subrequest_t     *psr;
@@ -981,9 +982,22 @@ ngx_http_pckg_core_subrequest(ngx_http_request_t *r,
 
     plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
 
-    if (plcf->uri.len == 0) {
+    if (plcf->uri == NULL) {
         ngx_log_error(NGX_LOG_CRIT, r->connection->log, 0,
             "ngx_http_pckg_core_subrequest: \"pckg_uri\" not set in conf");
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    rc = ngx_http_complex_value(r, plcf->uri, &uri);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_pckg_core_subrequest: complex value failed %i", rc);
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    if (uri.len == 0) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_pckg_core_subrequest: empty subrequest uri");
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
@@ -1003,7 +1017,7 @@ ngx_http_pckg_core_subrequest(ngx_http_request_t *r,
     psr->handler = ngx_http_pckg_core_post_handler;
     psr->data = NULL;
 
-    rc = ngx_http_subrequest(r, &plcf->uri, &args, &sr, psr,
+    rc = ngx_http_subrequest(r, &uri, &args, &sr, psr,
         NGX_HTTP_SUBREQUEST_WAITED | NGX_HTTP_SUBREQUEST_IN_MEMORY);
     if (rc == NGX_ERROR) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
@@ -1912,7 +1926,9 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_http_pckg_core_loc_conf_t  *prev = parent;
     ngx_http_pckg_core_loc_conf_t  *conf = child;
 
-    ngx_conf_merge_str_value(conf->uri, prev->uri, "");
+    if (conf->uri == NULL) {
+        conf->uri = prev->uri;
+    }
 
     ngx_conf_merge_size_value(conf->max_uncomp_size,
                               prev->max_uncomp_size, 5 * 1024 * 1024);
