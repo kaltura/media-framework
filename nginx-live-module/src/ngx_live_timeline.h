@@ -84,6 +84,7 @@ struct ngx_live_timeline_s {
 
     ngx_live_timeline_conf_t           conf;
     time_t                             last_segment_created;
+    time_t                             last_accessed;
 
     ngx_live_manifest_timeline_t       manifest;
 

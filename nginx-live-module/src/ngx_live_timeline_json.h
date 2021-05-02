@@ -119,6 +119,7 @@ ngx_live_timeline_json_get_size(ngx_live_timeline_t *obj)
         sizeof(",\"segment_count\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"duration\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"last_segment_created\":") - 1 + NGX_TIME_T_LEN +
+        sizeof(",\"last_accessed\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"last_periods\":") - 1 +
             ngx_live_timeline_last_periods_json_get_size(obj) +
         sizeof("}") - 1;
@@ -139,6 +140,8 @@ ngx_live_timeline_json_write(u_char *p, ngx_live_timeline_t *obj)
     p = ngx_sprintf(p, "%uL", (uint64_t) obj->duration);
     p = ngx_copy_fix(p, ",\"last_segment_created\":");
     p = ngx_sprintf(p, "%T", (time_t) obj->last_segment_created);
+    p = ngx_copy_fix(p, ",\"last_accessed\":");
+    p = ngx_sprintf(p, "%T", (time_t) obj->last_accessed);
     p = ngx_copy_fix(p, ",\"last_periods\":");
     p = ngx_live_timeline_last_periods_json_write(p, obj);
     *p++ = '}';

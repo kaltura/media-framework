@@ -538,6 +538,8 @@ ngx_http_live_core_init_ctx(ngx_http_request_t *r,
         return NGX_HTTP_NOT_FOUND;
     }
 
+    channel->last_accessed = ngx_time();
+
     if (channel->blocked) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_core_init_ctx: channel \"%V\" is blocked",
@@ -569,6 +571,8 @@ ngx_http_live_core_init_ctx(ngx_http_request_t *r,
             &params->timeline_id);
         return NGX_HTTP_BAD_REQUEST;
     }
+
+    objects->timeline->last_accessed = ngx_time();
 
     if (objects->timeline->manifest.segment_count <= 0) {
         if (objects->timeline->manifest.target_duration_segments) {

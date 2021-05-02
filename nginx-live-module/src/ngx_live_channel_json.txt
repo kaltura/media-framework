@@ -41,6 +41,7 @@ out nostatic ngx_live_channel_json ngx_live_channel_t
     mem_watermark_events %ui
     mem_blocks %func-ngx_block_pool_json obj->block_pool
     last_segment_created %T
+    last_accessed %T
     snapshots %uD
     tracks %func-ngx_live_tracks_json obj
     variants %func-ngx_live_variants_json obj

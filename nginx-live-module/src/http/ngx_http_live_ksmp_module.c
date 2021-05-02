@@ -850,10 +850,10 @@ static ngx_int_t
 ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
     ngx_live_persist_serve_scope_t *scope)
 {
-    ngx_int_t                        rc;
-    ngx_http_request_t              *r = params->r;
-    ngx_live_channel_t              *channel;
-    ngx_live_timeline_t             *timeline;
+    ngx_int_t             rc;
+    ngx_http_request_t   *r = params->r;
+    ngx_live_channel_t   *channel;
+    ngx_live_timeline_t  *timeline;
 
     /* channel */
     channel = ngx_live_channel_get(&params->channel_id);
@@ -862,6 +862,8 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
             NGX_KSMP_ERR_CHANNEL_NOT_FOUND,
             "unknown channel \"%V\"", &params->channel_id);
     }
+
+    channel->last_accessed = ngx_time();
 
     if (channel->blocked) {
         return ngx_http_live_ksmp_output_error(r,
@@ -879,6 +881,8 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
             "unknown timeline \"%V\", channel: %V",
             &params->timeline_id, &params->channel_id);
     }
+
+    timeline->last_accessed = ngx_time();
 
     if (timeline->manifest.segment_count <= 0) {
         if (timeline->manifest.target_duration_segments) {
