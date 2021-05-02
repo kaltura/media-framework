@@ -1354,26 +1354,27 @@ ngx_live_persist_media_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
     ngx_int_t rc)
 {
     ngx_live_channel_t              *channel;
-    ngx_live_persist_media_scope_t  *scope;
+    ngx_live_persist_media_scope_t  *sp, scope;
 
     channel = ctx->channel;
-    scope = (void *) ctx->scope;
+    sp = (void *) ctx->scope;
+    scope = *sp;
 
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_media_write_complete: "
-            "write failed %i, bucket_id: %uD", rc, scope->bucket_id);
+            "write failed %i, bucket_id: %uD", rc, scope.bucket_id);
 
     } else {
         ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
             "ngx_live_persist_media_write_complete: "
-            "write success, bucket_id: %uD", scope->bucket_id);
+            "write success, bucket_id: %uD", scope.bucket_id);
     }
 
     ngx_live_persist_write_file_destroy(ctx);
 
-    ngx_live_segment_index_persisted(channel, scope->min_index,
-        scope->max_index, rc);
+    ngx_live_segment_index_persisted(channel, scope.min_index,
+        scope.max_index, rc);
 }
 
 static void
