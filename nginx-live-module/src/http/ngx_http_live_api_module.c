@@ -1191,6 +1191,7 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_live_timeline_json_t            json;
     ngx_live_timeline_conf_t            conf;
     ngx_http_live_api_loc_conf_t       *llcf;
+    ngx_live_timeline_source_json_t     source_json;
     ngx_live_timeline_manifest_conf_t   manifest_conf;
 
     if (body->type != NGX_JSON_OBJECT) {
@@ -1216,6 +1217,20 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
     }
 
+    ngx_memset(&source_json, 0xff, sizeof(source_json));
+
+    if (json.source != NGX_JSON_UNSET_PTR) {
+        if (ngx_json_object_parse(r->pool, json.source,
+            ngx_live_timeline_source_json,
+            ngx_array_entries(ngx_live_timeline_source_json), &source_json)
+            != NGX_JSON_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_http_live_api_timelines_post: failed to parse source");
+            return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
+        }
+    }
+
 
     channel_id = params[0];
     rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
@@ -1223,14 +1238,30 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
         return rc;
     }
 
-    if (json.source_id.data != NGX_JSON_UNSET_PTR) {
-        source = ngx_live_timeline_get(channel, &json.source_id);
+    if (source_json.id.data != NGX_JSON_UNSET_PTR) {
+        source = ngx_live_timeline_get(channel, &source_json.id);
         if (source == NULL) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_http_live_api_timelines_post: "
                 "unknown timeline \"%V\" in channel \"%V\"",
-                &json.source_id, &channel_id);
+                &source_json.id, &channel_id);
             return NGX_HTTP_NOT_FOUND;
+        }
+
+        if (source_json.start_offset != NGX_JSON_UNSET) {
+            if (ngx_live_timeline_get_time(source, source_json.start_offset,
+                log, &json.start) != NGX_OK)
+            {
+                return NGX_HTTP_BAD_REQUEST;
+            }
+        }
+
+        if (source_json.end_offset != NGX_JSON_UNSET) {
+            if (ngx_live_timeline_get_time(source, source_json.end_offset,
+                log, &json.end) != NGX_OK)
+            {
+                return NGX_HTTP_BAD_REQUEST;
+            }
         }
 
     } else {
@@ -1281,7 +1312,7 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
     }
 
     if (source != NULL) {
-        if (ngx_live_timeline_copy(timeline, source) != NGX_OK) {
+        if (ngx_live_timeline_copy(timeline, source, log) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_http_live_api_timelines_post: copy timeline failed");
             ngx_live_timeline_free(timeline);

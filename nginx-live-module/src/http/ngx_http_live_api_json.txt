@@ -20,9 +20,14 @@ in ngx_live_track_json
     media_type %enum-ngx_live_track_media_type_names
     opaque %rV
 
+in ngx_live_timeline_source_json
+    id %V
+    start_offset %L
+    end_offset %L
+
 in ngx_live_timeline_json
     id %V
-    source_id %V
+    source %o
     active %b
     no_truncate %b
     end_list %b

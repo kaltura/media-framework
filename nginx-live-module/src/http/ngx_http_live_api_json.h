@@ -210,23 +210,67 @@ static ngx_json_prop_t *ngx_live_track_json[] = {
     NULL,
 };
 
+/* ngx_live_timeline_source_json reader */
+
+typedef struct {
+    ngx_str_t  id;
+    int64_t    start_offset;
+    int64_t    end_offset;
+} ngx_live_timeline_source_json_t;
+
+static ngx_json_prop_t ngx_live_timeline_source_json_id = {
+    ngx_string("id"),
+    3355ULL,
+    NGX_JSON_STRING,
+    ngx_json_set_str_slot,
+    offsetof(ngx_live_timeline_source_json_t, id),
+    NULL
+};
+
+static ngx_json_prop_t ngx_live_timeline_source_json_start_offset = {
+    ngx_string("start_offset"),
+    3019716876355455760ULL,
+    NGX_JSON_INT,
+    ngx_json_set_num_slot,
+    offsetof(ngx_live_timeline_source_json_t, start_offset),
+    NULL
+};
+
+static ngx_json_prop_t ngx_live_timeline_source_json_end_offset = {
+    ngx_string("end_offset"),
+    2767058701794423ULL,
+    NGX_JSON_INT,
+    ngx_json_set_num_slot,
+    offsetof(ngx_live_timeline_source_json_t, end_offset),
+    NULL
+};
+
+static ngx_json_prop_t *ngx_live_timeline_source_json[] = {
+    NULL,
+    &ngx_live_timeline_source_json_id,
+    NULL,
+    &ngx_live_timeline_source_json_end_offset,
+    &ngx_live_timeline_source_json_start_offset,
+    NULL,
+};
+
 /* ngx_live_timeline_json reader */
 
 typedef struct {
-    ngx_str_t   id;
-    ngx_str_t   source_id;
-    ngx_flag_t  active;
-    ngx_flag_t  no_truncate;
-    ngx_flag_t  end_list;
-    int64_t     period_gap;
-    int64_t     max_segments;
-    int64_t     max_duration;
-    int64_t     start;
-    int64_t     end;
-    int64_t     manifest_max_segments;
-    int64_t     manifest_max_duration;
-    int64_t     manifest_expiry_threshold;
-    int64_t     manifest_target_duration_segments;
+    ngx_str_t           id;
+    ngx_json_object_t  *source;
+    ngx_flag_t          active;
+    ngx_flag_t          no_truncate;
+    ngx_flag_t          end_list;
+    int64_t             period_gap;
+    int64_t             max_segments;
+    int64_t             max_duration;
+    int64_t             start;
+    int64_t             end;
+    int64_t             manifest_max_segments;
+    int64_t             manifest_max_duration;
+    int64_t             manifest_expiry_threshold;
+    int64_t             manifest_target_duration_segments;
 } ngx_live_timeline_json_t;
 
 static ngx_json_prop_t ngx_live_timeline_json_id = {
@@ -238,12 +282,12 @@ static ngx_json_prop_t ngx_live_timeline_json_id = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_source_id = {
-    ngx_string("source_id"),
-    101243565658047ULL,
-    NGX_JSON_STRING,
-    ngx_json_set_str_slot,
-    offsetof(ngx_live_timeline_json_t, source_id),
+static ngx_json_prop_t ngx_live_timeline_json_source = {
+    ngx_string("source"),
+    3398461467ULL,
+    NGX_JSON_OBJECT,
+    ngx_json_set_obj_slot,
+    offsetof(ngx_live_timeline_json_t, source),
     NULL
 };
 
@@ -357,52 +401,32 @@ static ngx_json_prop_t
 };
 
 static ngx_json_prop_t *ngx_live_timeline_json[] = {
+    &ngx_live_timeline_json_start,
     NULL,
     NULL,
     NULL,
-    NULL,
-    NULL,
-    &ngx_live_timeline_json_period_gap,
-    NULL,
-    &ngx_live_timeline_json_active,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    &ngx_live_timeline_json_max_segments,
-    &ngx_live_timeline_json_max_duration,
-    &ngx_live_timeline_json_source_id,
-    NULL,
-    NULL,
-    &ngx_live_timeline_json_id,
     &ngx_live_timeline_json_no_truncate,
     NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    &ngx_live_timeline_json_source,
+    &ngx_live_timeline_json_id,
     NULL,
     NULL,
     &ngx_live_timeline_json_manifest_max_segments,
+    NULL,
+    NULL,
     &ngx_live_timeline_json_manifest_max_duration,
     NULL,
-    &ngx_live_timeline_json_manifest_expiry_threshold,
     NULL,
     &ngx_live_timeline_json_end_list,
     NULL,
     NULL,
-    NULL,
-    &ngx_live_timeline_json_start,
-    NULL,
-    &ngx_live_timeline_json_end,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    &ngx_live_timeline_json_max_segments,
     &ngx_live_timeline_json_manifest_target_duration_segments,
-    NULL,
-    NULL,
+    &ngx_live_timeline_json_period_gap,
+    &ngx_live_timeline_json_max_duration,
+    &ngx_live_timeline_json_end,
+    &ngx_live_timeline_json_active,
+    &ngx_live_timeline_json_manifest_expiry_threshold,
     NULL,
 };
 

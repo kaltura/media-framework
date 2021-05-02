@@ -1020,6 +1020,42 @@ ngx_live_timeline_add_segment(ngx_live_timeline_t *timeline, uint32_t duration)
     ngx_live_manifest_timeline_add_segment(&timeline->manifest, duration);
 }
 
+ngx_int_t
+ngx_live_timeline_get_time(ngx_live_timeline_t *timeline, int64_t offset,
+    ngx_log_t *log, int64_t *time)
+{
+    int64_t             duration;
+    ngx_live_period_t  *period;
+
+    if (timeline->conf.period_gap == -1) {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_live_timeline_get_time: period_gap not set, timeline: %V",
+            &timeline->sn.str);
+        return NGX_ERROR;
+    }
+
+    period = timeline->head_period;
+    if (period == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_live_timeline_get_time: no periods, timeline: %V",
+            &timeline->sn.str);
+        return NGX_ERROR;
+    }
+
+    for ( ;; ) {
+        duration = period->duration + timeline->conf.period_gap;
+        if (offset < duration || period->next == NULL) {
+            break;
+        }
+
+        offset -= duration;
+        period = period->next;
+    }
+
+    *time = period->time + offset;
+    return NGX_OK;
+}
+
 static ngx_live_period_t *
 ngx_live_timeline_get_period_by_index(ngx_live_timeline_t *timeline,
     uint32_t segment_index, ngx_flag_t strict)
@@ -1108,7 +1144,8 @@ ngx_live_timeline_get_period_by_time(ngx_live_timeline_t *timeline,
 }
 
 ngx_int_t
-ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
+ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
+    ngx_log_t *log)
 {
     int64_t                           segment_time;
     int64_t                           src_period_end;
@@ -1141,7 +1178,7 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
         dest_period = ngx_block_pool_alloc(channel->block_pool,
             tpcf->bp_idx[NGX_LIVE_BP_PERIOD]);
         if (dest_period == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, &dest->log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_timeline_copy: alloc failed");
             return NGX_ERROR;
         }
@@ -1156,7 +1193,7 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
                 dest->conf.start, &segment_index, &dest_period->time,
                 &dest_period->segment_iter) != NGX_OK)
             {
-                ngx_log_error(NGX_LOG_ALERT, &dest->log, 0,
+                ngx_log_error(NGX_LOG_ALERT, log, 0,
                     "ngx_live_timeline_copy: "
                     "get closest segment failed (1)");
                 ngx_live_period_free(channel, dest_period);
@@ -1173,8 +1210,9 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source)
         } else {
             if (ngx_live_segment_list_get_closest_segment(&cctx->segment_list,
                 dest->conf.end, &segment_index, &segment_time,
-                &dummy_iter) != NGX_OK) {
-                ngx_log_error(NGX_LOG_ALERT, &dest->log, 0,
+                &dummy_iter) != NGX_OK)
+            {
+                ngx_log_error(NGX_LOG_ALERT, log, 0,
                     "ngx_live_timeline_copy: "
                     "get closest segment failed (2)");
                 ngx_live_period_free(channel, dest_period);

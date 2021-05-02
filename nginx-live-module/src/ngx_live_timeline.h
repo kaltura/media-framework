@@ -113,8 +113,11 @@ ngx_int_t ngx_live_timeline_update(ngx_live_timeline_t *timeline,
     ngx_live_timeline_conf_t *conf,
     ngx_live_timeline_manifest_conf_t *manifest_conf, ngx_log_t *log);
 
+ngx_int_t ngx_live_timeline_get_time(ngx_live_timeline_t *timeline,
+    int64_t offset, ngx_log_t *log, int64_t *time);
+
 ngx_int_t ngx_live_timeline_copy(ngx_live_timeline_t *dest,
-    ngx_live_timeline_t *source);
+    ngx_live_timeline_t *source, ngx_log_t *log);
 
 ngx_flag_t ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
     uint32_t segment_index, int64_t *correction);
