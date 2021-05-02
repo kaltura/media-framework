@@ -207,7 +207,8 @@ ngx_live_timelines_module_json_get_size(ngx_live_timeline_channel_ctx_t *obj)
     size_t  result =
         sizeof("\"timelines\":") - 1 + ngx_live_timelines_json_get_size(obj) +
         sizeof(",\"segment_list\":") - 1 +
-            ngx_live_segment_list_json_get_size(&obj->segment_list);
+            ngx_live_segment_list_json_get_size(&obj->segment_list) +
+        sizeof(",\"truncate\":") - 1 + NGX_INT32_LEN;
 
     return result;
 }
@@ -220,6 +221,8 @@ ngx_live_timelines_module_json_write(u_char *p,
     p = ngx_live_timelines_json_write(p, obj);
     p = ngx_copy_fix(p, ",\"segment_list\":");
     p = ngx_live_segment_list_json_write(p, &obj->segment_list);
+    p = ngx_copy_fix(p, ",\"truncate\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->truncate);
 
     return p;
 }

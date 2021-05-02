@@ -490,6 +490,8 @@ ngx_live_segment_index_watermark(ngx_live_channel_t *channel, void *ectx)
     ngx_live_segment_index_t              *index;
     ngx_live_segment_index_channel_ctx_t  *cctx;
 
+    channel->mem_watermark_events++;
+
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
 
     truncate = 0;

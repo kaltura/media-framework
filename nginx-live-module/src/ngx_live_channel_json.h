@@ -263,6 +263,7 @@ ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
         sizeof("\",\"initial_segment_index\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"mem_watermark_events\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"mem_blocks\":") - 1 +
             ngx_block_pool_json_get_size(obj->block_pool) +
         sizeof(",\"last_segment_created\":") - 1 + NGX_TIME_T_LEN +
@@ -294,6 +295,8 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_left);
     p = ngx_copy_fix(p, ",\"mem_limit\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_limit);
+    p = ngx_copy_fix(p, ",\"mem_watermark_events\":");
+    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->mem_watermark_events);
     p = ngx_copy_fix(p, ",\"mem_blocks\":");
     p = ngx_block_pool_json_write(p, obj->block_pool);
     p = ngx_copy_fix(p, ",\"last_segment_created\":");

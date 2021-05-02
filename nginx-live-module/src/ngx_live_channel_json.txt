@@ -38,6 +38,7 @@ out nostatic ngx_live_channel_json ngx_live_channel_t
     initial_segment_index %uD
     mem_left %uz
     mem_limit %uz
+    mem_watermark_events %ui
     mem_blocks %func-ngx_block_pool_json obj->block_pool
     last_segment_created %T
     snapshots %uD

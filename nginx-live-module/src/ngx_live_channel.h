@@ -82,6 +82,7 @@ struct ngx_live_channel_s {
     size_t                         mem_left;
     size_t                         mem_high_watermark;
     size_t                         mem_low_watermark;
+    ngx_uint_t                     mem_watermark_events;
 
     time_t                         last_modified;
     ngx_event_t                    close;
