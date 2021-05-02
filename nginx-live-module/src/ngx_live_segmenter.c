@@ -3211,6 +3211,27 @@ ngx_live_segmenter_channel_free(ngx_live_channel_t *channel, void *ectx)
 }
 
 static ngx_int_t
+ngx_live_segmenter_channel_read(ngx_live_channel_t *channel, void *ectx)
+{
+    ngx_live_segmenter_channel_ctx_t  *cctx;
+    ngx_live_segmenter_preset_conf_t  *spcf;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
+    spcf = ngx_live_get_module_preset_conf(channel, ngx_live_segmenter_module);
+
+    cctx->last_segment_end_pts = ngx_live_timelines_get_last_time(channel);
+
+    if (ngx_time() < channel->last_segment_created +
+        (time_t) (spcf->inactive_timeout / 1000))
+    {
+        cctx->cur_ready_duration = cctx->ready_duration;
+        cctx->force_new_period = 0;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
 ngx_live_segmenter_set_segment_duration_internal(ngx_live_channel_t *channel,
     int64_t value, ngx_log_t *log)
 {
@@ -3391,6 +3412,7 @@ ngx_live_segmenter_track_json_write(u_char *p, void *obj)
 static ngx_live_channel_event_t    ngx_live_segmenter_channel_events[] = {
     { ngx_live_segmenter_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
     { ngx_live_segmenter_channel_free, NGX_LIVE_EVENT_CHANNEL_FREE },
+    { ngx_live_segmenter_channel_read, NGX_LIVE_EVENT_CHANNEL_READ },
       ngx_live_null_event
 };
 

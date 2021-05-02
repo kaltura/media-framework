@@ -1467,6 +1467,17 @@ ngx_live_timelines_get_segment_time(ngx_live_channel_t *channel,
         segment_index, result);
 }
 
+int64_t
+ngx_live_timelines_get_last_time(ngx_live_channel_t *channel)
+{
+    ngx_live_timeline_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
+
+    return cctx->segment_list.last_time;
+}
+
+
 ngx_flag_t
 ngx_live_timelines_cleanup(ngx_live_channel_t *channel)
 {
