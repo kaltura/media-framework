@@ -280,8 +280,8 @@ uint32_t kk_avc_parse_nal_units(KMP_session_t *context, const uint8_t *buf_in, i
         
         if (context!=NULL) {
             uint32_t size=htonl(nNalSize);
-            KMP_send(context, &size, sizeof(uint32_t));
-            KMP_send(context, nal_start, nNalSize);
+            _S(KMP_send(context, &size, sizeof(uint32_t)));
+            _S(KMP_send(context, nal_start, nNalSize));
         }
         written += sizeof(uint32_t) + nNalSize;
         nal_start = nal_end;
@@ -511,12 +511,14 @@ int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char*
 {
     kmp_connect_header_t connect;
     if (header->packet_type!=KMP_PACKET_CONNECT) {
-        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"invalid packet, expceted PACKET_TYPE_HANDSHAKE received packet_type=%d",header->packet_type);
+        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"KMP_read_handshake. invalid packet, expected PACKET_TYPE_HANDSHAKE received packet_type=%d",header->packet_type);
         return -1;
     }
-    int valread =recvExact(context->socket,((char*)&connect)+sizeof(kmp_packet_header_t),sizeof(kmp_connect_header_t)-sizeof(kmp_packet_header_t));
-    if (valread<=0) {
-        return valread;
+    int bytesToRead = sizeof(kmp_connect_header_t)-sizeof(kmp_packet_header_t);
+    int valread =recvExact(context->socket,((char*)&connect)+sizeof(kmp_packet_header_t),bytesToRead);
+    if (valread < bytesToRead) {
+         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"KMP_read_handshake, expected %d bytes, read %d",bytesToRead,valread);
+         return -1;
     }
     
     strcpy(channel_id,(char*)connect.channel_id);

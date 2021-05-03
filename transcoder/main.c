@@ -128,8 +128,7 @@ int start()
     http_server.request=on_http_request;
     http_server_start(&http_server);
 
-    receiver_server_sync_listen(&receiver);
-    return 0;
+    return receiver_server_sync_listen(&receiver);
 }
 
 int stop()
@@ -203,7 +202,7 @@ int main(int argc, char **argv)
     
     avformat_network_init();
     
-    if (!start()) {
+    if (start() < 0) {
         return -1;
     }
     

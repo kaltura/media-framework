@@ -70,7 +70,7 @@ int transcode_session_send_packet(transcode_session_t *pContext, struct AVPacket
 int transcode_session_async_set_mediaInfo(transcode_session_t *pContext,transcode_mediaInfo_t* mediaInfo);
 int transcode_session_async_send_packet(transcode_session_t *pContext, struct AVPacket* packet);
 
-int transcode_session_close(transcode_session_t *ctx);
+int transcode_session_close(transcode_session_t *ctx,int exitErrorCode);
 int transcode_session_add_output(transcode_session_t* pContext,const json_value_t* json);
 int transcode_session_get_diagnostics(transcode_session_t *ctx,char* buf,size_t maxlen);
 int64_t transcode_session_get_ack_frame_id(transcode_session_t *ctx);
