@@ -1,0 +1,18 @@
+# add  for debug:   gdb ../sbin/nginx
+ARG ALPINE_VER=3.13.5
+FROM alpine:$ALPINE_VER as builder
+
+RUN apk --update add wget git
+
+WORKDIR /tmp
+
+ARG SECURE_TOKEN_MODULE_VERSION=master
+ARG AKAMAI_G2O_MODULE_VERSION=master
+
+
+RUN git clone --branch ${SECURE_TOKEN_MODULE_VERSION} https://github.com/kaltura/nginx-secure-token-module.git
+
+RUN git clone --branch ${AKAMAI_G2O_MODULE_VERSION} https://github.com/kaltura/nginx_mod_akamai_g2o.git
+
+COPY nginx-pckg-module nginx-pckg-module
+COPY nginx-common nginx-common
