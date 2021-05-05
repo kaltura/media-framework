@@ -34,6 +34,7 @@
 
 #define NGX_KSMP_FLAG_ACTIVE_ONLY           (0x01000000)
 #define NGX_KSMP_FLAG_CHECK_EXPIRY          (0x02000000)
+#define NGX_KSMP_FLAG_RELATIVE_DTS          (0x04000000)  /* to period start */
 
 
 #define NGX_KSMP_INVALID_SEGMENT_INDEX      (NGX_MAX_UINT32_VALUE)
@@ -77,6 +78,7 @@ typedef struct {
     uint32_t    timescale;
     uint32_t    media_type_mask;
     int64_t     last_modified;
+    int64_t     now;
 } ngx_ksmp_channel_header_t;
 
 

@@ -1,6 +1,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include "ngx_pckg_media_info.h"
+#include "ngx_pckg_ksmp.h"
 
 
 void
@@ -16,10 +16,6 @@ uint32_t
 ngx_pckg_media_info_iter_get(ngx_pckg_media_info_iter_t *iter,
     uint32_t segment_index, media_info_t **media_info)
 {
-    if (iter->cur >= iter->last) {
-        return NGX_KSMP_INVALID_SEGMENT_INDEX;
-    }
-
     while (iter->cur + 1 < iter->last &&
         iter->cur[1].header->segment_index <= segment_index)
     {
@@ -28,6 +24,9 @@ ngx_pckg_media_info_iter_get(ngx_pckg_media_info_iter_t *iter,
 
     if (segment_index >= iter->cur->header->segment_index) {
         *media_info = &iter->cur->media_info;
+
+    } else {
+        *media_info = NULL;
     }
 
     return iter->cur->header->segment_index;

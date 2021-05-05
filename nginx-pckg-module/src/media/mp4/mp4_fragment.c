@@ -41,24 +41,24 @@ mp4_fragment_write_tfhd_atom(u_char* p, uint32_t track_id, uint32_t sample_descr
 }
 
 u_char*
-mp4_fragment_write_tfdt_atom(u_char* p, uint32_t earliest_pres_time)
+mp4_fragment_write_tfdt_atom(u_char* p, uint32_t base_media_decode_time)
 {
     size_t atom_size = ATOM_HEADER_SIZE + sizeof(tfdt_atom_t);
 
     write_atom_header(p, atom_size, 't', 'f', 'd', 't');
     write_be32(p, 0);
-    write_be32(p, earliest_pres_time);
+    write_be32(p, base_media_decode_time);
     return p;
 }
 
 u_char*
-mp4_fragment_write_tfdt64_atom(u_char* p, uint64_t earliest_pres_time)
+mp4_fragment_write_tfdt64_atom(u_char* p, uint64_t base_media_decode_time)
 {
     size_t atom_size = ATOM_HEADER_SIZE + sizeof(tfdt64_atom_t);
 
     write_atom_header(p, atom_size, 't', 'f', 'd', 't');
     write_be32(p, 0x01000000);            // version = 1
-    write_be64(p, earliest_pres_time);
+    write_be64(p, base_media_decode_time);
     return p;
 }
 

@@ -2,6 +2,9 @@
 #include <ngx_core.h>
 #include "ngx_pckg_ksmp.h"
 #include "media/mp4/mp4_defs.h"
+#include "media/avc_hevc_parser.h"
+#include "media/avc_parser.h"
+#include "media/hevc_parser.h"
 
 
 #define NGX_INT32_HEX_LEN  (8)
@@ -203,6 +206,7 @@ ngx_pckg_ksmp_read_timeline(ngx_persist_block_header_t *block,
         return NGX_ERROR;
     }
 
+    timeline->channel = channel;
     timeline->header = header;
 
 
@@ -279,6 +283,8 @@ ngx_pckg_ksmp_read_period(ngx_persist_block_header_t *block,
         return NGX_ERROR;
     }
 
+    period->timeline = timeline;
+
     period->elts = (void *) segments.data;
     period->nelts = segments.len / sizeof(period->elts[0]);
 
@@ -319,7 +325,9 @@ ngx_pckg_ksmp_read_period(ngx_persist_block_header_t *block,
 
     period->header = header;
     period->segment_count = count;
+    period->duration = duration;
 
+    timeline->duration += duration;
     timeline->last_time = header->time + duration;
     timeline->last_segment = header->segment_index + count;
     timeline->segment_count += period->segment_count;
@@ -383,12 +391,14 @@ ngx_pckg_ksmp_read_track(ngx_persist_block_header_t *block,
     }
 
 
-    if (track->media_info.nelts <= 0 &&
-        (channel->flags & NGX_KSMP_FLAG_MEDIA_INFO))
-    {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_track: missing media info block");
-        return NGX_BAD_DATA;
+    if (channel->flags & NGX_KSMP_FLAG_MEDIA_INFO) {
+        if (track->media_info.nelts <= 0) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_pckg_ksmp_read_track: missing media info block");
+            return NGX_BAD_DATA;
+        }
+
+        ngx_pckg_media_info_iter_reset(&track->media_info_iter, track);
     }
 
     if (track->segment_info.nelts <= 0 &&
@@ -571,11 +581,13 @@ static ngx_int_t
 ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
     ngx_pckg_media_info_t *node)
 {
-    u_char            *p;
-    size_t             size;
-    vod_status_t       rc;
-    media_info_t      *dest = &node->media_info;
-    kmp_media_info_t  *src = node->kmp_media_info;
+    void               *parser_ctx;
+    u_char             *p;
+    size_t              size;
+    vod_status_t        rc;
+    media_info_t       *dest = &node->media_info;
+    kmp_media_info_t   *src = node->kmp_media_info;
+    request_context_t   request_context;
 
     dest->extra_data = node->extra_data;
     dest->parsed_extra_data.data = NULL;
@@ -596,11 +608,25 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
             return NGX_BAD_DATA;
         }
 
-        // XXXX initial pts delay
-
-        // XXXX transfer_characteristics
-
         /* TODO: parse extra data only if needed for the specific request */
+
+        ngx_memzero(&request_context, sizeof(request_context));
+        request_context.pool = channel->pool;
+        request_context.log = channel->log;
+
+        rc = avc_hevc_parser_init_ctx(&request_context, &parser_ctx);
+        if (rc != VOD_OK) {
+            return rc;
+        }
+
+        rc = avc_parser_parse_extra_data(parser_ctx, &dest->extra_data, NULL,
+            NULL);
+        if (rc != VOD_OK) {
+            return rc;
+        }
+
+        dest->u.video.transfer_characteristics =
+            avc_parser_get_transfer_characteristics(parser_ctx);
 
         size = codec_config_avcc_nal_units_get_size(channel->log,
             &dest->extra_data, &dest->u.video.nal_packet_size_length);
@@ -687,6 +713,7 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
 
         dest->media_type = MEDIA_TYPE_AUDIO;
         dest->u.audio.channels = src->u.audio.channels;
+        dest->u.audio.channel_layout = src->u.audio.channel_layout;
         dest->u.audio.bits_per_sample = src->u.audio.bits_per_sample;
         dest->u.audio.packet_size = 0;
         dest->u.audio.sample_rate = src->u.audio.sample_rate;

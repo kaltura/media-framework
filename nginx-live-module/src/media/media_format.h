@@ -29,6 +29,7 @@ enum {
     VOD_CODEC_ID_HEVC,
     VOD_CODEC_ID_VP8,
     VOD_CODEC_ID_VP9,
+    VOD_CODEC_ID_AV1,
 
     // audio
     VOD_CODEC_ID_AUDIO,
@@ -61,6 +62,7 @@ typedef struct {
 typedef struct {
     uint8_t object_type_id;
     uint16_t channels;
+    uint64_t channel_layout;
     uint16_t bits_per_sample;
     uint16_t packet_size;
     uint32_t sample_rate;

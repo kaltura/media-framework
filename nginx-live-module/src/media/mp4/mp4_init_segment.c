@@ -344,8 +344,8 @@ mp4_init_segment_write_mdhd_atom(u_char* p, uint32_t timescale, uint32_t duratio
     write_be32(p, 0);                // creation time
     write_be32(p, 0);                // modification time
     write_be32(p, timescale);        // timescale
-    write_be32(p, duration);        // duration
-    write_be16(p, 0);                // language
+    write_be32(p, duration);         // duration
+    write_be16(p, 0x55c4);           // language (und)
     write_be16(p, 0);                // reserved
     return p;
 }
@@ -356,12 +356,12 @@ mp4_init_segment_write_mdhd64_atom(u_char* p, uint32_t timescale, uint64_t durat
     size_t atom_size = ATOM_HEADER_SIZE + sizeof(mdhd64_atom_t);
 
     write_atom_header(p, atom_size, 'm', 'd', 'h', 'd');
-    write_be32(p, 0x01000000);        // version + flags
-    write_be64(p, 0LL);                // creation time
-    write_be64(p, 0LL);                // modification time
+    write_be32(p, 0x01000000);       // version + flags
+    write_be64(p, 0LL);              // creation time
+    write_be64(p, 0LL);              // modification time
     write_be32(p, timescale);        // timescale
-    write_be64(p, duration);        // duration
-    write_be16(p, 0);                // language
+    write_be64(p, duration);         // duration
+    write_be16(p, 0x55c4);           // language (und)
     write_be16(p, 0);                // reserved
     return p;
 }
@@ -423,7 +423,7 @@ mp4_init_segment_write_esds_atom(u_char* p, media_info_t* media_info)
     *p++ = MP4ESDescrTag;                        // tag
     *p++ = 3 + 3 * sizeof(descr_header_t) +        // len
         sizeof(config_descr_t) + extra_data_len + 1;
-    write_be16(p, 1);                            // track id
+    write_be16(p, 0);                            // track id
     *p++ = 0;                                    // flags
 
     *p++ = MP4DecConfigDescrTag;                // tag

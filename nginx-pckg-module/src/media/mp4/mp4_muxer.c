@@ -20,6 +20,7 @@ typedef struct {
 
     uint64_t first_frame_time_offset;
     uint64_t next_frame_time_offset;
+    uint64_t total_frames_duration;
 
     // input frames
     vod_list_part_t* first_frame_part;
@@ -52,6 +53,45 @@ struct mp4_muxer_state_s {
     frames_source_t* frames_source;
     void* frames_source_context;
     bool_t first_time;
+};
+
+typedef struct {
+    u_char version[1];
+    u_char flags[3];
+    u_char reference_id[4];
+    u_char timescale[4];
+    u_char earliest_pres_time[4];
+    u_char first_offset[4];
+    u_char reserved[2];
+    u_char reference_count[2];
+    u_char reference_size[4];            // Note: from this point forward, assuming reference_count == 1
+    u_char subsegment_duration[4];
+    u_char sap_type[1];
+    u_char sap_delta_time[3];
+} sidx_atom_t;
+
+typedef struct {
+    u_char version[1];
+    u_char flags[3];
+    u_char reference_id[4];
+    u_char timescale[4];
+    u_char earliest_pres_time[8];
+    u_char first_offset[8];
+    u_char reserved[2];
+    u_char reference_count[2];
+    u_char reference_size[4];            // Note: from this point forward, assuming reference_count == 1
+    u_char subsegment_duration[4];
+    u_char sap_type[1];
+    u_char sap_delta_time[3];
+} sidx64_atom_t;
+
+static const u_char styp_atom[] = {
+    0x00, 0x00, 0x00, 0x18,        // atom size
+    0x73, 0x74, 0x79, 0x70,        // styp
+    0x6d, 0x73, 0x64, 0x68,        // major brand (msdh)
+    0x00, 0x00, 0x00, 0x00,        // minor version
+    0x6d, 0x73, 0x64, 0x68,        // compatible brand (msdh)
+    0x6d, 0x73, 0x69, 0x78,        // compatible brand (msix)
 };
 
 static vod_status_t mp4_muxer_start_frame(mp4_muxer_state_t* state);
@@ -123,12 +163,19 @@ mp4_muxer_write_video_trun_atoms(
     u_char* trun_header = NULL;
 
     cur_track = &segment->tracks[cur_stream->index];
-    initial_pts_delay = 0; // XXXX cur_track->media_info->u.video.initial_pts_delay;
-
     part = &cur_track->frames.part;
-    for (cur_frame = part->elts, last_frame = cur_frame + part->nelts;
-        ;
-        cur_frame++, output_offset++)
+    cur_frame = part->elts;
+
+    if (part->nelts > 0)
+    {
+        initial_pts_delay = cur_frame->pts_delay;
+    }
+    else
+    {
+        initial_pts_delay = 0;
+    }
+
+    for (last_frame = cur_frame + part->nelts; ; cur_frame++, output_offset++)
     {
         if (cur_frame >= last_frame)
         {
@@ -372,6 +419,8 @@ mp4_calculate_output_offsets(
     // reset the state
     for (cur_stream = state->first_stream; cur_stream < state->last_stream; cur_stream++)
     {
+        cur_stream->total_frames_duration = cur_stream->next_frame_time_offset - cur_stream->first_frame_time_offset;
+
         cur_stream->cur_frame_part = cur_stream->first_frame_part;
         cur_stream->cur_frame = cur_stream->cur_frame_part->elts;
         cur_stream->last_frame = cur_stream->cur_frame + cur_stream->cur_frame_part->nelts;
@@ -465,12 +514,12 @@ mp4_muxer_init_state(
     return VOD_OK;
 }
 
-static uint64_t
+static int64_t
 mp4_muxer_get_earliest_pres_time(media_segment_t* segment, uint32_t index)
 {
     media_segment_track_t* track;
     input_frame_t* first_frame;
-    uint64_t result = 0;
+    int64_t result;
 
     track = &segment->tracks[index];
 
@@ -483,6 +532,50 @@ mp4_muxer_get_earliest_pres_time(media_segment_t* segment, uint32_t index)
     }
 
     return result;
+}
+
+static u_char*
+dash_packager_write_sidx_atom(
+    u_char* p,
+    mp4_muxer_stream_state_t* stream,
+    int64_t earliest_pres_time,
+    uint32_t reference_size)
+{
+    size_t atom_size = ATOM_HEADER_SIZE + sizeof(sidx_atom_t);
+
+    write_atom_header(p, atom_size, 's', 'i', 'd', 'x');
+    write_be32(p, 0);                    // version + flags
+    write_be32(p, 1);                    // reference id
+    write_be32(p, stream->timescale);    // timescale
+    write_be32(p, earliest_pres_time);   // earliest presentation time
+    write_be32(p, 0);                    // first offset
+    write_be32(p, 1);                    // reserved + reference count
+    write_be32(p, reference_size);       // referenced size
+    write_be32(p, stream->total_frames_duration);    // subsegment duration
+    write_be32(p, 0x90000000);           // starts with SAP / SAP type
+    return p;
+}
+
+static u_char*
+dash_packager_write_sidx64_atom(
+    u_char* p,
+    mp4_muxer_stream_state_t* stream,
+    int64_t earliest_pres_time,
+    uint32_t reference_size)
+{
+    size_t atom_size = ATOM_HEADER_SIZE + sizeof(sidx64_atom_t);
+
+    write_atom_header(p, atom_size, 's', 'i', 'd', 'x');
+    write_be32(p, 0x01000000);           // version + flags
+    write_be32(p, 1);                    // reference id
+    write_be32(p, stream->timescale);    // timescale
+    write_be64(p, earliest_pres_time);   // earliest presentation time
+    write_be64(p, 0LL);                  // first offset
+    write_be32(p, 1);                    // reserved + reference count
+    write_be32(p, reference_size);       // referenced size
+    write_be32(p, stream->total_frames_duration);    // subsegment duration
+    write_be32(p, 0x90000000);           // starts with SAP / SAP type
+    return p;
 }
 
 vod_status_t
@@ -500,8 +593,10 @@ mp4_muxer_init_fragment(
     mp4_muxer_stream_state_t* cur_stream;
     mp4_muxer_state_t* state;
     vod_status_t rc;
-    uint64_t earliest_pres_time;
     uint32_t trun_atom_count;
+    int64_t earliest_pres_time;
+    size_t styp_atom_size;
+    size_t sidx_atom_size;
     size_t moof_atom_size;
     size_t traf_atom_size;
     size_t mdat_atom_size = 0;
@@ -537,7 +632,7 @@ mp4_muxer_init_fragment(
         ATOM_HEADER_SIZE +        // moof
         ATOM_HEADER_SIZE + sizeof(mfhd_atom_t) +
         (ATOM_HEADER_SIZE +        // traf
-        ATOM_HEADER_SIZE + sizeof(tfhd_atom_t) +
+        ATOM_HEADER_SIZE + sizeof(tfhd_atom_t) + sizeof(uint32_t) +
         ATOM_HEADER_SIZE + sizeof(tfdt64_atom_t)) * segment->track_count +
         (ATOM_HEADER_SIZE + sizeof(trun_atom_t)) * trun_atom_count;
 
@@ -554,7 +649,24 @@ mp4_muxer_init_fragment(
         }
     }
 
+    if (segment->track_count == 1)
+    {
+        styp_atom_size = sizeof(styp_atom);
+
+        earliest_pres_time = mp4_muxer_get_earliest_pres_time(segment, 0);
+        sidx_atom_size = ATOM_HEADER_SIZE + (earliest_pres_time > UINT_MAX ? sizeof(sidx64_atom_t) : sizeof(sidx_atom_t));
+    }
+    else
+    {
+        styp_atom_size = 0;
+
+        earliest_pres_time = 0;
+        sidx_atom_size = 0;
+    }
+
     *total_fragment_size =
+        styp_atom_size +
+        sidx_atom_size +
         moof_atom_size +
         mdat_atom_size;
 
@@ -566,6 +678,8 @@ mp4_muxer_init_fragment(
 
     // allocate the response
     result_size =
+        styp_atom_size +
+        sidx_atom_size +
         moof_atom_size +
         MDAT_HEADER_SIZE;
 
@@ -578,6 +692,24 @@ mp4_muxer_init_fragment(
     }
 
     p = header->data;
+
+    if (styp_atom_size > 0)
+    {
+        p = ngx_copy(p, styp_atom, sizeof(styp_atom));
+    }
+
+    // sidx
+    if (sidx_atom_size > 0)
+    {
+        if (earliest_pres_time > UINT_MAX)
+        {
+            p = dash_packager_write_sidx64_atom(p, state->first_stream, earliest_pres_time, moof_atom_size + mdat_atom_size);
+        }
+        else
+        {
+            p = dash_packager_write_sidx_atom(p, state->first_stream, earliest_pres_time, moof_atom_size + mdat_atom_size);
+        }
+    }
 
     // moof
     write_atom_header(p, moof_atom_size, 'm', 'o', 'o', 'f');
@@ -592,7 +724,11 @@ mp4_muxer_init_fragment(
         p += ATOM_HEADER_SIZE;
 
         // moof.traf.tfhd
-        p = mp4_fragment_write_tfhd_atom(p, cur_stream->index + 1, 0);
+        p = mp4_fragment_write_tfhd_atom(p, cur_stream->index + 1, 1);
+
+        // Note: according to spec, tfdt has the dts time, however, since we force pts delay to 0
+        //      on the first frame, we are effectively shifting the dts forward, and need to use
+        //      pts here.
 
         // moof.traf.tfdt
         earliest_pres_time = mp4_muxer_get_earliest_pres_time(
@@ -848,7 +984,7 @@ mp4_muxer_get_bitrate_estimator(
         result->k1.den = 1;
 
         base_size += ATOM_HEADER_SIZE +        // traf
-            ATOM_HEADER_SIZE + sizeof(tfhd_atom_t) +
+            ATOM_HEADER_SIZE + sizeof(tfhd_atom_t) + sizeof(uint32_t) +
             ATOM_HEADER_SIZE + sizeof(tfdt64_atom_t) +
             ATOM_HEADER_SIZE + sizeof(trun_atom_t);
 

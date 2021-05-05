@@ -1538,7 +1538,7 @@ ngx_http_live_core_segment_handler(ngx_http_request_t *r,
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_core_module);
 
     if (!ngx_live_timeline_get_segment_info(objects->timeline,
-        ctx->params.index, &ctx->correction))
+        ctx->params.index, 0, &ctx->correction))
     {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_core_segment_handler: "

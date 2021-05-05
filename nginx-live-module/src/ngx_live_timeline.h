@@ -120,7 +120,7 @@ ngx_int_t ngx_live_timeline_copy(ngx_live_timeline_t *dest,
     ngx_live_timeline_t *source, ngx_log_t *log);
 
 ngx_flag_t ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
-    uint32_t segment_index, int64_t *correction);
+    uint32_t segment_index, uint32_t flags, int64_t *correction);
 
 ngx_flag_t ngx_live_timeline_is_expired(ngx_live_timeline_t *timeline);
 

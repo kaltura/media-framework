@@ -909,7 +909,7 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
 
     if (params->segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {
         if (!ngx_live_timeline_get_segment_info(timeline,
-            params->segment_index, &scope->correction))
+            params->segment_index, params->flags, &scope->correction))
         {
             return ngx_http_live_ksmp_output_error(r,
                 NGX_KSMP_ERR_SEGMENT_NOT_FOUND,
@@ -1022,6 +1022,7 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
     header.timescale = cpcf->timescale;
     header.media_type_mask = params->media_type_mask;
     header.last_modified = channel->last_modified;
+    header.now = ngx_time();
     ngx_persist_write_marker_write(&marker, &header, sizeof(header));
 
     ngx_persist_write_block_close(write_ctx);      /* channel */

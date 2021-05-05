@@ -701,7 +701,7 @@ ngx_live_timeline_get(ngx_live_channel_t *channel, ngx_str_t *id)
 
 ngx_flag_t
 ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
-    uint32_t segment_index, int64_t *correction)
+    uint32_t segment_index, uint32_t flags, int64_t *correction)
 {
     ngx_rbtree_t       *rbtree = &timeline->rbtree;
     ngx_rbtree_node_t  *node;
@@ -711,7 +711,11 @@ ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
     node = rbtree->root;
     sentinel = rbtree->sentinel;
 
-    while (node != sentinel) {
+    for ( ;; ) {
+
+        if (node == sentinel) {
+            return 0;
+        }
 
         if (segment_index < node->key) {
             node = node->left;
@@ -719,15 +723,21 @@ ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
         } else {
             period = (ngx_live_period_t *) node;
             if (segment_index < node->key + period->segment_count) {
-                *correction = period->correction;
-                return 1;
+                break;
             }
 
             node = node->right;
         }
     }
 
-    return 0;
+    if (flags & NGX_KSMP_FLAG_RELATIVE_DTS) {
+        *correction = -period->time;
+
+    } else {
+        *correction = period->correction;
+    }
+
+    return 1;
 }
 
 ngx_flag_t
