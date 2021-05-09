@@ -20,12 +20,11 @@ int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,
         buffersrc  = avfilter_get_by_name("buffer");
         buffersink = avfilter_get_by_name("buffersink");
         snprintf(args, sizeof(args),
-                 "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d:frame_rate=%d/%d:sws_param=%s",
+                 "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d:frame_rate=%d/%d",
                  dec_ctx->width, dec_ctx->height, dec_ctx->pix_fmt,
                  standard_timebase.num, standard_timebase.den,
                  dec_ctx->sample_aspect_ratio.num, dec_ctx->sample_aspect_ratio.den,
-                 dec_ctx->framerate.num, dec_ctx->framerate.den,
-                 "flags=2");
+                 dec_ctx->framerate.num, dec_ctx->framerate.den);
     }
     if (dec_ctx->codec_type==AVMEDIA_TYPE_AUDIO) {
         buffersrc  = avfilter_get_by_name("abuffer");
