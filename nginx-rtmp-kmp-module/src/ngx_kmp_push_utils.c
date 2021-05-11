@@ -109,6 +109,7 @@ ngx_kmp_push_format_json_http_request(ngx_pool_t *pool, ngx_str_t *host,
     size_t         content_length;
     u_char        *p;
     ngx_buf_t     *b;
+    ngx_str_t      buf;
     ngx_uint_t     i;
     ngx_chain_t   *cl;
     ngx_keyval_t  *kv;
@@ -121,7 +122,14 @@ ngx_kmp_push_format_json_http_request(ngx_pool_t *pool, ngx_str_t *host,
 
     content_length = 0;
     for (cl = body; cl; cl = cl->next) {
-        content_length += cl->buf->last - cl->buf->pos;
+        buf.data = cl->buf->pos;
+        buf.len = cl->buf->last - cl->buf->pos;
+
+        ngx_log_error(NGX_LOG_INFO, pool->log, 0,
+            "ngx_kmp_push_format_json_http_request: pool: %p, body: %V",
+            pool, &buf);
+
+        content_length += buf.len;
     }
 
     alloc_size = sizeof(rq_tmpl) + uri->len + host->len +
@@ -216,6 +224,10 @@ ngx_kmp_push_parse_json_response(ngx_pool_t *pool, ngx_log_t *log,
     }
 
     *body->last = '\0';
+
+    ngx_log_error(NGX_LOG_INFO, log, 0,
+        "ngx_kmp_push_parse_json_response: pool: %p, body: %s",
+        pool, body->pos);
 
     rc = ngx_json_parse(pool, body->pos, json, error, sizeof(error));
     if (rc != NGX_JSON_OK) {
