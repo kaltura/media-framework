@@ -391,6 +391,7 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
     size_t            size;
     size_t            buf_left;
     size_t            header_left;
+    uint32_t          packet_type;
     ngx_int_t         rc;
     ngx_buf_t        *b = &ctx->active_buf;
     ngx_buf_chain_t  *part;
@@ -418,7 +419,9 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
             ctx->packet_header_pos = (u_char *) &ctx->packet_header;
 
             /* validate the packet header */
-            switch (ctx->packet_header.packet_type) {
+            packet_type = ctx->packet_header.packet_type;
+
+            switch (packet_type) {
 
             case KMP_PACKET_CONNECT:
             case KMP_PACKET_MEDIA_INFO:
@@ -429,8 +432,7 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
             default:
                 ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
                     "ngx_stream_live_kmp_process_buffer: "
-                    "unknown kmp packet 0x%uxD",
-                    ctx->packet_header.packet_type);
+                    "unknown kmp packet 0x%uxD", packet_type);
                 return NGX_STREAM_BAD_REQUEST;
             }
 
@@ -439,14 +441,18 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
             {
                 ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
                     "ngx_stream_live_kmp_process_buffer: "
-                    "invalid header size %uD", ctx->packet_header.header_size);
+                    "invalid header size %uD, type: %*s",
+                    ctx->packet_header.header_size,
+                    (size_t) sizeof(packet_type), &packet_type);
                 return NGX_STREAM_BAD_REQUEST;
             }
 
             if (ctx->packet_header.data_size > KMP_MAX_DATA_SIZE) {
                 ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
                     "ngx_stream_live_kmp_process_buffer: "
-                    "invalid data size %uD", ctx->packet_header.data_size);
+                    "invalid data size %uD, type: %*s",
+                    ctx->packet_header.data_size,
+                    (size_t) sizeof(packet_type), &packet_type);
                 return NGX_STREAM_BAD_REQUEST;
             }
 
@@ -508,13 +514,15 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
             ctx->packet_data_first = NULL;
         }
 
+        packet_type = ctx->packet_header.packet_type;
+
         ngx_log_debug3(NGX_LOG_DEBUG_STREAM, ctx->log, 0,
             "ngx_stream_live_kmp_process_buffer: "
             "packet_type: 0x%uxD, header: %uD, data: %uD",
-            ctx->packet_header.packet_type, ctx->packet_header.header_size,
+            packet_type, ctx->packet_header.header_size,
             ctx->packet_header.data_size);
 
-        switch (ctx->packet_header.packet_type) {
+        switch (packet_type) {
 
         case KMP_PACKET_CONNECT:
             break;
@@ -549,7 +557,7 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
         default:
             ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
                 "ngx_stream_live_kmp_process_buffer: "
-                "unknown kmp packet 0x%uxD", ctx->packet_header.packet_type);
+                "unknown kmp packet 0x%uxD", packet_type);
             return NGX_STREAM_BAD_REQUEST;
         }
 
