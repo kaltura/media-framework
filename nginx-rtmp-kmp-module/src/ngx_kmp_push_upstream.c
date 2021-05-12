@@ -170,7 +170,7 @@ ngx_kmp_push_upstream_parse_url(ngx_pool_t *pool, ngx_str_t *url_str,
     ngx_url_t *url)
 {
     if (url_str->data == NGX_JSON_UNSET_PTR) {
-        ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_kmp_push_upstream_parse_url: no upstream url in json");
         return NGX_ERROR;
     }
