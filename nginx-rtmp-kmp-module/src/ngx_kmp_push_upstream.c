@@ -611,7 +611,12 @@ ngx_kmp_push_upstream_auto_ack(ngx_kmp_push_upstream_t *u, size_t left)
     kmp_packet_header_t     *kmp_header;
     ngx_buf_queue_reader_t   reader;
 
-    sent = u->sent_base + u->peer.connection->sent;
+    if (u->peer.connection != NULL) {
+        sent = u->sent_base + u->peer.connection->sent;
+
+    } else {
+        sent = NGX_MAX_OFF_T_VALUE;
+    }
 
     for (count = 0; ; count++) {
 
