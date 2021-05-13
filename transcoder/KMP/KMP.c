@@ -345,7 +345,7 @@ int KMP_send_eof( KMP_session_t *context)
     LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send KMP_send_eof",context->sessionName);
     kmp_packet_header_t packetHeader;
     packetHeader.packet_type=KMP_PACKET_EOS;
-    packetHeader.header_size=0;
+    packetHeader.header_size=sizeof(packetHeader);
     packetHeader.data_size=0;
     packetHeader.reserved=0;
     _S(KMP_send(context, &packetHeader, sizeof(packetHeader)));
