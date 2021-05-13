@@ -49,7 +49,6 @@ typedef struct {
     off_t                      sent_base;
     ngx_uint_t                 auto_acked_frames;
 
-    unsigned                   sent_buffered:1;
     unsigned                   sent_end:1;
     unsigned                   auto_ack:1;
     unsigned                   no_republish:1;

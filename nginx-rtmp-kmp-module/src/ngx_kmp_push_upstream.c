@@ -152,7 +152,6 @@ ngx_kmp_push_upstream_connect(ngx_kmp_push_upstream_t *u, ngx_addr_t *addr)
 
     ngx_add_timer(c->write, u->timeout);
 
-    u->last = &u->busy;
     u->recv_pos = (void *) &u->ack_frames;
 
     ngx_log_error(NGX_LOG_INFO, &u->log, 0,
@@ -476,7 +475,7 @@ ngx_kmp_push_upstream_republish(ngx_kmp_push_upstream_t *u)
     u->remote_addr.len = 0;
     u->local_addr.len = 0;
 
-    u->sent_buffered = 0;
+    u->last = NULL;
 
     if (!u->busy) {
         /* nothing to send, republish once more data is available */
@@ -833,7 +832,8 @@ ngx_kmp_push_upstream_send_chain(ngx_kmp_push_upstream_t *u)
     size_t             buffered;
 #endif
 
-    if (!u->sent_buffered) {
+    if (!u->last) {
+        /* connect packet not sent */
         return NGX_OK;
     }
 
@@ -935,6 +935,8 @@ ngx_kmp_push_upstream_send_buffered(ngx_kmp_push_upstream_t *u)
     c = u->peer.connection;
     u->sent_base = u->acked_bytes - c->sent;
 
+    u->last = &u->busy;
+
     u->local_addr.len = NGX_SOCKADDR_STRLEN;
     u->local_addr.data = u->local_addr_buf;
 
@@ -1029,8 +1031,7 @@ ngx_kmp_push_upstream_write_handler(ngx_event_t *wev)
         goto failed;
     }
 
-    if (!u->sent_buffered) {
-        u->sent_buffered = 1;
+    if (!u->last) {
         if (ngx_kmp_push_upstream_send_buffered(u) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
                 "ngx_kmp_push_upstream_write_handler: send buffered failed");
@@ -1066,6 +1067,20 @@ ngx_kmp_push_upstream_append_buffer(ngx_kmp_push_upstream_t *u,
     ngx_buf_t    *b;
     ngx_chain_t  *cl;
 
+    if (!u->last) {
+
+        /* connect packet not sent */
+        if (u->peer.connection == NULL &&
+            u->republish_call == NULL &&
+            !u->republish.timer_set)
+        {
+            /* start a republish */
+            return ngx_kmp_push_upstream_republish_send(u);
+        }
+
+        return NGX_OK;
+    }
+
     cl = u->free;
     if (cl != NULL) {
         u->free = cl->next;
@@ -1087,14 +1102,6 @@ ngx_kmp_push_upstream_append_buffer(ngx_kmp_push_upstream_t *u,
     cl->next = NULL;
     *u->last = cl;
     u->last = &cl->next;
-
-    if (u->peer.connection == NULL &&
-        u->republish_call == NULL &&
-        !u->republish.timer_set)
-    {
-        /* start a republish */
-        return ngx_kmp_push_upstream_republish_send(u);
-    }
 
     return NGX_OK;
 }
