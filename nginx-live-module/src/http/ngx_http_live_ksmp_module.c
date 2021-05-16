@@ -703,7 +703,7 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
         return NGX_ABORT;
     }
 
-    params->media_type_mask = media_type_mask;
+    scope->header.res_media_types |= media_type_mask;
 
     return NGX_OK;
 }
@@ -743,7 +743,7 @@ ngx_http_live_ksmp_add_variants(ngx_http_request_t *r,
         }
     }
 
-    scope->variant_count = dst - scope->variants;
+    scope->header.variant_count = dst - scope->variants;
 
     return NGX_OK;
 }
@@ -823,7 +823,7 @@ ngx_http_live_ksmp_parse_variant_ids(ngx_http_request_t *r,
         p = next + 1;
     }
 
-    scope->variant_count = dst - scope->variants;
+    scope->header.variant_count = dst - scope->variants;
 
     return NGX_OK;
 }
@@ -854,6 +854,8 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
     ngx_http_request_t   *r = params->r;
     ngx_live_channel_t   *channel;
     ngx_live_timeline_t  *timeline;
+
+    ngx_memzero(&scope->header, sizeof(scope->header));
 
     /* channel */
     channel = ngx_live_channel_get(&params->channel_id);
@@ -951,7 +953,7 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
         }
     }
 
-    if (scope->variant_count <= 0) {
+    if (scope->header.variant_count <= 0) {
         if (params->err_code) {
             return ngx_http_live_ksmp_output_error(r,
                 params->err_code, "%V", &params->err_msg);
@@ -963,8 +965,6 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
                 &params->channel_id);
         }
     }
-
-    scope->track_count = 0;
 
     return NGX_OK;
 }
@@ -980,7 +980,6 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
     ngx_live_channel_t             *channel = scope->channel;
     ngx_persist_write_ctx_t        *write_ctx;
     ngx_http_live_ksmp_ctx_t       *ctx;
-    ngx_ksmp_channel_header_t       header;
     ngx_persist_write_marker_t      marker;
     ngx_live_segment_copy_req_t     req;
     ngx_live_core_preset_conf_t    *cpcf;
@@ -1005,7 +1004,7 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
     if (ngx_persist_write_block_open(write_ctx,
             NGX_KSMP_BLOCK_CHANNEL) != NGX_OK ||
         ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
-        ngx_persist_write_reserve(write_ctx, sizeof(header), &marker)
+        ngx_persist_write_reserve(write_ctx, sizeof(scope->header), &marker)
             != NGX_OK ||
         ngx_live_persist_write_blocks(channel, write_ctx,
             NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL, channel) != NGX_OK)
@@ -1017,13 +1016,12 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
 
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
-    header.track_count = scope->track_count;
-    header.variant_count = scope->variant_count;
-    header.timescale = cpcf->timescale;
-    header.media_type_mask = params->media_type_mask;
-    header.last_modified = channel->last_modified;
-    header.now = ngx_time();
-    ngx_persist_write_marker_write(&marker, &header, sizeof(header));
+    scope->header.timescale = cpcf->timescale;
+    scope->header.req_media_types = params->media_type_mask;
+    scope->header.last_modified = channel->last_modified;
+    scope->header.now = ngx_time();
+    ngx_persist_write_marker_write(&marker, &scope->header,
+        sizeof(scope->header));
 
     ngx_persist_write_block_close(write_ctx);      /* channel */
 

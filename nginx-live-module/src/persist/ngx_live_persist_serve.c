@@ -53,7 +53,7 @@ ngx_live_persist_serve_write_variant(ngx_persist_write_ctx_t *write_ctx,
 
     ws = ngx_persist_write_stream(write_ctx);
 
-    for (i = 0; i < scope->variant_count; i++) {
+    for (i = 0; i < scope->header.variant_count; i++) {
 
         cur_variant = scope->variants[i];
 
@@ -106,7 +106,7 @@ ngx_live_persist_serve_write_track(ngx_persist_write_ctx_t *write_ctx,
 
     scope = ngx_persist_write_ctx(write_ctx);
 
-    for (i = 0; i < scope->variant_count; i++) {
+    for (i = 0; i < scope->header.variant_count; i++) {
 
         cur_variant = scope->variants[i];
 
@@ -137,7 +137,7 @@ ngx_live_persist_serve_write_track(ngx_persist_write_ctx_t *write_ctx,
             ngx_persist_write_block_close(write_ctx);
 
             cur_track->written = 1;     /* avoid writing more than once */
-            scope->track_count++;
+            scope->header.track_count++;
         }
     }
 
