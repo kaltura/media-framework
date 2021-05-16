@@ -49,6 +49,8 @@ typedef struct {
     ngx_array_part_t            *part;
     ngx_json_object_t           *obj;
 
+    ngx_event_t                  event;
+
     unsigned                     multi:1;
 } ngx_http_api_ctx_t;
 
@@ -359,6 +361,10 @@ ngx_http_api_multi_run_single(ngx_http_request_t *r,
         return rc;
     }
 
+    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+        "ngx_http_api_multi_run_single: "
+        "method: %ui, uri: %V", req.method, &req.uri);
+
     rc = ngx_http_api_get_route_node(r, &req, root, &handler);
     if (rc != NGX_OK) {
         return rc;
@@ -500,6 +506,15 @@ done:
 
 
 static void
+ngx_http_api_multi_event_handler(ngx_event_t *ev)
+{
+    ngx_http_request_t  *r = ev->data;
+
+    ngx_http_api_multi_state_machine(r);
+}
+
+
+static void
 ngx_http_api_multi_handler(ngx_http_request_t *r, ngx_json_value_t *body)
 {
     ngx_http_api_ctx_t  *ctx;
@@ -521,6 +536,10 @@ ngx_http_api_multi_handler(ngx_http_request_t *r, ngx_json_value_t *body)
     ctx->obj = ctx->part->first;
     ctx->multi = 1;
 
+    ctx->event.data = r;
+    ctx->event.handler = ngx_http_api_multi_event_handler;
+    ctx->event.log = r->connection->log;
+
     ngx_http_api_multi_state_machine(r);
 }
 
@@ -538,7 +557,7 @@ ngx_http_api_done(ngx_http_request_t *r, ngx_int_t rc, ngx_str_t *response)
             goto done;
         }
 
-        ngx_http_api_multi_state_machine(r);
+        ngx_post_event(&ctx->event, &ngx_posted_events);
         return;
     }
 
