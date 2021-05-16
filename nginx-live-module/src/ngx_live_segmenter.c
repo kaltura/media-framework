@@ -1332,6 +1332,9 @@ ngx_live_segmenter_channel_inactive(ngx_live_channel_t *channel)
 {
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
+    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+        "ngx_live_segmenter_channel_inactive: called");
+
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
     cctx->cur_ready_duration = cctx->initial_ready_duration;
