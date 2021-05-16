@@ -562,7 +562,8 @@ ngx_live_persist_setup_read_handler(ngx_live_channel_t *channel,
     }
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_persist_setup_read_handler: read success");
+        "ngx_live_persist_setup_read_handler: read success, version: %uD",
+        cctx->version);
 
     *min_index = 0;
     return NGX_OK;
@@ -631,6 +632,9 @@ ngx_live_persist_setup_channel_free(ngx_live_channel_t *channel, void *ectx)
     ngx_live_persist_setup_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_setup_module);
+    if (cctx == NULL) {
+        return NGX_OK;
+    }
 
     ctx = cctx->write_ctx;
     if (ctx != NULL) {

@@ -682,6 +682,9 @@ ngx_live_persist_index_channel_free(ngx_live_channel_t *channel, void *ectx)
     ngx_live_persist_index_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_index_module);
+    if (cctx == NULL) {
+        return NGX_OK;
+    }
 
     ctx = cctx->write_ctx;
     if (ctx != NULL) {
