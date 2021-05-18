@@ -29,6 +29,8 @@ typedef struct {
 /* format */
 
 typedef struct {
+    uint64_t                            uid;
+    ngx_live_persist_index_scope_t      scope;
     uint32_t                            reserved;
     uint32_t                            last_segment_media_types;
     int64_t                             last_segment_created;
@@ -108,7 +110,6 @@ ngx_live_persist_index_channel_snap(ngx_live_channel_t *channel, void *ectx)
 
     ngx_live_set_ctx(snap, cp, ngx_live_persist_index_module);
 
-    cp->reserved = 0;
     cp->last_modified = channel->last_modified;
     cp->last_segment_media_types = channel->last_segment_media_types;
 
@@ -330,9 +331,11 @@ ngx_live_persist_index_write_channel(ngx_persist_write_ctx_t *write_ctx,
 
     cp = ngx_live_get_module_ctx(snap, ngx_live_persist_index_module);
 
+    cp->uid = channel->uid;
+    cp->scope = snap->base.scope;
+    cp->reserved = 0;
+
     if (ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
-        ngx_persist_write(write_ctx, &snap->base.scope,
-            sizeof(snap->base.scope)) != NGX_OK ||
         ngx_persist_write(write_ctx, cp, sizeof(*cp)) != NGX_OK ||
         ngx_live_persist_write_blocks(channel, write_ctx,
             NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL, channel) != NGX_OK)
@@ -351,7 +354,6 @@ ngx_live_persist_index_read_channel(ngx_persist_block_header_t *header,
 {
     ngx_int_t                          rc;
     ngx_live_channel_t                *channel = obj;
-    ngx_live_persist_index_scope_t    *fs;
     ngx_live_persist_index_scope_t    *scope;
     ngx_live_persist_index_channel_t  *cp;
 
@@ -360,42 +362,49 @@ ngx_live_persist_index_read_channel(ngx_persist_block_header_t *header,
         return rc;
     }
 
-    fs = ngx_mem_rstream_get_ptr(rs, sizeof(*fs) + sizeof(*cp));
-    if (fs == NULL) {
+    cp = ngx_mem_rstream_get_ptr(rs, sizeof(*cp));
+    if (cp == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_index_read_channel: "
             "read data failed");
         return NGX_BAD_DATA;
     }
 
-    if (fs->min_index > fs->max_index ||
-        fs->max_index >= NGX_LIVE_INVALID_SEGMENT_INDEX)
+    if (cp->uid != channel->uid) {
+        ngx_log_error(NGX_LOG_WARN, rs->log, 0,
+            "ngx_live_persist_index_read_channel: "
+            "uid mismatch, actual: %016uxL, expected: %016uxL",
+            cp->uid, channel->uid);
+        return NGX_DECLINED;
+    }
+
+    if (cp->scope.min_index > cp->scope.max_index ||
+        cp->scope.max_index >= NGX_LIVE_INVALID_SEGMENT_INDEX)
     {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_index_read_channel: "
-            "invalid scope, min: %uD, max: %uD", fs->min_index, fs->max_index);
+            "invalid scope, min: %uD, max: %uD",
+            cp->scope.min_index, cp->scope.max_index);
         return NGX_BAD_DATA;
     }
 
     scope = ngx_mem_rstream_scope(rs);
 
-    if (scope->min_index != 0 && fs->min_index != scope->min_index) {
+    if (scope->min_index != 0 && cp->scope.min_index != scope->min_index) {
         ngx_log_error(NGX_LOG_WARN, rs->log, 0,
             "ngx_live_persist_index_read_channel: "
             "file delta index %uD doesn't match expected %uD",
-            fs->min_index, scope->min_index);
+            cp->scope.min_index, scope->min_index);
         return NGX_OK;
     }
 
-    *scope = *fs;
-
-    cp = (void *) (fs + 1);
+    *scope = cp->scope;
 
     channel->last_modified = cp->last_modified;
     channel->last_segment_media_types = cp->last_segment_media_types;
     channel->last_segment_created = cp->last_segment_created;
 
-    channel->next_segment_index = fs->max_index + 1;
+    channel->next_segment_index = cp->scope.max_index + 1;
 
     if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
@@ -743,7 +752,6 @@ static ngx_persist_block_t  ngx_live_persist_index_blocks[] = {
     /*
      * persist header:
      *   ngx_str_t                         channel_id;
-     *   ngx_live_persist_index_scope_t    scope;
      *   ngx_live_persist_index_channel_t  p;
      */
     { NGX_LIVE_PERSIST_BLOCK_CHANNEL, NGX_LIVE_PERSIST_CTX_INDEX_MAIN,

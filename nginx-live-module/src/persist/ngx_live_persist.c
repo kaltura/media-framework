@@ -34,6 +34,10 @@ typedef struct {
     void                             (*write_handler)(
         ngx_live_persist_write_file_ctx_t *ctx, ngx_int_t rc);
 
+    /*
+     * NGX_BAD_DATA - file is corrupt
+     * NGX_DECLINED - old version/uid mismatch, consider the file 'not found'
+     */
     ngx_int_t                        (*read_handler)(
         ngx_live_channel_t *channel, ngx_uint_t file, ngx_str_t *buf,
         uint32_t *min_index);
@@ -409,23 +413,22 @@ ngx_live_persist_read_parse(ngx_live_channel_t *channel, ngx_str_t *buf,
     ngx_int_t                        rc;
     ngx_mem_rstream_t                rs;
     ngx_live_persist_file_t         *file_spec;
-    ngx_persist_file_header_t       *header;
     ngx_live_persist_preset_conf_t  *ppcf;
 
     file_spec = &ngx_live_persist_files[file];
 
-    header = ngx_persist_read_file_header(buf, file_spec->type,
-        &channel->log, scope, &rs);
-    if (header == NULL) {
+    rc = ngx_persist_read_file_header(buf, file_spec->type, &channel->log,
+        scope, &rs);
+    if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_read_parse: read header failed, file: %ui",
             file);
-        return NGX_BAD_DATA;
+        return rc;
     }
 
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
 
-    rc = ngx_persist_read_inflate(header, ppcf->files[file].max_size, &rs,
+    rc = ngx_persist_read_inflate(buf, ppcf->files[file].max_size, &rs,
         NULL, &ptr);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
@@ -606,6 +609,10 @@ ngx_live_persist_read_handler(void *data, ngx_int_t rc, ngx_buf_t *response)
     rc = ngx_live_persist_files[file].read_handler(channel, file, &buf,
         &min_index);
     if (rc != NGX_OK) {
+        if (rc == NGX_DECLINED) {
+            /* ignore files with old version/uid mismatch */
+            rc = NGX_OK;
+        }
         goto done;
     }
 

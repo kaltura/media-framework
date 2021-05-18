@@ -29,6 +29,7 @@ typedef struct {
 /* format */
 
 typedef struct {
+    uint64_t                            uid;
     uint32_t                            version;
     uint32_t                            initial_segment_index;
     uint64_t                            start_sec;
@@ -101,6 +102,7 @@ ngx_live_persist_setup_write_channel(ngx_persist_write_ctx_t *write_ctx,
     ws = ngx_persist_write_stream(write_ctx);
     version = ngx_persist_write_ctx(write_ctx);
 
+    cp.uid = channel->uid;
     cp.version = *version;
     cp.initial_segment_index = channel->initial_segment_index;
     cp.start_sec = channel->start_sec;
@@ -146,6 +148,7 @@ ngx_live_persist_setup_read_channel(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
+    channel->uid = cp->uid;
     channel->start_sec = cp->start_sec;
     channel->initial_segment_index = cp->initial_segment_index;
     channel->next_segment_index = cp->initial_segment_index;

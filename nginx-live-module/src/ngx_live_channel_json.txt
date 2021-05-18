@@ -32,6 +32,7 @@ out nostatic noobject ngx_live_variants_json ngx_live_channel_t
 
 out nostatic ngx_live_channel_json ngx_live_channel_t
     - %code ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj, ngx_live_core_module);
+    uid %016uxL
     uptime %T (ngx_time() - obj->start_sec)
     preset %V cpcf->name
     opaque %bs

@@ -70,6 +70,7 @@ typedef struct {
 
 struct ngx_live_channel_s {
     ngx_str_node_t                 sn;        /* must be first */
+    uint64_t                       uid;
     ngx_queue_t                    queue;
     ngx_block_str_t                opaque;
 

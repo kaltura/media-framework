@@ -91,6 +91,26 @@ ngx_live_channel_log_error(ngx_log_t *log, u_char *buf, size_t len)
     return p;
 }
 
+static void
+ngx_live_random_bytes(ngx_log_t *log, void *dst, size_t len)
+{
+    u_char  *p = dst;
+
+#if (NGX_OPENSSL)
+
+    if (RAND_bytes(p, len) == 1) {
+        return;
+    }
+
+    ngx_ssl_error(NGX_LOG_ERR, log, 0, "RAND_bytes() failed");
+
+#endif
+
+    for (; len > 0; len--) {
+        *p++ = ngx_random() & 0xff;
+    }
+}
+
 ngx_int_t
 ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
     ngx_pool_t *temp_pool, ngx_live_channel_t **result)
@@ -147,6 +167,8 @@ ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
     ngx_memcpy(channel->sn.str.data, id->data, channel->sn.str.len);
     channel->sn.node.key = hash;
 
+    ngx_live_random_bytes(temp_pool->log, &channel->uid, sizeof(channel->uid));
+
     channel->log = *pool->log;
     pool->log = &channel->log;
 
@@ -200,7 +222,8 @@ ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
     ngx_queue_insert_tail(&ngx_live_channels.queue, &channel->queue);
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_channel_create: created %p", channel);
+        "ngx_live_channel_create: created %p, uid: %016uxL",
+        channel, channel->uid);
 
     *result = channel;
 

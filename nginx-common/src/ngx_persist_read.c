@@ -5,7 +5,7 @@
 #include <zlib.h>
 
 
-ngx_persist_file_header_t *
+ngx_int_t
 ngx_persist_read_file_header(ngx_str_t *buf, uint32_t type, ngx_log_t *log,
     void *scope, ngx_mem_rstream_t *rs)
 {
@@ -16,7 +16,7 @@ ngx_persist_read_file_header(ngx_str_t *buf, uint32_t type, ngx_log_t *log,
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_persist_read_file_header: buffer size %uz too small",
             buf->len);
-        return NULL;
+        return NGX_BAD_DATA;
     }
 
     header = (void *) buf->data;
@@ -25,23 +25,7 @@ ngx_persist_read_file_header(ngx_str_t *buf, uint32_t type, ngx_log_t *log,
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_persist_read_file_header: invalid magic 0x%uxD",
             header->magic);
-        return NULL;
-    }
-
-    header_size = header->header_size & NGX_PERSIST_HEADER_SIZE_MASK;
-    if (header_size < sizeof(*header)) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_persist_read_file_header: header size too small %uD",
-            header_size);
-        return NULL;
-    }
-
-    if (header_size > buf->len) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_persist_read_file_header: "
-            "header size %uD larger than buffer %uz",
-            header_size, buf->len);
-        return NULL;
+        return NGX_BAD_DATA;
     }
 
     if (header->type != type) {
@@ -49,24 +33,60 @@ ngx_persist_read_file_header(ngx_str_t *buf, uint32_t type, ngx_log_t *log,
             "ngx_persist_read_file_header: "
             "invalid file type 0x%uxD, expected %*s",
             header->type, (size_t) sizeof(type), &type);
-        return NULL;
+        return NGX_BAD_DATA;
+    }
+
+    if (header->version < NGX_PERSIST_FILE_VERSION) {
+        ngx_log_error(NGX_LOG_WARN, log, 0,
+            "ngx_persist_read_file_header: "
+            "ignoring old file, version: %uD, type: %*s",
+            header->version, (size_t) sizeof(type), &type);
+        return NGX_DECLINED;
+    }
+
+    if (header->version > NGX_PERSIST_FILE_VERSION) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_persist_read_file_header: "
+            "file has a newer version %uD, type: %*s",
+            header->version, (size_t) sizeof(type), &type);
+        return NGX_BAD_DATA;
+    }
+
+    header_size = header->header_size & NGX_PERSIST_HEADER_SIZE_MASK;
+    if (header_size < sizeof(*header)) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_persist_read_file_header: "
+            "header size too small %uD, type: %*s",
+            header_size, (size_t) sizeof(type), &type);
+        return NGX_BAD_DATA;
+    }
+
+    if (header_size > buf->len) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_persist_read_file_header: "
+            "header size %uD larger than buffer %uz, type: %*s",
+            header_size, buf->len, (size_t) sizeof(type), &type);
+        return NGX_BAD_DATA;
     }
 
     ngx_mem_rstream_set(rs, buf->data + header_size, buf->data + buf->len,
         log, scope);
 
-    return header;
+    return NGX_OK;
 }
 
 ngx_int_t
-ngx_persist_read_inflate(ngx_persist_file_header_t *header, size_t max_size,
+ngx_persist_read_inflate(ngx_str_t *buf, size_t max_size,
     ngx_mem_rstream_t *rs, ngx_pool_t *pool, void **ptr)
 {
-    int         rc;
-    uLongf      size;
-    u_char     *p;
-    uint32_t    header_size;
-    ngx_str_t   buf;
+    int                         rc;
+    uLongf                      size;
+    u_char                     *p;
+    uint32_t                    header_size;
+    ngx_str_t                   comp;
+    ngx_persist_file_header_t  *header;
+
+    header = (void *) buf->data;
 
     if (!(header->header_size & NGX_PERSIST_HEADER_FLAG_COMPRESSED)) {
         if (ptr != NULL) {
@@ -108,9 +128,9 @@ ngx_persist_read_inflate(ngx_persist_file_header_t *header, size_t max_size,
         return NGX_ERROR;
     }
 
-    ngx_mem_rstream_get_left(rs, &buf);
+    ngx_mem_rstream_get_left(rs, &comp);
 
-    rc = uncompress(p, &size, buf.data, buf.len);
+    rc = uncompress(p, &size, comp.data, comp.len);
     if (rc != Z_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_persist_read_inflate: "

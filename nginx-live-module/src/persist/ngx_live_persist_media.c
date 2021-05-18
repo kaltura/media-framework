@@ -143,6 +143,7 @@ typedef struct {
     ngx_pool_t                               *pool;
     ngx_live_channel_t                       *channel;
     uint32_t                                  channel_id_hash;
+    uint64_t                                  uid;
 
     ngx_live_persist_main_conf_t             *pmcf;
     ngx_live_read_segment_callback_pt         callback;
@@ -225,7 +226,9 @@ ngx_live_persist_media_read_parse_header(
     uint32_t                         i;
     uint32_t                         found_tracks;
     uint32_t                         channel_id_hash;
+    uint64_t                        *uid;
     uint64_t                         offset;
+    ngx_int_t                        rc;
     ngx_log_t                       *log = ctx->pool->log;
     ngx_str_t                        channel_id;
     ngx_mem_rstream_t                rs;
@@ -233,13 +236,13 @@ ngx_live_persist_media_read_parse_header(
     ngx_persist_block_header_t      *block;
     ngx_live_persist_media_entry_t  *entry;
 
-    if (ngx_persist_read_file_header(buf, NGX_LIVE_PERSIST_TYPE_MEDIA,
-        log, NULL, &rs) == NULL)
-    {
+    rc = ngx_persist_read_file_header(buf, NGX_LIVE_PERSIST_TYPE_MEDIA, log,
+        NULL, &rs);
+    if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_persist_media_read_parse_header: "
-            "read file header failed");
-        return NGX_HTTP_BAD_GATEWAY;
+            "read file header failed %i", rc);
+        return rc == NGX_DECLINED ? NGX_HTTP_NOT_FOUND : NGX_HTTP_BAD_GATEWAY;
     }
 
     block = ngx_persist_read_block(&rs, &rs);
@@ -268,6 +271,22 @@ ngx_live_persist_media_read_parse_header(
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_read_parse_header: "
             "channel id \"%V\" mismatch", &channel_id);
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    uid = ngx_mem_rstream_get_ptr(&rs, sizeof(*uid));
+    if (uid == NULL) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_persist_media_read_parse_header: "
+            "read uid failed");
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    if (*uid != ctx->uid) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_persist_media_read_parse_header: "
+            "uid mismatch, actual: %016uxL, expected: %016uxL",
+            *uid, ctx->uid);
         return NGX_HTTP_BAD_GATEWAY;
     }
 
@@ -734,6 +753,7 @@ ngx_live_persist_media_read(ngx_live_segment_read_req_t *req)
 
     channel_id = &channel->sn.str;
     ctx->channel_id_hash = ngx_crc32_short(channel_id->data, channel_id->len);
+    ctx->uid = channel->uid;
 
     ctx->pmcf = ngx_live_get_module_main_conf(channel,
         ngx_live_persist_module);
@@ -769,6 +789,7 @@ typedef struct {
     ngx_pool_t                               *pool;
     ngx_live_channel_t                       *channel;
     uint32_t                                  channel_id_hash;
+    uint64_t                                  uid;
 
     ngx_live_segment_writer_t                 writer;
     ngx_live_store_read_pt                    read;
@@ -793,6 +814,7 @@ ngx_live_persist_media_copy_parse_header(
     uint32_t                         found_tracks;
     uint32_t                         channel_id_hash;
     uint64_t                         offset;
+    uint64_t                        *uid;
     ngx_int_t                        rc;
     ngx_log_t                       *log = ctx->pool->log;
     ngx_str_t                        channel_id;
@@ -801,13 +823,13 @@ ngx_live_persist_media_copy_parse_header(
     ngx_persist_block_header_t      *block;
     ngx_live_persist_media_entry_t  *entry;
 
-    if (ngx_persist_read_file_header(buf, NGX_LIVE_PERSIST_TYPE_MEDIA,
-        log, NULL, &rs) == NULL)
-    {
+    rc = ngx_persist_read_file_header(buf, NGX_LIVE_PERSIST_TYPE_MEDIA, log,
+        NULL, &rs);
+    if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_persist_media_copy_parse_header: "
-            "read file header failed");
-        return NGX_HTTP_BAD_GATEWAY;
+            "read file header failed %i", rc);
+        return rc == NGX_DECLINED ? NGX_HTTP_NOT_FOUND : NGX_HTTP_BAD_GATEWAY;
     }
 
     block = ngx_persist_read_block(&rs, &rs);
@@ -836,6 +858,22 @@ ngx_live_persist_media_copy_parse_header(
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_copy_parse_header: "
             "channel id \"%V\" mismatch", &channel_id);
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    uid = ngx_mem_rstream_get_ptr(&rs, sizeof(*uid));
+    if (uid == NULL) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_persist_media_read_parse_header: "
+            "read uid failed");
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    if (*uid != ctx->uid) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_persist_media_read_parse_header: "
+            "uid mismatch, actual: %016uxL, expected: %016uxL",
+            *uid, ctx->uid);
         return NGX_HTTP_BAD_GATEWAY;
     }
 
@@ -1145,6 +1183,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
 
     channel_id = &channel->sn.str;
     ctx->channel_id_hash = ngx_crc32_short(channel_id->data, channel_id->len);
+    ctx->uid = channel->uid;
 
     cctx->read_stats.started++;
     ctx->start = ngx_current_msec;
@@ -1303,7 +1342,9 @@ ngx_live_persist_media_write_bucket(ngx_persist_write_ctx_t *write_idx,
 
     if (ngx_persist_write_block_open(write_idx,
             NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY_LIST) != NGX_OK ||
-        ngx_wstream_str(ws, &channel->sn.str) != NGX_OK)
+        ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
+        ngx_persist_write(write_idx, &channel->uid, sizeof(channel->uid))
+            != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_media_write_bucket: write header failed");
@@ -1873,6 +1914,7 @@ static ngx_persist_block_t  ngx_live_persist_media_blocks[] = {
     /*
      * persist header:
      *   ngx_str_t  channel_id;
+     *   uint64_t   uid;
      */
     { NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY_LIST, NGX_LIVE_PERSIST_CTX_MEDIA_MAIN,
       0, ngx_live_persist_media_write_bucket, NULL },
