@@ -271,7 +271,7 @@ ngx_block_pool_get_size(ngx_block_pool_t *block_pool, ngx_uint_t index)
 
     if (index >= block_pool->count) {
         ngx_log_error(NGX_LOG_ALERT, block_pool->pool->log, 0,
-            "ngx_block_pool_free_list: invalid index %ui", index);
+            "ngx_block_pool_get_size: invalid index %ui", index);
         return 0;
     }
 

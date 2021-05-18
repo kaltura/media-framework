@@ -864,14 +864,14 @@ ngx_live_persist_media_copy_parse_header(
     uid = ngx_mem_rstream_get_ptr(&rs, sizeof(*uid));
     if (uid == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_persist_media_read_parse_header: "
+            "ngx_live_persist_media_copy_parse_header: "
             "read uid failed");
         return NGX_HTTP_BAD_GATEWAY;
     }
 
     if (*uid != ctx->uid) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_persist_media_read_parse_header: "
+            "ngx_live_persist_media_copy_parse_header: "
             "uid mismatch, actual: %016uxL, expected: %016uxL",
             *uid, ctx->uid);
         return NGX_HTTP_BAD_GATEWAY;
@@ -1165,7 +1165,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
     ctx->read_ctx = store->read_init(&request);
     if (ctx->read_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_persist_media_read: read init failed");
+            "ngx_live_persist_media_copy: read init failed");
         return NGX_ERROR;
     }
 
@@ -1191,7 +1191,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
     rc = ctx->read(ctx->read_ctx, 0, pmpcf->initial_read_size);
     if (rc != NGX_DONE) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_persist_media_read: read failed %i", rc);
+            "ngx_live_persist_media_copy: read failed %i", rc);
         cctx->read_stats.error++;
         return NGX_ERROR;
     }
