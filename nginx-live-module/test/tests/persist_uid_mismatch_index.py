@@ -30,14 +30,14 @@ def test(channelId=CHANNEL_ID):
     with open('/tmp/store/channel/test/index', 'rb') as f:
         d = f.read()
 
-	# decompress
-	d = d[:KLPF_HEADER_SIZE] + zlib.decompress(d[KLPF_HEADER_SIZE:], 0)
-	(header_size,) = struct.unpack('<L', d[KLPF_HEADER_SIZE_START:KLPF_HEADER_SIZE_END])
-	d = d[:KLPF_HEADER_SIZE_START] + struct.pack('<L', header_size & ~NGX_PERSIST_HEADER_FLAG_COMPRESSED) + d[KLPF_HEADER_SIZE_END:]
-	
-	# replace the uid
-	d = d[:CHANNEL_UID_START] + '\0' * 8 + d[CHANNEL_UID_END:]
-	
+    # decompress
+    d = d[:KLPF_HEADER_SIZE] + zlib.decompress(d[KLPF_HEADER_SIZE:], 0)
+    (header_size,) = struct.unpack('<L', d[KLPF_HEADER_SIZE_START:KLPF_HEADER_SIZE_END])
+    d = d[:KLPF_HEADER_SIZE_START] + struct.pack('<L', header_size & ~NGX_PERSIST_HEADER_FLAG_COMPRESSED) + d[KLPF_HEADER_SIZE_END:]
+
+    # replace the uid
+    d = d[:CHANNEL_UID_START] + '\0' * 8 + d[CHANNEL_UID_END:]
+
     with open('/tmp/store/channel/test/index', 'wb') as f:
         f.write(d)
 

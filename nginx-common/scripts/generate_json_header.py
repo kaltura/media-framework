@@ -209,17 +209,17 @@ def getObjectWriter(objectInfo, properties):
                 baseFunc = format.split('-', 1)[1]
 
                 if format.startswith('objFunc-'):
-                    fixed += '{';
+                    fixed += '{'
                     nextFixed = '}'
                 elif format.startswith('arrFunc-'):
-                    fixed += '[';
+                    fixed += '['
                     nextFixed = ']'
 
                 if len(expr) > 0:
                     expr = ', %s' % expr
 
                 if fixed.endswith(','):
-                    listAdd(writeDefs, 'u_char  *next;');
+                    listAdd(writeDefs, 'u_char  *next;')
                     valueWrite = 'next = %s_write(p%s);' % (baseFunc, expr)
                     valueWrite += '\n' + 'p = next == p ? p - 1 : next;'
                 else:
@@ -229,7 +229,7 @@ def getObjectWriter(objectInfo, properties):
             elif format.startswith('objQueue-'):
                 params = format[len('objQueue-'):].split(',')
                 baseFunc, objectType, queueNode, idField = params
-                fixed += '{';
+                fixed += '{'
                 nextFixed = '}'
 
                 getSizeCode += '''
@@ -269,7 +269,7 @@ for (q = ngx_queue_head(&%s);
             elif format.startswith('slist-'):
                 params = format[len('slist-'):].split(',')
                 baseFunc, objectType = params
-                fixed += '[';
+                fixed += '['
                 nextFixed = ']'
 
                 getSizeCode += '''
@@ -293,7 +293,7 @@ for (cur = %s; cur; cur = cur->next) {
             elif format.startswith('queue-'):
                 params = format[len('queue-'):].split(',')
                 baseFunc, objectType, queueNode = params
-                fixed += '[';
+                fixed += '['
                 nextFixed = ']'
 
                 getSizeCode += '''
@@ -325,7 +325,7 @@ for (q = ngx_queue_head(&%s);
             elif format.startswith('array-'):
                 params = format[len('array-'):].split(',')
                 baseFunc, objectType = params
-                fixed += '[';
+                fixed += '['
                 nextFixed = ']'
                 getSizeCode += '''
 for (n = 0; n < %s.nelts; ++n) {
@@ -346,7 +346,7 @@ for (n = 0; n < %s.nelts; ++n) {
                 listAdd(funcDefs, 'ngx_uint_t  n;')
                 valueSize = ''
             elif format == 'V':
-                fixed += '"';
+                fixed += '"'
                 nextFixed = '"'
                 valueWrite = (
                     'p = (u_char *) ngx_escape_json(p, %s.data, %s.len);' %
@@ -355,18 +355,18 @@ for (n = 0; n < %s.nelts; ++n) {
                     '%s.len + ngx_escape_json(NULL, %s.data, %s.len)' %
                     (expr, expr, expr))
             elif format == 'bs':
-                fixed += '"';
+                fixed += '"'
                 nextFixed = '"'
                 valueWrite = 'p = ngx_block_str_copy(p, &%s);' % expr
                 valueSize = '%s.len' % expr
             elif format == 'xV':
-                fixed += '"';
+                fixed += '"'
                 nextFixed = '"'
                 valueWrite = ('p = ngx_hex_dump(p, %s.data, %s.len);' %
                     (expr, expr))
                 valueSize = '%s.len * 2' % expr
             elif format == '4cc':
-                fixed += '"';
+                fixed += '"'
                 nextFixed = '"'
                 valueWrite = ('p = (u_char *) ngx_escape_json(p, ' +
                     '(u_char *) &%s, sizeof(uint32_t));' % expr)
@@ -380,7 +380,7 @@ for (n = 0; n < %s.nelts; ++n) {
     p = ngx_copy_fix(p, "false");
 }''' % expr
             elif format.startswith('enum-'):
-                fixed += '"';
+                fixed += '"'
                 nextFixed = '"'
                 valuesName = format[len('enum-'):]
                 valueStr = '%s[%s]' % (valuesName, expr)
@@ -416,7 +416,7 @@ if (d) {
                     valueSize = 'NGX_INT64_LEN'
                     cast = 'uint64_t'
                 elif format == '016uxL':
-                    fixed += '"';
+                    fixed += '"'
                     nextFixed = '"'
                     valueSize = '16'
                     cast = 'uint64_t'
