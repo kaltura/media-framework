@@ -267,7 +267,7 @@ ngx_http_call_done(ngx_http_call_ctx_t *ctx)
     ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
         "http call done, code:%ui, content_type:%V, body_size:%uz",
             ctx->code, &ctx->content_type, ctx->response ?
-            (size_t)(ctx->response->last - ctx->response->pos) : 0);
+            (size_t) (ctx->response->last - ctx->response->pos) : 0);
 
     handler_pool = ctx->handler_pool;
     if (!handler_pool) {
@@ -1089,7 +1089,7 @@ ngx_http_call_parse_header_line(ngx_http_call_ctx_t *ctx)
                 state = sw_name;
                 ctx->header_name_start = p;
 
-                c = (u_char)(ch | 0x20);
+                c = (u_char) (ch | 0x20);
                 if (c >= 'a' && c <= 'z') {
                     break;
                 }
@@ -1104,7 +1104,7 @@ ngx_http_call_parse_header_line(ngx_http_call_ctx_t *ctx)
 
             /* header name */
         case sw_name:
-            c = (u_char)(ch | 0x20);
+            c = (u_char) (ch | 0x20);
             if (c >= 'a' && c <= 'z') {
                 break;
             }

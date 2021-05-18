@@ -32,7 +32,6 @@ typedef struct {
 
 
 typedef struct {
-    ngx_http_request_t       *r;
     ngx_live_channel_t       *channel;
     ngx_json_object_t         body;
     ngx_live_channel_json_t   json;
@@ -186,12 +185,12 @@ ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
     ngx_log_t                        *log;
     ngx_str_t                         response;
     ngx_str_t                         channel_id;
-    ngx_http_request_t               *r;
+    ngx_http_request_t               *r = arg;
     ngx_live_channel_t               *channel;
     ngx_live_conf_ctx_t               conf_ctx;
-    ngx_http_live_api_channel_ctx_t  *ctx = arg;
+    ngx_http_live_api_channel_ctx_t  *ctx;
 
-    r = ctx->r;
+    ctx = ngx_http_get_module_ctx(r, ngx_http_live_api_module);
     channel = ctx->channel;
     log = r->connection->log;
 
@@ -347,18 +346,22 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
 
     if (json.read) {    /* unset or true */
 
-        ctx = ngx_palloc(r->pool, sizeof(*ctx));
+        ctx = ngx_http_get_module_ctx(r, ngx_http_live_api_module);
         if (ctx == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                "ngx_http_live_api_channels_post: alloc failed");
-            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
-            goto free;
+            ctx = ngx_palloc(r->pool, sizeof(*ctx));
+            if (ctx == NULL) {
+                ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                    "ngx_http_live_api_channels_post: alloc failed");
+                rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+                goto free;
+            }
+
+            ngx_http_set_ctx(r, ctx, ngx_http_live_api_module);
         }
 
         rc = ngx_live_persist_read(channel, r->pool,
-            ngx_http_live_api_channel_read_handler, ctx);
+            ngx_http_live_api_channel_read_handler, r);
         if (rc == NGX_DONE) {
-            ctx->r = r;
             ctx->channel = channel;
             ctx->body = *obj;
             ctx->json = json;
