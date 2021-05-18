@@ -648,16 +648,23 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
 void
 ngx_live_timeline_free(ngx_live_timeline_t *timeline)
 {
+    ngx_live_period_t                *next;
     ngx_live_period_t                *period;
-    ngx_live_channel_t               *channel = timeline->channel;
+    ngx_live_channel_t               *channel;
     ngx_live_timeline_channel_ctx_t  *cctx;
     ngx_live_timeline_preset_conf_t  *tpcf;
+
+    ngx_log_error(NGX_LOG_INFO, &timeline->log, 0,
+        "ngx_live_timeline_free: freeing %p", timeline);
+
+    channel = timeline->channel;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
     tpcf = ngx_live_get_module_preset_conf(channel, ngx_live_timeline_module);
 
     /* free the periods (no reason to remove from tree/queue) */
-    for (period = timeline->head_period; period; period = period->next) {
+    for (period = timeline->head_period; period; period = next) {
+        next = period->next;
         ngx_live_period_free(channel, period);
     }
 
