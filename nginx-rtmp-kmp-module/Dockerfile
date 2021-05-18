@@ -67,4 +67,4 @@ RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
 WORKDIR /usr/local/nginx/conf/
 
 
-CMD ["/usr/local/nginx/sbin/nginx"]
+CMD chmod 777 /tmp/dumps && /usr/local/nginx/sbin/nginx
