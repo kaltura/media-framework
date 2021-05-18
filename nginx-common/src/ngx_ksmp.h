@@ -76,7 +76,9 @@ typedef struct {
     uint32_t    track_count;
     uint32_t    variant_count;
     uint32_t    timescale;
-    uint32_t    media_type_mask;
+    uint32_t    req_media_types;
+    uint32_t    res_media_types;
+    uint32_t    reserved;
     int64_t     last_modified;
     int64_t     now;
 } ngx_ksmp_channel_header_t;
@@ -112,6 +114,8 @@ typedef struct {
 typedef enum {
     ngx_ksmp_variant_role_main,
     ngx_ksmp_variant_role_alternate,
+
+    ngx_ksmp_variant_role_count
 } ngx_ksmp_variant_role_e;
 
 typedef struct {

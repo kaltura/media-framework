@@ -572,7 +572,7 @@ ngx_http_pckg_selector_write(u_char *p, ngx_pckg_channel_t *channel,
     p = ngx_copy_str(p, variant->id);
 
     p = ngx_http_pckg_write_media_type_mask(p,
-        channel->header->media_type_mask);
+        channel->header->req_media_types);
 
     return p;
 }
