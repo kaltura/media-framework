@@ -758,6 +758,9 @@ ngx_live_persist_channel_free(ngx_live_channel_t *channel, void *ectx)
     ngx_live_persist_channel_ctx_t     *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
+    if (cctx == NULL) {
+        return NGX_OK;
+    }
 
     if (cctx->read_ctx != NULL) {
         ngx_live_persist_read_handler(cctx->read_ctx, NGX_HTTP_CONFLICT, NULL);
