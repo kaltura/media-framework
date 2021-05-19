@@ -167,6 +167,7 @@ def getObjectWriter(objectInfo, properties):
     funcDefs = []
     writeDefs = []
     returnConds = {}
+    forwardConds = {}
     fixed = prefix
     nextFixed = ''
     firstField = True
@@ -195,6 +196,11 @@ def getObjectWriter(objectInfo, properties):
 
         if expr == '' or expr.endswith('->') or expr.endswith('.'):
             expr += fieldName
+
+        if format.startswith('%forward-'):
+            baseFunc = format.split('-', 1)[1]
+            forwardConds[expr] = baseFunc
+            continue
 
         if not firstField:
             fixed += ','
@@ -373,6 +379,10 @@ for (n = 0; n < %s.nelts; ++n) {
                 valueSize = ('sizeof(uint32_t) + ngx_escape_json(NULL, ' +
                     '(u_char *) &%s, sizeof(uint32_t))' % expr)
             elif format == 'b':
+                if expr in ['true', 'false']:
+                    fixed += expr
+                    continue
+
                 valueSize = 'sizeof("false") - 1'
                 valueWrite = '''if (%s) {
     p = ngx_copy_fix(p, "true");
@@ -487,6 +497,12 @@ if (d) {
     }
 ''' % (cond, size)
 
+    for cond, baseFunc in forwardConds.items():
+        checks += '''    if (%s) {
+        return %s_get_size(obj);
+    }
+''' % (cond, baseFunc)
+
     result = '/* %s writer */\n\n' % outputBaseFunc
 
     result += '''%ssize_t
@@ -511,6 +527,12 @@ if (d) {
 %s        return p;
     }
 ''' % (cond, write)
+
+    for cond, baseFunc in forwardConds.items():
+        checks += '''    if (%s) {
+        return %s_write(p, obj);
+    }
+''' % (cond, baseFunc)
 
     if len(args) > 0:
         args = ', %s' % args

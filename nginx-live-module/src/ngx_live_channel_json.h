@@ -248,6 +248,43 @@ ngx_live_variants_json_write(u_char *p, ngx_live_channel_t *obj)
     return p;
 }
 
+/* ngx_live_channel_blocked_json writer */
+
+static size_t
+ngx_live_channel_blocked_json_get_size(ngx_live_channel_t *obj)
+{
+    ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj,
+        ngx_live_core_module);
+    size_t  result =
+        sizeof("{\"blocked\":true,\"preset\":\"") - 1 + cpcf->name.len +
+            ngx_escape_json(NULL, cpcf->name.data, cpcf->name.len) +
+        sizeof("\",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"mem_blocks\":") - 1 +
+            ngx_block_pool_json_get_size(obj->block_pool) +
+        sizeof("}") - 1;
+
+    return result;
+}
+
+static u_char *
+ngx_live_channel_blocked_json_write(u_char *p, ngx_live_channel_t *obj)
+{
+    ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj,
+        ngx_live_core_module);
+    p = ngx_copy_fix(p, "{\"blocked\":true,\"preset\":\"");
+    p = (u_char *) ngx_escape_json(p, cpcf->name.data, cpcf->name.len);
+    p = ngx_copy_fix(p, "\",\"mem_left\":");
+    p = ngx_sprintf(p, "%uz", (size_t) obj->mem_left);
+    p = ngx_copy_fix(p, ",\"mem_limit\":");
+    p = ngx_sprintf(p, "%uz", (size_t) obj->mem_limit);
+    p = ngx_copy_fix(p, ",\"mem_blocks\":");
+    p = ngx_block_pool_json_write(p, obj->block_pool);
+    *p++ = '}';
+
+    return p;
+}
+
 /* ngx_live_channel_json writer */
 
 size_t
@@ -255,8 +292,11 @@ ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
 {
     ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj,
         ngx_live_core_module);
+    if (obj->blocked) {
+        return ngx_live_channel_blocked_json_get_size(obj);
+    }
     size_t  result =
-        sizeof("{\"uid\":\"") - 1 + 16 +
+        sizeof("{\"blocked\":false,\"uid\":\"") - 1 + 16 +
         sizeof("\",\"uptime\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"preset\":\"") - 1 + cpcf->name.len + ngx_escape_json(NULL,
             cpcf->name.data, cpcf->name.len) +
@@ -285,7 +325,10 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
     ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj,
         ngx_live_core_module);
     u_char  *next;
-    p = ngx_copy_fix(p, "{\"uid\":\"");
+    if (obj->blocked) {
+        return ngx_live_channel_blocked_json_write(p, obj);
+    }
+    p = ngx_copy_fix(p, "{\"blocked\":false,\"uid\":\"");
     p = ngx_sprintf(p, "%016uxL", (uint64_t) obj->uid);
     p = ngx_copy_fix(p, "\",\"uptime\":");
     p = ngx_sprintf(p, "%T", (time_t) (ngx_time() - obj->start_sec));
