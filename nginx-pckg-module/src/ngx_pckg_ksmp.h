@@ -9,6 +9,9 @@
 #include "media/media_format.h"
 
 
+#define NGX_INT32_HEX_LEN  (8)
+
+
 typedef struct ngx_pckg_channel_s     ngx_pckg_channel_t;
 typedef struct ngx_pckg_track_s       ngx_pckg_track_t;
 typedef struct ngx_pckg_timeline_s    ngx_pckg_timeline_t;
