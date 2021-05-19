@@ -1,13 +1,11 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "ngx_pckg_ksmp.h"
+
 #include "media/mp4/mp4_defs.h"
 #include "media/avc_hevc_parser.h"
 #include "media/avc_parser.h"
 #include "media/hevc_parser.h"
-
-
-#define NGX_INT32_HEX_LEN  (8)
 
 
 enum {
@@ -839,6 +837,13 @@ ngx_pckg_ksmp_read_variant(ngx_persist_block_header_t *block,
         return NGX_BAD_DATA;
     }
 
+    if (header->role > ngx_ksmp_variant_role_count) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_variant: invalid role %uD",
+            header->role);
+        return NGX_BAD_DATA;
+    }
+
     if (header->track_count <= 0 || header->track_count > KMP_MEDIA_COUNT) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_pckg_ksmp_read_variant: invalid track count %uD",
@@ -859,6 +864,10 @@ ngx_pckg_ksmp_read_variant(ngx_persist_block_header_t *block,
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_pckg_ksmp_read_variant: read label/lang failed");
         return NGX_BAD_DATA;
+    }
+
+    if (header->role == ngx_ksmp_variant_role_main) {
+        variant->label.len = 0;
     }
 
     if (channel->sorted_tracks == NULL) {
@@ -1138,15 +1147,15 @@ ngx_pckg_ksmp_parse(ngx_pckg_channel_t *channel, ngx_str_t *buf,
     ngx_mem_rstream_t           rs;
     ngx_persist_file_header_t  *header;
 
-    header = ngx_persist_read_file_header(buf, NGX_KSMP_PERSIST_TYPE,
-        channel->log, NULL, &rs);
-    if (header == NULL) {
+    rc = ngx_persist_read_file_header(buf, NGX_KSMP_PERSIST_TYPE, channel->log,
+        NULL, &rs);
+    if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
             "ngx_pckg_ksmp_parse: read header failed");
         return NGX_BAD_DATA;
     }
 
-    rc = ngx_persist_read_inflate(header, max_size, &rs, channel->pool, NULL);
+    rc = ngx_persist_read_inflate(buf, max_size, &rs, channel->pool, NULL);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
             "ngx_pckg_ksmp_parse: inflate failed %i", rc);
@@ -1171,6 +1180,7 @@ ngx_pckg_ksmp_parse(ngx_pckg_channel_t *channel, ngx_str_t *buf,
         return NGX_BAD_DATA;
     }
 
+    header = (void *) buf->data;
     if (header->size >= buf->len) {
         return NGX_OK;
     }
