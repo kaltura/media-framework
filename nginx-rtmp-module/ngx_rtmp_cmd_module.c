@@ -157,7 +157,7 @@ ngx_rtmp_cmd_connect_update_session(ngx_rtmp_session_t *s,
     }
 
     if (s->app_conf == NULL) {
-        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
             "connect: application not found: '%V'", &s->app);
         return NGX_ERROR;
     }
@@ -312,7 +312,7 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     };
 
     if (s->connected) {
-        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                 "connect: duplicate connection");
         return NGX_ERROR;
     }

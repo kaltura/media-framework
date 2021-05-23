@@ -815,7 +815,7 @@ ngx_rtmp_log_set_names(ngx_rtmp_session_t *s, u_char *name, u_char *args)
 
     if (!s->in_stream) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-            "log: play/publish with no stream context");
+                      "log: play/publish with no stream context");
         return NULL;
     }
 

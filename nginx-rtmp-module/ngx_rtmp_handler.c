@@ -164,14 +164,14 @@ ngx_rtmp_ping(ngx_event_t *pev)
 
     if (s->ping_active) {
         ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                "ping: unresponded");
+                      "ping: unresponded");
         ngx_rtmp_finalize_session(s);
         return;
     }
 
     if (cscf->busy) {
         ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                "ping: not busy between pings");
+                      "ping: not busy between pings");
         ngx_rtmp_finalize_session(s);
         return;
     }
@@ -224,8 +224,8 @@ ngx_rtmp_recv(ngx_event_t *rev)
         if (st->in == NULL) {
             st->in = ngx_rtmp_alloc_in_buf(s);
             if (st->in == NULL) {
-                ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                        "in buf alloc failed");
+                ngx_log_error(NGX_LOG_NOTICE, c->log, 0,
+                              "in buf alloc failed");
                 ngx_rtmp_finalize_session(s);
                 return;
             }
@@ -288,7 +288,7 @@ ngx_rtmp_recv(ngx_event_t *rev)
             if (s->dump_fd != NGX_INVALID_FILE) {
                 if (ngx_write_fd(s->dump_fd, b->last, n) == NGX_ERROR) {
                     ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
-                        "failed to write to rtmp dump file");
+                                  "failed to write to rtmp dump file");
                     ngx_close_file(s->dump_fd);
                     s->dump_fd = NGX_INVALID_FILE;
                 }
@@ -349,9 +349,9 @@ ngx_rtmp_recv(ngx_event_t *rev)
 #endif
 
             if (csid >= (uint32_t) cscf->max_streams) {
-                ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                    "RTMP in chunk stream too big: %D >= %D",
-                    csid, cscf->max_streams);
+                ngx_log_error(NGX_LOG_ERR, c->log, 0,
+                              "RTMP in chunk stream too big: %uD >= %i",
+                              csid, cscf->max_streams);
                 ngx_rtmp_finalize_session(s);
                 return;
             }
@@ -460,8 +460,9 @@ ngx_rtmp_recv(ngx_event_t *rev)
             b->pos = p;
 
             if (h->mlen > cscf->max_message) {
-                ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                        "too big message: %uz", cscf->max_message);
+                ngx_log_error(NGX_LOG_ERR, c->log, 0,
+                              "RTMP message too big: %uD > %uz",
+                               h->mlen, cscf->max_message);
                 ngx_rtmp_finalize_session(s);
                 return;
             }
@@ -548,8 +549,7 @@ ngx_rtmp_send(ngx_event_t *wev)
     }
 
     if (wev->timedout) {
-        ngx_log_error(NGX_LOG_INFO, c->log, NGX_ETIMEDOUT,
-                "client timed out");
+        ngx_log_error(NGX_LOG_ERR, c->log, NGX_ETIMEDOUT, "client timed out");
         c->timedout = 1;
         ngx_rtmp_finalize_session(s);
         return;
@@ -627,8 +627,8 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     if (h->csid >= (uint32_t) cscf->max_streams) {
         ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                "RTMP out chunk stream too big: %D >= %D",
-                h->csid, cscf->max_streams);
+                      "RTMP out chunk stream too big: %uD >= %i",
+                      h->csid, cscf->max_streams);
         ngx_rtmp_finalize_session(s);
         return;
     }
@@ -896,13 +896,13 @@ ngx_rtmp_set_chunk_size(ngx_rtmp_session_t *s, ngx_uint_t size)
 
     if (size < 1) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "too small RTMP chunk size:%ui", size);
+                      "RTMP chunk size too small: %ui", size);
         return NGX_ERROR;
     }
 
     if (size > NGX_RTMP_MAX_CHUNK_SIZE) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "too big RTMP chunk size:%ui", size);
+                      "RTMP chunk size too big: %ui", size);
         return NGX_ERROR;
     }
 

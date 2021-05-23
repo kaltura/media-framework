@@ -67,8 +67,8 @@ ngx_rtmp_proxy_protocol_recv(ngx_event_t *rev)
     }
 
     if (rev->timedout) {
-        ngx_log_error(NGX_LOG_INFO, c->log, NGX_ETIMEDOUT,
-                "proxy_protocol: recv: client timed out");
+        ngx_log_error(NGX_LOG_ERR, c->log, NGX_ETIMEDOUT,
+                      "proxy_protocol: recv: client timed out");
         c->timedout = 1;
         ngx_rtmp_finalize_session(s);
         return;
@@ -189,7 +189,7 @@ skip:
 
 bad_header:
 
-    ngx_log_error(NGX_LOG_INFO, c->log, 0, "proxy_protocol: bad header");
+    ngx_log_error(NGX_LOG_ERR, c->log, 0, "proxy_protocol: bad header");
 
 failed:
 

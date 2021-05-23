@@ -241,12 +241,13 @@ ngx_rtmp_codec_detect_cea(ngx_rtmp_session_t *s, ngx_chain_t *in)
         return 0;
     }
 
-    size = 0;
     nalp = (u_char *) &size + sizeof(size) - ctx->avc_nal_bytes;
 
     for ( ;; ) {
 
         /* nal unit */
+        size = 0;
+
         if (ngx_rtmp_chain_reader_read(&reader, nalp, ctx->avc_nal_bytes)
             != NGX_OK)
         {

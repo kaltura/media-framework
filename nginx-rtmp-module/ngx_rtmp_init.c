@@ -172,7 +172,7 @@ ngx_rtmp_open_dump_file(ngx_rtmp_session_t *s)
         NGX_FILE_DEFAULT_ACCESS);
     if (fd == NGX_INVALID_FILE) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
-            ngx_open_file_n " \"%s\" failed", name.data);
+                      ngx_open_file_n " \"%s\" failed", name.data);
         ngx_free(name.data);
         return NGX_INVALID_FILE;
     }

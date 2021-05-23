@@ -365,8 +365,8 @@ ngx_rtmp_access_rule(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
             }
 
-            ngx_log_error(NGX_LOG_ERR, cf->log, 0,
-                          "unexpected access specified: '%V'", &value[n]);
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "unexpected access specified: '%V'", &value[n]);
             return NGX_CONF_ERROR;
         }
     }

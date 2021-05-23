@@ -504,7 +504,7 @@ ngx_rtmp_live_join(ngx_rtmp_session_t *s, u_char *name, unsigned publisher)
 
     if (!s->in_stream) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-            "live: play/publish with no stream context");
+                      "live: play/publish with no stream context");
 
         ngx_rtmp_finalize_session(s);
 

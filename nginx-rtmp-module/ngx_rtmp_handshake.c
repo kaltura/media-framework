@@ -286,9 +286,9 @@ ngx_rtmp_handshake_parse_challenge(ngx_rtmp_session_t *s,
 
     b = s->hs_buf;
     if (*b->pos != '\x03') {
-        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                "handshake: unexpected RTMP version: %i",
-                (ngx_int_t) *b->pos);
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "handshake: unexpected RTMP version: %i",
+                      (ngx_int_t) *b->pos);
         return NGX_ERROR;
     }
     ++b->pos;
@@ -312,7 +312,7 @@ ngx_rtmp_handshake_parse_challenge(ngx_rtmp_session_t *s,
     }
     if (offs == NGX_ERROR) {
         ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                "handshake: digest not found");
+                      "handshake: digest not found");
         s->hs_old = 1;
         return NGX_OK;
     }
@@ -388,8 +388,8 @@ ngx_rtmp_handshake_recv(ngx_event_t *rev)
     }
 
     if (rev->timedout) {
-        ngx_log_error(NGX_LOG_INFO, c->log, NGX_ETIMEDOUT,
-                "handshake: recv: client timed out");
+        ngx_log_error(NGX_LOG_ERR, c->log, NGX_ETIMEDOUT,
+                      "handshake: recv: client timed out");
         c->timedout = 1;
         ngx_rtmp_finalize_session(s);
         return;
@@ -420,7 +420,7 @@ ngx_rtmp_handshake_recv(ngx_event_t *rev)
         if (s->dump_fd != NGX_INVALID_FILE) {
             if (ngx_write_fd(s->dump_fd, b->last, n) == NGX_ERROR) {
                 ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
-                    "failed to write to rtmp dump file");
+                              "failed to write to rtmp dump file");
                 ngx_close_file(s->dump_fd);
                 s->dump_fd = NGX_INVALID_FILE;
             }
@@ -443,8 +443,8 @@ ngx_rtmp_handshake_recv(ngx_event_t *rev)
                     &ngx_rtmp_client_partial_key,
                     &ngx_rtmp_server_full_key) != NGX_OK)
             {
-                ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                        "handshake: error parsing challenge");
+                ngx_log_error(NGX_LOG_NOTICE, c->log, 0,
+                              "handshake: error parsing challenge");
                 ngx_rtmp_finalize_session(s);
                 return;
             }
@@ -458,7 +458,7 @@ ngx_rtmp_handshake_recv(ngx_event_t *rev)
                         &ngx_rtmp_server_partial_key) != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                        "handshake: error creating challenge");
+                              "handshake: error creating challenge");
                 ngx_rtmp_finalize_session(s);
                 return;
             }
@@ -474,8 +474,8 @@ ngx_rtmp_handshake_recv(ngx_event_t *rev)
                     &ngx_rtmp_server_partial_key,
                     &ngx_rtmp_client_full_key) != NGX_OK)
             {
-                ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                        "handshake: error parsing challenge");
+                ngx_log_error(NGX_LOG_NOTICE, c->log, 0,
+                              "handshake: error parsing challenge");
                 ngx_rtmp_finalize_session(s);
                 return;
             }
@@ -485,8 +485,8 @@ ngx_rtmp_handshake_recv(ngx_event_t *rev)
 
         case NGX_RTMP_HANDSHAKE_CLIENT_SEND_RESPONSE:
             if (ngx_rtmp_handshake_create_response(s) != NGX_OK) {
-                ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                        "handshake: response error");
+                ngx_log_error(NGX_LOG_NOTICE, c->log, 0,
+                              "handshake: response error");
                 ngx_rtmp_finalize_session(s);
                 return;
             }
@@ -512,8 +512,8 @@ ngx_rtmp_handshake_send(ngx_event_t *wev)
     }
 
     if (wev->timedout) {
-        ngx_log_error(NGX_LOG_INFO, c->log, NGX_ETIMEDOUT,
-                "handshake: send: client timed out");
+        ngx_log_error(NGX_LOG_ERR, c->log, NGX_ETIMEDOUT,
+                      "handshake: send: client timed out");
         c->timedout = 1;
         ngx_rtmp_finalize_session(s);
         return;
@@ -560,8 +560,8 @@ ngx_rtmp_handshake_send(ngx_event_t *wev)
                 s->hs_buf->pos = s->hs_buf->start + 1;
                 s->hs_buf->last = s->hs_buf->end;
             } else if (ngx_rtmp_handshake_create_response(s) != NGX_OK) {
-                ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                        "handshake: response error");
+                ngx_log_error(NGX_LOG_NOTICE, c->log, 0,
+                              "handshake: response error");
                 ngx_rtmp_finalize_session(s);
                 return;
             }
