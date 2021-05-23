@@ -1,8 +1,8 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
-#include <ngx_md5.h>
 #include "ngx_http_pckg_core_module.h"
+#include "ngx_http_pckg_utils.h"
 #include "media/buffer_pool.h"
 
 
@@ -18,6 +18,8 @@ static void *ngx_http_pckg_core_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
+
+static char *ngx_http_pckg(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 static char *ngx_http_pckg_core_set_time_slot(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
@@ -37,33 +39,28 @@ static ngx_int_t ngx_http_pckg_core_unknown_variable(ngx_http_request_t *r,
 
 
 typedef struct {
-    ngx_persist_conf_t  *persist;
+    ngx_persist_conf_t      *persist;
+    ngx_hash_t               handlers_hash;
+    ngx_hash_keys_arrays_t  *handlers_keys;
 } ngx_http_pckg_core_main_conf_t;
 
 
 typedef struct {
-    ngx_log_t           *log;
-    u_char              *pos;
-    size_t               left;
-    size_t               frame_size;
+    ngx_log_t               *log;
+    u_char                  *pos;
+    size_t                   left;
+    size_t                   frame_size;
 } ngx_http_pckg_read_source_t;
 
 
-static ngx_int_t  ngx_http_pckg_error_map[VOD_ERROR_LAST - VOD_ERROR_FIRST] = {
-    NGX_HTTP_NOT_FOUND,                 /* VOD_BAD_DATA             */
-    NGX_HTTP_INTERNAL_SERVER_ERROR,     /* VOD_ALLOC_FAILED         */
-    NGX_HTTP_INTERNAL_SERVER_ERROR,     /* VOD_UNEXPECTED           */
-    NGX_HTTP_BAD_REQUEST,               /* VOD_BAD_REQUEST          */
-    NGX_HTTP_SERVICE_UNAVAILABLE,       /* VOD_BAD_MAPPING          */
-    NGX_HTTP_NOT_FOUND,                 /* VOD_EXPIRED              */
-    NGX_HTTP_NOT_FOUND,                 /* VOD_NO_STREAMS           */
-    NGX_HTTP_NOT_FOUND,                 /* VOD_EMPTY_MAPPING        */
-    NGX_HTTP_INTERNAL_SERVER_ERROR,     /* VOD_NOT_FOUND (internal) */
-    NGX_HTTP_INTERNAL_SERVER_ERROR,     /* VOD_REDIRECT (internal)  */
-};
-
-
 static ngx_command_t  ngx_http_pckg_core_commands[] = {
+
+    { ngx_string("pckg"),
+      NGX_HTTP_LOC_CONF|NGX_CONF_NOARGS,
+      ngx_http_pckg,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      0,
+      NULL},
 
     { ngx_string("pckg_uri"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -84,6 +81,13 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       ngx_http_set_complex_value_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, timeline_id),
+      NULL},
+
+    { ngx_string("pckg_ksmp_max_uncomp_size"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t, max_uncomp_size),
       NULL},
 
     { ngx_string("pckg_expires_static"),
@@ -123,20 +127,6 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       ngx_http_pckg_core_set_time_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, last_modified_static),
-      NULL },
-
-    { ngx_string("pckg_encryption_key_seed"),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_http_set_complex_value_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_pckg_core_loc_conf_t, encryption_key_seed),
-      NULL },
-
-    { ngx_string("pckg_encryption_iv_seed"),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_http_set_complex_value_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_pckg_core_loc_conf_t, encryption_iv_seed),
       NULL },
 
     { ngx_string("pckg_output_buffer_pool"),
@@ -216,7 +206,7 @@ static ngx_http_variable_t  ngx_http_pckg_core_vars[] = {
 };
 
 
-static ngx_str_t  ngx_http_pckg_options_content_type =
+static ngx_str_t  ngx_http_pckg_content_type_options =
     ngx_string("text/plain");
 
 static ngx_str_t  ngx_http_pckg_default_timeline_id = ngx_string("main");
@@ -228,617 +218,12 @@ static time_t  ngx_http_pckg_default_expires[NGX_HTTP_PCKG_EXPIRES_COUNT] = {
     30,             /* master - 30 sec */
 };
 
-u_char  ngx_http_pckg_media_type_code[KMP_MEDIA_COUNT] = {
-    'v',
-    'a',
-};
 
-
-/* uri parsing */
-
-static u_char *
-ngx_http_pckg_core_parse_uint32(u_char *start_pos, u_char *end_pos,
-    uint32_t *result)
-{
-    uint32_t  value = 0;
-
-    for (;
-        start_pos < end_pos && *start_pos >= '0' && *start_pos <= '9';
-        start_pos++)
-    {
-        value = value * 10 + *start_pos - '0';
-    }
-
-    *result = value;
-    return start_pos;
-}
-
-
-static u_char *
-ngx_http_pckg_core_extract_string(u_char *start_pos, u_char *end_pos,
-    ngx_str_t *result)
-{
-    result->data = start_pos;
-    start_pos = ngx_strlchr(start_pos, end_pos, '-');
-    if (start_pos == NULL) {
-        start_pos = end_pos;
-    }
-
-    result->len = start_pos - result->data;
-    return start_pos;
-}
-
-
-#define expect_char(start_pos, end_pos, ch)                 \
-    if (start_pos >= end_pos || *start_pos != ch) {         \
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,   \
-            "ngx_http_pckg_core_parse_uri_file_name: "      \
-            "expected \"%c\"", ch);                         \
-        return NGX_HTTP_BAD_REQUEST;                        \
-    }                                                       \
-    start_pos++;
-
-ngx_int_t
-ngx_http_pckg_core_parse_uri_file_name(ngx_http_request_t *r,
-    u_char *start_pos, u_char *end_pos, uint32_t flags,
-    ngx_pckg_ksmp_req_t *result)
-{
-    u_char     *p;
-    uint32_t    media_type;
-    ngx_str_t   cur;
-
-    /* required params */
-
-    if ((flags & NGX_HTTP_PCKG_PARSE_REQUIRE_INDEX) != 0) {
-        expect_char(start_pos, end_pos, '-');
-
-        start_pos = ngx_http_pckg_core_parse_uint32(start_pos, end_pos,
-            &result->segment_index);
-        if (result->segment_index <= 0) {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "ngx_http_pckg_core_parse_uri_file_name: "
-                "failed to parse segment index");
-            return NGX_HTTP_BAD_REQUEST;
-        }
-        result->segment_index--;
-    }
-
-    if ((flags & NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT) != 0) {
-        expect_char(start_pos, end_pos, '-');
-        expect_char(start_pos, end_pos, 's');
-
-        start_pos = ngx_http_pckg_core_extract_string(start_pos, end_pos,
-            &result->variant_ids);
-        if (ngx_strlchr(result->variant_ids.data, start_pos, ',') != NULL) {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "ngx_http_pckg_core_parse_uri_file_name: "
-                "invalid variant id \"%V\"", &result->variant_ids);
-            return NGX_HTTP_BAD_REQUEST;
-        }
-    }
-
-    /* optional params */
-
-    if (start_pos >= end_pos) {
-        return NGX_OK;
-    }
-
-    if (*start_pos != '-' || end_pos - start_pos < 2) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_pckg_core_parse_uri_file_name: "
-            "expected \"-\" followed by a specifier");
-        return NGX_HTTP_BAD_REQUEST;
-    }
-
-    start_pos++;    /* skip the - */
-
-    if (*start_pos == 's' &&
-        (flags & NGX_HTTP_PCKG_PARSE_OPTIONAL_VARIANTS) != 0)
-    {
-        p = ngx_pnalloc(r->pool, end_pos - start_pos);
-        if (p == NULL) {
-            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "ngx_http_pckg_core_parse_uri_file_name: alloc failed");
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-
-        result->variant_ids.data = p;
-
-        do {
-
-            start_pos++;    /* skip the s */
-
-            if (p > result->variant_ids.data) {
-                *p++ = ',';
-            }
-
-            start_pos = ngx_http_pckg_core_extract_string(start_pos, end_pos,
-                &cur);
-
-            p = ngx_copy(p, cur.data, cur.len);
-
-            if (start_pos >= end_pos) {
-                result->variant_ids.len = p - result->variant_ids.data;
-                return NGX_OK;
-            }
-
-            if (*start_pos != '-' || end_pos - start_pos < 2) {
-                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                    "ngx_http_pckg_core_parse_uri_file_name: "
-                    "expected \"-\" followed by a specifier");
-                return NGX_HTTP_BAD_REQUEST;
-            }
-
-            start_pos++;    /* skip the - */
-
-        } while (*start_pos == 's');
-
-        result->variant_ids.len = p - result->variant_ids.data;
-    }
-
-    if ((*start_pos == 'v' || *start_pos == 'a') &&
-        (flags & NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE) != 0)
-    {
-        result->media_type_mask = 0;
-
-        while (*start_pos != '-') {
-
-            switch (*start_pos) {
-
-            case 'v':
-                media_type = KMP_MEDIA_VIDEO;
-                break;
-
-            case 'a':
-                media_type = KMP_MEDIA_AUDIO;
-                break;
-
-            default:
-                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                    "ngx_http_pckg_core_parse_uri_file_name: "
-                    "invalid media type \"%c\"", *start_pos);
-                return NGX_HTTP_BAD_REQUEST;
-            }
-
-            if (result->media_type_mask & (1 << media_type)) {
-                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                    "ngx_http_pckg_core_parse_uri_file_name: "
-                    "media type repeats more than once");
-                return NGX_HTTP_BAD_REQUEST;
-            }
-
-            result->media_type_mask |= (1 << media_type);
-
-            start_pos++;
-
-            if (start_pos >= end_pos) {
-                return NGX_OK;
-            }
-        }
-
-        start_pos++;    /* skip the - */
-
-        if (start_pos >= end_pos) {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "ngx_http_pckg_core_parse_uri_file_name: "
-                "trailing dash in file name");
-            return NGX_HTTP_BAD_REQUEST;
-        }
-    }
-
-    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-        "ngx_http_pckg_core_parse_uri_file_name: "
-        "did not consume the whole name");
-    return NGX_HTTP_BAD_REQUEST;
-}
-
-
-/* Implemented according to nginx's ngx_http_range_parse,
-    dropped multi range support */
-
-static ngx_int_t
-ngx_http_pckg_core_range_parse(ngx_str_t *range, off_t content_length,
-    off_t *out_start, off_t *out_end)
-{
-    u_char            *p;
-    off_t              start, end, cutoff, cutlim;
-    ngx_uint_t         suffix;
-
-    if (range->len < 7
-        || ngx_strncasecmp(range->data,
-                        (u_char *) "bytes=", 6) != 0)
-    {
-        return NGX_HTTP_RANGE_NOT_SATISFIABLE;
-    }
-
-    p = range->data + 6;
-
-    cutoff = NGX_MAX_OFF_T_VALUE / 10;
-    cutlim = NGX_MAX_OFF_T_VALUE % 10;
-
-    start = 0;
-    end = 0;
-    suffix = 0;
-
-    while (*p == ' ') { p++; }
-
-    if (*p != '-') {
-        if (*p < '0' || *p > '9') {
-            return NGX_HTTP_RANGE_NOT_SATISFIABLE;
-        }
-
-        while (*p >= '0' && *p <= '9') {
-            if (start >= cutoff && (start > cutoff || *p - '0' > cutlim)) {
-                return NGX_HTTP_RANGE_NOT_SATISFIABLE;
-            }
-
-            start = start * 10 + *p++ - '0';
-        }
-
-        while (*p == ' ') { p++; }
-
-        if (*p++ != '-') {
-            return NGX_HTTP_RANGE_NOT_SATISFIABLE;
-        }
-
-        while (*p == ' ') { p++; }
-
-        if (*p == '\0') {
-            end = content_length;
-            goto found;
-        }
-
-    } else {
-        suffix = 1;
-        p++;
-    }
-
-    if (*p < '0' || *p > '9') {
-        return NGX_HTTP_RANGE_NOT_SATISFIABLE;
-    }
-
-    while (*p >= '0' && *p <= '9') {
-        if (end >= cutoff && (end > cutoff || *p - '0' > cutlim)) {
-            return NGX_HTTP_RANGE_NOT_SATISFIABLE;
-        }
-
-        end = end * 10 + *p++ - '0';
-    }
-
-    while (*p == ' ') { p++; }
-
-    if (*p != '\0') {
-        return NGX_HTTP_RANGE_NOT_SATISFIABLE;
-    }
-
-    if (suffix) {
-        start = content_length - end;
-        end = content_length - 1;
-    }
-
-    if (end >= content_length) {
-        end = content_length;
-
-    } else {
-        end++;
-    }
-
-found:
-
-    if (start >= end) {
-        return NGX_HTTP_RANGE_NOT_SATISFIABLE;
-    }
-
-    *out_start = start;
-    *out_end = end;
-
-    return NGX_OK;
-}
-
-
-static u_char *
-ngx_http_pckg_write_media_type_mask(u_char *p, uint32_t media_type_mask)
-{
-    uint32_t  i;
-
-    if (media_type_mask == KMP_MEDIA_TYPE_MASK) {
-        return p;
-    }
-
-    *p++ = '-';
-    for (i = 0; i < KMP_MEDIA_COUNT; i++) {
-        if (media_type_mask & (1 << i)) {
-            *p++ = ngx_http_pckg_media_type_code[i];
-        }
-    }
-
-    return p;
-}
-
-
-size_t
-ngx_http_pckg_selector_get_size(ngx_pckg_variant_t *variant)
-{
-    return sizeof("-s-") - 1 + variant->id.len + KMP_MEDIA_COUNT;
-}
-
-
-u_char *
-ngx_http_pckg_selector_write(u_char *p, ngx_pckg_channel_t *channel,
-    ngx_pckg_variant_t *variant)
-{
-    *p++ = '-';
-    *p++ = 's';
-    p = ngx_copy_str(p, variant->id);
-
-    p = ngx_http_pckg_write_media_type_mask(p,
-        channel->header->req_media_types);
-
-    return p;
-}
-
-
-ngx_int_t
-ngx_http_pckg_generate_key(ngx_http_request_t *r, ngx_flag_t iv,
-    ngx_str_t *salt, u_char *result)
-{
-    ngx_md5_t                       md5;
-    ngx_str_t                       seed;
-    ngx_http_complex_value_t       *value;
-    ngx_http_pckg_core_ctx_t       *ctx;
-    ngx_http_pckg_core_loc_conf_t  *plcf;
-
-    plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
-
-    value = NULL;
-
-    if (iv && plcf->encryption_iv_seed != NULL) {
-        value = plcf->encryption_iv_seed;
-
-    } else if (plcf->encryption_key_seed != NULL) {
-        value = plcf->encryption_key_seed;
-
-    } else {
-        ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
-
-        seed = ctx->channel->id;
-    }
-
-    if (value != NULL) {
-        if (ngx_http_complex_value(r, value, &seed) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                "ngx_http_pckg_generate_key: complex value failed");
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-    }
-
-    ngx_md5_init(&md5);
-    if (salt != NULL) {
-        ngx_md5_update(&md5, salt->data, salt->len);
-    }
-    ngx_md5_update(&md5, seed.data, seed.len);
-    ngx_md5_final(result, &md5);
-
-    return NGX_OK;
-}
-
-
-/* response headers */
-
-/* A run down version of ngx_http_set_expires */
-static ngx_int_t
-ngx_http_pckg_set_expires(ngx_http_request_t *r, time_t expires_time)
-{
-    size_t            len;
-    time_t            now, max_age;
-    ngx_uint_t        i;
-    ngx_table_elt_t  *e, *cc, **ccp;
-
-    e = r->headers_out.expires;
-
-    if (e == NULL) {
-
-        e = ngx_list_push(&r->headers_out.headers);
-        if (e == NULL) {
-            return NGX_ERROR;
-        }
-
-        r->headers_out.expires = e;
-
-        e->hash = 1;
-        ngx_str_set(&e->key, "Expires");
-    }
-
-    len = sizeof("Mon, 28 Sep 1970 06:00:00 GMT");
-    e->value.len = len - 1;
-
-    ccp = r->headers_out.cache_control.elts;
-
-    if (ccp == NULL) {
-
-        if (ngx_array_init(&r->headers_out.cache_control, r->pool,
-                           1, sizeof(ngx_table_elt_t *))
-            != NGX_OK)
-        {
-            return NGX_ERROR;
-        }
-
-        ccp = ngx_array_push(&r->headers_out.cache_control);
-        if (ccp == NULL) {
-            return NGX_ERROR;
-        }
-
-        cc = ngx_list_push(&r->headers_out.headers);
-        if (cc == NULL) {
-            return NGX_ERROR;
-        }
-
-        cc->hash = 1;
-        ngx_str_set(&cc->key, "Cache-Control");
-        *ccp = cc;
-
-    } else {
-        for (i = 1; i < r->headers_out.cache_control.nelts; i++) {
-            ccp[i]->hash = 0;
-        }
-
-        cc = ccp[0];
-    }
-
-    e->value.data = ngx_pnalloc(r->pool, len);
-    if (e->value.data == NULL) {
-        return NGX_ERROR;
-    }
-
-    if (expires_time == 0) {
-        ngx_memcpy(e->value.data, ngx_cached_http_time.data,
-            ngx_cached_http_time.len + 1);
-        ngx_str_set(&cc->value, "max-age=0");
-        return NGX_OK;
-    }
-
-    now = ngx_time();
-
-    max_age = expires_time;
-    expires_time += now;
-
-    ngx_http_time(e->value.data, expires_time);
-
-    if (max_age < 0) {
-        ngx_str_set(&cc->value, "no-cache");
-        return NGX_OK;
-    }
-
-    cc->value.data = ngx_pnalloc(r->pool,
-        sizeof("max-age=") + NGX_TIME_T_LEN + 1);
-    if (cc->value.data == NULL) {
-        return NGX_ERROR;
-    }
-
-    cc->value.len = ngx_sprintf(cc->value.data, "max-age=%T", max_age)
-        - cc->value.data;
-
-    return NGX_OK;
-}
-
-
-ngx_int_t
-ngx_http_pckg_gone(ngx_http_request_t *r)
-{
-    time_t                          expires_time;
-    ngx_int_t                       rc;
-    ngx_http_pckg_core_loc_conf_t  *plcf;
-
-    plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
-
-    expires_time = plcf->expires[NGX_HTTP_PCKG_EXPIRES_INDEX_GONE];
-    if (expires_time >= 0) {
-        rc = ngx_http_pckg_set_expires(r, expires_time);
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                "ngx_http_pckg_gone: set expires failed");
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-    }
-
-    return NGX_HTTP_GONE;
-}
-
-
-ngx_int_t
-ngx_http_pckg_send_header(ngx_http_request_t *r, off_t content_length_n,
-    ngx_str_t *content_type, time_t last_modified_time,
-    ngx_uint_t expires_type)
-{
-    time_t                          expires_time;
-    ngx_int_t                       rc;
-    ngx_http_pckg_core_loc_conf_t  *plcf;
-
-    plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
-
-    if (content_type != NULL) {
-        r->headers_out.content_type = *content_type;
-        r->headers_out.content_type_len = content_type->len;
-    }
-
-    r->headers_out.status = NGX_HTTP_OK;
-    r->headers_out.content_length_n = content_length_n;
-
-    /* last modified */
-    if (last_modified_time >= 0) {
-        r->headers_out.last_modified_time = last_modified_time;
-
-    } else if (plcf->last_modified_static >= 0) {
-        r->headers_out.last_modified_time = plcf->last_modified_static;
-    }
-
-    /* expires */
-    expires_time = plcf->expires[expires_type];
-    if (expires_time >= 0) {
-        rc = ngx_http_pckg_set_expires(r, expires_time);
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                "ngx_http_pckg_send_header: set expires failed %i", rc);
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-    }
-
-    /* etag */
-    rc = ngx_http_set_etag(r);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_pckg_send_header: set etag failed %i", rc);
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    /* send the response headers */
-    rc = ngx_http_send_header(r);
-    if (rc == NGX_ERROR || rc > NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_pckg_send_header: sed header failed %i", rc);
-        return rc;
-    }
-
-    return NGX_OK;
-}
-
-
-ngx_int_t
-ngx_http_pckg_send_response(ngx_http_request_t *r, ngx_str_t *response)
-{
-    ngx_buf_t    *b;
-    ngx_int_t     rc;
-    ngx_chain_t   out;
-
-    if (r->header_only || r->method == NGX_HTTP_HEAD) {
-        return NGX_OK;
-    }
-
-    b = ngx_calloc_buf(r->pool);
-    if (b == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "ngx_http_pckg_send_response: alloc failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    b->pos = response->data;
-    b->last = response->data + response->len;
-    b->temporary = (response->len > 0) ? 1 : 0;
-    b->last_buf = (r == r->main) ? 1 : 0;
-    b->last_in_chain = 1;
-
-    out.buf = b;
-    out.next = NULL;
-
-    rc = ngx_http_output_filter(r, &out);
-    if (rc != NGX_OK && rc != NGX_AGAIN) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_pckg_send_response: output filter failed %i", rc);
-        return rc;
-    }
-
-    return NGX_OK;
-}
+ngx_str_t  ngx_http_pckg_prefix_manifest = ngx_string("manifest");
+ngx_str_t  ngx_http_pckg_prefix_master = ngx_string("master");
+ngx_str_t  ngx_http_pckg_prefix_index = ngx_string("index");
+ngx_str_t  ngx_http_pckg_prefix_init_seg = ngx_string("init");
+ngx_str_t  ngx_http_pckg_prefix_seg = ngx_string("seg");
 
 
 static ngx_int_t
@@ -1088,12 +473,77 @@ ngx_http_pckg_core_init_ctx(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
 }
 
 
-ngx_int_t
-ngx_http_pckg_core_handler(ngx_http_request_t *r,
-    ngx_http_pckg_submodule_t *module)
+static ngx_int_t
+ngx_http_pckg_core_parse(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
+    ngx_http_pckg_request_handler_t **handler)
 {
-    u_char                           *end_pos;
-    u_char                           *start_pos;
+    u_char                          *end_pos;
+    u_char                          *start_pos;
+    ngx_int_t                        rc;
+    ngx_str_t                        base;
+    ngx_uint_t                       key;
+    ngx_array_t                     *parsers;
+    ngx_http_pckg_parse_uri_pt      *cur, *last;
+    ngx_http_pckg_core_main_conf_t  *pmcf;
+
+    pmcf = ngx_http_get_module_main_conf(r, ngx_http_pckg_core_module);
+
+    key = ngx_hash_key(r->exten.data, r->exten.len);
+
+    parsers = ngx_hash_find(&pmcf->handlers_hash, key,
+                            r->exten.data, r->exten.len);
+    if (parsers == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_pckg_core_parse: unknown extension \"%V\"", &r->exten);
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
+    /* get the base file name of the uri */
+    start_pos = memrchr(r->uri.data, '/', r->uri.len);
+    if (start_pos == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_pckg_core_parse: no \"/\" found in uri");
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
+    start_pos++;        /* skip the / */
+
+    end_pos = r->uri.data + r->uri.len;
+    if (r->exten.len > 0) {
+        end_pos -= r->exten.len + 1;
+    }
+
+    ngx_memzero(params, sizeof(*params));
+    params->media_type_mask = KMP_MEDIA_TYPE_MASK;
+    params->segment_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
+
+    cur = parsers->elts;
+    for (last = cur + parsers->nelts; cur < last; cur++) {
+
+        rc = (*cur)(r, start_pos, end_pos, params, handler);
+        if (rc == NGX_OK) {
+            return NGX_OK;
+        }
+
+        if (rc != NGX_DECLINED) {
+            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                "ngx_http_pckg_core_parse: parser failed %i", rc);
+            return rc;
+        }
+    }
+
+    base.data = start_pos;
+    base.len = end_pos - start_pos;
+
+    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+        "ngx_http_pckg_core_parse: unknown request \"%V\"", &base);
+    return NGX_HTTP_BAD_REQUEST;
+}
+
+
+static ngx_int_t
+ngx_http_pckg_core_handler(ngx_http_request_t *r)
+{
     ngx_int_t                         rc;
     ngx_str_t                         response;
     ngx_pckg_ksmp_req_t               params;
@@ -1101,7 +551,7 @@ ngx_http_pckg_core_handler(ngx_http_request_t *r,
 
     if (r->method == NGX_HTTP_OPTIONS) {
         rc = ngx_http_pckg_send_header(r, 0,
-            &ngx_http_pckg_options_content_type, -1, 0);
+            &ngx_http_pckg_content_type_options, -1, 0);
         if (rc != NGX_OK) {
             return rc;
         }
@@ -1125,25 +575,10 @@ ngx_http_pckg_core_handler(ngx_http_request_t *r,
         return rc;
     }
 
-    /* parse the file name */
-    start_pos = memrchr(r->uri.data, '/', r->uri.len);
-    if (start_pos == NULL) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_pckg_core_handler: no \"/\" found in uri");
-        return NGX_HTTP_BAD_REQUEST;
-    }
-
-    start_pos++;        /* skip the / */
-    end_pos = r->uri.data + r->uri.len;
-
-    ngx_memzero(&params, sizeof(params));
-    params.media_type_mask = KMP_MEDIA_TYPE_MASK;
-    params.segment_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
-
-    rc = module->parse_uri_file_name(r, start_pos, end_pos, &params, &handler);
+    rc = ngx_http_pckg_core_parse(r, &params, &handler);
     if (rc != NGX_OK) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "ngx_http_pckg_core_handler: parse file name failed %i", rc);
+            "ngx_http_pckg_core_handler: parse failed %i", rc);
         return rc;
     }
 
@@ -1432,17 +867,6 @@ ngx_http_pckg_writer_close(ngx_http_request_t *r)
 }
 
 
-ngx_int_t
-ngx_http_pckg_status_to_ngx_error(ngx_http_request_t *r, vod_status_t rc)
-{
-    if (rc < VOD_ERROR_FIRST || rc >= VOD_ERROR_LAST) {
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    return ngx_http_pckg_error_map[rc - VOD_ERROR_FIRST];
-}
-
-
 static ngx_int_t
 ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
 {
@@ -1567,16 +991,13 @@ ngx_http_pckg_media_init_segment(ngx_http_request_t *r,
 ngx_int_t
 ngx_http_pckg_core_write_segment(ngx_http_request_t *r)
 {
-    void                              *processor_state;
-    off_t                              range_start;
-    off_t                              range_end;
-    ngx_str_t                          output;
-    ngx_str_t                          content_type;
-    vod_status_t                       rc;
-    media_segment_t                   *segment;
-    ngx_http_pckg_core_ctx_t          *ctx;
-    ngx_http_pckg_core_loc_conf_t     *plcf;
-    ngx_http_pckg_frame_processor_pt   processor;
+    off_t                             range_start;
+    off_t                             range_end;
+    vod_status_t                      rc;
+    media_segment_t                  *segment;
+    ngx_http_pckg_core_ctx_t         *ctx;
+    ngx_http_pckg_core_loc_conf_t    *plcf;
+    ngx_http_pckg_frame_processor_t   processor;
 
     rc = ngx_http_pckg_media_segment(r, &segment);
     if (rc != NGX_OK) {
@@ -1598,23 +1019,23 @@ ngx_http_pckg_core_write_segment(ngx_http_request_t *r)
 
     ngx_http_pckg_writer_init(r);
 
-    output.data = NULL;
-    output.len = 0;
-
     ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
 
-    rc = ctx->handler->init_frame_processor(r, segment, &processor,
-        &processor_state, &output, &ctx->content_length, &content_type);
+    ngx_memzero(&processor, sizeof(processor));
+
+    rc = ctx->handler->init_frame_processor(r, segment, &processor);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_pckg_core_write_segment: init processor failed %i", rc);
         return rc;
     }
 
-    r->headers_out.content_type = content_type;
-    r->headers_out.content_type_len = content_type.len;
+    r->headers_out.content_type = processor.content_type;
+    r->headers_out.content_type_len = processor.content_type.len;
 
-    if (ctx->content_length != 0) {
+    if (processor.response_size != 0) {
+
+        ctx->content_length = processor.response_size;
 
         /* send the response header */
         rc = ngx_http_pckg_send_header(r, ctx->content_length, NULL, -1, 0);
@@ -1630,17 +1051,17 @@ ngx_http_pckg_core_write_segment(ngx_http_request_t *r)
 
         /* in case of range request, get the end offset */
         if (r->headers_in.range != NULL &&
-            ngx_http_pckg_core_range_parse(&r->headers_in.range->value,
+            ngx_http_pckg_range_parse(&r->headers_in.range->value,
                 ctx->content_length, &range_start, &range_end) == NGX_OK)
         {
             ctx->size_limit = range_end;
         }
     }
 
-    if (output.len != 0) {
+    if (processor.output.len != 0) {
 
         rc = ctx->segment_writer.write_tail(ctx->segment_writer.context,
-            output.data, output.len);
+            processor.output.data, processor.output.len);
         if (rc != VOD_OK) {
             ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
                 "ngx_http_pckg_core_write_segment: write tail failed %i", rc);
@@ -1650,14 +1071,14 @@ ngx_http_pckg_core_write_segment(ngx_http_request_t *r)
         /* if the request range is fully contained in the output buffer
             (e.g. 0-0), we're done */
         if (ctx->size_limit != 0 &&
-            output.len >= ctx->size_limit && r->header_sent)
+            processor.output.len >= ctx->size_limit && r->header_sent)
         {
             return NGX_OK;
         }
     }
 
-    if (processor_state != NULL) {
-        rc = processor(processor_state);
+    if (processor.ctx != NULL) {
+        rc = processor.process(processor.ctx);
         if (rc != VOD_OK) {
             ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
                 "ngx_http_pckg_core_write_segment: processor failed %i", rc);
@@ -1671,6 +1092,18 @@ ngx_http_pckg_core_write_segment(ngx_http_request_t *r)
             "ngx_http_pckg_core_write_segment: close failed %i", rc);
         return ngx_http_pckg_status_to_ngx_error(r, rc);
     }
+
+    return NGX_OK;
+}
+
+
+static char *
+ngx_http_pckg(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_core_loc_conf_t  *clcf;
+
+    clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+    clcf->handler = ngx_http_pckg_core_handler;
 
     return NGX_OK;
 }
@@ -1895,6 +1328,66 @@ not_found:
 }
 
 
+ngx_int_t
+ngx_http_pckg_core_add_handler(ngx_conf_t *cf, ngx_str_t *ext,
+    ngx_http_pckg_parse_uri_pt parse)
+{
+    ngx_str_t                        key;
+    ngx_uint_t                       i, n;
+    ngx_array_t                     *arr;
+    ngx_hash_key_t                  *hk;
+    ngx_hash_key_t                  *keys;
+    ngx_http_pckg_parse_uri_pt      *parsep;
+    ngx_http_pckg_core_main_conf_t  *pmcf;
+
+    key = *ext;
+    if (key.len > 0 && key.data[0] == '.') {
+        key.data++;
+        key.len--;
+    }
+
+    arr = NULL;
+
+    pmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_pckg_core_module);
+
+    keys = pmcf->handlers_keys->keys.elts;
+    n = pmcf->handlers_keys->keys.nelts;
+
+    for (i = 0; i < n; i++) {
+        hk = &keys[i];
+
+        if (hk->key.len == key.len &&
+            ngx_strncmp(hk->key.data, key.data, key.len) == 0)
+        {
+            arr = hk->value;
+            break;
+        }
+    }
+
+    if (arr == NULL) {
+        arr = ngx_array_create(cf->pool, 1, sizeof(parse));
+        if (arr == NULL) {
+            return NGX_ERROR;
+        }
+
+        if (ngx_hash_add_key(pmcf->handlers_keys, &key, arr,
+                             NGX_HASH_READONLY_KEY) != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+    }
+
+    parsep = ngx_array_push(arr);
+    if (parsep == NULL) {
+        return NGX_ERROR;
+    }
+
+    *parsep = parse;
+
+    return NGX_OK;
+}
+
+
 static void *
 ngx_http_pckg_core_create_loc_conf(ngx_conf_t *cf)
 {
@@ -1951,14 +1444,6 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
                          prev->last_modified_static,
                          NGX_HTTP_PCKG_DEFAULT_LAST_MODIFIED);
 
-    if (conf->encryption_key_seed == NULL) {
-        conf->encryption_key_seed = prev->encryption_key_seed;
-    }
-
-    if (conf->encryption_iv_seed == NULL) {
-        conf->encryption_iv_seed = prev->encryption_iv_seed;
-    }
-
     if (conf->segment_metadata == NULL) {
         conf->segment_metadata = prev->segment_metadata;
     }
@@ -1989,6 +1474,21 @@ ngx_http_pckg_core_create_main_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    conf->handlers_keys = ngx_pcalloc(cf->temp_pool,
+                                      sizeof(ngx_hash_keys_arrays_t));
+    if (conf->handlers_keys == NULL) {
+        return NULL;
+    }
+
+    conf->handlers_keys->pool = cf->pool;
+    conf->handlers_keys->temp_pool = cf->pool;
+
+    if (ngx_hash_keys_array_init(conf->handlers_keys, NGX_HASH_SMALL)
+        != NGX_OK)
+    {
+        return NULL;
+    }
+
     return conf;
 }
 
@@ -1996,6 +1496,7 @@ ngx_http_pckg_core_create_main_conf(ngx_conf_t *cf)
 static ngx_int_t
 ngx_http_pckg_core_postconfiguration(ngx_conf_t *cf)
 {
+    ngx_hash_init_t                  hash;
     ngx_http_pckg_core_main_conf_t  *pmcf;
 
     pmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_pckg_core_module);
@@ -2003,6 +1504,23 @@ ngx_http_pckg_core_postconfiguration(ngx_conf_t *cf)
     if (ngx_persist_conf_init(cf, pmcf->persist) != NGX_OK) {
         return NGX_ERROR;
     }
+
+    hash.hash = &pmcf->handlers_hash;
+    hash.key = ngx_hash_key;
+    hash.max_size = 512;
+    hash.bucket_size = ngx_align(64, ngx_cacheline_size);
+    hash.name = "handlers_hash";
+    hash.pool = cf->pool;
+    hash.temp_pool = NULL;
+
+    if (ngx_hash_init(&hash, pmcf->handlers_keys->keys.elts,
+                      pmcf->handlers_keys->keys.nelts)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    pmcf->handlers_keys = NULL;
 
     return NGX_OK;
 }

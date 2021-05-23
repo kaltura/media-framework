@@ -909,7 +909,7 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
             &params->timeline_id, &params->channel_id);
     }
 
-    if (params->segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {
+    if (params->flags & NGX_KSMP_FLAG_MEDIA) {
         if (!ngx_live_timeline_get_segment_info(timeline,
             params->segment_index, params->flags, &scope->correction))
         {
@@ -919,6 +919,9 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
                 params->segment_index, &params->timeline_id,
                 &params->channel_id);
         }
+
+    } else {
+        scope->correction = 0;
     }
 
     scope->timeline = timeline;

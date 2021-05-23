@@ -1749,7 +1749,7 @@ ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
 
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
             "ngx_live_segmenter_remove_frames: "
-            "frames disposed, enabling split on next frame");
+            "%ui frames disposed, enabling split on next frame", count);
 
     } else {
         goto done;

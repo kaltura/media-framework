@@ -1,0 +1,134 @@
+URL: /master.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-INDEPENDENT-SEGMENTS
+
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=23840,CODECS="mp4a.40.2"
+index-salt1-a.m3u8
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=140041,CODECS="mp4a.6b"
+index-salt2-a.m3u8
+
+URL: /index-salt1-a.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:00.000+00:00
+#EXTINF:4.000,
+#EXT-X-BITRATE:23
+seg-1-salt1-a.ts
+#EXTINF:4.000,
+seg-2-salt1-a.ts
+#EXTINF:4.000,
+seg-3-salt1-a.ts
+#EXTINF:4.000,
+seg-4-salt1-a.ts
+#EXTINF:4.000,
+seg-5-salt1-a.ts
+#EXTINF:4.000,
+seg-6-salt1-a.ts
+#EXTINF:4.000,
+seg-7-salt1-a.ts
+#EXTINF:1.978,
+#EXT-X-BITRATE:28
+seg-8-salt1-a.ts
+#EXT-X-ENDLIST
+
+URL: /index-salt2-a.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:00.000+00:00
+#EXTINF:4.000,
+#EXT-X-BITRATE:140
+seg-1-salt2-a.ts
+#EXTINF:4.000,
+seg-2-salt2-a.ts
+#EXTINF:4.000,
+seg-3-salt2-a.ts
+#EXTINF:4.000,
+seg-4-salt2-a.ts
+#EXTINF:4.000,
+seg-5-salt2-a.ts
+#EXTINF:4.000,
+seg-6-salt2-a.ts
+#EXTINF:4.000,
+seg-7-salt2-a.ts
+#EXTINF:1.978,
+#EXT-X-BITRATE:144
+seg-8-salt2-a.ts
+#EXT-X-ENDLIST
+
+URL: /seg-1-salt1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: 076828097c5a4c172e967f0a539beed4
+
+URL: /seg-2-salt1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: 7f0fd98638191adc2e34204aadf4ee58
+
+URL: /seg-3-salt1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: 07a90c351a3bbe416200ec8cd502767b
+
+URL: /seg-4-salt1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: f5db04f68bdb851a351df0893c011618
+
+URL: /seg-5-salt1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: ffefc2fbf428d5fd4f7ebd7f8580df47
+
+URL: /seg-6-salt1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: 3c1338b04c788aa99bd1e3b1915335a9
+
+URL: /seg-7-salt1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: 41fb387350040946c5b311dd75775e2a
+
+URL: /seg-8-salt1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 6580, MD5: ccc33ea827991e91cb4c7115efcea740
+
+URL: /seg-1-salt2-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 72756, MD5: 5448ae8e76210b4b978d35a231f8c2a6
+
+URL: /seg-2-salt2-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 72756, MD5: 72f5fe4f537dc567dc82ca8746053b75
+
+URL: /seg-3-salt2-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 72756, MD5: f3f44bf0cecc3ef6a95f1c8887bd7171
+
+URL: /seg-4-salt2-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 72756, MD5: 22c017f460cc47cfbe24eb2aa8946886
+
+URL: /seg-5-salt2-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 72756, MD5: 5aed41cff69a46a43d738a2edb699808
+
+URL: /seg-6-salt2-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 72756, MD5: d7af6244c214b7d1712295898c3af807
+
+URL: /seg-7-salt2-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 72756, MD5: 45da540e0c09a411821e8265de81ec8b
+
+URL: /seg-8-salt2-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 36660, MD5: 04898faacf811154ad30d26a888ff807
+

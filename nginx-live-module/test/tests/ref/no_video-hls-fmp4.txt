@@ -4,9 +4,9 @@ BODY: #EXTM3U
 #EXT-X-INDEPENDENT-SEGMENTS
 
 #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=19198,CODECS="mp4a.40.2"
-index-svar1-a.m3u8
+index-svar1.m3u8
 
-URL: /index-svar1-a.m3u8
+URL: /index-svar1.m3u8
 HEADERS: 200 application/vnd.apple.mpegurl
 BODY: #EXTM3U
 #EXT-X-TARGETDURATION:4
@@ -16,101 +16,101 @@ BODY: #EXTM3U
 #EXT-X-INDEPENDENT-SEGMENTS
 #EXT-X-ALLOW-CACHE:YES
 #EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:00.000+00:00
-#EXT-X-MAP:URI="init-1-svar1-a.mp4"
+#EXT-X-MAP:URI="init-1-svar1.mp4"
 #EXTINF:4.000,
 #EXT-X-BITRATE:19
-seg-1-svar1-a.m4s
+seg-1-svar1.m4s
 #EXTINF:4.000,
-seg-2-svar1-a.m4s
+seg-2-svar1.m4s
 #EXTINF:4.000,
-seg-3-svar1-a.m4s
+seg-3-svar1.m4s
 #EXTINF:4.000,
-seg-4-svar1-a.m4s
+seg-4-svar1.m4s
 #EXTINF:4.000,
-seg-5-svar1-a.m4s
+seg-5-svar1.m4s
 #EXTINF:4.000,
-seg-6-svar1-a.m4s
+seg-6-svar1.m4s
 #EXTINF:4.000,
-seg-7-svar1-a.m4s
+seg-7-svar1.m4s
 #EXTINF:4.000,
-seg-8-svar1-a.m4s
+seg-8-svar1.m4s
 #EXTINF:4.000,
-seg-9-svar1-a.m4s
+seg-9-svar1.m4s
 #EXTINF:4.000,
-seg-10-svar1-a.m4s
+seg-10-svar1.m4s
 #EXTINF:4.000,
-seg-11-svar1-a.m4s
+seg-11-svar1.m4s
 #EXTINF:4.000,
-seg-12-svar1-a.m4s
+seg-12-svar1.m4s
 #EXTINF:4.000,
-seg-13-svar1-a.m4s
+seg-13-svar1.m4s
 #EXTINF:4.000,
-seg-14-svar1-a.m4s
+seg-14-svar1.m4s
 #EXTINF:3.977,
-seg-15-svar1-a.m4s
+seg-15-svar1.m4s
 #EXT-X-ENDLIST
 
-URL: /init-1-svar1-a.mp4
+URL: /init-1-svar1.mp4
 HEADERS: 200 audio/mp4
 BODY: SIZE: 599, MD5: 6cfeb7a7e6731672ecbe5bbaf5055db5
 
-URL: /seg-1-svar1-a.m4s
+URL: /seg-1-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9692, MD5: 78c7008217eabeebf25f5d47dd7ee999
 
-URL: /seg-2-svar1-a.m4s
+URL: /seg-2-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9710, MD5: 81a759d13f7d99bb2d5595e5d0cc5836
 
-URL: /seg-3-svar1-a.m4s
+URL: /seg-3-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9613, MD5: efbf0def1666f0fbc85ebcfece0ca468
 
-URL: /seg-4-svar1-a.m4s
+URL: /seg-4-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9713, MD5: 00dbfd60f65af413790d3d501585223f
 
-URL: /seg-5-svar1-a.m4s
+URL: /seg-5-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9674, MD5: 7315b5249717ca6a01ee134f0f2d6487
 
-URL: /seg-6-svar1-a.m4s
+URL: /seg-6-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9749, MD5: ba78548b101046c0da69b8a501306173
 
-URL: /seg-7-svar1-a.m4s
+URL: /seg-7-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9661, MD5: 1a0c69cb056922653278ea912f5efc84
 
-URL: /seg-8-svar1-a.m4s
+URL: /seg-8-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9607, MD5: 4446af146c26e6da422dd6faa2fae96b
 
-URL: /seg-9-svar1-a.m4s
+URL: /seg-9-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9698, MD5: 917ee7a0baa464ba4224d320113db998
 
-URL: /seg-10-svar1-a.m4s
+URL: /seg-10-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9729, MD5: b7f6df370af7a39e542e37bcfebffe16
 
-URL: /seg-11-svar1-a.m4s
+URL: /seg-11-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9637, MD5: a3f61c87e94f8d48202103722a71a646
 
-URL: /seg-12-svar1-a.m4s
+URL: /seg-12-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9572, MD5: 06dfa72c4648ab1ed3658d6a446e76ff
 
-URL: /seg-13-svar1-a.m4s
+URL: /seg-13-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9667, MD5: 04a02666bb1e2bb08a600301176b7d7f
 
-URL: /seg-14-svar1-a.m4s
+URL: /seg-14-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9648, MD5: 765ea4967729a03d0bcd1288f22b65c0
 
-URL: /seg-15-svar1-a.m4s
+URL: /seg-15-svar1.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9572, MD5: aadc12255fdf29466da3c220e51dde7e
 

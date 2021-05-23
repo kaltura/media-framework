@@ -16,11 +16,13 @@ NGINX_LOG_PATH = '/var/log/nginx/error.log'
 TEST_VIDEO1 = 'video1.mp4'
 TEST_VIDEO2 = 'video2.mp4'
 TEST_VIDEO_HIGH = 'video-high.mp4'
+TEST_AUDIO_MP3 = 'audio-mp3.mp4'
 
 TEST_VIDEO_URLS = {
     TEST_VIDEO1: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_k13xaap6/flavorId/0_4c84uq72/format/download/a.mp4',
     TEST_VIDEO2: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_w4l3m87h/flavorId/0_vsu1xutk/format/download/a.mp4',
     TEST_VIDEO_HIGH: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_g0nj9w94/flavorId/0_0smocyms/format/download/a.mp4',
+    TEST_AUDIO_MP3: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_tfb5x3j0/flavorId/0_i30q8rs2/format/download/a.mp4',
 }
 
 CHANNEL_ID = 'test'

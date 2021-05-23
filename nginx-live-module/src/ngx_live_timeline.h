@@ -80,6 +80,7 @@ struct ngx_live_timeline_s {
     ngx_rbtree_t                       rbtree;
     ngx_rbtree_node_t                  sentinel;
     ngx_live_period_t                 *head_period;
+    int64_t                            first_period_initial_time;
     int64_t                            last_time;   /* after correction */
 
     ngx_live_timeline_conf_t           conf;

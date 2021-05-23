@@ -129,6 +129,10 @@ ngx_pckg_segment_info_get(ngx_pckg_segment_info_ctx_t *ctx,
     ngx_uint_t                  i;
     media_bitrate_estimator_t  *est;
 
+    if (duration <= 0) {
+        duration = 1;
+    }
+
     result = 0;
     for (i = 0; i < ctx->track_count; i++) {
 

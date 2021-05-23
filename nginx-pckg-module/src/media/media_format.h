@@ -9,6 +9,13 @@
 #define rescale_time(time, cur_scale, new_scale) ((((uint64_t)(time)) * (new_scale) + (cur_scale) / 2) / (cur_scale))
 #define rescale_time_neg(time, cur_scale, new_scale) ((time) >= 0 ? rescale_time(time, cur_scale, new_scale) : -rescale_time(-(time), cur_scale, new_scale))
 
+#define media_null_bitrate_estimator(est) {                                 \
+        (est).k1.num = 1;                                                   \
+        (est).k1.den = 1;                                                   \
+        (est).k2 = 0;                                                       \
+        (est).k3 = 0;                                                       \
+    }
+
 #define media_bitrate_estimate(est, bitrate, segment_duration) \
     (uint64_t)(bitrate) * (est).k1.num / (est).k1.den + (uint64_t)(est).k2 * 1000 / (segment_duration) + (est).k3
 
