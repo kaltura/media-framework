@@ -196,6 +196,13 @@ typedef struct {
 #endif
 
 
+typedef enum {
+    NGX_RTMP_TYPE3_EXT_TS_OFF,
+    NGX_RTMP_TYPE3_EXT_TS_ON,
+    NGX_RTMP_TYPE3_EXT_TS_AUTO,
+} ngx_rtmp_type3_ext_ts_t;
+
+
 typedef struct {
     uint32_t                signature;  /* "RTMP" */ /* <-- FIXME wtf */
 
@@ -264,6 +271,9 @@ typedef struct {
     ngx_pool_t             *in_pool;
     uint32_t                in_bytes;
     uint32_t                in_last_ack;
+
+    uint32_t                last_timestamp;
+    ngx_rtmp_type3_ext_ts_t type3_ext_ts;
 
     ngx_pool_t             *in_old_pool;
     ngx_int_t               in_chunk_size_changing;
@@ -337,7 +347,7 @@ typedef struct ngx_rtmp_core_srv_conf_s {
     ngx_chain_t            *free_hs;
     size_t                  max_message;
     ngx_flag_t              play_time_fix;
-    ngx_flag_t              publish_time_fix;
+    ngx_uint_t              type3_ext_ts;
     ngx_flag_t              busy;
     size_t                  out_queue;
     size_t                  out_cork;

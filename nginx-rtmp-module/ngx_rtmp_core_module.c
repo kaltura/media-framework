@@ -35,6 +35,14 @@ static ngx_conf_deprecated_t  ngx_conf_deprecated_so_keepalive = {
 };
 
 
+static ngx_conf_enum_t  ngx_rtmp_type3_ext_ts[] = {
+    { ngx_string("off"),  NGX_RTMP_TYPE3_EXT_TS_OFF },
+    { ngx_string("on"),   NGX_RTMP_TYPE3_EXT_TS_ON },
+    { ngx_string("auto"), NGX_RTMP_TYPE3_EXT_TS_AUTO },
+    { ngx_null_string, 0 }
+};
+
+
 static ngx_command_t  ngx_rtmp_core_commands[] = {
 
     { ngx_string("server"),
@@ -143,12 +151,12 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
       offsetof(ngx_rtmp_core_srv_conf_t, play_time_fix),
       NULL },
 
-    { ngx_string("publish_time_fix"),
+    { ngx_string("type3_ext_ts"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_flag_slot,
+      ngx_conf_set_enum_slot,
       NGX_RTMP_SRV_CONF_OFFSET,
-      offsetof(ngx_rtmp_core_srv_conf_t, publish_time_fix),
-      NULL },
+      offsetof(ngx_rtmp_core_srv_conf_t, type3_ext_ts),
+      &ngx_rtmp_type3_ext_ts },
 
     { ngx_string("buflen"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_CONF_TAKE1,
@@ -253,7 +261,7 @@ ngx_rtmp_core_create_srv_conf(ngx_conf_t *cf)
     conf->out_queue = NGX_CONF_UNSET_SIZE;
     conf->out_cork = NGX_CONF_UNSET_SIZE;
     conf->play_time_fix = NGX_CONF_UNSET;
-    conf->publish_time_fix = NGX_CONF_UNSET;
+    conf->type3_ext_ts = NGX_CONF_UNSET_UINT;
     conf->buflen = NGX_CONF_UNSET_MSEC;
     conf->busy = NGX_CONF_UNSET;
 
@@ -281,7 +289,8 @@ ngx_rtmp_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_size_value(conf->out_cork, prev->out_cork,
             conf->out_queue / 8);
     ngx_conf_merge_value(conf->play_time_fix, prev->play_time_fix, 1);
-    ngx_conf_merge_value(conf->publish_time_fix, prev->publish_time_fix, 1);
+    ngx_conf_merge_uint_value(conf->type3_ext_ts, prev->type3_ext_ts,
+            NGX_RTMP_TYPE3_EXT_TS_AUTO);
     ngx_conf_merge_msec_value(conf->buflen, prev->buflen, 1000);
     ngx_conf_merge_value(conf->busy, prev->busy, 0);
     ngx_conf_merge_str_value(conf->dump_folder, prev->dump_folder, "");
