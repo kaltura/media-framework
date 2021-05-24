@@ -37,6 +37,14 @@ static ngx_str_t  ngx_rtmp_kmp_compiler = ngx_string(NGX_COMPILER);
 static ngx_str_t  ngx_rtmp_kmp_built = ngx_string(__DATE__ " " __TIME__);
 static time_t     ngx_rtmp_kmp_start_time = 0;
 
+/* must match NGX_RTMP_TYPE3_EXT_TS_XXX */
+ngx_str_t  ngx_rtmp_type3_ext_ts_str[] = {
+    ngx_string("off"),
+    ngx_string("on"),
+    ngx_string("unknown"),
+    ngx_null_string
+};
+
 #include "ngx_rtmp_kmp_api_json.h"
 
 /* module */

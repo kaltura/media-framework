@@ -51,6 +51,7 @@ out ngx_rtmp_kmp_api_session_json ngx_rtmp_kmp_ctx_t
     swf_url %V s->
     tc_url %V s->
     page_url %V s->
+    type3_ext_ts %enum-ngx_rtmp_type3_ext_ts_str s->
     remote_addr %V
     uptime %i (ngx_current_msec - s->epoch) / 1000
     connection %uA s->connection->number

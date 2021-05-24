@@ -426,11 +426,40 @@ ngx_rtmp_recv(ngx_event_t *rev)
             if (ext) {
                 if (b->last - p < 4)
                     continue;
+
                 pp = (u_char *) &timestamp;
                 pp[3] = *p++;
                 pp[2] = *p++;
                 pp[1] = *p++;
                 pp[0] = *p++;
+
+                if (s->type3_ext_ts == NGX_RTMP_TYPE3_EXT_TS_AUTO && fmt > 2) {
+                    if (timestamp != s->last_timestamp) {
+                        ngx_log_error(NGX_LOG_WARN, c->log, 0,
+                            "type 3 chunk timestamp doesn't match prev chunk, "
+                            "prev: %uD, cur: %uD, ts: %uD, delta: %uD, "
+                            "fv: %V, tc_url: %V",
+                            s->last_timestamp, timestamp,
+                            h->timestamp, st->dtime,
+                            &s->flashver, &s->tc_url);
+
+                        s->type3_ext_ts = NGX_RTMP_TYPE3_EXT_TS_OFF;
+
+                        timestamp = st->dtime;
+                        p -= 4;
+                        st->ext = 0;
+
+                    } else {
+                        ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                            "type 3 chunk timestamp matches prev chunk, "
+                            "cur: %uD, ts: %uD, delta: %uD, "
+                            "fv: %V, tc_url: %V",
+                            timestamp, h->timestamp, st->dtime,
+                            &s->flashver, &s->tc_url);
+
+                        s->type3_ext_ts = NGX_RTMP_TYPE3_EXT_TS_ON;
+                    }
+                }
             }
 
             if (st->len == 0) {
@@ -439,7 +468,10 @@ ngx_rtmp_recv(ngx_event_t *rev)
                  * according to standard.
                  * However that's not always the case
                  * in real life */
-                st->ext = (ext && cscf->publish_time_fix);
+                st->ext = (ext &&
+                           s->type3_ext_ts != NGX_RTMP_TYPE3_EXT_TS_OFF);
+                s->last_timestamp = timestamp;
+
                 if (fmt) {
                     st->dtime = timestamp;
                 } else {

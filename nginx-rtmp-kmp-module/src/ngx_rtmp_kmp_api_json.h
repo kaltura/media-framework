@@ -231,6 +231,8 @@ ngx_rtmp_kmp_api_session_json_get_size(ngx_rtmp_kmp_ctx_t *obj)
             s->tc_url.data, s->tc_url.len) +
         sizeof("\",\"page_url\":\"") - 1 + s->page_url.len +
             ngx_escape_json(NULL, s->page_url.data, s->page_url.len) +
+        sizeof("\",\"type3_ext_ts\":\"") - 1 +
+            ngx_rtmp_type3_ext_ts_str[s->type3_ext_ts].len +
         sizeof("\",\"remote_addr\":\"") - 1 + obj->remote_addr.len +
             ngx_escape_json(NULL, obj->remote_addr.data, obj->remote_addr.len)
             +
@@ -255,6 +257,8 @@ ngx_rtmp_kmp_api_session_json_write(u_char *p, ngx_rtmp_kmp_ctx_t *obj)
     p = (u_char *) ngx_escape_json(p, s->tc_url.data, s->tc_url.len);
     p = ngx_copy_fix(p, "\",\"page_url\":\"");
     p = (u_char *) ngx_escape_json(p, s->page_url.data, s->page_url.len);
+    p = ngx_copy_fix(p, "\",\"type3_ext_ts\":\"");
+    p = ngx_sprintf(p, "%V", &ngx_rtmp_type3_ext_ts_str[s->type3_ext_ts]);
     p = ngx_copy_fix(p, "\",\"remote_addr\":\"");
     p = (u_char *) ngx_escape_json(p, obj->remote_addr.data,
         obj->remote_addr.len);
