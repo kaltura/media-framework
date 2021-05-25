@@ -1169,8 +1169,8 @@ ngx_http_live_api_timeline_init_conf(ngx_live_timeline_json_t *json,
     ngx_json_set_value(conf->end, json->end);
     ngx_json_set_value(conf->active, json->active);
     ngx_json_set_value(conf->no_truncate, json->no_truncate);
-    ngx_json_set_value(conf->end_list, json->end_list);
 
+    ngx_json_set_value(manifest_conf->end_list, json->end_list);
     ngx_json_set_value(manifest_conf->max_segments,
         json->manifest_max_segments);
     ngx_json_set_value(manifest_conf->max_duration,

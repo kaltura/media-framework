@@ -8,7 +8,7 @@ out ngx_live_period_json ngx_live_period_t
 out nostatic ngx_live_timeline_conf_json ngx_live_timeline_t
     active %b obj->conf.
     no_truncate %b obj->conf.
-    end_list %b obj->conf.
+    end_list %b obj->manifest.conf.
     period_gap %L obj->conf.
     max_segments %uD (obj->conf.max_segments != NGX_MAX_UINT32_VALUE ? obj->conf.max_segments : 0)
     max_duration %uL (obj->conf.max_duration != ULLONG_MAX ? obj->conf.max_duration : 0)

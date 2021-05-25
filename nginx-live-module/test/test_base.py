@@ -1,4 +1,5 @@
 from nginx_live_client import *
+from cleanup_stack import *
 from kmp_utils import *
 from threading import Thread
 import manifest_utils
@@ -115,22 +116,6 @@ def assertHttpError(func, status):
     except requests.exceptions.HTTPError, e:
         if e.response.status_code != status:
             raise
-
-
-### Cleanup stack - enables automatic cleanup after a test is run
-class CleanupStack:
-    def __init__(self):
-        self.items = []
-
-    def push(self, callback):
-        self.items.append(callback)
-
-    def reset(self):
-        for i in xrange(len(self.items), 0 , -1):
-            self.items[i - 1]()
-        self.items = []
-
-cleanupStack = CleanupStack()
 
 
 ### Log tracker - used to verify certain lines appear in nginx log

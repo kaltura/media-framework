@@ -16,11 +16,18 @@ def test(channelId=CHANNEL_ID):
         (ra, sa),
     ], st, 30, realtime=False)
 
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, active=False))
+
+    kmpSendStreams([
+        (rv, sv),
+        (ra, sa),
+    ], st, 30, realtime=False)
+
+    testDefaultStreams(channelId, __file__)
+
     nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
 
     time.sleep(5)
 
-def validate(channelId=CHANNEL_ID):
-    nl = nginxLiveClient()
-    nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
-    logTracker.assertContains('ngx_live_persist_read_handler: no segments, cancelling read')
+    req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'index-svar1.m3u8', TIMELINE_ID))
+    assert(req.status_code == 410)

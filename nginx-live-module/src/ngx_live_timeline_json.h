@@ -74,7 +74,7 @@ ngx_live_timeline_conf_json_write(u_char *p, ngx_live_timeline_t *obj)
         p = ngx_copy_fix(p, "false");
     }
     p = ngx_copy_fix(p, ",\"end_list\":");
-    if (obj->conf.end_list) {
+    if (obj->manifest.conf.end_list) {
         p = ngx_copy_fix(p, "true");
     } else {
         p = ngx_copy_fix(p, "false");

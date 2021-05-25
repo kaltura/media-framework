@@ -269,7 +269,7 @@ ngx_live_segment_list_get_period_end_time(
         return NGX_ERROR;
     }
 
-    ngx_live_segment_iter_get_one(&end_iter, &duration);
+    duration = ngx_live_segment_iter_get_one(&end_iter);
 
     if (start_iter->node->period_index != end_iter.node->period_index) {
         ngx_log_error(NGX_LOG_ERR, segment_list->log, 0,
@@ -853,26 +853,34 @@ ngx_live_segment_iter_move_next(ngx_live_segment_iter_t *iter)
     iter->elt = iter->node->elts;
 }
 
-void
-ngx_live_segment_iter_get_one(ngx_live_segment_iter_t *iter,
-    uint32_t *duration)
+uint32_t
+ngx_live_segment_iter_peek(ngx_live_segment_iter_t *iter)
 {
     ngx_live_segment_iter_move_next(iter);
 
-    *duration = iter->elt->duration;
+    return iter->elt->duration;
+}
+
+uint32_t
+ngx_live_segment_iter_get_one(ngx_live_segment_iter_t *iter)
+{
+    ngx_live_segment_iter_move_next(iter);
+
     iter->offset++;
+
+    return iter->elt->duration;
 }
 
 void
 ngx_live_segment_iter_get_element(ngx_live_segment_iter_t *iter,
-    ngx_live_segment_repeat_t *segment_duration)
+    ngx_live_segment_repeat_t *sd)
 {
     ngx_live_segment_repeat_t  *elt;
 
     ngx_live_segment_iter_move_next(iter);
 
     elt = iter->elt;
-    segment_duration->duration = elt->duration;
-    segment_duration->count = elt->count - iter->offset;
+    sd->duration = elt->duration;
+    sd->count = elt->count - iter->offset;
     iter->offset = elt->count;
 }

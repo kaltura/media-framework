@@ -202,7 +202,7 @@ ngx_live_period_pop_segment(ngx_live_period_t *period, uint32_t *duration)
         return;
     }
 
-    ngx_live_segment_iter_get_one(&period->segment_iter, duration);
+    *duration = ngx_live_segment_iter_get_one(&period->segment_iter);
 
     period->segment_count--;
     period->time += *duration;
@@ -346,6 +346,7 @@ ngx_live_manifest_timeline_remove_segments(
     ngx_live_manifest_timeline_t *timeline, uint32_t base_count,
     uint64_t base_duration)
 {
+    uint32_t                            duration;
     ngx_live_timeline_manifest_conf_t  *conf = &timeline->conf;
 
     while (timeline->segment_count > 0) {
@@ -354,6 +355,16 @@ ngx_live_manifest_timeline_remove_segments(
             timeline->duration + base_duration <= conf->max_duration)
         {
             break;
+        }
+
+        if (!timeline->conf.end_list) {
+            duration = ngx_live_segment_iter_peek(
+                &timeline->first_period.segment_iter);
+
+            if (timeline->duration < timeline->target_duration * 3 + duration)
+            {
+                break;
+            }
         }
 
         ngx_live_manifest_timeline_remove_segment(timeline);
@@ -987,21 +998,31 @@ ngx_live_timeline_remove_segments(ngx_live_timeline_t *timeline,
 
     conf = &timeline->conf;
 
-    while (timeline->head_period != NULL) {
+    for ( ;; ) {
+
+        period = timeline->head_period;
+        if (period == NULL) {
+            goto done;
+        }
+
+        if (timeline->segment_count <= timeline->manifest.segment_count) {
+            break;
+        }
 
         if (timeline->segment_count + base_count <= conf->max_segments &&
             timeline->duration + base_duration <= conf->max_duration)
         {
-            period = timeline->head_period;
-            if (period->node.key < *min_segment_index) {
-                *min_segment_index = period->node.key;
-            }
-
             break;
         }
 
         ngx_live_timeline_remove_segment(timeline);
     }
+
+    if (period->node.key < *min_segment_index) {
+        *min_segment_index = period->node.key;
+    }
+
+done:
 
     ngx_live_timeline_validate(timeline);
 }
@@ -2541,7 +2562,7 @@ ngx_live_timeline_serve_write(ngx_persist_write_ctx_t *write_ctx,
     sp.sequence = timeline->manifest.sequence;
     sp.last_modified = timeline->manifest.last_modified;
     sp.target_duration = timeline->manifest.target_duration;
-    sp.end_list = timeline->conf.end_list;
+    sp.end_list = timeline->manifest.conf.end_list;
 
     if (ngx_persist_write_block_open(write_ctx,
             NGX_KSMP_BLOCK_TIMELINE) != NGX_OK ||

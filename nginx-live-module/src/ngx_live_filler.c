@@ -982,7 +982,7 @@ ngx_live_filler_get_durations(ngx_live_filler_channel_ctx_t *cctx,
     cur = cctx->durations;
     end = cur + cctx->count;
     for (; cur < end; cur++) {
-        ngx_live_segment_iter_get_one(&iter, cur);
+        *cur = ngx_live_segment_iter_get_one(&iter);
         duration += *cur;
     }
 

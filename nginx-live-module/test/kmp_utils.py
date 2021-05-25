@@ -1,3 +1,4 @@
+from cleanup_stack import *
 import subprocess
 import struct
 import socket
@@ -87,13 +88,19 @@ class KmpMediaFileReader(KmpReader):
 
         self.inputFile = inputFile
         self.streamId = streamId
-        p = subprocess.Popen([
+        self.p = subprocess.Popen([
             fileToKmp,
             '-s%s' % streamId,
             '-c%s' % createdBase,
             inputFile,
-            DEV_STDOUT], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        super(KmpMediaFileReader, self).__init__(p.stdout, '%s:%s' % (inputFile, streamId))
+            DEV_STDOUT], stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+        super(KmpMediaFileReader, self).__init__(self.p.stdout, '%s:%s' % (inputFile, streamId))
+
+        cleanupStack.push(lambda: self.close())
+
+    def close(self):
+        self.p.terminate()
+
 
 class KmpSendTimestamps:
     def __init__(self):

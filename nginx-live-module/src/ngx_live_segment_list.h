@@ -83,10 +83,11 @@ ngx_int_t ngx_live_segment_iter_init(ngx_live_segment_list_t *segment_list,
 void ngx_live_segment_iter_last(ngx_live_segment_list_t *segment_list,
     ngx_live_segment_iter_t *iter);
 
-void ngx_live_segment_iter_get_one(ngx_live_segment_iter_t *iter,
-    uint32_t *duration);
+uint32_t ngx_live_segment_iter_peek(ngx_live_segment_iter_t *iter);
+
+uint32_t ngx_live_segment_iter_get_one(ngx_live_segment_iter_t *iter);
 
 void ngx_live_segment_iter_get_element(ngx_live_segment_iter_t *iter,
-    ngx_live_segment_repeat_t *segment_duration);
+    ngx_live_segment_repeat_t *sd);
 
 #endif /* _NGX_LIVE_SEGMENT_LIST_H_INCLUDED_ */
