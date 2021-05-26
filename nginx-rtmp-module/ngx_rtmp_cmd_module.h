@@ -17,6 +17,7 @@
 #define NGX_RTMP_MAX_NAME           256
 #define NGX_RTMP_MAX_URL            256
 #define NGX_RTMP_MAX_ARGS           NGX_RTMP_MAX_NAME
+#define NGX_RTMP_MAX_FLASHVER       128
 
 
 /* Basic RTMP call support */
@@ -25,7 +26,7 @@ typedef struct {
     double                          trans;
     u_char                          app[NGX_RTMP_MAX_NAME];
     u_char                          args[NGX_RTMP_MAX_ARGS];
-    u_char                          flashver[32];
+    u_char                          flashver[NGX_RTMP_MAX_FLASHVER];
     u_char                          swf_url[NGX_RTMP_MAX_URL];
     u_char                          tc_url[NGX_RTMP_MAX_URL];
     double                          acodecs;
