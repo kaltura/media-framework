@@ -740,7 +740,7 @@ ngx_stream_live_kmp_ack_frames(ngx_live_track_t *track, uint64_t next_frame_id)
     ctx->ack_packet_pos = (u_char *) &ctx->ack_packet;
     wev->handler = ngx_stream_live_kmp_write_handler;
 
-    ngx_stream_live_kmp_write_handler(wev);
+    ngx_post_event(wev, &ngx_posted_events);
 }
 
 static ngx_fd_t
