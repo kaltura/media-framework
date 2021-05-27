@@ -7,7 +7,7 @@
 #define member_size(type, member) sizeof(((type *)0)->member)
 #define get_context(ctx) ((mpegts_encoder_state_t*)ctx->context[THIS_FILTER])
 
-#define PCR_PID (0x100)
+#define INITIAL_PID (0x100)
 #define PRIVATE_STREAM_1_SID (0xBD)
 #define FIRST_AUDIO_SID (0xC0)
 #define FIRST_VIDEO_SID (0xE0)
@@ -241,7 +241,7 @@ mpegts_get_pes_header_size(mpegts_stream_info_t* stream_info)
 
     result = SIZEOF_PES;
 
-    if (stream_info->pid == PCR_PID)
+    if (stream_info->pcr)
     {
         result += SIZEOF_MPEGTS_ADAPTATION_FIELD + SIZEOF_PCR;
     }
@@ -268,7 +268,7 @@ mpegts_write_pes_header(
 
     cur_packet_start[1] |= 0x40; /* payload start indicator */
 
-    if (stream_info->pid == PCR_PID)
+    if (stream_info->pcr)
     {
         cur_packet_start[3] |= 0x20; /* adaptation */
 
@@ -390,7 +390,7 @@ mpegts_encoder_init_streams(
     stream_state->request_context = request_context;
     stream_state->encryption_params = encryption_params;
     stream_state->segment_index = segment_index;
-    stream_state->cur_pid = PCR_PID;
+    stream_state->cur_pid = INITIAL_PID;
     stream_state->cur_video_sid = FIRST_VIDEO_SID;
     stream_state->cur_audio_sid = FIRST_AUDIO_SID;
 
@@ -519,6 +519,21 @@ mpegts_encoder_add_stream(
 {
     const u_char* pmt_entry;
     int pmt_entry_size;
+
+    stream_info->pcr = stream_state->cur_pid == INITIAL_PID;
+
+    switch (stream_info->media_type)
+    {
+    case MEDIA_TYPE_AUDIO:
+        stream_state->cur_pid = ngx_max(stream_state->cur_pid,
+            INITIAL_PID + 1);
+        break;
+
+    case MEDIA_TYPE_NONE:
+        stream_state->cur_pid = ngx_max(stream_state->cur_pid,
+            INITIAL_PID + 2);
+        break;
+    }
 
     stream_info->pid = stream_state->cur_pid++;
 

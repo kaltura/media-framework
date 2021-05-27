@@ -18,6 +18,7 @@ typedef struct {
     int media_type;
     unsigned pid;
     unsigned sid;
+    bool_t pcr;
 } mpegts_stream_info_t;
 
 typedef struct {
