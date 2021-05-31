@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from utils import writeText
 import json
 import sys
