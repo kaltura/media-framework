@@ -5,6 +5,7 @@
 #include "../ngx_live_media_info.h"
 #include "../ngx_live_segment_cache.h"
 #include "../ngx_live_timeline.h"
+#include "../ngx_live_filler.h"
 
 
 static ngx_int_t ngx_http_live_ksmp_variable(ngx_http_request_t *r,
@@ -33,6 +34,7 @@ typedef struct {
 
 typedef struct {
     ngx_chain_t              *out;
+    ngx_chain_t             **last;
     size_t                    size;
     ngx_str_t                 source;
     ngx_str_t                 err_msg;
@@ -129,6 +131,8 @@ static ngx_http_variable_t  ngx_http_live_ksmp_vars[] = {
 
 static ngx_str_t  ngx_http_live_ksmp_type =
     ngx_string("application/octet-stream");
+
+static ngx_str_t  ngx_http_live_ksmp_filler_source = ngx_string("filler");
 
 
 static ngx_int_t
@@ -556,7 +560,7 @@ ngx_http_live_ksmp_output_error_str(ngx_http_request_t *r, uint32_t code,
 
     ngx_persist_write_block_close(write_ctx);      /* error */
 
-    ctx->out = ngx_persist_write_close(write_ctx, &ctx->size);
+    ctx->out = ngx_persist_write_close(write_ctx, &ctx->size, NULL);
     if (ctx->out == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_live_ksmp_output_error_str: close failed");
@@ -1030,7 +1034,7 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_ksmp_module);
 
-    ctx->out = ngx_persist_write_close(write_ctx, &ctx->size);
+    ctx->out = ngx_persist_write_close(write_ctx, &ctx->size, &ctx->last);
     if (ctx->out == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_live_ksmp_write: close failed");
@@ -1041,23 +1045,46 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
         return ngx_http_live_ksmp_output(r, NGX_HTTP_LAST);
     }
 
-    req.pool = r->pool;
-    req.channel = channel;
-    req.tracks = scope->track_refs->elts;
-    req.track_count = scope->track_refs->nelts;
-    req.segment_index = params->segment_index;
+    rc = ngx_live_filler_serve_segments(r->pool, scope->track_refs,
+        scope->segment_index, &ctx->last, &ctx->size);
+    switch (rc) {
 
-    req.writer.set_size = ngx_http_live_ksmp_segment_set_size;
-    req.writer.write = ngx_http_live_ksmp_segment_write;
-    req.writer.close = ngx_http_live_ksmp_segment_close;
-    req.writer.cleanup = ngx_http_live_ksmp_cleanup;
-    req.writer.arg = r;
+    case NGX_OK:
+        req.source = ngx_http_live_ksmp_filler_source;
+        break;
+
+    case NGX_DONE:
+        req.source.len = 0;
+        break;
+
+    default:
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_live_ksmp_write: serve filler failed");
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
 
     req.size = 0;
     req.chain = NULL;
-    req.source.len = 0;
 
-    rc = ngx_live_copy_segment(&req);
+    if (scope->track_refs->nelts > 0) {
+        req.pool = r->pool;
+        req.channel = channel;
+        req.tracks = scope->track_refs->elts;
+        req.track_count = scope->track_refs->nelts;
+        req.segment_index = params->segment_index;
+
+        req.writer.set_size = ngx_http_live_ksmp_segment_set_size;
+        req.writer.write = ngx_http_live_ksmp_segment_write;
+        req.writer.close = ngx_http_live_ksmp_segment_close;
+        req.writer.cleanup = ngx_http_live_ksmp_cleanup;
+        req.writer.arg = r;
+
+        rc = ngx_live_copy_segment(&req);
+
+    } else {
+        rc = NGX_OK;
+    }
+
     switch (rc) {
 
     case NGX_DONE:
@@ -1066,28 +1093,29 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
         return NGX_DONE;
 
     case NGX_OK:
-        ctx->source = req.source;
-        ctx->size += req.size;
-
-        rc = ngx_http_live_ksmp_output(r, 0);
-        if (rc != NGX_OK) {
-            return rc;
-        }
-
-        if (req.chain != NULL) {
-            rc = ngx_http_output_filter(r, req.chain);
-            if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
-                ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                    "ngx_http_live_ksmp_write: output filter failed %i", rc);
-                return rc;
-            }
-        }
         break;
 
     default:
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_live_ksmp_write: read failed %i", rc);
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    ctx->source = req.source;
+    ctx->size += req.size;
+
+    rc = ngx_http_live_ksmp_output(r, 0);
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    if (req.chain != NULL) {
+        rc = ngx_http_output_filter(r, req.chain);
+        if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_live_ksmp_write: output filter failed %i", rc);
+            return rc;
+        }
     }
 
     rc = ngx_http_send_special(r, NGX_HTTP_LAST);

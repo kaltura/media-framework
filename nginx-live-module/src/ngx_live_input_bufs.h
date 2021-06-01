@@ -26,4 +26,7 @@ ngx_live_input_bufs_lock_t *ngx_live_input_bufs_lock(ngx_live_track_t *track,
 
 void ngx_live_input_bufs_unlock(ngx_live_input_bufs_lock_t *lock);
 
+ngx_int_t ngx_live_input_bufs_lock_cleanup(ngx_pool_t *pool,
+    ngx_live_track_t *track, uint32_t segment_index, u_char *ptr);
+
 #endif /* _NGX_LIVE_INPUT_BUFS_H_INCLUDED_ */

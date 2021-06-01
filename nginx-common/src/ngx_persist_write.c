@@ -493,7 +493,8 @@ ngx_persist_write_free(void *opaque, void *address)
 }
 
 static ngx_chain_t *
-ngx_persist_write_deflate(ngx_persist_write_ctx_t *ctx, size_t *size)
+ngx_persist_write_deflate(ngx_persist_write_ctx_t *ctx, size_t *size,
+    ngx_chain_t ***lastp)
 {
     int                          rc;
     int                          flush;
@@ -631,14 +632,19 @@ ngx_persist_write_deflate(ngx_persist_write_ctx_t *ctx, size_t *size)
     ngx_destroy_pool(ctx->pool);
 
     *last = NULL;
+
     *size = header->size;
+    if (lastp != NULL) {
+        *lastp = last;
+    }
 
     return out;
 }
 
 
 ngx_chain_t *
-ngx_persist_write_close(ngx_persist_write_ctx_t *ctx, size_t *size)
+ngx_persist_write_close(ngx_persist_write_ctx_t *ctx, size_t *size,
+    ngx_chain_t ***last)
 {
     if (ctx->depth != 0) {
         ngx_log_error(NGX_LOG_ALERT, ctx->pool->log, 0,
@@ -648,7 +654,7 @@ ngx_persist_write_close(ngx_persist_write_ctx_t *ctx, size_t *size)
     }
 
     if (ctx->comp_level) {
-        return ngx_persist_write_deflate(ctx, size);
+        return ngx_persist_write_deflate(ctx, size, last);
     }
 
     if (ctx->header) {
@@ -658,6 +664,9 @@ ngx_persist_write_close(ngx_persist_write_ctx_t *ctx, size_t *size)
     *ctx->last = NULL;
 
     *size = ctx->size;
+    if (last != NULL) {
+        *last = ctx->last;
+    }
     return ctx->out;
 }
 
@@ -665,10 +674,11 @@ ngx_int_t
 ngx_persist_write_chain(ngx_persist_write_ctx_t *ctx1,
     ngx_persist_write_ctx_t *ctx2)
 {
-    size_t        size;
-    ngx_chain_t  *cl;
+    size_t         size;
+    ngx_chain_t   *cl;
+    ngx_chain_t  **last;
 
-    cl = ngx_persist_write_close(ctx2, &size);
+    cl = ngx_persist_write_close(ctx2, &size, &last);
     if (cl == NULL) {
         return NGX_ERROR;
     }
@@ -686,7 +696,7 @@ ngx_persist_write_chain(ngx_persist_write_ctx_t *ctx1,
     ctx1->size += size;
 
     *ctx1->last = cl;
-    ctx1->last = ctx2->last;
+    ctx1->last = last;
 
     return NGX_OK;
 }
@@ -727,17 +737,31 @@ ngx_persist_write_append_buf_chain(ngx_persist_write_ctx_t *ctx,
 
 ngx_int_t
 ngx_persist_write_append_buf_chain_n(ngx_persist_write_ctx_t *ctx,
-    ngx_buf_chain_t *chain, size_t size)
+    ngx_buf_chain_t *chain, size_t offset, size_t size)
 {
-    for (; size > 0; chain = chain->next) {
+    size_t   chain_size;
+    u_char  *chain_data;
 
-        if (ngx_persist_write_append(ctx, chain->data, chain->size)
+    chain_data = chain->data + offset;
+    chain_size = chain->size - offset;
+
+    for ( ;; ) {
+
+        if (size <= chain_size) {
+            return ngx_persist_write_append(ctx, chain_data, size);
+        }
+
+        if (ngx_persist_write_append(ctx, chain_data, chain_size)
             != NGX_OK)
         {
             return NGX_ERROR;
         }
 
-        size -= chain->size;
+        size -= chain_size;
+
+        chain = chain->next;
+        chain_data = chain->data;
+        chain_size = chain->size;
     }
 
     return NGX_OK;

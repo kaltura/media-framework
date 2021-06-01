@@ -198,8 +198,8 @@ ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
 
     pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
 
-    return ngx_persist_conf_write_blocks(pmcf->conf, &channel->log,
-        write_ctx, block_ctx, obj);
+    return ngx_persist_conf_write_blocks(pmcf->conf, write_ctx, block_ctx,
+        obj);
 }
 
 ngx_int_t
@@ -353,7 +353,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
         goto failed;
     }
 
-    request.cl = ngx_persist_write_close(write_ctx, &size);
+    request.cl = ngx_persist_write_close(write_ctx, &size, NULL);
     if (request.cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_write_file: close failed");

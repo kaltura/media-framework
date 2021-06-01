@@ -21,6 +21,7 @@
 
 typedef struct {
     int32_t                        pts_delay;
+    uint32_t                       duration;
     ngx_list_t                     frames;        /* ngx_live_frame_t */
     ngx_uint_t                     frame_count;
 
@@ -31,43 +32,47 @@ typedef struct {
 
 
 typedef struct {
-    ngx_list_part_t               *part;
-    ngx_live_frame_t              *cur;
-    ngx_live_frame_t              *last;
-    uint32_t                       dts_offset;
-} ngx_live_filler_frame_iter_t;
-
-
-typedef struct {
-    ngx_buf_chain_t               *chain;
-    size_t                         offset;
-} ngx_live_filler_data_iter_t;
-
-
-typedef struct {
     ngx_queue_t                    queue;
     ngx_pool_t                    *pool;
     ngx_live_track_t              *track;
     ngx_live_filler_segment_t     *segments;
-
-    ngx_live_filler_frame_iter_t   frame_iter;
-    ngx_live_filler_data_iter_t    data_iter;
+    uint32_t                       bitrate;
 } ngx_live_filler_track_ctx_t;
 
 typedef struct {
     ngx_queue_t                    queue;
     uint32_t                       count;
     uint32_t                      *durations;
+    uint64_t                       cycle_duration;
     ngx_str_t                      channel_id;
     ngx_str_t                      timeline_id;
     ngx_str_t                      preset_name;
 
-    uint32_t                       index;
-    uint32_t                       dts_offset;
     uint32_t                       last_media_type_mask;
-    int64_t                        last_pts;
-    unsigned                       reset:1;
 } ngx_live_filler_channel_ctx_t;
+
+
+typedef struct {
+    ngx_list_part_t               *part;
+    ngx_live_frame_t              *cur;
+    ngx_live_frame_t              *last;
+} ngx_live_filler_frame_iter_t;
+
+typedef struct {
+    ngx_buf_chain_t               *chain;
+    size_t                         offset;
+} ngx_live_filler_data_iter_t;
+
+typedef struct {
+    ngx_live_track_t              *track;
+    int64_t                        start_pts;
+    int64_t                        end_pts;
+
+    uint32_t                       frame_count;
+    int64_t                        start_dts;
+    ngx_live_filler_data_iter_t    data_iter;
+    size_t                         data_size;
+} ngx_live_filler_serve_ctx_t;
 
 
 typedef struct {
@@ -92,6 +97,7 @@ static char *ngx_live_filler_merge_preset_conf(ngx_conf_t *cf, void *parent,
 
 static ngx_int_t ngx_live_filler_set_channel(void *ctx,
     ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
+
 
 static ngx_live_module_t  ngx_live_filler_module_ctx = {
     ngx_live_filler_preconfiguration,       /* preconfiguration */
@@ -137,17 +143,18 @@ static ngx_live_json_writer_def_t  ngx_live_filler_json_writers[] = {
 };
 
 
-static void
+/* frame iterator */
+
+static ngx_inline void
 ngx_live_filler_frame_iter_init(ngx_live_filler_frame_iter_t *iter,
     ngx_live_filler_segment_t *segment)
 {
     iter->part = &segment->frames.part;
     iter->cur = iter->part->elts;
     iter->last = iter->cur + iter->part->nelts;
-    iter->dts_offset = 0;
 }
 
-static ngx_live_frame_t *
+static ngx_inline ngx_live_frame_t *
 ngx_live_filler_frame_iter_get(ngx_live_filler_frame_iter_t *iter)
 {
     ngx_live_frame_t  *frame;
@@ -165,18 +172,33 @@ ngx_live_filler_frame_iter_get(ngx_live_filler_frame_iter_t *iter)
 
     frame = iter->cur;
     iter->cur++;
-    iter->dts_offset += frame->duration;
 
     return frame;
 }
 
-static void
-ngx_live_filler_frame_iter_unget(ngx_live_filler_frame_iter_t *iter)
+static ngx_int_t
+ngx_live_filler_frame_iter_skip(ngx_live_filler_frame_iter_t *iter,
+    int64_t target, int64_t *pts, size_t *size)
 {
-    iter->cur--;
-    iter->dts_offset -= iter->cur->duration;
+    ngx_live_frame_t  *cur;
+
+    *size = 0;
+    while (*pts < target) {
+
+        cur = ngx_live_filler_frame_iter_get(iter);
+        if (cur == NULL) {
+            return NGX_ERROR;
+        }
+
+        *pts += cur->duration;
+        *size += cur->size;
+    }
+
+    return NGX_OK;
 }
 
+
+/* data iterator */
 
 static void
 ngx_live_filler_data_iter_init(ngx_live_filler_data_iter_t *iter,
@@ -186,245 +208,47 @@ ngx_live_filler_data_iter_init(ngx_live_filler_data_iter_t *iter,
     iter->offset = 0;
 }
 
-static ngx_int_t
-ngx_live_filler_data_iter_copy(ngx_live_channel_t *channel,
-    ngx_live_filler_data_iter_t *iter, ngx_live_segment_t *segment,
-    ngx_log_t *log)
+static void
+ngx_live_filler_data_iter_skip(ngx_live_filler_data_iter_t *iter, size_t left)
 {
-    size_t            left;
-    ngx_buf_chain_t  *dst;
-    ngx_buf_chain_t  *src;
-    ngx_buf_chain_t  *last;
+    size_t            size;
+    size_t            offset;
+    ngx_buf_chain_t  *chain;
 
-    /* Note: handling first chain seperately as it may have an offset */
-    dst = ngx_live_channel_buf_chain_alloc(channel);
-    if (dst == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_live_filler_data_iter_copy: alloc chain failed (1)");
-        return NGX_ERROR;
-    }
+    chain = iter->chain;
+    offset = iter->offset;
 
-    segment->data_head = dst;
-
-    src = iter->chain;
-
-    dst->data = src->data + iter->offset;
-    dst->size = src->size - iter->offset;
-
-    left = segment->data_size;
+    size = chain->size - offset;
 
     for ( ;; ) {
 
-        if (dst->size > left) {
-            dst->size = left;
-            iter->offset = dst->data + dst->size - src->data;
+        if (size > left) {
+            offset += left;
             break;
         }
 
-        src = src->next;
+        left -= size;
 
-        left -= dst->size;
-        if (left <= 0) {
-            iter->offset = 0;
-            break;
-        }
+        chain = chain->next;
+        offset = 0;
 
-        last = dst;
-
-        dst = ngx_live_channel_buf_chain_alloc(channel);
-        if (dst == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_filler_data_iter_copy: alloc chain failed (2)");
-            segment->data_tail = last;      /* required for segment free */
-            return NGX_ERROR;
-        }
-
-        dst->data = src->data;
-        dst->size = src->size;
-
-        last->next = dst;
+        size = chain->size;
     }
 
-    iter->chain = src;
-
-    dst->next = NULL;
-    segment->data_tail = dst;
-
-    return NGX_OK;
+    iter->chain = chain;
+    iter->offset = offset;
 }
-
 
 static ngx_int_t
-ngx_live_filler_track_fill(ngx_live_track_t *track, uint32_t segment_count,
-    uint32_t last_segment_duration)
+ngx_live_filler_data_iter_write(ngx_live_filler_data_iter_t *iter,
+    ngx_persist_write_ctx_t *write_ctx, size_t size)
 {
-    uint32_t                        i;
-    uint32_t                        max_pts;
-    uint32_t                        dts_offset;
-    media_info_t                   *media_info;
-    ngx_live_frame_t               *src, *dst;
-    kmp_media_info_t               *kmp_media_info;
-    ngx_live_channel_t             *channel;
-    ngx_live_segment_t             *segment;
-    ngx_live_filler_segment_t      *fs;
-    ngx_live_filler_track_ctx_t    *ctx;
-    ngx_live_filler_channel_ctx_t  *cctx;
-
-    media_info = ngx_live_media_info_queue_get_last(track, &kmp_media_info);
-    if (media_info == NULL) {
-        ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
-            "ngx_live_filler_track_fill: failed to get media info");
-        return NGX_ERROR;
-    }
-
-    channel = track->channel;
-    segment = ngx_live_segment_cache_create(track,
-        channel->next_segment_index);
-    if (segment == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_live_filler_track_fill: create segment failed");
-        return NGX_ERROR;
-    }
-
-    segment->media_info = media_info;
-    segment->kmp_media_info = kmp_media_info;
-
-    ctx = ngx_live_get_module_ctx(track, ngx_live_filler_module);
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
-
-    fs = &ctx->segments[cctx->index];
-
-    if (cctx->reset) {
-        ngx_live_filler_frame_iter_init(&ctx->frame_iter, fs);
-        ngx_live_filler_data_iter_init(&ctx->data_iter, fs);
-    }
-
-    segment->end_dts = cctx->last_pts - fs->pts_delay;
-    segment->start_dts = segment->end_dts + ctx->frame_iter.dts_offset;
-
-    /* full segments */
-    for (i = 0; i < segment_count; ) {
-
-        for ( ;; ) {
-
-            src = ngx_live_filler_frame_iter_get(&ctx->frame_iter);
-            if (src == NULL) {
-                break;
-            }
-
-            dst = ngx_list_push(&segment->frames);
-            if (dst == NULL) {
-                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                    "ngx_live_filler_track_fill: push frame failed");
-                goto error;
-            }
-
-            *dst = *src;
-
-            segment->data_size += dst->size;
-            segment->frame_count++;
-        }
-
-        segment->end_dts += ctx->frame_iter.dts_offset;
-
-        i++;
-
-        fs = &ctx->segments[(cctx->index + i) % cctx->count];
-        ngx_live_filler_frame_iter_init(&ctx->frame_iter, fs);
-    }
-
-    /* partial segment */
-    if (last_segment_duration > ctx->frame_iter.dts_offset) {
-
-        src = fs->frames.part.elts;
-        max_pts = last_segment_duration + src->pts_delay;
-
-        for ( ;; ) {
-
-            dts_offset = ctx->frame_iter.dts_offset;
-
-            src = ngx_live_filler_frame_iter_get(&ctx->frame_iter);
-            if (src == NULL) {
-                break;
-            }
-
-            if (dts_offset + src->pts_delay > max_pts) {
-                ngx_live_filler_frame_iter_unget(&ctx->frame_iter);
-                break;
-            }
-
-            dst = ngx_list_push(&segment->frames);
-            if (dst == NULL) {
-                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                    "ngx_live_filler_track_fill: push frame failed");
-                goto error;
-            }
-
-            *dst = *src;
-
-            segment->data_size += dst->size;
-            segment->frame_count++;
-        }
-
-        segment->end_dts += ctx->frame_iter.dts_offset;
-    }
-
-    if (segment->frame_count <= 0) {
-        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
-            "ngx_live_filler_track_fill: empty segment");
-        ngx_live_segment_cache_free(segment);
-        return NGX_ABORT;
-    }
-
-    if (ngx_live_filler_data_iter_copy(channel, &ctx->data_iter, segment,
-        &track->log) != NGX_OK) {
-        goto error;
-    }
-
-    ngx_live_segment_cache_finalize(segment);
-
-    return NGX_OK;
-
-error:
-
-    ngx_live_segment_cache_free(segment);
-    return NGX_ERROR;
+    return ngx_persist_write_append_buf_chain_n(write_ctx,
+        iter->chain, iter->offset, size);
 }
 
-static void
-ngx_live_filler_align_to_next(ngx_live_filler_channel_ctx_t *cctx,
-    ngx_flag_t update_last_pts)
-{
-    ngx_queue_t                  *q;
-    ngx_live_track_t             *cur_track;
-    ngx_live_filler_track_ctx_t  *cur_ctx;
 
-    cctx->index++;
-    if (cctx->index >= cctx->count) {
-        cctx->index = 0;
-    }
-
-    cctx->dts_offset = 0;
-
-    if (!update_last_pts) {
-        return;
-    }
-
-    for (q = ngx_queue_head(&cctx->queue);
-        q != ngx_queue_sentinel(&cctx->queue);
-        q = ngx_queue_next(q))
-    {
-        cur_ctx = ngx_queue_data(q, ngx_live_filler_track_ctx_t, queue);
-        cur_track = cur_ctx->track;
-
-        if (!cur_track->has_last_segment) {
-            continue;
-        }
-
-        cctx->last_pts += cur_ctx->frame_iter.dts_offset;
-        break;
-    }
-}
+/* fill */
 
 static void
 ngx_live_filler_set_last_media_types(ngx_live_channel_t *channel,
@@ -437,13 +261,14 @@ ngx_live_filler_set_last_media_types(ngx_live_channel_t *channel,
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
 
-    /* update has_last_segment */
     for (q = ngx_queue_head(&cctx->queue);
         q != ngx_queue_sentinel(&cctx->queue);
         q = ngx_queue_next(q))
     {
         cur_ctx = ngx_queue_data(q, ngx_live_filler_track_ctx_t, queue);
         cur_track = cur_ctx->track;
+
+        /* update has_last_segment */
 
         if (!(media_type_mask & (1 << cur_track->media_type))) {
 
@@ -466,6 +291,7 @@ ngx_live_filler_set_last_media_types(ngx_live_channel_t *channel,
             ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
                 "ngx_live_filler_set_last_media_types: track added");
 
+            cur_track->last_segment_bitrate = cur_ctx->bitrate;
             cur_track->has_last_segment = 1;
         }
 
@@ -475,72 +301,72 @@ ngx_live_filler_set_last_media_types(ngx_live_channel_t *channel,
     cctx->last_media_type_mask = media_type_mask;
 }
 
+
+static uint32_t
+ngx_live_filler_video_get_segment_index(ngx_live_filler_channel_ctx_t *cctx,
+    int64_t pts)
+{
+    int64_t   cur;
+    int64_t   diff;
+    int64_t   min_diff;
+    uint32_t  i, index;
+
+    pts %= cctx->cycle_duration;
+
+    index = 0;
+    min_diff = pts;     /* == ngx_abs_diff(cur, pts) */
+
+    cur = 0;
+    for (i = 0; i < cctx->count; i++) {
+        cur += cctx->durations[i];
+
+        diff = ngx_abs_diff(cur, pts);
+        if (diff < min_diff) {
+            index = i + 1;
+            min_diff = diff;
+        }
+    }
+
+    return index < cctx->count ? index : 0;
+}
+
 ngx_int_t
 ngx_live_filler_fill(ngx_live_channel_t *channel, uint32_t media_type_mask,
-    int64_t start_pts, ngx_flag_t force_new_period, uint32_t min_duration,
-    uint32_t max_duration, uint32_t *fill_duration)
+    int64_t start_pts, uint32_t min_duration, uint32_t max_duration,
+    uint32_t *fill_duration)
 {
-    int64_t                         last_pts;
     uint32_t                        index;
     uint32_t                        duration;
-    uint32_t                        dts_offset;
     uint32_t                        cur_duration;
     uint32_t                        next_duration;
-    uint32_t                        segment_count;
-    ngx_int_t                       rc;
-    ngx_flag_t                      last_pts_reset;
-    ngx_queue_t                    *q;
-    ngx_live_track_t               *cur_track;
-    ngx_live_filler_track_ctx_t    *cur_ctx;
+    uint32_t                        initial_index;
     ngx_live_filler_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
 
     media_type_mask &= channel->filler_media_types;
 
+    if (cctx->last_media_type_mask != media_type_mask) {
+        ngx_live_filler_set_last_media_types(channel, media_type_mask);
+    }
+
     if (media_type_mask == 0) {
-
-        /* nothing to fill */
-        if (cctx->last_media_type_mask != 0) {
-            ngx_live_filler_set_last_media_types(channel, 0);
-        }
-
         return NGX_DONE;
     }
 
-    if (!cctx->last_media_type_mask || force_new_period) {
-        cctx->last_pts = start_pts;
-        last_pts_reset = 1;
-
-    } else {
-        last_pts_reset = 0;
+    if (!(media_type_mask & (1 << KMP_MEDIA_VIDEO))) {
+        return NGX_OK;
     }
 
-    /* reset the iterator when -
-        1. there is video and we are not aligned to segment
-        2. tracks are being added - reset required to align all tracks */
-    if ((cctx->dts_offset > 0 && (media_type_mask & KMP_MEDIA_VIDEO)) ||
-        (media_type_mask & ~cctx->last_media_type_mask))
-    {
-        /* when filling video, must align to segment boundary */
-        if (cctx->dts_offset > 0) {
-            ngx_live_filler_align_to_next(cctx, !last_pts_reset);
-        }
+    initial_index = ngx_live_filler_video_get_segment_index(cctx, start_pts);
 
-        cctx->reset = 1;
-    }
-
-    /* get the number of input segments */
     duration = 0;
-    segment_count = 0;
-    index = cctx->index;
-    dts_offset = cctx->dts_offset;
-    last_pts = cctx->last_pts;
+    index = initial_index;
 
     for ( ;; ) {
 
         cur_duration = cctx->durations[index];
-        next_duration = duration + cur_duration - dts_offset;
+        next_duration = duration + cur_duration;
 
         if (duration >= min_duration &&
             ngx_abs_diff(next_duration, *fill_duration) >
@@ -550,71 +376,461 @@ ngx_live_filler_fill(ngx_live_channel_t *channel, uint32_t media_type_mask,
             break;
         }
 
-        if (next_duration > max_duration) {
-            dts_offset += max_duration - duration;
-            *fill_duration = max_duration;
-            break;
-        }
-
-        segment_count++;
-        last_pts += cur_duration;
-
         index++;
         if (index >= cctx->count) {
             index = 0;
         }
-        dts_offset = 0;
+
+        if (next_duration >= max_duration) {
+            *fill_duration = max_duration;
+            break;
+        }
 
         duration = next_duration;
     }
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_filler_fill: filler segment count %uD, dts offset %uD",
-        segment_count, dts_offset);
-
-    /* fill all relevant tracks */
-    for (q = ngx_queue_head(&cctx->queue);
-        q != ngx_queue_sentinel(&cctx->queue);
-        q = ngx_queue_next(q))
-    {
-        cur_ctx = ngx_queue_data(q, ngx_live_filler_track_ctx_t, queue);
-        cur_track = cur_ctx->track;
-
-        if (!(media_type_mask & (1 << cur_track->media_type))) {
-            continue;
-        }
-
-        rc = ngx_live_filler_track_fill(cur_track, segment_count, dts_offset);
-        switch (rc) {
-
-        case NGX_OK:
-            break;
-
-        case NGX_ABORT:
-            cctx->reset = 1;
-            cctx->dts_offset = 0;
-            /* fall through */
-
-        default:
-            ngx_log_error(NGX_LOG_NOTICE, &cur_track->log, 0,
-                "ngx_live_filler_fill: fill track failed %i", rc);
-            return rc;
-        }
-    }
-
-    /* update channel ctx */
-    if (cctx->last_media_type_mask != media_type_mask) {
-        ngx_live_filler_set_last_media_types(channel, media_type_mask);
-    }
-
-    cctx->index = index;
-    cctx->dts_offset = dts_offset;
-    cctx->last_pts = last_pts;
-    cctx->reset = 0;
+        "ngx_live_filler_fill: "
+        "pts: %L, min_duration: %uD, max_duration: %uD, "
+        "duration: %uD, index: %uD..%uD",
+        start_pts, min_duration, max_duration,
+        *fill_duration, initial_index, index);
 
     return NGX_OK;
 }
 
+
+/* serve */
+
+static ngx_int_t
+ngx_live_filler_serve_write_frames(ngx_persist_write_ctx_t *write_ctx,
+    ngx_live_filler_serve_ctx_t *sctx, ngx_live_filler_frame_iter_t *iter,
+    uint64_t *duration)
+{
+    ngx_live_frame_t  *cur;
+
+    for ( ;; ) {
+
+        cur = ngx_live_filler_frame_iter_get(iter);
+        if (cur == NULL) {
+            break;
+        }
+
+        if (ngx_persist_write(write_ctx, cur, sizeof(*cur)) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx), 0,
+                "ngx_live_filler_serve_write_frames: write failed");
+            return NGX_ERROR;
+        }
+
+        sctx->frame_count++;
+        if (sctx->frame_count > NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT) {
+            ngx_log_error(NGX_LOG_ERR, ngx_persist_write_log(write_ctx), 0,
+                "ngx_live_filler_serve_write_frames: frame count too big");
+            return NGX_ERROR;
+        }
+
+        sctx->data_size += cur->size;
+
+        if (*duration <= cur->duration) {
+            return NGX_DONE;
+        }
+
+        *duration -= cur->duration;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_filler_serve_video(ngx_persist_write_ctx_t *write_ctx,
+    ngx_live_filler_serve_ctx_t *sctx)
+{
+    int64_t                         cur_pts;
+    int64_t                         end_pts;
+    uint32_t                        index;
+    uint32_t                        duration;
+    uint64_t                        write_duration;
+    ngx_int_t                       rc;
+    ngx_live_track_t               *track;
+    ngx_live_filler_segment_t      *segment;
+    ngx_live_filler_track_ctx_t    *ctx;
+    ngx_live_filler_frame_iter_t    iter;
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    track = sctx->track;
+    cur_pts = sctx->start_pts;
+    end_pts = sctx->end_pts;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_filler_module);
+    cctx = ngx_live_get_module_ctx(track->channel, ngx_live_filler_module);
+
+    index = ngx_live_filler_video_get_segment_index(cctx, cur_pts);
+    segment = &ctx->segments[index];
+
+    ngx_live_filler_data_iter_init(&sctx->data_iter, segment);
+    sctx->start_dts = cur_pts - segment->pts_delay;
+
+    while (cur_pts < end_pts) {
+
+        ngx_live_filler_frame_iter_init(&iter, segment);
+
+        duration = cctx->durations[index];
+        if (cur_pts + duration > end_pts) {
+
+            write_duration = end_pts - cur_pts;
+            rc = ngx_live_filler_serve_write_frames(write_ctx, sctx, &iter,
+                &write_duration);
+            if (rc != NGX_OK && rc != NGX_DONE) {
+                ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx),
+                    0, "ngx_live_filler_serve_video: write failed (1)");
+                return NGX_ERROR;
+            }
+
+            break;
+        }
+
+        write_duration = LLONG_MAX;
+        if (ngx_live_filler_serve_write_frames(write_ctx, sctx, &iter,
+            &write_duration) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx), 0,
+                "ngx_live_filler_serve_video: write failed (2)");
+            return NGX_ERROR;
+        }
+
+        cur_pts += duration;
+
+        index++;
+        if (index >= cctx->count) {
+            index = 0;
+        }
+
+        segment = &ctx->segments[index];
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_filler_audio_get_segment_index(ngx_live_track_t *track,
+    uint32_t *index, int64_t *pts)
+{
+    int64_t                         cur, next;
+    uint32_t                        i;
+    ngx_live_filler_track_ctx_t    *ctx;
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_filler_module);
+    cctx = ngx_live_get_module_ctx(track->channel, ngx_live_filler_module);
+
+    cur = (*pts / cctx->cycle_duration) * cctx->cycle_duration;
+
+    for (i = 0; ; i++) {
+
+        if (i >= cctx->count) {
+            return NGX_ERROR;
+        }
+
+        next = cur + ctx->segments[i].duration;
+        if (*pts >= cur && *pts < next) {
+            break;
+        }
+
+        cur = next;
+    }
+
+    *index = i;
+    *pts = cur;
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_filler_serve_audio_write_frames(ngx_persist_write_ctx_t *write_ctx,
+    ngx_live_filler_serve_ctx_t *sctx, ngx_live_filler_frame_iter_t *iter,
+    uint32_t index, uint64_t duration)
+{
+    ngx_int_t                       rc;
+    ngx_live_track_t               *track;
+    ngx_live_filler_track_ctx_t    *ctx;
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    track = sctx->track;
+    ctx = ngx_live_get_module_ctx(track, ngx_live_filler_module);
+    cctx = ngx_live_get_module_ctx(track->channel, ngx_live_filler_module);
+
+    for ( ;; ) {
+
+        rc = ngx_live_filler_serve_write_frames(write_ctx, sctx, iter,
+            &duration);
+        switch (rc) {
+
+        case NGX_DONE:
+            return NGX_OK;
+
+        case NGX_OK:
+            break;
+
+        default:
+            return NGX_ERROR;
+        }
+
+        index++;
+        if (index >= cctx->count) {
+            index = 0;
+        }
+
+        ngx_live_filler_frame_iter_init(iter, &ctx->segments[index]);
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_filler_serve_audio(ngx_persist_write_ctx_t *write_ctx,
+    ngx_live_filler_serve_ctx_t *sctx)
+{
+    size_t                         skip_size;
+    int64_t                        pts;
+    int64_t                        start_pts, end_pts;
+    uint32_t                       index;
+    ngx_live_track_t              *track;
+    ngx_live_filler_segment_t     *segment;
+    ngx_live_filler_track_ctx_t   *ctx;
+    ngx_live_filler_frame_iter_t   iter;
+
+    track = sctx->track;
+    start_pts = sctx->start_pts;
+
+    pts = start_pts;
+    if (ngx_live_filler_audio_get_segment_index(track, &index, &pts)
+        != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_ALERT, ngx_persist_write_log(write_ctx), 0,
+            "ngx_live_filler_serve_audio: "
+            "segment index not found, track: %V, pts: %L",
+            &track->sn.str, start_pts);
+        return NGX_ERROR;
+    }
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_filler_module);
+
+    segment = &ctx->segments[index];
+    ngx_live_filler_frame_iter_init(&iter, segment);
+
+    if (ngx_live_filler_frame_iter_skip(&iter, start_pts, &pts, &skip_size)
+        != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_ALERT, ngx_persist_write_log(write_ctx), 0,
+            "ngx_live_filler_serve_audio: "
+            "failed to skip to initial frame, pts: %L", start_pts);
+        return NGX_ERROR;
+    }
+
+    end_pts = sctx->end_pts;
+    if (end_pts < pts) {
+        ngx_log_error(NGX_LOG_ERR, ngx_persist_write_log(write_ctx), 0,
+            "ngx_live_filler_serve_audio: "
+            "no frames, start: %L, end: %L, pts: %L", start_pts, end_pts, pts);
+        return NGX_ERROR;
+    }
+
+    if (ngx_live_filler_serve_audio_write_frames(write_ctx, sctx, &iter, index,
+        end_pts - pts) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx), 0,
+            "ngx_live_filler_serve_audio: write failed");
+        return NGX_ERROR;
+    }
+
+    ngx_live_filler_data_iter_init(&sctx->data_iter, segment);
+    ngx_live_filler_data_iter_skip(&sctx->data_iter, skip_size);
+    sctx->start_dts = pts;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_filler_serve_write_frame_list(ngx_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_live_track_t             *track;
+    ngx_live_filler_serve_ctx_t  *sctx = obj;
+
+    track = sctx->track;
+    switch (track->media_type) {
+
+    case KMP_MEDIA_VIDEO:
+        if (ngx_live_filler_serve_video(write_ctx, sctx) != NGX_OK) {
+            return NGX_ERROR;
+        }
+        break;
+
+    case KMP_MEDIA_AUDIO:
+        if (ngx_live_filler_serve_audio(write_ctx, sctx) != NGX_OK) {
+            return NGX_ERROR;
+        }
+        break;
+    }
+
+    if (sctx->frame_count <= 0) {
+        ngx_log_error(NGX_LOG_ERR, ngx_persist_write_log(write_ctx), 0,
+            "ngx_live_filler_serve_write_frame_list: "
+            "no frames, track: %V", &track->sn.str);
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_filler_serve_write_frame_data(ngx_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_live_filler_serve_ctx_t  *sctx = obj;
+
+    /* Note: no need to send segment_index & ptr for filler lock,
+        since the filler content was linked to the original track */
+
+    if (ngx_live_input_bufs_lock_cleanup(ngx_persist_write_pool(write_ctx),
+        sctx->track, 0, NULL) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx), 0,
+            "ngx_live_filler_serve_write_frame_data: lock failed");
+        return NGX_ERROR;
+    }
+
+    if (ngx_live_filler_data_iter_write(&sctx->data_iter, write_ctx,
+        sctx->data_size) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx), 0,
+            "ngx_live_filler_serve_write_frame_data: write failed");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_filler_serve_segment(ngx_persist_write_ctx_t *write_ctx,
+    ngx_live_track_t *track, uint32_t segment_index)
+{
+    ngx_live_channel_t                 *channel;
+    ngx_persist_write_marker_t          marker;
+    ngx_live_filler_serve_ctx_t         sctx;
+    ngx_live_persist_segment_header_t   header;
+
+    channel = track->channel;
+
+    ngx_memzero(&sctx, sizeof(sctx));
+    sctx.track = track;
+
+    if (ngx_live_timelines_get_segment_time(channel, segment_index,
+        &sctx.start_pts, &sctx.end_pts) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_ERR, ngx_persist_write_log(write_ctx), 0,
+            "ngx_live_filler_serve_segment: "
+            "failed to get segment time, index: %uD", segment_index);
+        return NGX_ERROR;
+    }
+
+    if (ngx_persist_write_block_open(write_ctx, NGX_KSMP_BLOCK_SEGMENT)
+            != NGX_OK ||
+        ngx_persist_write_reserve(write_ctx, sizeof(header), &marker)
+            != NGX_OK ||
+        ngx_live_persist_write_blocks(channel, write_ctx,
+            NGX_LIVE_PERSIST_CTX_SERVE_FILLER_HEADER, &sctx) != NGX_OK ||
+        ngx_live_persist_write_blocks(channel, write_ctx,
+            NGX_LIVE_PERSIST_CTX_SERVE_FILLER_DATA, &sctx) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx), 0,
+            "ngx_live_filler_serve_segment: write failed");
+        return NGX_ERROR;
+    }
+
+    ngx_persist_write_block_close(write_ctx);     /* segment */
+
+    header.track_id = track->in.key;
+    header.segment_index = segment_index;
+    header.frame_count = sctx.frame_count;
+    header.start_dts = sctx.start_dts;
+    header.reserved = 0;
+
+    ngx_persist_write_marker_write(&marker, &header, sizeof(header));
+
+    return NGX_OK;
+}
+
+ngx_int_t
+ngx_live_filler_serve_segments(ngx_pool_t *pool, ngx_array_t *track_refs,
+    uint32_t segment_index, ngx_chain_t ***last, size_t *size)
+{
+    size_t                     write_size;
+    ngx_uint_t                 i, n;
+    ngx_chain_t              **chain;
+    ngx_live_track_t          *cur_track;
+    ngx_live_track_ref_t      *refs;
+    ngx_persist_write_ctx_t   *write_ctx;
+
+    write_ctx = NULL;
+
+    refs = track_refs->elts;
+    n = track_refs->nelts;
+    for (i = n; i > 0; i--) {
+
+        cur_track = refs[i - 1].track;
+        if (cur_track == NULL || cur_track->type != ngx_live_track_type_filler)
+        {
+            continue;
+        }
+
+        if (write_ctx == NULL) {
+            write_ctx = ngx_persist_write_init(pool, 0, 0);
+            if (write_ctx == NULL) {
+                ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx),
+                    0, "ngx_live_filler_serve_segments: write init failed");
+                return NGX_ERROR;
+            }
+        }
+
+        if (ngx_live_filler_serve_segment(write_ctx, cur_track, segment_index)
+            != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx), 0,
+                "ngx_live_filler_serve_segments: "
+                "serve failed, track: %V", &cur_track->sn.str);
+            return NGX_ERROR;
+        }
+
+        ngx_memmove(&refs[i - 1], &refs[i], (n - i) * sizeof(refs[0]));
+        n--;
+    }
+
+    if (write_ctx == NULL) {
+        return NGX_DONE;
+    }
+
+    track_refs->nelts = n;
+
+    chain = *last;
+
+    *chain = ngx_persist_write_close(write_ctx, &write_size, last);
+    if (*chain == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx), 0,
+            "ngx_live_filler_serve_segments: close failed");
+        return NGX_ERROR;
+    }
+
+    *size += write_size;
+
+    return NGX_OK;
+}
+
+
+/* setup */
 
 static ngx_int_t
 ngx_live_filler_setup_copy_frames(ngx_live_filler_segment_t *dst_segment,
@@ -730,23 +946,27 @@ ngx_live_filler_setup_copy_chains(ngx_live_filler_track_ctx_t *ctx,
 
 static ngx_int_t
 ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
-    ngx_live_track_t *src_track, ngx_live_timeline_t *timeline,
-    uint64_t duration, ngx_log_t *log)
+    ngx_live_track_t *src_track, ngx_live_timeline_t *timeline, ngx_log_t *log)
 {
+    size_t                          total_size;
     int64_t                         timeline_pts;
     uint32_t                        i;
     uint32_t                        segment_index;
     uint32_t                        initial_pts_delay;
+    uint64_t                        duration;
     ngx_int_t                       rc;
     ngx_flag_t                      is_last;
     ngx_live_frame_t               *first_frame;
+    ngx_live_channel_t             *dst_channel;
     ngx_live_segment_t             *src_segment;
     ngx_live_filler_segment_t      *dst_segment;
     ngx_live_filler_track_ctx_t    *ctx;
+    ngx_live_core_preset_conf_t    *cpcf;
     ngx_live_filler_channel_ctx_t  *cctx;
 
+    dst_channel = dst_track->channel;
     ctx = ngx_live_get_module_ctx(dst_track, ngx_live_filler_module);
-    cctx = ngx_live_get_module_ctx(dst_track->channel, ngx_live_filler_module);
+    cctx = ngx_live_get_module_ctx(dst_channel, ngx_live_filler_module);
 
     ngx_live_input_bufs_link(dst_track, src_track);
 
@@ -760,6 +980,9 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
 
     segment_index = timeline->head_period->node.key;
     timeline_pts = timeline->head_period->time;
+
+    duration = cctx->cycle_duration;
+    total_size = 0;
 
     /* suppress warning */
     initial_pts_delay = 0;
@@ -801,8 +1024,6 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
             return rc;
         }
 
-        dst_segment->pts_delay = timeline_pts - src_segment->start_dts;
-
         /* copy the data chains */
         rc = ngx_live_filler_setup_copy_chains(ctx, dst_segment, src_segment,
             log);
@@ -812,29 +1033,42 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
             return rc;
         }
 
+        total_size += dst_segment->data_size;
+
         if (i > 0) {
             dst_segment[-1].data_tail->next = dst_segment->data_head;
         }
 
+        dst_segment->pts_delay = timeline_pts - src_segment->start_dts;
+
         if (is_last) {
+            dst_segment->duration = duration;
             break;
         }
 
+        dst_segment->duration = src_segment->end_dts - src_segment->start_dts;
+
         /* move to next segment */
-        duration -= src_segment->end_dts - src_segment->start_dts;
+        duration -= dst_segment->duration;
         segment_index++;
         timeline_pts += cctx->durations[i];
     }
 
     dst_segment->data_tail->next = ctx->segments[0].data_head;
 
+    cpcf = ngx_live_get_module_preset_conf(dst_channel, ngx_live_core_module);
+
+    ctx->bitrate = (total_size * 8 * cpcf->timescale) / cctx->cycle_duration;
+    if (ctx->bitrate <= 0) {
+        ctx->bitrate = NGX_LIVE_SEGMENT_NO_BITRATE;
+    }
+
     return NGX_OK;
 }
 
 static ngx_int_t
 ngx_live_filler_setup_track(ngx_live_channel_t *dst,
-    ngx_live_track_t *src_track, ngx_live_timeline_t *timeline,
-    uint64_t duration, ngx_log_t *log)
+    ngx_live_track_t *src_track, ngx_live_timeline_t *timeline, ngx_log_t *log)
 {
     ngx_int_t                       rc;
     ngx_live_track_t               *dst_track;
@@ -887,7 +1121,7 @@ ngx_live_filler_setup_track(ngx_live_channel_t *dst,
 
     /* create the segments */
     rc = ngx_live_filler_setup_track_segments(dst_track, src_track,
-        timeline, duration, log);
+        timeline, log);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_filler_setup_track: create segments failed");
@@ -966,8 +1200,8 @@ ngx_live_filler_setup_get_cycle_duration(ngx_live_channel_t *src,
 }
 
 static void
-ngx_live_filler_get_durations(ngx_live_filler_channel_ctx_t *cctx,
-    ngx_live_timeline_t *timeline, uint64_t cycle_duration)
+ngx_live_filler_setup_get_durations(ngx_live_filler_channel_ctx_t *cctx,
+    ngx_live_timeline_t *timeline)
 {
     int64_t                   delta;
     int32_t                   index, count;
@@ -987,7 +1221,7 @@ ngx_live_filler_get_durations(ngx_live_filler_channel_ctx_t *cctx,
     }
 
     /* adjust the durations to match the cycle duration */
-    delta = cycle_duration - duration;
+    delta = cctx->cycle_duration - duration;
     count = cctx->count;
 
     for (index = 0; index < count; index++) {
@@ -999,15 +1233,17 @@ ngx_live_filler_get_durations(ngx_live_filler_channel_ctx_t *cctx,
 #if (NGX_LIVE_VALIDATIONS)
 static void
 ngx_live_filler_setup_validate_segment(ngx_live_filler_segment_t *segment,
-    uint64_t *duration, ngx_log_t *log)
+    ngx_log_t *log)
 {
     size_t             data_size;
     size_t             frames_size;
+    uint32_t           duration;
     ngx_buf_chain_t   *data;
     ngx_list_part_t   *part;
     ngx_live_frame_t  *cur, *last;
 
     /* get the total size and duration of the frames */
+    duration = 0;
     frames_size = 0;
 
     part = &segment->frames.part;
@@ -1026,8 +1262,16 @@ ngx_live_filler_setup_validate_segment(ngx_live_filler_segment_t *segment,
             last = cur + part->nelts;
         }
 
-        *duration += cur->duration;
+        duration += cur->duration;
         frames_size += cur->size;
+    }
+
+    if (segment->duration != duration) {
+        ngx_log_error(NGX_LOG_ALERT, log, 0,
+            "ngx_live_filler_setup_validate_segment: "
+            "invalid segment duration %uD expected %uD",
+            segment->duration, duration);
+        ngx_debug_point();
     }
 
     /* make sure data head/tail match the frames size */
@@ -1065,7 +1309,6 @@ ngx_live_filler_setup_validate(ngx_live_channel_t *channel)
     uint32_t                        i;
     uint32_t                        filler_media_types;
     uint64_t                        duration;
-    uint64_t                        cur_duration;
     ngx_queue_t                    *q;
     ngx_buf_chain_t                *prev_data;
     ngx_live_track_t               *cur_track;
@@ -1080,6 +1323,14 @@ ngx_live_filler_setup_validate(ngx_live_channel_t *channel)
         duration += cctx->durations[i];
     }
 
+    if (cctx->cycle_duration != duration) {
+        ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
+            "ngx_live_filler_setup_validate: "
+            "invalid cycle duration %uL expected %uL",
+            cctx->cycle_duration, duration);
+        ngx_debug_point();
+    }
+
     filler_media_types = 0;
     for (q = ngx_queue_head(&cctx->queue);
         q != ngx_queue_sentinel(&cctx->queue);
@@ -1088,7 +1339,7 @@ ngx_live_filler_setup_validate(ngx_live_channel_t *channel)
         cur_ctx = ngx_queue_data(q, ngx_live_filler_track_ctx_t, queue);
         cur_track = cur_ctx->track;
 
-        cur_duration = 0;
+        duration = 0;
         prev_data = cur_ctx->segments[cctx->count - 1].data_tail;
         for (i = 0; i < cctx->count; i++) {
             cur_segment = &cur_ctx->segments[i];
@@ -1100,17 +1351,19 @@ ngx_live_filler_setup_validate(ngx_live_channel_t *channel)
                 ngx_debug_point();
             }
 
-            ngx_live_filler_setup_validate_segment(cur_segment, &cur_duration,
+            ngx_live_filler_setup_validate_segment(cur_segment,
                 &cur_track->log);
+
+            duration += cur_segment->duration;
 
             prev_data = cur_segment->data_tail;
         }
 
-        if (cur_duration != duration) {
+        if (duration != cctx->cycle_duration) {
             ngx_log_error(NGX_LOG_ALERT, &cur_track->log, 0,
                 "ngx_live_filler_setup_validate: "
-                "track duration %uL doesn't match timeline duration %uL",
-                cur_duration, duration);
+                "track duration %uL doesn't match cycle duration %uL",
+                duration, cctx->cycle_duration);
             ngx_debug_point();
         }
 
@@ -1134,7 +1387,6 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
     ngx_live_timeline_t *timeline, ngx_log_t *log)
 {
     u_char                         *p;
-    uint64_t                        duration;
     ngx_queue_t                    *q;
     ngx_live_track_t               *src_track;
     ngx_live_core_preset_conf_t    *cpcf;
@@ -1188,13 +1440,13 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
 
     cctx->durations = (void *) p;
 
-    duration = ngx_live_filler_setup_get_cycle_duration(src,
+    cctx->cycle_duration = ngx_live_filler_setup_get_cycle_duration(src,
         timeline->head_period->node.key, cctx->count, log);
-    if (duration <= 0) {
+    if (cctx->cycle_duration <= 0) {
         return NGX_ERROR;
     }
 
-    ngx_live_filler_get_durations(cctx, timeline, duration);
+    ngx_live_filler_setup_get_durations(cctx, timeline);
 
     for (q = ngx_queue_head(&src->tracks.queue);
         q != ngx_queue_sentinel(&src->tracks.queue);
@@ -1202,8 +1454,8 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
     {
         src_track = ngx_queue_data(q, ngx_live_track_t, queue);
 
-        if (ngx_live_filler_setup_track(dst, src_track, timeline, duration,
-            log) != NGX_OK)
+        if (ngx_live_filler_setup_track(dst, src_track, timeline, log)
+            != NGX_OK)
         {
             return NGX_ERROR;
         }
@@ -1213,7 +1465,6 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
 
     return NGX_OK;
 }
-
 
 static ngx_int_t
 ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
@@ -1308,80 +1559,8 @@ ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
     return NGX_OK;
 }
 
-static ngx_int_t
-ngx_live_filler_channel_init(ngx_live_channel_t *channel, void *ectx)
-{
-    ngx_live_filler_channel_ctx_t  *cctx;
 
-    cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
-    if (cctx == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_filler_channel_init: alloc failed");
-        return NGX_ERROR;
-    }
-
-    ngx_live_set_ctx(channel, cctx, ngx_live_filler_module);
-
-    ngx_queue_init(&cctx->queue);
-
-    return NGX_OK;
-}
-
-static void
-ngx_live_filler_recalc_media_type_mask(ngx_live_channel_t *channel)
-{
-    ngx_queue_t                    *q;
-    ngx_live_filler_track_ctx_t    *cur_ctx;
-    ngx_live_filler_channel_ctx_t  *cctx;
-
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
-
-    channel->filler_media_types = 0;
-
-    for (q = ngx_queue_head(&cctx->queue);
-        q != ngx_queue_sentinel(&cctx->queue);
-        q = ngx_queue_next(q))
-    {
-        cur_ctx = ngx_queue_data(q, ngx_live_filler_track_ctx_t, queue);
-
-        channel->filler_media_types |= (1 << cur_ctx->track->media_type);
-    }
-}
-
-static ngx_int_t
-ngx_live_filler_track_free(ngx_live_track_t *track, void *ectx)
-{
-    ngx_live_filler_track_ctx_t  *ctx;
-
-    ctx = ngx_live_get_module_ctx(track, ngx_live_filler_module);
-    if (ctx->pool == NULL) {
-        /* not a filler track / failed to initialize */
-        return NGX_OK;
-    }
-
-    ngx_queue_remove(&ctx->queue);
-
-    ngx_live_filler_recalc_media_type_mask(track->channel);
-
-    ngx_destroy_pool(ctx->pool);
-
-    return NGX_OK;
-}
-
-static ngx_int_t
-ngx_live_filler_track_channel_free(ngx_live_track_t *track, void *ectx)
-{
-    ngx_live_filler_track_ctx_t  *ctx;
-
-    ctx = ngx_live_get_module_ctx(track, ngx_live_filler_module);
-
-    if (ctx->pool) {
-        ngx_destroy_pool(ctx->pool);
-    }
-
-    return NGX_OK;
-}
-
+/* persist */
 
 static ngx_int_t
 ngx_live_filler_write_setup_segment(ngx_persist_write_ctx_t *write_ctx,
@@ -1436,7 +1615,7 @@ ngx_live_filler_write_setup_segment(ngx_persist_write_ctx_t *write_ctx,
     if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_PERSIST_BLOCK_FRAME_DATA) != NGX_OK ||
         ngx_persist_write_append_buf_chain_n(write_ctx,
-            segment->data_head, segment->data_size) != NGX_OK)
+            segment->data_head, 0, segment->data_size) != NGX_OK)
     {
         return NGX_ERROR;
     }
@@ -1490,8 +1669,7 @@ ngx_live_filler_write_setup_track(ngx_persist_write_ctx_t *write_ctx,
 }
 
 static ngx_int_t
-ngx_live_filler_write_setup(ngx_persist_write_ctx_t *write_ctx,
-    void *obj)
+ngx_live_filler_write_setup(ngx_persist_write_ctx_t *write_ctx, void *obj)
 {
     ngx_queue_t                    *q;
     ngx_wstream_t                  *ws;
@@ -1540,7 +1718,7 @@ ngx_live_filler_write_setup(ngx_persist_write_ctx_t *write_ctx,
 
 
 static void
-ngx_live_filler_get_frames_info(ngx_live_segment_t *segment, size_t *size,
+ngx_live_filler_read_get_frames_info(ngx_live_segment_t *segment, size_t *size,
     int64_t *duration)
 {
     ngx_list_part_t   *part;
@@ -1749,7 +1927,7 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
         return NGX_BAD_DATA;
     }
 
-    ngx_live_filler_get_frames_info(segment, &size, &duration);
+    ngx_live_filler_read_get_frames_info(segment, &size, &duration);
 
     if (size != segment->data_size) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
@@ -2094,9 +2272,99 @@ static ngx_persist_block_t  ngx_live_filler_blocks[] = {
       ngx_live_filler_write_setup,
       ngx_live_filler_read_setup },
 
+    /*
+     * persist data:
+     *   ngx_ksmp_frame_t  frame[];
+     */
+    { NGX_KSMP_BLOCK_FRAME_LIST,
+      NGX_LIVE_PERSIST_CTX_SERVE_FILLER_HEADER,
+      NGX_PERSIST_FLAG_SINGLE,
+      ngx_live_filler_serve_write_frame_list, NULL },
+
+    { NGX_KSMP_BLOCK_FRAME_DATA,
+      NGX_LIVE_PERSIST_CTX_SERVE_FILLER_DATA,
+      NGX_PERSIST_FLAG_SINGLE,
+      ngx_live_filler_serve_write_frame_data, NULL },
+
     ngx_null_persist_block
 };
 
+
+/* main */
+
+static ngx_int_t
+ngx_live_filler_channel_init(ngx_live_channel_t *channel, void *ectx)
+{
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
+    if (cctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_filler_channel_init: alloc failed");
+        return NGX_ERROR;
+    }
+
+    ngx_live_set_ctx(channel, cctx, ngx_live_filler_module);
+
+    ngx_queue_init(&cctx->queue);
+
+    return NGX_OK;
+}
+
+static void
+ngx_live_filler_recalc_media_type_mask(ngx_live_channel_t *channel)
+{
+    ngx_queue_t                    *q;
+    ngx_live_filler_track_ctx_t    *cur_ctx;
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+
+    channel->filler_media_types = 0;
+
+    for (q = ngx_queue_head(&cctx->queue);
+        q != ngx_queue_sentinel(&cctx->queue);
+        q = ngx_queue_next(q))
+    {
+        cur_ctx = ngx_queue_data(q, ngx_live_filler_track_ctx_t, queue);
+
+        channel->filler_media_types |= (1 << cur_ctx->track->media_type);
+    }
+}
+
+static ngx_int_t
+ngx_live_filler_track_free(ngx_live_track_t *track, void *ectx)
+{
+    ngx_live_filler_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_filler_module);
+    if (ctx->pool == NULL) {
+        /* not a filler track / failed to initialize */
+        return NGX_OK;
+    }
+
+    ngx_queue_remove(&ctx->queue);
+
+    ngx_live_filler_recalc_media_type_mask(track->channel);
+
+    ngx_destroy_pool(ctx->pool);
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_filler_track_channel_free(ngx_live_track_t *track, void *ectx)
+{
+    ngx_live_filler_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_filler_module);
+
+    if (ctx->pool) {
+        ngx_destroy_pool(ctx->pool);
+    }
+
+    return NGX_OK;
+}
 
 static size_t
 ngx_live_filler_channel_json_get_size(void *obj)

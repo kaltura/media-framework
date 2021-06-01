@@ -1616,8 +1616,8 @@ ngx_live_persist_media_bucket_time_variable(ngx_live_variables_ctx_t *ctx,
             return NGX_ERROR;
         }
 
-        if (ngx_live_timelines_get_segment_time(channel, segment_index, &time)
-            == NGX_OK)
+        if (ngx_live_timelines_get_segment_time(channel, segment_index, &time,
+            NULL) == NGX_OK)
         {
             break;
         }

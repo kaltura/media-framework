@@ -347,6 +347,11 @@ ngx_live_input_bufs_lock(ngx_live_track_t *track, uint32_t segment_index,
     {
         cur = ngx_queue_data(q, ngx_live_input_bufs_lock_t, queue);
 
+        if (input_bufs->no_partial_free) {
+            cur->ref_count++;
+            goto done;
+        }
+
         if (segment_index < cur->segment_index) {
             continue;
         }
@@ -418,6 +423,29 @@ ngx_live_input_bufs_unlock(ngx_live_input_bufs_lock_t *lock)
     ngx_live_input_bufs_free(lock->input_bufs);
 
     ngx_block_pool_free(ngx_live_input_bufs_pool, NGX_LIVE_BP_LOCK, lock);
+}
+
+ngx_int_t
+ngx_live_input_bufs_lock_cleanup(ngx_pool_t *pool, ngx_live_track_t *track,
+    uint32_t segment_index, u_char *ptr)
+{
+    ngx_pool_cleanup_t          *cln;
+    ngx_live_input_bufs_lock_t  *lock;
+
+    cln = ngx_pool_cleanup_add(pool, 0);
+    if (cln == NULL) {
+        return NGX_ERROR;
+    }
+
+    lock = ngx_live_input_bufs_lock(track, segment_index, ptr);
+    if (lock == NULL) {
+        return NGX_ERROR;
+    }
+
+    cln->handler = (ngx_pool_cleanup_pt) ngx_live_input_bufs_unlock;
+    cln->data = lock;
+
+    return NGX_OK;
 }
 
 void

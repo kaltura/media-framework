@@ -13,6 +13,8 @@
 
 #define ngx_persist_write_ctx(c)     (((ngx_persist_write_base_t *) (c))->ctx)
 
+#define ngx_persist_write_log(c)     (ngx_persist_write_pool(c)->log)
+
 
 typedef struct ngx_persist_write_ctx_s  ngx_persist_write_ctx_t;
 
@@ -35,7 +37,7 @@ ngx_persist_write_ctx_t *ngx_persist_write_init(ngx_pool_t *pool,
     uint32_t type, int comp_level);
 
 ngx_chain_t *ngx_persist_write_close(ngx_persist_write_ctx_t *ctx,
-    size_t *size);
+    size_t *size, ngx_chain_t ***last);
 
 ngx_int_t ngx_persist_write_chain(ngx_persist_write_ctx_t *ctx1,
     ngx_persist_write_ctx_t *ctx2);
@@ -65,9 +67,8 @@ ngx_int_t ngx_persist_write_append(ngx_persist_write_ctx_t *ctx,
 ngx_int_t ngx_persist_write_append_buf_chain(
     ngx_persist_write_ctx_t *ctx, ngx_buf_chain_t *chain);
 
-ngx_int_t ngx_persist_write_append_buf_chain_n(
-    ngx_persist_write_ctx_t *ctx, ngx_buf_chain_t *chain, size_t size);
-
+ngx_int_t ngx_persist_write_append_buf_chain_n(ngx_persist_write_ctx_t *ctx,
+    ngx_buf_chain_t *chain, size_t offset, size_t size);
 
 /* block functions */
 ngx_int_t ngx_persist_write_block_open(ngx_persist_write_ctx_t *ctx,

@@ -585,12 +585,12 @@ ngx_live_segment_cache_read(ngx_live_segment_read_req_t *req)
 
 
 static ngx_int_t
-ngx_live_segment_cache_write_frame_list(ngx_persist_write_ctx_t *write_data,
+ngx_live_segment_cache_write_frame_list(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     ngx_live_segment_t  *segment = obj;
 
-    if (ngx_persist_write_list_data(write_data, &segment->frames)
+    if (ngx_persist_write_list_data(write_ctx, &segment->frames)
         != NGX_OK)
     {
         return NGX_ERROR;
@@ -601,12 +601,12 @@ ngx_live_segment_cache_write_frame_list(ngx_persist_write_ctx_t *write_data,
 
 
 static ngx_int_t
-ngx_live_segment_cache_write_frame_data(ngx_persist_write_ctx_t *write_data,
+ngx_live_segment_cache_write_frame_data(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     ngx_live_segment_t  *segment = obj;
 
-    if (ngx_persist_write_append_buf_chain(write_data, segment->data_head)
+    if (ngx_persist_write_append_buf_chain(write_ctx, segment->data_head)
         != NGX_OK)
     {
         return NGX_ERROR;
@@ -757,7 +757,7 @@ ngx_live_segment_cache_copy(ngx_live_segment_copy_req_t *req)
         return NGX_OK;
     }
 
-    req->chain = ngx_persist_write_close(write_ctx, &req->size);
+    req->chain = ngx_persist_write_close(write_ctx, &req->size, NULL);
     if (req->chain == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_segment_cache_copy: write close failed");

@@ -1550,14 +1550,14 @@ ngx_live_timelines_truncate(ngx_live_channel_t *channel,
 
 ngx_int_t
 ngx_live_timelines_get_segment_time(ngx_live_channel_t *channel,
-    uint32_t segment_index, int64_t *result)
+    uint32_t segment_index, int64_t *start, int64_t *end)
 {
     ngx_live_timeline_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     return ngx_live_segment_list_get_segment_time(&cctx->segment_list,
-        segment_index, result);
+        segment_index, start, end);
 }
 
 int64_t

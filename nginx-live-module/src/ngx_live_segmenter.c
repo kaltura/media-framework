@@ -2421,8 +2421,8 @@ ngx_live_segmenter_fill(ngx_live_channel_t *channel, uint32_t media_types_mask,
     }
 
     rc = ngx_live_filler_fill(channel, missing_media_types,
-        cctx->last_segment_end_pts, cctx->force_new_period,
-        min_duration, max_duration, &fill_duration);
+        cctx->last_segment_end_pts, min_duration, max_duration,
+        &fill_duration);
     switch (rc) {
 
     case NGX_OK:

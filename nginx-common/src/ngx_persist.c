@@ -157,7 +157,7 @@ ngx_persist_conf_init(ngx_conf_t *cf, ngx_persist_conf_t *conf)
 
 
 ngx_int_t
-ngx_persist_conf_write_blocks(ngx_persist_conf_t *conf, ngx_log_t *log,
+ngx_persist_conf_write_blocks(ngx_persist_conf_t *conf,
     ngx_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj)
 {
     ngx_array_t          *arr;
@@ -176,8 +176,8 @@ ngx_persist_conf_write_blocks(ngx_persist_conf_t *conf, ngx_log_t *log,
 
         if (!(cur->flags & NGX_PERSIST_FLAG_SINGLE)) {
             if (cur->write(write_ctx, obj) != NGX_OK) {
-                ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                    "ngx_persist_conf_write_blocks: "
+                ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx),
+                    0, "ngx_persist_conf_write_blocks: "
                     "write failed, id: %*s",
                     (size_t) sizeof(cur->id), &cur->id);
                 return NGX_ERROR;
@@ -186,14 +186,14 @@ ngx_persist_conf_write_blocks(ngx_persist_conf_t *conf, ngx_log_t *log,
         }
 
         if (ngx_persist_write_block_open(write_ctx, cur->id) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx), 0,
                 "ngx_persist_conf_write_blocks: open failed, id: %*s",
                 (size_t) sizeof(cur->id), &cur->id);
             return NGX_ERROR;
         }
 
         if (cur->write(write_ctx, obj) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx), 0,
                 "ngx_persist_conf_write_blocks: write failed, id: %*s",
                 (size_t) sizeof(cur->id), &cur->id);
             return NGX_ERROR;

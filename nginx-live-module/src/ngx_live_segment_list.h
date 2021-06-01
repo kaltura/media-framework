@@ -47,7 +47,7 @@ ngx_int_t ngx_live_segment_list_add(ngx_live_segment_list_t *segment_list,
 
 ngx_int_t ngx_live_segment_list_get_segment_time(
     ngx_live_segment_list_t *segment_list, uint32_t segment_index,
-    int64_t *result);
+    int64_t *start, int64_t *end);
 
 ngx_int_t ngx_live_segment_list_get_closest_segment(
     ngx_live_segment_list_t *segment_list, int64_t time,

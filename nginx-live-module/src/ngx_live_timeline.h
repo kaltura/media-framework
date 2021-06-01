@@ -135,7 +135,7 @@ void ngx_live_timelines_truncate(ngx_live_channel_t *channel,
     uint32_t segment_index);
 
 ngx_int_t ngx_live_timelines_get_segment_time(ngx_live_channel_t *channel,
-    uint32_t segment_index, int64_t *result);
+    uint32_t segment_index, int64_t *start, int64_t *end);
 
 int64_t ngx_live_timelines_get_last_time(ngx_live_channel_t *channel);
 
