@@ -62,6 +62,12 @@ typedef struct {
 
 
 typedef struct {
+    double                          trans;
+    u_char                          name[NGX_RTMP_MAX_NAME];
+} ngx_rtmp_fcpublish_t;
+
+
+typedef struct {
     u_char                          name[NGX_RTMP_MAX_NAME];
     u_char                          args[NGX_RTMP_MAX_ARGS];
     double                          start;
@@ -114,6 +120,8 @@ typedef ngx_int_t (*ngx_rtmp_delete_stream_pt)(ngx_rtmp_session_t *s,
         ngx_rtmp_delete_stream_t *v);
 typedef ngx_int_t (*ngx_rtmp_publish_pt)(ngx_rtmp_session_t *s,
         ngx_rtmp_publish_t *v);
+typedef ngx_int_t (*ngx_rtmp_fcpublish_pt)(ngx_rtmp_session_t *s,
+        ngx_rtmp_fcpublish_t *v);
 typedef ngx_int_t (*ngx_rtmp_play_pt)(ngx_rtmp_session_t *s,
         ngx_rtmp_play_t *v);
 typedef ngx_int_t (*ngx_rtmp_seek_pt)(ngx_rtmp_session_t *s,
