@@ -1060,20 +1060,24 @@ ngx_live_media_info_source_set(ngx_live_track_t *track)
             return NGX_DONE;
         }
 
-        /* save the latest media info as pending, if the track becomes active
-            later, it will need to use this media info */
-
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-        node = ngx_live_media_info_node_clone(channel, node);
-        if (node == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_live_media_info_source_set: clone failed (1)");
-            return NGX_ERROR;
+
+        if (node->track_id == track->in.key) {
+
+            /* save the latest media info as pending, if the track becomes
+                active later, it will need to use this media info */
+
+            node = ngx_live_media_info_node_clone(channel, node);
+            if (node == NULL) {
+                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                    "ngx_live_media_info_source_set: clone failed (1)");
+                return NGX_ERROR;
+            }
+
+            node->frame_index_delta = 0;
+
+            ngx_queue_insert_tail(&ctx->pending, &node->queue);
         }
-
-        node->frame_index_delta = 0;
-
-        ngx_queue_insert_tail(&ctx->pending, &node->queue);
     }
 
     source = ngx_live_media_info_source_get(track);
@@ -1185,7 +1189,8 @@ ngx_live_media_info_pending_add(ngx_live_track_t *track,
             node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
             if (ngx_live_media_info_node_compare(node, media_info, extra_data,
-                extra_data_size)) {
+                extra_data_size) && node->track_id == track->in.key)
+            {
                 /* no change - ignore */
                 return NGX_DONE;
             }
