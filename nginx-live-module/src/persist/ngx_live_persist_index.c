@@ -321,12 +321,10 @@ static ngx_int_t
 ngx_live_persist_index_write_channel(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    ngx_wstream_t                     *ws;
     ngx_live_channel_t                *channel = obj;
     ngx_live_persist_snap_index_t     *snap;
     ngx_live_persist_index_channel_t  *cp;
 
-    ws = ngx_persist_write_stream(write_ctx);
     snap = ngx_persist_write_ctx(write_ctx);
 
     cp = ngx_live_get_module_ctx(snap, ngx_live_persist_index_module);
@@ -335,7 +333,7 @@ ngx_live_persist_index_write_channel(ngx_persist_write_ctx_t *write_ctx,
     cp->scope = snap->base.scope;
     cp->reserved = 0;
 
-    if (ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
+    if (ngx_live_persist_write_channel_header(write_ctx, channel) != NGX_OK ||
         ngx_persist_write(write_ctx, cp, sizeof(*cp)) != NGX_OK ||
         ngx_live_persist_write_blocks(channel, write_ctx,
             NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL, channel) != NGX_OK)
@@ -357,7 +355,7 @@ ngx_live_persist_index_read_channel(ngx_persist_block_header_t *header,
     ngx_live_persist_index_scope_t    *scope;
     ngx_live_persist_index_channel_t  *cp;
 
-    rc = ngx_live_persist_read_channel_id(channel, rs);
+    rc = ngx_live_persist_read_channel_header(channel, rs);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -751,7 +749,8 @@ ngx_live_persist_index_merge_preset_conf(ngx_conf_t *cf, void *parent,
 static ngx_persist_block_t  ngx_live_persist_index_blocks[] = {
     /*
      * persist header:
-     *   ngx_str_t                         channel_id;
+     *   ngx_str_t                         id;
+     *   ngx_str_t                         opaquep;
      *   ngx_live_persist_index_channel_t  p;
      */
     { NGX_LIVE_PERSIST_BLOCK_CHANNEL, NGX_LIVE_PERSIST_CTX_INDEX_MAIN,

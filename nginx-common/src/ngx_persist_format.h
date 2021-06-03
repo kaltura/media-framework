@@ -19,7 +19,7 @@
 #define NGX_PERSIST_MAX_BLOCK_DEPTH         (5)
 
 
-#define NGX_PERSIST_FILE_VERSION            (3)
+#define NGX_PERSIST_FILE_VERSION            (4)
 
 
 typedef struct {

@@ -230,6 +230,7 @@ ngx_live_persist_media_read_parse_header(
     uint64_t                         offset;
     ngx_int_t                        rc;
     ngx_log_t                       *log = ctx->pool->log;
+    ngx_str_t                        opaque;
     ngx_str_t                        channel_id;
     ngx_mem_rstream_t                rs;
     ngx_mem_rstream_t                block_rs;
@@ -259,10 +260,12 @@ ngx_live_persist_media_read_parse_header(
         return NGX_HTTP_BAD_GATEWAY;
     }
 
-    if (ngx_mem_rstream_str_get(&rs, &channel_id) != NGX_OK) {
+    if (ngx_mem_rstream_str_get(&rs, &channel_id) != NGX_OK ||
+        ngx_mem_rstream_str_get(&rs, &opaque) != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_read_parse_header: "
-            "read channel id failed");
+            "read channel header failed");
         return NGX_HTTP_BAD_GATEWAY;
     }
 
@@ -817,6 +820,7 @@ ngx_live_persist_media_copy_parse_header(
     uint64_t                        *uid;
     ngx_int_t                        rc;
     ngx_log_t                       *log = ctx->pool->log;
+    ngx_str_t                        opaque;
     ngx_str_t                        channel_id;
     ngx_mem_rstream_t                rs;
     ngx_mem_rstream_t                block_rs;
@@ -846,7 +850,9 @@ ngx_live_persist_media_copy_parse_header(
         return NGX_HTTP_BAD_GATEWAY;
     }
 
-    if (ngx_mem_rstream_str_get(&rs, &channel_id) != NGX_OK) {
+    if (ngx_mem_rstream_str_get(&rs, &channel_id) != NGX_OK ||
+        ngx_mem_rstream_str_get(&rs, &opaque) != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_copy_parse_header: "
             "read channel id failed");
@@ -1332,17 +1338,14 @@ ngx_live_persist_media_write_bucket(ngx_persist_write_ctx_t *write_idx,
     void *obj)
 {
     ngx_pool_t                          *pool;
-    ngx_wstream_t                       *ws;
     ngx_live_channel_t                  *channel;
     ngx_live_persist_media_write_ctx_t  *ctx;
 
     channel = obj;
 
-    ws = ngx_persist_write_stream(write_idx);
-
     if (ngx_persist_write_block_open(write_idx,
             NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY_LIST) != NGX_OK ||
-        ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
+        ngx_live_persist_write_channel_header(write_idx, channel) != NGX_OK ||
         ngx_persist_write(write_idx, &channel->uid, sizeof(channel->uid))
             != NGX_OK)
     {
@@ -1914,6 +1917,7 @@ static ngx_persist_block_t  ngx_live_persist_media_blocks[] = {
     /*
      * persist header:
      *   ngx_str_t  channel_id;
+     *   ngx_str_t  opaquep;
      *   uint64_t   uid;
      */
     { NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY_LIST, NGX_LIVE_PERSIST_CTX_MEDIA_MAIN,

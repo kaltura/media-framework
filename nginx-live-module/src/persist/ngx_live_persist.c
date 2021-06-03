@@ -136,6 +136,13 @@ static ngx_command_t  ngx_live_persist_commands[] = {
       offsetof(ngx_live_persist_preset_conf_t, comp_level),
       &ngx_live_persist_comp_level_bounds },
 
+    { ngx_string("persist_opaque"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_live_set_complex_value_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_persist_preset_conf_t, opaque),
+      NULL },
+
       ngx_null_command
 };
 
@@ -222,14 +229,55 @@ ngx_live_persist_read_blocks(ngx_live_channel_t *channel, ngx_uint_t ctx,
 
 
 ngx_int_t
-ngx_live_persist_read_channel_id(ngx_live_channel_t *channel,
+ngx_live_persist_write_channel_header(ngx_persist_write_ctx_t *write_ctx,
+    ngx_live_channel_t *channel)
+{
+    ngx_int_t                        rc;
+    ngx_str_t                        opaque;
+    ngx_wstream_t                   *ws;
+    ngx_live_variables_ctx_t        *vctx;
+    ngx_live_persist_preset_conf_t  *ppcf;
+
+    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
+
+    if (ppcf->opaque != NULL) {
+        vctx = ngx_persist_write_vctx(write_ctx);
+
+        rc = ngx_live_complex_value(vctx, ppcf->opaque, &opaque);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                "ngx_live_persist_write_channel_header: "
+                "complex value failed");
+            return NGX_ERROR;
+        }
+
+    } else {
+        opaque.len = 0;
+    }
+
+    ws = ngx_persist_write_stream(write_ctx);
+
+    if (ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
+        ngx_wstream_str(ws, &opaque) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_write_channel_header: write failed");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+ngx_int_t
+ngx_live_persist_read_channel_header(ngx_live_channel_t *channel,
     ngx_mem_rstream_t *rs)
 {
     ngx_str_t  id;
+    ngx_str_t  opaque;
 
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_persist_read_channel_id: read id failed");
+            "ngx_live_persist_read_channel_header: read id failed");
         return NGX_BAD_DATA;
     }
 
@@ -237,10 +285,19 @@ ngx_live_persist_read_channel_id(ngx_live_channel_t *channel,
         ngx_memcmp(id.data, channel->sn.str.data, id.len) != 0)
     {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_persist_read_channel_id: "
+            "ngx_live_persist_read_channel_header: "
             "channel id \"%V\" mismatch", &id);
         return NGX_BAD_DATA;
     }
+
+    if (ngx_mem_rstream_str_get(rs, &opaque) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_read_channel_header: read opaque failed");
+        return NGX_BAD_DATA;
+    }
+
+    ngx_log_error(NGX_LOG_INFO, rs->log, 0,
+        "ngx_live_persist_read_channel_header: opaque \"%V\"", &opaque);
 
     return NGX_OK;
 }
@@ -286,7 +343,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
     ngx_pool_t                         *pool;
     ngx_persist_write_ctx_t            *write_ctx;
     ngx_live_persist_file_t            *file_spec;
-    ngx_live_variables_ctx_t            vctx;
+    ngx_live_variables_ctx_t           *vctx;
     ngx_live_store_write_request_t      request;
     ngx_live_persist_preset_conf_t     *ppcf;
     ngx_live_persist_channel_ctx_t     *cctx;
@@ -308,18 +365,25 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
     ctx = ngx_pcalloc(pool, sizeof(*ctx) + scope_size);
     if (ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_write_file: alloc failed");
+            "ngx_live_persist_write_file: alloc failed (1)");
         goto failed;
     }
 
-    rc = ngx_live_variables_init_ctx(channel, pool, &vctx);
+    vctx = ngx_palloc(pool, sizeof(*vctx));
+    if (vctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_write_file: alloc failed (2)");
+        goto failed;
+    }
+
+    rc = ngx_live_variables_init_ctx(channel, pool, vctx);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_write_file: failed to init var ctx");
         goto failed;
     }
 
-    rc = ngx_live_complex_value(&vctx, ppcf->files[file].path, &request.path);
+    rc = ngx_live_complex_value(vctx, ppcf->files[file].path, &request.path);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_write_file: complex value failed");
@@ -336,6 +400,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
     }
 
     ngx_persist_write_ctx(write_ctx) = data;
+    ngx_persist_write_vctx(write_ctx) = vctx;
 
     if (ngx_live_persist_write_blocks(channel, write_ctx, file_spec->ctx,
         channel) != NGX_OK)
@@ -872,6 +937,10 @@ ngx_live_persist_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     }
 
     ngx_conf_merge_value(conf->comp_level, prev->comp_level, 6);
+
+    if (conf->opaque == NULL) {
+        conf->opaque = prev->opaque;
+    }
 
     return NGX_CONF_OK;
 }
