@@ -666,6 +666,7 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
         dest->u.video.height = src->u.video.height;
         dest->u.video.frame_rate_num = src->u.video.frame_rate.num;
         dest->u.video.frame_rate_denom = src->u.video.frame_rate.denom;
+        dest->u.video.cea_captions = src->u.video.cea_captions;
 
         if (codec_config_get_video_codec_name(channel->log, dest) != VOD_OK) {
             ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,

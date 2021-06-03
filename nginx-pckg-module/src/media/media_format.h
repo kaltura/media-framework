@@ -61,6 +61,7 @@ typedef struct {
     uint16_t height;
     uint32_t nal_packet_size_length;
     uint8_t transfer_characteristics;
+    uint8_t cea_captions;
     uint32_t frame_rate_num;
     uint32_t frame_rate_denom;
     uint32_t initial_pts_delay;

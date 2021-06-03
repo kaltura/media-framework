@@ -60,6 +60,9 @@ static char *ngx_http_pckg_mpd_merge_loc_conf(ngx_conf_t *cf, void *parent,
     "        maxFrameRate=\"%uD/%uD\"\n"                                    \
     "        segmentAlignment=\"true\">\n"
 
+#define MPD_ACCESSIBILITY_CEA_608                                           \
+    "      <Accessibility schemeIdUri=\"urn:scte:dash:cc:cea-608:2015\"/>\n"
+
 #define MPD_REPRESENTATION_VIDEO                                            \
     "      <Representation\n"                                               \
     "          id=\"s%V-v\"\n"                                              \
@@ -157,6 +160,7 @@ typedef struct {
     uint32_t                   max_height;
     uint32_t                   max_frame_rate_num;
     uint32_t                   max_frame_rate_denom;
+    unsigned                   cea_captions:1;
 } ngx_http_pckg_mpd_video_params_t;
 
 
@@ -444,6 +448,7 @@ ngx_http_pckg_mpd_init_video_params(ngx_pckg_adapt_set_t *set,
 
     ngx_memzero(params, sizeof(*params));
     params->max_frame_rate_denom = 1;
+    params->cea_captions = 1;
 
     n = set->variants.nelts;
     variants = set->variants.elts;
@@ -456,6 +461,11 @@ ngx_http_pckg_mpd_init_video_params(ngx_pckg_adapt_set_t *set,
             &media_info);
         if (media_info == NULL) {
             continue;
+        }
+
+        /* Note: reporting cea captions only if ALL tracks have it */
+        if (!media_info->u.video.cea_captions) {
+            params->cea_captions = 0;
         }
 
         if (params->max_frame_rate_num * media_info->u.video.frame_rate_denom <
@@ -489,6 +499,7 @@ ngx_http_pckg_mpd_video_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
     container->get_content_type(set->media_info, &content_type);
 
     return sizeof(MPD_ADAPTATION_HEADER_VIDEO) - 1 + NGX_INT32_LEN * 5
+        + sizeof(MPD_ACCESSIBILITY_CEA_608) - 1
         + ngx_http_pckg_seg_tmpl_get_size(period, container)
         + set->variants.nelts * (sizeof(MPD_REPRESENTATION_VIDEO) - 1
             + content_type.len + MAX_CODEC_NAME_SIZE + NGX_INT32_LEN * 5)
@@ -526,6 +537,11 @@ ngx_http_pckg_mpd_video_adapt_set_write(u_char *p, ngx_http_request_t *r,
     p = ngx_sprintf(p, MPD_ADAPTATION_HEADER_VIDEO, id,
         params.max_width, params.max_height,
         params.max_frame_rate_num, params.max_frame_rate_denom);
+
+    if (params.cea_captions) {
+        p = ngx_copy(p, MPD_ACCESSIBILITY_CEA_608,
+            sizeof(MPD_ACCESSIBILITY_CEA_608) - 1);
+    }
 
     p = ngx_http_pckg_seg_tmpl_write(p, period, container);
 
