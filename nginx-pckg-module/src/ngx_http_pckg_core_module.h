@@ -78,6 +78,8 @@ typedef struct {
     ngx_http_complex_value_t         *segment_metadata;
 
     ngx_flag_t                        empty_segments;
+
+    ngx_uint_t                        media_type_selector;
 } ngx_http_pckg_core_loc_conf_t;
 
 

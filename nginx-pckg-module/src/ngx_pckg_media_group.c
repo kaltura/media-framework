@@ -154,7 +154,7 @@ ngx_pckg_media_groups_add_variants(ngx_pckg_media_groups_t *groups)
             ngx_memzero(stream->groups, sizeof(stream->groups));
 
             if (groups->flags & NGX_PCKG_MEDIA_GROUP_MUX_SEGMENTS) {
-                stream->media_types = channel->header->req_media_types;
+                stream->media_types = channel->media_types;
                 continue;
             }
 
