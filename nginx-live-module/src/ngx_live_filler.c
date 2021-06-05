@@ -294,8 +294,6 @@ ngx_live_filler_set_last_media_types(ngx_live_channel_t *channel,
             cur_track->last_segment_bitrate = cur_ctx->bitrate;
             cur_track->has_last_segment = 1;
         }
-
-        channel->last_modified = ngx_time();
     }
 
     cctx->last_media_type_mask = media_type_mask;
@@ -2311,6 +2309,15 @@ ngx_live_filler_channel_init(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+static ngx_int_t
+ngx_live_filler_channel_read(ngx_live_channel_t *channel, void *ectx)
+{
+    ngx_live_filler_set_last_media_types(channel,
+        channel->filler_media_types & ~channel->last_segment_media_types);
+
+    return NGX_OK;
+}
+
 static void
 ngx_live_filler_recalc_media_type_mask(ngx_live_channel_t *channel)
 {
@@ -2436,6 +2443,7 @@ ngx_live_filler_preconfiguration(ngx_conf_t *cf)
 
 static ngx_live_channel_event_t  ngx_live_filler_channel_events[] = {
     { ngx_live_filler_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
+    { ngx_live_filler_channel_read, NGX_LIVE_EVENT_CHANNEL_READ },
       ngx_live_null_event
 };
 
