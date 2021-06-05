@@ -255,6 +255,7 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
     ngx_pckg_channel_t              *channel;
     ngx_http_upstream_t             *u;
     ngx_http_pckg_core_ctx_t        *ctx;
+    ngx_ksmp_channel_header_t       *header;
     ngx_http_pckg_core_loc_conf_t   *plcf;
     ngx_http_pckg_core_main_conf_t  *pmcf;
 
@@ -359,11 +360,24 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         }
 
     } else {
+        header = channel->header;
+
         if (plcf->media_type_selector == NGX_HTTP_PCKG_MTS_ACTUAL) {
-            channel->media_types = channel->header->res_media_types;
+            if (ctx->params.segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX &&
+                header->res_media_types != header->req_media_types)
+            {
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                    "ngx_http_pckg_core_post_handler: "
+                    "media types mismatch, request: 0x%uxD, actual: 0x%uxD",
+                    header->req_media_types, header->res_media_types);
+                rc = NGX_HTTP_BAD_REQUEST;
+                goto done;
+            }
+
+            channel->media_types = header->res_media_types;
 
         } else {
-            channel->media_types = channel->header->req_media_types;
+            channel->media_types = header->req_media_types;
         }
 
         rc = ctx->handler->handler(r);
