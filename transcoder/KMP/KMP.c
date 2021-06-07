@@ -194,6 +194,14 @@ int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo 
         media_info.u.audio.sample_rate=codecpar->sample_rate;
         media_info.u.audio.channels=codecpar->channels;
         media_info.u.audio.channel_layout=codecpar->channel_layout;
+
+        LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] audio kmp_media_info, codec id %d samplerate %d bps %d channels %d channel layout %d",
+            context->sessionName,
+            media_info.codec_id,
+            media_info.u.audio.sample_rate,
+            media_info.u.audio.bits_per_sample,
+            media_info.u.audio.channels,
+            media_info.u.audio.channel_layout);
     }
     
     if (codecpar->codec_type==AVMEDIA_TYPE_VIDEO && codecpar->extradata_size>0 && codecpar->extradata[0] != 1) { //convert to mp4 header
@@ -627,10 +635,19 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
     if (mediaInfo.media_type==KMP_MEDIA_AUDIO) {
         params->codec_type=AVMEDIA_TYPE_AUDIO;
         params->sample_rate=mediaInfo.u.audio.sample_rate;
-        params->bits_per_coded_sample=mediaInfo.u.audio.bits_per_sample*8;
+        params->bits_per_coded_sample=mediaInfo.u.audio.bits_per_sample;
         params->channels=mediaInfo.u.audio.channels;
         params->channel_layout=mediaInfo.u.audio.channel_layout;
         set_audio_codec(mediaInfo.codec_id,params);
+
+
+        LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] KMP_read_mediaInfo audio kmp_media_info, codec id %d samplerate %d bps %d channels %d channel layout %d",
+            context->sessionName,
+            mediaInfo.codec_id,
+            mediaInfo.u.audio.sample_rate,
+            mediaInfo.u.audio.bits_per_sample,
+            mediaInfo.u.audio.channels,
+            mediaInfo.u.audio.channel_layout);
     }
     if (mediaInfo.media_type==KMP_MEDIA_VIDEO) {
         params->codec_type=AVMEDIA_TYPE_VIDEO;
