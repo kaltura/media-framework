@@ -1062,8 +1062,7 @@ ngx_http_pckg_m3u8_get_selector(ngx_http_request_t *r,
     }
 
     result->data = p;
-    p = ngx_http_pckg_selector_write(p, variant,
-        channel->header->req_media_types);
+    p = ngx_http_pckg_selector_write(p, variant, channel->media_types);
     result->len = p - result->data;
 
     return NGX_OK;

@@ -121,6 +121,7 @@ struct ngx_pckg_channel_s {
     ngx_pckg_track_t             **sorted_tracks;
     ngx_ksmp_segment_index_t      *segment_index;
     ngx_pckg_dynamic_vars_t        vars;
+    uint32_t                       media_types;
 
     uint32_t                       err_code;
     ngx_str_t                      err_message;

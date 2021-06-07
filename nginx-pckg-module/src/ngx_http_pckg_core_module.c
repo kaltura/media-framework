@@ -38,6 +38,12 @@ static ngx_int_t ngx_http_pckg_core_unknown_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
 
+enum {
+    NGX_HTTP_PCKG_MTS_REQUEST,
+    NGX_HTTP_PCKG_MTS_ACTUAL,
+};
+
+
 typedef struct {
     ngx_persist_conf_t      *persist;
     ngx_hash_t               handlers_hash;
@@ -53,6 +59,13 @@ typedef struct {
 } ngx_http_pckg_read_source_t;
 
 
+static ngx_conf_enum_t  ngx_http_pckg_media_type_selector[] = {
+    { ngx_string("request"), NGX_HTTP_PCKG_MTS_REQUEST },
+    { ngx_string("actual"),  NGX_HTTP_PCKG_MTS_ACTUAL },
+    { ngx_null_string, 0 }
+};
+
+
 static ngx_command_t  ngx_http_pckg_core_commands[] = {
 
     { ngx_string("pckg"),
@@ -60,35 +73,35 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       ngx_http_pckg,
       NGX_HTTP_LOC_CONF_OFFSET,
       0,
-      NULL},
+      NULL },
 
     { ngx_string("pckg_uri"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_http_set_complex_value_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, uri),
-      NULL},
+      NULL },
 
     { ngx_string("pckg_channel_id"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_http_set_complex_value_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, channel_id),
-      NULL},
+      NULL },
 
     { ngx_string("pckg_timeline_id"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_http_set_complex_value_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, timeline_id),
-      NULL},
+      NULL },
 
     { ngx_string("pckg_ksmp_max_uncomp_size"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, max_uncomp_size),
-      NULL},
+      NULL },
 
     { ngx_string("pckg_expires_static"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -148,7 +161,14 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       ngx_conf_set_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, empty_segments),
-      NULL},
+      NULL },
+
+    { ngx_string("pckg_media_type_selector"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_enum_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t, media_type_selector),
+      &ngx_http_pckg_media_type_selector },
 
       ngx_null_command
 };
@@ -235,6 +255,7 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
     ngx_pckg_channel_t              *channel;
     ngx_http_upstream_t             *u;
     ngx_http_pckg_core_ctx_t        *ctx;
+    ngx_ksmp_channel_header_t       *header;
     ngx_http_pckg_core_loc_conf_t   *plcf;
     ngx_http_pckg_core_main_conf_t  *pmcf;
 
@@ -339,6 +360,26 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         }
 
     } else {
+        header = channel->header;
+
+        if (plcf->media_type_selector == NGX_HTTP_PCKG_MTS_ACTUAL) {
+            if (ctx->params.segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX &&
+                header->res_media_types != header->req_media_types)
+            {
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                    "ngx_http_pckg_core_post_handler: "
+                    "media types mismatch, request: 0x%uxD, actual: 0x%uxD",
+                    header->req_media_types, header->res_media_types);
+                rc = NGX_HTTP_BAD_REQUEST;
+                goto done;
+            }
+
+            channel->media_types = header->res_media_types;
+
+        } else {
+            channel->media_types = header->req_media_types;
+        }
+
         rc = ctx->handler->handler(r);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
@@ -1408,6 +1449,8 @@ ngx_http_pckg_core_create_loc_conf(ngx_conf_t *cf)
 
     conf->empty_segments = NGX_CONF_UNSET;
 
+    conf->media_type_selector = NGX_CONF_UNSET_UINT;
+
     return conf;
 }
 
@@ -1454,6 +1497,10 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_value(conf->empty_segments,
                          prev->empty_segments, 0);
+
+    ngx_conf_merge_uint_value(conf->media_type_selector,
+                              prev->media_type_selector,
+                              NGX_HTTP_PCKG_MTS_REQUEST);
 
     return NGX_CONF_OK;
 }
