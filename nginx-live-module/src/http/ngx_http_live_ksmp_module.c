@@ -69,7 +69,7 @@ static ngx_command_t  ngx_http_live_ksmp_commands[] = {
       ngx_http_live_ksmp,
       0,
       0,
-      NULL},
+      NULL },
 
     { ngx_string("live_ksmp_comp_level"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,

@@ -54,14 +54,14 @@ static ngx_command_t  ngx_http_live_core_commands[] = {
       ngx_http_set_complex_value_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_live_core_loc_conf_t, channel_id),
-      NULL},
+      NULL },
 
     { ngx_string("live_timeline_id"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_http_set_complex_value_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_live_core_loc_conf_t, timeline_id),
-      NULL},
+      NULL },
 
     { ngx_string("live_expires_static"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -135,7 +135,7 @@ static ngx_command_t  ngx_http_live_core_commands[] = {
       ngx_conf_set_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_live_core_loc_conf_t, empty_segments),
-      NULL},
+      NULL },
 
       ngx_null_command
 };
