@@ -98,6 +98,8 @@ struct ngx_live_channel_s {
     ngx_live_channel_variants_t    variants;
 
     ngx_live_channel_tracks_t      tracks;
+
+    uint32_t                       filler_start_index;
     uint32_t                       filler_media_types;
 
     uint32_t                       initial_segment_index;

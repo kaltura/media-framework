@@ -866,7 +866,7 @@ ngx_live_media_info_queue_get_node(ngx_live_track_t *track,
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     node = ngx_live_media_info_queue_get_before(ctx, segment_index);
-    if (node == NULL) {
+    if (node == NULL || node->node.key > segment_index) {
         return NULL;
     }
 

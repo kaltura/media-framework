@@ -2655,6 +2655,16 @@ ngx_live_segmenter_create_segment(ngx_live_channel_t *channel)
 
     channel->last_segment_media_types = media_types_mask;
 
+    if (channel->filler_start_index == channel->next_segment_index &&
+        (channel->filler_media_types & ~media_types_mask))
+    {
+        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+            "ngx_live_segmenter_create_segment: "
+            "filler added, forcing new period");
+
+        cctx->force_new_period = 1;
+    }
+
     media_types_mask |= channel->filler_media_types;
     if (media_types_mask & missing_media_types_mask) {
         rc = ngx_live_media_info_queue_fill_gaps(channel, media_types_mask);
