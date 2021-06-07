@@ -33,6 +33,7 @@ typedef struct {
 
     ngx_live_persist_file_conf_t   files[NGX_LIVE_PERSIST_FILE_COUNT];
     ngx_int_t                      comp_level;
+    ngx_live_complex_value_t      *opaque;
 } ngx_live_persist_preset_conf_t;
 
 
@@ -71,7 +72,10 @@ ngx_int_t ngx_live_persist_read_blocks_internal(
     ngx_live_persist_main_conf_t *pmcf, ngx_uint_t ctx, ngx_mem_rstream_t *rs,
     void *obj);
 
-ngx_int_t ngx_live_persist_read_channel_id(ngx_live_channel_t *channel,
+ngx_int_t ngx_live_persist_write_channel_header(
+    ngx_persist_write_ctx_t *write_ctx, ngx_live_channel_t *channel);
+
+ngx_int_t ngx_live_persist_read_channel_header(ngx_live_channel_t *channel,
     ngx_mem_rstream_t *rs);
 
 ngx_int_t ngx_live_persist_read_parse(ngx_live_channel_t *channel,

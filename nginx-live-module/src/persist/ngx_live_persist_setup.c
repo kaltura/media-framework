@@ -107,7 +107,7 @@ ngx_live_persist_setup_write_channel(ngx_persist_write_ctx_t *write_ctx,
     cp.initial_segment_index = channel->initial_segment_index;
     cp.start_sec = channel->start_sec;
 
-    if (ngx_wstream_str(ws, &channel->sn.str) != NGX_OK ||
+    if (ngx_live_persist_write_channel_header(write_ctx, channel) != NGX_OK ||
         ngx_persist_write(write_ctx, &cp, sizeof(cp)) != NGX_OK ||
         ngx_block_str_write(ws, &channel->opaque) != NGX_OK ||
         ngx_live_persist_write_blocks(channel, write_ctx,
@@ -130,7 +130,7 @@ ngx_live_persist_setup_read_channel(ngx_persist_block_header_t *header,
     ngx_live_persist_setup_channel_t      *cp;
     ngx_live_persist_setup_channel_ctx_t  *cctx;
 
-    rc = ngx_live_persist_read_channel_id(channel, rs);
+    rc = ngx_live_persist_read_channel_header(channel, rs);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -690,6 +690,7 @@ static ngx_persist_block_t  ngx_live_persist_setup_blocks[] = {
     /*
      * persist header:
      *   ngx_str_t                         id;
+     *   ngx_str_t                         opaquep;
      *   ngx_live_persist_setup_channel_t  p;
      *   ngx_str_t                         opaque;
      */

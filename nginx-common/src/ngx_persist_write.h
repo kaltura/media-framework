@@ -13,6 +13,8 @@
 
 #define ngx_persist_write_ctx(c)     (((ngx_persist_write_base_t *) (c))->ctx)
 
+#define ngx_persist_write_vctx(c)    (((ngx_persist_write_base_t *) (c))->vctx)
+
 #define ngx_persist_write_log(c)     (ngx_persist_write_pool(c)->log)
 
 
@@ -22,6 +24,7 @@ typedef struct ngx_persist_write_ctx_s  ngx_persist_write_ctx_t;
 typedef struct {
     ngx_wstream_t   ws;
     void           *ctx;
+    void           *vctx;
 } ngx_persist_write_base_t;
 
 
