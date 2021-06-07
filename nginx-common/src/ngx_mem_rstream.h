@@ -22,6 +22,7 @@ typedef struct {
     u_char     *end;
     ngx_log_t  *log;
     void       *scope;
+    uint32_t    version;
 } ngx_mem_rstream_t;
 
 
@@ -33,12 +34,13 @@ typedef struct {
 
 static ngx_inline void
 ngx_mem_rstream_set(ngx_mem_rstream_t *rs, void *start, void *end,
-    ngx_log_t *log, void *scope)
+    ngx_log_t *log, void *scope, uint32_t version)
 {
     rs->pos = start;
     rs->end = end;
     rs->log = log;
     rs->scope = scope;
+    rs->version = version;
 }
 
 
@@ -87,6 +89,7 @@ ngx_mem_rstream_get_stream(ngx_mem_rstream_t *rs, size_t size,
     out->pos = pos;
     out->log = rs->log;
     out->scope = rs->scope;
+    out->version = rs->version;
 
     return NGX_OK;
 }

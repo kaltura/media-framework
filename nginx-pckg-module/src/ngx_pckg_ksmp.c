@@ -1187,7 +1187,7 @@ ngx_pckg_ksmp_parse(ngx_pckg_channel_t *channel, ngx_str_t *buf,
     }
 
     ngx_mem_rstream_set(&rs, buf->data + header->size,
-        buf->data + buf->len, channel->log, NULL);
+        buf->data + buf->len, channel->log, NULL, header->version);
 
     rc = ngx_persist_conf_read_blocks(channel->persist,
         NGX_PCKG_KSMP_CTX_MAIN, &rs, channel);

@@ -260,14 +260,21 @@ ngx_live_persist_media_read_parse_header(
         return NGX_HTTP_BAD_GATEWAY;
     }
 
-    if (ngx_mem_rstream_str_get(&rs, &channel_id) != NGX_OK ||
-        ngx_mem_rstream_str_get(&rs, &opaque) != NGX_OK)
-    {
+    if (ngx_mem_rstream_str_get(&rs, &channel_id) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_persist_media_read_parse_header: "
+            "read channel id failed");
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    /* TODO: remove version check */
+    if (rs.version >= 4 && ngx_mem_rstream_str_get(&rs, &opaque) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_read_parse_header: "
             "read channel header failed");
         return NGX_HTTP_BAD_GATEWAY;
     }
+
 
     channel_id_hash = ngx_crc32_short(channel_id.data, channel_id.len);
     if (channel_id_hash != ctx->channel_id_hash) {
@@ -523,7 +530,7 @@ ngx_live_persist_media_read_init_track(ngx_live_persist_media_read_ctx_t *ctx,
 
     log = ctx->pool->log;
 
-    ngx_mem_rstream_set(&rs, buf->data, buf->data + buf->len, log, ctx);
+    ngx_mem_rstream_set(&rs, buf->data, buf->data + buf->len, log, ctx, 0);
 
     track = &ctx->segment->tracks[ctx->read_tracks - 1];
 
@@ -850,14 +857,21 @@ ngx_live_persist_media_copy_parse_header(
         return NGX_HTTP_BAD_GATEWAY;
     }
 
-    if (ngx_mem_rstream_str_get(&rs, &channel_id) != NGX_OK ||
-        ngx_mem_rstream_str_get(&rs, &opaque) != NGX_OK)
-    {
+    if (ngx_mem_rstream_str_get(&rs, &channel_id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_copy_parse_header: "
             "read channel id failed");
         return NGX_HTTP_BAD_GATEWAY;
     }
+
+    /* TODO: remove version check */
+    if (rs.version >= 4 && ngx_mem_rstream_str_get(&rs, &opaque) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_persist_media_copy_parse_header: "
+            "read channel header failed");
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
 
     channel_id_hash = ngx_crc32_short(channel_id.data, channel_id.len);
     if (channel_id_hash != ctx->channel_id_hash) {

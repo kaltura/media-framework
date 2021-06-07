@@ -36,7 +36,7 @@ ngx_persist_read_file_header(ngx_str_t *buf, uint32_t type, ngx_log_t *log,
         return NGX_BAD_DATA;
     }
 
-    if (header->version < NGX_PERSIST_FILE_VERSION) {
+    if (header->version < NGX_PERSIST_FILE_MIN_VERSION) {
         ngx_log_error(NGX_LOG_WARN, log, 0,
             "ngx_persist_read_file_header: "
             "ignoring old file, version: %uD, type: %*s",
@@ -44,7 +44,7 @@ ngx_persist_read_file_header(ngx_str_t *buf, uint32_t type, ngx_log_t *log,
         return NGX_DECLINED;
     }
 
-    if (header->version > NGX_PERSIST_FILE_VERSION) {
+    if (header->version > NGX_PERSIST_FILE_MAX_VERSION) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_persist_read_file_header: "
             "file has a newer version %uD, type: %*s",
@@ -70,7 +70,7 @@ ngx_persist_read_file_header(ngx_str_t *buf, uint32_t type, ngx_log_t *log,
     }
 
     ngx_mem_rstream_set(rs, buf->data + header_size, buf->data + buf->len,
-        log, scope);
+        log, scope, header->version);
 
     return NGX_OK;
 }
@@ -139,7 +139,7 @@ ngx_persist_read_inflate(ngx_str_t *buf, size_t max_size,
         return NGX_BAD_DATA;
     }
 
-    ngx_mem_rstream_set(rs, p, p + size, rs->log, rs->scope);
+    ngx_mem_rstream_set(rs, p, p + size, rs->log, rs->scope, rs->version);
 
     if (ptr != NULL) {
         *ptr = p;
