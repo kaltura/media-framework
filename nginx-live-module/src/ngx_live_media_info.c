@@ -933,8 +933,135 @@ ngx_live_media_info_queue_copy_last(ngx_live_track_t *dst,
 
 /* source */
 
+static media_info_t *
+ngx_live_media_info_source_get_target(ngx_live_track_t *track)
+{
+    ngx_queue_t                      *q;
+    ngx_live_media_info_node_t       *node;
+    ngx_live_media_info_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
+
+    q = ngx_queue_last(&ctx->pending);
+    if (q != ngx_queue_sentinel(&ctx->pending)) {
+        node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+        return &node->media_info;
+    }
+
+    for (q = ngx_queue_last(&ctx->active);
+        q != ngx_queue_sentinel(&ctx->active);
+        q = ngx_queue_prev(q))
+    {
+        node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+        if (node->track_id != track->in.key) {
+            continue;
+        }
+
+        return &node->media_info;
+    }
+
+    return NULL;
+}
+
+static ngx_int_t
+ngx_live_media_info_source_compare(media_info_t *target, media_info_t *mi1,
+    media_info_t *mi2)
+{
+    /* return: -1 = mi1 is closer to target, 1 = mi2 is closer to target */
+
+    /* prefer a matching codec */
+    if (mi1->codec_id != mi2->codec_id) {
+        if (mi1->codec_id == target->codec_id) {
+            return -1;
+        }
+
+        if (mi2->codec_id == target->codec_id) {
+            return 1;
+        }
+    }
+
+    switch (target->media_type) {
+
+    case KMP_MEDIA_VIDEO:
+        /* prefer closest video height */
+        if (mi1->u.video.height != mi2->u.video.height) {
+            if (ngx_abs_diff(mi1->u.video.height, target->u.video.height) <=
+                ngx_abs_diff(mi2->u.video.height, target->u.video.height))
+            {
+                return -1;
+            }
+
+            return 1;
+        }
+        break;
+
+    case KMP_MEDIA_AUDIO:
+        /* prefer matching audio channels */
+        if (mi1->u.audio.channels != mi2->u.audio.channels) {
+            if (mi1->u.audio.channels == target->u.audio.channels) {
+                return -1;
+            }
+
+            if (mi2->u.audio.channels == target->u.audio.channels) {
+                return 1;
+            }
+        }
+
+        /* prefer matching audio sample rate */
+        if (mi1->u.audio.sample_rate != mi2->u.audio.sample_rate) {
+            if (mi1->u.audio.sample_rate == target->u.audio.sample_rate) {
+                return -1;
+            }
+
+            if (mi2->u.audio.sample_rate == target->u.audio.sample_rate) {
+                return 1;
+            }
+        }
+
+        /* prefer matching audio sample size */
+        if (mi1->u.audio.bits_per_sample != mi2->u.audio.bits_per_sample) {
+            if (mi1->u.audio.bits_per_sample ==
+                target->u.audio.bits_per_sample)
+            {
+                return -1;
+            }
+
+            if (mi2->u.audio.bits_per_sample ==
+                target->u.audio.bits_per_sample)
+            {
+                return 1;
+            }
+        }
+        break;
+    }
+
+    /* prefer a bitrate lower than target */
+    if (mi1->bitrate <= target->bitrate) {
+
+        if (mi2->bitrate > target->bitrate) {
+            return -1;
+        }
+
+    } else {
+
+        if (mi2->bitrate <= target->bitrate) {
+            return 1;
+        }
+    }
+
+    /* prefer closest bitrate */
+    if (ngx_abs_diff(mi1->bitrate, target->bitrate) <=
+        ngx_abs_diff(mi2->bitrate, target->bitrate))
+    {
+        return -1;
+    }
+
+    return 1;
+}
+
 static ngx_live_track_t *
-ngx_live_media_info_source_get(ngx_live_track_t *track)
+ngx_live_media_info_source_get(ngx_live_track_t *track,
+    ngx_flag_t require_last_segment)
 {
     ngx_queue_t                      *q, *cq;
     media_info_t                     *cur_media_info;
@@ -946,13 +1073,12 @@ ngx_live_media_info_source_get(ngx_live_track_t *track)
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx, *cur_ctx;
 
-    /* Note: assuming pending queue is not empty */
+    target_media_info = ngx_live_media_info_source_get_target(track);
+    if (target_media_info == NULL) {
+        return NULL;
+    }
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
-
-    q = ngx_queue_last(&ctx->pending);
-    node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-    target_media_info = &node->media_info;
 
     source = NULL;
     source_media_info = NULL;   /* silence warning */
@@ -963,9 +1089,11 @@ ngx_live_media_info_source_get(ngx_live_track_t *track)
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
-        if (cur_track->media_type != track->media_type ||
-            !cur_track->has_last_segment)
-        {
+        if (cur_track->media_type != track->media_type) {
+            continue;
+        }
+
+        if (require_last_segment && !cur_track->has_last_segment) {
             continue;
         }
 
@@ -991,46 +1119,10 @@ ngx_live_media_info_source_get(ngx_live_track_t *track)
         node = ngx_queue_data(cq, ngx_live_media_info_node_t, queue);
         cur_media_info = &node->media_info;
 
-        if (source == NULL) {
-            source = cur_track;
-            source_media_info = cur_media_info;
-            continue;
-        }
-
-        /* prefer a matching codec */
-        if (source_media_info->codec_id != cur_media_info->codec_id) {
-            if (cur_media_info->codec_id == target_media_info->codec_id) {
-                source = cur_track;
-                source_media_info = cur_media_info;
-                continue;
-            }
-
-            if (source_media_info->codec_id == target_media_info->codec_id) {
-                continue;
-            }
-        }
-
-        /* prefer a lower bitrate */
-        if (cur_media_info->bitrate <= target_media_info->bitrate) {
-
-            if (source_media_info->bitrate > target_media_info->bitrate) {
-                source = cur_track;
-                source_media_info = cur_media_info;
-                continue;
-            }
-
-        } else {
-
-            if (source_media_info->bitrate <= target_media_info->bitrate) {
-                continue;
-            }
-        }
-
-        /* prefer closest bitrate */
-        if (ngx_abs_diff(cur_media_info->bitrate,
-                target_media_info->bitrate) <
-            ngx_abs_diff(source_media_info->bitrate,
-                target_media_info->bitrate))
+        if (source == NULL ||
+            source->type > cur_track->type ||   /* prefer non-filler */
+            ngx_live_media_info_source_compare(target_media_info,
+                source_media_info, cur_media_info) > 0)
         {
             source = cur_track;
             source_media_info = cur_media_info;
@@ -1060,23 +1152,27 @@ ngx_live_media_info_source_set(ngx_live_track_t *track)
             return NGX_DONE;
         }
 
-        /* save the latest media info as pending, if the track becomes active
-            later, it will need to use this media info */
-
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-        node = ngx_live_media_info_node_clone(channel, node);
-        if (node == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_live_media_info_source_set: clone failed (1)");
-            return NGX_ERROR;
+
+        if (node->track_id == track->in.key) {
+
+            /* save the latest media info as pending, if the track becomes
+                active later, it will need to use this media info */
+
+            node = ngx_live_media_info_node_clone(channel, node);
+            if (node == NULL) {
+                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                    "ngx_live_media_info_source_set: clone failed (1)");
+                return NGX_ERROR;
+            }
+
+            node->frame_index_delta = 0;
+
+            ngx_queue_insert_tail(&ctx->pending, &node->queue);
         }
-
-        node->frame_index_delta = 0;
-
-        ngx_queue_insert_tail(&ctx->pending, &node->queue);
     }
 
-    source = ngx_live_media_info_source_get(track);
+    source = ngx_live_media_info_source_get(track, 1);
     if (source == NULL) {
         ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
             "ngx_live_media_info_source_set: failed to get source");
@@ -1185,7 +1281,8 @@ ngx_live_media_info_pending_add(ngx_live_track_t *track,
             node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
             if (ngx_live_media_info_node_compare(node, media_info, extra_data,
-                extra_data_size)) {
+                extra_data_size) && node->track_id == track->in.key)
+            {
                 /* no change - ignore */
                 return NGX_DONE;
             }
@@ -1355,7 +1452,7 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track)
         return NGX_OK;
     }
 
-    source = ngx_live_media_info_source_get(track);
+    source = ngx_live_media_info_source_get(track, 0);
     if (source == NULL) {
         return NGX_OK;
     }
@@ -1376,6 +1473,7 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track)
             return NGX_ERROR;
         }
 
+        ngx_rbtree_insert(&ctx->rbtree, &node->node);
         ngx_queue_insert_tail(&ctx->active, &node->queue);
     }
 
