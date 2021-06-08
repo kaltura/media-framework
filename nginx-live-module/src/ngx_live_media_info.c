@@ -1111,8 +1111,11 @@ ngx_live_media_info_source_get(ngx_live_track_t *track,
 
         cq = ngx_queue_last(&cur_ctx->active);
         if (cq == ngx_queue_sentinel(&cur_ctx->active)) {
-            ngx_log_error(NGX_LOG_ALERT, &cur_track->log, 0,
-                "ngx_live_media_info_source_get: no media info");
+            if (cur_track->has_last_segment) {
+                ngx_log_error(NGX_LOG_ALERT, &cur_track->log, 0,
+                    "ngx_live_media_info_source_get: no media info");
+            }
+
             continue;
         }
 
