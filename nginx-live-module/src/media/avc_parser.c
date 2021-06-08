@@ -450,9 +450,11 @@ avc_parser_pic_parameter_set_rbsp(
 
     if (!avc_hevc_parser_rbsp_trailing_bits(reader))
     {
-        vod_log_error(VOD_LOG_ERR, ctx->request_context->log, 0,
+        vod_log_error(VOD_LOG_INFO, ctx->request_context->log, 0,
             "avc_parser_pic_parameter_set_rbsp: invalid trailing bits");
-        return VOD_BAD_DATA;
+
+        /* Note: some encoders seem to send some random data after the pps,
+            so we just ignore it */
     }
 
     return VOD_OK;
