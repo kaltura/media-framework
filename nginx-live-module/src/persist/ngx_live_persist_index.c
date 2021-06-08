@@ -426,6 +426,7 @@ ngx_live_persist_index_write_track(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     ngx_queue_t                       *q;
+    ngx_wstream_t                     *ws;
     ngx_live_track_t                  *cur_track;
     ngx_live_channel_t                *channel = obj;
     ngx_live_persist_snap_index_t     *snap;
@@ -437,6 +438,8 @@ ngx_live_persist_index_write_track(ngx_persist_write_ctx_t *write_ctx,
     cp = ngx_live_get_module_ctx(snap, ngx_live_persist_index_module);
     tp = (void *) (cp + 1);
 
+    ws = ngx_persist_write_stream(write_ctx);
+
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
@@ -444,7 +447,7 @@ ngx_live_persist_index_write_track(ngx_persist_write_ctx_t *write_ctx,
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
 
         if (cur_track->type == ngx_live_track_type_filler) {
-            /* will be created by the filler module */
+            /* will be handled by the filler module */
             continue;
         }
 
@@ -463,6 +466,7 @@ ngx_live_persist_index_write_track(ngx_persist_write_ctx_t *write_ctx,
 
         if (ngx_persist_write_block_open(write_ctx,
                 NGX_LIVE_PERSIST_BLOCK_TRACK) != NGX_OK ||
+            ngx_wstream_str(ws, &cur_track->sn.str) != NGX_OK ||
             ngx_persist_write(write_ctx, tp, sizeof(*tp)) != NGX_OK ||
             ngx_live_persist_write_blocks(channel, write_ctx,
                 NGX_LIVE_PERSIST_CTX_INDEX_TRACK, cur_track) != NGX_OK)
@@ -485,10 +489,22 @@ ngx_live_persist_index_read_track(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                        rc;
+    ngx_str_t                        id;
     ngx_log_t                       *orig_log;
     ngx_live_track_t                *track;
     ngx_live_channel_t              *channel = obj;
     ngx_live_persist_index_track_t  *tp;
+
+    if (rs->version >= 5) {     /* TODO: remove version check */
+        if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_live_persist_index_read_track: read id failed");
+            return NGX_BAD_DATA;
+        }
+
+    } else {
+        ngx_memzero(&id, sizeof(id));
+    }
 
     tp = ngx_mem_rstream_get_ptr(rs, sizeof(*tp));
     if (tp == NULL) {
@@ -504,6 +520,19 @@ ngx_live_persist_index_read_track(ngx_persist_block_header_t *header,
             "track index %uD not found", tp->track_id);
         return NGX_OK;
     }
+
+    if (rs->version >= 5) {     /* TODO: remove version check */
+        if (id.len != track->sn.str.len ||
+            ngx_memcmp(id.data, track->sn.str.data, id.len) != 0)
+        {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_live_persist_index_read_track: "
+                "track id mismatch, stored: %V, actual: %V",
+                &id, track->sn.str);
+            return NGX_BAD_DATA;
+        }
+    }
+
 
     orig_log = rs->log;
     rs->log = &track->log;
@@ -760,6 +789,7 @@ static ngx_persist_block_t  ngx_live_persist_index_blocks[] = {
 
     /*
      * persist header:
+     *   ngx_str_t                       id;
      *   ngx_live_persist_index_track_t  p;
      */
     { NGX_LIVE_PERSIST_BLOCK_TRACK, NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL, 0,
