@@ -24,6 +24,9 @@ static ngx_int_t ngx_live_variable_msec(ngx_live_variables_ctx_t *ctx,
     ngx_live_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_live_variable_channel(ngx_live_variables_ctx_t *ctx,
     ngx_live_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_live_variable_channel_uint32(
+    ngx_live_variables_ctx_t *ctx, ngx_live_variable_value_t *v,
+    uintptr_t data);
 
 
 static ngx_live_variable_t  ngx_live_core_variables[] = {
@@ -42,6 +45,9 @@ static ngx_live_variable_t  ngx_live_core_variables[] = {
 
     { ngx_string("channel_id"), NULL, ngx_live_variable_channel,
       offsetof(ngx_live_channel_t, sn.str), 0, 0 },
+
+    { ngx_string("next_segment_index"), NULL, ngx_live_variable_channel_uint32,
+      offsetof(ngx_live_channel_t, next_segment_index), 0, 0 },
 
       ngx_live_null_variable
 };
@@ -499,6 +505,30 @@ ngx_live_variable_channel(ngx_live_variables_ctx_t *ctx,
     } else {
         v->not_found = 1;
     }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_variable_channel_uint32(ngx_live_variables_ctx_t *ctx,
+    ngx_live_variable_value_t *v, uintptr_t data)
+{
+    u_char    *p;
+    uint32_t  *n;
+
+    p = ngx_pnalloc(ctx->pool, NGX_INT32_LEN);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    n = (uint32_t *) ((char *) ctx->ch + data);
+
+    v->len = ngx_sprintf(p, "%uD", *n) - p;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = p;
 
     return NGX_OK;
 }
