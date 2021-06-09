@@ -22,6 +22,11 @@ TEMP_NGINX_CONF = 'temp.conf'
 
 NGINX_BIN = '/usr/local/nginx/sbin/nginx'
 NGINX_PID = '/usr/local/nginx/logs/nginx.pid'
+NGINX_SRC = '/usr/local/src/nginx'
+
+COVERAGE_FILE = '%s/coverage.info' % NGINX_SRC
+COVERAGE_DIR = '/usr/local/nginx/html/cov'
+
 VALGRIND_BIN = 'valgrind'
 
 def downloadTestVideos():
@@ -51,7 +56,7 @@ def waitForNginxStart():
             pass
         time.sleep(0.1)
 
-def startNginx(confFile, fileName, mode='w'):
+def startNginx(confFile, fileName='', mode='w'):
     cmdLine = [NGINX_BIN, '-c', os.path.abspath(confFile)]
     stdout = None
     if options.valgrind:
@@ -62,7 +67,7 @@ def startNginx(confFile, fileName, mode='w'):
     return nginxProc
 
 def stopNginx(nginxProc):
-    if options.valgrind:
+    if options.single_process:
         nginxPid = nginxProc.pid    # daemon off
     else:
         nginxPid = int(file(NGINX_PID).read().strip())
@@ -74,10 +79,37 @@ def restartNginx(nginxProc, confFile, fileName, cleanupFunc):
     stopNginx(nginxProc)
     return startNginx(confFile, fileName, 'a')
 
-
-def valgrindUpdateConf(conf):
+def singleProcessUpdateConf(conf):
     conf.append(['daemon', 'off'])
     conf.append(['master_process', 'off'])
+
+def coverageResetCounters():
+    print 'Coverage: resetting counters'
+    os.system('lcov --directory %s/ -z > /dev/null 2>&1' % NGINX_SRC)
+
+def coverageGenerateReport():
+    try:
+        os.remove(COVERAGE_FILE)
+    except OSError:
+        pass
+
+    try:
+        os.makedirs(COVERAGE_DIR)
+    except OSError:
+        pass
+
+    print 'Coverage: generating report'
+    cmd = ('lcov --capture --directory %s/ --output-file %s > /dev/null' %
+        (NGINX_SRC, COVERAGE_FILE))
+    os.system(cmd)
+
+    cmd = ('genhtml %s --output-directory %s > /dev/null' %
+        (COVERAGE_FILE, COVERAGE_DIR))
+    os.system(cmd)
+
+    # start nginx so that it can serve the coverage html
+    options.valgrind = False
+    startNginx(NGINX_CONF)
 
 def getTests(testsDir, start, end, only):
     if only is not None:
@@ -130,8 +162,8 @@ def run(tests):
             updateConfFunc = getattr(curMod, 'updateConf', None)
             if updateConfFunc is not None:
                 updateConfFuncs.append(updateConfFunc)
-            if options.valgrind:
-                updateConfFuncs.append(valgrindUpdateConf)
+            if options.single_process:
+                updateConfFuncs.append(singleProcessUpdateConf)
 
             if len(updateConfFuncs) > 0:
                 conf = nginxparser.load(file(NGINX_CONF, 'r'))
@@ -195,11 +227,21 @@ if __name__ == '__main__':
     parser.add_option('-v', '--valgrind',
                       action='store_true', dest='valgrind', default=False,
                       help='run with valgrind')
+    parser.add_option('-S', '--single-process',
+                      action='store_true', dest='single_process', default=False,
+                      help='disable nginx master process')
+    parser.add_option('-c', '--coverage',
+                      action='store_true', dest='coverage', default=False,
+                      help='generate coverage report (nginx must be compiled ' +
+                      'with -fprofile-arcs -ftest-coverage -lgcov)')
 
     (options, args) = parser.parse_args()
 
     if not options.setup:
         options.valgrind = False
+
+    if options.valgrind or options.coverage:
+        options.single_process = True
 
     thisDir = os.path.split(os.path.abspath(__file__))[0]
     testsDir = os.path.join(thisDir, 'tests')
@@ -208,4 +250,11 @@ if __name__ == '__main__':
     downloadTestVideos()
 
     tests = getTests(testsDir, options.start, options.end, options.only)
+
+    if options.coverage:
+        coverageResetCounters()
+
     run(tests)
+
+    if options.coverage:
+        coverageGenerateReport()
