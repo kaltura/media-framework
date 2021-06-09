@@ -538,7 +538,13 @@ ngx_http_pckg_m3u8_master_build(ngx_http_request_t *r,
 
     rc = ngx_pckg_media_groups_init(&groups);
     if (rc != NGX_OK) {
-        return rc;
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    if (groups.streams.nelts <= 0) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_pckg_m3u8_master_build: no streams found");
+        return NGX_HTTP_BAD_REQUEST;
     }
 
     /* get the response size */
