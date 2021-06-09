@@ -1946,28 +1946,18 @@ ngx_live_timeline_write_periods(ngx_persist_write_ctx_t *write_ctx,
 
     snap = ngx_persist_write_ctx(write_ctx);
 
-    if (snap->scope.min_index > 0) {
-        period = ngx_live_timeline_get_period_by_index(timeline,
-            snap->scope.min_index, 0);
-        if (period == NULL) {
-            return NGX_OK;
-        }
+    period = ngx_live_timeline_get_period_by_index(timeline,
+        snap->scope.min_index, 0);
+    if (period == NULL) {
+        return NGX_OK;
+    }
 
-        if (period == timeline->head_period) {
-            header.first_period_initial_time =
-                timeline->first_period_initial_time;
-
-        } else {
-            header.first_period_initial_time = period->time;
-        }
+    if (period == timeline->head_period) {
+        header.first_period_initial_time =
+            timeline->first_period_initial_time;
 
     } else {
-        period = timeline->head_period;
-        if (period == NULL) {
-            return NGX_OK;
-        }
-
-        header.first_period_initial_time = timeline->first_period_initial_time;
+        header.first_period_initial_time = period->time;
     }
 
     header.merge = period->time > header.first_period_initial_time ||

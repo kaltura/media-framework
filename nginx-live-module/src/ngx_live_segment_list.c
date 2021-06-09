@@ -356,55 +356,47 @@ ngx_live_segment_list_write_periods(ngx_persist_write_ctx_t *write_ctx,
 
     period.padding = 0;
 
-    if (snap->scope.min_index > 0) {
+    period.segment_index = snap->scope.min_index;
 
-        period.segment_index = snap->scope.min_index;
+    if (ngx_live_segment_iter_init(segment_list, &iter,
+        period.segment_index, 0, &period.time) != NGX_OK)
+    {
+        /* no segments after min_index */
+        return NGX_OK;
+    }
 
-        if (ngx_live_segment_iter_init(segment_list, &iter,
-            period.segment_index, 0, &period.time) != NGX_OK)
-        {
-            /* no segments after min_index */
+    if (period.segment_index < iter.node->node.key) {
+
+        period.segment_index = iter.node->node.key;
+        if (period.segment_index > snap->scope.max_index) {
             return NGX_OK;
         }
-
-        if (period.segment_index < iter.node->node.key) {
-
-            period.segment_index = iter.node->node.key;
-            if (period.segment_index > snap->scope.max_index) {
-                return NGX_OK;
-            }
-        }
-
-        if (ngx_persist_write_block_open(write_ctx,
-                NGX_LIVE_SEGMENT_LIST_PERSIST_BLOCK_PERIOD) != NGX_OK ||
-            ngx_persist_write(write_ctx, &period, sizeof(period))
-                != NGX_OK)
-        {
-            ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
-                "ngx_live_segment_list_write_periods: "
-                "start period failed (1)");
-            return NGX_ERROR;
-        }
-
-        ngx_persist_write_block_set_header(write_ctx, 0);
-
-        if (ngx_live_segment_list_write_node_part(&iter, period.segment_index,
-            write_ctx) != NGX_OK)
-        {
-            ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
-                "ngx_live_segment_list_write_periods: write part failed (1)");
-            return NGX_ERROR;
-        }
-
-        in_block = 1;
-        period_index = iter.node->period_index;
-        q = ngx_queue_next(&iter.node->queue);
-
-    } else {
-        in_block = 0;
-        period_index = 0;
-        q = ngx_queue_head(&segment_list->queue);
     }
+
+    if (ngx_persist_write_block_open(write_ctx,
+            NGX_LIVE_SEGMENT_LIST_PERSIST_BLOCK_PERIOD) != NGX_OK ||
+        ngx_persist_write(write_ctx, &period, sizeof(period))
+            != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
+            "ngx_live_segment_list_write_periods: "
+            "start period failed (1)");
+        return NGX_ERROR;
+    }
+
+    ngx_persist_write_block_set_header(write_ctx, 0);
+
+    if (ngx_live_segment_list_write_node_part(&iter, period.segment_index,
+        write_ctx) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, segment_list->log, 0,
+            "ngx_live_segment_list_write_periods: write part failed (1)");
+        return NGX_ERROR;
+    }
+
+    in_block = 1;
+    period_index = iter.node->period_index;
+    q = ngx_queue_next(&iter.node->queue);
 
     for (;
         q != ngx_queue_sentinel(&segment_list->queue);

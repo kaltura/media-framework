@@ -2075,29 +2075,18 @@ ngx_live_media_info_write_index(ngx_persist_write_ctx_t *write_ctx,
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
     snap = ngx_persist_write_ctx(write_ctx);
 
-    if (snap->scope.min_index > 0) {
-
-        node = ngx_live_media_info_queue_get_before(ctx,
-            snap->scope.min_index);
-        if (node == NULL) {
-            q = ngx_queue_head(&ctx->active);
-            if (q == ngx_queue_sentinel(&ctx->active)) {
-                return NGX_OK;
-            }
-
-            node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-
-        } else {
-            q = &node->queue;
-        }
-
-    } else {
+    node = ngx_live_media_info_queue_get_before(ctx,
+        snap->scope.min_index);
+    if (node == NULL) {
         q = ngx_queue_head(&ctx->active);
         if (q == ngx_queue_sentinel(&ctx->active)) {
             return NGX_OK;
         }
 
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+
+    } else {
+        q = &node->queue;
     }
 
     if (node->node.key > snap->scope.max_index) {
@@ -2159,12 +2148,10 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *block,
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
-    if (mp->segment_index < min_index &&
-        !ngx_queue_empty(&ctx->active))
-    {
+    if (mp->segment_index < min_index && !ngx_queue_empty(&ctx->active)) {
+
         /* update bitrate stats */
-        node = ngx_live_media_info_queue_get_exact(ctx,
-            mp->segment_index);
+        node = ngx_live_media_info_queue_get_exact(ctx, mp->segment_index);
         if (node == NULL) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_media_info_read_index: "
