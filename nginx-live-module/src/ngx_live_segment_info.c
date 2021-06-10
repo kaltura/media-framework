@@ -673,14 +673,13 @@ static ngx_int_t
 ngx_live_segment_info_read_index(ngx_persist_block_header_t *block,
     ngx_mem_rstream_t *rs, void *obj)
 {
-    uint32_t                              left;
     uint32_t                              count;
     uint32_t                              min_index;
     ngx_str_t                             data;
     ngx_live_track_t                     *track = obj;
     ngx_live_channel_t                   *channel;
-    ngx_live_segment_info_elt_t          *dst;
-    ngx_live_segment_info_elt_t          *cur, *next;
+    ngx_live_segment_info_elt_t          *dst, *dst_end;
+    ngx_live_segment_info_elt_t          *src, *src_end;
     ngx_live_segment_info_node_t         *last;
     ngx_live_persist_index_scope_t       *scope;
     ngx_live_segment_info_track_ctx_t    *ctx;
@@ -692,8 +691,8 @@ ngx_live_segment_info_read_index(ngx_persist_block_header_t *block,
 
     ngx_mem_rstream_get_left(rs, &data);
 
-    left = data.len / sizeof(*cur);
-    if (left <= 0) {
+    count = data.len / sizeof(*src);
+    if (count <= 0) {
         return NGX_OK;
     }
 
@@ -705,7 +704,8 @@ ngx_live_segment_info_read_index(ngx_persist_block_header_t *block,
 
     min_index = scope->min_index;
 
-    cur = (void *) data.data;
+    src = (void *) data.data;
+    src_end = src + count;
 
     if (!ngx_queue_empty(&ctx->queue)) {
 
@@ -723,45 +723,39 @@ ngx_live_segment_info_read_index(ngx_persist_block_header_t *block,
             return NGX_BAD_DATA;
         }
 
-        count = NGX_LIVE_SEGMENT_INFO_NODE_ELTS - last->nelts;
-        if (count > left) {
-            count = left;
-        }
+        dst_end = last->elts + NGX_LIVE_SEGMENT_INFO_NODE_ELTS;
 
-        last->nelts += count;
-        next = cur + count;
-
-        for (; cur < next; cur++) {
-            if (cur->index < min_index) {
-                if ((u_char *) cur != data.data) {
+        for (; src < src_end && dst < dst_end; src++) {
+            if (src->index < min_index) {
+                if ((u_char *) src != data.data) {
                     ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                         "ngx_live_segment_info_read_index: "
                         "segment index %uD less than min segment index %uD",
-                        cur->index, min_index);
+                        src->index, min_index);
                     return NGX_BAD_DATA;
                 }
 
                 continue;
             }
 
-            if (cur->index > scope->max_index) {
+            if (src->index > scope->max_index) {
                 ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                     "ngx_live_segment_info_read_index: "
                     "segment index %uD greater than max segment index %uD",
-                    cur->index, scope->max_index);
+                    src->index, scope->max_index);
                 return NGX_BAD_DATA;
             }
 
-            min_index = cur->index + 1;
+            min_index = src->index + 1;
 
-            *dst++ = *cur;
+            *dst++ = *src;
         }
 
-        left -= count;
+        last->nelts = dst - last->elts;
     }
 
     /* create new nodes */
-    while (left > 0) {
+    while (src < src_end) {
 
         last = ngx_block_pool_alloc(channel->block_pool,
             sipcf->bp_idx[NGX_LIVE_BP_SEGMENT_INFO_NODE]);
@@ -769,20 +763,16 @@ ngx_live_segment_info_read_index(ngx_persist_block_header_t *block,
             return NGX_ERROR;
         }
 
-        last->node.key = cur->index;
-
         dst = last->elts;
+        dst_end = last->elts + NGX_LIVE_SEGMENT_INFO_NODE_ELTS;
 
-        last->nelts = ngx_min(left, NGX_LIVE_SEGMENT_INFO_NODE_ELTS);
-        next = cur + last->nelts;
-
-        for (; cur < next; cur++) {
-            if (cur->index < min_index) {
-                if ((u_char *) cur != data.data) {
+        for (; src < src_end && dst < dst_end; src++) {
+            if (src->index < min_index) {
+                if ((u_char *) src != data.data) {
                     ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                         "ngx_live_segment_info_read_index: "
                         "segment index %uD less than min segment index %uD",
-                        cur->index, min_index);
+                        src->index, min_index);
                     return NGX_BAD_DATA;
                 }
 
@@ -791,24 +781,34 @@ ngx_live_segment_info_read_index(ngx_persist_block_header_t *block,
                 }
             }
 
-            if (cur->index > scope->max_index) {
+            if (src->index > scope->max_index) {
                 ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                     "ngx_live_segment_info_read_index: "
                     "segment index %uD greater than max segment index %uD",
-                    cur->index, scope->max_index);
+                    src->index, scope->max_index);
                 return NGX_BAD_DATA;
             }
 
-            min_index = cur->index + 1;
+            min_index = src->index + 1;
 
-            *dst++ = *cur;
+            *dst++ = *src;
         }
 
-        left -= last->nelts;
+        last->nelts = dst - last->elts;
 
-        ngx_queue_insert_tail(&ctx->queue, &last->queue);
-        ngx_rbtree_insert(&ctx->rbtree, &last->node);
+        if (last->nelts > 0) {
+            last->node.key = last->elts[0].index;
+            ngx_queue_insert_tail(&ctx->queue, &last->queue);
+            ngx_rbtree_insert(&ctx->rbtree, &last->node);
+
+        } else {
+            ngx_block_pool_free(channel->block_pool,
+                sipcf->bp_idx[NGX_LIVE_BP_SEGMENT_INFO_NODE], last);
+        }
     }
+
+    last = ngx_queue_data(ngx_queue_last(&ctx->queue),
+        ngx_live_segment_info_node_t, queue);
 
     ctx->last_segment_bitrate = last->elts[last->nelts - 1].bitrate * 100;
 
