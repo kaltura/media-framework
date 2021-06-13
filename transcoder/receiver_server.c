@@ -74,6 +74,7 @@ void* processClient(void *vargp)
     session->lastStatsUpdated=0;
     int retval = -1;
     uint64_t received_frame_ack_id=0;
+    uint32_t ack_offset;
     uint64_t received_frame_id=0;
     while (session->kmpClient.socket) {
         
@@ -89,7 +90,8 @@ void* processClient(void *vargp)
         }
         if (header.packet_type==KMP_PACKET_CONNECT) {
             uint64_t frame_id=0;
-            if ( KMP_read_handshake(&session->kmpClient,&header,session->channel_id,session->track_id,&frame_id)<0) {
+            uint32_t offset;
+            if ( KMP_read_handshake(&session->kmpClient,&header,session->channel_id,session->track_id,&frame_id,&offset)<0) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] KMP_read_handshake",session->stream_name);
                 break;
             } else {
@@ -97,7 +99,7 @@ void* processClient(void *vargp)
                 transcode_session->onProcessedFrame=(transcode_session_processedFrameCB*)processedFrameCB;
                 transcode_session->onProcessedFrameContext=session;
                 sprintf(session->stream_name,"%s_%s",session->channel_id,session->track_id);
-                transcode_session_init(transcode_session,session->channel_id,session->track_id,frame_id);
+                transcode_session_init(transcode_session,session->channel_id,session->track_id,frame_id,offset);
                 received_frame_id=frame_id;
             }
         }
@@ -125,14 +127,16 @@ void* processClient(void *vargp)
             samples_stats_add(&server->receiverStats,packet->dts,packet->pos,packet->size);
             pthread_mutex_unlock(&server->diagnostics_locker);  // lock the critical section
 
+            add_packet_frame_id(packet,received_frame_id);
+
             LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] received packet %s (%p) #: %lld",session->stream_name,getPacketDesc(packet),transcode_session,received_frame_id);
             transcode_session_async_send_packet(transcode_session, packet);
             av_packet_free(&packet);
             received_frame_id++;
-            uint64_t frame_id = transcode_session_get_ack_frame_id(transcode_session);
+            uint64_t frame_id = transcode_session_get_ack_frame_id(transcode_session,&ack_offset);
             if (frame_id!=0 && received_frame_ack_id!=frame_id) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] sending ack for packet # : %lld",session->stream_name,frame_id);
-                KMP_send_ack(&session->kmpClient, frame_id);
+                KMP_send_ack(&session->kmpClient, frame_id,ack_offset);
                 received_frame_ack_id=frame_id;
             }
         }

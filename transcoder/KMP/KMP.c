@@ -360,16 +360,16 @@ int KMP_send_eof( KMP_session_t *context)
     return 0;
 }
 
-int KMP_send_ack( KMP_session_t *context,uint64_t frame_id)
+int KMP_send_ack( KMP_session_t *context,uint64_t frame_id,uint32_t offset)
 {
-    LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send KMP_send_ack %lld",context->sessionName,frame_id);
+    LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send KMP_send_ack %lld offset %ld",context->sessionName,frame_id,offset);
     kmp_ack_frames_packet_t pkt;
     pkt.header.packet_type=KMP_PACKET_ACK_FRAMES;
     pkt.header.data_size=0;
     pkt.header.reserved=0;
     pkt.header.header_size=sizeof(kmp_ack_frames_packet_t);
     pkt.frame_id=frame_id;
-    pkt.offset=0;
+    pkt.offset=offset;
     pkt.padding=0;
     _S(KMP_send(context, &pkt, sizeof(kmp_ack_frames_packet_t)));
     return 0;
@@ -515,7 +515,7 @@ int KMP_read_header( KMP_session_t *context,kmp_packet_header_t *header)
     int valread =recvExact(context->socket,(char*)header,sizeof(kmp_packet_header_t));
     return valread;
 }
-int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char* channel_id,char* track_id,uint64_t* initial_frame_id)
+int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char* channel_id,char* track_id,uint64_t* initial_frame_id,uint32_t* offset)
 {
     kmp_connect_header_t connect;
     if (header->packet_type!=KMP_PACKET_CONNECT) {

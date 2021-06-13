@@ -134,11 +134,13 @@ const char* pict_type_to_string(int pt) {
 
 char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
 {
+    int64_t frame_id;
     if (pFrame==NULL) {
         return "<NULL>";
     }
+    get_frame_id(pFrame,&frame_id);
     if (pFrame->width>0) {
-        snprintf(buf,size,"pts=%s;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;has_53cc=%d",
+        snprintf(buf,size,"pts=%s;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;has_53cc=%d;frame_id=%lld",
              pts2str(pFrame->pts),
              pFrame->pkt_pos != 0 ? ts2str(pFrame->pkt_pos,false) :  "N/A",
              pFrame->key_frame==1 ? "True" : "False",
@@ -148,21 +150,24 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
              pict_type_to_string(pFrame->pict_type),
              pFrame->width,
              pFrame->height,
-             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL);
+             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL,
+             frame_id);
     } else {
-        snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%lld",
+        snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%lld;frame_id=%lld",
                  pts2str(pFrame->pts),
-                 pFrame->channels,pFrame->sample_rate,pFrame->format,pFrame->nb_samples,pFrame->channel_layout);
+                 pFrame->channels,pFrame->sample_rate,pFrame->format,pFrame->nb_samples,pFrame->channel_layout,frame_id);
     }
     return buf;
 }
 
 char *av_get_packet_desc(char *buf,int len,const  AVPacket * packet)
 {
+    int64_t frame_id;
     if (packet==NULL) {
         return "<NULL>";
     }
-    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;clock=%s;key=%s;size=%d;flags=%d",
+    get_packet_frame_id(packet,&frame_id);
+    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;clock=%s;key=%s;size=%d;flags=%d;frame_id=%lld",
              packet,
              packet->data,
              pts2str(packet->pts),
@@ -170,7 +175,8 @@ char *av_get_packet_desc(char *buf,int len,const  AVPacket * packet)
              packet->pos != 0 ? ts2str(packet->pos,false) :  "N/A",
              (packet->flags & AV_PKT_FLAG_KEY)==AV_PKT_FLAG_KEY ? "Yes" : "No",
              packet->size,
-             packet->flags);
+             packet->flags,
+             frame_id);
     return buf;
 }
 
@@ -238,4 +244,51 @@ void log_frame_side_data(const char* category,const AVFrame *pFrame)
             }
         }
     }
+}
+
+int add_packet_frame_id(AVPacket *packet,int64_t frame_id) {
+     AVDictionary * frameDict = NULL;
+     int frameDictSize = 0;
+     char buf[sizeof("9223372036854775807")];
+     uint8_t *frameDictData = NULL;
+     sprintf(buf,"%lld",frame_id);
+     _S(av_dict_set(&frameDict, "frame_id", buf, 0));
+     // Pack dictionary to be able to use it as a side data in AVPacket
+     frameDictData = av_packet_pack_dictionary(frameDict, &frameDictSize);
+     if(!frameDictData)
+      return AVERROR(ENOMEM);
+     // Free dictionary not used any more
+     av_dict_free(&frameDict);
+     // Add side_data to AVPacket which will be decoded
+     return av_packet_add_side_data(packet, AV_PKT_DATA_STRINGS_METADATA, frameDictData, frameDictSize);
+}
+
+int get_packet_frame_id(const AVPacket *packet,int64_t *frame_id_ptr)
+{
+    const char *frame_str;
+     AVDictionary * frameDict = NULL;
+     int frameDictSize = 0;
+     uint8_t *frameDictData = av_packet_get_side_data(packet, AV_PKT_DATA_STRINGS_METADATA, &frameDictSize);
+     *frame_id_ptr = AV_NOPTS_VALUE;
+     if (!frameDictData)
+        return AVERROR(EINVAL);
+    _S(av_packet_unpack_dictionary(frameDictData,frameDictSize,&frameDict));
+    frame_str = av_dict_get(frameDict, "frame_id", NULL, 0)->value;
+    if(!frame_str)
+       return AVERROR(EINVAL);
+    *frame_id_ptr = strtoull(frame_str,NULL,10);
+    av_dict_free(&frameDict);
+    return 0;
+}
+
+int get_frame_id(AVFrame *frame,int64_t *frame_id_ptr)
+{
+    *frame_id_ptr = AV_NOPTS_VALUE;
+    if(frame->metadata) {
+        const char *frame_str = av_dict_get(frame->metadata, "frame_id", NULL, 0)->value;
+         if(!frame_str)
+            return AVERROR(EINVAL);
+        *frame_id_ptr = strtoull(frame_str,NULL,10);
+    }
+    return AVERROR(EINVAL);
 }

@@ -10,7 +10,7 @@
 
 
 /* initialization */
-int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackId,uint64_t input_frame_first_id)
+int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackId,uint64_t input_frame_first_id,uint32_t offset)
 {
     ctx->decoders=0;
     ctx->outputs=0;
@@ -18,7 +18,8 @@ int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackI
     ctx->encoders=0;
     ctx->currentMediaInfo=NULL;
     ctx->input_frame_first_id=input_frame_first_id;
-    ctx->completed_frame_id=0;
+    ctx->offset = offset;
+    ctx->ack_handler=NULL;
     strcpy(ctx->channelId,channelId);
     strcpy(ctx->trackId,trackId);
     sprintf(ctx->name,"%s_%s",channelId,trackId);
@@ -96,14 +97,17 @@ int transcode_session_async_send_packet(transcode_session_t *ctx, struct AVPacke
     return packet_queue_write_packet(&ctx->packetQueue, packet);
 }
 
-int64_t transcode_session_get_ack_frame_id(transcode_session_t *ctx)
+int64_t transcode_session_get_ack_frame_id(transcode_session_t *ctx,uint32_t *offset)
 {
-    return ctx->completed_frame_id;
-    /*
-    for (int i=0;i<ctx->outputs;i++)
-    {
-        transcode_session_output_t* output=&ctx->output[i];
-    }*/
+    *offset = 0;
+    if(ctx->ack_handler){
+        transcode_codec_t *pEncoder;
+        if(ctx->ack_handler->passthrough)
+            return ctx->ack_handler->lastAck;
+        // find ack corresponding to input stream
+        //pEncoder = &ctx->encoder[ctx->ack_handler->encoderId];
+    }
+    return 0;
 }
 
 int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInfo_t* newMediaInfo)
@@ -139,6 +143,12 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
         LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"init_outputs_from_config failed");
         exit(-1);
     }
+    for (int outputId=0;outputId<ctx->outputs && !ctx->ack_handler;outputId++) {
+        if(ctx->output[outputId].passthrough)
+            ctx->ack_handler = &ctx->output[outputId];
+    }
+    if(ctx->outputs && !ctx->ack_handler)
+        ctx->ack_handler = ctx->output;
     return 0;
 }
 
@@ -296,7 +306,7 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
     {
         _S(transcode_session_output_set_media_info(pOutput,pContext->currentMediaInfo,pContext->input_frame_first_id));
     }
-    
+
     return 0;
 }
 
@@ -482,6 +492,16 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
     return 0;
 }
 
+static void shift_audio_samples(AVFrame *frame,int shift_by) {
+
+  int planar      = av_sample_fmt_is_planar(frame->format),
+      planes      = planar ? frame->channels : 1,
+      block_align = av_get_bytes_per_sample(frame->format) * (planar ? 1 : frame->channels),
+      bytes_offset      = shift_by * block_align;
+  av_samples_copy(frame->extended_data, frame->extended_data, 0, bytes_offset,
+       frame->nb_samples - shift_by, frame->channels, frame->format);
+  frame->nb_samples -= shift_by;
+}
 
 int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame *frame)
 {
@@ -496,6 +516,20 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
         }
         return 0;
     }
+
+    if(ctx->offset > 0){
+        if(decoderCtx->codec_type == AVMEDIA_TYPE_AUDIO) {
+            if(frame->nb_samples > ctx->offset) {
+                // shift left by amount of offset
+                shift_audio_samples(frame,ctx->offset);
+                ctx->offset = 0;
+            } else {
+                ctx->offset -= frame->nb_samples;
+                return 0;
+            }
+        }
+    }
+
     LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] decoded: %s",ctx->name,getFrameDesc(frame));
         
     if (ctx->dropper.enabled && transcode_dropper_should_drop_frame(&ctx->dropper,ctx->lastQueuedDts,frame))
@@ -592,11 +626,6 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
     }
     if (ctx->onProcessedFrame) {
         ctx->onProcessedFrame(ctx->onProcessedFrameContext,false);
-    }
-    if (ctx->completed_frame_id==0) {
-        ctx->completed_frame_id=ctx->input_frame_first_id;
-    } else {
-        ctx->completed_frame_id++;
     }
     return ret;
 }
