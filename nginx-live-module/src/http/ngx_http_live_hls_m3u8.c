@@ -971,7 +971,7 @@ ngx_http_live_hls_append_extinf_tag(u_char *p, uint32_t duration)
 
 static size_t
 ngx_http_live_hls_bitrate_gap_get_size(ngx_http_request_t *r,
-    ngx_live_period_t *first_period, ngx_live_track_t **tracks)
+    ngx_live_manifest_timeline_t *timeline, ngx_live_track_t **tracks)
 {
     size_t              result;
     uint32_t            i;
@@ -979,12 +979,17 @@ ngx_http_live_hls_bitrate_gap_get_size(ngx_http_request_t *r,
     uint32_t            min_gap_count;
     uint32_t            bitrate_count;
     uint32_t            left;
+    ngx_queue_t        *q;
     ngx_live_track_t   *cur_track;
     ngx_live_period_t  *period;
 
     result = 0;
 
-    for (period = first_period; period != NULL; period = period->next) {
+    for (q = &timeline->first_period.queue;
+        q != timeline->sentinel;
+        q = ngx_queue_next(q))
+    {
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
 
         /* Note: using the min gap count since a gap is returned only if
             ALL tracks have a gap */
@@ -1155,6 +1160,7 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
     ngx_str_t                             selector;
     ngx_str_t                             seg_suffix;
     ngx_uint_t                            container_format;
+    ngx_queue_t                          *q;
     media_info_t                         *media_infos[KMP_MEDIA_COUNT];
     ngx_live_period_t                    *period;
     ngx_live_period_t                    *first_period;
@@ -1202,7 +1208,8 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
 
     /* get response size limit */
     timeline = objects->timeline;
-    period = timeline->last_period;
+    q = ngx_queue_last(&timeline->periods);
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
     segment_index_size = vod_get_int_print_len(period->node.key +
         period->segment_count);
 
@@ -1221,13 +1228,11 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
             selector.len + ngx_http_live_hls_ext_init_seg.len;
     }
 
-    first_period = &timeline->manifest.first_period;
-
     result_size =
         sizeof(M3U8_INDEX_HEADER) + 4 * NGX_INT32_LEN +
         period_size * timeline->manifest.period_count +
         segment_size * timeline->manifest.segment_count +
-        ngx_http_live_hls_bitrate_gap_get_size(r, first_period,
+        ngx_http_live_hls_bitrate_gap_get_size(r, &timeline->manifest,
             objects->tracks) +
         sizeof(M3U8_END_LIST) - 1;
 
@@ -1277,13 +1282,19 @@ ngx_http_live_hls_m3u8_build_index(ngx_http_request_t *r,
 
     last_map_index = NGX_MAX_UINT32_VALUE;
 
+    first_period = &timeline->manifest.first_period;
+
     rc = ngx_http_live_hls_media_info_iter_init(r, &media_info_iter,
         objects, first_period->node.key);
     if (rc != NGX_OK) {
         return rc;
     }
 
-    for (period = first_period; period != NULL; period = period->next) {
+    for (q = &first_period->queue;
+        q != ngx_queue_sentinel(&timeline->periods);
+        q = ngx_queue_next(q))
+    {
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
 
         if (period != first_period) {
             p = ngx_copy_fix(p, M3U8_DISCONTINUITY);

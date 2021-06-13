@@ -167,7 +167,6 @@ ngx_live_period_create(ngx_live_channel_t *channel)
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
-    period->next = NULL;
     period->duration = 0;
     period->segment_count = 0;
 
@@ -314,6 +313,8 @@ ngx_live_manifest_timeline_remove_segment(
     ngx_live_manifest_timeline_t *timeline)
 {
     uint32_t            duration;
+    ngx_queue_t        *q;
+    ngx_live_period_t  *next;
     ngx_live_period_t  *period = &timeline->first_period;
 
     ngx_live_period_pop_segment(period, &duration);
@@ -330,12 +331,14 @@ ngx_live_manifest_timeline_remove_segment(
     timeline->period_count--;
     timeline->first_period_index++;
 
-    if (period->next == NULL) {
+    q = ngx_queue_next(&period->queue);
+    if (q == timeline->sentinel) {
         timeline->first_period.node.key = NGX_LIVE_INVALID_SEGMENT_INDEX;
         return;
     }
 
-    *period = *period->next;
+    next = ngx_queue_data(q, ngx_live_period_t, queue);
+    *period = *next;
 
     timeline->first_period_initial_time = period->time;
     timeline->first_period_initial_segment_index = period->node.key;
@@ -380,7 +383,7 @@ ngx_live_manifest_timeline_add_first_period(
     ngx_live_period_t  *period = &timeline->first_period;
 
     period->node.key = segment_index;
-    period->next = NULL;
+    period->queue.next = timeline->sentinel;
     period->time = time;
     period->duration = 0;
     period->segment_count = 0;
@@ -409,7 +412,7 @@ ngx_live_manifest_timeline_add_period(ngx_live_timeline_channel_ctx_t *cctx,
         return;
 
     case 1:
-        timeline->first_period.next = period;
+        timeline->first_period.queue.next = &period->queue;
         break;
     }
 
@@ -465,7 +468,13 @@ static void
 ngx_live_timeline_manifest_copy(ngx_live_timeline_t *dest,
     ngx_live_timeline_t *source, uint32_t max_duration)
 {
-    dest->manifest.first_period = *dest->head_period;
+    ngx_queue_t        *q;
+    ngx_live_period_t  *head;
+
+    q = ngx_queue_head(&dest->periods);
+    head = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    dest->manifest.first_period = *head;
     dest->manifest.availability_start_time = dest->manifest.first_period.time;
     dest->manifest.first_period_initial_time =
         dest->manifest.first_period.time;
@@ -641,6 +650,7 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
 
     timeline->conf = *conf;
 
+    timeline->manifest.sentinel = ngx_queue_sentinel(&timeline->periods);
     timeline->manifest.conf = *manifest_conf;
     timeline->manifest.first_period.node.key = NGX_LIVE_INVALID_SEGMENT_INDEX;
     timeline->manifest.sequence = channel->next_segment_index;
@@ -648,6 +658,7 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
 
     ngx_rbtree_init(&timeline->rbtree, &timeline->sentinel,
         ngx_rbtree_insert_value);
+    ngx_queue_init(&timeline->periods);
 
     ngx_rbtree_insert(&cctx->rbtree, &timeline->sn.node);
     ngx_queue_insert_tail(&cctx->queue, &timeline->queue);
@@ -666,7 +677,7 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
 void
 ngx_live_timeline_free(ngx_live_timeline_t *timeline)
 {
-    ngx_live_period_t                *next;
+    ngx_queue_t                      *q;
     ngx_live_period_t                *period;
     ngx_live_channel_t               *channel;
     ngx_live_timeline_channel_ctx_t  *cctx;
@@ -681,8 +692,12 @@ ngx_live_timeline_free(ngx_live_timeline_t *timeline)
     tpcf = ngx_live_get_module_preset_conf(channel, ngx_live_timeline_module);
 
     /* free the periods (no reason to remove from tree/queue) */
-    for (period = timeline->head_period; period; period = next) {
-        next = period->next;
+    for (q = ngx_queue_head(&timeline->periods);
+        q != ngx_queue_sentinel(&timeline->periods); )
+    {
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
+        q = ngx_queue_next(q);
+
         ngx_live_period_free(channel, period);
     }
 
@@ -756,7 +771,7 @@ ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
     }
 
     if (flags & NGX_KSMP_FLAG_RELATIVE_DTS) {
-        if (period == timeline->head_period) {
+        if (&period->queue == ngx_queue_head(&timeline->periods)) {
             *correction = -timeline->first_period_initial_time;
 
         } else {
@@ -836,27 +851,28 @@ ngx_live_timeline_update(ngx_live_timeline_t *timeline,
 static void
 ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
 {
-    ngx_log_t          *log = &timeline->log;
     uint64_t            duration;
     uint32_t            period_count;
     uint32_t            segment_count;
+    ngx_log_t          *log = &timeline->log;
+    ngx_queue_t        *q;
     ngx_live_period_t  *period;
-    ngx_live_period_t  *prev_period;
 
     duration = 0;
     period_count = 0;
     segment_count = 0;
-    prev_period = NULL;
 
-    for (period = timeline->head_period; period; period = period->next) {
+    for (q = ngx_queue_head(&timeline->periods);
+        q != ngx_queue_sentinel(&timeline->periods);
+        q = ngx_queue_next(q))
+    {
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
 
         ngx_live_period_validate(period, log);
 
         duration += period->duration;
         segment_count += period->segment_count;
         period_count++;
-
-        prev_period = period;
     }
 
     if (timeline->duration != duration) {
@@ -883,32 +899,23 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
         ngx_debug_point();
     }
 
-    if (timeline->last_period != prev_period) {
-        ngx_log_error(NGX_LOG_ALERT, log, 0,
-            "ngx_live_timeline_validate: "
-            "invalid last period %p expected %p",
-            timeline->last_period, prev_period);
-        ngx_debug_point();
-    }
-
     duration = 0;
     period_count = 0;
     segment_count = 0;
-    prev_period = NULL;
 
     if (timeline->manifest.first_period.segment_count > 0) {
 
-        for (period = &timeline->manifest.first_period;
-            period;
-            period = period->next) {
+        for (q = &timeline->manifest.first_period.queue;
+            q != timeline->manifest.sentinel;
+            q = ngx_queue_next(q))
+        {
+            period = ngx_queue_data(q, ngx_live_period_t, queue);
 
             ngx_live_period_validate(period, log);
 
             duration += period->duration;
             segment_count += period->segment_count;
             period_count++;
-
-            prev_period = period;
         }
 
     } else if (timeline->manifest.first_period.node.key
@@ -944,14 +951,6 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
             timeline->manifest.period_count, period_count);
         ngx_debug_point();
     }
-
-    if (period_count > 1 && timeline->last_period != prev_period) {
-        ngx_log_error(NGX_LOG_ALERT, log, 0,
-            "ngx_live_timeline_validate: "
-            "invalid manifest last period %p expected %p",
-            timeline->last_period, prev_period);
-        ngx_debug_point();
-    }
 }
 #else
 #define ngx_live_timeline_validate(timeline)
@@ -961,7 +960,11 @@ static void
 ngx_live_timeline_remove_segment(ngx_live_timeline_t *timeline)
 {
     uint32_t            duration;
-    ngx_live_period_t  *period = timeline->head_period;
+    ngx_queue_t        *q;
+    ngx_live_period_t  *period;
+
+    q = ngx_queue_head(&timeline->periods);
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
 
     ngx_live_period_pop_segment(period, &duration);
 
@@ -973,23 +976,25 @@ ngx_live_timeline_remove_segment(ngx_live_timeline_t *timeline)
     }
 
     ngx_rbtree_delete(&timeline->rbtree, &period->node);
+    ngx_queue_remove(q);
 
-    timeline->head_period = period->next;
-    if (timeline->head_period == NULL) {
-        timeline->last_period = NULL;
-
-    } else {
-        timeline->first_period_initial_time = timeline->head_period->time;
-    }
     timeline->period_count--;
 
     ngx_live_period_free(timeline->channel, period);
+
+    q = ngx_queue_head(&timeline->periods);
+    if (q != ngx_queue_sentinel(&timeline->periods)) {
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+        timeline->first_period_initial_time = period->time;
+    }
 }
 
 static void
 ngx_live_timeline_remove_segments(ngx_live_timeline_t *timeline,
     uint32_t base_count, uint64_t base_duration, uint32_t *min_segment_index)
 {
+    ngx_queue_t               *q;
     ngx_live_period_t         *period;
     ngx_live_timeline_conf_t  *conf;
 
@@ -1000,8 +1005,8 @@ ngx_live_timeline_remove_segments(ngx_live_timeline_t *timeline,
 
     for ( ;; ) {
 
-        period = timeline->head_period;
-        if (period == NULL) {
+        q = ngx_queue_head(&timeline->periods);
+        if (q == ngx_queue_sentinel(&timeline->periods)) {
             goto done;
         }
 
@@ -1018,6 +1023,8 @@ ngx_live_timeline_remove_segments(ngx_live_timeline_t *timeline,
         ngx_live_timeline_remove_segment(timeline);
     }
 
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
     if (period->node.key < *min_segment_index) {
         *min_segment_index = period->node.key;
     }
@@ -1033,15 +1040,20 @@ ngx_live_timeline_inactive_remove_segments(ngx_live_timeline_t *timeline,
 {
     uint32_t                      base_count;
     uint64_t                      base_duration;
+    ngx_queue_t                  *q;
     ngx_live_period_t            *period;
     ngx_live_core_preset_conf_t  *cpcf;
 
     if (ngx_time() <= timeline->last_segment_created ||
         timeline->duration <= 0)
     {
-        period = timeline->head_period;
-        if (period != NULL && period->node.key < *min_segment_index) {
-            *min_segment_index = period->node.key;
+        q = ngx_queue_head(&timeline->periods);
+        if (q != ngx_queue_sentinel(&timeline->periods)) {
+            period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+            if (period->node.key < *min_segment_index) {
+                *min_segment_index = period->node.key;
+            }
         }
 
         return;
@@ -1065,7 +1077,13 @@ ngx_live_timeline_inactive_remove_segments(ngx_live_timeline_t *timeline,
 static void
 ngx_live_timeline_add_segment(ngx_live_timeline_t *timeline, uint32_t duration)
 {
-    ngx_live_period_add_segment(timeline->last_period, duration);
+    ngx_queue_t        *q;
+    ngx_live_period_t  *period;
+
+    q = ngx_queue_last(&timeline->periods);
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    ngx_live_period_add_segment(period, duration);
 
     timeline->segment_count++;
     timeline->duration += duration;
@@ -1078,6 +1096,7 @@ ngx_live_timeline_get_time(ngx_live_timeline_t *timeline, int64_t offset,
     ngx_log_t *log, int64_t *time)
 {
     int64_t             duration;
+    ngx_queue_t        *q;
     ngx_live_period_t  *period;
 
     if (timeline->conf.period_gap == -1) {
@@ -1087,8 +1106,8 @@ ngx_live_timeline_get_time(ngx_live_timeline_t *timeline, int64_t offset,
         return NGX_ERROR;
     }
 
-    period = timeline->head_period;
-    if (period == NULL) {
+    q = ngx_queue_head(&timeline->periods);
+    if (q == ngx_queue_sentinel(&timeline->periods)) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_timeline_get_time: no periods, timeline: %V",
             &timeline->sn.str);
@@ -1096,13 +1115,15 @@ ngx_live_timeline_get_time(ngx_live_timeline_t *timeline, int64_t offset,
     }
 
     for ( ;; ) {
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
+        q = ngx_queue_next(q);
+
         duration = period->duration + timeline->conf.period_gap;
-        if (offset < duration || period->next == NULL) {
+        if (offset < duration || q == ngx_queue_sentinel(&timeline->periods)) {
             break;
         }
 
         offset -= duration;
-        period = period->next;
     }
 
     *time = period->time + offset;
@@ -1113,6 +1134,7 @@ static ngx_live_period_t *
 ngx_live_timeline_get_period_by_index(ngx_live_timeline_t *timeline,
     uint32_t segment_index, ngx_flag_t strict)
 {
+    ngx_queue_t        *q;
     ngx_rbtree_t       *rbtree;
     ngx_rbtree_node_t  *node;
     ngx_rbtree_node_t  *sentinel;
@@ -1146,7 +1168,16 @@ ngx_live_timeline_get_period_by_index(ngx_live_timeline_t *timeline,
                 continue;
             }
 
-            return strict ? NULL : period->next;
+            if (strict) {
+                return NULL;
+            }
+
+            q = ngx_queue_next(&period->queue);
+            if (q == ngx_queue_sentinel(&timeline->periods)) {
+                return NULL;
+            }
+
+            return ngx_queue_data(q, ngx_live_period_t, queue);
 
         } else {
             return period;
@@ -1158,6 +1189,7 @@ static ngx_live_period_t *
 ngx_live_timeline_get_period_by_time(ngx_live_timeline_t *timeline,
     int64_t time)
 {
+    ngx_queue_t        *q;
     ngx_rbtree_t       *rbtree = &timeline->rbtree;
     ngx_rbtree_node_t  *node;
     ngx_rbtree_node_t  *sentinel;
@@ -1186,7 +1218,12 @@ ngx_live_timeline_get_period_by_time(ngx_live_timeline_t *timeline,
 
         } else if (time >= (int64_t) (period->time + period->duration)) {
             if (node->right == sentinel) {
-                return period->next;
+                q = ngx_queue_next(&period->queue);
+                if (q == ngx_queue_sentinel(&timeline->periods)) {
+                    return NULL;
+                }
+
+                return ngx_queue_data(q, ngx_live_period_t, queue);
             }
             node = node->right;
 
@@ -1205,6 +1242,7 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
     uint32_t                          ignore;
     uint32_t                          max_duration;
     uint32_t                          segment_index;
+    ngx_queue_t                      *q;
     ngx_live_period_t                *src_period;
     ngx_live_period_t                *dest_period;
     ngx_live_channel_t               *channel = dest->channel;
@@ -1219,11 +1257,17 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
 
     src_period = ngx_live_timeline_get_period_by_time(source,
         dest->conf.start);
+    if (src_period == NULL) {
+        return NGX_OK;
+    }
 
     max_duration = 0;
 
-    for ( ; src_period; src_period = src_period->next) {
-
+    for (q = &src_period->queue;
+        q != ngx_queue_sentinel(&source->periods);
+        q = ngx_queue_next(q))
+    {
+        src_period = ngx_queue_data(q, ngx_live_period_t, queue);
         if (src_period->time >= dest->conf.end) {
             break;
         }
@@ -1280,7 +1324,6 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
         }
 
         dest_period->duration = segment_time - dest_period->time;
-        dest_period->next = NULL;
 
         if (dest->conf.period_gap != -1 && dest->last_time) {
             dest_period->correction = dest->last_time + dest->conf.period_gap -
@@ -1291,18 +1334,12 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
         }
 
         ngx_rbtree_insert(&dest->rbtree, &dest_period->node);
+        ngx_queue_insert_tail(&dest->periods, &dest_period->queue);
 
-        if (dest->head_period == NULL) {
-            dest->head_period = dest_period;
-
-        } else {
-            dest->last_period->next = dest_period;
-        }
         dest->period_count++;
 
         dest->last_time = dest_period->time + dest_period->duration +
             dest_period->correction;
-        dest->last_period = dest_period;
 
         dest->segment_count += dest_period->segment_count;
         dest->duration += dest_period->duration;
@@ -1314,7 +1351,10 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
         return NGX_OK;
     }
 
-    dest->first_period_initial_time = dest->head_period->time;
+    q = ngx_queue_head(&dest->periods);
+    dest_period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    dest->first_period_initial_time = dest_period->time;
     dest->last_segment_created = source->last_segment_created;
 
     ngx_live_timeline_manifest_copy(dest, source, max_duration);
@@ -1342,6 +1382,9 @@ static void
 ngx_live_timeline_truncate(ngx_live_timeline_t *timeline,
     uint32_t segment_index)
 {
+    ngx_queue_t        *q;
+    ngx_live_period_t  *period;
+
     if (timeline->conf.no_truncate) {
         return;
     }
@@ -1349,9 +1392,18 @@ ngx_live_timeline_truncate(ngx_live_timeline_t *timeline,
     ngx_live_manifest_timeline_truncate(&timeline->manifest,
         segment_index);
 
-    while (timeline->head_period &&
-        timeline->head_period->node.key <= segment_index)
-    {
+    for ( ;; ) {
+
+        q = ngx_queue_head(&timeline->periods);
+        if (q == ngx_queue_sentinel(&timeline->periods)) {
+            break;
+        }
+
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
+        if (period->node.key > segment_index) {
+            break;
+        }
+
         ngx_live_timeline_remove_segment(timeline);
     }
 }
@@ -1387,7 +1439,8 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
     uint32_t                          min_segment_index;
     ngx_int_t                         rc;
     ngx_flag_t                        added;
-    ngx_queue_t                      *q;
+    ngx_flag_t                        new_period;
+    ngx_queue_t                      *q, *pq;
     ngx_live_period_t                *period;
     ngx_live_timeline_t              *timeline;
     ngx_live_timeline_channel_ctx_t  *cctx;
@@ -1432,12 +1485,26 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
             continue;
         }
 
-        period = timeline->last_period;
-        if (period == NULL ||
-            time != (int64_t) (period->time + period->duration) ||
-            segment_index != period->node.key + period->segment_count ||
-            force_new_period)
-        {
+        new_period = force_new_period;
+
+        pq = ngx_queue_last(&timeline->periods);
+        if (pq != ngx_queue_sentinel(&timeline->periods)) {
+            period = ngx_queue_data(pq, ngx_live_period_t, queue);
+
+            if (time != (int64_t) (period->time + period->duration) ||
+                segment_index != period->node.key + period->segment_count)
+            {
+                new_period = 1;
+            }
+
+        } else {
+            new_period = 1;
+
+            timeline->first_period_initial_time = time;
+        }
+
+        if (new_period) {
+
             /* create a new period */
             period = ngx_live_period_create(channel);
             if (period == NULL) {
@@ -1458,17 +1525,9 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
             }
 
             ngx_rbtree_insert(&timeline->rbtree, &period->node);
+            ngx_queue_insert_tail(&timeline->periods, &period->queue);
 
-            if (timeline->head_period == NULL) {
-                timeline->head_period = period;
-                timeline->first_period_initial_time = time;
-
-            } else {
-                timeline->last_period->next = period;
-            }
             timeline->period_count++;
-
-            timeline->last_period = period;
 
             ngx_live_manifest_timeline_add_period(cctx, &timeline->manifest,
                 period);
@@ -1694,10 +1753,7 @@ ngx_live_timeline_last_periods_json_get_size(ngx_live_timeline_t *obj)
 {
     uint32_t  count;
 
-    count = obj->period_count;
-    if (count > NGX_LIVE_TIMELINE_JSON_MAX_PERIODS) {
-        count = NGX_LIVE_TIMELINE_JSON_MAX_PERIODS;
-    }
+    count = ngx_min(obj->period_count, NGX_LIVE_TIMELINE_JSON_MAX_PERIODS);
 
     return sizeof("[]") - 1 +
         (ngx_live_period_json_get_size(NULL) + sizeof(",") - 1) * count;
@@ -1706,26 +1762,27 @@ ngx_live_timeline_last_periods_json_get_size(ngx_live_timeline_t *obj)
 static u_char *
 ngx_live_timeline_last_periods_json_write(u_char *p, ngx_live_timeline_t *obj)
 {
-    uint32_t            count, skip;
+    uint32_t            i;
     ngx_flag_t          comma;
+    ngx_queue_t        *q;
     ngx_live_period_t  *cur;
-
-    cur = obj->head_period;
-    count = obj->period_count;
-    if (count > NGX_LIVE_TIMELINE_JSON_MAX_PERIODS) {
-
-        skip = count - NGX_LIVE_TIMELINE_JSON_MAX_PERIODS;
-        count = NGX_LIVE_TIMELINE_JSON_MAX_PERIODS;
-
-        for (; cur && skip > 0; cur = cur->next) {
-            skip--;
-        }
-    }
 
     *p++ = '[';
 
+    if (obj->period_count > NGX_LIVE_TIMELINE_JSON_MAX_PERIODS) {
+        q = ngx_queue_last(&obj->periods);
+        for (i = NGX_LIVE_TIMELINE_JSON_MAX_PERIODS - 1; i > 0; i--) {
+            q = ngx_queue_prev(q);
+        }
+
+    } else {
+        q = ngx_queue_head(&obj->periods);
+    }
+
     comma = 0;
-    for (; cur && count > 0; cur = cur->next, count--) {
+    for (; q != ngx_queue_sentinel(&obj->periods); q = ngx_queue_next(q)) {
+
+        cur = ngx_queue_data(q, ngx_live_period_t, queue);
 
         if (comma) {
             *p++ = ',';
@@ -1938,6 +1995,7 @@ ngx_live_timeline_write_periods(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     uint32_t                              last_index;
+    ngx_queue_t                          *q;
     ngx_live_period_t                    *period;
     ngx_live_timeline_t                  *timeline = obj;
     ngx_live_persist_snap_t              *snap;
@@ -1952,7 +2010,7 @@ ngx_live_timeline_write_periods(ngx_persist_write_ctx_t *write_ctx,
         return NGX_OK;
     }
 
-    if (period == timeline->head_period) {
+    if (&period->queue == ngx_queue_head(&timeline->periods)) {
         header.first_period_initial_time =
             timeline->first_period_initial_time;
 
@@ -1975,7 +2033,11 @@ ngx_live_timeline_write_periods(ngx_persist_write_ctx_t *write_ctx,
 
     ngx_persist_write_block_set_header(write_ctx, 0);
 
-    for (; period != NULL; period = period->next) {
+    for (q = &period->queue;
+        q != ngx_queue_sentinel(&timeline->periods);
+        q = ngx_queue_next(q))
+    {
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
 
         last_index = period->node.key + period->segment_count - 1;
         if (last_index > snap->scope.max_index) {
@@ -2118,7 +2180,6 @@ ngx_live_timeline_read_alloc_period(ngx_live_timeline_t *timeline,
     period->node.key = pp->segment_index;
     period->segment_count = pp->segment_count;
     period->correction = pp->correction;
-    period->next = NULL;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
@@ -2138,19 +2199,11 @@ ngx_live_timeline_read_alloc_period(ngx_live_timeline_t *timeline,
     }
 
     ngx_rbtree_insert(&timeline->rbtree, &period->node);
-
-    if (timeline->head_period == NULL) {
-        timeline->head_period = period;
-
-    } else {
-        timeline->last_period->next = period;
-    }
+    ngx_queue_insert_tail(&timeline->periods, &period->queue);
 
     timeline->duration += period->duration;
     timeline->segment_count += period->segment_count;
     timeline->period_count++;
-
-    timeline->last_period = period;
 
     return NGX_OK;
 }
@@ -2162,6 +2215,7 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *block,
     uint32_t                              min_index;
     ngx_int_t                             rc;
     ngx_str_t                             data;
+    ngx_queue_t                          *q;
     ngx_live_period_t                    *period;
     ngx_live_channel_t                   *channel;
     ngx_live_timeline_t                  *timeline = obj;
@@ -2193,8 +2247,10 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *block,
 
     min_index = scope->min_index;
 
-    period = timeline->last_period;
-    if (period != NULL) {
+    q = ngx_queue_last(&timeline->periods);
+    if (q != ngx_queue_sentinel(&timeline->periods)) {
+
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
         if (period->node.key + period->segment_count > min_index) {
             /* can happen due to duplicate block */
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
@@ -2205,6 +2261,8 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *block,
         }
 
     } else {
+        period = NULL;
+
         timeline->first_period_initial_time = header.first_period_initial_time;
     }
 
@@ -2281,17 +2339,28 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *block,
 static void
 ngx_live_manifest_timeline_reset(ngx_live_manifest_timeline_t *timeline)
 {
+    ngx_queue_t        *q;
     ngx_live_period_t  *cur;
 
     timeline->duration = 0;
     timeline->segment_count = 0;
     timeline->period_count = 0;
 
-    for (cur = &timeline->first_period; cur != NULL; cur = cur->next)
-    {
+    cur = &timeline->first_period;
+    q = &cur->queue;
+
+    for ( ;; ) {
+
         timeline->duration += cur->duration;
         timeline->segment_count += cur->segment_count;
         timeline->period_count++;
+
+        q = ngx_queue_next(q);
+        if (q == timeline->sentinel) {
+            break;
+        }
+
+        cur = ngx_queue_data(q, ngx_live_period_t, queue);
     }
 }
 
@@ -2336,7 +2405,7 @@ ngx_live_manifest_timeline_read(ngx_live_timeline_t *timeline,
         dst->duration = src->time + src->duration - dst->time;
         dst->segment_count = src->node.key + src->segment_count -
             dst->node.key;
-        dst->next = src->next;
+        dst->queue.next = src->queue.next;
 
         ngx_live_manifest_timeline_reset(manifest);
 
@@ -2576,6 +2645,7 @@ ngx_live_timeline_serve_write_periods(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     uint32_t                         i;
+    ngx_queue_t                     *q;
     ngx_live_period_t               *period;
     ngx_live_timeline_t             *timeline;
     ngx_live_segment_iter_t          iter;
@@ -2591,9 +2661,10 @@ ngx_live_timeline_serve_write_periods(ngx_persist_write_ctx_t *write_ctx,
     timeline = obj;
     pp.reserved = 0;
 
-    for (period = &timeline->manifest.first_period;
-        period != NULL;
-        period = period->next)
+    period = &timeline->manifest.first_period;
+    q = &period->queue;
+
+    for ( ;; )
     {
         pp.time = period->time;
         pp.segment_index = period->node.key;
@@ -2628,6 +2699,13 @@ ngx_live_timeline_serve_write_periods(ngx_persist_write_ctx_t *write_ctx,
         }
 
         ngx_persist_write_block_close(write_ctx);
+
+        q = ngx_queue_next(q);
+        if (q == ngx_queue_sentinel(&timeline->periods)) {
+            break;
+        }
+
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
     }
 
     return NGX_OK;

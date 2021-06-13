@@ -954,7 +954,9 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
     uint64_t                        duration;
     ngx_int_t                       rc;
     ngx_flag_t                      is_last;
+    ngx_queue_t                    *q;
     ngx_live_frame_t               *first_frame;
+    ngx_live_period_t              *period;
     ngx_live_channel_t             *dst_channel;
     ngx_live_segment_t             *src_segment;
     ngx_live_filler_segment_t      *dst_segment;
@@ -976,8 +978,11 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
         return NGX_ERROR;
     }
 
-    segment_index = timeline->head_period->node.key;
-    timeline_pts = timeline->head_period->time;
+    q = ngx_queue_head(&timeline->periods);
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    segment_index = period->node.key;
+    timeline_pts = period->time;
 
     duration = cctx->cycle_duration;
     total_size = 0;
@@ -1206,10 +1211,15 @@ ngx_live_filler_setup_get_durations(ngx_live_filler_channel_ctx_t *cctx,
     int32_t                   index, count;
     uint64_t                  duration;
     uint32_t                 *cur, *end;
+    ngx_queue_t              *q;
+    ngx_live_period_t        *period;
     ngx_live_segment_iter_t   iter;
 
     /* get the segment durations */
-    iter = timeline->head_period->segment_iter;
+    q = ngx_queue_head(&timeline->periods);
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    iter = period->segment_iter;
     duration = 0;
 
     cur = cctx->durations;
@@ -1389,20 +1399,15 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
     u_char                         *p;
     ngx_queue_t                    *q;
     ngx_live_track_t               *src_track;
+    ngx_live_period_t              *period;
     ngx_live_core_preset_conf_t    *cpcf;
     ngx_live_filler_channel_ctx_t  *cctx;
 
-    if (timeline->head_period == NULL) {
+    if (timeline->period_count != 1) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_filler_setup: timeline \"%V\" has no periods",
-            &timeline->sn.str);
-        return NGX_ERROR;
-    }
-
-    if (timeline->head_period != timeline->last_period) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_filler_setup: timeline \"%V\" has multiple periods",
-            &timeline->sn.str);
+            "ngx_live_filler_setup: "
+            "input timeline must have a single period, id: %V, count: %uD",
+            &timeline->sn.str, timeline->period_count);
         return NGX_ERROR;
     }
 
@@ -1442,8 +1447,11 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
 
     cctx->durations = (void *) p;
 
+    q = ngx_queue_head(&timeline->periods);
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
     cctx->cycle_duration = ngx_live_filler_setup_get_cycle_duration(src,
-        timeline->head_period->node.key, cctx->count, log);
+        period->node.key, cctx->count, log);
     if (cctx->cycle_duration <= 0) {
         return NGX_ERROR;
     }
