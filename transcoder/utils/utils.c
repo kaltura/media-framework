@@ -153,7 +153,7 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
              av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL,
              frame_id);
     } else {
-        snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%lld;frame_id=%lld",
+        snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%ld;frame_id=%lld",
                  pts2str(pFrame->pts),
                  pFrame->channels,pFrame->sample_rate,pFrame->format,pFrame->nb_samples,pFrame->channel_layout,frame_id);
     }
@@ -281,7 +281,7 @@ int get_packet_frame_id(const AVPacket *packet,int64_t *frame_id_ptr)
     return 0;
 }
 
-int get_frame_id(AVFrame *frame,int64_t *frame_id_ptr)
+int get_frame_id(const AVFrame *frame,uint64_t *frame_id_ptr)
 {
     *frame_id_ptr = AV_NOPTS_VALUE;
     if(frame->metadata) {

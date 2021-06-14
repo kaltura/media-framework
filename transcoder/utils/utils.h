@@ -33,7 +33,7 @@ char *av_get_packet_desc(char *buf,int len, const AVPacket * packet);
 char* av_socket_info(char* buf,int len,const struct sockaddr_in* sa);
 void log_frame_side_data(const char* category,const AVFrame *pFrame);
 int add_packet_frame_id(AVPacket *packet,int64_t frame_id);
-int get_frame_id(AVFrame *frame,int64_t *frame_id_ptr);
+int get_frame_id(const AVFrame *frame,uint64_t *frame_id_ptr);
 int get_packet_frame_id(const AVPacket *packet,int64_t *frame_id_ptr);
 /**
  * Convenience macro, the return value should be used only directly in
@@ -52,5 +52,13 @@ static AVRational clockScale = {1,1000*1000};
 
 #define __MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define __MIN(x, y) (((x) < (y)) ? (x) : (y))
+
+av_always_inline int64_t ff_samples_from_time_base(const AVCodecContext *avctx,
+                                                        int64_t pts)
+{
+    if(pts == AV_NOPTS_VALUE)
+      return AV_NOPTS_VALUE;
+     return av_rescale_q(pts, avctx->time_base,(AVRational){ 1, avctx->sample_rate });
+}
 
 #endif /* utils_h */

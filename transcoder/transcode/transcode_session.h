@@ -22,6 +22,11 @@
 
 typedef int transcode_session_processedFrameCB(void *pContext,bool completed);
 
+typedef struct {
+    uint16_t offset;
+
+} offset_mapping_t;
+
 typedef struct  {
     
     char name[KMP_MAX_CHANNEL_ID+KMP_MAX_TRACK_ID+2];

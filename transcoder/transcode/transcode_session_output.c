@@ -24,11 +24,12 @@ int transcode_session_output_init(transcode_session_output_t* pOutput)  {
     memset(&pOutput->actualVideoParams, 0, sizeof(pOutput->actualVideoParams));
     memset(&pOutput->actualAudioParams, 0, sizeof(pOutput->actualAudioParams));
     
-    pOutput->lastAck=-1;
+    pOutput->lastAck=0;
     strcpy(pOutput->videoParams.level,"");
     strcpy(pOutput->videoParams.profile,"");
     pOutput->audioParams.samplingRate=pOutput->audioParams.channels=-1;
     pOutput->sender=NULL;
+    pOutput->audio_mapping = NULL;
     
     sample_stats_init(&pOutput->stats,standard_timebase);
     return 0;
@@ -139,10 +140,11 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
     if (pOutput->sender!=NULL)
     {
         _S(KMP_send_packet(pOutput->sender,packet));
-        uint64_t frame_id;
-        
-        if (KMP_read_ack(pOutput->sender, &frame_id)) {
-            pOutput->lastAck=frame_id;
+        uint64_t frameId;
+        if (KMP_read_ack(pOutput->sender, &frameId)) {
+            audio_ack_offset_t ao = audio_ack_map_ack(pOutput->audio_mapping,frameId);
+            pOutput->lastAck=ao.id;
+            pOutput->lastOffset=ao.offset;
         }
     }
     
@@ -160,6 +162,10 @@ int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,
         pOutput->actualAudioParams.samplingRate=extra->codecParams->sample_rate;
         pOutput->actualAudioParams.channels=extra->codecParams->channels;
         pOutput->codec_type=AVMEDIA_TYPE_AUDIO;
+        if(pOutput->audio_mapping == NULL){
+          if(!(pOutput->audio_mapping = audio_ack_map_create(initial_frame_id,pOutput->track_id)))
+             return AVERROR(ENOMEM);
+       }
     }
     
     char senderUrl[MAX_URL_LENGTH];
@@ -242,6 +248,10 @@ int transcode_session_output_close(transcode_session_output_t* pOutput)
 
         av_free(pOutput->sender);
         pOutput->sender = NULL;
+    }
+    if(pOutput->audio_mapping != NULL){
+       audio_ack_map_destroy(pOutput->audio_mapping);
+        pOutput->audio_mapping = NULL;
     }
     return 0;
 }

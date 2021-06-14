@@ -6,9 +6,12 @@ SRC += $(wildcard ./KMP/*.c)
 SRC += $(wildcard ./transcode/*.c)
 SRC += $(wildcard ./debug/*.c)
 DEPS = $(wildcard *.h)
+SRC_CPP += $(wildcard ./utils/*.cpp)
 ODIR=obj
 _OBJ = $(SRC:.c=.o)
+_OBJ_CPP = $(SRC_CPP:.cpp=.o)
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
+OBJ_CPP = $(patsubst %,$(ODIR)/%,$(_OBJ_CPP))
 _EXE = transcoder
 EXE = $(patsubst %,$(ODIR)/%,$(_EXE))
 OS := $(shell uname)
@@ -27,6 +30,7 @@ FFMPEG_LIBS = -lavfilter  -lavformat -lswscale  -lavcodec   -lavutil  -lswresamp
 LIBS = -lm -lpthread  -lz -lbz2 -ldl 
 CUDA_LIBS = -lnppig_static -lnppicc_static -lnppc_static -lnppidei_static -lcublas_static -lcudart_static -lculibos  -lcudart -lstdc++
 CFLAGS = -Wall -g $(IDIRS) -fPIC  -static -std=c11 -D_GNU_SOURCE
+CPPFLAGS = -Wall -g $(IDIRS) -fPIC  -static -std=c++14 -D_GNU_SOURCE
 LDFLAGS =  $(LDIR) $(LIBS)  $(FFMPEG_LIBS) $(LIBS) 
 
 
@@ -38,10 +42,13 @@ endif
 
 dir_guard=@mkdir -p $(@D)
 
-$(ODIR)/%.o: %.c $(DEPS)        
+$(ODIR)/%.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-$(EXE): $(OBJ)
+$(ODIR)/%.o: %.cpp $(DEPS)
+	$(CC) -c -o $@ $< $(CPPFLAGS)
+
+$(EXE): $(OBJ) $(OBJ_CPP)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 $(phony install): install
