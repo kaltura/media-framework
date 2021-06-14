@@ -1,16 +1,16 @@
+#include <deque>
+#include <string>
 extern "C" {
     #include "audioAckMap.h"
     #include "./logger.h"
 }
-#include <deque>
-#include <string>
 
 typedef std::pair<uint32_t,uint32_t> Frame;
 typedef std::pair<uint64_t,uint32_t> Mapping;
 
 struct AudioAckMap  {
   // describe encoder buffer: input frames in flight
-  std::queue<Frame>  m_qIn;
+  std::deque<Frame>  m_qIn;
   uint64_t m_qInBaseFrameId;
   // describe output frames waiting for ack providing mapping between input frame id,
   // offset within input frame and output frame id.
@@ -30,16 +30,16 @@ struct AudioAckMap  {
   // a new frame is fed to encoder
   void addIn(const uint64_t &id,uint32_t frameSamples){
     while(id > m_qInBaseFrameId + m_qIn.size())
-        m_qIn.push_back({0});
+        m_qIn.push_back({0,0});
     m_qIn.push_back(std::make_pair(0,frameSamples));
     LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. add frame %lld %ld samples",
          m_name.c_str(),m_qInBaseFrameId + m_qIn.size(), frameSamples);
   }
   // new output frame is produced
-  void addOut(const uint64_t &id,uint32_t samples,bool updateOnly){
+  void addOut(uint32_t samples,bool updateOnly){
     if(!m_qIn.empty()) {
          auto &frame = m_qIn.front();
-         if(updateOnly && m_qOut.size) {
+         if(updateOnly && m_qOut.size()) {
               LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. update output %lld -> %lld %ld",
                   m_name.c_str(),m_qOutBaseFrameId + m_qOut.size(),
                   m_qInBaseFrameId + 1, frame.first);
@@ -63,7 +63,8 @@ struct AudioAckMap  {
             }
         }
     } else {
-        LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map.unexpected add output when encoder queue is empty!");
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map.unexpected add output when encoder queue is empty!",
+            m_name.c_str());
     }
   }
   // ack is received
@@ -90,15 +91,16 @@ struct AudioAckMap  {
              m_name.c_str(),id);
        return {id,0};
   }
-}
+};
 
-extern "C"
-{
-    audio_ack_map_t *audio_ack_map_create(uint64_t initialFrameId,const char *name) {
+
+    void *audio_ack_map_create(uint64_t initialFrameId,const char *name) {
         return new AudioAckMap(initialFrameId,name);
     }
     void audio_ack_map_destroy(audio_ack_map_t *m){
-        delete m;
+        if(m){
+          delete reinterpret_cast<AudioAckMap*>(m);
+        }
     }
     void audio_ack_map_add_input(audio_ack_map_t *m,uint64_t id,uint32_t samples) {
         if(m){
@@ -110,7 +112,7 @@ extern "C"
     {
          if(m){
             auto &am = *reinterpret_cast<AudioAckMap*>(m);
-            am.addOut(id,samples,updateOnly);
+            am.addOut(samples,updateOnly);
          }
     }
     audio_ack_offset_t audio_ack_map_ack(audio_ack_map_t *m,uint64_t ack)
@@ -119,6 +121,5 @@ extern "C"
            auto &am = *reinterpret_cast<AudioAckMap*>(m);
            return am.map(ack);
         }
-        return 0;
+        return {ack,0};
     }
-}
