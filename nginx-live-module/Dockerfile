@@ -25,6 +25,7 @@ COPY nginx-live-module nginx-live-module
 COPY nginx-common nginx-common
 
 ARG APP_VERSION="0.1"
+ARG LIVE_VERSION="${APP_VERSION}"
 
 ENV RTMP_KMP_VERSION="${APP_VERSION}"
 
