@@ -2,7 +2,7 @@ extern "C" {
     #include "audioAckMap.h"
     #include "./logger.h"
 }
-#include <queue>
+#include <deque>
 #include <string>
 
 typedef std::pair<uint32_t,uint32_t> Frame;
@@ -14,7 +14,7 @@ struct AudioAckMap  {
   uint64_t m_qInBaseFrameId;
   // describe output frames waiting for ack providing mapping between input frame id,
   // offset within input frame and output frame id.
-  std::queue<Mapping> m_qOut;
+  std::deque<Mapping> m_qOut;
   uint64_t m_qOutBaseFrameId;
   const std::string m_name;
 
@@ -76,11 +76,11 @@ struct AudioAckMap  {
                 m_qOut.clear();
            } else {
               auto off = id - m_qOutBaseFrameId;
-              const auto &m = *(m_qOut.c().begin()+off);
+              const auto &m = *(m_qOut.begin()+off);
               audio_ack_offset_t ret = {m.first,m.second};
               LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. ack %lld -> %lld %ld",
                       m_name.c_str(),id, ret.id,ret.offset);
-              m_qOut.erase(m_qOut.c().begin(),m_qOut.c().begin() + off);
+              m_qOut.erase(m_qOut.begin(),m_qOut.begin() + off);
               m_qOutBaseFrameId = id;
               return ret;
            }
