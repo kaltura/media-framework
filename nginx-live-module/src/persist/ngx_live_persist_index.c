@@ -495,15 +495,10 @@ ngx_live_persist_index_read_track(ngx_persist_block_header_t *header,
     ngx_live_channel_t              *channel = obj;
     ngx_live_persist_index_track_t  *tp;
 
-    if (rs->version >= 5) {     /* TODO: remove version check */
-        if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_persist_index_read_track: read id failed");
-            return NGX_BAD_DATA;
-        }
-
-    } else {
-        ngx_memzero(&id, sizeof(id));
+    if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_index_read_track: read id failed");
+        return NGX_BAD_DATA;
     }
 
     tp = ngx_mem_rstream_get_ptr(rs, sizeof(*tp));
@@ -521,16 +516,14 @@ ngx_live_persist_index_read_track(ngx_persist_block_header_t *header,
         return NGX_OK;
     }
 
-    if (rs->version >= 5) {     /* TODO: remove version check */
-        if (id.len != track->sn.str.len ||
-            ngx_memcmp(id.data, track->sn.str.data, id.len) != 0)
-        {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_persist_index_read_track: "
-                "track id mismatch, stored: %V, actual: %V",
-                &id, track->sn.str);
-            return NGX_BAD_DATA;
-        }
+    if (id.len != track->sn.str.len ||
+        ngx_memcmp(id.data, track->sn.str.data, id.len) != 0)
+    {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_index_read_track: "
+            "track id mismatch, stored: %V, actual: %V",
+            &id, track->sn.str);
+        return NGX_BAD_DATA;
     }
 
 

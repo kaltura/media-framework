@@ -290,16 +290,14 @@ ngx_live_persist_read_channel_header(ngx_live_channel_t *channel,
         return NGX_BAD_DATA;
     }
 
-    if (rs->version >= 4) {     /* TODO: remove version check */
-        if (ngx_mem_rstream_str_get(rs, &opaque) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_persist_read_channel_header: read opaque failed");
-            return NGX_BAD_DATA;
-        }
-
-        ngx_log_error(NGX_LOG_INFO, rs->log, 0,
-            "ngx_live_persist_read_channel_header: opaque \"%V\"", &opaque);
+    if (ngx_mem_rstream_str_get(rs, &opaque) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_read_channel_header: read opaque failed");
+        return NGX_BAD_DATA;
     }
+
+    ngx_log_error(NGX_LOG_INFO, rs->log, 0,
+        "ngx_live_persist_read_channel_header: opaque \"%V\"", &opaque);
 
     return NGX_OK;
 }
