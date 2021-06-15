@@ -90,7 +90,7 @@ void* processClient(void *vargp)
         }
         if (header.packet_type==KMP_PACKET_CONNECT) {
             uint64_t frame_id=0;
-            uint32_t offset;
+            uint32_t offset = 0;
             if ( KMP_read_handshake(&session->kmpClient,&header,session->channel_id,session->track_id,&frame_id,&offset)<0) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] KMP_read_handshake",session->stream_name);
                 break;

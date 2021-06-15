@@ -544,6 +544,8 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
 
     if(ctx->offset > 0){
         if(decoderCtx->codec_type == AVMEDIA_TYPE_AUDIO) {
+            LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] decoded audio frame samples: %ld. offset: %ld",ctx->name,
+                frame->nb_samples,ctx->offset);
             if(frame->nb_samples > ctx->offset) {
                 // shift left by amount of offset
                 shift_audio_samples(frame,ctx->offset);

@@ -532,6 +532,7 @@ int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char*
     strcpy(channel_id,(char*)connect.channel_id);
     strcpy(track_id,(char*)connect.track_id);
     *initial_frame_id=connect.initial_frame_id;
+    *offset = connect.initial_offset;
     return 0;
 }
 
