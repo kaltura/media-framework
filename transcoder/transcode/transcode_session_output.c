@@ -162,10 +162,6 @@ int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,
         pOutput->actualAudioParams.samplingRate=extra->codecParams->sample_rate;
         pOutput->actualAudioParams.channels=extra->codecParams->channels;
         pOutput->codec_type=AVMEDIA_TYPE_AUDIO;
-        if(pOutput->audio_mapping == NULL){
-          if(!(pOutput->audio_mapping = audio_ack_map_create(initial_frame_id,pOutput->track_id)))
-             return AVERROR(ENOMEM);
-       }
     }
     
     char senderUrl[MAX_URL_LENGTH];
@@ -184,7 +180,7 @@ int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending header",pOutput->track_id);
         _S(KMP_send_mediainfo(pOutput->sender,extra));
     }
-    
+
     bool saveFile;
     json_get_bool(GetConfig(),"output.saveFile",false,&saveFile);
     if (saveFile && pOutput->oc==NULL) {

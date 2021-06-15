@@ -145,8 +145,12 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
          if(pDecoderContext->ctx->codec_type == AVMEDIA_TYPE_VIDEO
             && ctx->output[outputId].passthrough)
               ctx->ack_handler = &ctx->output[outputId];
-         else if(!ctx->output[outputId].passthrough)
+         else if(!ctx->output[outputId].passthrough) {
               ctx->ack_handler = &ctx->output[outputId];
+              if(!(ctx->ack_handler->audio_mapping = audio_ack_map_create(ctx->input_frame_first_id,
+                    ctx->ack_handler->track_id)))
+                   return AVERROR(ENOMEM);
+         }
     }
     if(ctx->outputs && !ctx->ack_handler)
         ctx->ack_handler = ctx->output;
