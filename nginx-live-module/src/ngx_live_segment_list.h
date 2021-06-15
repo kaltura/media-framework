@@ -17,6 +17,12 @@ typedef ngx_ksmp_segment_repeat_t  ngx_live_segment_repeat_t;
 typedef struct ngx_live_segment_list_node_s  ngx_live_segment_list_node_t;
 
 
+typedef enum {
+    ngx_live_get_segment_mode_contains,
+    ngx_live_get_segment_mode_closest,
+} ngx_live_get_segment_mode_e;
+
+
 typedef struct {
     ngx_rbtree_t                   rbtree;
     ngx_rbtree_node_t              sentinel;
@@ -49,10 +55,10 @@ ngx_int_t ngx_live_segment_list_get_segment_time(
     ngx_live_segment_list_t *segment_list, uint32_t segment_index,
     int64_t *start, int64_t *end);
 
-ngx_int_t ngx_live_segment_list_get_closest_segment(
+ngx_int_t ngx_live_segment_list_get_segment_index(
     ngx_live_segment_list_t *segment_list, int64_t time,
-    uint32_t *segment_index, int64_t *segment_time,
-    ngx_live_segment_iter_t *iter);
+    ngx_live_get_segment_mode_e mode, uint32_t *segment_index,
+    int64_t *segment_time, ngx_live_segment_iter_t *iter);
 
 ngx_int_t ngx_live_segment_list_get_period_end_time(
     ngx_live_segment_list_t *segment_list, ngx_live_segment_iter_t *start_iter,

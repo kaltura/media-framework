@@ -1252,16 +1252,18 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
         }
 
         if (source_json.start_offset != NGX_JSON_UNSET) {
-            if (ngx_live_timeline_get_time(source, source_json.start_offset,
-                log, &json.start) != NGX_OK)
+            json.start = source_json.start_offset;
+            if (ngx_live_timeline_get_time(source,
+                NGX_KSMP_FLAG_TIME_START_RELATIVE, log, &json.start) != NGX_OK)
             {
                 return NGX_HTTP_BAD_REQUEST;
             }
         }
 
         if (source_json.end_offset != NGX_JSON_UNSET) {
-            if (ngx_live_timeline_get_time(source, source_json.end_offset,
-                log, &json.end) != NGX_OK)
+            json.end = source_json.end_offset;
+            if (ngx_live_timeline_get_time(source,
+                NGX_KSMP_FLAG_TIME_START_RELATIVE, log, &json.end) != NGX_OK)
             {
                 return NGX_HTTP_BAD_REQUEST;
             }
