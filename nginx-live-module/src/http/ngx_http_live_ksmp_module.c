@@ -49,6 +49,7 @@ typedef struct {
     ngx_str_t                 timeline_id;
     ngx_str_t                 variant_ids;
     uint32_t                  media_type_mask;
+    int64_t                   time;
     uint32_t                  segment_index;
     uint32_t                  flags;
 
@@ -282,6 +283,28 @@ ngx_http_live_ksmp_args_handler(void *data, ngx_str_t *key, ngx_str_t *value)
             return NGX_HTTP_BAD_REQUEST;
         }
 
+    } else if (key->len == sizeof("time") - 1 &&
+        ngx_memcmp(key->data, "time", sizeof("time") - 1)
+        == 0)
+    {
+        int_val = ngx_atoi(value->data, value->len);
+        if (int_val == NGX_ERROR) {
+            ngx_log_error(NGX_LOG_ERR, params->r->connection->log, 0,
+                "ngx_http_live_ksmp_args_handler: "
+                "invalid time \"%V\"", value);
+            return NGX_HTTP_BAD_REQUEST;
+        }
+
+        if (int_val >= NGX_KSMP_INVALID_TIMESTAMP) {
+            ngx_log_error(NGX_LOG_ERR, params->r->connection->log, 0,
+                "ngx_http_live_ksmp_args_handler: "
+                "time \"%V\" too large", value);
+            return NGX_HTTP_BAD_REQUEST;
+        }
+
+        params->time = int_val;
+
+
     } else if (key->len == sizeof("segment_index") - 1 &&
         ngx_memcmp(key->data, "segment_index", sizeof("segment_index") - 1)
         == 0)
@@ -367,6 +390,7 @@ ngx_http_live_ksmp_parse(ngx_http_request_t *r,
     params->r = r;
     params->media_type_mask = KMP_MEDIA_TYPE_MASK;
     params->segment_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
+    params->time = NGX_KSMP_INVALID_TIMESTAMP;
 
     rc = ngx_http_live_ksmp_args_parse(r, ngx_http_live_ksmp_args_handler,
         params);
@@ -392,7 +416,26 @@ ngx_http_live_ksmp_parse(ngx_http_request_t *r,
         return NGX_HTTP_BAD_REQUEST;
     }
 
+    if (params->segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX &&
+        params->time != NGX_KSMP_INVALID_TIMESTAMP)
+    {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_ksmp_parse: "
+            "request includes both \"segment_index\" and \"time\"");
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
+    if ((params->flags & NGX_KSMP_FLAG_TIME_START_RELATIVE) &&
+        (params->flags & NGX_KSMP_FLAG_TIME_END_RELATIVE))
+    {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_ksmp_parse: "
+            "request includes both start relative and end relative flags");
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
     if (params->segment_index == NGX_KSMP_INVALID_SEGMENT_INDEX &&
+        params->time == NGX_KSMP_INVALID_TIMESTAMP &&
         (params->flags & NGX_KSMP_FLAG_MEDIA))
     {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -911,6 +954,23 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
             NGX_KSMP_ERR_TIMELINE_EXPIRED,
             "timeline \"%V\" is expired, channel: %V",
             &params->timeline_id, &params->channel_id);
+    }
+
+    if (params->time != NGX_KSMP_INVALID_TIMESTAMP) {
+        if (ngx_live_timeline_get_time(timeline, params->flags,
+            r->connection->log, &params->time))
+        {
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+        if (ngx_live_timelines_get_segment_index(channel, params->time,
+            &params->segment_index) != NGX_OK)
+        {
+            return ngx_http_live_ksmp_output_error(r,
+                NGX_KSMP_ERR_SEGMENT_TIME_NOT_FOUND,
+                "time %L not found in any segment, timeline: %V, channel: %V",
+                params->time, &params->timeline_id, &params->channel_id);
+        }
     }
 
     if (params->flags & NGX_KSMP_FLAG_MEDIA) {

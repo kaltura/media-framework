@@ -1091,34 +1091,24 @@ ngx_live_timeline_add_segment(ngx_live_timeline_t *timeline, uint32_t duration)
     ngx_live_manifest_timeline_add_segment(&timeline->manifest, duration);
 }
 
-ngx_int_t
-ngx_live_timeline_get_time(ngx_live_timeline_t *timeline, int64_t offset,
-    ngx_log_t *log, int64_t *time)
+static void
+ngx_live_timeline_get_start_relative_time(ngx_live_timeline_t *timeline,
+    int64_t period_gap, int64_t *time)
 {
+    int64_t             offset;
     int64_t             duration;
     ngx_queue_t        *q;
     ngx_live_period_t  *period;
 
-    if (timeline->conf.period_gap == -1) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_live_timeline_get_time: period_gap not set, timeline: %V",
-            &timeline->sn.str);
-        return NGX_ERROR;
-    }
+    offset = *time;
 
     q = ngx_queue_head(&timeline->periods);
-    if (q == ngx_queue_sentinel(&timeline->periods)) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_live_timeline_get_time: no periods, timeline: %V",
-            &timeline->sn.str);
-        return NGX_ERROR;
-    }
 
     for ( ;; ) {
         period = ngx_queue_data(q, ngx_live_period_t, queue);
         q = ngx_queue_next(q);
 
-        duration = period->duration + timeline->conf.period_gap;
+        duration = period->duration + period_gap;
         if (offset < duration || q == ngx_queue_sentinel(&timeline->periods)) {
             break;
         }
@@ -1127,6 +1117,69 @@ ngx_live_timeline_get_time(ngx_live_timeline_t *timeline, int64_t offset,
     }
 
     *time = period->time + offset;
+}
+
+static void
+ngx_live_timeline_get_end_relative_time(ngx_live_timeline_t *timeline,
+    int64_t period_gap, int64_t *time)
+{
+    int64_t             offset;
+    int64_t             duration;
+    ngx_queue_t        *q;
+    ngx_live_period_t  *period;
+
+    offset = *time + period_gap;
+
+    q = ngx_queue_last(&timeline->periods);
+
+    for ( ;; ) {
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
+        q = ngx_queue_prev(q);
+
+        duration = period->duration + period_gap;
+        if (offset < duration || q == ngx_queue_sentinel(&timeline->periods)) {
+            break;
+        }
+
+        offset -= duration;
+    }
+
+    *time = period->time + duration - offset;
+}
+
+ngx_int_t
+ngx_live_timeline_get_time(ngx_live_timeline_t *timeline, uint32_t flags,
+    ngx_log_t *log, int64_t *time)
+{
+    int64_t  input = *time;
+    int64_t  period_gap;
+
+    if (ngx_queue_empty(&timeline->periods)) {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_live_timeline_get_time: no periods, timeline: %V",
+            &timeline->sn.str);
+        return NGX_ERROR;
+    }
+
+    if (flags & NGX_KSMP_FLAG_TIME_USE_PERIOD_GAP) {
+        period_gap = ngx_max(timeline->conf.period_gap, 0);
+
+    } else {
+        period_gap = 0;
+    }
+
+    if (flags & NGX_KSMP_FLAG_TIME_START_RELATIVE) {
+        ngx_live_timeline_get_start_relative_time(timeline, period_gap, time);
+
+    } else if (flags & NGX_KSMP_FLAG_TIME_END_RELATIVE) {
+        ngx_live_timeline_get_end_relative_time(timeline, period_gap, time);
+    }
+
+    ngx_log_error(NGX_LOG_INFO, log, 0,
+        "ngx_live_timeline_get_time: "
+        "time %L mapped to %L, flags: 0x%uxD, timeline: %V",
+        input, *time, flags, &timeline->sn.str);
+
     return NGX_OK;
 }
 
@@ -1286,9 +1339,10 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
             dest_period->segment_iter = src_period->segment_iter;
 
         } else {
-            if (ngx_live_segment_list_get_closest_segment(&cctx->segment_list,
-                dest->conf.start, &segment_index, &dest_period->time,
-                &dest_period->segment_iter) != NGX_OK)
+            if (ngx_live_segment_list_get_segment_index(&cctx->segment_list,
+                dest->conf.start, ngx_live_get_segment_mode_closest,
+                &segment_index, &dest_period->time, &dest_period->segment_iter)
+                != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_ALERT, log, 0,
                     "ngx_live_timeline_copy: "
@@ -1305,9 +1359,9 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
             segment_time = src_period->time + src_period->duration;
 
         } else {
-            if (ngx_live_segment_list_get_closest_segment(&cctx->segment_list,
-                dest->conf.end, &segment_index, &segment_time,
-                &dummy_iter) != NGX_OK)
+            if (ngx_live_segment_list_get_segment_index(&cctx->segment_list,
+                dest->conf.end, ngx_live_get_segment_mode_closest,
+                &segment_index, &segment_time, &dummy_iter) != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_ALERT, log, 0,
                     "ngx_live_timeline_copy: "
@@ -1605,6 +1659,21 @@ ngx_live_timelines_truncate(ngx_live_channel_t *channel,
 
         ngx_live_timeline_truncate(timeline, segment_index);
     }
+}
+
+ngx_int_t
+ngx_live_timelines_get_segment_index(ngx_live_channel_t *channel, int64_t time,
+    uint32_t *segment_index)
+{
+    int64_t                           ignore;
+    ngx_live_segment_iter_t           iter;
+    ngx_live_timeline_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
+
+    return ngx_live_segment_list_get_segment_index(&cctx->segment_list,
+        time, ngx_live_get_segment_mode_contains, segment_index,
+        &ignore, &iter);
 }
 
 ngx_int_t
