@@ -79,7 +79,7 @@ struct AudioAckMap  {
   void map(const uint64_t &id,audio_ack_offset_t &ret) {
        ret = {id,0};
        const auto diff = int64_t(id - m_qOutBaseFrameId);
-       if(diff > m_qOut.size()) {
+       if(diff >= m_qOut.size()) {
             LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map. ack %lld > range %lld-%lld",
                  m_name.c_str(),id, m_qOutBaseFrameId, lastOut());
              m_qOutBaseFrameId += m_qOut.size();
