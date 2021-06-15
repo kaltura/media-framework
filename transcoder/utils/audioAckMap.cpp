@@ -88,12 +88,11 @@ struct AudioAckMap  {
            LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. ack %lld < range %lld-%lld",
              m_name.c_str(),id, m_qOutBaseFrameId,lastOut());
         } else {
-           auto off = id - m_qOutBaseFrameId;
-           const auto &m = *(m_qOut.begin()+off);
+           const auto &m = *(m_qOut.begin()+diff);
            ret = {m.first,m.second};
            LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. derived ack %lld -> %lld %ld",
                m_name.c_str(),id, ret.id,ret.offset);
-           m_qOut.erase(m_qOut.begin(),m_qOut.begin() + off + 1);
+           m_qOut.erase(m_qOut.begin(),m_qOut.begin() + diff + 1);
            m_qOutBaseFrameId = id;
         }
   }
