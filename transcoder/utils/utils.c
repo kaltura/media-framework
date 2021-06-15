@@ -289,6 +289,7 @@ int get_frame_id(const AVFrame *frame,uint64_t *frame_id_ptr)
          if(!frame_str)
             return AVERROR(EINVAL);
         *frame_id_ptr = strtoull(frame_str,NULL,10);
+        return 0;
     }
     return AVERROR(EINVAL);
 }

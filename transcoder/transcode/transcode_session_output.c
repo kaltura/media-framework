@@ -142,7 +142,8 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
         _S(KMP_send_packet(pOutput->sender,packet));
         uint64_t frameId;
         if (KMP_read_ack(pOutput->sender, &frameId)) {
-            audio_ack_offset_t ao = audio_ack_map_ack(pOutput->audio_mapping,frameId);
+            audio_ack_offset_t ao;
+            audio_ack_map_ack(pOutput->audio_mapping,frameId,&ao);
             pOutput->lastAck=ao.id;
             pOutput->lastOffset=ao.offset;
         }

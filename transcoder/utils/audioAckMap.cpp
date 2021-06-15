@@ -68,58 +68,60 @@ struct AudioAckMap  {
     }
   }
   // ack is received
-  audio_ack_offset_t map(const uint64_t &id) {
+  void map(const uint64_t &id,audio_ack_offset_t &ret) {
        if(id > m_qOutBaseFrameId ){
            if(m_qOutBaseFrameId + m_qOut.size() < id) {
                 LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map.unexpected ack %lld outside range %lld-%lld",
-                    id, m_qOutBaseFrameId + 1, m_qOutBaseFrameId + m_qOut.size());
+                    m_name.c_str(),id, m_qOutBaseFrameId + 1, m_qOutBaseFrameId + m_qOut.size() + 1);
                 m_qOutBaseFrameId += m_qOut.size();
                 m_qOut.clear();
            } else {
               auto off = id - m_qOutBaseFrameId;
               const auto &m = *(m_qOut.begin()+off);
-              audio_ack_offset_t ret = {m.first,m.second};
+              ret.id =m.first;
+              ret.offset = m.second;
               LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. ack %lld -> %lld %ld",
                       m_name.c_str(),id, ret.id,ret.offset);
               m_qOut.erase(m_qOut.begin(),m_qOut.begin() + off);
               m_qOutBaseFrameId = id;
-              return ret;
            }
        }
        // not found
        LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. ack %lld NOT found",
              m_name.c_str(),id);
-       return {id,0};
+       ret.id = id;
+       ret.offset = 0;
   }
 };
 
 
-    void *audio_ack_map_create(uint64_t initialFrameId,const char *name) {
-        return new AudioAckMap(initialFrameId,name);
+void *audio_ack_map_create(uint64_t initialFrameId,const char *name) {
+    return new AudioAckMap(initialFrameId,name);
+}
+void audio_ack_map_destroy(audio_ack_map_t *m) {
+    if(m){
+        delete reinterpret_cast<AudioAckMap*>(m);
     }
-    void audio_ack_map_destroy(audio_ack_map_t *m){
-        if(m){
-          delete reinterpret_cast<AudioAckMap*>(m);
-        }
+}
+void audio_ack_map_add_input(audio_ack_map_t *m,uint64_t id,uint32_t samples) {
+   if(m){
+       auto &am = *reinterpret_cast<AudioAckMap*>(m);
+       am.addIn(id,samples);
+   }
+}
+void audio_ack_map_add_output(audio_ack_map_t *m,uint32_t samples,bool updateOnly) {
+    if(m){
+        auto &am = *reinterpret_cast<AudioAckMap*>(m);
+        am.addOut(samples,updateOnly);
     }
-    void audio_ack_map_add_input(audio_ack_map_t *m,uint64_t id,uint32_t samples) {
-        if(m){
-            auto &am = *reinterpret_cast<AudioAckMap*>(m);
-            am.addIn(id,samples);
-        }
+}
+
+void audio_ack_map_ack(audio_ack_map_t *m,uint64_t ack,audio_ack_offset_t *ao) {
+    if(!ao)   return;
+    if(m){
+        auto &am = *reinterpret_cast<AudioAckMap*>(m);
+        am.map(ack,*ao);
     }
-    void audio_ack_map_add_output(audio_ack_map_t *m,uint32_t samples,bool updateOnly)
-    {
-         if(m){
-            auto &am = *reinterpret_cast<AudioAckMap*>(m);
-            am.addOut(samples,updateOnly);
-         }
-    }
-    audio_ack_offset_t audio_ack_map_ack(audio_ack_map_t *m,uint64_t ack)
-    {
-        if(m){
-           auto &am = *reinterpret_cast<AudioAckMap*>(m);
-           return am.map(ack);
-        }
-        return {ack,0};
-    }
+    ao->id = ack;
+    ao->offset = 0;
+}
