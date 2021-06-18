@@ -1,100 +1,172 @@
 #include <deque>
 #include <string>
+#include <cassert>
+#include <limits>
 extern "C" {
     #include "audioAckMap.h"
     #include "./logger.h"
 }
 
-typedef std::pair<uint32_t,uint32_t> Frame;
-typedef std::pair<uint64_t,uint32_t> Mapping;
+typedef uint64_t frameId_t;
+typedef uint64_t streamOffset_t;
+const frameId_t InvalidFrameId = 0;
+const streamOffset_t InvalidOffset = std::numeric_limits<streamOffset_t>::min();
+
+template<typename T,typename C>
+struct Repeated {
+    const T m_val;
+    C m_counter;
+    explicit Repeated(const T &val,const C& c = 1):m_val(val),m_counter(c)
+    {}
+};
+
+
+class RepeatedFrameId {
+    typedef Repeated<uint32_t,uint32_t> RepeatedFrame;
+    typedef std::deque<RepeatedFrame> Frames;
+    typedef Frames::iterator iterator;
+
+    std::deque<RepeatedFrame>  m_q;
+    frameId_t m_baseFrame,m_lastFrame;
+    streamOffset_t m_streamOffset;
+
+ public:
+    RepeatedFrameId(const frameId_t &id) : m_baseFrame(id),m_lastFrame(id),
+    m_streamOffset(0)
+    {}
+    void addFrame(const frameId_t &fd,const uint32_t &dur) {
+        const auto c = fd - m_lastFrame - 1;
+        if(c > 0) {
+            m_q.push_back(RepeatedFrame(0,c));
+            m_lastFrame += c;
+        }
+        if(m_q.empty()){
+            m_q.push_back(RepeatedFrame(dur));
+        } else {
+            if(m_q.back().m_val != dur)
+                m_q.push_back(RepeatedFrame(dur));
+           else
+                m_q.back().m_counter++;
+        }
+         m_lastFrame++;
+     }
+    std::pair<frameId_t,streamOffset_t> frameByOffset(streamOffset_t off) {
+        off -= m_streamOffset;
+        auto walker = m_baseFrame;
+        for(const auto& r : m_q) {
+           if(off < r.m_counter*r.m_val) {
+               const auto c = frameId_t(off / r.m_val);
+               walker += c;
+               return std::make_pair(walker,off - c * r.m_val);
+           }
+           off -= r.m_val * r.m_counter;
+           walker += r.m_counter;
+        }
+        return std::make_pair(InvalidFrameId,InvalidOffset);
+    }
+    streamOffset_t offsetByFrame(frameId_t fd) {
+        if(fd < m_baseFrame || fd >= m_lastFrame)
+           return InvalidOffset;
+        fd -= m_baseFrame;
+        auto off = 0;
+        for(const auto& r : m_q) {
+            if(r.m_counter > fd) {
+                off += fd * r.m_val;
+                break;
+            }
+            off += r.m_val * r.m_counter;
+            fd -= r.m_counter;
+        }
+        return off + m_streamOffset;
+    }
+    void removeFrames(const frameId_t &fd) {
+         if(fd < m_baseFrame || fd >= m_lastFrame)
+            return;
+         while(!m_q.empty()){
+            auto &r = m_q.front();
+            if(m_baseFrame + r.m_counter - 1 >= fd){
+            const auto c = fd - m_baseFrame + 1;
+                r.m_counter -= c;
+                m_streamOffset += c * r.m_val;
+                m_baseFrame = fd + 1;
+                break;
+            }
+            m_baseFrame += r.m_counter;
+            m_streamOffset += r.m_counter * r.m_val;
+            m_q.pop_front();
+         }
+         assert(m_baseFrame<=m_lastFrame);
+    }
+    frameId_t last() const {
+        return m_lastFrame;
+    }
+    frameId_t first() const {
+        return m_baseFrame;
+    }
+};
+
 
 struct AudioAckMap  {
   // describe encoder buffer: input frames in flight
-  std::deque<Frame>  m_qIn;
-  uint64_t m_qInBaseFrameId;
-  // describe output frames waiting for ack providing mapping between input frame id,
-  // offset within input frame and output frame id.
-  std::deque<Mapping> m_qOut;
-  uint64_t m_qOutBaseFrameId;
+  RepeatedFrameId m_in;
+  RepeatedFrameId m_out;
   const std::string m_name;
   void operator=(AudioAckMap) = delete;
   AudioAckMap(const AudioAckMap&) = delete;
   AudioAckMap(const uint64_t &id,const char *name)
-    :m_qInBaseFrameId(id),
-    m_qOutBaseFrameId(id),
+    :m_in(id),
+    m_out(id),
     m_name(name) {
-        LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map. c-tor initial ack %lld ",
-          m_name.c_str(),id, id);
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. c-tor initial ack %lld ",
+          m_name.c_str(),id);
     }
     ~AudioAckMap() {
-      LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map. ~d-tor", m_name.c_str());
+      LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. ~d-tor", m_name.c_str());
     }
    auto lastIn() const {
-     return m_qInBaseFrameId + m_qIn.size() - 1;
+     return m_in.last();
    }
    auto lastOut() const {
-     return m_qOutBaseFrameId + m_qOut.size() - 1;
+     return m_out.last();
    }
   // a new frame is fed to encoder
   void addIn(const uint64_t &id,uint32_t frameSamples){
-        while(id > lastIn())
-            m_qIn.push_back({0,0});
-        m_qIn.push_back(std::make_pair(0,frameSamples));
-        LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. add frame %lld %ld samples",
+        m_in.addFrame(id,frameSamples);
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. add input frame %lld %ld samples",
              m_name.c_str(), lastIn(), frameSamples);
   }
   // new output frame is produced
-  void addOut(uint32_t samples,bool updateOnly){
-        if(!m_qIn.empty()) {
-             auto &frame = m_qIn.front();
-             if(updateOnly && m_qOut.size()) {
-                  LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. update output %lld -> %lld %ld",
-                      m_name.c_str(), lastOut(),
-                      m_qInBaseFrameId, frame.first);
-                 m_qOut.back().second = frame.first;
-             } else {
-                LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. add output %lld -> %lld %ld",
-                        m_name.c_str(),lastOut(),
-                         m_qInBaseFrameId, frame.first);
-                 m_qOut.push_back(std::make_pair(m_qInBaseFrameId,frame.first));
-             }
-             while(!m_qIn.empty()){
-                auto &frame = m_qIn.front();
-                auto left = frame.second - frame.first;
-                if(left <= samples) {
-                   samples -= left;
-                   m_qIn.pop_front();
-                   m_qInBaseFrameId++;
-                } else {
-                   frame.first = samples;
-                   break;
-                }
-            }
-        } else {
-            LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map.unexpected add output when encoder queue is empty!",
-                m_name.c_str());
-        }
+  void addOut(uint32_t frameSamples){
+      LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. add output frame %lld %ld samples",
+             m_name.c_str(), lastIn(), frameSamples);
+      m_out.addFrame(m_out.last()+1,frameSamples);
   }
   // ack is received
   void map(const uint64_t &id,audio_ack_offset_t &ret) {
+     LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. map ack %lld ",
+            m_name.c_str(),id);
        ret = {id,0};
-       const auto diff = int64_t(id - m_qOutBaseFrameId);
-       if(diff >= m_qOut.size()) {
-            LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map. ack %lld > range %lld-%lld",
-                 m_name.c_str(),id, m_qOutBaseFrameId, lastOut());
-             m_qOutBaseFrameId += m_qOut.size();
-             m_qOut.clear();
-        } else if(diff < 0) {
-           LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. ack %lld < range %lld-%lld",
-             m_name.c_str(),id, m_qOutBaseFrameId,lastOut());
-        } else {
-           const auto &m = *(m_qOut.begin()+diff);
-           ret = {m.first,m.second};
-           LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. derived ack %lld -> %lld %ld",
-               m_name.c_str(),id, ret.id,ret.offset);
-           m_qOut.erase(m_qOut.begin(),m_qOut.begin() + diff + 1);
-           m_qOutBaseFrameId = id;
-        }
+       auto off = m_out.offsetByFrame(id);
+       return;
+       if(off == InvalidOffset){
+          LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map. ack %lld failed to get offset",
+              m_name.c_str(),id, m_out.first(),m_out.last());
+       } else {
+           LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. map ack %lld off %lld",
+              m_name.c_str(),id,off);
+           auto p = m_in.frameByOffset(off);
+           m_out.removeFrames(id);
+           if(p.first == InvalidFrameId){
+               LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map. ack %lld failed to get input frame id from offset %lld",
+                  m_name.c_str(),id,off);
+           } else {
+              ret.id = p.first;
+              ret.offset = p.second;
+              m_in.removeFrames(ret.id);
+              LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. map ack %lld -> %lld,%lld",
+                m_name.c_str(),ret.id,ret.offset);
+            }
+       }
   }
 };
 
@@ -113,10 +185,10 @@ void audio_ack_map_add_input(audio_ack_map_t *m,uint64_t id,uint32_t samples) {
        am.addIn(id,samples);
    }
 }
-void audio_ack_map_add_output(audio_ack_map_t *m,uint32_t samples,bool updateOnly) {
+void audio_ack_map_add_output(audio_ack_map_t *m,uint32_t samples) {
     if(m){
         auto &am = *reinterpret_cast<AudioAckMap*>(m);
-        am.addOut(samples,updateOnly);
+        am.addOut(samples);
     }
 }
 

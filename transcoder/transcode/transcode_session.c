@@ -320,16 +320,14 @@ int mapPacket(transcode_session_t *pContext,
 transcode_codec_t *pEncoder,
 transcode_session_output_t *pOutput,
 AVPacket *pOutPacket,
-AVFrame *pFrame,
-bool bAddPacket) {
+AVFrame *pFrame) {
      uint64_t frameId;
      _S(get_frame_id(pFrame,&frameId));
      uint32_t output_samples = ff_samples_from_time_base(pEncoder->ctx,pOutPacket->duration);
      audio_ack_map_add_input(pOutput->audio_mapping,
         frameId,pFrame->nb_samples);
      // add packet offset-to-frameId mapping;
-     audio_ack_map_add_output(pOutput->audio_mapping,
-        output_samples,bAddPacket == false);
+     audio_ack_map_add_output(pOutput->audio_mapping,output_samples);
     return 0;
 }
 
@@ -382,13 +380,12 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
         
         pOutPacket->pos=clock_estimator_get_clock(&pContext->clock_estimator,pOutPacket->dts);
 
+        if(pContext->ack_handler == pOutput && pOutput->codec_type == AVMEDIA_TYPE_AUDIO)
+               _S(mapPacket(pContext,pEncoder,pOutput,pOutPacket,pFrame));
+
         ret = transcode_session_output_send_output_packet(pOutput,pOutPacket);
 
-        if(pContext->ack_handler == pOutput && pOutput->codec_type == AVMEDIA_TYPE_AUDIO){
-            _S(mapPacket(pContext,pEncoder,pOutput,pOutPacket,pFrame,!(ret < 0)));
-        }
-
-        av_packet_free(&pOutPacket);
+       av_packet_free(&pOutPacket);
     }
     return ret;
 }

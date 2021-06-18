@@ -47,8 +47,7 @@ int get_packet_frame_id(const AVPacket *packet,int64_t *frame_id_ptr);
 #define pts2str(pts) av_pts_to_string((char[K_TS_MAX_STRING_SIZE]){0}, pts)
 
 
-static AVRational standard_timebase = {1,90000};
-static AVRational clockScale = {1,1000*1000};
+extern const AVRational standard_timebase,clockScale;
 
 #define __MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define __MIN(x, y) (((x) < (y)) ? (x) : (y))

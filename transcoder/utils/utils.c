@@ -13,6 +13,9 @@
 #include <sys/ioctl.h> // For FIONREAD
 #include <arpa/inet.h>
 
+const AVRational standard_timebase = {1,90000};
+const AVRational clockScale = {1,1000*1000};
+
 size_t load_file_to_memory(const char *filename, char **result)
 {
     size_t size = 0;
@@ -134,13 +137,13 @@ const char* pict_type_to_string(int pt) {
 
 char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
 {
-    int64_t frame_id;
+    uint64_t frame_id;
     if (pFrame==NULL) {
         return "<NULL>";
     }
     get_frame_id(pFrame,&frame_id);
     if (pFrame->width>0) {
-        snprintf(buf,size,"pts=%s;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;has_53cc=%d;frame_id=%lld",
+        snprintf(buf,size,"pts=%s;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;has_53cc=%d;frame_id=%ld",
              pts2str(pFrame->pts),
              pFrame->pkt_pos != 0 ? ts2str(pFrame->pkt_pos,false) :  "N/A",
              pFrame->key_frame==1 ? "True" : "False",
@@ -153,7 +156,7 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
              av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL,
              frame_id);
     } else {
-        snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%ld;frame_id=%lld",
+        snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%ld;frame_id=%ld",
                  pts2str(pFrame->pts),
                  pFrame->channels,pFrame->sample_rate,pFrame->format,pFrame->nb_samples,pFrame->channel_layout,frame_id);
     }
@@ -167,7 +170,7 @@ char *av_get_packet_desc(char *buf,int len,const  AVPacket * packet)
         return "<NULL>";
     }
     get_packet_frame_id(packet,&frame_id);
-    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;clock=%s;key=%s;size=%d;flags=%d;frame_id=%lld",
+    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;clock=%s;key=%s;size=%d;flags=%d;frame_id=%ld",
              packet,
              packet->data,
              pts2str(packet->pts),
