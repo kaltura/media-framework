@@ -350,7 +350,7 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
         else
             pFrame->pict_type=AV_PICTURE_TYPE_NONE;
 
-        if(pContext->ack_handler && pContext->ack_handler->codec_type == AVMEDIA_TYPE_AUDIO) {
+        if(0 && pContext->ack_handler && pContext->ack_handler->codec_type == AVMEDIA_TYPE_AUDIO) {
             uint64_t frameId;
             _S(get_frame_id(pFrame,&frameId));
             audio_ack_map_add_input(pContext->ack_handler->audio_mapping, frameId,pFrame->nb_samples);
@@ -564,6 +564,13 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
     {
         return 0;
     }
+
+      if(ctx->ack_handler && ctx->ack_handler->codec_type == AVMEDIA_TYPE_AUDIO) {
+            uint64_t frameId;
+             _S(get_frame_id(frame,&frameId));
+             audio_ack_map_add_input(ctx->ack_handler->audio_mapping, frameId,frame->nb_samples);
+      }
+
     for (int filterId=0;filterId<ctx->filters;filterId++) {
         
         _S(sendFrameToFilter(ctx,filterId,decoderCtx,frame));

@@ -39,16 +39,17 @@ class RepeatedFrameId {
     frameId_t m_baseFrame,m_lastFrame;
     streamOffset_t m_streamOffset = 0;
     streamOffset_t m_total = 0; // diagnostics
+    std::string m_name;
  public:
-    RepeatedFrameId(const frameId_t &id) : m_baseFrame(id),m_lastFrame(id)
+    RepeatedFrameId(const std::string &name,const frameId_t &id) : m_baseFrame(id),m_lastFrame(id),m_name(name)
     {}
     void addFrame(const frameId_t &fd,const uint32_t &dur) {
         const auto c = int(fd - m_lastFrame);
         m_total += dur;
         if(c < 0){
                if(c == -1){
-                   LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"audio map. duplicate frame %ld samples %ld",
-                               fd,dur);
+                   LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. duplicate frame %ld next %ld samples %ld",
+                               m_name.c_str(),fd,m_lastFrame,dur);
                    auto &r = m_q.back();
                   //special case where frame spans several samples
                   if(r.m_counter>1){
@@ -58,8 +59,8 @@ class RepeatedFrameId {
                     m_q.back() = RepeatedFrame(r.m_val+dur,1);
                   }
               } else {
-                   LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"audio map. bad frame %ld < %ld",
-                              fd,last()-1);
+                   LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map. bad frame %ld < %ld",
+                              m_name.c_str(),fd,last()-1);
               }
               return;
          }
@@ -68,7 +69,7 @@ class RepeatedFrameId {
         if(m_q.empty() || m_q.back().m_val != dur)
             m_q.push_back(RepeatedFrame(dur));
         m_q.back().m_counter++;
-        m_lastFrame += c + 1;
+        m_lastFrame += c;
      }
     auto frameByOffset(streamOffset_t off) {
         off -= m_streamOffset;
@@ -123,17 +124,17 @@ class RepeatedFrameId {
     frameId_t first() const {
         return m_baseFrame;
     }
-    void dump(const char *extra,int level = AV_LOG_DEBUG) {
+    void dump(int level = AV_LOG_DEBUG) {
          streamOffset_t totalSamples = 0;
          LOGGER(CATEGORY_OUTPUT,level,"(%s) audio map. dump. base frame %lld-%lld  base stream offset %lld",
-                   extra,m_baseFrame,m_lastFrame,m_streamOffset);
+                   m_name.c_str(),m_baseFrame,m_lastFrame,m_streamOffset);
          for(const auto& r : m_q) {
             LOGGER(CATEGORY_OUTPUT,level,"(%s) audio map. dump. %ld %ld",
-                extra,r.m_val,r.m_counter);
+                m_name.c_str(),r.m_val,r.m_counter);
                 totalSamples += r.m_val*r.m_counter;
          }
          LOGGER(CATEGORY_OUTPUT,level,"(%s) audio map. ~dump. samples since last ack point: %lld total samples: %lld",
-            extra,totalSamples, m_total);
+            m_name.c_str(),totalSamples, m_total);
     }
 };
 
@@ -146,9 +147,10 @@ struct AudioAckMap  {
   void operator=(AudioAckMap) = delete;
   AudioAckMap(const AudioAckMap&) = delete;
   AudioAckMap(const uint64_t &id,const char *name)
-    :m_in(id),
-    m_out(id),
-    m_name(name) {
+    :m_in("in",id),
+    m_out("out",id),
+    m_name(name)
+     {
         LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. c-tor initial ack %lld ",
           m_name.c_str(),id);
     }
@@ -169,7 +171,7 @@ struct AudioAckMap  {
   }
   // new output frame is produced
   void addOut(uint32_t frameSamples){
-      auto nextFrameId = lastOut() + 1;
+      auto nextFrameId = m_out.last() + 1;
       LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. add output frame %lld %ld samples",
              m_name.c_str(), nextFrameId, frameSamples);
       m_out.addFrame(nextFrameId,frameSamples);
@@ -179,8 +181,8 @@ struct AudioAckMap  {
      LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. map ack %lld ",
             m_name.c_str(),id);
        ret = {id,0};
-       m_in.dump("in");
-       m_out.dump("out");
+       m_in.dump();
+       m_out.dump();
        auto off = m_out.offsetByFrame(id);
        if(off == InvalidOffset){
           LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map. ack %lld failed to get offset",
