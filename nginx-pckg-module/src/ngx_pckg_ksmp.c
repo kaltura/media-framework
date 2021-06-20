@@ -769,12 +769,6 @@ ngx_pckg_ksmp_read_media_info(ngx_persist_block_header_t *block,
         return NGX_BAD_DATA;
     }
 
-    if (header->bitrate_count <= 0) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_media_info: invalid bitrate count");
-        return NGX_BAD_DATA;
-    }
-
     media_info = ngx_array_push(&track->media_info);
     if (media_info == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
