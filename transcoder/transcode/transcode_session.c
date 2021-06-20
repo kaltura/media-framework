@@ -146,6 +146,7 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
             && ctx->output[outputId].passthrough)
               ctx->ack_handler = &ctx->output[outputId];
          else if(!ctx->output[outputId].passthrough) {
+              LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"transcode_session_set_media_info set ack_handler for output %d",outputId);
               ctx->ack_handler = &ctx->output[outputId];
               if(!(ctx->ack_handler->audio_mapping = audio_ack_map_create(ctx->input_frame_first_id,
                     ctx->ack_handler->track_id)))
@@ -312,6 +313,8 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
         _S(transcode_session_output_set_media_info(pOutput,pContext->currentMediaInfo,pContext->input_frame_first_id));
     }
 
+    LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Added output %s  passthrough=%d",pOutput->track_id,pOutput->passthrough);
+
     return 0;
 }
 
@@ -319,13 +322,8 @@ static
 int mapPacket(transcode_session_t *pContext,
 transcode_codec_t *pEncoder,
 transcode_session_output_t *pOutput,
-AVPacket *pOutPacket,
-AVFrame *pFrame) {
-     uint64_t frameId;
-     _S(get_frame_id(pFrame,&frameId));
-     uint32_t output_samples = ff_samples_from_time_base(pEncoder->ctx,pOutPacket->duration);
-     audio_ack_map_add_input(pOutput->audio_mapping,
-        frameId,pFrame->nb_samples);
+AVPacket *pOutPacket) {
+      uint32_t output_samples = ff_samples_from_time_base(pEncoder->ctx,pOutPacket->duration);
      // add packet offset-to-frameId mapping;
      audio_ack_map_add_output(pOutput->audio_mapping,output_samples);
     return 0;
@@ -351,6 +349,12 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
             pFrame->pict_type=AV_PICTURE_TYPE_I;
         else
             pFrame->pict_type=AV_PICTURE_TYPE_NONE;
+
+        if(pContext->ack_handler && pContext->ack_handler->codec_type == AVMEDIA_TYPE_AUDIO) {
+            uint64_t frameId;
+            _S(get_frame_id(pFrame,&frameId));
+            audio_ack_map_add_input(pContext->ack_handler->audio_mapping, frameId,pFrame->nb_samples);
+         }
     }
     
     ret=transcode_encoder_send_frame(pEncoder,pFrame);
@@ -381,7 +385,7 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
         pOutPacket->pos=clock_estimator_get_clock(&pContext->clock_estimator,pOutPacket->dts);
 
         if(pContext->ack_handler == pOutput && pOutput->codec_type == AVMEDIA_TYPE_AUDIO)
-               _S(mapPacket(pContext,pEncoder,pOutput,pOutPacket,pFrame));
+               _S(mapPacket(pContext,pEncoder,pOutput,pOutPacket));
 
         ret = transcode_session_output_send_output_packet(pOutput,pOutPacket);
 
