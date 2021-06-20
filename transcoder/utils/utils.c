@@ -143,8 +143,9 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
     }
     get_frame_id(pFrame,&frame_id);
     if (pFrame->width>0) {
-        snprintf(buf,size,"pts=%s;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;has_53cc=%d;frame_id=%ld",
+        snprintf(buf,size,"pts=%s;samples=%d;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;has_53cc=%d;frame_id=%ld",
              pts2str(pFrame->pts),
+             pFrame->nb_samples,
              pFrame->pkt_pos != 0 ? ts2str(pFrame->pkt_pos,false) :  "N/A",
              pFrame->key_frame==1 ? "True" : "False",
              &pFrame->data[0],
@@ -170,15 +171,15 @@ char *av_get_packet_desc(char *buf,int len,const  AVPacket * packet)
         return "<NULL>";
     }
     get_packet_frame_id(packet,&frame_id);
-    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;clock=%s;key=%s;size=%d;flags=%d;frame_id=%ld",
+    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;dur=%s;clock=%s;key=%s;size=%d;flags=%d;frame_id=%ld",
              packet,
              packet->data,
              pts2str(packet->pts),
              pts2str(packet->dts),
+             pts2str(packet->duration),
              packet->pos != 0 ? ts2str(packet->pos,false) :  "N/A",
              (packet->flags & AV_PKT_FLAG_KEY)==AV_PKT_FLAG_KEY ? "Yes" : "No",
              packet->size,
-             packet->flags,
              frame_id);
     return buf;
 }
