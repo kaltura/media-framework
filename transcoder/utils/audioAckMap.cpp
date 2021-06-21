@@ -11,6 +11,7 @@ typedef uint64_t frameId_t;
 typedef uint64_t streamOffset_t;
 const frameId_t InvalidFrameId = 0;
 const streamOffset_t InvalidOffset = std::numeric_limits<streamOffset_t>::min();
+const auto LoggingCategory = CATEGORY_OUTPUT;
 
 template<typename T,typename C>
 struct Repeated {
@@ -48,7 +49,7 @@ class RepeatedFrameId {
         m_total += dur;
         if(c < 0){
                if(c == -1){
-                   LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. duplicate frame %ld next %ld samples %ld",
+                   LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. duplicate frame %ld next %ld samples %ld",
                                m_name.c_str(),fd,m_lastFrame,dur);
                    auto &r = m_q.back();
                   //special case where frame spans several samples
@@ -59,7 +60,7 @@ class RepeatedFrameId {
                     m_q.back() = RepeatedFrame(r.m_val+dur,1);
                   }
               } else {
-                   LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map. bad frame %ld < %ld",
+                   LOGGER(LoggingCategory,AV_LOG_ERROR,"(%s) audio map. bad frame %ld < %ld",
                               m_name.c_str(),fd,last()-1);
               }
               return;
@@ -125,15 +126,17 @@ class RepeatedFrameId {
         return m_baseFrame;
     }
     void dump(int level = AV_LOG_DEBUG) {
+         if(get_log_level(LoggingCategory)<level)
+            return;
          streamOffset_t totalSamples = 0;
-         LOGGER(CATEGORY_OUTPUT,level,"(%s) audio map. dump. base frame %lld-%lld  base stream offset %lld",
+         LOGGER(LoggingCategory,level,"(%s) audio map. dump. base frame %lld-%lld  base stream offset %lld",
                    m_name.c_str(),m_baseFrame,m_lastFrame,m_streamOffset);
          for(const auto& r : m_q) {
-            LOGGER(CATEGORY_OUTPUT,level,"(%s) audio map. dump. %ld %ld",
+            LOGGER(LoggingCategory,level,"(%s) audio map. dump. %ld %ld",
                 m_name.c_str(),r.m_val,r.m_counter);
                 totalSamples += r.m_val*r.m_counter;
          }
-         LOGGER(CATEGORY_OUTPUT,level,"(%s) audio map. ~dump. samples since last ack point: %lld total samples: %lld",
+         LOGGER(LoggingCategory,level,"(%s) audio map. ~dump. samples since last ack point: %lld total samples: %lld",
             m_name.c_str(),totalSamples, m_total);
     }
 };
@@ -146,16 +149,16 @@ struct AudioAckMap  {
   const std::string m_name;
   void operator=(AudioAckMap) = delete;
   AudioAckMap(const AudioAckMap&) = delete;
-  AudioAckMap(const uint64_t &id,const char *name)
-    :m_in("in",id),
-    m_out("out",id),
+  AudioAckMap(const uint64_t &id,const std::string &name)
+    :m_in(name+".in",id),
+    m_out(name+".out",id),
     m_name(name)
      {
-        LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. c-tor initial ack %lld ",
+        LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. c-tor initial ack %lld ",
           m_name.c_str(),id);
     }
     ~AudioAckMap() {
-      LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. ~d-tor", m_name.c_str());
+      LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. ~d-tor", m_name.c_str());
     }
    auto lastIn() const {
      return m_in.last() - 1;
@@ -166,40 +169,40 @@ struct AudioAckMap  {
   // a new frame is fed to encoder
   void addIn(const uint64_t &id,uint32_t frameSamples){
         m_in.addFrame(id,frameSamples);
-        LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. add input frame %lld %ld samples",
+        LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. add input frame %lld %ld samples",
              m_name.c_str(), id, frameSamples);
   }
   // new output frame is produced
   void addOut(uint32_t frameSamples){
       auto nextFrameId = m_out.last() + 1;
-      LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. add output frame %lld %ld samples",
+      LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. add output frame %lld %ld samples",
              m_name.c_str(), nextFrameId, frameSamples);
       m_out.addFrame(nextFrameId,frameSamples);
   }
   // ack is received
   void map(const uint64_t &id,audio_ack_offset_t &ret) {
-     LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. map ack %lld ",
+     LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. map ack %lld ",
             m_name.c_str(),id);
        ret = {id,0};
        m_in.dump();
        m_out.dump();
        auto off = m_out.offsetByFrame(id);
        if(off == InvalidOffset){
-          LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map. ack %lld failed to get offset",
+          LOGGER(LoggingCategory,AV_LOG_ERROR,"(%s) audio map. ack %lld failed to get offset",
               m_name.c_str(),id, m_out.first(),m_out.last());
        } else {
-           LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. map ack %lld off %lld",
+           LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. map ack %lld off %lld",
               m_name.c_str(),id,off);
            auto p = m_in.frameByOffset(off);
            m_out.removeFrames(id);
            if(p.first == InvalidFrameId){
-               LOGGER(CATEGORY_OUTPUT,AV_LOG_ERROR,"(%s) audio map. ack %lld failed to get input frame id from offset %lld",
+               LOGGER(LoggingCategory,AV_LOG_ERROR,"(%s) audio map. ack %lld failed to get input frame id from offset %lld",
                   m_name.c_str(),id,off);
            } else {
               ret.id = p.first;
               ret.offset = p.second;
               m_in.removeFrames(ret.id);
-              LOGGER(CATEGORY_OUTPUT,AV_LOG_DEBUG,"(%s) audio map. map ack %lld -> %lld,%lld",
+              LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. map ack %lld -> %lld,%lld",
                 m_name.c_str(),id,ret.id,ret.offset);
             }
        }
