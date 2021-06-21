@@ -2,6 +2,7 @@
 #include <string>
 #include <cassert>
 #include <limits>
+#include <stdexcept>
 extern "C" {
     #include "audioAckMap.h"
     #include "./logger.h"
@@ -9,8 +10,6 @@ extern "C" {
 
 typedef uint64_t frameId_t;
 typedef uint64_t streamOffset_t;
-const frameId_t InvalidFrameId = 0;
-const streamOffset_t InvalidOffset = std::numeric_limits<streamOffset_t>::min();
 const auto LoggingCategory = CATEGORY_OUTPUT;
 
 template<typename T,typename C>
@@ -44,7 +43,7 @@ class RepeatedFrameId {
  public:
     RepeatedFrameId(const std::string &name,const frameId_t &id) : m_baseFrame(id),m_lastFrame(id),m_name(name)
     {}
-    void addFrame(const frameId_t &fd,const uint32_t &dur) {
+    void addFrame(const frameId_t &fd,const uint32_t &dur) throw() {
         const auto c = int(fd - m_lastFrame);
         m_total += dur;
         if(c < 0){
@@ -62,8 +61,8 @@ class RepeatedFrameId {
               } else {
                    LOGGER(LoggingCategory,AV_LOG_ERROR,"(%s) audio map. bad frame %ld < %ld",
                               m_name.c_str(),fd,last()-1);
+                   throw std::out_of_range("bad frame id supplied");
               }
-              return;
          }
         if(c > 0)
             m_q.push_back(RepeatedFrame(0,c));
@@ -72,7 +71,7 @@ class RepeatedFrameId {
         m_q.back().m_counter++;
         m_lastFrame += c;
      }
-    auto frameByOffset(streamOffset_t off) {
+    auto frameByOffset(streamOffset_t off) throw() {
         off -= m_streamOffset;
         auto walker = m_baseFrame;
         for(const auto& r : m_q) {
@@ -84,11 +83,11 @@ class RepeatedFrameId {
            off -= r.m_val * r.m_counter;
            walker += r.m_counter;
         }
-        return std::make_pair(InvalidFrameId,InvalidOffset);
+        throw std::out_of_range("offset out of frame range");
     }
-    auto offsetByFrame(frameId_t fd) {
+    auto offsetByFrame(frameId_t fd) throw() {
         if(fd < m_baseFrame || fd >= m_lastFrame)
-           return InvalidOffset;
+           throw std::out_of_range("offset id out of range");
         fd -= m_baseFrame;
         auto off = m_streamOffset;
         for(const auto& r : m_q) {
@@ -101,9 +100,9 @@ class RepeatedFrameId {
         }
         return off;
     }
-    void removeFrames(const frameId_t &fd) {
+    void removeFrames(const frameId_t &fd)  {
          if(fd < m_baseFrame || fd >= m_lastFrame)
-            return;
+           return;
          while(!m_q.empty()){
             auto &r = m_q.front();
             if(m_baseFrame + r.m_counter - 1 >= fd){
@@ -167,45 +166,35 @@ struct AudioAckMap  {
      return m_out.last() - 1;
    }
   // a new frame is fed to encoder
-  void addIn(const uint64_t &id,uint32_t frameSamples){
+  void addIn(const uint64_t &id,uint32_t frameSamples) throw(std::out_of_range) {
         m_in.addFrame(id,frameSamples);
         LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. add input frame %lld %ld samples",
              m_name.c_str(), id, frameSamples);
   }
   // new output frame is produced
-  void addOut(uint32_t frameSamples){
+  void addOut(uint32_t frameSamples) throw(std::out_of_range) {
       auto nextFrameId = m_out.last() + 1;
       LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. add output frame %lld %ld samples",
              m_name.c_str(), nextFrameId, frameSamples);
       m_out.addFrame(nextFrameId,frameSamples);
   }
   // ack is received
-  void map(const uint64_t &id,audio_ack_offset_t &ret) {
-     LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. map ack %lld ",
-            m_name.c_str(),id);
+  void map(const uint64_t &id,audio_ack_offset_t &ret) throw(std::out_of_range) {
+       LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. map ack %lld ",
+                m_name.c_str(),id);
        ret = {id,0};
        m_in.dump();
        m_out.dump();
        auto off = m_out.offsetByFrame(id);
-       if(off == InvalidOffset){
-          LOGGER(LoggingCategory,AV_LOG_ERROR,"(%s) audio map. ack %lld failed to get offset",
-              m_name.c_str(),id, m_out.first(),m_out.last());
-       } else {
-           LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. map ack %lld off %lld",
-              m_name.c_str(),id,off);
-           auto p = m_in.frameByOffset(off);
-           m_out.removeFrames(id);
-           if(p.first == InvalidFrameId){
-               LOGGER(LoggingCategory,AV_LOG_ERROR,"(%s) audio map. ack %lld failed to get input frame id from offset %lld",
-                  m_name.c_str(),id,off);
-           } else {
-              ret.id = p.first;
-              ret.offset = p.second;
-              m_in.removeFrames(ret.id);
-              LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. map ack %lld -> %lld,%lld",
-                m_name.c_str(),id,ret.id,ret.offset);
-            }
-       }
+       LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. map ack %lld off %lld",
+            m_name.c_str(),id,off);
+       auto p = m_in.frameByOffset(off);
+       m_out.removeFrames(id);
+       ret.id = p.first;
+       ret.offset = p.second;
+       m_in.removeFrames(ret.id);
+       LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. map ack %lld -> %lld,%lld",
+            m_name.c_str(),id,ret.id,ret.offset);
   }
 };
 
@@ -220,24 +209,39 @@ void audio_ack_map_destroy(audio_ack_map_t *m) {
 }
 void audio_ack_map_add_input(audio_ack_map_t *m,uint64_t id,uint32_t samples) {
    if(m){
-       auto &am = *reinterpret_cast<AudioAckMap*>(m);
-       am.addIn(id,samples);
+        try {
+           auto &am = *reinterpret_cast<AudioAckMap*>(m);
+           am.addIn(id,samples);
+         } catch(const std::exception &e) {
+              LOGGER(LoggingCategory,AV_LOG_ERROR," audio map. audio_ack_map_add_input %lld %d failed due to %s",
+                 id,samples,e.what());
+         }
    }
 }
 void audio_ack_map_add_output(audio_ack_map_t *m,uint32_t samples) {
     if(m){
-        auto &am = *reinterpret_cast<AudioAckMap*>(m);
-        am.addOut(samples);
+        try {
+            auto &am = *reinterpret_cast<AudioAckMap*>(m);
+            am.addOut(samples);
+        } catch(const std::exception &e) {
+              LOGGER(LoggingCategory,AV_LOG_ERROR," audio map. audio_ack_map_add_output %d failed due to %s",
+                samples,e.what());
+        }
     }
 }
 
 void audio_ack_map_ack(audio_ack_map_t *m,uint64_t ack,audio_ack_offset_t *ao) {
     if(!ao)   return;
     if(m){
-        auto &am = *reinterpret_cast<AudioAckMap*>(m);
-        am.map(ack,*ao);
-    } else {
-       ao->id = ack;
-       ao->offset = 0;
+        try {
+          auto &am = *reinterpret_cast<AudioAckMap*>(m);
+          am.map(ack,*ao);
+          return;
+        } catch(const std::exception &e) {
+             LOGGER(LoggingCategory,AV_LOG_ERROR," audio map. map ack %lld failed due to %s",
+                    ack,e.what());
+        }
     }
+    ao->id = ack;
+    ao->offset = 0;
 }
