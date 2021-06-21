@@ -2810,6 +2810,10 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
             "ngx_live_segmenter_create_segments: pts: %L, duration: %L",
             cctx->last_segment_end_pts, end_pts - cctx->last_segment_end_pts);
 
+#if (NGX_DEBUG)
+        ngx_live_segmenter_dump(channel, min_pts, end_pts);
+#endif
+
         cctx->cur_ready_duration = cctx->ready_duration;
 
         if (ngx_live_segmenter_create_segment(channel) != NGX_OK) {

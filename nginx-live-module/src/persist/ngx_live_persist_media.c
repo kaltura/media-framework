@@ -1858,10 +1858,12 @@ ngx_live_persist_media_channel_inactive(ngx_live_channel_t *channel,
         channel->next_segment_index = ngx_round_up_to_multiple(
             next_segment_index, pmpcf->bucket_size);
 
-        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-            "ngx_live_persist_media_channel_inactive: "
-            "aligned next segment index to bucket, prev: %uD",
-            next_segment_index);
+        if (channel->next_segment_index != next_segment_index) {
+            ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+                "ngx_live_persist_media_channel_inactive: "
+                "aligned next segment index to bucket, prev: %uD",
+                next_segment_index);
+        }
     }
 
     return NGX_OK;

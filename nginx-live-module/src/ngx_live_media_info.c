@@ -2,7 +2,9 @@
 #include <ngx_core.h>
 #include "ngx_live.h"
 #include "ngx_live_media_info.h"
+#include "ngx_live_segment_info.h"
 #include "ngx_live_segment_cache.h"
+#include "ngx_live_timeline.h"
 #include "media/mp4/mp4_defs.h"
 
 #include "ngx_live_media_info_json.h"
@@ -62,6 +64,13 @@ typedef struct {
 typedef struct {
     uint32_t            min_free_index;
 } ngx_live_media_info_channel_ctx_t;
+
+
+typedef struct {
+    ngx_queue_t        *q;
+    ngx_queue_t        *sentinel;
+    uint32_t            track_id;
+} ngx_live_media_info_own_iter_t;
 
 
 typedef struct {
@@ -1621,6 +1630,123 @@ ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
     }
 
     return iter->cur->node.key;
+}
+
+
+static void
+ngx_live_media_info_own_iter_init(ngx_live_media_info_own_iter_t *iter,
+    ngx_live_track_t *track, uint32_t start_index)
+{
+    ngx_live_media_info_node_t       *node;
+    ngx_live_media_info_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
+
+    node = ngx_live_media_info_queue_get_before(ctx, start_index);
+
+    iter->q = node != NULL ? &node->queue : ngx_queue_head(&ctx->active);
+    iter->sentinel = ngx_queue_sentinel(&ctx->active);
+    iter->track_id = track->in.key;
+}
+
+static ngx_flag_t
+ngx_live_media_info_own_iter_next(ngx_live_media_info_own_iter_t *iter,
+    uint32_t *start, uint32_t *end)
+{
+    ngx_live_media_info_node_t  *node;
+
+    if (iter->q == iter->sentinel) {
+        return 0;
+    }
+
+    node = ngx_queue_data(iter->q, ngx_live_media_info_node_t, queue);
+
+    while (node->track_id != iter->track_id) {
+        iter->q = ngx_queue_next(iter->q);
+        if (iter->q == iter->sentinel) {
+            return 0;
+        }
+
+        node = ngx_queue_data(iter->q, ngx_live_media_info_node_t, queue);
+    }
+
+    *start = node->node.key;
+
+    for ( ;; ) {
+        iter->q = ngx_queue_next(iter->q);
+        if (iter->q == iter->sentinel) {
+            *end = NGX_MAX_UINT32_VALUE;
+            return 1;
+        }
+
+        node = ngx_queue_data(iter->q, ngx_live_media_info_node_t, queue);
+
+        if (node->track_id != iter->track_id) {
+            *end = node->node.key;
+            return 1;
+        }
+    }
+}
+
+
+ngx_flag_t
+ngx_live_media_info_track_exists(ngx_live_timeline_t *timeline,
+    ngx_live_track_t *track)
+{
+    uint32_t                         start, end;
+    uint32_t                         own_start, own_end;
+    uint32_t                         period_start, period_end;
+    ngx_queue_t                     *q;
+    ngx_live_period_t               *period;
+    ngx_live_media_info_own_iter_t   iter;
+
+    q = ngx_queue_head(&timeline->periods);
+    if (q == ngx_queue_sentinel(&timeline->periods)) {
+        return 0;
+    }
+
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    ngx_live_media_info_own_iter_init(&iter, track, period->node.key);
+
+    if (!ngx_live_media_info_own_iter_next(&iter, &own_start, &own_end)) {
+        return 0;
+    }
+
+    period_start = period->node.key;
+    period_end = period_start + period->segment_count;
+
+    for ( ;; ) {
+
+        if (period_start < own_end && own_start < period_end) {
+
+            start = ngx_max(own_start, period_start);
+            end = ngx_min(own_end, period_end);
+
+            if (ngx_live_segment_info_segment_exists(track, start, end)) {
+                return 1;
+            }
+        }
+
+        if (own_end < period_end) {
+            if (!ngx_live_media_info_own_iter_next(&iter, &own_start,
+                &own_end))
+            {
+                return 0;
+            }
+
+        } else {
+            q = ngx_queue_next(q);
+            if (q == ngx_queue_sentinel(&timeline->periods)) {
+                return 0;
+            }
+
+            period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+            period_start = period->node.key;
+            period_end = period_start + period->segment_count;
+        }
+    }
 }
 
 

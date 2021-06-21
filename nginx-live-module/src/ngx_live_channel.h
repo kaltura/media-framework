@@ -247,6 +247,12 @@ ngx_int_t ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
 ngx_flag_t ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
     uint32_t media_type_mask);
 
+ngx_flag_t ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
+    ngx_live_timeline_t *timeline, uint32_t media_type_mask);
+
+ngx_flag_t ngx_live_variant_is_active_any(ngx_live_variant_t *variant,
+    ngx_live_timeline_t *timeline, uint32_t media_type_mask);
+
 size_t ngx_live_variants_json_get_size(ngx_live_channel_t *obj);
 
 u_char *ngx_live_variants_json_write(u_char *p, ngx_live_channel_t *obj);

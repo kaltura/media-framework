@@ -8,6 +8,9 @@
 #include "../ngx_live_filler.h"
 
 
+#define ngx_all_set(mask, f)  (((mask) & (f)) == (f))
+
+
 static ngx_int_t ngx_http_live_ksmp_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_live_ksmp_uint32_variable(ngx_http_request_t *r,
@@ -425,12 +428,21 @@ ngx_http_live_ksmp_parse(ngx_http_request_t *r,
         return NGX_HTTP_BAD_REQUEST;
     }
 
-    if ((params->flags & NGX_KSMP_FLAG_TIME_START_RELATIVE) &&
-        (params->flags & NGX_KSMP_FLAG_TIME_END_RELATIVE))
+    if (ngx_all_set(params->flags,
+        NGX_KSMP_FLAG_ACTIVE_LAST | NGX_KSMP_FLAG_ACTIVE_ANY))
     {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_ksmp_parse: "
-            "request includes both start relative and end relative flags");
+            "request includes both active-last and active-any flags");
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
+    if (ngx_all_set(params->flags,
+        NGX_KSMP_FLAG_TIME_START_RELATIVE | NGX_KSMP_FLAG_TIME_END_RELATIVE))
+    {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_ksmp_parse: "
+            "request includes both start-relative and end-relative flags");
         return NGX_HTTP_BAD_REQUEST;
     }
 
@@ -670,7 +682,7 @@ ngx_http_live_ksmp_add_track_ref(ngx_live_persist_serve_scope_t *scope,
 
 static ngx_int_t
 ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
-    ngx_live_variant_t *variant,  ngx_live_persist_serve_scope_t *scope)
+    ngx_live_variant_t *variant, ngx_live_persist_serve_scope_t *scope)
 {
     uint32_t           track_id;
     uint32_t           media_type_mask;
@@ -678,13 +690,26 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
     ngx_uint_t         i;
     ngx_live_track_t  *cur_track;
 
-    if ((params->flags & NGX_KSMP_FLAG_ACTIVE_ONLY) &&
-        !ngx_live_variant_is_main_track_active(variant,
+    if ((params->flags & NGX_KSMP_FLAG_ACTIVE_LAST) &&
+        !ngx_live_variant_is_active_last(variant, scope->timeline,
             params->media_type_mask))
     {
         ngx_http_live_ksmp_set_error(params,
             NGX_KSMP_ERR_VARIANT_INACTIVE,
-            "variant inactive, mask: 0x%uxD, variant: %V, channel: %V",
+            "variant inactive (last), mask: 0x%uxD, variant: %V, channel: %V",
+            params->media_type_mask, &variant->sn.str,
+            &variant->channel->sn.str);
+        return NGX_ABORT;
+
+    }
+
+    if ((params->flags & NGX_KSMP_FLAG_ACTIVE_ANY) &&
+        !ngx_live_variant_is_active_any(variant, scope->timeline,
+            params->media_type_mask))
+    {
+        ngx_http_live_ksmp_set_error(params,
+            NGX_KSMP_ERR_VARIANT_INACTIVE,
+            "variant inactive (any), mask: 0x%uxD, variant: %V, channel: %V",
             params->media_type_mask, &variant->sn.str,
             &variant->channel->sn.str);
         return NGX_ABORT;

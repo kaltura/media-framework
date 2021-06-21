@@ -390,6 +390,62 @@ ngx_live_segment_info_lookup(ngx_live_segment_info_track_ctx_t *ctx,
     return node;
 }
 
+ngx_flag_t
+ngx_live_segment_info_segment_exists(ngx_live_track_t *track, uint32_t start,
+    uint32_t end)
+{
+    ngx_queue_t                        *q;
+    ngx_live_segment_info_elt_t        *cur, *last;
+    ngx_live_segment_info_node_t       *node;
+    ngx_live_segment_info_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_info_module);
+
+    if (ctx->initial_bitrate != 0) {
+        /* gap tracking not enabled */
+        return 1;
+    }
+
+    node = ngx_live_segment_info_lookup(ctx, start);
+    if (node == NULL) {
+        return 0;
+    }
+
+    cur = &node->elts[0];
+    last = &node->elts[node->nelts];
+
+    /* TODO: use binary search */
+
+    /* skip irrelevant elts */
+    while (cur + 1 < last && cur[1].index <= start) {
+        cur++;
+    }
+
+    for ( ;; ) {
+
+        for (; cur < last; cur++) {
+
+            if (cur->index >= end) {
+                return 0;
+            }
+
+            if (cur->bitrate != 0) {
+                return 1;
+            }
+        }
+
+        q = ngx_queue_next(&node->queue);
+        if (q == ngx_queue_sentinel(&ctx->queue)) {
+            return 0;
+        }
+
+        node = ngx_queue_data(q, ngx_live_segment_info_node_t, queue);
+
+        cur = &node->elts[0];
+        last = &node->elts[node->nelts];
+    }
+}
+
 
 void
 ngx_live_segment_info_iter_init(ngx_live_segment_info_iter_t *iter,

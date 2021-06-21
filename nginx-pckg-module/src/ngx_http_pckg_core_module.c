@@ -59,6 +59,12 @@ typedef struct {
 } ngx_http_pckg_read_source_t;
 
 
+static ngx_conf_enum_t  ngx_http_pckg_active_policy[] = {
+    { ngx_string("last"), NGX_KSMP_FLAG_ACTIVE_LAST },
+    { ngx_string("any"),  NGX_KSMP_FLAG_ACTIVE_ANY },
+    { ngx_null_string, 0 }
+};
+
 static ngx_conf_enum_t  ngx_http_pckg_media_type_selector[] = {
     { ngx_string("request"), NGX_HTTP_PCKG_MTS_REQUEST },
     { ngx_string("actual"),  NGX_HTTP_PCKG_MTS_ACTUAL },
@@ -142,6 +148,27 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       offsetof(ngx_http_pckg_core_loc_conf_t, last_modified_static),
       NULL },
 
+    { ngx_string("pckg_active_policy"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_enum_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t, active_policy),
+      &ngx_http_pckg_active_policy },
+
+    { ngx_string("pckg_media_type_selector"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_enum_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t, media_type_selector),
+      &ngx_http_pckg_media_type_selector },
+
+    { ngx_string("pckg_empty_segments"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t, empty_segments),
+      NULL },
+
     { ngx_string("pckg_output_buffer_pool"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE2,
       ngx_http_pckg_core_buffer_pool_slot,
@@ -155,20 +182,6 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, segment_metadata),
       NULL },
-
-    { ngx_string("pckg_empty_segments"),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_flag_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_pckg_core_loc_conf_t, empty_segments),
-      NULL },
-
-    { ngx_string("pckg_media_type_selector"),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_enum_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_pckg_core_loc_conf_t, media_type_selector),
-      &ngx_http_pckg_media_type_selector },
 
       ngx_null_command
 };
@@ -244,6 +257,7 @@ ngx_str_t  ngx_http_pckg_prefix_master = ngx_string("master");
 ngx_str_t  ngx_http_pckg_prefix_index = ngx_string("index");
 ngx_str_t  ngx_http_pckg_prefix_init_seg = ngx_string("init");
 ngx_str_t  ngx_http_pckg_prefix_seg = ngx_string("seg");
+ngx_str_t  ngx_http_pckg_prefix_frame = ngx_string("frame");
 
 
 static ngx_int_t
@@ -557,6 +571,7 @@ ngx_http_pckg_core_parse(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
     ngx_memzero(params, sizeof(*params));
     params->media_type_mask = KMP_MEDIA_TYPE_MASK;
     params->segment_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
+    params->time = NGX_KSMP_INVALID_TIMESTAMP;
 
     cur = parsers->elts;
     for (last = cur + parsers->nelts; cur < last; cur++) {
@@ -1447,9 +1462,10 @@ ngx_http_pckg_core_create_loc_conf(ngx_conf_t *cf)
     }
     conf->last_modified_static = NGX_CONF_UNSET;
 
-    conf->empty_segments = NGX_CONF_UNSET;
-
+    conf->active_policy = NGX_CONF_UNSET_UINT;
     conf->media_type_selector = NGX_CONF_UNSET_UINT;
+
+    conf->empty_segments = NGX_CONF_UNSET;
 
     return conf;
 }
@@ -1466,9 +1482,6 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
         conf->uri = prev->uri;
     }
 
-    ngx_conf_merge_size_value(conf->max_uncomp_size,
-                              prev->max_uncomp_size, 5 * 1024 * 1024);
-
     if (conf->channel_id == NULL) {
         conf->channel_id = prev->channel_id;
     }
@@ -1476,6 +1489,9 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->timeline_id == NULL) {
         conf->timeline_id = prev->timeline_id;
     }
+
+    ngx_conf_merge_size_value(conf->max_uncomp_size,
+                              prev->max_uncomp_size, 5 * 1024 * 1024);
 
     for (type = 0; type < NGX_HTTP_PCKG_EXPIRES_COUNT; type++) {
         ngx_conf_merge_value(conf->expires[type],
@@ -1487,20 +1503,24 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
                          prev->last_modified_static,
                          NGX_HTTP_PCKG_DEFAULT_LAST_MODIFIED);
 
-    if (conf->segment_metadata == NULL) {
-        conf->segment_metadata = prev->segment_metadata;
-    }
+    ngx_conf_merge_uint_value(conf->active_policy,
+                              prev->active_policy,
+                              NGX_KSMP_FLAG_ACTIVE_LAST);
+
+    ngx_conf_merge_uint_value(conf->media_type_selector,
+                              prev->media_type_selector,
+                              NGX_HTTP_PCKG_MTS_REQUEST);
+
+    ngx_conf_merge_value(conf->empty_segments,
+                         prev->empty_segments, 0);
 
     if (conf->output_buffer_pool == NULL) {
         conf->output_buffer_pool = prev->output_buffer_pool;
     }
 
-    ngx_conf_merge_value(conf->empty_segments,
-                         prev->empty_segments, 0);
-
-    ngx_conf_merge_uint_value(conf->media_type_selector,
-                              prev->media_type_selector,
-                              NGX_HTTP_PCKG_MTS_REQUEST);
+    if (conf->segment_metadata == NULL) {
+        conf->segment_metadata = prev->segment_metadata;
+    }
 
     return NGX_CONF_OK;
 }
