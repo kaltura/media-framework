@@ -318,7 +318,7 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
 }
 
 static
-int mapPacket(transcode_session_t *pContext,
+int ackEncode(transcode_session_t *pContext,
 transcode_codec_t *pEncoder,
 transcode_session_output_t *pOutput,
 AVPacket *pOutPacket) {
@@ -380,7 +380,7 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
         pOutPacket->pos=clock_estimator_get_clock(&pContext->clock_estimator,pOutPacket->dts);
 
         if(pContext->ack_handler == pOutput){
-            _S(mapPacket(pContext,pEncoder,pOutput,pOutPacket));
+            _S(ackEncode(pContext,pEncoder,pOutput,pOutPacket));
         }
         ret = transcode_session_output_send_output_packet(pOutput,pOutPacket);
 
