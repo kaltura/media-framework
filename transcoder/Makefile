@@ -1,12 +1,13 @@
 CC = gcc -v
 SRC = $(wildcard *.c)
 SRC += $(wildcard ./utils/*.c)
+SRC += $(wildcard ./ackHandler/*.c)
 SRC += $(wildcard ./common/*.c)
 SRC += $(wildcard ./KMP/*.c)
 SRC += $(wildcard ./transcode/*.c)
 SRC += $(wildcard ./debug/*.c)
 DEPS = $(wildcard *.h)
-SRC_CPP += $(wildcard ./utils/*.cpp)
+SRC_CPP += $(wildcard ./ackHandler/*.cpp)
 ODIR=obj
 _OBJ = $(SRC:.c=.o)
 _OBJ_CPP = $(SRC_CPP:.cpp=.o)
@@ -59,10 +60,11 @@ install: $(EXE)
 .PHONY: clean
 
 clean:
-	rm -rf $(ODIR) $(ODIR)/common/ $(ODIR)/utils/ $(ODIR)/KMP/ $(ODIR)/transcode/  $(ODIR)/debug/ $(EXE)
+	rm -rf $(ODIR) $(ODIR)/common/ $(ODIR)/utils/ $(ODIR)/ackHandler/ $(ODIR)/KMP/ $(ODIR)/transcode/  $(ODIR)/debug/ $(EXE)
 	mkdir $(ODIR)
 	mkdir $(ODIR)/utils/
 	mkdir $(ODIR)/common/
 	mkdir $(ODIR)/KMP/
 	mkdir $(ODIR)/transcode/
 	mkdir $(ODIR)/debug/
+	mkdir $(ODIR)/ackHandler/

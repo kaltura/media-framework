@@ -4,8 +4,9 @@
 #include <limits>
 #include <stdexcept>
 extern "C" {
-    #include "audioAckMap.h"
-    #include "./logger.h"
+    #include "./ackHandlerInternal.h"
+    #include "./audioAckMap.h"
+    #include "../utils/logger.h"
 }
 
 typedef uint64_t frameId_t;
@@ -170,20 +171,20 @@ struct AudioAckMap  {
      return m_out.last() - 1;
    }
   // a new frame is fed to encoder
-  void addIn(const uint64_t &id,uint32_t frameSamples) throw(std::out_of_range) {
+  void addIn(const uint64_t &id,uint32_t frameSamples) throw() {
         m_in.addFrame(id,frameSamples);
         LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. add input frame %lld %ld samples",
              m_name.c_str(), id, frameSamples);
   }
   // new output frame is produced
-  void addOut(uint32_t frameSamples) throw(std::out_of_range) {
+  void addOut(uint32_t frameSamples) throw() {
       auto nextFrameId = m_out.last() + 1;
       LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. add output frame %lld %ld samples",
              m_name.c_str(), nextFrameId, frameSamples);
       m_out.addFrame(nextFrameId,frameSamples);
   }
   // ack is received
-  void map(const uint64_t &id,audio_ack_offset_t &ret) throw(std::out_of_range) {
+  void map(const uint64_t &id,ack_desc_t &ret) throw() {
        LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. map ack %lld ",
                 m_name.c_str(),id);
        ret = {id,0};
@@ -203,42 +204,42 @@ struct AudioAckMap  {
 };
 
 
-void *audio_ack_map_create(uint64_t initialFrameId,const char *name) {
-    return new AudioAckMap(initialFrameId,name);
-}
-void audio_ack_map_destroy(audio_ack_map_t *m) {
-    if(m){
-        delete reinterpret_cast<AudioAckMap*>(m);
-    }
-}
-void audio_ack_map_add_input(audio_ack_map_t *m,uint64_t id,uint32_t samples) {
-   if(m){
+static
+void
+audio_ack_map_add_input(ack_handler_t *h,ack_desc_t *desc) {
+   if(h){
+        ack_handler_ctx_t *ahc = (ack_handler_ctx_t*)h->ctx;
         try {
-           auto &am = *reinterpret_cast<AudioAckMap*>(m);
-           am.addIn(id,samples);
+           auto &am = *reinterpret_cast<AudioAckMap*>(ahc->ctx);
+           am.addIn(desc->id,desc->offset);
          } catch(const std::exception &e) {
               LOGGER(LoggingCategory,AV_LOG_ERROR," audio map. audio_ack_map_add_input %lld %d failed due to %s",
-                 id,samples,e.what());
+                 desc->id,desc->offset,e.what());
          }
    }
 }
-void audio_ack_map_add_output(audio_ack_map_t *m,uint32_t samples) {
-    if(m){
+static
+void
+audio_ack_map_add_output(ack_handler_t *h,ack_desc_t *desc) {
+    if(h){
+        ack_handler_ctx_t *ahc = (ack_handler_ctx_t*)h->ctx;
         try {
-            auto &am = *reinterpret_cast<AudioAckMap*>(m);
-            am.addOut(samples);
+            auto &am = *reinterpret_cast<AudioAckMap*>(ahc->ctx);
+            am.addOut(desc->offset);
         } catch(const std::exception &e) {
               LOGGER(LoggingCategory,AV_LOG_ERROR," audio map. audio_ack_map_add_output %d failed due to %s",
-                samples,e.what());
+                desc->offset,e.what());
         }
     }
 }
-
-void audio_ack_map_ack(audio_ack_map_t *m,uint64_t ack,audio_ack_offset_t *ao) {
+static
+void
+audio_ack_map_ack(ack_handler_t *h,uint64_t ack,ack_desc_t *ao) {
     if(!ao)   return;
-    if(m){
+    if(h){
+        ack_handler_ctx_t *ahc = (ack_handler_ctx_t*)h->ctx;
         try {
-          auto &am = *reinterpret_cast<AudioAckMap*>(m);
+          auto &am = *reinterpret_cast<AudioAckMap*>(ahc->ctx);
           am.map(ack,*ao);
           return;
         } catch(const std::exception &e) {
@@ -248,4 +249,26 @@ void audio_ack_map_ack(audio_ack_map_t *m,uint64_t ack,audio_ack_offset_t *ao) {
     }
     ao->id = ack;
     ao->offset = 0;
+}
+
+static
+void
+audio_ack_map_destroy(void *m) {
+    if(m){
+        delete reinterpret_cast<AudioAckMap*>(m);
+    }
+}
+
+int audio_ack_map_create(uint64_t initialFrameId,const char *name,ack_handler_t *h) {
+    ack_handler_ctx_t *ahc = (ack_handler_ctx_t*)h->ctx;
+    if(!ahc)
+        return AVERROR(EINVAL);
+    ahc->ctx = new AudioAckMap(initialFrameId,name);
+    if(!ahc->ctx)
+        return AVERROR(ENOMEM);
+    ahc->destroy = &audio_ack_map_destroy;
+    h->decoded = &audio_ack_map_add_input;
+    h->encoded = &audio_ack_map_add_output;
+    h->map = &audio_ack_map_ack;
+    return 0;
 }

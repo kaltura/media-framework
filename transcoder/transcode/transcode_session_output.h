@@ -13,7 +13,7 @@
 #include "samples_stats.h"
 #include "json_parser.h"
 #include "KMP.h"
-#include "../utils/audioAckMap.h"
+#include "../ackHandler/ackHandler.h"
 
 enum TranscodeOutputType
 {
@@ -65,7 +65,7 @@ typedef struct
     uint32_t lastOffset;
     KMP_session_t* sender;
     // ack mapping
-    audio_ack_map_t *audio_mapping;
+    ack_handler_t acker;
 } transcode_session_output_t;
 
 

@@ -29,7 +29,8 @@ int transcode_session_output_init(transcode_session_output_t* pOutput)  {
     strcpy(pOutput->videoParams.profile,"");
     pOutput->audioParams.samplingRate=pOutput->audioParams.channels=-1;
     pOutput->sender=NULL;
-    pOutput->audio_mapping = NULL;
+
+    ack_hanler_init(&pOutput->acker);
     
     sample_stats_init(&pOutput->stats,standard_timebase);
     return 0;
@@ -142,10 +143,12 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
         _S(KMP_send_packet(pOutput->sender,packet));
         uint64_t frameId;
         if (KMP_read_ack(pOutput->sender, &frameId)) {
-            audio_ack_offset_t ao;
-            audio_ack_map_ack(pOutput->audio_mapping,frameId,&ao);
-            pOutput->lastAck=ao.id;
-            pOutput->lastOffset=ao.offset;
+             ack_desc_t desc = {frameId,0};
+             if(pOutput->acker.ctx){
+                 pOutput->acker.map(&pOutput->acker,frameId,&desc);
+            }
+             pOutput->lastAck=desc.id;
+             pOutput->lastOffset=desc.offset;
         }
     }
     
@@ -246,10 +249,7 @@ int transcode_session_output_close(transcode_session_output_t* pOutput)
         av_free(pOutput->sender);
         pOutput->sender = NULL;
     }
-    if(pOutput->audio_mapping != NULL){
-       audio_ack_map_destroy(pOutput->audio_mapping);
-        pOutput->audio_mapping = NULL;
-    }
+    ack_hanler_destroy(&pOutput->acker);
     return 0;
 }
 

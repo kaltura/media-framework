@@ -7,6 +7,7 @@
 //
 
 #include "transcode_session.h"
+#include "../utils/ackHandlerUtils.h"
 
 
 /* initialization */
@@ -142,15 +143,13 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
     }
 
     for (int outputId=0;outputId<ctx->outputs && !ctx->ack_handler;outputId++) {
-         if(pDecoderContext->ctx->codec_type == AVMEDIA_TYPE_VIDEO
-            && ctx->output[outputId].passthrough)
-              ctx->ack_handler = &ctx->output[outputId];
-         else if(!ctx->output[outputId].passthrough) {
+         if(!ctx->output[outputId].passthrough) {
               LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"transcode_session_set_media_info set ack_handler for output %d",outputId);
               ctx->ack_handler = &ctx->output[outputId];
-              if(!(ctx->ack_handler->audio_mapping = audio_ack_map_create(ctx->input_frame_first_id,
-                    ctx->ack_handler->track_id)))
-                   return AVERROR(ENOMEM);
+               _S(ack_hanler_create(ctx->input_frame_first_id,
+                       ctx->ack_handler->track_id,
+                       pDecoderContext->ctx->codec_type,
+                       &ctx->ack_handler->acker));
          }
     }
     if(ctx->outputs && !ctx->ack_handler)
@@ -324,8 +323,10 @@ transcode_codec_t *pEncoder,
 transcode_session_output_t *pOutput,
 AVPacket *pOutPacket) {
       uint32_t output_samples = ff_samples_from_time_base(pEncoder->ctx,pOutPacket->duration);
+      frame_desc_t desc = {0,output_samples};
+
      // add packet offset-to-frameId mapping;
-     audio_ack_map_add_output(pOutput->audio_mapping,output_samples);
+    pOutput->acker.encoded(&pOutput->acker,&desc);
     return 0;
 }
 
@@ -378,9 +379,9 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
         
         pOutPacket->pos=clock_estimator_get_clock(&pContext->clock_estimator,pOutPacket->dts);
 
-        if(pContext->ack_handler == pOutput && pOutput->codec_type == AVMEDIA_TYPE_AUDIO)
-               _S(mapPacket(pContext,pEncoder,pOutput,pOutPacket));
-
+        if(pContext->ack_handler == pOutput){
+            _S(mapPacket(pContext,pEncoder,pOutput,pOutPacket));
+        }
         ret = transcode_session_output_send_output_packet(pOutput,pOutPacket);
 
        av_packet_free(&pOutPacket);
@@ -500,7 +501,10 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
                filterId,
                pContext->filter[filterId].config,getFrameDesc(pOutFrame))
         
-        
+        if(pContext->ack_handler && pContext->ack_handler->filterId == filterId ) {
+             ackFilter(&pContext->ack_handler->acker,pOutFrame);
+        }
+
         for (int outputId=0;outputId<pContext->outputs;outputId++) {
             transcode_session_output_t *pOutput=&pContext->output[outputId];
             if (pOutput->filterId==filterId && pOutput->encoderId!=-1){
@@ -559,10 +563,8 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
         return 0;
     }
 
-      if(ctx->ack_handler && ctx->ack_handler->codec_type == AVMEDIA_TYPE_AUDIO) {
-            uint64_t frameId;
-             _S(get_frame_id(frame,&frameId));
-             audio_ack_map_add_input(ctx->ack_handler->audio_mapping, frameId,frame->nb_samples);
+      if(ctx->ack_handler) {
+           ackDecode(&ctx->ack_handler->acker,frame);
       }
 
     for (int filterId=0;filterId<ctx->filters;filterId++) {
