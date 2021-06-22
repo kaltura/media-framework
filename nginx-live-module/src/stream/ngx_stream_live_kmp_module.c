@@ -278,18 +278,21 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
             "ngx_stream_live_kmp_frame: skipping frame, cur: %uL, next: %uL",
             ctx->cur_frame_id, track->next_frame_id);
+        track->input.skipped.duplicate++;
         goto done;
     }
 
     if (!ctx->got_media_info) {
         ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
             "ngx_stream_live_kmp_frame: no media info, skipping frame");
+        track->input.skipped.no_media_info++;
         goto done;
     }
 
     if (ctx->packet_header.data_size == 0) {
         ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
             "ngx_stream_live_kmp_frame: skipping empty frame");
+        track->input.skipped.empty++;
         goto done;
     }
 
@@ -317,6 +320,7 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
                 "ngx_stream_live_kmp_frame: "
                 "skipping non-key frame, created: %L, dts: %L",
                 frame_ptr->created, frame_ptr->dts);
+            track->input.skipped.no_key++;
             goto done;
         }
 

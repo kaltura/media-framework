@@ -121,14 +121,23 @@ typedef enum {
 } ngx_live_track_type_e;
 
 typedef struct {
+    ngx_uint_t                     duplicate;
+    ngx_uint_t                     empty;
+    ngx_uint_t                     no_media_info;
+    ngx_uint_t                     no_key;
+} ngx_live_track_input_skip_t;
+
+typedef struct {
     void                          *data;
     ngx_live_track_ack_frames_pt   ack_frames;
     ngx_live_track_disconnect_pt   disconnect;
 
     ngx_atomic_uint_t              connection;
     ngx_str_t                      remote_addr;
+
     time_t                         start_sec;
     off_t                          received_bytes;
+    ngx_live_track_input_skip_t    skipped;
 } ngx_live_track_input_t;
 
 struct ngx_live_track_s {
