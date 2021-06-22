@@ -349,12 +349,6 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
             pFrame->pict_type=AV_PICTURE_TYPE_I;
         else
             pFrame->pict_type=AV_PICTURE_TYPE_NONE;
-
-        if(0 && pContext->ack_handler && pContext->ack_handler->codec_type == AVMEDIA_TYPE_AUDIO) {
-            uint64_t frameId;
-            _S(get_frame_id(pFrame,&frameId));
-            audio_ack_map_add_input(pContext->ack_handler->audio_mapping, frameId,pFrame->nb_samples);
-         }
     }
     
     ret=transcode_encoder_send_frame(pEncoder,pFrame);
