@@ -40,32 +40,36 @@ class RepeatedFrameId {
     streamOffset_t m_streamOffset = 0;
     streamOffset_t m_total = 0; // diagnostics
     std::string m_name;
+
+    void handleFrameDiscontinuity(int c,const uint32_t &dur) throw() {
+        if(c < 0){
+               if(c == -1){
+                   LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. duplicate frame %ld next %ld samples %ld",
+                                   m_name.c_str(),m_lastFrame+c,m_lastFrame,dur);
+                       auto &r = m_q.back();
+                      //special case where frame spans several samples
+                      if(r.m_counter>1){
+                        r.m_counter--;
+                        m_q.push_back(RepeatedFrame(r.m_val+dur,1));
+                    } else {
+                        m_q.back() = RepeatedFrame(r.m_val+dur,1);
+                    }
+              } else {
+                    LOGGER(LoggingCategory,AV_LOG_ERROR,"(%s) audio map. bad frame %ld < %ld",
+                                m_name.c_str(),m_lastFrame+c,last()-1);
+                    throw std::out_of_range("bad frame id supplied");
+              }
+        } else if(c > 1)
+           m_q.push_back(RepeatedFrame(0,c-1));
+    }
+
  public:
     RepeatedFrameId(const std::string &name,const frameId_t &id) : m_baseFrame(id),m_lastFrame(id),m_name(name)
     {}
     void addFrame(const frameId_t &fd,const uint32_t &dur) throw() {
-        const auto c = int(fd - m_lastFrame);
+        auto c = int(fd - m_lastFrame);
         m_total += dur;
-        if(c < 0){
-               if(c == -1){
-                   LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. duplicate frame %ld next %ld samples %ld",
-                               m_name.c_str(),fd,m_lastFrame,dur);
-                   auto &r = m_q.back();
-                  //special case where frame spans several samples
-                  if(r.m_counter>1){
-                    r.m_counter--;
-                    m_q.push_back(RepeatedFrame(r.m_val+dur,1));
-                  } else {
-                    m_q.back() = RepeatedFrame(r.m_val+dur,1);
-                  }
-              } else {
-                   LOGGER(LoggingCategory,AV_LOG_ERROR,"(%s) audio map. bad frame %ld < %ld",
-                              m_name.c_str(),fd,last()-1);
-                   throw std::out_of_range("bad frame id supplied");
-              }
-         }
-        if(c > 0)
-            m_q.push_back(RepeatedFrame(0,c));
+        handleFrameDiscontinuity(c,dur);
         if(m_q.empty() || m_q.back().m_val != dur)
             m_q.push_back(RepeatedFrame(dur));
         m_q.back().m_counter++;
