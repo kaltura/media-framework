@@ -22,6 +22,7 @@ RUN git clone --branch ${NGX_DEVEL_KIT_VERSION} https://github.com/simplresty/ng
 RUN git clone --branch ${SET_MISC_NGINX_MODULE_VERSION} https://github.com/kaltura/set-misc-nginx-module
 
 COPY nginx-live-module nginx-live-module
+COPY nginx-pckg-module nginx-pckg-module
 COPY nginx-common nginx-common
 
 ARG APP_VERSION="0.1"
@@ -34,6 +35,7 @@ RUN cd /tmp/build/nginx && \
             --with-http_stub_status_module \
             --add-module=/tmp/build/nginx-common \
             --add-module=/tmp/build/nginx-live-module \
+            --add-module=/tmp/build/nginx-pckg-module \
             --add-module=/tmp/build/ngx_devel_kit \
             --add-module=/tmp/build/set-misc-nginx-module \
             --with-file-aio \
