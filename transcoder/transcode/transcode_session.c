@@ -283,7 +283,7 @@ int transcode_session_init_output(transcode_session_t* pContext,
     if(!extra.codecParams->bits_per_coded_sample) {
         extra.codecParams->bits_per_coded_sample = pDecoderContext->ctx->bits_per_coded_sample;
     }
-    _S(transcode_session_output_set_media_info(pOutput,&extra,pContext->input_frame_first_id));
+    _S(transcode_session_output_set_media_info(pOutput,&extra));
 
     return 0;
 }
@@ -296,9 +296,10 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
     strcpy(pOutput->channel_id,pContext->channelId);
     int ret=0;
     
+    _S(transcode_session_output_connect(pOutput,pContext->input_frame_first_id));
     if (pOutput->passthrough)
     {
-        _S(transcode_session_output_set_media_info(pOutput,pContext->currentMediaInfo,pContext->input_frame_first_id));
+        _S(transcode_session_output_set_media_info(pOutput,pContext->currentMediaInfo));
     }
     
     return 0;

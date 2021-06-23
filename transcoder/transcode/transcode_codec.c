@@ -177,7 +177,13 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
     pContext->ctx = codec_ctx;
     //codec_ctx->time_base=extraParams->timeScale;
     if (codec_ctx->codec_type==AVMEDIA_TYPE_VIDEO) {
-        LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "Initialized video decoder \"%s\" color space: %s",dec->long_name, av_get_pix_fmt_name (codec_ctx->pix_fmt));
+        _S(check_video_decoder_ar(codec_ctx));
+        LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "Initialized video decoder \"%s\" color space: %s width %d height %d ar %d/%d extra sz %d",
+            dec->long_name, av_get_pix_fmt_name (codec_ctx->pix_fmt),
+            codec_ctx->width,codec_ctx->height,
+            codec_ctx->sample_aspect_ratio.num,
+            codec_ctx->sample_aspect_ratio.den,
+            codec_ctx->extradata_size);
     }
     if (codec_ctx->codec_type==AVMEDIA_TYPE_AUDIO) {
         char temp[128];
