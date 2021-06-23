@@ -2914,6 +2914,8 @@ ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
     if (ctx->frame_count >= NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_live_segmenter_add_frame: frame count exceeds limit");
+        ngx_live_segmenter_dump(track->channel, ctx->start_pts,
+            ctx->start_pts - 1);
         return NGX_ERROR;
     }
 
