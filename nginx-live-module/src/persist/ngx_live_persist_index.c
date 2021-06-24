@@ -446,11 +446,6 @@ ngx_live_persist_index_write_track(ngx_persist_write_ctx_t *write_ctx,
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
 
-        if (cur_track->type == ngx_live_track_type_filler) {
-            /* will be handled by the filler module */
-            continue;
-        }
-
         if (cur_track->in.key > snap->base.max_track_id) {
             continue;
         }

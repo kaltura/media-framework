@@ -1081,24 +1081,45 @@ ngx_live_filler_setup_track(ngx_live_channel_t *dst,
     /* create the track */
     rc = ngx_live_track_create(dst, &src_track->sn.str,
         NGX_LIVE_INVALID_TRACK_ID, src_track->media_type, log, &dst_track);
-    if (rc != NGX_OK) {
-        if (rc == NGX_EXISTS) {
+    switch (rc) {
+
+    case NGX_OK:
+        break;
+
+    case NGX_EXISTS:
+        if (dst_track->type != ngx_live_track_type_filler) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_filler_setup_track: "
                 "track \"%V\" already exists in channel \"%V\"",
                 &src_track->sn.str, &dst->sn.str);
-
-        } else {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_filler_setup_track: create track failed %i", rc);
+            return NGX_ERROR;
         }
 
+        if (ngx_live_media_info_queue_get_last(dst_track, NULL) != NULL) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_live_filler_setup_track: "
+                "track \"%V\" already has media info", &src_track->sn.str);
+            return NGX_ERROR;
+        }
+
+        break;
+
+    default:
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_live_filler_setup_track: create track failed %i", rc);
         return NGX_ERROR;
     }
 
     dst_track->type = ngx_live_track_type_filler;
 
     ctx = ngx_live_get_module_ctx(dst_track, ngx_live_filler_module);
+
+    if (ctx->pool != NULL) {
+        ngx_log_error(NGX_LOG_ALERT, log, 0,
+            "ngx_live_filler_setup_track: track \"%V\" already initialized",
+            &dst_track->sn.str);
+        return NGX_ERROR;
+    }
 
     ctx->pool = ngx_create_pool(1024, &dst_track->log);
     if (ctx->pool == NULL) {
@@ -2333,8 +2354,34 @@ ngx_live_filler_channel_init(ngx_live_channel_t *channel, void *ectx)
 static ngx_int_t
 ngx_live_filler_channel_read(ngx_live_channel_t *channel, void *ectx)
 {
+    ngx_queue_t                  *q;
+    ngx_live_track_t             *cur_track;
+    ngx_live_filler_track_ctx_t  *cur_ctx;
+
     ngx_live_filler_set_last_media_types(channel,
         channel->filler_media_types & ~channel->last_segment_media_types);
+
+    /* if we somehow have filler tracks that were not set up, remove them */
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue); )
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+        q = ngx_queue_next(q);      /* track may be freed */
+
+        if (cur_track->type != ngx_live_track_type_filler) {
+            continue;
+        }
+
+        cur_ctx = ngx_live_get_module_ctx(cur_track, ngx_live_filler_module);
+        if (cur_ctx->pool != NULL) {
+            continue;
+        }
+
+        ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
+            "ngx_live_filler_channel_read: freeing unused filler track");
+
+        ngx_live_track_free(cur_track);
+    }
 
     return NGX_OK;
 }
