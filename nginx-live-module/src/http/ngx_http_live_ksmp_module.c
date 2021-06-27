@@ -497,7 +497,7 @@ ngx_http_live_ksmp_output(ngx_http_request_t *r, ngx_uint_t flags)
     }
 
     rc = ngx_http_send_special(r, flags);
-    if (rc != NGX_OK) {
+    if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_live_ksmp_output: send special failed %i", rc);
         return rc;
@@ -558,7 +558,7 @@ ngx_http_live_ksmp_segment_close(void *arg, ngx_int_t rc)
 
     if (rc == NGX_OK) {
         rc = ngx_http_send_special(r, NGX_HTTP_LAST);
-        if (rc != NGX_OK) {
+        if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
             ngx_log_error(NGX_LOG_NOTICE, c->log, 0,
                 "ngx_http_live_ksmp_segment_close: send special failed %i",
                 rc);
@@ -1204,7 +1204,7 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
     }
 
     rc = ngx_http_send_special(r, NGX_HTTP_LAST);
-    if (rc != NGX_OK) {
+    if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_live_ksmp_write: send special failed %i", rc);
         return rc;
