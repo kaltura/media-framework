@@ -149,7 +149,25 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
     return 0;
 }
 
-int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,transcode_mediaInfo_t* extra,uint64_t initial_frame_id)
+int transcode_session_output_connect(transcode_session_output_t *pOutput,uint64_t initial_frame_id)
+{
+    char senderUrl[MAX_URL_LENGTH];
+    json_get_string(GetConfig(),"output.streamingUrl","",senderUrl,sizeof(senderUrl));
+    if (strlen(senderUrl)>0) {
+        pOutput->sender=( KMP_session_t* )malloc(sizeof( KMP_session_t ));
+        KMP_init(pOutput->sender);
+
+        pOutput->sender->input_is_annex_b = pOutput->codec_type==AVMEDIA_TYPE_VIDEO && !pOutput->passthrough;
+
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] connecting to %s",pOutput->track_id,senderUrl);
+        _S(KMP_connect(pOutput->sender, senderUrl));
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending handshake (channelId: %s trackId: %s)",pOutput->track_id,pOutput->channel_id,pOutput->track_id);
+        _S(KMP_send_handshake(pOutput->sender,pOutput->channel_id,pOutput->track_id,initial_frame_id));
+    }
+    return 0;
+}
+
+int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,transcode_mediaInfo_t* extra)
 {
     if (extra->codecParams->width>0) {
         pOutput->actualVideoParams.width=extra->codecParams->width;
@@ -161,23 +179,10 @@ int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,
         pOutput->actualAudioParams.channels=extra->codecParams->channels;
         pOutput->codec_type=AVMEDIA_TYPE_AUDIO;
     }
-    
-    char senderUrl[MAX_URL_LENGTH];
-    json_get_string(GetConfig(),"output.streamingUrl","",senderUrl,sizeof(senderUrl));
-    if (strlen(senderUrl)>0) {
-        pOutput->sender=( KMP_session_t* )malloc(sizeof( KMP_session_t ));
-        KMP_init(pOutput->sender);
-        
-        pOutput->sender->input_is_annex_b = pOutput->codec_type==AVMEDIA_TYPE_VIDEO && !pOutput->passthrough;
-        
-        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] connecting to %s",pOutput->track_id,senderUrl);
-        _S(KMP_connect(pOutput->sender, senderUrl));
-        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending handshake (channelId: %s trackId: %s)",pOutput->track_id,pOutput->channel_id,pOutput->track_id);
-        _S(KMP_send_handshake(pOutput->sender,pOutput->channel_id,pOutput->track_id,initial_frame_id));
-        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending header",pOutput->track_id);
-        _S(KMP_send_mediainfo(pOutput->sender,extra));
-    }
-    
+
+    LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending header",pOutput->track_id);
+    _S(KMP_send_mediainfo(pOutput->sender,extra));
+
     bool saveFile;
     json_get_bool(GetConfig(),"output.saveFile",false,&saveFile);
     if (saveFile && pOutput->oc==NULL) {
