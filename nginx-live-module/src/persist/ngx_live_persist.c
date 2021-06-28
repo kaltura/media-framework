@@ -20,17 +20,13 @@ static void *ngx_live_persist_create_preset_conf(ngx_conf_t *cf);
 static char *ngx_live_persist_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
-static void ngx_live_persist_read_handler(void *data, ngx_int_t rc,
+static void ngx_live_persist_read_core_handler(void *data, ngx_int_t rc,
     ngx_buf_t *response);
 
 
 /* files */
 
 typedef struct {
-    uint32_t                           type;
-    uint32_t                           ctx;
-    ngx_flag_t                         compress;
-
     void                             (*write_handler)(
         ngx_live_persist_write_file_ctx_t *ctx, ngx_int_t rc);
 
@@ -39,20 +35,22 @@ typedef struct {
      * NGX_DECLINED - old version/uid mismatch, consider the file 'not found'
      */
     ngx_int_t                        (*read_handler)(
-        ngx_live_channel_t *channel, ngx_uint_t file, ngx_str_t *buf,
-        uint32_t *min_index);
+        ngx_live_channel_t *channel, ngx_uint_t file, ngx_str_t *buf);
 } ngx_live_persist_file_t;
 
 typedef struct {
     ngx_live_channel_t                *channel;
     ngx_pool_t                        *pool;
-    ngx_uint_t                         file;
-    uint32_t                           min_index;
-    ngx_live_persist_read_handler_pt   handler;
-    void                              *data;
+    ngx_str_t                          path;
     ngx_pool_cleanup_t                *cln;
+    void                              *data;
 } ngx_live_persist_file_read_ctx_t;
 
+typedef struct {
+    ngx_uint_t                         file;
+    ngx_live_persist_read_handler_pt   handler;
+    void                              *data;
+} ngx_live_persist_file_read_core_ctx_t;
 
 /* conf */
 
@@ -175,22 +173,26 @@ ngx_module_t  ngx_live_persist_module = {
 };
 
 
+static ngx_live_persist_file_type_t  ngx_live_persist_file_types[] = {
+    { NGX_LIVE_PERSIST_TYPE_SETUP, NGX_LIVE_PERSIST_CTX_SETUP_MAIN, 0 },
+    { NGX_LIVE_PERSIST_TYPE_INDEX, NGX_LIVE_PERSIST_CTX_INDEX_MAIN, 1 },
+    { NGX_LIVE_PERSIST_TYPE_INDEX, NGX_LIVE_PERSIST_CTX_INDEX_MAIN, 1 },
+    { NGX_LIVE_PERSIST_TYPE_MEDIA, NGX_LIVE_PERSIST_CTX_MEDIA_MAIN, 0 },
+};
+
+
 static ngx_live_persist_file_t  ngx_live_persist_files[] = {
-    { NGX_LIVE_PERSIST_TYPE_SETUP, NGX_LIVE_PERSIST_CTX_SETUP_MAIN, 0,
-        ngx_live_persist_setup_write_complete,
-        ngx_live_persist_setup_read_handler },
+    { ngx_live_persist_setup_write_complete,
+      ngx_live_persist_setup_read_handler },
 
-    { NGX_LIVE_PERSIST_TYPE_INDEX, NGX_LIVE_PERSIST_CTX_INDEX_MAIN, 1,
-        ngx_live_persist_index_write_complete,
-        ngx_live_persist_index_read_handler },
+    { ngx_live_persist_index_write_complete,
+      ngx_live_persist_index_read_handler },
 
-    { NGX_LIVE_PERSIST_TYPE_INDEX, NGX_LIVE_PERSIST_CTX_INDEX_MAIN, 1,
-        ngx_live_persist_index_write_complete,
-        ngx_live_persist_index_read_handler },
+    { ngx_live_persist_index_write_complete,
+      ngx_live_persist_index_read_handler },
 
-    { NGX_LIVE_PERSIST_TYPE_MEDIA, NGX_LIVE_PERSIST_CTX_MEDIA_MAIN, 0,
-        ngx_live_persist_media_write_complete,
-        NULL },
+    { ngx_live_persist_media_write_complete,
+      NULL },
 };
 
 
@@ -309,9 +311,11 @@ ngx_live_persist_write_file_destroy(ngx_live_persist_write_file_ctx_t *ctx)
     ngx_destroy_pool(ctx->pool);
 }
 
+
 static void
-ngx_live_persist_write_file_complete(void *arg, ngx_int_t rc)
+ngx_live_persist_write_core_file_complete(void *arg, ngx_int_t rc)
 {
+    ngx_uint_t                          file;
     ngx_live_channel_t                 *channel;
     ngx_live_persist_file_stats_t      *stats;
     ngx_live_persist_channel_ctx_t     *cctx;
@@ -319,8 +323,10 @@ ngx_live_persist_write_file_complete(void *arg, ngx_int_t rc)
 
     channel = ctx->channel;
 
+    file = ctx->scope.file;
+
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
-    stats = &cctx->stats[ctx->file];
+    stats = &cctx->stats[file];
 
     if (rc != NGX_OK) {
         stats->error++;
@@ -331,29 +337,25 @@ ngx_live_persist_write_file_complete(void *arg, ngx_int_t rc)
         stats->success_size += ctx->size;
     }
 
-    ngx_live_persist_files[ctx->file].write_handler(ctx, rc);
+    ngx_live_persist_files[file].write_handler(ctx, rc);
 }
 
 ngx_live_persist_write_file_ctx_t *
-ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
-    void *data, void *scope, size_t scope_size)
+ngx_live_persist_write_file(ngx_live_channel_t *channel,
+    ngx_live_persist_file_conf_t *conf, ngx_live_persist_file_type_t *type,
+    ngx_live_store_write_handler_pt handler, void *data,
+    void *scope, size_t scope_size)
 {
     size_t                              size;
     ngx_int_t                           rc;
     ngx_pool_t                         *pool;
     ngx_persist_write_ctx_t            *write_ctx;
-    ngx_live_persist_file_t            *file_spec;
     ngx_live_variables_ctx_t           *vctx;
     ngx_live_store_write_request_t      request;
     ngx_live_persist_preset_conf_t     *ppcf;
-    ngx_live_persist_channel_ctx_t     *cctx;
     ngx_live_persist_write_file_ctx_t  *ctx;
 
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
-
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
-
-    cctx->stats[file].started++;
 
     pool = ngx_create_pool(2048, &channel->log);
     if (pool == NULL) {
@@ -362,7 +364,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
         goto failed;
     }
 
-    ctx = ngx_pcalloc(pool, sizeof(*ctx) + scope_size);
+    ctx = ngx_pcalloc(pool, sizeof(*ctx) - sizeof(ctx->scope) + scope_size);
     if (ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_write_file: alloc failed (1)");
@@ -383,16 +385,15 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
         goto failed;
     }
 
-    rc = ngx_live_complex_value(vctx, ppcf->files[file].path, &request.path);
+    rc = ngx_live_complex_value(vctx, conf->path, &request.path);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_write_file: complex value failed");
         goto failed;
     }
 
-    file_spec = &ngx_live_persist_files[file];
-    write_ctx = ngx_persist_write_init(pool, file_spec->type,
-        file_spec->compress ? ppcf->comp_level : 0);
+    write_ctx = ngx_persist_write_init(pool, type->type,
+        type->compress ? ppcf->comp_level : 0);
     if (write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_write_file: write init failed");
@@ -402,7 +403,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
     ngx_persist_write_ctx(write_ctx) = data;
     ngx_persist_write_vctx(write_ctx) = vctx;
 
-    if (ngx_live_persist_write_blocks(channel, write_ctx, file_spec->ctx,
+    if (ngx_live_persist_write_blocks(channel, write_ctx, type->ctx,
         channel) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
@@ -411,10 +412,10 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
     }
 
     size = ngx_persist_write_get_size(write_ctx);
-    if (ppcf->files[file].max_size && size > ppcf->files[file].max_size) {
+    if (conf->max_size && size > conf->max_size) {
         ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
             "ngx_live_persist_write_file: size %uz exceeds limit %uz",
-            size, ppcf->files[file].max_size);
+            size, conf->max_size);
         goto failed;
     }
 
@@ -428,15 +429,14 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
     request.pool = pool;
     request.channel = channel;
     request.size = size;
-    request.handler = ngx_live_persist_write_file_complete;
+    request.handler = handler;
     request.data = ctx;
 
     ctx->pool = pool;
     ctx->channel = channel;
     ctx->start = ngx_current_msec;
-    ctx->file = file;
     ctx->size = size;
-    ngx_memcpy(ctx->scope, scope, scope_size);
+    ngx_memcpy(&ctx->scope, scope, scope_size);
 
     rc = ppcf->store->write(&request);
     if (rc != NGX_DONE) {
@@ -449,8 +449,6 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel, ngx_uint_t file,
 
 failed:
 
-    cctx->stats[file].error++;
-
     if (pool) {
         ngx_destroy_pool(pool);
     }
@@ -458,8 +456,34 @@ failed:
     return NULL;
 }
 
+ngx_live_persist_write_file_ctx_t *
+ngx_live_persist_write_core_file(ngx_live_channel_t *channel,
+    void *data, ngx_live_persist_scope_t *scope, size_t scope_size)
+{
+    ngx_uint_t                          file;
+    ngx_live_persist_channel_ctx_t     *cctx;
+    ngx_live_persist_preset_conf_t     *ppcf;
+    ngx_live_persist_write_file_ctx_t  *ctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
+    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
+
+    file = scope->file;
+    cctx->stats[file].started++;
+
+    ctx = ngx_live_persist_write_file(channel, &ppcf->files[file],
+        &ngx_live_persist_file_types[file],
+        ngx_live_persist_write_core_file_complete,
+        data, scope, scope_size);
+    if (ctx == NULL) {
+        cctx->stats[file].error++;
+    }
+
+    return ctx;
+}
+
 void
-ngx_live_persist_write_error(ngx_live_channel_t *channel, ngx_uint_t file)
+ngx_live_persist_write_core_error(ngx_live_channel_t *channel, ngx_uint_t file)
 {
     ngx_live_persist_channel_ctx_t  *cctx;
 
@@ -472,47 +496,54 @@ ngx_live_persist_write_error(ngx_live_channel_t *channel, ngx_uint_t file)
 
 ngx_int_t
 ngx_live_persist_read_parse(ngx_live_channel_t *channel, ngx_str_t *buf,
-    ngx_uint_t file, ngx_live_persist_index_scope_t *scope)
+    ngx_live_persist_file_type_t *type, size_t max_size,
+    ngx_live_persist_index_scope_t *scope)
 {
     void                            *ptr;
     ngx_int_t                        rc;
     ngx_mem_rstream_t                rs;
-    ngx_live_persist_file_t         *file_spec;
-    ngx_live_persist_preset_conf_t  *ppcf;
 
-    file_spec = &ngx_live_persist_files[file];
-
-    rc = ngx_persist_read_file_header(buf, file_spec->type, &channel->log,
+    rc = ngx_persist_read_file_header(buf, type->type, &channel->log,
         scope, &rs);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_read_parse: read header failed, file: %ui",
-            file);
+            "ngx_live_persist_read_parse: read header failed, type: %*s",
+            (size_t) sizeof(type->type), &type->type);
         return rc;
     }
 
-    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
-
-    rc = ngx_persist_read_inflate(buf, ppcf->files[file].max_size, &rs,
-        NULL, &ptr);
+    rc = ngx_persist_read_inflate(buf, max_size, &rs, NULL, &ptr);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_read_parse: inflate failed, file: %ui", file);
+            "ngx_live_persist_read_parse: inflate failed, type: %*s",
+            (size_t) sizeof(type->type), &type->type);
         return rc;
     }
 
-    rc = ngx_live_persist_read_blocks(channel, file_spec->ctx, &rs, channel);
+    rc = ngx_live_persist_read_blocks(channel, type->ctx, &rs, channel);
 
     ngx_free(ptr);
 
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_read_parse: read blocks failed, file: %ui",
-            file);
+            "ngx_live_persist_read_parse: read blocks failed, type: %*s",
+            (size_t) sizeof(type->type), &type->type);
         return rc;
     }
 
     return NGX_OK;
+}
+
+ngx_int_t
+ngx_live_persist_read_core_parse(ngx_live_channel_t *channel, ngx_str_t *buf,
+    ngx_uint_t file, ngx_live_persist_index_scope_t *scope)
+{
+    ngx_live_persist_preset_conf_t  *ppcf;
+
+    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
+
+    return ngx_live_persist_read_parse(channel, buf,
+        &ngx_live_persist_file_types[file], ppcf->files[file].max_size, scope);
 }
 
 static void
@@ -524,30 +555,24 @@ ngx_live_persist_read_detach(void *data)
     ctx->cln = NULL;
 }
 
-static ngx_int_t
+static ngx_live_persist_file_read_ctx_t *
 ngx_live_persist_read_file(ngx_live_channel_t *channel,
-    ngx_pool_cleanup_t *cln, ngx_uint_t file, uint32_t min_index,
-    ngx_live_persist_read_handler_pt handler, void *data)
+    ngx_pool_cleanup_t *cln, ngx_live_persist_file_conf_t *file,
+    ngx_live_store_read_handler_pt handler, void *data, size_t data_size)
 {
     void                              *read_ctx;
     ngx_int_t                          rc;
     ngx_pool_t                        *pool;
     ngx_live_variables_ctx_t           vctx;
     ngx_live_store_read_request_t      request;
-    ngx_live_persist_channel_ctx_t    *cctx;
     ngx_live_persist_preset_conf_t    *ppcf;
     ngx_live_persist_file_read_ctx_t  *ctx;
-
-    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
-    if (ppcf->files[file].path == NULL) {
-        return NGX_OK;
-    }
 
     pool = ngx_create_pool(2048, &channel->log);
     if (pool == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_read_file: create pool failed");
-        return NGX_ERROR;
+        return NULL;
     }
 
     rc = ngx_live_variables_init_ctx(channel, pool, &vctx);
@@ -557,14 +582,14 @@ ngx_live_persist_read_file(ngx_live_channel_t *channel,
         goto failed;
     }
 
-    rc = ngx_live_complex_value(&vctx, ppcf->files[file].path, &request.path);
+    rc = ngx_live_complex_value(&vctx, file->path, &request.path);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_read_file: complex value failed");
         goto failed;
     }
 
-    ctx = ngx_palloc(pool, sizeof(*ctx));
+    ctx = ngx_palloc(pool, sizeof(*ctx) + data_size);
     if (ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_read_file: alloc failed");
@@ -573,18 +598,20 @@ ngx_live_persist_read_file(ngx_live_channel_t *channel,
 
     ctx->channel = channel;
     ctx->pool = pool;
-    ctx->file = file;
-    ctx->min_index = min_index;
-    ctx->handler = handler;
-    ctx->data = data;
+    ctx->path = request.path;
     ctx->cln = cln;
+
+    ctx->data = ctx + 1;
+    ngx_memcpy(ctx->data, data, data_size);
 
     request.pool = pool;
     request.channel = channel;
-    request.max_size = ppcf->files[file].max_size;
+    request.max_size = file->max_size;
 
-    request.handler = ngx_live_persist_read_handler;
+    request.handler = handler;
     request.data = ctx;
+
+    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
 
     read_ctx = ppcf->store->read_init(&request);
     if (read_ctx == NULL) {
@@ -605,47 +632,62 @@ ngx_live_persist_read_file(ngx_live_channel_t *channel,
         cln->data = ctx;
     }
 
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
-
-    cctx->read_ctx = ctx;
-
-    channel->blocked++;
-
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
         "ngx_live_persist_read_file: "
-        "read started, path: %V, file: %ui, min_index: %uD",
-        &request.path, file, min_index);
+        "read started, path: %V", &request.path);
 
-    return NGX_DONE;
+    return ctx;
 
 failed:
 
     ngx_destroy_pool(pool);
 
-    return NGX_ERROR;
+    return NULL;
+}
+
+
+static ngx_int_t
+ngx_live_persist_read_core_file(ngx_live_channel_t *channel,
+    ngx_pool_cleanup_t *cln, ngx_live_persist_file_conf_t *file,
+    ngx_live_persist_file_read_core_ctx_t *ctx)
+{
+    ngx_live_persist_channel_ctx_t    *cctx;
+    ngx_live_persist_file_read_ctx_t  *read_ctx;
+
+    read_ctx = ngx_live_persist_read_file(channel, cln, file,
+        ngx_live_persist_read_core_handler, ctx, sizeof(*ctx));
+    if (read_ctx == NULL) {
+        return NGX_ERROR;
+    }
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
+
+    cctx->read_ctx = read_ctx;
+
+    channel->blocked++;
+
+    return NGX_DONE;
 }
 
 static void
-ngx_live_persist_read_handler(void *data, ngx_int_t rc, ngx_buf_t *response)
+ngx_live_persist_read_core_handler(void *data, ngx_int_t rc,
+    ngx_buf_t *response)
 {
-    uint32_t                           min_index;
-    ngx_str_t                          buf;
-    ngx_uint_t                         file;
-    ngx_pool_t                        *pool;
-    ngx_pool_cleanup_t                *cln;
-    ngx_live_channel_t                *channel;
-    ngx_live_persist_preset_conf_t    *ppcf;
-    ngx_live_persist_channel_ctx_t    *cctx;
-    ngx_live_persist_read_handler_pt   handler;
-    ngx_live_persist_file_read_ctx_t  *ctx = data;
+    ngx_str_t                               buf;
+    ngx_pool_t                             *pool;
+    ngx_pool_cleanup_t                     *cln;
+    ngx_live_channel_t                     *channel;
+    ngx_live_persist_preset_conf_t         *ppcf;
+    ngx_live_persist_channel_ctx_t         *cctx;
+    ngx_live_persist_file_read_ctx_t       *read_ctx = data;
+    ngx_live_persist_file_read_core_ctx_t   ctx;
 
-    channel = ctx->channel;
-    pool = ctx->pool;
-    file = ctx->file;
-    min_index = ctx->min_index;
-    handler = ctx->handler;
-    data = ctx->data;
-    cln = ctx->cln;
+    channel = read_ctx->channel;
+    pool = read_ctx->pool;
+    cln = read_ctx->cln;
+    ngx_memcpy(&ctx, read_ctx->data, sizeof(ctx));
+
+    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_module);
 
@@ -656,14 +698,14 @@ ngx_live_persist_read_handler(void *data, ngx_int_t rc, ngx_buf_t *response)
     if (rc != NGX_OK) {
         if (rc == NGX_HTTP_NOT_FOUND) {
             ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-                "ngx_live_persist_read_handler: "
-                "read file not found, file: %ui", file);
+                "ngx_live_persist_read_core_handler: "
+                "read file not found, path: %V", &read_ctx->path);
             rc = NGX_OK;
 
         } else {
             ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-                "ngx_live_persist_read_handler: "
-                "read failed %i, file: %ui", rc, file);
+                "ngx_live_persist_read_core_handler: "
+                "read failed %i, path: %V", rc, &read_ctx->path);
         }
         goto done;
     }
@@ -671,8 +713,8 @@ ngx_live_persist_read_handler(void *data, ngx_int_t rc, ngx_buf_t *response)
     buf.data = response->pos;
     buf.len = response->last - response->pos;
 
-    rc = ngx_live_persist_files[file].read_handler(channel, file, &buf,
-        &min_index);
+    rc = ngx_live_persist_files[ctx.file].read_handler(channel, ctx.file,
+        &buf);
     if (rc != NGX_OK) {
         if (rc == NGX_DECLINED) {
             /* ignore files with old version/uid mismatch */
@@ -684,13 +726,15 @@ ngx_live_persist_read_handler(void *data, ngx_int_t rc, ngx_buf_t *response)
     ngx_destroy_pool(pool);
     pool = NULL;
 
-    file++;
-    if (file >= NGX_LIVE_PERSIST_FILE_MEDIA) {
+    ctx.file++;
+    if (ctx.file >= NGX_LIVE_PERSIST_FILE_MEDIA ||
+        ppcf->files[ctx.file].path == NULL)
+    {
         goto done;
     }
 
-    rc = ngx_live_persist_read_file(channel, cln, file, min_index,
-        handler, data);
+    rc = ngx_live_persist_read_core_file(channel, cln, &ppcf->files[ctx.file],
+        &ctx);
     if (rc == NGX_DONE) {
         return;
     }
@@ -701,15 +745,12 @@ done:
         ngx_destroy_pool(pool);
     }
 
-    if (rc == NGX_OK && file > 0) {
-        ppcf = ngx_live_get_module_preset_conf(channel,
-            ngx_live_persist_module);
-
+    if (rc == NGX_OK && ctx.file > NGX_LIVE_PERSIST_FILE_SETUP) {
         if (!ngx_live_timelines_cleanup(channel) &&
             ppcf->cancel_read_if_empty)
         {
             ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-                "ngx_live_persist_read_handler: "
+                "ngx_live_persist_read_core_handler: "
                 "no segments, cancelling read");
             rc = NGX_DECLINED;
 
@@ -723,7 +764,7 @@ done:
         /* ctx was freed, must disable the cleanup handler */
         cln->handler = NULL;
 
-        handler(data, rc);
+        ctx.handler(ctx.data, rc);
     }
 }
 
@@ -731,8 +772,9 @@ ngx_int_t
 ngx_live_persist_read(ngx_live_channel_t *channel, ngx_pool_t *handler_pool,
     ngx_live_persist_read_handler_pt handler, void *data)
 {
-    ngx_pool_cleanup_t              *cln;
-    ngx_live_persist_preset_conf_t  *ppcf;
+    ngx_pool_cleanup_t                     *cln;
+    ngx_live_persist_preset_conf_t         *ppcf;
+    ngx_live_persist_file_read_core_ctx_t   ctx;
 
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
     if (ppcf->files[NGX_LIVE_PERSIST_FILE_SETUP].path == NULL) {
@@ -746,8 +788,12 @@ ngx_live_persist_read(ngx_live_channel_t *channel, ngx_pool_t *handler_pool,
         return NGX_ERROR;
     }
 
-    return ngx_live_persist_read_file(channel, cln,
-        NGX_LIVE_PERSIST_FILE_SETUP, 0, handler, data);
+    ctx.file = NGX_LIVE_PERSIST_FILE_SETUP;
+    ctx.handler = handler;
+    ctx.data = data;
+
+    return ngx_live_persist_read_core_file(channel, cln,
+        &ppcf->files[ctx.file], &ctx);
 }
 
 
@@ -835,7 +881,8 @@ ngx_live_persist_channel_free(ngx_live_channel_t *channel, void *ectx)
     }
 
     if (cctx->read_ctx != NULL) {
-        ngx_live_persist_read_handler(cctx->read_ctx, NGX_HTTP_CONFLICT, NULL);
+        ngx_live_persist_read_core_handler(cctx->read_ctx, NGX_HTTP_CONFLICT,
+            NULL);
     }
 
     return NGX_OK;

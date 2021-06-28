@@ -11,7 +11,7 @@ void ngx_live_persist_setup_write_complete(
     ngx_live_persist_write_file_ctx_t *ctx, ngx_int_t rc);
 
 ngx_int_t ngx_live_persist_setup_read_handler(ngx_live_channel_t *channel,
-    ngx_uint_t file, ngx_str_t *buf, uint32_t *min_index);
+    ngx_uint_t file, ngx_str_t *buf);
 
 
 size_t ngx_live_persist_setup_json_get_size(ngx_live_channel_t *channel);

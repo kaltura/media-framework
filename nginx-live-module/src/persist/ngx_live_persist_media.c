@@ -1228,6 +1228,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
 /* write */
 
 typedef struct {
+    ngx_live_persist_scope_t         base;
     uint32_t                         bucket_id;
     uint32_t                         min_index;
     uint32_t                         max_index;
@@ -1413,7 +1414,7 @@ ngx_live_persist_media_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
     ngx_live_persist_media_scope_t  *sp, scope;
 
     channel = ctx->channel;
-    sp = (void *) ctx->scope;
+    sp = (void *) &ctx->scope;
     scope = *sp;
 
     if (rc != NGX_OK) {
@@ -1441,7 +1442,7 @@ ngx_live_persist_media_write_cancel(void *arg)
     ngx_live_persist_write_file_ctx_t  *write_ctx = arg;
 
     channel = write_ctx->channel;
-    scope = (void *) write_ctx->scope;
+    scope = (void *) &write_ctx->scope;
 
     ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
         "ngx_live_persist_media_write_cancel: "
@@ -1463,7 +1464,8 @@ ngx_live_persist_media_write_file(ngx_live_channel_t *channel,
         ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
             "ngx_live_persist_media_write_file: "
             "memory too low, aborting write, bucket_id: %uD", bucket_id);
-        ngx_live_persist_write_error(channel, NGX_LIVE_PERSIST_FILE_MEDIA);
+        ngx_live_persist_write_core_error(channel,
+            NGX_LIVE_PERSIST_FILE_MEDIA);
         goto error;
     }
 
@@ -1471,6 +1473,8 @@ ngx_live_persist_media_write_file(ngx_live_channel_t *channel,
         ngx_live_persist_media_module);
 
     ctx.cln = NULL;
+
+    ctx.scope.base.file = NGX_LIVE_PERSIST_FILE_MEDIA;
     ctx.scope.bucket_id = bucket_id;
     ctx.scope.min_index = bucket_id * pmpcf->bucket_size;
     ctx.scope.max_index = ctx.scope.min_index + pmpcf->bucket_size;
@@ -1479,8 +1483,8 @@ ngx_live_persist_media_write_file(ngx_live_channel_t *channel,
 
     cctx->bucket_id = bucket_id;
 
-    write_ctx = ngx_live_persist_write_file(channel,
-        NGX_LIVE_PERSIST_FILE_MEDIA, &ctx, &ctx.scope, sizeof(ctx.scope));
+    write_ctx = ngx_live_persist_write_core_file(channel, &ctx,
+        &ctx.scope.base, sizeof(ctx.scope));
 
     cctx->bucket_id = NGX_LIVE_PERSIST_INVALID_BUCKET_ID;
 

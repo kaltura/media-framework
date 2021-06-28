@@ -73,8 +73,14 @@ typedef ngx_ksmp_segment_header_t  ngx_live_persist_segment_header_t;
 
 
 typedef struct {
-    uint32_t     min_index;
-    uint32_t     max_index;
+    ngx_uint_t                        file;
+} ngx_live_persist_scope_t;
+
+
+typedef struct {
+    ngx_live_persist_scope_t          base;
+    uint32_t                          min_index;
+    uint32_t                          max_index;
 } ngx_live_persist_index_scope_t;
 
 
