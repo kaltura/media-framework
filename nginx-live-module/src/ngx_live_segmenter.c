@@ -3124,7 +3124,8 @@ ngx_live_segmenter_inactive_handler(ngx_event_t *ev)
             ngx_live_segmenter_module);
         if (!cur_ctx->inactive.timer_set ||
             ngx_current_msec + spcf->inactive_timeout / 4 <
-            cur_ctx->inactive.timer.key) {
+            cur_ctx->inactive.timer.key)
+        {
             continue;
         }
 

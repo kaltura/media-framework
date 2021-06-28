@@ -199,11 +199,6 @@ ngx_live_persist_setup_write_track(ngx_persist_write_ctx_t *write_ctx,
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
 
-        if (cur_track->type == ngx_live_track_type_filler) {
-            /* will be created by the filler module */
-            continue;
-        }
-
         tp.track_id = cur_track->in.key;
         tp.media_type = cur_track->media_type;
         tp.type = cur_track->type;
@@ -254,6 +249,19 @@ ngx_live_persist_setup_read_track(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
+    switch (tp->type) {
+
+    case ngx_live_track_type_default:
+    case ngx_live_track_type_filler:
+        break;
+
+    default:
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_setup_read_track: "
+            "invalid track type %uD, track: %V", tp->type, &id);
+        return NGX_BAD_DATA;
+    }
+
     rc = ngx_live_track_create(channel, &id, tp->track_id, tp->media_type,
         rs->log, &track);
     if (rc != NGX_OK) {
@@ -271,6 +279,7 @@ ngx_live_persist_setup_read_track(ngx_persist_block_header_t *header,
     rs->log = &track->log;
 
     track->start_sec = tp->start_sec;
+    track->type = tp->type;
 
     rc = ngx_live_channel_block_str_read(channel, &track->opaque, rs);
     if (rc != NGX_OK) {

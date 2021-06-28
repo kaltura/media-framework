@@ -2135,6 +2135,11 @@ ngx_live_media_info_write_index_queue(ngx_persist_write_ctx_t *write_ctx,
 {
     ngx_live_track_t  *track = obj;
 
+    if (track->type == ngx_live_track_type_filler) {
+        /* handled by the filler module */
+        return NGX_OK;
+    }
+
     return ngx_live_persist_write_blocks(track->channel, write_ctx,
         NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO, track);
 }
@@ -2149,6 +2154,11 @@ ngx_live_media_info_read_index_queue(ngx_persist_block_header_t *block,
     ngx_live_media_info_node_t       *node;
     ngx_live_persist_index_scope_t   *scope;
     ngx_live_media_info_track_ctx_t  *ctx;
+
+    if (track->type == ngx_live_track_type_filler) {
+        /* handled by the filler module */
+        return NGX_OK;
+    }
 
     if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
