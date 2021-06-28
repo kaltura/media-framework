@@ -31,6 +31,6 @@ def test(channelId=CHANNEL_ID):
     codes = map(lambda x: x['code'], resp)
     assert(codes == [409,] + [404,] * 4)
 
-    logTracker.assertContains('ngx_live_persist_read_core_handler: read failed 409')
+    logTracker.assertContains('ngx_live_persist_core_read_handler: read failed 409')
 
     cleanupStack.reset()

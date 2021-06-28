@@ -12,4 +12,4 @@ def test(channelId=CHANNEL_ID):
         lambda: nl.channel.get(channelId), 404)
 
     logTracker.assertContains('ngx_live_store_http_read_finished: request failed 400')
-    logTracker.assertContains('ngx_live_persist_read_core_handler: read failed 502, path: /store/channel/test/setup')
+    logTracker.assertContains('ngx_live_persist_core_read_handler: read failed 502, path: /store/channel/test/setup')

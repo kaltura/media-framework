@@ -1,7 +1,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "../ngx_live.h"
-#include "ngx_live_persist_internal.h"
+#include "ngx_live_persist_core.h"
 
 
 static ngx_int_t ngx_live_persist_setup_preconfiguration(ngx_conf_t *cf);
@@ -515,7 +515,7 @@ ngx_live_persist_setup_write_handler(ngx_event_t *ev)
     scope.base.file = NGX_LIVE_PERSIST_FILE_SETUP;
     scope.version = cctx->version;
 
-    cctx->write_ctx = ngx_live_persist_write_core_file(channel,
+    cctx->write_ctx = ngx_live_persist_core_write_file(channel,
         &scope, &scope.base, sizeof(scope));
     if (cctx->write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
@@ -572,7 +572,7 @@ ngx_live_persist_setup_read_handler(ngx_live_channel_t *channel,
     enabled = cctx->enabled;
     cctx->enabled = 0;
 
-    rc = ngx_live_persist_read_core_parse(channel, buf, file, NULL);
+    rc = ngx_live_persist_core_read_parse(channel, buf, file, NULL);
 
     cctx->enabled = enabled;
 
@@ -618,6 +618,7 @@ static ngx_int_t
 ngx_live_persist_setup_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
     ngx_live_persist_preset_conf_t        *ppcf;
+    ngx_live_persist_core_preset_conf_t   *pcpcf;
     ngx_live_persist_setup_channel_ctx_t  *cctx;
 
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
@@ -630,8 +631,12 @@ ngx_live_persist_setup_channel_init(ngx_live_channel_t *channel, void *ectx)
     ngx_live_set_ctx(channel, cctx, ngx_live_persist_setup_module);
 
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
+    pcpcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_persist_core_module);
 
-    if (ppcf->files[NGX_LIVE_PERSIST_FILE_SETUP].path != NULL && ppcf->write) {
+    if (pcpcf->files[NGX_LIVE_PERSIST_FILE_SETUP].path != NULL
+        && ppcf->write)
+    {
         cctx->enabled = 1;
 
         cctx->timer.handler = ngx_live_persist_setup_write_handler;

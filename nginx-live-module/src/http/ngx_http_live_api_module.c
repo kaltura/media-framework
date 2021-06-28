@@ -4,6 +4,7 @@
 #include <ngx_http_api.h>
 #include "../ngx_live.h"
 #include "../ngx_live_timeline.h"
+#include "../persist/ngx_live_persist_core.h"
 #include <ngx_live_version.h>
 
 
@@ -359,7 +360,7 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
             ngx_http_set_ctx(r, ctx, ngx_http_live_api_module);
         }
 
-        rc = ngx_live_persist_read(channel, r->pool,
+        rc = ngx_live_persist_core_read(channel, r->pool,
             ngx_http_live_api_channel_read_handler, r);
         if (rc == NGX_DONE) {
             ctx->channel = channel;

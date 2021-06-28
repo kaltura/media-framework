@@ -1,7 +1,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "../ngx_live.h"
-#include "ngx_live_persist_internal.h"
+#include "ngx_live_persist_core.h"
 #include "ngx_live_persist_snap_frames.h"
 
 
@@ -151,7 +151,7 @@ ngx_live_persist_index_snap_close(void *data,
     ngx_live_channel_t                    *channel;
     ngx_live_persist_snap_index_t         *snap = data;
     ngx_live_persist_index_scope_t        *scope;
-    ngx_live_persist_preset_conf_t        *ppcf;
+    ngx_live_persist_core_preset_conf_t   *pcpcf;
     ngx_live_persist_index_preset_conf_t  *pipcf;
     ngx_live_persist_index_channel_ctx_t  *cctx;
 
@@ -209,11 +209,12 @@ ngx_live_persist_index_snap_close(void *data,
         goto close;
     }
 
-    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
+    pcpcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_persist_core_module);
     pipcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_persist_index_module);
 
-    if (ppcf->files[NGX_LIVE_PERSIST_FILE_DELTA].path != NULL &&
+    if (pcpcf->files[NGX_LIVE_PERSIST_FILE_DELTA].path != NULL &&
         scope->max_index - channel->min_segment_index + 1 >
             pipcf->max_delta_segments &&
         scope->max_index - cctx->success_index <=
@@ -227,7 +228,7 @@ ngx_live_persist_index_snap_close(void *data,
         scope->min_index = channel->min_segment_index;
     }
 
-    cctx->write_ctx = ngx_live_persist_write_core_file(channel,
+    cctx->write_ctx = ngx_live_persist_core_write_file(channel,
         snap, &scope->base, sizeof(*scope));
     if (cctx->write_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
@@ -611,7 +612,7 @@ ngx_live_persist_index_read_handler(ngx_live_channel_t *channel,
     ngx_live_persist_index_scope_t         scope;
     ngx_live_persist_index_channel_ctx_t  *cctx;
 
-    rc = ngx_live_persist_read_core_parse(channel, buf, file, &scope);
+    rc = ngx_live_persist_core_read_parse(channel, buf, file, &scope);
     if (rc != NGX_OK) {
         return rc;
     }
