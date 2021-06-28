@@ -329,7 +329,7 @@ ngx_live_segment_info_segment_free(ngx_live_channel_t *channel, void *ectx)
     cctx->min_free_index = min_segment_index +
         NGX_LIVE_SEGMENT_INFO_FREE_PERIOD;
 
-    /* free unused media info nodes */
+    /* free unused segment info nodes */
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))

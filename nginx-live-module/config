@@ -76,17 +76,9 @@ fi
 LIVE_CORE_MODULES="                                           \
     ngx_live_module                                           \
     ngx_live_core_module                                      \
-    ngx_live_segmenter_module                                 \
-    ngx_live_media_info_module                                \
-    ngx_live_timeline_module                                  \
-    ngx_live_input_bufs_module                                \
+    ngx_live_map_module                                       \
     ngx_live_segment_cache_module                             \
     ngx_live_segment_index_module                             \
-    ngx_live_segment_info_module                              \
-    ngx_live_syncer_module                                    \
-    ngx_live_filler_module                                    \
-    ngx_live_map_module                                       \
-    ngx_live_dynamic_var_module                               \
     ngx_live_store_http_module                                \
     ngx_live_store_s3_module                                  \
     ngx_live_persist_module                                   \
@@ -94,6 +86,14 @@ LIVE_CORE_MODULES="                                           \
     ngx_live_persist_index_module                             \
     ngx_live_persist_media_module                             \
     ngx_live_persist_serve_module                             \
+    ngx_live_segmenter_module                                 \
+    ngx_live_media_info_module                                \
+    ngx_live_timeline_module                                  \
+    ngx_live_input_bufs_module                                \
+    ngx_live_segment_info_module                              \
+    ngx_live_syncer_module                                    \
+    ngx_live_filler_module                                    \
+    ngx_live_dynamic_var_module                               \
     "
 
 LIVE_STREAM_MODULES="                                         \

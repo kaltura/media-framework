@@ -38,6 +38,13 @@ static ngx_command_t  ngx_rtmp_live_commands[] = {
       offsetof(ngx_rtmp_live_app_conf_t, live),
       NULL },
 
+    { ngx_string("sandbox"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_live_app_conf_t, sandbox),
+      NULL },
+
     { ngx_string("stream_buckets"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
@@ -151,6 +158,7 @@ ngx_rtmp_live_create_app_conf(ngx_conf_t *cf)
     }
 
     lacf->live = NGX_CONF_UNSET;
+    lacf->sandbox = NGX_CONF_UNSET;
     lacf->nbuckets = NGX_CONF_UNSET;
     lacf->buflen = NGX_CONF_UNSET_MSEC;
     lacf->sync = NGX_CONF_UNSET_MSEC;
@@ -173,6 +181,7 @@ ngx_rtmp_live_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_rtmp_live_app_conf_t *conf = child;
 
     ngx_conf_merge_value(conf->live, prev->live, 0);
+    ngx_conf_merge_value(conf->sandbox, prev->sandbox, 0);
     ngx_conf_merge_value(conf->nbuckets, prev->nbuckets, 1024);
     ngx_conf_merge_msec_value(conf->buflen, prev->buflen, 0);
     ngx_conf_merge_msec_value(conf->sync, prev->sync, 300);
@@ -1060,6 +1069,7 @@ ngx_rtmp_live_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 {
     ngx_rtmp_live_app_conf_t       *lacf;
     ngx_rtmp_live_ctx_t            *ctx;
+    u_char                          name[2 * sizeof(void *) + 1];
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
 
@@ -1073,7 +1083,13 @@ ngx_rtmp_live_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     /* join stream as publisher */
 
-    ngx_rtmp_live_join(s, v->name, 1);
+    if (lacf->sandbox) {
+        ngx_sprintf(name, "%p%Z", s);
+        ngx_rtmp_live_join(s, name, 1);
+
+    } else {
+        ngx_rtmp_live_join(s, v->name, 1);
+    }
 
     ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_live_module);
     if (ctx == NULL || !ctx->publishing) {
@@ -1097,6 +1113,7 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 {
     ngx_rtmp_live_app_conf_t       *lacf;
     ngx_rtmp_live_ctx_t            *ctx;
+    u_char                          name[2 * sizeof(void *) + 1];
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
 
@@ -1111,7 +1128,13 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 
     /* join stream as subscriber */
 
-    ngx_rtmp_live_join(s, v->name, 0);
+    if (lacf->sandbox) {
+        ngx_sprintf(name, "%p%Z", s);
+        ngx_rtmp_live_join(s, name, 0);
+
+    } else {
+        ngx_rtmp_live_join(s, v->name, 0);
+    }
 
     ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_live_module);
     if (ctx == NULL) {

@@ -2,7 +2,7 @@ from test_base import *
 
 # EXPECTED:
 #   30 sec video1 + audio1
-#   30 sec video1 + audio2
+#   30 sec video1 only
 #   30 sec video1 + audio1
 #   30 sec video2 + audio1
 #   30 sec video1 + audio1
@@ -17,8 +17,8 @@ def updateConf(conf):
     getConfBlock(conf, ['live']).append(['persist_cancel_read_if_empty', 'off'])
 
 def setup(channelId=CHANNEL_ID):
-    # create filler channel
-    nl = setupChannelTimeline(FILLER_CHANNEL_ID, FILLER_TIMELINE_ID)
+    # create audio+video filler channel
+    nl = setupChannelTimeline(FILLER_CHANNEL_ID, FILLER_TIMELINE_ID, preset='volatile')
 
     sv = createTrack(nl, 'fv1', 'video')
     sa = createTrack(nl, 'fa1', 'audio')
@@ -51,9 +51,23 @@ def setup(channelId=CHANNEL_ID):
 
 def test(channelId=CHANNEL_ID):
 
-    nl = nginxLiveClient()
+    # create video only filler channel
+    nl = setupChannelTimeline(FILLER_CHANNEL_ID, FILLER_TIMELINE_ID, preset='volatile')
+
+    sv = createTrack(nl, 'fv1', 'video')
+
+    st = KmpSendTimestamps()
+
+    kmpSendStreams([
+        (KmpMediaFileReader(FILLER_VIDEO, 0), sv),
+    ], st, maxDuration=20, realtime=False)
+
+    kmpSendEndOfStream([sv])
+
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
     nl.setChannelId(channelId)
+
+    logTracker.assertContains('ngx_live_filler_channel_read: freeing unused filler track')
 
     sv = KmpTcpSender(NGINX_LIVE_KMP_ADDR, channelId, 'v1', 'video')
     sa = KmpTcpSender(NGINX_LIVE_KMP_ADDR, channelId, 'a1', 'audio')
