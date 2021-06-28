@@ -8,16 +8,7 @@
 #include "ngx_live_store.h"
 
 
-/* file types */
-#define NGX_LIVE_PERSIST_TYPE_SETUP              (0x70746573)    /* setp */
-
-#define NGX_LIVE_PERSIST_TYPE_INDEX              (0x78696773)    /* sgix */
-
-#define NGX_LIVE_PERSIST_TYPE_MEDIA              (0x73746773)    /* sgts */
-
-#define NGX_LIVE_PERSIST_TYPE_SERVE              NGX_KSMP_PERSIST_TYPE
-
-
+/* block ids */
 #define NGX_LIVE_PERSIST_BLOCK_CHANNEL           NGX_KSMP_BLOCK_CHANNEL
 #define NGX_LIVE_PERSIST_BLOCK_VARIANT           NGX_KSMP_BLOCK_VARIANT
 #define NGX_LIVE_PERSIST_BLOCK_TRACK             NGX_KSMP_BLOCK_TRACK
@@ -26,8 +17,6 @@
 #define NGX_LIVE_PERSIST_BLOCK_FRAME_LIST        NGX_KSMP_BLOCK_FRAME_LIST
 #define NGX_LIVE_PERSIST_BLOCK_FRAME_DATA        NGX_KSMP_BLOCK_FRAME_DATA
 
-
-/* block ids */
 #define NGX_LIVE_PERSIST_INVALID_SNAP  ((void *) -1)
 
 
@@ -73,8 +62,14 @@ typedef ngx_ksmp_segment_header_t  ngx_live_persist_segment_header_t;
 
 
 typedef struct {
-    uint32_t     min_index;
-    uint32_t     max_index;
+    ngx_uint_t                        file;
+} ngx_live_persist_scope_t;
+
+
+typedef struct {
+    ngx_live_persist_scope_t          base;
+    uint32_t                          min_index;
+    uint32_t                          max_index;
 } ngx_live_persist_index_scope_t;
 
 
@@ -108,9 +103,6 @@ typedef struct {
 } ngx_live_persist_serve_scope_t;
 
 
-typedef void (*ngx_live_persist_read_handler_pt)(void *arg, ngx_int_t rc);
-
-
 char *ngx_live_persist_set_store(ngx_conf_t *cf, ngx_live_store_t *store);
 
 
@@ -118,19 +110,14 @@ ngx_int_t ngx_live_persist_add_blocks(ngx_conf_t *cf,
     ngx_persist_block_t *blocks);
 
 
-ngx_int_t ngx_live_persist_read(ngx_live_channel_t *channel,
-    ngx_pool_t *handler_pool, ngx_live_persist_read_handler_pt handler,
-    void *data);
-
-
-ngx_live_persist_snap_t *ngx_live_persist_snap_create(
-    ngx_live_channel_t *channel);
-
-
 ngx_int_t ngx_live_persist_read_blocks(ngx_live_channel_t *channel,
     ngx_uint_t ctx, ngx_mem_rstream_t *rs, void *obj);
 
 ngx_int_t ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
     ngx_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj);
+
+
+ngx_live_persist_snap_t *ngx_live_persist_snap_create(
+    ngx_live_channel_t *channel);
 
 #endif /* _NGX_LIVE_PERSIST_H_INCLUDED_ */

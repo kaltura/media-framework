@@ -23,4 +23,4 @@ def test(channelId=CHANNEL_ID):
 def validate(channelId=CHANNEL_ID):
     nl = nginxLiveClient()
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
-    logTracker.assertContains('ngx_live_persist_read_handler: no segments, cancelling read')
+    logTracker.assertContains('ngx_live_persist_core_read_handler: no segments, cancelling read')

@@ -6,7 +6,7 @@
 #include "../ngx_live_media_info.h"
 #include "../ngx_live_segmenter.h"
 #include "../ngx_live_timeline.h"
-#include "ngx_live_persist_internal.h"
+#include "ngx_live_persist_core.h"
 
 
 #define NGX_LIVE_PERSIST_INVALID_BUCKET_ID  NGX_MAX_INT32_VALUE
@@ -675,15 +675,17 @@ ngx_live_persist_media_read(ngx_live_segment_read_req_t *req)
     ngx_live_store_read_request_t          request;
     ngx_live_persist_preset_conf_t        *ppcf;
     ngx_live_persist_media_read_ctx_t     *ctx;
+    ngx_live_persist_core_preset_conf_t   *pcpcf;
     ngx_live_persist_media_preset_conf_t  *pmpcf;
     ngx_live_persist_media_channel_ctx_t  *cctx;
 
     pool = req->pool;
     channel = req->channel;
 
-    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
+    pcpcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_persist_core_module);
 
-    if (ppcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path == NULL) {
+    if (pcpcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_persist_media_read: not enabled");
         return NGX_ABORT;
@@ -716,7 +718,7 @@ ngx_live_persist_media_read(ngx_live_segment_read_req_t *req)
     cctx->bucket_id = bucket_id;
 
     rc = ngx_live_complex_value(&vctx,
-        ppcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path, &request.path);
+        pcpcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path, &request.path);
 
     cctx->bucket_id = NGX_LIVE_PERSIST_INVALID_BUCKET_ID;
 
@@ -732,6 +734,7 @@ ngx_live_persist_media_read(ngx_live_segment_read_req_t *req)
     request.data = ctx;
     request.max_size = 0;
 
+    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
     store = ppcf->store;
 
     ctx->read_ctx = store->read_init(&request);
@@ -1120,15 +1123,17 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
     ngx_live_store_read_request_t          request;
     ngx_live_persist_preset_conf_t        *ppcf;
     ngx_live_persist_media_copy_ctx_t     *ctx;
+    ngx_live_persist_core_preset_conf_t   *pcpcf;
     ngx_live_persist_media_preset_conf_t  *pmpcf;
     ngx_live_persist_media_channel_ctx_t  *cctx;
 
     pool = req->pool;
     channel = req->channel;
 
-    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
+    pcpcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_persist_core_module);
 
-    if (ppcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path == NULL) {
+    if (pcpcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_live_persist_media_copy: not enabled");
         return NGX_OK;
@@ -1162,7 +1167,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
     cctx->bucket_id = bucket_id;
 
     rc = ngx_live_complex_value(&vctx,
-        ppcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path, &request.path);
+        pcpcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path, &request.path);
 
     cctx->bucket_id = NGX_LIVE_PERSIST_INVALID_BUCKET_ID;
 
@@ -1178,6 +1183,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
     request.data = ctx;
     request.max_size = 0;
 
+    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
     store = ppcf->store;
 
     ctx->read_ctx = store->read_init(&request);
@@ -1228,6 +1234,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
 /* write */
 
 typedef struct {
+    ngx_live_persist_scope_t         base;
     uint32_t                         bucket_id;
     uint32_t                         min_index;
     uint32_t                         max_index;
@@ -1413,7 +1420,7 @@ ngx_live_persist_media_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
     ngx_live_persist_media_scope_t  *sp, scope;
 
     channel = ctx->channel;
-    sp = (void *) ctx->scope;
+    sp = (void *) &ctx->scope;
     scope = *sp;
 
     if (rc != NGX_OK) {
@@ -1441,7 +1448,7 @@ ngx_live_persist_media_write_cancel(void *arg)
     ngx_live_persist_write_file_ctx_t  *write_ctx = arg;
 
     channel = write_ctx->channel;
-    scope = (void *) write_ctx->scope;
+    scope = (void *) &write_ctx->scope;
 
     ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
         "ngx_live_persist_media_write_cancel: "
@@ -1463,7 +1470,8 @@ ngx_live_persist_media_write_file(ngx_live_channel_t *channel,
         ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
             "ngx_live_persist_media_write_file: "
             "memory too low, aborting write, bucket_id: %uD", bucket_id);
-        ngx_live_persist_write_error(channel, NGX_LIVE_PERSIST_FILE_MEDIA);
+        ngx_live_persist_core_write_error(channel,
+            NGX_LIVE_PERSIST_FILE_MEDIA);
         goto error;
     }
 
@@ -1471,6 +1479,8 @@ ngx_live_persist_media_write_file(ngx_live_channel_t *channel,
         ngx_live_persist_media_module);
 
     ctx.cln = NULL;
+
+    ctx.scope.base.file = NGX_LIVE_PERSIST_FILE_MEDIA;
     ctx.scope.bucket_id = bucket_id;
     ctx.scope.min_index = bucket_id * pmpcf->bucket_size;
     ctx.scope.max_index = ctx.scope.min_index + pmpcf->bucket_size;
@@ -1479,8 +1489,8 @@ ngx_live_persist_media_write_file(ngx_live_channel_t *channel,
 
     cctx->bucket_id = bucket_id;
 
-    write_ctx = ngx_live_persist_write_file(channel,
-        NGX_LIVE_PERSIST_FILE_MEDIA, &ctx, &ctx.scope, sizeof(ctx.scope));
+    write_ctx = ngx_live_persist_core_write_file(channel, &ctx,
+        &ctx.scope.base, sizeof(ctx.scope));
 
     cctx->bucket_id = NGX_LIVE_PERSIST_INVALID_BUCKET_ID;
 
@@ -1513,13 +1523,18 @@ ngx_live_persist_media_write_segment_created(ngx_live_channel_t *channel,
     uint32_t                               segment_index;
     ngx_flag_t                             exists;
     ngx_live_persist_preset_conf_t        *ppcf;
+    ngx_live_persist_core_preset_conf_t   *pcpcf;
     ngx_live_persist_media_channel_ctx_t  *cctx;
     ngx_live_persist_media_preset_conf_t  *pmpcf;
 
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
-    if (ppcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path == NULL ||
-        !ppcf->write)
-    {
+    if (!ppcf->write) {
+        return NGX_OK;
+    }
+
+    pcpcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_persist_core_module);
+    if (pcpcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path == NULL) {
         return NGX_OK;
     }
 
@@ -1746,7 +1761,7 @@ ngx_live_persist_media_read_json_get_size(ngx_live_channel_t *channel)
     stats = &cctx->read_stats;
 
     size_t  result =
-        ngx_live_persist_base_obj_json_get_size(stats) +
+        ngx_live_persist_core_json_get_size(stats) +
         sizeof(",\"cancel\":") - 1 + NGX_INT32_LEN +
         sizeof("{}") - 1;
 
@@ -1763,7 +1778,7 @@ ngx_live_persist_media_read_json_write(u_char *p, ngx_live_channel_t *channel)
     stats = &cctx->read_stats;
 
     *p++ = '{';
-    p = ngx_live_persist_base_obj_json_write(p, stats);
+    p = ngx_live_persist_core_json_write(p, stats);
     p = ngx_copy_fix(p, ",\"cancel\":");
     p = ngx_sprintf(p, "%uD", cctx->read_cancel);
     *p++ = '}';
@@ -1827,14 +1842,18 @@ ngx_live_persist_media_channel_inactive(ngx_live_channel_t *channel,
 {
     uint32_t                               next_segment_index;
     ngx_live_persist_preset_conf_t        *ppcf;
+    ngx_live_persist_core_preset_conf_t   *pcpcf;
     ngx_live_persist_media_channel_ctx_t  *cctx;
     ngx_live_persist_media_preset_conf_t  *pmpcf;
 
     ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
+    if (!ppcf->write) {
+        return NGX_OK;
+    }
 
-    if (ppcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path == NULL ||
-        !ppcf->write)
-    {
+    pcpcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_persist_core_module);
+    if (pcpcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path == NULL) {
         return NGX_OK;
     }
 
@@ -1872,11 +1891,12 @@ ngx_live_persist_media_channel_inactive(ngx_live_channel_t *channel,
 static ngx_int_t
 ngx_live_persist_media_channel_read(ngx_live_channel_t *channel, void *ectx)
 {
-    ngx_live_persist_preset_conf_t        *ppcf;
+    ngx_live_persist_core_preset_conf_t   *pcpcf;
     ngx_live_persist_media_preset_conf_t  *pmpcf;
 
-    ppcf = ngx_live_get_module_preset_conf(channel, ngx_live_persist_module);
-    if (ppcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path == NULL) {
+    pcpcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_persist_core_module);
+    if (pcpcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path == NULL) {
         return NGX_OK;
     }
 
