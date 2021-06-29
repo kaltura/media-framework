@@ -156,8 +156,7 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
              pFrame->height,
              pFrame->sample_aspect_ratio.num,
              pFrame->sample_aspect_ratio.den,
-             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL);
-             frame_id);
+             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL, frame_id);
     } else {
         snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%ld;frame_id=%ld",
                  pts2str(pFrame->pts),
