@@ -726,6 +726,10 @@ ngx_live_variant_is_active_any(ngx_live_variant_t *variant,
             return 1;
         }
 
+        if (!ngx_live_segment_info_timeline_exists(cur_track, timeline)) {
+            continue;
+        }
+
         return ngx_live_media_info_track_exists(timeline, cur_track);
     }
 
