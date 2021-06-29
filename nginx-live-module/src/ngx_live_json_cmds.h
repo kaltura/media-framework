@@ -7,7 +7,7 @@
 #include <ngx_json_parser.h>
 
 
-#define ngx_live_null_json_command { ngx_null_string, 0, NULL }
+#define ngx_live_null_json_cmd  { ngx_null_string, 0, NULL }
 
 
 enum {

@@ -358,7 +358,7 @@ static ngx_live_json_cmd_t  ngx_live_segmenter_dyn_cmds[] = {
     { ngx_string("segment_duration"), NGX_JSON_INT,
       ngx_live_segmenter_set_segment_duration },
 
-      ngx_live_null_json_command
+      ngx_live_null_json_cmd
 };
 
 

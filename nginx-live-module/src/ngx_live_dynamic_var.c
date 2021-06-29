@@ -101,7 +101,7 @@ static ngx_live_json_cmd_t  ngx_live_dynamic_var_dyn_cmds[] = {
     { ngx_string("vars"), NGX_JSON_OBJECT,
       ngx_live_dynamic_var_set_vars },
 
-      ngx_live_null_json_command
+      ngx_live_null_json_cmd
 };
 
 

@@ -129,7 +129,7 @@ static ngx_live_json_cmd_t  ngx_live_media_info_dyn_cmds[] = {
     { ngx_string("group_id"), NGX_JSON_STRING,
       ngx_live_media_info_set_group_id },
 
-      ngx_live_null_json_command
+      ngx_live_null_json_cmd
 };
 
 

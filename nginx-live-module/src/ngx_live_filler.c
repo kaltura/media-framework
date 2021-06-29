@@ -131,7 +131,7 @@ static ngx_live_json_cmd_t  ngx_live_filler_dyn_cmds[] = {
     { ngx_string("filler"), NGX_JSON_OBJECT,
       ngx_live_filler_set_channel },
 
-      ngx_live_null_json_command
+      ngx_live_null_json_cmd
 };
 
 static ngx_live_json_writer_def_t  ngx_live_filler_json_writers[] = {

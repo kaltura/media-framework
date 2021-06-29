@@ -144,7 +144,7 @@ static ngx_live_json_cmd_t  ngx_live_core_dyn_cmds[] = {
 
     { ngx_string("mem_limit"), NGX_JSON_INT, ngx_live_core_set_mem_limit },
 
-      ngx_live_null_json_command
+      ngx_live_null_json_cmd
 };
 
 
