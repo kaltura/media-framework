@@ -73,7 +73,8 @@ int transcode_session_output_init(transcode_session_output_t* ) ;
 int transcode_session_output_from_json(transcode_session_output_t* ,const json_value_t* );
 int transcode_session_output_close(transcode_session_output_t* ) ;
 
-int transcode_session_output_set_media_info(transcode_session_output_t *,transcode_mediaInfo_t* extra,uint64_t initial_frame_id ) ;
+int transcode_session_output_connect(transcode_session_output_t *pOutput,uint64_t initial_frame_id);
+int transcode_session_output_set_media_info(transcode_session_output_t *,transcode_mediaInfo_t* extra) ;
 int transcode_session_output_send_output_packet(transcode_session_output_t *,struct AVPacket* ) ;
 
 int transcode_session_output_get_diagnostics (transcode_session_output_t *,uint64_t recieveDts,uint64_t startProcessDts,char* );

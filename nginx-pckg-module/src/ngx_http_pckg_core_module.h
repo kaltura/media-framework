@@ -73,13 +73,12 @@ typedef struct {
     time_t                            expires[NGX_HTTP_PCKG_EXPIRES_COUNT];
     time_t                            last_modified_static;
 
-    buffer_pool_t                    *output_buffer_pool;
-
-    ngx_http_complex_value_t         *segment_metadata;
+    ngx_uint_t                        active_policy;
+    ngx_uint_t                        media_type_selector;
 
     ngx_flag_t                        empty_segments;
-
-    ngx_uint_t                        media_type_selector;
+    buffer_pool_t                    *output_buffer_pool;
+    ngx_http_complex_value_t         *segment_metadata;
 } ngx_http_pckg_core_loc_conf_t;
 
 
@@ -127,5 +126,6 @@ extern ngx_str_t  ngx_http_pckg_prefix_master;
 extern ngx_str_t  ngx_http_pckg_prefix_index;
 extern ngx_str_t  ngx_http_pckg_prefix_init_seg;
 extern ngx_str_t  ngx_http_pckg_prefix_seg;
+extern ngx_str_t  ngx_http_pckg_prefix_frame;
 
 #endif /* _NGX_HTTP_PCKG_CORE_MODULE_H_INCLUDED_ */

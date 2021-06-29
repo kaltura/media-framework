@@ -102,6 +102,49 @@ class KmpMediaFileReader(KmpReader):
         self.p.terminate()
 
 
+class KmpMemoryReader(KmpReaderBase):
+    def __init__(self, reader, duration):
+        self.packets = []
+        startDts = None
+        while True:
+            if reader.getPacketType() is None:
+                break
+
+            if reader.getPacketType() != KMP_PACKET_FRAME:
+                self.packets.append(reader.next())
+                continue
+
+            data = reader.next()
+            created, dts, flags, ptsDelay = kmpGetFrameHeader(data)
+
+            if startDts is None:
+                startDts = dts
+
+            dtsOffsetSec = (dts - startDts) / float(reader.timescale)
+            if dtsOffsetSec > duration:
+                break
+
+            self.packets.append(data)
+
+        self.mediaInfo = reader.mediaInfo
+        self.timescale = reader.timescale
+        self.name = reader.name
+        self.reset()
+
+    def reset(self):
+        self.index = 0
+        self.readPacket()
+
+    def readPacket(self):
+        if self.index >= len(self.packets):
+            self.packetType = None
+            self.packetData = None
+        else:
+            self.packetData = self.packets[self.index]
+            self.packetType = struct.unpack('<L', self.packetData[:4])[0]
+            self.index += 1
+
+
 class KmpSendTimestamps:
     def __init__(self):
         self.dts = 0
@@ -219,7 +262,7 @@ def kmpGetMinDtsPipe(pipes):
 
     return minPipe
 
-def kmpSendStreams(pipes, base = KmpSendTimestamps(), maxDuration = 0, realtime = True, waitForVideoKey = False):
+def kmpSendStreams(pipes, base = KmpSendTimestamps(), maxDuration = 0, maxDts = 0, realtime = True, waitForVideoKey = False):
     startTime = time.time()
     startDts = None
     dtsOffset = None
@@ -242,12 +285,16 @@ def kmpSendStreams(pipes, base = KmpSendTimestamps(), maxDuration = 0, realtime 
 
         dtsOffset = dts - startDts
         dtsOffsetSec = dtsOffset / float(reader.timescale)
-        created = base.created + dtsOffset
-        dts = base.dts + dtsOffset
 
         mediaType = struct.unpack('<L', reader.mediaInfo[16:20])[0]
-        if maxDuration > 0 and dtsOffsetSec > maxDuration and (not waitForVideoKey or (mediaType == KMP_MEDIA_VIDEO and flags & KMP_FRAME_FLAG_KEY)):
-            break
+        if not waitForVideoKey or (mediaType == KMP_MEDIA_VIDEO and flags & KMP_FRAME_FLAG_KEY):
+            if maxDuration > 0 and dtsOffsetSec > maxDuration:
+                break
+            if maxDts > 0 and dts >= maxDts:
+                break
+
+        created = base.created + dtsOffset
+        dts = base.dts + dtsOffset
 
         if realtime:
             sleepTime = startTime + dtsOffsetSec - time.time()

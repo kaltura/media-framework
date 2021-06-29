@@ -20,7 +20,13 @@ typedef struct {
 } ngx_live_segment_info_iter_t;
 
 
-/* iterator */
+ngx_flag_t ngx_live_segment_info_segment_exists(ngx_live_track_t *track,
+    uint32_t start, uint32_t end);
+
+ngx_flag_t ngx_live_segment_info_timeline_exists(ngx_live_track_t *track,
+    ngx_live_timeline_t *timeline);
+
+
 void ngx_live_segment_info_iter_init(ngx_live_segment_info_iter_t *iter,
     ngx_live_track_t *track, uint32_t segment_index);
 

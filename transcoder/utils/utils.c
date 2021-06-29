@@ -143,7 +143,7 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
     }
     get_frame_id(pFrame,&frame_id);
     if (pFrame->width>0) {
-        snprintf(buf,size,"pts=%s;samples=%d;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;has_53cc=%d;frame_id=%ld",
+        snprintf(buf,size,"pts=%s;samples=%d;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;ar=%d/%d;has_53cc=%d;frame_id=%ld",
              pts2str(pFrame->pts),
              pFrame->nb_samples,
              pFrame->pkt_pos != 0 ? ts2str(pFrame->pkt_pos,false) :  "N/A",
@@ -154,7 +154,9 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
              pict_type_to_string(pFrame->pict_type),
              pFrame->width,
              pFrame->height,
-             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL,
+             pFrame->sample_aspect_ratio.num,
+             pFrame->sample_aspect_ratio.den,
+             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL);
              frame_id);
     } else {
         snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%ld;frame_id=%ld",

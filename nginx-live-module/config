@@ -76,24 +76,25 @@ fi
 LIVE_CORE_MODULES="                                           \
     ngx_live_module                                           \
     ngx_live_core_module                                      \
-    ngx_live_segmenter_module                                 \
-    ngx_live_media_info_module                                \
-    ngx_live_timeline_module                                  \
-    ngx_live_input_bufs_module                                \
+    ngx_live_map_module                                       \
     ngx_live_segment_cache_module                             \
     ngx_live_segment_index_module                             \
-    ngx_live_segment_info_module                              \
-    ngx_live_syncer_module                                    \
-    ngx_live_filler_module                                    \
-    ngx_live_map_module                                       \
-    ngx_live_dynamic_var_module                               \
     ngx_live_store_http_module                                \
     ngx_live_store_s3_module                                  \
     ngx_live_persist_module                                   \
+    ngx_live_persist_core_module                              \
     ngx_live_persist_setup_module                             \
     ngx_live_persist_index_module                             \
     ngx_live_persist_media_module                             \
     ngx_live_persist_serve_module                             \
+    ngx_live_segmenter_module                                 \
+    ngx_live_media_info_module                                \
+    ngx_live_timeline_module                                  \
+    ngx_live_input_bufs_module                                \
+    ngx_live_segment_info_module                              \
+    ngx_live_syncer_module                                    \
+    ngx_live_filler_module                                    \
+    ngx_live_dynamic_var_module                               \
     "
 
 LIVE_STREAM_MODULES="                                         \
@@ -174,7 +175,7 @@ LIVE_CORE_SRCS="                                              \
     $ngx_addon_dir/src/ngx_live_dynamic_var.c                 \
     $ngx_addon_dir/src/ngx_live_filler.c                      \
     $ngx_addon_dir/src/ngx_live_input_bufs.c                  \
-    $ngx_addon_dir/src/ngx_live_json_commands.c               \
+    $ngx_addon_dir/src/ngx_live_json_cmds.c                   \
     $ngx_addon_dir/src/ngx_live_map.c                         \
     $ngx_addon_dir/src/ngx_live_media_info.c                  \
     $ngx_addon_dir/src/ngx_live_script.c                      \
@@ -187,6 +188,7 @@ LIVE_CORE_SRCS="                                              \
     $ngx_addon_dir/src/ngx_live_timeline.c                    \
     $ngx_addon_dir/src/ngx_live_variables.c                   \
     $ngx_addon_dir/src/persist/ngx_live_persist.c             \
+    $ngx_addon_dir/src/persist/ngx_live_persist_core.c        \
     $ngx_addon_dir/src/persist/ngx_live_persist_index.c       \
     $ngx_addon_dir/src/persist/ngx_live_persist_media.c       \
     $ngx_addon_dir/src/persist/ngx_live_persist_serve.c       \
@@ -221,7 +223,7 @@ LIVE_DEPS="$LIVE_DEPS                                         \
     $ngx_addon_dir/src/ngx_live_filler.h                      \
     $ngx_addon_dir/src/ngx_live_filler_json.h                 \
     $ngx_addon_dir/src/ngx_live_input_bufs.h                  \
-    $ngx_addon_dir/src/ngx_live_json_commands.h               \
+    $ngx_addon_dir/src/ngx_live_json_cmds.h                   \
     $ngx_addon_dir/src/ngx_live_media_info.h                  \
     $ngx_addon_dir/src/ngx_live_media_info_json.h             \
     $ngx_addon_dir/src/ngx_live_script.h                      \
@@ -234,6 +236,7 @@ LIVE_DEPS="$LIVE_DEPS                                         \
     $ngx_addon_dir/src/ngx_live_timeline_json.h               \
     $ngx_addon_dir/src/ngx_live_variables.h                   \
     $ngx_addon_dir/src/persist/ngx_live_persist.h             \
+    $ngx_addon_dir/src/persist/ngx_live_persist_core.h        \
     $ngx_addon_dir/src/persist/ngx_live_persist_index.h       \
     $ngx_addon_dir/src/persist/ngx_live_persist_internal.h    \
     $ngx_addon_dir/src/persist/ngx_live_persist_json.h        \

@@ -35,9 +35,9 @@ FILLER_TIMELINE_ID = 'main'
 def nginxLiveClient():
     return NginxLive(NGINX_LIVE_API_URL)
 
-def setupChannelTimeline(channelId, timelineId=TIMELINE_ID):
+def setupChannelTimeline(channelId, timelineId=TIMELINE_ID, preset='main'):
     nl = nginxLiveClient()
-    nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
+    nl.channel.create(NginxLiveChannel(id=channelId, preset=preset))
     nl.setChannelId(channelId)
     nl.timeline.create(NginxLiveTimeline(id=timelineId, active=True))
     return nl

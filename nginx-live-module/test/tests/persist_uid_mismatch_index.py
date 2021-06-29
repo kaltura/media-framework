@@ -8,7 +8,7 @@ KLPF_HEADER_SIZE_END = 12
 NGX_PERSIST_HEADER_FLAG_COMPRESSED = 0x40000000
 
 # persist_opaque is set to $hostname
-CHANNEL_UID_START = 0x38 + len(socket.gethostname())
+CHANNEL_UID_START = 0x38 + len(socket.gethostname() + ':0.1')
 CHANNEL_UID_END = CHANNEL_UID_START + 8
 
 def updateConf(conf):

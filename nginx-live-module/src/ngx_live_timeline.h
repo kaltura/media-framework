@@ -35,7 +35,7 @@ typedef struct ngx_live_period_s  ngx_live_period_t;
 
 struct ngx_live_period_s {
     ngx_rbtree_node_t                  node;          /* key = segment_index */
-    ngx_live_period_t                 *next;
+    ngx_queue_t                        queue;
 
     ngx_live_segment_iter_t            segment_iter;
     int64_t                            time;
@@ -49,7 +49,7 @@ typedef struct {
     ngx_live_timeline_manifest_conf_t  conf;
 
     int64_t                            availability_start_time;
-    ngx_live_period_t                  first_period;
+    ngx_live_period_t                  first_period;    /* queue.prev unused */
     int64_t                            first_period_initial_time;
     uint32_t                           first_period_initial_segment_index;
     uint32_t                           first_period_index;
@@ -63,6 +63,7 @@ typedef struct {
                                           [NGX_LIVE_TIMELINE_LAST_DURATIONS];
 
     /* volatile */
+    ngx_queue_t                       *sentinel;
     uint64_t                           duration;
     uint32_t                           segment_count;
     uint32_t                           period_count;
@@ -79,7 +80,7 @@ struct ngx_live_timeline_s {
 
     ngx_rbtree_t                       rbtree;
     ngx_rbtree_node_t                  sentinel;
-    ngx_live_period_t                 *head_period;
+    ngx_queue_t                        periods;
     int64_t                            first_period_initial_time;
     int64_t                            last_time;   /* after correction */
 
@@ -90,7 +91,6 @@ struct ngx_live_timeline_s {
     ngx_live_manifest_timeline_t       manifest;
 
     /* volatile */
-    ngx_live_period_t                 *last_period;
     uint64_t                           duration;
     uint32_t                           segment_count;
     uint32_t                           period_count;
@@ -115,7 +115,7 @@ ngx_int_t ngx_live_timeline_update(ngx_live_timeline_t *timeline,
     ngx_live_timeline_manifest_conf_t *manifest_conf, ngx_log_t *log);
 
 ngx_int_t ngx_live_timeline_get_time(ngx_live_timeline_t *timeline,
-    int64_t offset, ngx_log_t *log, int64_t *time);
+    uint32_t flags, ngx_log_t *log, int64_t *time);
 
 ngx_int_t ngx_live_timeline_copy(ngx_live_timeline_t *dest,
     ngx_live_timeline_t *source, ngx_log_t *log);
@@ -133,6 +133,9 @@ ngx_flag_t ngx_live_timelines_cleanup(ngx_live_channel_t *channel);
 
 void ngx_live_timelines_truncate(ngx_live_channel_t *channel,
     uint32_t segment_index);
+
+ngx_int_t ngx_live_timelines_get_segment_index(ngx_live_channel_t *channel,
+    int64_t time, uint32_t *segment_index);
 
 ngx_int_t ngx_live_timelines_get_segment_time(ngx_live_channel_t *channel,
     uint32_t segment_index, int64_t *start, int64_t *end);

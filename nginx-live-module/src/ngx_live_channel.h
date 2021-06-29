@@ -23,7 +23,7 @@
 
 #define NGX_LIVE_INVALID_TRACK_ID       (0)
 #define NGX_LIVE_INVALID_SEGMENT_INDEX  (NGX_KSMP_INVALID_SEGMENT_INDEX)
-#define NGX_LIVE_INVALID_TIMESTAMP      (LLONG_MAX)
+#define NGX_LIVE_INVALID_TIMESTAMP      (NGX_KSMP_INVALID_TIMESTAMP)
 
 #define NGX_LIVE_SEGMENT_NO_BITRATE     (NGX_KSMP_SEGMENT_NO_BITRATE)
 
@@ -121,14 +121,23 @@ typedef enum {
 } ngx_live_track_type_e;
 
 typedef struct {
+    ngx_uint_t                     duplicate;
+    ngx_uint_t                     empty;
+    ngx_uint_t                     no_media_info;
+    ngx_uint_t                     no_key;
+} ngx_live_track_input_skip_t;
+
+typedef struct {
     void                          *data;
     ngx_live_track_ack_frames_pt   ack_frames;
     ngx_live_track_disconnect_pt   disconnect;
 
     ngx_atomic_uint_t              connection;
     ngx_str_t                      remote_addr;
+
     time_t                         start_sec;
     off_t                          received_bytes;
+    ngx_live_track_input_skip_t    skipped;
 } ngx_live_track_input_t;
 
 struct ngx_live_track_s {
@@ -246,6 +255,12 @@ ngx_int_t ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
 
 ngx_flag_t ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
     uint32_t media_type_mask);
+
+ngx_flag_t ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
+    ngx_live_timeline_t *timeline, uint32_t media_type_mask);
+
+ngx_flag_t ngx_live_variant_is_active_any(ngx_live_variant_t *variant,
+    ngx_live_timeline_t *timeline, uint32_t media_type_mask);
 
 size_t ngx_live_variants_json_get_size(ngx_live_channel_t *obj);
 

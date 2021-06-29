@@ -275,6 +275,34 @@ int config_encoder(transcode_session_output_t *pOutput,  transcode_codec_t *pDec
     return ret;
 }
 
+static
+int transcode_session_init_output(transcode_session_t* pContext,
+    transcode_codec_t *pDecoderContext,
+    transcode_session_output_t* pOutput)
+{
+    transcode_filter_t* pFilter=GetFilter(pContext,pOutput,pDecoderContext);
+    transcode_codec_t* pEncoderContext=&pContext->encoder[pContext->encoders];
+
+    _S(config_encoder(pOutput, pDecoderContext, pFilter, pEncoderContext));
+
+    pOutput->encoderId=pContext->encoders++;
+    LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Output %s - Added encoder %d bitrate=%d",pOutput->track_id,pOutput->encoderId,pOutput->bitrate);
+
+    transcode_mediaInfo_t extra;
+    extra.frameRate=pEncoderContext->ctx->framerate;
+    extra.timeScale=pEncoderContext->ctx->time_base;
+    extra.codecParams=avcodec_parameters_alloc();
+    //TODO: how do we know encoder supports captions?
+    extra.closed_captions = pContext->currentMediaInfo->closed_captions;
+    avcodec_parameters_from_context(extra.codecParams,pEncoderContext->ctx);
+    if(!extra.codecParams->bits_per_coded_sample) {
+        extra.codecParams->bits_per_coded_sample = pDecoderContext->ctx->bits_per_coded_sample;
+    }
+    _S(transcode_session_output_set_media_info(pOutput,&extra));
+
+    return 0;
+}
+
 int transcode_session_add_output(transcode_session_t* pContext, const json_value_t* json )
 {
     transcode_codec_t *pDecoderContext=&pContext->decoder[0];
@@ -282,34 +310,11 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
     transcode_session_output_from_json(pOutput, json);
     strcpy(pOutput->channel_id,pContext->channelId);
     int ret=0;
-    
-    if (!pOutput->passthrough)
+
+    _S(transcode_session_output_connect(pOutput,pContext->input_frame_first_id));
+    if (pOutput->passthrough)
     {
-        transcode_filter_t* pFilter=GetFilter(pContext,pOutput,pDecoderContext);
-        transcode_codec_t* pEncoderContext=&pContext->encoder[pContext->encoders];
-        
-        ret=config_encoder(pOutput, pDecoderContext, pFilter, pEncoderContext);
-        if (ret<0) {
-            return ret;
-        }
-        
-        pOutput->encoderId=pContext->encoders++;
-        LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Output %s - Added encoder %d bitrate=%d",pOutput->track_id,pOutput->encoderId,pOutput->bitrate);
-        
-        transcode_mediaInfo_t extra;
-        extra.frameRate=pEncoderContext->ctx->framerate;
-        extra.timeScale=pEncoderContext->ctx->time_base;
-        extra.codecParams=avcodec_parameters_alloc();
-        //TODO: how do we know encoder supports captions?
-        extra.closed_captions = pContext->currentMediaInfo->closed_captions;
-        avcodec_parameters_from_context(extra.codecParams,pEncoderContext->ctx);
-        if(!extra.codecParams->bits_per_coded_sample) {
-            extra.codecParams->bits_per_coded_sample = pDecoderContext->ctx->bits_per_coded_sample;
-        }
-        _S(transcode_session_output_set_media_info(pOutput,&extra,pContext->input_frame_first_id));
-    } else
-    {
-        _S(transcode_session_output_set_media_info(pOutput,pContext->currentMediaInfo,pContext->input_frame_first_id));
+        _S(transcode_session_output_set_media_info(pOutput,pContext->currentMediaInfo));
     }
 
     LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Added output %s  passthrough=%d",pOutput->track_id,pOutput->passthrough);
@@ -529,6 +534,13 @@ static void shift_audio_samples(AVFrame *frame,int shift_by) {
 
 int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame *frame)
 {
+   for (int outputId=0;outputId<ctx->outputs;outputId++) {
+         transcode_session_output_t *pOutput=&ctx->output[outputId];
+         if (!pOutput->passthrough && pOutput->encoderId==-1) {
+              _S(transcode_session_init_output(ctx,&ctx->decoder[0],pOutput));
+         }
+    }
+
     if (frame==NULL) {
         
         for (int outputId=0;outputId<ctx->outputs;outputId++) {
@@ -621,10 +633,14 @@ int decodePacket(transcode_session_t *transcodingContext,const AVPacket* pkt) {
             return ret;
         }
         ret = OnDecodedFrame(transcodingContext,pDecoder->ctx,pFrame);
-        
+        if (ret < 0)
+        {
+            LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"[%d] Error OnDecodedFrame  %d (%s)",pkt->stream_index,ret,av_err2str(ret));
+        }
+
         av_frame_free(&pFrame);
     }
-    return 0;
+    return ret;
 }
 
 int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* packet)
@@ -641,7 +657,7 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
         transcode_session_output_t *pOutput=&ctx->output[i];
         if (pOutput->passthrough)
         {
-            ret = transcode_session_output_send_output_packet(pOutput,packet);
+            _S(transcode_session_output_send_output_packet(pOutput,packet));
         }
         else
         {
@@ -652,7 +668,7 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
         
         if (packet==NULL || !ctx->dropper.enabled || !transcode_dropper_should_drop_packet(&ctx->dropper,ctx->lastQueuedDts,packet))
         {
-            ret = decodePacket(ctx,packet);
+            _S(decodePacket(ctx,packet));
         }
     }
     if (ctx->onProcessedFrame) {

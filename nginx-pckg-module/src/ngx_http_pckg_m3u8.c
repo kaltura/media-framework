@@ -1340,7 +1340,10 @@ ngx_http_pckg_m3u8_parse_request(ngx_http_request_t *r, u_char *start_pos,
     u_char *end_pos, ngx_pckg_ksmp_req_t *result,
     ngx_http_pckg_request_handler_t **handler)
 {
-    uint32_t  flags;
+    uint32_t                        flags;
+    ngx_http_pckg_core_loc_conf_t  *plcf;
+
+    plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
 
     if (ngx_http_pckg_match_prefix(start_pos, end_pos,
         ngx_http_pckg_prefix_index))
@@ -1352,7 +1355,7 @@ ngx_http_pckg_m3u8_parse_request(ngx_http_request_t *r, u_char *start_pos,
         flags = NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT |
             NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
-        result->flags = NGX_KSMP_FLAG_ACTIVE_ONLY | NGX_KSMP_FLAG_CHECK_EXPIRY
+        result->flags = plcf->active_policy | NGX_KSMP_FLAG_CHECK_EXPIRY
             | NGX_KSMP_FLAG_DYNAMIC_VAR | NGX_KSMP_FLAG_MEDIA_INFO
             | NGX_KSMP_FLAG_TIMELINE | NGX_KSMP_FLAG_PERIODS
             | NGX_KSMP_FLAG_SEGMENT_INFO;
@@ -1366,7 +1369,7 @@ ngx_http_pckg_m3u8_parse_request(ngx_http_request_t *r, u_char *start_pos,
         flags = NGX_HTTP_PCKG_PARSE_OPTIONAL_VARIANTS |
             NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
-        result->flags = NGX_KSMP_FLAG_ACTIVE_ONLY
+        result->flags = plcf->active_policy
             | NGX_KSMP_FLAG_DYNAMIC_VAR | NGX_KSMP_FLAG_MEDIA_INFO
             | NGX_KSMP_FLAG_TIMELINE;
 

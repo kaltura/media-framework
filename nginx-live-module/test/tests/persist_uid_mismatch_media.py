@@ -2,7 +2,7 @@ from test_base import *
 import socket
 
 # persist_opaque is set to $hostname
-CHANNEL_UID_START = 0x38 + len(socket.gethostname())
+CHANNEL_UID_START = 0x38 + len(socket.gethostname() + ':0.1')
 CHANNEL_UID_END = CHANNEL_UID_START + 8
 
 def test(channelId=CHANNEL_ID):

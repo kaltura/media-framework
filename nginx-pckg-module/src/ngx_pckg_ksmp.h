@@ -27,6 +27,7 @@ typedef struct {
     ngx_str_t                      variant_ids;
     uint32_t                       media_type_mask;
     uint32_t                       segment_index;
+    int64_t                        time;
     uint32_t                       flags;
 } ngx_pckg_ksmp_req_t;
 

@@ -2,6 +2,7 @@
 #include <ngx_core.h>
 #include "ngx_live.h"
 #include "ngx_live_segment_info.h"
+#include "ngx_live_timeline.h"
 
 
 #define NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK  NGX_KSMP_BLOCK_SEGMENT_INFO
@@ -329,7 +330,7 @@ ngx_live_segment_info_segment_free(ngx_live_channel_t *channel, void *ectx)
     cctx->min_free_index = min_segment_index +
         NGX_LIVE_SEGMENT_INFO_FREE_PERIOD;
 
-    /* free unused media info nodes */
+    /* free unused segment info nodes */
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
         q = ngx_queue_next(q))
@@ -388,6 +389,87 @@ ngx_live_segment_info_lookup(ngx_live_segment_info_track_ctx_t *ctx,
     }
 
     return node;
+}
+
+ngx_flag_t
+ngx_live_segment_info_segment_exists(ngx_live_track_t *track, uint32_t start,
+    uint32_t end)
+{
+    ngx_queue_t                        *q;
+    ngx_live_segment_info_elt_t        *cur, *last;
+    ngx_live_segment_info_node_t       *node;
+    ngx_live_segment_info_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_info_module);
+
+    if (ctx->initial_bitrate != 0) {
+        /* gap tracking not enabled */
+        return 1;
+    }
+
+    node = ngx_live_segment_info_lookup(ctx, start);
+    if (node == NULL) {
+        return 0;
+    }
+
+    cur = &node->elts[0];
+    last = &node->elts[node->nelts];
+
+    /* TODO: use binary search */
+
+    /* skip irrelevant elts */
+    while (cur + 1 < last && cur[1].index <= start) {
+        cur++;
+    }
+
+    for ( ;; ) {
+
+        for (; cur < last; cur++) {
+
+            if (cur->index >= end) {
+                return 0;
+            }
+
+            if (cur->bitrate != 0) {
+                return 1;
+            }
+        }
+
+        q = ngx_queue_next(&node->queue);
+        if (q == ngx_queue_sentinel(&ctx->queue)) {
+            return 0;
+        }
+
+        node = ngx_queue_data(q, ngx_live_segment_info_node_t, queue);
+
+        cur = &node->elts[0];
+        last = &node->elts[node->nelts];
+    }
+}
+
+ngx_flag_t
+ngx_live_segment_info_timeline_exists(ngx_live_track_t *track,
+    ngx_live_timeline_t *timeline)
+{
+    uint32_t            start, end;
+    ngx_queue_t        *q;
+    ngx_live_period_t  *period;
+
+    for (q = ngx_queue_head(&timeline->periods);
+        q != ngx_queue_sentinel(&timeline->periods);
+        q = ngx_queue_next(q))
+    {
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+        start = period->node.key;
+        end = start + period->segment_count;
+
+        if (ngx_live_segment_info_segment_exists(track, start, end)) {
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 

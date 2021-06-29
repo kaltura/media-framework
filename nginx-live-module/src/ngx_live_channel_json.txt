@@ -1,10 +1,17 @@
 
+out ngx_live_track_input_skip ngx_live_track_input_skip_t
+    duplicate %ui
+    empty %ui
+    no_media_info %ui
+    no_key %ui
+
 out ngx_live_track_input ngx_live_track_input_t
     - %return-null !obj->connection
     connection %uA
     remote_addr %V
     uptime %T (ngx_time() - obj->start_sec)
     received_bytes %O
+    skipped_frames %func-ngx_live_track_input_skip &obj->skipped
 
 out ngx_live_track_json ngx_live_track_t
     media_type %enum-ngx_live_track_media_type_names

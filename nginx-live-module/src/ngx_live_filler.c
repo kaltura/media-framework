@@ -96,7 +96,7 @@ static char *ngx_live_filler_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
 static ngx_int_t ngx_live_filler_set_channel(void *ctx,
-    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
+    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
 
 
 static ngx_live_module_t  ngx_live_filler_module_ctx = {
@@ -126,12 +126,12 @@ ngx_module_t  ngx_live_filler_module = {
 };
 
 
-static ngx_live_json_command_t  ngx_live_filler_dyn_cmds[] = {
+static ngx_live_json_cmd_t  ngx_live_filler_dyn_cmds[] = {
 
     { ngx_string("filler"), NGX_JSON_OBJECT,
       ngx_live_filler_set_channel },
 
-      ngx_live_null_json_command
+      ngx_live_null_json_cmd
 };
 
 static ngx_live_json_writer_def_t  ngx_live_filler_json_writers[] = {
@@ -954,7 +954,9 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
     uint64_t                        duration;
     ngx_int_t                       rc;
     ngx_flag_t                      is_last;
+    ngx_queue_t                    *q;
     ngx_live_frame_t               *first_frame;
+    ngx_live_period_t              *period;
     ngx_live_channel_t             *dst_channel;
     ngx_live_segment_t             *src_segment;
     ngx_live_filler_segment_t      *dst_segment;
@@ -976,8 +978,11 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
         return NGX_ERROR;
     }
 
-    segment_index = timeline->head_period->node.key;
-    timeline_pts = timeline->head_period->time;
+    q = ngx_queue_head(&timeline->periods);
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    segment_index = period->node.key;
+    timeline_pts = period->time;
 
     duration = cctx->cycle_duration;
     total_size = 0;
@@ -1076,24 +1081,45 @@ ngx_live_filler_setup_track(ngx_live_channel_t *dst,
     /* create the track */
     rc = ngx_live_track_create(dst, &src_track->sn.str,
         NGX_LIVE_INVALID_TRACK_ID, src_track->media_type, log, &dst_track);
-    if (rc != NGX_OK) {
-        if (rc == NGX_EXISTS) {
+    switch (rc) {
+
+    case NGX_OK:
+        break;
+
+    case NGX_EXISTS:
+        if (dst_track->type != ngx_live_track_type_filler) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_filler_setup_track: "
                 "track \"%V\" already exists in channel \"%V\"",
                 &src_track->sn.str, &dst->sn.str);
-
-        } else {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_filler_setup_track: create track failed %i", rc);
+            return NGX_ERROR;
         }
 
+        if (ngx_live_media_info_queue_get_last(dst_track, NULL) != NULL) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_live_filler_setup_track: "
+                "track \"%V\" already has media info", &src_track->sn.str);
+            return NGX_ERROR;
+        }
+
+        break;
+
+    default:
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_live_filler_setup_track: create track failed %i", rc);
         return NGX_ERROR;
     }
 
     dst_track->type = ngx_live_track_type_filler;
 
     ctx = ngx_live_get_module_ctx(dst_track, ngx_live_filler_module);
+
+    if (ctx->pool != NULL) {
+        ngx_log_error(NGX_LOG_ALERT, log, 0,
+            "ngx_live_filler_setup_track: track \"%V\" already initialized",
+            &dst_track->sn.str);
+        return NGX_ERROR;
+    }
 
     ctx->pool = ngx_create_pool(1024, &dst_track->log);
     if (ctx->pool == NULL) {
@@ -1206,10 +1232,15 @@ ngx_live_filler_setup_get_durations(ngx_live_filler_channel_ctx_t *cctx,
     int32_t                   index, count;
     uint64_t                  duration;
     uint32_t                 *cur, *end;
+    ngx_queue_t              *q;
+    ngx_live_period_t        *period;
     ngx_live_segment_iter_t   iter;
 
     /* get the segment durations */
-    iter = timeline->head_period->segment_iter;
+    q = ngx_queue_head(&timeline->periods);
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    iter = period->segment_iter;
     duration = 0;
 
     cur = cctx->durations;
@@ -1389,20 +1420,15 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
     u_char                         *p;
     ngx_queue_t                    *q;
     ngx_live_track_t               *src_track;
+    ngx_live_period_t              *period;
     ngx_live_core_preset_conf_t    *cpcf;
     ngx_live_filler_channel_ctx_t  *cctx;
 
-    if (timeline->head_period == NULL) {
+    if (timeline->period_count != 1) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_filler_setup: timeline \"%V\" has no periods",
-            &timeline->sn.str);
-        return NGX_ERROR;
-    }
-
-    if (timeline->head_period != timeline->last_period) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_filler_setup: timeline \"%V\" has multiple periods",
-            &timeline->sn.str);
+            "ngx_live_filler_setup: "
+            "input timeline must have a single period, id: %V, count: %uD",
+            &timeline->sn.str, timeline->period_count);
         return NGX_ERROR;
     }
 
@@ -1442,8 +1468,11 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
 
     cctx->durations = (void *) p;
 
+    q = ngx_queue_head(&timeline->periods);
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
     cctx->cycle_duration = ngx_live_filler_setup_get_cycle_duration(src,
-        timeline->head_period->node.key, cctx->count, log);
+        period->node.key, cctx->count, log);
     if (cctx->cycle_duration <= 0) {
         return NGX_ERROR;
     }
@@ -1469,7 +1498,7 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
 }
 
 static ngx_int_t
-ngx_live_filler_set_channel(void *ctx, ngx_live_json_command_t *cmd,
+ngx_live_filler_set_channel(void *ctx, ngx_live_json_cmd_t *cmd,
     ngx_json_value_t *value, ngx_pool_t *pool)
 {
     ngx_str_t                       channel_id;
@@ -2325,8 +2354,34 @@ ngx_live_filler_channel_init(ngx_live_channel_t *channel, void *ectx)
 static ngx_int_t
 ngx_live_filler_channel_read(ngx_live_channel_t *channel, void *ectx)
 {
+    ngx_queue_t                  *q;
+    ngx_live_track_t             *cur_track;
+    ngx_live_filler_track_ctx_t  *cur_ctx;
+
     ngx_live_filler_set_last_media_types(channel,
         channel->filler_media_types & ~channel->last_segment_media_types);
+
+    /* if we somehow have filler tracks that were not set up, remove them */
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue); )
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+        q = ngx_queue_next(q);      /* track may be freed */
+
+        if (cur_track->type != ngx_live_track_type_filler) {
+            continue;
+        }
+
+        cur_ctx = ngx_live_get_module_ctx(cur_track, ngx_live_filler_module);
+        if (cur_ctx->pool != NULL) {
+            continue;
+        }
+
+        ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
+            "ngx_live_filler_channel_read: freeing unused filler track");
+
+        ngx_live_track_free(cur_track);
+    }
 
     return NGX_OK;
 }
@@ -2434,7 +2489,7 @@ ngx_live_filler_channel_json_write(u_char *p, void *obj)
 static ngx_int_t
 ngx_live_filler_preconfiguration(ngx_conf_t *cf)
 {
-    if (ngx_live_json_commands_add_multi(cf, ngx_live_filler_dyn_cmds,
+    if (ngx_live_json_cmds_add_multi(cf, ngx_live_filler_dyn_cmds,
         NGX_LIVE_JSON_CTX_CHANNEL) != NGX_OK)
     {
         return NGX_ERROR;

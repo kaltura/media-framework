@@ -1,7 +1,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "../ngx_live.h"
-#include "ngx_live_persist_internal.h"
+#include "ngx_live_persist_core.h"
 
 
 static ngx_int_t ngx_live_persist_serve_preconfiguration(ngx_conf_t *cf);

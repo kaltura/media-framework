@@ -55,6 +55,9 @@ ngx_int_t ngx_live_media_info_write(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_media_info_persist_t *mp, kmp_media_info_t *kmp_media_info,
     ngx_str_t *extra_data);
 
+ngx_flag_t ngx_live_media_info_track_exists(ngx_live_timeline_t *timeline,
+    ngx_live_track_t *track);
+
 
 /* gap filling */
 ngx_int_t ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,

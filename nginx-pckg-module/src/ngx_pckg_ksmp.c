@@ -769,12 +769,6 @@ ngx_pckg_ksmp_read_media_info(ngx_persist_block_header_t *block,
         return NGX_BAD_DATA;
     }
 
-    if (header->bitrate_count <= 0) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_media_info: invalid bitrate count");
-        return NGX_BAD_DATA;
-    }
-
     media_info = ngx_array_push(&track->media_info);
     if (media_info == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -1302,6 +1296,10 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
         variants_escape = 0;    /* suppress warning */
     }
 
+    if (req->time != NGX_KSMP_INVALID_TIMESTAMP) {
+        size += sizeof("&time=") - 1 + NGX_INT64_LEN;
+    }
+
     if (req->segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {
         size += sizeof("&segment_index=") - 1 + NGX_INT32_LEN;
     }
@@ -1344,7 +1342,7 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
     }
 
     p = ngx_copy(p, "&flags=", sizeof("&flags=") - 1);
-    p = ngx_sprintf(p, "%uxD", (uint32_t) req->flags);
+    p = ngx_sprintf(p, "%uxD", req->flags);
 
     if (req->variant_ids.data != NULL) {
         p = ngx_copy(p, "&variant_ids=", sizeof("&variant_ids=") - 1);
@@ -1357,14 +1355,19 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
         }
     }
 
+    if (req->time != NGX_KSMP_INVALID_TIMESTAMP) {
+        p = ngx_copy(p, "&time=", sizeof("&time=") - 1);
+        p = ngx_sprintf(p, "%L", req->time);
+    }
+
     if (req->segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {
         p = ngx_copy(p, "&segment_index=", sizeof("&segment_index=") - 1);
-        p = ngx_sprintf(p, "%uD", (uint32_t) req->segment_index);
+        p = ngx_sprintf(p, "%uD", req->segment_index);
     }
 
     if (req->media_type_mask) {
         p = ngx_copy(p, "&media_type_mask=", sizeof("&media_type_mask=") - 1);
-        p = ngx_sprintf(p, "%uxD", (uint32_t) req->media_type_mask);
+        p = ngx_sprintf(p, "%uxD", req->media_type_mask);
     }
 
     result->len = p - result->data;

@@ -237,6 +237,8 @@ ngx_http_pckg_mpd_get_segment_time(ngx_pckg_timeline_t *timeline,
     ngx_pckg_period_t          *periods, *period;
     ngx_ksmp_segment_repeat_t  *elt;
 
+    time = 0;   /* suppress warning */
+
     periods = timeline->periods.elts;
     for (i = timeline->periods.nelts; i > 0; i--) {
         period = &periods[i - 1];
@@ -1025,7 +1027,10 @@ ngx_http_pckg_mpd_parse_request(ngx_http_request_t *r, u_char *start_pos,
     u_char *end_pos, ngx_pckg_ksmp_req_t *result,
     ngx_http_pckg_request_handler_t **handler)
 {
-    uint32_t  flags;
+    uint32_t                        flags;
+    ngx_http_pckg_core_loc_conf_t  *plcf;
+
+    plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
 
     if (ngx_http_pckg_match_prefix(start_pos, end_pos,
         ngx_http_pckg_prefix_manifest))
@@ -1037,7 +1042,7 @@ ngx_http_pckg_mpd_parse_request(ngx_http_request_t *r, u_char *start_pos,
         flags = NGX_HTTP_PCKG_PARSE_OPTIONAL_VARIANTS |
             NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
-        result->flags = NGX_KSMP_FLAG_ACTIVE_ONLY | NGX_KSMP_FLAG_CHECK_EXPIRY
+        result->flags = plcf->active_policy | NGX_KSMP_FLAG_CHECK_EXPIRY
             | NGX_KSMP_FLAG_DYNAMIC_VAR | NGX_KSMP_FLAG_MEDIA_INFO
             | NGX_KSMP_FLAG_TIMELINE | NGX_KSMP_FLAG_PERIODS;
 

@@ -4,6 +4,37 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
+/* ngx_live_track_input_skip writer */
+
+static size_t
+ngx_live_track_input_skip_get_size(ngx_live_track_input_skip_t *obj)
+{
+    size_t  result =
+        sizeof("{\"duplicate\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"empty\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"no_media_info\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"no_key\":") - 1 + NGX_INT_T_LEN +
+        sizeof("}") - 1;
+
+    return result;
+}
+
+static u_char *
+ngx_live_track_input_skip_write(u_char *p, ngx_live_track_input_skip_t *obj)
+{
+    p = ngx_copy_fix(p, "{\"duplicate\":");
+    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->duplicate);
+    p = ngx_copy_fix(p, ",\"empty\":");
+    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->empty);
+    p = ngx_copy_fix(p, ",\"no_media_info\":");
+    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->no_media_info);
+    p = ngx_copy_fix(p, ",\"no_key\":");
+    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->no_key);
+    *p++ = '}';
+
+    return p;
+}
+
 /* ngx_live_track_input writer */
 
 static size_t
@@ -19,6 +50,8 @@ ngx_live_track_input_get_size(ngx_live_track_input_t *obj)
             +
         sizeof("\",\"uptime\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"received_bytes\":") - 1 + NGX_OFF_T_LEN +
+        sizeof(",\"skipped_frames\":") - 1 +
+            ngx_live_track_input_skip_get_size(&obj->skipped) +
         sizeof("}") - 1;
 
     return result;
@@ -40,6 +73,8 @@ ngx_live_track_input_write(u_char *p, ngx_live_track_input_t *obj)
     p = ngx_sprintf(p, "%T", (time_t) (ngx_time() - obj->start_sec));
     p = ngx_copy_fix(p, ",\"received_bytes\":");
     p = ngx_sprintf(p, "%O", (off_t) obj->received_bytes);
+    p = ngx_copy_fix(p, ",\"skipped_frames\":");
+    p = ngx_live_track_input_skip_write(p, &obj->skipped);
     *p++ = '}';
 
     return p;

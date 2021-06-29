@@ -177,10 +177,10 @@ ngx_live_segment_list_get_segment_time(ngx_live_segment_list_t *segment_list,
 
 
 ngx_int_t
-ngx_live_segment_list_get_closest_segment(
+ngx_live_segment_list_get_segment_index(
     ngx_live_segment_list_t *segment_list, int64_t time,
-    uint32_t *segment_index, int64_t *segment_time,
-    ngx_live_segment_iter_t *iter)
+    ngx_live_get_segment_mode_e mode, uint32_t *segment_index,
+    int64_t *segment_time, ngx_live_segment_iter_t *iter)
 {
     int64_t                        elt_duration;
     ngx_queue_t                   *prev;
@@ -249,8 +249,12 @@ ngx_live_segment_list_get_closest_segment(
 
         iter->node = node;
         iter->elt = elt;
-        iter->offset = (time - *segment_time + elt->duration / 2) /
-            elt->duration;
+
+        if (mode == ngx_live_get_segment_mode_closest) {
+            time += elt->duration / 2;
+        }
+
+        iter->offset = (time - *segment_time) / elt->duration;
 
         *segment_index += iter->offset;
         *segment_time += (int64_t) iter->offset * elt->duration;

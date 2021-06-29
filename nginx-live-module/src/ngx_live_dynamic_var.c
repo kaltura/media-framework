@@ -47,7 +47,7 @@ static ngx_int_t ngx_live_dynamic_var_get(ngx_live_variables_ctx_t *ctx,
     ngx_live_variable_value_t *v, uintptr_t data);
 
 static ngx_int_t ngx_live_dynamic_var_set_vars(void *ctx,
-    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
+    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
 
 
 static ngx_command_t  ngx_live_dynamic_var_commands[] = {
@@ -96,17 +96,17 @@ static ngx_live_variable_t  ngx_live_dynamic_var_vars[] = {
       ngx_live_null_variable
 };
 
-static ngx_live_json_command_t  ngx_live_dynamic_var_dyn_cmds[] = {
+static ngx_live_json_cmd_t  ngx_live_dynamic_var_dyn_cmds[] = {
 
     { ngx_string("vars"), NGX_JSON_OBJECT,
       ngx_live_dynamic_var_set_vars },
 
-      ngx_live_null_json_command
+      ngx_live_null_json_cmd
 };
 
 
 static ngx_int_t
-ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_command_t *cmd,
+ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_cmd_t *cmd,
     ngx_json_value_t *value, ngx_pool_t *pool)
 {
     uint32_t                             hash;
@@ -448,14 +448,14 @@ ngx_live_dynamic_var_preconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    if (ngx_live_json_commands_add_multi(cf, ngx_live_dynamic_var_dyn_cmds,
+    if (ngx_live_json_cmds_add_multi(cf, ngx_live_dynamic_var_dyn_cmds,
         NGX_LIVE_JSON_CTX_CHANNEL) != NGX_OK)
     {
         return NGX_ERROR;
     }
 
     /* required for supporting dynamic vars as part of the persist path */
-    if (ngx_live_json_commands_add_multi(cf, ngx_live_dynamic_var_dyn_cmds,
+    if (ngx_live_json_cmds_add_multi(cf, ngx_live_dynamic_var_dyn_cmds,
         NGX_LIVE_JSON_CTX_PRE_CHANNEL) != NGX_OK)
     {
         return NGX_ERROR;

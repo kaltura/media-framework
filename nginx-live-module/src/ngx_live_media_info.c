@@ -2,7 +2,9 @@
 #include <ngx_core.h>
 #include "ngx_live.h"
 #include "ngx_live_media_info.h"
+#include "ngx_live_segment_info.h"
 #include "ngx_live_segment_cache.h"
+#include "ngx_live_timeline.h"
 #include "media/mp4/mp4_defs.h"
 
 #include "ngx_live_media_info_json.h"
@@ -65,6 +67,13 @@ typedef struct {
 
 
 typedef struct {
+    ngx_queue_t        *q;
+    ngx_queue_t        *sentinel;
+    uint32_t            track_id;
+} ngx_live_media_info_own_iter_t;
+
+
+typedef struct {
     uint32_t            track_id;
     uint32_t            source_id;
 } ngx_live_media_info_snap_t;
@@ -85,7 +94,7 @@ static char *ngx_live_media_info_merge_preset_conf(ngx_conf_t *cf,
     void *parent, void *child);
 
 static ngx_int_t ngx_live_media_info_set_group_id(void *arg,
-    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
+    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
 
 
 static ngx_live_module_t  ngx_live_media_info_module_ctx = {
@@ -115,12 +124,12 @@ ngx_module_t  ngx_live_media_info_module = {
 };
 
 
-static ngx_live_json_command_t  ngx_live_media_info_dyn_cmds[] = {
+static ngx_live_json_cmd_t  ngx_live_media_info_dyn_cmds[] = {
 
     { ngx_string("group_id"), NGX_JSON_STRING,
       ngx_live_media_info_set_group_id },
 
-      ngx_live_null_json_command
+      ngx_live_null_json_cmd
 };
 
 
@@ -1624,6 +1633,123 @@ ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
 }
 
 
+static void
+ngx_live_media_info_own_iter_init(ngx_live_media_info_own_iter_t *iter,
+    ngx_live_track_t *track, uint32_t start_index)
+{
+    ngx_live_media_info_node_t       *node;
+    ngx_live_media_info_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
+
+    node = ngx_live_media_info_queue_get_before(ctx, start_index);
+
+    iter->q = node != NULL ? &node->queue : ngx_queue_head(&ctx->active);
+    iter->sentinel = ngx_queue_sentinel(&ctx->active);
+    iter->track_id = track->in.key;
+}
+
+static ngx_flag_t
+ngx_live_media_info_own_iter_next(ngx_live_media_info_own_iter_t *iter,
+    uint32_t *start, uint32_t *end)
+{
+    ngx_live_media_info_node_t  *node;
+
+    if (iter->q == iter->sentinel) {
+        return 0;
+    }
+
+    node = ngx_queue_data(iter->q, ngx_live_media_info_node_t, queue);
+
+    while (node->track_id != iter->track_id) {
+        iter->q = ngx_queue_next(iter->q);
+        if (iter->q == iter->sentinel) {
+            return 0;
+        }
+
+        node = ngx_queue_data(iter->q, ngx_live_media_info_node_t, queue);
+    }
+
+    *start = node->node.key;
+
+    for ( ;; ) {
+        iter->q = ngx_queue_next(iter->q);
+        if (iter->q == iter->sentinel) {
+            *end = NGX_MAX_UINT32_VALUE;
+            return 1;
+        }
+
+        node = ngx_queue_data(iter->q, ngx_live_media_info_node_t, queue);
+
+        if (node->track_id != iter->track_id) {
+            *end = node->node.key;
+            return 1;
+        }
+    }
+}
+
+
+ngx_flag_t
+ngx_live_media_info_track_exists(ngx_live_timeline_t *timeline,
+    ngx_live_track_t *track)
+{
+    uint32_t                         start, end;
+    uint32_t                         own_start, own_end;
+    uint32_t                         period_start, period_end;
+    ngx_queue_t                     *q;
+    ngx_live_period_t               *period;
+    ngx_live_media_info_own_iter_t   iter;
+
+    q = ngx_queue_head(&timeline->periods);
+    if (q == ngx_queue_sentinel(&timeline->periods)) {
+        return 0;
+    }
+
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    ngx_live_media_info_own_iter_init(&iter, track, period->node.key);
+
+    if (!ngx_live_media_info_own_iter_next(&iter, &own_start, &own_end)) {
+        return 0;
+    }
+
+    period_start = period->node.key;
+    period_end = period_start + period->segment_count;
+
+    for ( ;; ) {
+
+        if (period_start < own_end && own_start < period_end) {
+
+            start = ngx_max(own_start, period_start);
+            end = ngx_min(own_end, period_end);
+
+            if (ngx_live_segment_info_segment_exists(track, start, end)) {
+                return 1;
+            }
+        }
+
+        if (own_end < period_end) {
+            if (!ngx_live_media_info_own_iter_next(&iter, &own_start,
+                &own_end))
+            {
+                return 0;
+            }
+
+        } else {
+            q = ngx_queue_next(q);
+            if (q == ngx_queue_sentinel(&timeline->periods)) {
+                return 0;
+            }
+
+            period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+            period_start = period->node.key;
+            period_end = period_start + period->segment_count;
+        }
+    }
+}
+
+
 static ngx_int_t
 ngx_live_media_info_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
@@ -1787,7 +1913,7 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
 }
 
 static ngx_int_t
-ngx_live_media_info_set_group_id(void *arg, ngx_live_json_command_t *cmd,
+ngx_live_media_info_set_group_id(void *arg, ngx_live_json_cmd_t *cmd,
     ngx_json_value_t *value, ngx_pool_t *pool)
 {
     ngx_live_track_t                 *track = arg;
@@ -2009,6 +2135,11 @@ ngx_live_media_info_write_index_queue(ngx_persist_write_ctx_t *write_ctx,
 {
     ngx_live_track_t  *track = obj;
 
+    if (track->type == ngx_live_track_type_filler) {
+        /* handled by the filler module */
+        return NGX_OK;
+    }
+
     return ngx_live_persist_write_blocks(track->channel, write_ctx,
         NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO, track);
 }
@@ -2023,6 +2154,11 @@ ngx_live_media_info_read_index_queue(ngx_persist_block_header_t *block,
     ngx_live_media_info_node_t       *node;
     ngx_live_persist_index_scope_t   *scope;
     ngx_live_media_info_track_ctx_t  *ctx;
+
+    if (track->type == ngx_live_track_type_filler) {
+        /* handled by the filler module */
+        return NGX_OK;
+    }
 
     if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -2379,7 +2515,7 @@ ngx_live_media_info_preconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    if (ngx_live_json_commands_add_multi(cf, ngx_live_media_info_dyn_cmds,
+    if (ngx_live_json_cmds_add_multi(cf, ngx_live_media_info_dyn_cmds,
         NGX_LIVE_JSON_CTX_TRACK) != NGX_OK)
     {
         return NGX_ERROR;

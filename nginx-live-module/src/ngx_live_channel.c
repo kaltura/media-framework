@@ -1,6 +1,9 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "ngx_live.h"
+#include "ngx_live_media_info.h"
+#include "ngx_live_segment_info.h"
+#include "ngx_live_timeline.h"
 
 
 typedef struct {
@@ -571,6 +574,7 @@ ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
     return NGX_OK;
 }
 
+
 ngx_flag_t
 ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
     uint32_t media_type_mask)
@@ -590,11 +594,58 @@ ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
             continue;
         }
 
-        if (!(channel->last_segment_media_types & media_type_flag)) {
-            if (channel->filler_media_types & media_type_flag) {
-                return 1;
-            }
+        cur_track = variant->tracks[media_type];
+        if (cur_track == NULL) {
+            continue;
+        }
 
+        if (cur_track->has_last_segment) {
+            return 1;
+        }
+
+        if (channel->last_segment_media_types & media_type_flag) {
+            return 0;
+        }
+
+        if (channel->filler_media_types & media_type_flag) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+ngx_flag_t
+ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
+    ngx_live_timeline_t *timeline, uint32_t media_type_mask)
+{
+    uint32_t             track_id;
+    uint32_t             segment_index;
+    ngx_uint_t           media_type;
+    ngx_queue_t         *q;
+    ngx_live_track_t    *ref_track;
+    ngx_live_track_t    *cur_track;
+    ngx_live_period_t   *period;
+    ngx_live_channel_t  *channel;
+
+    q = ngx_queue_last(&timeline->periods);
+    if (q == ngx_queue_sentinel(&timeline->periods)) {
+        return 0;
+    }
+
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+    segment_index = period->node.key + period->segment_count - 1;
+
+    channel = variant->channel;
+
+    if (segment_index + 1 == channel->next_segment_index) {
+        /* more optimized impl. when the timeline has the last segment */
+        return ngx_live_variant_is_main_track_active(variant, media_type_mask);
+    }
+
+    for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+
+        if (!(media_type_mask & (1 << media_type))) {
             continue;
         }
 
@@ -603,11 +654,88 @@ ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
             continue;
         }
 
-        return cur_track->has_last_segment;
+        if (!ngx_live_segment_info_segment_exists(cur_track, segment_index,
+            segment_index + 1))
+        {
+            continue;
+        }
+
+        if (ngx_live_media_info_queue_get_node(cur_track, segment_index,
+            &track_id) == NULL)
+        {
+            return 0;
+        }
+
+        if (track_id == cur_track->in.key) {
+            /* own segment */
+            return 1;
+        }
+
+        ref_track = ngx_live_track_get_by_int(channel, track_id);
+        if (ref_track != NULL &&
+            ref_track->type == ngx_live_track_type_filler)
+        {
+            /* filler segment */
+            return 1;
+        }
+
+        /* other track segment */
+        return 0;
     }
 
     return 0;
 }
+
+ngx_flag_t
+ngx_live_variant_is_active_any(ngx_live_variant_t *variant,
+    ngx_live_timeline_t *timeline, uint32_t media_type_mask)
+{
+    uint32_t             segment_index;
+    ngx_uint_t           media_type;
+    ngx_queue_t         *q;
+    ngx_live_track_t    *cur_track;
+    ngx_live_period_t   *period;
+    ngx_live_channel_t  *channel;
+
+    q = ngx_queue_last(&timeline->periods);
+    if (q == ngx_queue_sentinel(&timeline->periods)) {
+        return 0;
+    }
+
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+    segment_index = period->node.key + period->segment_count - 1;
+
+    channel = variant->channel;
+
+    for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+
+        if (!(media_type_mask & (1 << media_type))) {
+            continue;
+        }
+
+        cur_track = variant->tracks[media_type];
+        if (cur_track == NULL) {
+            continue;
+        }
+
+        if (segment_index + 1 == channel->next_segment_index &&
+            cur_track->has_last_segment)
+        {
+            /* when both timeline and track have the last segment,
+                no need to search */
+            return 1;
+        }
+
+        if (!ngx_live_segment_info_timeline_exists(cur_track, timeline)) {
+            continue;
+        }
+
+        return ngx_live_media_info_track_exists(timeline, cur_track);
+    }
+
+    return 0;
+}
+
 
 static size_t
 ngx_live_variant_json_track_ids_get_size(ngx_live_variant_t *obj)
