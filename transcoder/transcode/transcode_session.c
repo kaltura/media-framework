@@ -568,10 +568,14 @@ int decodePacket(transcode_session_t *transcodingContext,const AVPacket* pkt) {
             return ret;
         }
         ret = OnDecodedFrame(transcodingContext,pDecoder->ctx,pFrame);
-        
+        if (ret < 0)
+        {
+            LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"[%d] Error OnDecodedFrame  %d (%s)",pkt->stream_index,ret,av_err2str(ret));
+        }
+
         av_frame_free(&pFrame);
     }
-    return 0;
+    return ret;
 }
 
 int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* packet)
@@ -588,7 +592,7 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
         transcode_session_output_t *pOutput=&ctx->output[i];
         if (pOutput->passthrough)
         {
-            ret = transcode_session_output_send_output_packet(pOutput,packet);
+            _S(transcode_session_output_send_output_packet(pOutput,packet));
         }
         else
         {
@@ -599,7 +603,7 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
         
         if (packet==NULL || !ctx->dropper.enabled || !transcode_dropper_should_drop_packet(&ctx->dropper,ctx->lastQueuedDts,packet))
         {
-            ret = decodePacket(ctx,packet);
+            _S(decodePacket(ctx,packet));
         }
     }
     if (ctx->onProcessedFrame) {
@@ -610,7 +614,7 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
     } else {
         ctx->completed_frame_id++;
     }
-    return ret;
+    return 0;
 }
 
 

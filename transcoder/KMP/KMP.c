@@ -20,6 +20,12 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 
+inline __attribute__((always_inline)) int checkReturn(int retval)
+{
+    if(retval == 0)
+        retval = errno ? AVERROR(errno) : -1;
+    return retval;
+}
 
 static ssize_t KMP_send( KMP_session_t *context,const void *buf, size_t len)
 {
@@ -39,7 +45,7 @@ static ssize_t KMP_send( KMP_session_t *context,const void *buf, size_t len)
                 continue;
             }
             LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"incomplete send, returned %d errno=%d",valread,errno);
-            return errno;
+            return AVERROR(errno);
         }
         bytesRead+=valread;
         len-=valread;
@@ -407,7 +413,7 @@ int KMP_listen( KMP_session_t *context)
     if ((ret = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) <= 0)
     {
         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Socket creation error %d (%s)",ret,av_err2str(ret));
-        return ret;
+        return checkReturn(ret);
     }
     
     context->socket =ret;
@@ -501,7 +507,7 @@ int recvExact(int socket,char* buffer,int bytesToRead) {
         int valread = (int)recv(socket,buffer+bytesRead, bytesToRead, 0);
         if (valread<=0){
             LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"incomplete recv when reading offset %d-%d, returned %d (errno=%d)",bytesRead,bytesRead+bytesToRead,valread,errno);
-            return valread;
+            return checkReturn(valread);
         }
         bytesRead+=valread;
         bytesToRead-=valread;
@@ -513,7 +519,7 @@ int recvExact(int socket,char* buffer,int bytesToRead) {
 int KMP_read_header( KMP_session_t *context,kmp_packet_header_t *header)
 {
     int valread =recvExact(context->socket,(char*)header,sizeof(kmp_packet_header_t));
-    return valread;
+    return checkReturn(valread);
 }
 int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char* channel_id,char* track_id,uint64_t* initial_frame_id)
 {
@@ -629,7 +635,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
     }
     int valread =recvExact(context->socket,(char*)&mediaInfo,sizeof(kmp_media_info_t));
     if (valread<=0) {
-        return valread;
+        return checkReturn(valread);
     }
     AVCodecParameters* params=transcodeMediaInfo->codecParams;
     if (mediaInfo.media_type==KMP_MEDIA_AUDIO) {
@@ -668,12 +674,10 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
     if (params->extradata_size>0) {
         params->extradata=av_mallocz(params->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
         valread =recvExact(context->socket,(char*)params->extradata,header->data_size);
-        if (valread<=0) {
-            return valread;
-        }
+        return checkReturn(valread);
     }
     
-    return 1;
+    return 0;
     
 }
 
@@ -683,7 +687,7 @@ int KMP_read_packet( KMP_session_t *context,kmp_packet_header_t *header,AVPacket
     
     int valread =recvExact(context->socket,(char*)&sample,sizeof(kmp_frame_t));
     if (valread<=0){
-        return valread;
+        return checkReturn(valread);
     }
     
     av_new_packet(packet,(int)header->data_size);
@@ -695,7 +699,7 @@ int KMP_read_packet( KMP_session_t *context,kmp_packet_header_t *header,AVPacket
     
     valread =recvExact(context->socket,(char*)packet->data,(int)header->data_size);
 
-    return valread;
+    return checkReturn(valread);
 }
 
 bool KMP_read_ack(KMP_session_t *context,uint64_t* frame_id)

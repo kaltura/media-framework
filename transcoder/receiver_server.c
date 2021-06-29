@@ -57,39 +57,28 @@ int processedFrameCB(receiver_server_session_t *session,bool completed)
     
     return 0;
 }
-
-void* processClient(void *vargp)
+static
+int clientLoop(receiver_server_t *server,receiver_server_session_t *session,transcode_session_t *transcode_session)
 {
-    receiver_server_session_t* session=( receiver_server_session_t *)vargp;
-    receiver_server_t *server=session->server;
-    transcode_session_t *transcode_session = server->transcode_session;
-    
-    json_value_t* config=GetConfig();
-
     kmp_packet_header_t header;
-    
-    json_get_int64(config,"debug.diagnosticsIntervalInSeconds",60,&session->diagnosticsIntervalInSeconds);
-    session->diagnosticsIntervalInSeconds*=1000LL*1000LL;
-    
-    session->lastStatsUpdated=0;
-    int retval = -1;
+    int retVal = 0;
     uint64_t received_frame_ack_id=0;
     uint64_t received_frame_id=0;
-    while (session->kmpClient.socket) {
-        
-        if( KMP_read_header(&session->kmpClient,&header) <= 0 )
+
+    while (retVal >= 0 && session->kmpClient.socket) {
+
+        if( (retVal = KMP_read_header(&session->kmpClient,&header)) < 0 )
         {
             LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] KMP_read_header",session->stream_name);
             break;
         }
         if (header.packet_type==KMP_PACKET_EOS) {
             LOGGER(CATEGORY_KMP,AV_LOG_INFO,"[%s] recieved termination packet",session->stream_name);
-            retval = 0;
-            break;
+            return 0;
         }
         if (header.packet_type==KMP_PACKET_CONNECT) {
             uint64_t frame_id=0;
-            if ( KMP_read_handshake(&session->kmpClient,&header,session->channel_id,session->track_id,&frame_id)<0) {
+            if ( (retVal = KMP_read_handshake(&session->kmpClient,&header,session->channel_id,session->track_id,&frame_id))<0) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] KMP_read_handshake",session->stream_name);
                 break;
             } else {
@@ -97,7 +86,7 @@ void* processClient(void *vargp)
                 transcode_session->onProcessedFrame=(transcode_session_processedFrameCB*)processedFrameCB;
                 transcode_session->onProcessedFrameContext=session;
                 sprintf(session->stream_name,"%s_%s",session->channel_id,session->track_id);
-                transcode_session_init(transcode_session,session->channel_id,session->track_id,frame_id);
+                _S(transcode_session_init(transcode_session,session->channel_id,session->track_id,frame_id));
                 received_frame_id=frame_id;
             }
         }
@@ -105,18 +94,18 @@ void* processClient(void *vargp)
         {
             transcode_mediaInfo_t* newParams=av_malloc(sizeof(transcode_mediaInfo_t));
             newParams->codecParams=avcodec_parameters_alloc();
-            if (KMP_read_mediaInfo(&session->kmpClient,&header,newParams)<=0) {
+            if ( (retVal = KMP_read_mediaInfo(&session->kmpClient,&header,newParams))<0) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] Invalid mediainfo",session->stream_name);
                 break;
             }
             LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] received packet  KMP_PACKET_MEDIA_INFO",session->stream_name);
-    
+
             transcode_session_async_set_mediaInfo(transcode_session, newParams);
         }
         if (header.packet_type==KMP_PACKET_FRAME)
         {
             AVPacket* packet=av_packet_alloc();
-            if (KMP_read_packet(&session->kmpClient,&header,packet)<=0) {
+            if ( (retVal = KMP_read_packet(&session->kmpClient,&header,packet))<0) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] KMP_read_packet mediainfo",session->stream_name);
                  av_packet_free(&packet);
                  break;
@@ -126,7 +115,7 @@ void* processClient(void *vargp)
             pthread_mutex_unlock(&server->diagnostics_locker);  // lock the critical section
 
             LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] received packet %s (%p) #: %lld",session->stream_name,getPacketDesc(packet),transcode_session,received_frame_id);
-            transcode_session_async_send_packet(transcode_session, packet);
+            _S(transcode_session_async_send_packet(transcode_session, packet));
             av_packet_free(&packet);
             received_frame_id++;
             uint64_t frame_id = transcode_session_get_ack_frame_id(transcode_session);
@@ -136,8 +125,23 @@ void* processClient(void *vargp)
                 received_frame_ack_id=frame_id;
             }
         }
-
     }
+    return retVal;
+}
+
+void* processClient(void *vargp)
+{
+    receiver_server_session_t* session=( receiver_server_session_t *)vargp;
+    receiver_server_t *server=session->server;
+    transcode_session_t *transcode_session = server->transcode_session;
+    
+    json_value_t* config=GetConfig();
+
+    json_get_int64(config,"debug.diagnosticsIntervalInSeconds",60,&session->diagnosticsIntervalInSeconds);
+    session->diagnosticsIntervalInSeconds*=1000LL*1000LL;
+    
+    session->lastStatsUpdated=0;
+    int retval = clientLoop(server,session,transcode_session);
     LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] Destorying receive thread. exit code is %d",session->stream_name,retval);
     
     if (transcode_session!=NULL)
