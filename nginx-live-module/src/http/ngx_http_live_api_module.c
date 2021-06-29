@@ -169,7 +169,7 @@ ngx_http_live_api_channel_update(ngx_http_request_t *r,
         ngx_live_channel_update(channel, val);
     }
 
-    rc = ngx_live_json_commands_exec(channel, NGX_LIVE_JSON_CTX_CHANNEL,
+    rc = ngx_live_json_cmds_exec(channel, NGX_LIVE_JSON_CTX_CHANNEL,
         channel, body, r->pool);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
@@ -218,7 +218,7 @@ ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
             goto done;
         }
 
-        rc = ngx_live_json_commands_exec(channel,
+        rc = ngx_live_json_cmds_exec(channel,
             NGX_LIVE_JSON_CTX_PRE_CHANNEL, channel, &ctx->body, r->pool);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
@@ -336,7 +336,7 @@ ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    rc = ngx_live_json_commands_exec(channel, NGX_LIVE_JSON_CTX_PRE_CHANNEL,
+    rc = ngx_live_json_cmds_exec(channel, NGX_LIVE_JSON_CTX_PRE_CHANNEL,
         channel, obj, r->pool);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
@@ -935,7 +935,7 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
         }
     }
 
-    rc = ngx_live_json_commands_exec(channel, NGX_LIVE_JSON_CTX_TRACK, track,
+    rc = ngx_live_json_cmds_exec(channel, NGX_LIVE_JSON_CTX_TRACK, track,
         &body->v.obj, r->pool);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
@@ -1004,7 +1004,7 @@ ngx_http_live_api_track_put(ngx_http_request_t *r, ngx_str_t *params,
         }
     }
 
-    rc = ngx_live_json_commands_exec(channel, NGX_LIVE_JSON_CTX_TRACK, track,
+    rc = ngx_live_json_cmds_exec(channel, NGX_LIVE_JSON_CTX_TRACK, track,
         &body->v.obj, r->pool);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,

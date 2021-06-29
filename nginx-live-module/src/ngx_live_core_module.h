@@ -5,7 +5,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "ngx_live_config.h"
-#include "ngx_live_json_commands.h"
+#include "ngx_live_json_cmds.h"
 
 
 #define ngx_live_reserve_track_ctx_size(cf, module, size)                   \
@@ -112,7 +112,7 @@ typedef struct {
 
     ngx_array_t                     events[NGX_LIVE_EVENT_MAX];
 
-    ngx_live_json_commands_conf_t   json_cmds[NGX_LIVE_JSON_CTX_MAX];
+    ngx_live_json_cmds_conf_t       json_cmds[NGX_LIVE_JSON_CTX_MAX];
     ngx_array_t                     json_writers[NGX_LIVE_JSON_CTX_MAX];
 
     ngx_array_t                     lba_array;

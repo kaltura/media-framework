@@ -354,7 +354,7 @@ ngx_live_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    if (ngx_live_json_commands_init(cf) != NGX_OK) {
+    if (ngx_live_json_cmds_init(cf) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
 

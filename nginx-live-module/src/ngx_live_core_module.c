@@ -23,7 +23,7 @@ static char *ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
 static ngx_int_t ngx_live_core_set_mem_limit(void *ctx,
-    ngx_live_json_command_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
+    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
 
 
 typedef struct {
@@ -140,7 +140,7 @@ ngx_module_t  ngx_live_core_module = {
 };
 
 
-static ngx_live_json_command_t  ngx_live_core_dyn_cmds[] = {
+static ngx_live_json_cmd_t  ngx_live_core_dyn_cmds[] = {
 
     { ngx_string("mem_limit"), NGX_JSON_INT, ngx_live_core_set_mem_limit },
 
@@ -564,11 +564,11 @@ ngx_live_core_preconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    if (ngx_live_json_commands_prepare(cf) != NGX_OK) {
+    if (ngx_live_json_cmds_prepare(cf) != NGX_OK) {
         return NGX_ERROR;
     }
 
-    if (ngx_live_json_commands_add_multi(cf, ngx_live_core_dyn_cmds,
+    if (ngx_live_json_cmds_add_multi(cf, ngx_live_core_dyn_cmds,
         NGX_LIVE_JSON_CTX_CHANNEL) != NGX_OK)
     {
         return NGX_ERROR;
@@ -624,7 +624,7 @@ ngx_live_core_get_preset_conf(ngx_cycle_t *cycle, ngx_str_t *preset_name)
 
 
 static ngx_int_t
-ngx_live_core_set_mem_limit(void *ctx, ngx_live_json_command_t *cmd,
+ngx_live_core_set_mem_limit(void *ctx, ngx_live_json_cmd_t *cmd,
     ngx_json_value_t *value, ngx_pool_t *pool)
 {
     size_t               mem_limit;
