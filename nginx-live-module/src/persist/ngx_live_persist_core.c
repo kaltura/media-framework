@@ -358,7 +358,7 @@ done:
 }
 
 ngx_int_t
-ngx_live_persist_core_read(ngx_live_channel_t *channel, 
+ngx_live_persist_core_read(ngx_live_channel_t *channel,
     ngx_pool_t *handler_pool, ngx_live_persist_read_handler_pt handler,
     void *data)
 {
