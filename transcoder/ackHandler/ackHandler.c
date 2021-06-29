@@ -21,9 +21,14 @@ int ack_hanler_create(uint64_t initialFrameId,const char *name,int media_type,ac
          return AVERROR(ENOMEM);
     ahctx->ctx = NULL;
     ahctx->destroy = empty_destroy;
-   switch(media_type) {
+    switch(media_type) {
     case AVMEDIA_TYPE_AUDIO:
       _S(audio_ack_map_create(initialFrameId,name,h));
+      break;
+    case AVMEDIA_TYPE_VIDEO:
+      //TODO: implement ack mapper for video.
+      // this far it is assumed output produces same number of frames as in ingest
+      LOGGER(CATEGORY_OUTPUT,AV_LOG_WARNING,"%s - use dummy ack handler created for video",name);
       break;
     default:
         return AVERROR(EINVAL);
