@@ -523,11 +523,7 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
 }
 
 static void shift_audio_samples(AVFrame *frame,int shift_by) {
-
-  int planar      = av_sample_fmt_is_planar(frame->format),
-      block_align = av_get_bytes_per_sample(frame->format) * (planar ? 1 : frame->channels),
-      bytes_offset      = shift_by * block_align;
-  av_samples_copy(frame->extended_data, frame->extended_data, 0, bytes_offset,
+  av_samples_copy(frame->extended_data, frame->extended_data, 0, shift_by,
        frame->nb_samples - shift_by, frame->channels, frame->format);
   frame->nb_samples -= shift_by;
 }
