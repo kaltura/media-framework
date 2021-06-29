@@ -30,7 +30,8 @@ typedef struct {
 
 typedef struct {
     uint64_t                            uid;
-    ngx_live_persist_index_scope_t      scope;
+    uint32_t                            min_index;
+    uint32_t                            max_index;
     uint32_t                            reserved;
     uint32_t                            last_segment_media_types;
     int64_t                             last_segment_created;
@@ -330,7 +331,8 @@ ngx_live_persist_index_write_channel(ngx_persist_write_ctx_t *write_ctx,
     cp = ngx_live_get_module_ctx(snap, ngx_live_persist_index_module);
 
     cp->uid = channel->uid;
-    cp->scope = snap->base.scope;
+    cp->min_index = snap->base.scope.min_index;
+    cp->max_index = snap->base.scope.max_index;
     cp->reserved = 0;
 
     if (ngx_live_persist_write_channel_header(write_ctx, channel) != NGX_OK ||
@@ -376,34 +378,35 @@ ngx_live_persist_index_read_channel(ngx_persist_block_header_t *header,
         return NGX_DECLINED;
     }
 
-    if (cp->scope.min_index > cp->scope.max_index ||
-        cp->scope.max_index >= NGX_LIVE_INVALID_SEGMENT_INDEX)
+    if (cp->min_index > cp->max_index ||
+        cp->max_index >= NGX_LIVE_INVALID_SEGMENT_INDEX)
     {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_index_read_channel: "
             "invalid scope, min: %uD, max: %uD",
-            cp->scope.min_index, cp->scope.max_index);
+            cp->min_index, cp->max_index);
         return NGX_BAD_DATA;
     }
 
     if (channel->next_segment_index != channel->initial_segment_index &&
-        cp->scope.min_index != channel->next_segment_index)
+        cp->min_index != channel->next_segment_index)
     {
         ngx_log_error(NGX_LOG_WARN, rs->log, 0,
             "ngx_live_persist_index_read_channel: "
             "delta scope %uD..%uD doesn't match next_segment_index",
-            cp->scope.min_index, cp->scope.max_index);
+            cp->min_index, cp->max_index);
         return NGX_OK;
     }
 
     scope = ngx_mem_rstream_scope(rs);
-    *scope = cp->scope;
+    scope->min_index = cp->min_index;
+    scope->max_index = cp->max_index;
 
     channel->last_modified = cp->last_modified;
     channel->last_segment_media_types = cp->last_segment_media_types;
     channel->last_segment_created = cp->last_segment_created;
 
-    channel->next_segment_index = cp->scope.max_index + 1;
+    channel->next_segment_index = cp->max_index + 1;
 
     if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
