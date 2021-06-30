@@ -60,4 +60,13 @@ av_always_inline int64_t ff_samples_from_time_base(const AVCodecContext *avctx,
      return av_rescale_q(pts, avctx->time_base,(AVRational){ 1, avctx->sample_rate });
 }
 
+av_always_inline int64_t ff_samples_to_time_base(AVCodecContext *avctx,
+                                                        int64_t samples)
+{
+    if(samples == AV_NOPTS_VALUE)
+       return AV_NOPTS_VALUE;
+    return av_rescale_q(samples, (AVRational){ 1, avctx->sample_rate },
+                        avctx->time_base);
+}
+
 #endif /* utils_h */

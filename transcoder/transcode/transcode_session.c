@@ -555,8 +555,10 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
                 frame->nb_samples,ctx->offset);
             if(frame->nb_samples > ctx->offset) {
                 // shift left by amount of offset
+                int64_t offsetAsTime =  ff_samples_to_time_base(decoderCtx,ctx->offset);
                 shift_audio_samples(frame,ctx->offset);
                 ctx->offset = 0;
+                frame->pts += offsetAsTime;
             } else {
                 ctx->offset -= frame->nb_samples;
                 return 0;
