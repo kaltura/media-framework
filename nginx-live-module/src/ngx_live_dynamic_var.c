@@ -46,8 +46,8 @@ static char *ngx_live_dynamic_var_merge_preset_conf(ngx_conf_t *cf,
 static ngx_int_t ngx_live_dynamic_var_get(ngx_live_variables_ctx_t *ctx,
     ngx_live_variable_value_t *v, uintptr_t data);
 
-static ngx_int_t ngx_live_dynamic_var_set_vars(void *ctx,
-    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
+static ngx_int_t ngx_live_dynamic_var_set_vars(ngx_live_json_cmds_ctx_t *jctx,
+    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value);
 
 
 static ngx_command_t  ngx_live_dynamic_var_commands[] = {
@@ -106,14 +106,14 @@ static ngx_live_json_cmd_t  ngx_live_dynamic_var_dyn_cmds[] = {
 
 
 static ngx_int_t
-ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_cmd_t *cmd,
-    ngx_json_value_t *value, ngx_pool_t *pool)
+ngx_live_dynamic_var_set_vars(ngx_live_json_cmds_ctx_t *jctx,
+    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value)
 {
     uint32_t                             hash;
     ngx_queue_t                         *q, *next;
     ngx_queue_t                          new_vars;
     ngx_json_object_t                   *obj = &value->v.obj;
-    ngx_live_channel_t                  *channel = ctx;
+    ngx_live_channel_t                  *channel = jctx->obj;
     ngx_json_key_value_t                *cur;
     ngx_json_key_value_t                *last;
     ngx_live_dynamic_var_t              *var;
@@ -133,14 +133,14 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_cmd_t *cmd,
     for (; cur < last; cur++) {
 
         if (cur->value.type != NGX_JSON_STRING) {
-            ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
                 "ngx_live_dynamic_var_set_vars: "
                 "invalid value type for key \"%V\"", &cur->key);
             goto failed;
         }
 
         if (cur->key.len + cur->value.v.str.s.len > dpcf->max_size) {
-            ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
                 "ngx_live_dynamic_var_set_vars: "
                 "key \"%V\" exceeds max size", &cur->key);
             goto failed;
@@ -149,7 +149,7 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_cmd_t *cmd,
         var = ngx_block_pool_alloc(channel->block_pool,
             dpcf->bp_idx[NGX_LIVE_BP_VAR]);
         if (var == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
                 "ngx_live_dynamic_var_set_vars: alloc failed");
             goto failed;
         }
@@ -160,7 +160,7 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_cmd_t *cmd,
         var->sn.str.len = 0;
 
         if (ngx_json_decode_string(&var->sn.str, &cur->key) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
                 "ngx_live_dynamic_var_set_vars: "
                 "failed to decode key \"%V\"", &cur->key);
             goto failed;
@@ -173,7 +173,7 @@ ngx_live_dynamic_var_set_vars(void *ctx, ngx_live_json_cmd_t *cmd,
             if (ngx_json_decode_string(&var->value, &cur->value.v.str.s)
                 != NGX_OK)
             {
-                ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+                ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
                     "ngx_live_dynamic_var_set_vars: "
                     "failed to decode the value of key \"%V\"", &cur->key);
                 goto failed;

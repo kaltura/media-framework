@@ -1172,13 +1172,13 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
 
     switch (rc) {
 
+    case NGX_OK:
+        break;
+
     case NGX_DONE:
         ctx->source = req.source;
         r->main->count++;
         return NGX_DONE;
-
-    case NGX_OK:
-        break;
 
     default:
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,

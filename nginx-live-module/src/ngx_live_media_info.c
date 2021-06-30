@@ -93,8 +93,9 @@ static void *ngx_live_media_info_create_preset_conf(ngx_conf_t *cf);
 static char *ngx_live_media_info_merge_preset_conf(ngx_conf_t *cf,
     void *parent, void *child);
 
-static ngx_int_t ngx_live_media_info_set_group_id(void *arg,
-    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
+static ngx_int_t ngx_live_media_info_set_group_id(
+    ngx_live_json_cmds_ctx_t *jctx, ngx_live_json_cmd_t *cmd,
+    ngx_json_value_t *value);
 
 
 static ngx_live_module_t  ngx_live_media_info_module_ctx = {
@@ -1913,14 +1914,14 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
 }
 
 static ngx_int_t
-ngx_live_media_info_set_group_id(void *arg, ngx_live_json_cmd_t *cmd,
-    ngx_json_value_t *value, ngx_pool_t *pool)
+ngx_live_media_info_set_group_id(ngx_live_json_cmds_ctx_t *jctx,
+    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value)
 {
-    ngx_live_track_t                 *track = arg;
+    ngx_live_track_t                 *track = jctx->obj;
     ngx_live_media_info_track_ctx_t  *ctx;
 
     if (value->v.str.s.len > NGX_LIVE_TRACK_MAX_GROUP_ID_LEN) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+        ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
             "ngx_live_media_info_set_group_id: group id \"%V\" too long",
             &value->v.str.s);
         return NGX_ERROR;

@@ -95,8 +95,8 @@ static ngx_int_t ngx_live_filler_postconfiguration(ngx_conf_t *cf);
 static char *ngx_live_filler_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
-static ngx_int_t ngx_live_filler_set_channel(void *ctx,
-    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
+static ngx_int_t ngx_live_filler_set_channel(ngx_live_json_cmds_ctx_t *jctx,
+    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value);
 
 
 static ngx_live_module_t  ngx_live_filler_module_ctx = {
@@ -1498,12 +1498,13 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
 }
 
 static ngx_int_t
-ngx_live_filler_set_channel(void *ctx, ngx_live_json_cmd_t *cmd,
-    ngx_json_value_t *value, ngx_pool_t *pool)
+ngx_live_filler_set_channel(ngx_live_json_cmds_ctx_t *jctx,
+    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value)
 {
     ngx_str_t                       channel_id;
     ngx_str_t                       timeline_id;
-    ngx_live_channel_t             *dst = ctx;
+    ngx_pool_t                     *pool = jctx->pool;
+    ngx_live_channel_t             *dst = jctx->obj;
     ngx_live_channel_t             *src;
     ngx_live_timeline_t            *src_timeline;
     ngx_live_filler_json_t          json;
