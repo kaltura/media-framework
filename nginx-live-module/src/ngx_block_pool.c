@@ -137,6 +137,8 @@ ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
         return NULL;
     }
 
+    *block_pool->mem_limit -= slot->size;
+
     slot->nalloc++;
     *ptr = slot;
     return ptr + 1;
@@ -161,6 +163,8 @@ ngx_block_pool_free_list_internal(ngx_block_pool_t *block_pool,
         }
 
         ngx_pfree(block_pool->pool, ptr);
+
+        *block_pool->mem_limit += slot->size;
     }
 }
 

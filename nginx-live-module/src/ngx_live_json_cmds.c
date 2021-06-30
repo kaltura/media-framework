@@ -33,7 +33,7 @@ ngx_live_json_cmds_prepare(ngx_conf_t *cf)
 }
 
 ngx_live_json_cmd_t *
-ngx_live_json_cmds_add(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t context)
+ngx_live_json_cmds_add(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t ctx)
 {
     ngx_int_t                   rc;
     ngx_live_json_cmd_t        *v;
@@ -63,7 +63,7 @@ ngx_live_json_cmds_add(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t context)
     v->type = NGX_JSON_NULL;
 
     cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
-    keys = cmcf->json_cmds[context].keys;
+    keys = cmcf->json_cmds[ctx].keys;
     rc = ngx_hash_add_key(keys, &v->name, v, 0);
     if (rc == NGX_ERROR) {
         return NULL;
@@ -79,13 +79,13 @@ ngx_live_json_cmds_add(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t context)
 }
 
 ngx_int_t
-ngx_live_json_cmds_add_multi(ngx_conf_t *cf,
-    ngx_live_json_cmd_t *cmds, ngx_uint_t context)
+ngx_live_json_cmds_add_multi(ngx_conf_t *cf, ngx_live_json_cmd_t *cmds,
+    ngx_uint_t ctx)
 {
     ngx_live_json_cmd_t  *cmd, *c;
 
     for (c = cmds; c->name.len; c++) {
-        cmd = ngx_live_json_cmds_add(cf, &c->name, context);
+        cmd = ngx_live_json_cmds_add(cf, &c->name, ctx);
         if (cmd == NULL) {
             return NGX_ERROR;
         }
@@ -133,7 +133,7 @@ ngx_live_json_cmds_init(ngx_conf_t *cf)
 
 ngx_int_t
 ngx_live_json_cmds_exec(ngx_live_channel_t *channel,
-    ngx_uint_t ctx, void *obj, ngx_json_object_t *json, ngx_pool_t *pool)
+    ngx_live_json_cmds_ctx_t *jctx, ngx_json_object_t *json)
 {
     ngx_int_t                   rc;
     ngx_flag_t                  changed;
@@ -146,7 +146,7 @@ ngx_live_json_cmds_exec(ngx_live_channel_t *channel,
     cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
 
     changed = 0;
-    hash = &cmcf->json_cmds[ctx].hash;
+    hash = &cmcf->json_cmds[jctx->ctx].hash;
 
     cur = json->elts;
     last = cur + json->nelts;
@@ -161,9 +161,9 @@ ngx_live_json_cmds_exec(ngx_live_channel_t *channel,
             continue;
         }
 
-        rc = cmd->set_handler(obj, cmd, &cur->value, pool);
+        rc = cmd->set_handler(jctx, cmd, &cur->value);
         if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
                 "ngx_live_json_cmds_exec: handler failed %i, key: %V",
                 rc, &cur->key);
             return rc;

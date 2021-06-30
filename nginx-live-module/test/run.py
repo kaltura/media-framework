@@ -99,7 +99,7 @@ def coverageGenerateReport():
         pass
 
     print 'Coverage: generating report'
-    cmd = ('lcov --capture --directory %s/ --output-file %s > /dev/null' %
+    cmd = ('lcov -c -d %s/ -o %s --ignore-errors graph > /dev/null' %
         (NGINX_SRC, COVERAGE_FILE))
     os.system(cmd)
 
