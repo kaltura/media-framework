@@ -5,6 +5,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
+#pragma pack(1)
 
 /* constants */
 #define KMP_MAX_CHANNEL_ID_LEN  (32)
@@ -138,7 +139,7 @@ typedef struct {
     uint32_t                data_size;
     uint32_t                reserved;
 } kmp_packet_header_t;
-
+#define KMP_SESSION_EXTENDED_DATA_LEN (64)
 typedef struct {
     kmp_packet_header_t     header;
     u_char                  channel_id[KMP_MAX_CHANNEL_ID_LEN];
@@ -162,7 +163,10 @@ typedef struct {
     kmp_packet_header_t     header;
     uint64_t                frame_id;
     uint32_t                offset;
+    uint8_t                 extended_data[KMP_SESSION_EXTENDED_DATA_LEN];
     uint32_t                padding;
 } kmp_ack_frames_packet_t;
+
+#pragma pack()
 
 #endif /* _NGX_LIVE_KMP_H_INCLUDED_ */

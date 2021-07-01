@@ -153,13 +153,13 @@ struct AudioAckMap  {
   const std::string m_name;
   void operator=(AudioAckMap) = delete;
   AudioAckMap(const AudioAckMap&) = delete;
-  AudioAckMap(const uint64_t &id,const std::string &name)
-    :m_in(name+".in",id),
-    m_out(name+".out",id),
+  AudioAckMap(const uint64_t &idIn,const uint64_t &idOut,const std::string &name)
+    :m_in(name+".in",idIn),
+    m_out(name+".out",idOut),
     m_name(name)
      {
-        LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. c-tor initial ack %lld ",
-          m_name.c_str(),id);
+        LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. c-tor initial ack: input %lld output %lld",
+          m_name.c_str(),idIn,idOut);
     }
     ~AudioAckMap() {
       LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. ~d-tor", m_name.c_str());
@@ -246,6 +246,9 @@ audio_ack_map_ack(ack_handler_t *h,uint64_t ack,ack_desc_t *ao) {
              LOGGER(LoggingCategory,AV_LOG_ERROR," audio map. map ack %lld failed due to %s",
                     ack,e.what());
         }
+        catch(...){
+             LOGGER(LoggingCategory,AV_LOG_ERROR," swallowed exception %lld", ack);
+         }
     }
     ao->id = ack;
     ao->offset = 0;
@@ -259,11 +262,11 @@ audio_ack_map_destroy(void *m) {
     }
 }
 
-int audio_ack_map_create(uint64_t initialFrameId,const char *name,ack_handler_t *h) {
+int audio_ack_map_create(uint64_t initialFrameId,uint64_t initialFrameIdOutput,const char *name,ack_handler_t *h) {
     ack_handler_ctx_t *ahc = (ack_handler_ctx_t*)h->ctx;
     if(!ahc)
         return AVERROR(EINVAL);
-    ahc->ctx = new AudioAckMap(initialFrameId,name);
+    ahc->ctx = new AudioAckMap(initialFrameId,initialFrameIdOutput,name);
     if(!ahc->ctx)
         return AVERROR(ENOMEM);
     ahc->destroy = &audio_ack_map_destroy;

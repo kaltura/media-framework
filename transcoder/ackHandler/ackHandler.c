@@ -15,7 +15,7 @@ void ack_hanler_init(ack_handler_t *h) {
      h->map = &default_map_ack_handler;
 }
 
-int ack_hanler_create(uint64_t initialFrameId,const char *name,int media_type,ack_handler_t *h) {
+int ack_hanler_create(uint64_t initialFrameId,uint64_t initialFrameIdOutput,const char *name,int media_type,ack_handler_t *h) {
     ack_handler_ctx_t *ahctx = h->ctx = malloc(sizeof(ack_handler_ctx_t));
     if(!ahctx)
          return AVERROR(ENOMEM);
@@ -23,7 +23,7 @@ int ack_hanler_create(uint64_t initialFrameId,const char *name,int media_type,ac
     ahctx->destroy = empty_destroy;
     switch(media_type) {
     case AVMEDIA_TYPE_AUDIO:
-      _S(audio_ack_map_create(initialFrameId,name,h));
+      _S(audio_ack_map_create(initialFrameId,initialFrameIdOutput,name,h));
       break;
     case AVMEDIA_TYPE_VIDEO:
       //TODO: implement ack mapper for video.

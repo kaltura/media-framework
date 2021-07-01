@@ -24,7 +24,7 @@ int transcode_session_output_init(transcode_session_output_t* pOutput)  {
     memset(&pOutput->actualVideoParams, 0, sizeof(pOutput->actualVideoParams));
     memset(&pOutput->actualAudioParams, 0, sizeof(pOutput->actualAudioParams));
     
-    pOutput->lastAck=0;
+    pOutput->lastAck=pOutput->lastMappedAck=0;
     strcpy(pOutput->videoParams.level,"");
     strcpy(pOutput->videoParams.profile,"");
     pOutput->audioParams.samplingRate=pOutput->audioParams.channels=-1;
@@ -146,8 +146,9 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
              ack_desc_t desc = {frameId,0};
              if(pOutput->acker.ctx){
                  pOutput->acker.map(&pOutput->acker,frameId,&desc);
-            }
-             pOutput->lastAck=desc.id;
+             }
+             pOutput->lastMappedAck = desc.id;
+             pOutput->lastAck=frameId;
              pOutput->lastOffset=desc.offset;
         }
     }
@@ -167,7 +168,7 @@ int transcode_session_output_connect(transcode_session_output_t *pOutput,uint64_
 
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] connecting to %s",pOutput->track_id,senderUrl);
         _S(KMP_connect(pOutput->sender, senderUrl));
-        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending handshake (channelId: %s trackId: %s)",pOutput->track_id,pOutput->channel_id,pOutput->track_id);
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending handshake (channelId: %s trackId: %s initial_frame_id: %lld)",pOutput->track_id,pOutput->channel_id,pOutput->track_id,initial_frame_id);
         _S(KMP_send_handshake(pOutput->sender,pOutput->channel_id,pOutput->track_id,initial_frame_id));
     }
     return 0;

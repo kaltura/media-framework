@@ -24,5 +24,5 @@ typedef struct ack_handler_s {
 
 //factory
 void ack_hanler_init(ack_handler_t *h);
-int ack_hanler_create(uint64_t initialFrameId,const char *name,int media_type,ack_handler_t *h);
+int ack_hanler_create(uint64_t initialFrameIdInput,uint64_t initialFrameIdOutput,const char *name,int media_type,ack_handler_t *h);
 void ack_hanler_destroy(ack_handler_t *h);

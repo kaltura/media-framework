@@ -708,7 +708,7 @@ ngx_kmp_push_upstream_ack_frames(ngx_kmp_push_upstream_t *u)
     }
 
     u->acked_offset = u->ack_frames.offset;
-
+    ngx_memcpy(u->acked_extended_data,u->ack_frames.extended_data,sizeof(u->acked_extended_data));
     return NGX_OK;
 
 failed:
@@ -732,7 +732,7 @@ ngx_kmp_push_upstream_parse_ack_packet(ngx_kmp_push_upstream_t *u)
     if (header->header_size != sizeof(u->ack_frames)) {
         ngx_log_error(NGX_LOG_ERR, &u->log, 0,
             "ngx_kmp_push_upstream_parse_ack_packet: "
-            "invalid ack header size %uD", header->header_size);
+            "invalid ack header size %uD expected %uD", header->header_size, sizeof(u->ack_frames));
         return NGX_ERROR;
     }
 
@@ -959,6 +959,24 @@ ngx_kmp_push_upstream_send_buffered(ngx_kmp_push_upstream_t *u)
     u->last = &cl->next;
 
     u->sent_base -= sizeof(u->connect);
+
+    if(true) {
+      u->connect.header.data_size = sizeof(u->acked_extended_data);
+      cl = ngx_kmp_push_alloc_chain_buf(pool, u->connect.extended_data,
+        u->acked_extended_data + sizeof(u->acked_extended_data));
+        if (cl == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+                "ngx_kmp_push_upstream_send_buffered: alloc chain buf failed");
+            return NGX_ERROR;
+        }
+
+        *u->last = cl;
+        u->last = &cl->next;
+
+        u->sent_base -= u->connect.header.data_size;
+    }
+
+
 
     /* initial media info */
     if (u->acked_media_info.last > u->acked_media_info.pos) {

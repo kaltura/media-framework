@@ -11,15 +11,16 @@
 
 
 /* initialization */
-int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackId,uint64_t input_frame_first_id,uint32_t offset)
+int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackId,kmp_session_position_t *pos)
 {
     ctx->decoders=0;
     ctx->outputs=0;
     ctx->filters=0;
     ctx->encoders=0;
     ctx->currentMediaInfo=NULL;
-    ctx->input_frame_first_id=input_frame_first_id;
-    ctx->offset = offset;
+    ctx->input_frame_first_id=pos->frame_id;
+    ctx->transcoded_frame_first_id=pos->transcoded_frame_id ? pos->transcoded_frame_id : ctx->input_frame_first_id;
+    ctx->offset = pos->offset;
     ctx->ack_handler=NULL;
     strcpy(ctx->channelId,channelId);
     strcpy(ctx->trackId,trackId);
@@ -98,14 +99,13 @@ int transcode_session_async_send_packet(transcode_session_t *ctx, struct AVPacke
     return packet_queue_write_packet(&ctx->packetQueue, packet);
 }
 
-int64_t transcode_session_get_ack_frame_id(transcode_session_t *ctx,uint32_t *offset)
+void transcode_session_get_ack_frame_id(transcode_session_t *ctx,kmp_session_position_t *pos)
 {
-    *offset = 0;
     if(ctx->ack_handler){
-       *offset = ctx->ack_handler->lastOffset;
-       return ctx->ack_handler->lastAck;
+       pos->frame_id = ctx->ack_handler->lastMappedAck;
+       pos->offset = ctx->ack_handler->lastOffset;
+       pos->transcoded_frame_id = ctx->ack_handler->lastAck;
     }
-    return 0;
 }
 
 int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInfo_t* newMediaInfo)
@@ -147,6 +147,7 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
               LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"transcode_session_set_media_info set ack_handler for output %d",outputId);
               ctx->ack_handler = &ctx->output[outputId];
                _S(ack_hanler_create(ctx->input_frame_first_id,
+                       ctx->transcoded_frame_first_id,
                        ctx->ack_handler->track_id,
                        pDecoderContext->ctx->codec_type,
                        &ctx->ack_handler->acker));
@@ -310,8 +311,8 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
     transcode_session_output_from_json(pOutput, json);
     strcpy(pOutput->channel_id,pContext->channelId);
     int ret=0;
-
-    _S(transcode_session_output_connect(pOutput,pContext->input_frame_first_id));
+    _S(transcode_session_output_connect(pOutput,
+        pOutput->passthrough ? pContext->input_frame_first_id : pContext->transcoded_frame_first_id));
     if (pOutput->passthrough)
     {
         _S(transcode_session_output_set_media_info(pOutput,pContext->currentMediaInfo));

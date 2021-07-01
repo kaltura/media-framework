@@ -30,8 +30,8 @@ LDIR = -L/usr/local/cuda/lib64 -L$(X264_LIB_DIR) -L$(FFMPEG_LIB_DIR)/libavfilter
 FFMPEG_LIBS = -lavfilter  -lavformat -lswscale  -lavcodec   -lavutil  -lswresample -lpostproc -lx264  
 LIBS = -lm -lpthread  -lz -lbz2 -ldl 
 CUDA_LIBS = -lnppig_static -lnppicc_static -lnppc_static -lnppidei_static -lcublas_static -lcudart_static -lculibos  -lcudart -lstdc++
-CFLAGS = -Wall -g $(IDIRS) -fPIC  -static -std=c11 -D_GNU_SOURCE
-CPPFLAGS = -Wall -g $(IDIRS) -fPIC  -static -std=c++14 -D_GNU_SOURCE
+CFLAGS = -Wall -g $(IDIRS) -fPIC  -static -std=c11 -D_GNU_SOURCE -fexceptions
+CPPFLAGS = -Wall -g $(IDIRS) -fPIC  -static -std=c++14 -D_GNU_SOURCE -fexceptions
 LDFLAGS =  $(LDIR) $(LIBS)  $(FFMPEG_LIBS) $(LIBS) 
 
 

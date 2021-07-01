@@ -62,6 +62,7 @@ typedef struct
     AVFormatContext *oc;
     
     uint64_t lastAck;
+    uint64_t lastMappedAck;
     uint32_t lastOffset;
     KMP_session_t* sender;
     // ack mapping
