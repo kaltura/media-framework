@@ -577,7 +577,7 @@ ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
 
 ngx_flag_t
 ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
-    uint32_t media_type_mask)
+    uint32_t req_media_types)
 {
     uint32_t             media_type_flag;
     ngx_uint_t           media_type;
@@ -589,8 +589,7 @@ ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
         media_type_flag = 1 << media_type;
-
-        if (!(media_type_mask & media_type_flag)) {
+        if (!(req_media_types & media_type_flag)) {
             continue;
         }
 
@@ -617,7 +616,7 @@ ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
 
 ngx_flag_t
 ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
-    ngx_live_timeline_t *timeline, uint32_t media_type_mask)
+    ngx_live_timeline_t *timeline, uint32_t req_media_types)
 {
     uint32_t             track_id;
     uint32_t             segment_index;
@@ -640,12 +639,12 @@ ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
 
     if (segment_index + 1 == channel->next_segment_index) {
         /* more optimized impl. when the timeline has the last segment */
-        return ngx_live_variant_is_main_track_active(variant, media_type_mask);
+        return ngx_live_variant_is_main_track_active(variant, req_media_types);
     }
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
-        if (!(media_type_mask & (1 << media_type))) {
+        if (!(req_media_types & (1 << media_type))) {
             continue;
         }
 
@@ -686,11 +685,13 @@ ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
     return 0;
 }
 
-ngx_flag_t
+uint32_t
 ngx_live_variant_is_active_any(ngx_live_variant_t *variant,
-    ngx_live_timeline_t *timeline, uint32_t media_type_mask)
+    ngx_live_timeline_t *timeline, uint32_t req_media_types)
 {
     uint32_t             segment_index;
+    uint32_t             res_media_types;
+    uint32_t             media_type_flag;
     ngx_uint_t           media_type;
     ngx_queue_t         *q;
     ngx_live_track_t    *cur_track;
@@ -707,9 +708,12 @@ ngx_live_variant_is_active_any(ngx_live_variant_t *variant,
 
     channel = variant->channel;
 
+    res_media_types = 0;
+
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
-        if (!(media_type_mask & (1 << media_type))) {
+        media_type_flag = 1 << media_type;
+        if (!(req_media_types & media_type_flag)) {
             continue;
         }
 
@@ -723,17 +727,25 @@ ngx_live_variant_is_active_any(ngx_live_variant_t *variant,
         {
             /* when both timeline and track have the last segment,
                 no need to search */
-            return 1;
+            res_media_types |= media_type_flag;
+            continue;
         }
 
         if (!ngx_live_segment_info_timeline_exists(cur_track, timeline)) {
             continue;
         }
 
-        return ngx_live_media_info_track_exists(timeline, cur_track);
+        if (ngx_live_media_info_track_exists(timeline, cur_track)) {
+            res_media_types |= media_type_flag;
+            continue;
+        }
+
+        if (!res_media_types) {
+            return 0;
+        }
     }
 
-    return 0;
+    return res_media_types;
 }
 
 

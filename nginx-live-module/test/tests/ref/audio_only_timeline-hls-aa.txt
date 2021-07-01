@@ -1,0 +1,64 @@
+URL: /master.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-INDEPENDENT-SEGMENTS
+
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=23840,CODECS="mp4a.40.2"
+index-svar1-a.m3u8
+
+URL: /index-svar1-a.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:8
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:24.891+00:00
+#EXTINF:4.000,
+#EXT-X-BITRATE:23
+seg-9-svar1-a.ts
+#EXTINF:4.000,
+seg-10-svar1-a.ts
+#EXTINF:4.000,
+seg-11-svar1-a.ts
+#EXTINF:4.000,
+seg-12-svar1-a.ts
+#EXTINF:4.000,
+seg-13-svar1-a.ts
+#EXTINF:4.000,
+seg-14-svar1-a.ts
+#EXTINF:0.962,
+#EXT-X-BITRATE:36
+seg-15-svar1-a.ts
+#EXT-X-ENDLIST
+
+URL: /seg-9-svar1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: f9bb611df73c1bd50480817deae9e86b
+
+URL: /seg-10-svar1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: 53a4d57c1aa571106f9daa7f1d3b7c34
+
+URL: /seg-11-svar1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: f41796ff5aaf151b4e3f0e1ad32b3faa
+
+URL: /seg-12-svar1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: 69c80d3380fd410313a564a281c8b7fc
+
+URL: /seg-13-svar1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: c596b384ac71b4f73c241cf83674671f
+
+URL: /seg-14-svar1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 12596, MD5: 8744366e21d1dca447d58deeff61eac8
+
+URL: /seg-15-svar1-a.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 3572, MD5: 2fea50d89700cb4a1c4dee2bfb09f93b
+

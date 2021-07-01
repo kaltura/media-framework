@@ -429,15 +429,6 @@ ngx_http_live_ksmp_parse(ngx_http_request_t *r,
     }
 
     if (ngx_all_set(params->flags,
-        NGX_KSMP_FLAG_ACTIVE_LAST | NGX_KSMP_FLAG_ACTIVE_ANY))
-    {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_live_ksmp_parse: "
-            "request includes both active-last and active-any flags");
-        return NGX_HTTP_BAD_REQUEST;
-    }
-
-    if (ngx_all_set(params->flags,
         NGX_KSMP_FLAG_TIME_START_RELATIVE | NGX_KSMP_FLAG_TIME_END_RELATIVE))
     {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -685,14 +676,17 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
     ngx_live_variant_t *variant, ngx_live_persist_serve_scope_t *scope)
 {
     uint32_t           track_id;
-    uint32_t           media_type_mask;
+    uint32_t           req_media_types;
+    uint32_t           res_media_types;
     ngx_int_t          rc;
     ngx_uint_t         i;
     ngx_live_track_t  *cur_track;
 
+    req_media_types = params->media_type_mask;
+
     if ((params->flags & NGX_KSMP_FLAG_ACTIVE_LAST) &&
         !ngx_live_variant_is_active_last(variant, scope->timeline,
-            params->media_type_mask))
+            req_media_types))
     {
         ngx_http_live_ksmp_set_error(params,
             NGX_KSMP_ERR_VARIANT_INACTIVE,
@@ -700,29 +694,30 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
             params->media_type_mask, &variant->sn.str,
             &variant->channel->sn.str);
         return NGX_ABORT;
-
     }
 
-    if ((params->flags & NGX_KSMP_FLAG_ACTIVE_ANY) &&
-        !ngx_live_variant_is_active_any(variant, scope->timeline,
-            params->media_type_mask))
-    {
-        ngx_http_live_ksmp_set_error(params,
-            NGX_KSMP_ERR_VARIANT_INACTIVE,
-            "variant inactive (any), mask: 0x%uxD, variant: %V, channel: %V",
-            params->media_type_mask, &variant->sn.str,
-            &variant->channel->sn.str);
-        return NGX_ABORT;
+    if (params->flags & NGX_KSMP_FLAG_ACTIVE_ANY) {
+        req_media_types = ngx_live_variant_is_active_any(variant,
+            scope->timeline, req_media_types);
+        if (!req_media_types) {
+            ngx_http_live_ksmp_set_error(params,
+                NGX_KSMP_ERR_VARIANT_INACTIVE,
+                "variant inactive (any), mask: 0x%uxD, variant: %V"
+                ", channel: %V",
+                params->media_type_mask, &variant->sn.str,
+                &variant->channel->sn.str);
+            return NGX_ABORT;
+        }
     }
 
-    media_type_mask = 0;
+    res_media_types = 0;
     for (i = 0; i < KMP_MEDIA_COUNT; i++) {
         cur_track = variant->tracks[i];
         if (cur_track == NULL) {
             continue;
         }
 
-        if (!(params->media_type_mask & (1 << i))) {
+        if (!(req_media_types & (1 << i))) {
             cur_track->output = 0;
             continue;
         }
@@ -763,10 +758,10 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
 
         cur_track->output = 1;
         cur_track->written = 0;
-        media_type_mask |= 1 << cur_track->media_type;
+        res_media_types |= 1 << cur_track->media_type;
     }
 
-    if (!media_type_mask) {
+    if (!res_media_types) {
         ngx_http_live_ksmp_set_error(params,
             NGX_KSMP_ERR_TRACK_NOT_FOUND,
             "no tracks found, mask: 0x%uxD, variant: %V, channel: %V",
@@ -775,7 +770,7 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
         return NGX_ABORT;
     }
 
-    scope->header.res_media_types |= media_type_mask;
+    scope->header.res_media_types |= res_media_types;
 
     return NGX_OK;
 }
