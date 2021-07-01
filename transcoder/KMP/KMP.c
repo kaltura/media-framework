@@ -369,14 +369,18 @@ int KMP_send_eof( KMP_session_t *context)
 int KMP_send_ack( KMP_session_t *context,kmp_session_position_t *cur_pos)
 {
     LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send KMP_send_ack %lld offset %ld",context->sessionName,cur_pos->frame_id,cur_pos->offset);
-    kmp_ack_frames_packet_t pkt;
-    pkt.header.packet_type=KMP_PACKET_ACK_FRAMES;
-    pkt.header.data_size=0;
-    pkt.header.reserved=0;
-    pkt.header.header_size=sizeof(kmp_ack_frames_packet_t);
-    pkt.position=*cur_pos;
-    pkt.padding=0;
-    _S(KMP_send(context, &pkt, sizeof(kmp_ack_frames_packet_t)));
+    kmp_transcoded_ack_frames_packet_t pkt;
+    kmp_ack_frames_packet_t *ack = &pkt.ack;
+
+    ack->header.packet_type=KMP_PACKET_ACK_FRAMES;
+    ack->header.data_size=sizeof(pkt.transcoded_frame_id);
+    ack->header.reserved=0;
+    ack->header.header_size=sizeof(kmp_ack_frames_packet_t);
+    ack->frame_id=cur_pos->frame_id;
+    ack->offset = cur_pos->offset;
+    ack->padding=0;
+     pkt.transcoded_frame_id = cur_pos->transcoded_frame_id;
+    _S(KMP_send(context, &pkt, sizeof(pkt)));
     return 0;
 }
 
@@ -531,13 +535,13 @@ int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char*
          return -1;
     }
     bytesToRead = header->data_size;
-    memset(start_pos->buffer,0,sizeof(start_pos->buffer));
+    start_pos->transcoded_frame_id = 0;
     if(bytesToRead > 0) {
-        if(bytesToRead > sizeof(start_pos->buffer)) {
-             LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"KMP_read_handshake, data_size exceeds available buffer -> %d > %d",bytesToRead,sizeof(start_pos->buffer));
+        if(bytesToRead > sizeof(start_pos->transcoded_frame_id)) {
+             LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"KMP_read_handshake, data_size exceeds available buffer -> %d > %d",bytesToRead,sizeof(start_pos->transcoded_frame_id));
                      return -1;
         }
-        valread = recvExact(context->socket,start_pos->buffer,bytesToRead);
+        valread = recvExact(context->socket,(char*)&start_pos->transcoded_frame_id,bytesToRead);
          if (valread < bytesToRead) {
                  LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"KMP_read_handshake, expected %d bytes, read %d",bytesToRead,valread);
                  return -1;
@@ -733,7 +737,7 @@ bool KMP_read_ack(KMP_session_t *context,uint64_t* frame_id)
                     context->sessionName,pkt.header.data_size);
             break;
         }
-        *frame_id=pkt.position.frame_id;
+        *frame_id=pkt.frame_id;
         return true;
     }
     return false;

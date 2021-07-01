@@ -95,14 +95,11 @@ typedef struct {
 
 typedef uint64_t frame_id_t;
 
-#define KMP_SESSION_EXTENDED_DATA_LEN (64)
+
 typedef struct {
     frame_id_t frame_id;
     uint32_t offset;
-    union {
-        uint8_t    buffer[KMP_SESSION_EXTENDED_DATA_LEN];
-        frame_id_t transcoded_frame_id;
-    };
+    frame_id_t transcoded_frame_id;
 } kmp_session_position_t;
 
 typedef struct {
@@ -126,9 +123,15 @@ typedef struct {
 
 typedef struct {
     kmp_packet_header_t header;
-    kmp_session_position_t position;
+    frame_id_t frame_id;
+    uint32_t offset;
     uint32_t padding;
 } kmp_ack_frames_packet_t;
+
+typedef struct {
+    kmp_ack_frames_packet_t ack;
+    frame_id_t transcoded_frame_id;
+} kmp_transcoded_ack_frames_packet_t;
 
 #pragma pack()
 

@@ -40,11 +40,12 @@ typedef struct {
 
     kmp_ack_frames_packet_t    ack_frames;
     u_char                    *recv_pos;
+    u_char                    *recv_end;
 
     ngx_buf_queue_reader_t     acked_reader;
     uint64_t                   acked_frame_id;
     uint32_t                   acked_offset;
-    uint8_t                    acked_extended_data[KMP_SESSION_EXTENDED_DATA_LEN];
+    ngx_buf_t                  acked_extended_data;
     ngx_buf_t                  acked_media_info;
     off_t                      acked_bytes;
     off_t                      sent_base;
