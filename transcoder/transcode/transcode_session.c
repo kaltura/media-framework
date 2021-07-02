@@ -306,7 +306,6 @@ int transcode_session_init_output(transcode_session_t* pContext,
 
 int transcode_session_add_output(transcode_session_t* pContext, const json_value_t* json )
 {
-    transcode_codec_t *pDecoderContext=&pContext->decoder[0];
     transcode_session_output_t* pOutput=&pContext->output[pContext->outputs++];
     transcode_session_output_from_json(pOutput, json);
     strcpy(pOutput->channel_id,pContext->channelId);
@@ -377,7 +376,9 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
             LOGGER(CATEGORY_TRANSCODING_SESSION, AV_LOG_ERROR,"Error during encoding %d (%s)",ret,av_err2str(ret))
             return ret;
         }
-        
+
+        add_packet_frame_id(pOutPacket,pContext->transcoded_frame_first_id+pOutput->stats.totalFrames);
+
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] received encoded frame %s from encoder Id %d",
                pOutput->track_id,
                getPacketDesc(pOutPacket),

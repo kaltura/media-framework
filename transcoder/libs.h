@@ -8,7 +8,6 @@
 //#pragma clang diagnostic ignored "-Wdocumentation"
 
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdocumentation"
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>
 #include <libavfilter/buffersink.h>

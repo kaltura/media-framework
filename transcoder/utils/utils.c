@@ -181,6 +181,7 @@ char *av_get_packet_desc(char *buf,int len,const  AVPacket * packet)
              packet->pos != 0 ? ts2str(packet->pos,false) :  "N/A",
              (packet->flags & AV_PKT_FLAG_KEY)==AV_PKT_FLAG_KEY ? "Yes" : "No",
              packet->size,
+             packet->flags,
              frame_id);
     return buf;
 }
