@@ -1,4 +1,5 @@
 CC = gcc -v
+CCPP = g++ -v
 SRC = $(wildcard *.c)
 SRC += $(wildcard ./utils/*.c)
 SRC += $(wildcard ./ackHandler/*.c)
@@ -47,10 +48,10 @@ $(ODIR)/%.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 $(ODIR)/%.o: %.cpp $(DEPS)
-	$(CC) -c -o $@ $< $(CPPFLAGS)
+	$(CCPP) -c -o $@ $< $(CPPFLAGS)
 
 $(EXE): $(OBJ) $(OBJ_CPP)
-	$(CC) -o $@ $^ $(LDFLAGS)
+	$(CCPP) -o $@ $^ $(LDFLAGS)
 
 $(phony install): install
 
