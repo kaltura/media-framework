@@ -66,7 +66,7 @@ typedef struct  {
  1
  */
 
-int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackId,kmp_session_position_t *initial_pos);
+int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackId,kmp_frame_position_t *initial_pos);
 int transcode_session_set_media_info(transcode_session_t *pContext,transcode_mediaInfo_t* mediaInfo);
 int transcode_session_send_packet(transcode_session_t *pContext, struct AVPacket* packet);
 
@@ -76,6 +76,6 @@ int transcode_session_async_send_packet(transcode_session_t *pContext, struct AV
 int transcode_session_close(transcode_session_t *ctx,int exitErrorCode);
 int transcode_session_add_output(transcode_session_t* pContext,const json_value_t* json);
 int transcode_session_get_diagnostics(transcode_session_t *ctx,char* buf,size_t maxlen);
-void transcode_session_get_ack_frame_id(transcode_session_t *ctx,kmp_session_position_t *pos);
+void transcode_session_get_ack_frame_id(transcode_session_t *ctx,kmp_frame_position_t *pos);
 
 #endif /* TranscodePipeline_hpp */

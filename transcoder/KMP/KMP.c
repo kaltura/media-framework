@@ -366,20 +366,18 @@ int KMP_send_eof( KMP_session_t *context)
     return 0;
 }
 
-int KMP_send_ack( KMP_session_t *context,kmp_session_position_t *cur_pos)
+int KMP_send_ack( KMP_session_t *context,kmp_frame_position_t *cur_pos)
 {
     LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send KMP_send_ack %lld offset %ld",context->sessionName,cur_pos->frame_id,cur_pos->offset);
-    kmp_transcoded_ack_frames_packet_t pkt;
-    kmp_ack_frames_packet_t *ack = &pkt.ack;
-
-    ack->header.packet_type=KMP_PACKET_ACK_FRAMES;
-    ack->header.data_size=sizeof(pkt.transcoded_frame_id);
-    ack->header.reserved=0;
-    ack->header.header_size=sizeof(kmp_ack_frames_packet_t);
-    ack->frame_id=cur_pos->frame_id;
-    ack->offset = cur_pos->offset;
-    ack->padding=0;
-     pkt.transcoded_frame_id = cur_pos->transcoded_frame_id;
+    kmp_ack_frames_packet_t pkt;
+    pkt.header.packet_type=KMP_PACKET_ACK_FRAMES;
+    pkt.header.data_size=0;
+    pkt.header.reserved=0;
+    pkt.header.header_size=sizeof(kmp_ack_frames_packet_t);
+    pkt.frame_id=cur_pos->frame_id;
+    pkt.transcoded_frame_id = cur_pos->transcoded_frame_id;
+    pkt.offset = cur_pos->offset;
+    pkt.padding=0;
     _S(KMP_send(context, &pkt, sizeof(pkt)));
     return 0;
 }
@@ -521,7 +519,7 @@ int KMP_read_header( KMP_session_t *context,kmp_packet_header_t *header)
     int valread =recvExact(context->socket,(char*)header,sizeof(kmp_packet_header_t));
     return checkReturn(valread);
 }
-int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char* channel_id,char* track_id,kmp_session_position_t *start_pos)
+int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char* channel_id,char* track_id,kmp_frame_position_t *start_pos)
 {
     kmp_connect_packet_t connect;
     if (header->packet_type!=KMP_PACKET_CONNECT) {
@@ -534,23 +532,10 @@ int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char*
          LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"KMP_read_handshake, expected %d bytes, read %d",bytesToRead,valread);
          return -1;
     }
-    bytesToRead = header->data_size;
-    start_pos->transcoded_frame_id = 0;
-    if(bytesToRead > 0) {
-        if(bytesToRead > sizeof(start_pos->transcoded_frame_id)) {
-             LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"KMP_read_handshake, data_size exceeds available buffer -> %d > %d",bytesToRead,sizeof(start_pos->transcoded_frame_id));
-                     return -1;
-        }
-        valread = recvExact(context->socket,(char*)&start_pos->transcoded_frame_id,bytesToRead);
-         if (valread < bytesToRead) {
-                 LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"KMP_read_handshake, expected %d bytes, read %d",bytesToRead,valread);
-                 return -1;
-         }
-    }
-    
     strcpy(channel_id,(char*)connect.channel_id);
     strcpy(track_id,(char*)connect.track_id);
     start_pos->frame_id = connect.initial_frame_id;
+    start_pos->transcoded_frame_id = connect.initial_transcoded_frame_id;
     start_pos->offset   = connect.offset;
     return 0;
 }

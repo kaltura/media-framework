@@ -11,7 +11,7 @@
 
 
 /* initialization */
-int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackId,kmp_session_position_t *pos)
+int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackId,kmp_frame_position_t *pos)
 {
     ctx->decoders=0;
     ctx->outputs=0;
@@ -99,7 +99,7 @@ int transcode_session_async_send_packet(transcode_session_t *ctx, struct AVPacke
     return packet_queue_write_packet(&ctx->packetQueue, packet);
 }
 
-void transcode_session_get_ack_frame_id(transcode_session_t *ctx,kmp_session_position_t *pos)
+void transcode_session_get_ack_frame_id(transcode_session_t *ctx,kmp_frame_position_t *pos)
 {
     if(ctx->ack_handler){
        pos->frame_id = ctx->ack_handler->lastMappedAck;

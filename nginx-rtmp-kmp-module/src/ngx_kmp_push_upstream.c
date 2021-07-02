@@ -99,6 +99,7 @@ ngx_kmp_push_upstream_create(ngx_kmp_push_track_t *track, ngx_str_t *id)
 
     ngx_buf_queue_reader_init(&u->acked_reader, &track->buf_queue);
     u->acked_frame_id = track->connect.initial_frame_id;
+    u->acked_transcoded_frame_id = track->connect.initial_transcoded_frame_id;
 
     ngx_queue_insert_tail(&track->upstreams, &u->queue);
 
@@ -153,7 +154,6 @@ ngx_kmp_push_upstream_connect(ngx_kmp_push_upstream_t *u, ngx_addr_t *addr)
     ngx_add_timer(c->write, u->timeout);
 
     u->recv_pos = (void *) &u->ack_frames;
-    u->recv_end = (u_char *) &u->ack_frames + sizeof(u->ack_frames);
 
     ngx_log_error(NGX_LOG_INFO, &u->log, 0,
         "ngx_kmp_push_upstream_connect: connecting to %V", &u->remote_addr);
@@ -707,8 +707,9 @@ ngx_kmp_push_upstream_ack_frames(ngx_kmp_push_upstream_t *u)
             goto failed;
         }
     }
-
+    u->acked_transcoded_frame_id = u->ack_frames.transcoded_frame_id;
     u->acked_offset = u->ack_frames.offset;
+
     return NGX_OK;
 
 failed:
@@ -732,7 +733,7 @@ ngx_kmp_push_upstream_parse_ack_packet(ngx_kmp_push_upstream_t *u)
     if (header->header_size != sizeof(u->ack_frames)) {
         ngx_log_error(NGX_LOG_ERR, &u->log, 0,
             "ngx_kmp_push_upstream_parse_ack_packet: "
-            "invalid ack header size %uD expected %uD", header->header_size, sizeof(u->ack_frames));
+            "invalid ack header size %uD", header->header_size);
         return NGX_ERROR;
     }
 
@@ -767,11 +768,11 @@ ngx_kmp_push_upstream_parse_ack_packet(ngx_kmp_push_upstream_t *u)
 static void
 ngx_kmp_push_upstream_read_handler(ngx_event_t *rev)
 {
+    u_char                   *recv_end;
     ssize_t                   n;
     ngx_uint_t                level;
     ngx_connection_t         *c;
     ngx_kmp_push_upstream_t  *u;
-    ngx_uint_t                size;
 
     c = rev->data;
     u = c->data;
@@ -779,37 +780,16 @@ ngx_kmp_push_upstream_read_handler(ngx_event_t *rev)
     ngx_log_debug0(NGX_LOG_DEBUG_KMP, rev->log, 0,
         "ngx_kmp_push_upstream_read_handler: called");
 
+    recv_end = (u_char *) &u->ack_frames + sizeof(u->ack_frames);
 
     for ( ;; ) {
 
-        n = ngx_recv(c, u->recv_pos, u->recv_end - u->recv_pos);
+        n = ngx_recv(c, u->recv_pos, recv_end - u->recv_pos);
 
         if (n > 0) {
             u->recv_pos += n;
-            if (u->recv_pos < u->recv_end) {
+            if (u->recv_pos < recv_end) {
                 continue;
-            }
-
-            if(u->recv_end == (u_char *) &u->ack_frames + sizeof(u->ack_frames)) {
-                  if(u->ack_frames.header.data_size > 0){
-                      size = u->ack_frames.header.data_size;
-                      if ((size_t) (u->acked_extended_data.end - u->acked_extended_data.start)
-                                      < size) {
-                           u->acked_extended_data.start = ngx_palloc(u->pool, size);
-                           if (u->acked_extended_data.start == NULL) {
-                               ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
-                                   "ngx_kmp_push_upstream_ack_frames: alloc failed");
-                               break;
-                           }
-                           u->acked_extended_data.end = u->acked_extended_data.start + size;
-                      }
-                      u->recv_pos = u->acked_extended_data.pos = u->acked_extended_data.start;
-                      u->recv_end = u->acked_extended_data.last = u->acked_extended_data.pos + size;
-                      u->ack_frames.header.data_size = 0;
-                      continue;
-                 } else {
-                    u->acked_extended_data.pos = u->acked_extended_data.last;
-                 }
             }
 
             if (ngx_kmp_push_upstream_parse_ack_packet(u) != NGX_OK) {
@@ -819,7 +799,6 @@ ngx_kmp_push_upstream_read_handler(ngx_event_t *rev)
             }
 
             u->recv_pos = (u_char *) &u->ack_frames;
-            u->recv_end = (u_char *) &u->ack_frames + sizeof(u->ack_frames);
             continue;
         }
 
@@ -969,6 +948,7 @@ ngx_kmp_push_upstream_send_buffered(ngx_kmp_push_upstream_t *u)
     /* connect header */
     u->connect = u->track->connect;
     u->connect.initial_frame_id = u->acked_frame_id;
+    u->connect.initial_transcoded_frame_id = u->acked_transcoded_frame_id;
     u->connect.initial_offset = u->acked_offset;
     cl = ngx_kmp_push_alloc_chain_buf(pool, &u->connect, &u->connect + 1);
     if (cl == NULL) {
@@ -981,25 +961,6 @@ ngx_kmp_push_upstream_send_buffered(ngx_kmp_push_upstream_t *u)
     u->last = &cl->next;
 
     u->sent_base -= sizeof(u->connect);
-
-    if(u->acked_extended_data.start) {
-      u->connect.header.data_size = u->acked_extended_data.last - u->acked_extended_data.pos;
-      if(u->connect.header.data_size > 0){
-          cl = ngx_kmp_push_alloc_chain_buf(pool, u->acked_extended_data.pos,u->acked_extended_data.last);
-            if (cl == NULL) {
-                ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
-                    "ngx_kmp_push_upstream_send_buffered: alloc chain buf failed");
-                return NGX_ERROR;
-            }
-
-            *u->last = cl;
-            u->last = &cl->next;
-
-            u->sent_base -= u->connect.header.data_size;
-        }
-    }
-
-
 
     /* initial media info */
     if (u->acked_media_info.last > u->acked_media_info.pos) {

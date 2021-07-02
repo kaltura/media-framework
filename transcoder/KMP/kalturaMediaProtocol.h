@@ -1,7 +1,6 @@
 #ifndef _LIVE_PROTOCOL_H_INCLUDED_
 #define _LIVE_PROTOCOL_H_INCLUDED_
 
-#pragma pack(1)
 
 typedef enum {
     KMP_CODEC_VIDEO_JPEG = 1,
@@ -97,16 +96,11 @@ typedef uint64_t frame_id_t;
 
 
 typedef struct {
-    frame_id_t frame_id;
-    uint32_t offset;
-    frame_id_t transcoded_frame_id;
-} kmp_session_position_t;
-
-typedef struct {
     kmp_packet_header_t header;
     u_char channel_id[KMP_MAX_CHANNEL_ID];
     u_char track_id[KMP_MAX_TRACK_ID];
     frame_id_t initial_frame_id;
+    frame_id_t initial_transcoded_frame_id;
     uint32_t offset;
     uint32_t padding;
 } kmp_connect_packet_t;
@@ -124,15 +118,9 @@ typedef struct {
 typedef struct {
     kmp_packet_header_t header;
     frame_id_t frame_id;
+    frame_id_t transcoded_frame_id;
     uint32_t offset;
     uint32_t padding;
 } kmp_ack_frames_packet_t;
-
-typedef struct {
-    kmp_ack_frames_packet_t ack;
-    frame_id_t transcoded_frame_id;
-} kmp_transcoded_ack_frames_packet_t;
-
-#pragma pack()
 
 #endif /* _LIVE_PROTOCOL_H_INCLUDED_ */

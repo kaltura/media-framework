@@ -64,7 +64,7 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
     int retVal = 0;
     uint64_t received_frame_ack_id=0;
     uint64_t received_frame_id=0;
-    kmp_session_position_t current_position;
+    kmp_frame_position_t current_position;
     while (retVal >= 0 && session->kmpClient.socket) {
 
         if( (retVal = KMP_read_header(&session->kmpClient,&header)) < 0 )
@@ -77,7 +77,7 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
             return 0;
         }
         if (header.packet_type==KMP_PACKET_CONNECT) {
-            kmp_session_position_t start_pos = {0};
+            kmp_frame_position_t start_pos = {0};
             if ( (retVal = KMP_read_handshake(&session->kmpClient,&header,session->channel_id,session->track_id,&start_pos))<0) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] KMP_read_handshake",session->stream_name);
                 break;
