@@ -1,6 +1,5 @@
 #include "../utils/logger.h"
 #include "ackHandlerInternal.h"
-#include "./audioAckMap.h"
 
 void empty_handler(struct ack_handler_s *m,frame_desc_t *fr){}
 void empty_destroy(void *p){}
@@ -26,13 +25,12 @@ int ack_hanler_create(uint64_t initialFrameId,uint64_t initialFrameIdOutput,cons
       _S(audio_ack_map_create(initialFrameId,initialFrameIdOutput,name,h));
       break;
     case AVMEDIA_TYPE_VIDEO:
-      //TODO: implement ack mapper for video.
-      // this far it is assumed output produces same number of frames as in ingest
-      LOGGER(CATEGORY_OUTPUT,AV_LOG_WARNING,"%s - use dummy ack handler created for video",name);
+      _S(video_ack_map_create(initialFrameId,initialFrameIdOutput,name,h));
       break;
     default:
         return AVERROR(EINVAL);
     };
+    h->codec_type = media_type;
     return 0;
 }
 

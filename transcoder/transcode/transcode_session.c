@@ -322,24 +322,13 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
     return 0;
 }
 
-static
-int ackEncode(transcode_session_t *pContext,
-transcode_codec_t *pEncoder,
-transcode_session_output_t *pOutput,
-AVPacket *pOutPacket) {
-      uint32_t output_samples = ff_samples_from_time_base(pEncoder->ctx,pOutPacket->duration);
-      frame_desc_t desc = {0,output_samples};
-
-     // add packet offset-to-frameId mapping;
-    pOutput->acker.encoded(&pOutput->acker,&desc);
-    return 0;
-}
 
 /* processing */
 int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame *pFrame) {
  
     transcode_codec_t* pEncoder=&pContext->encoder[encoderId];
     transcode_session_output_t* pOutput=&pContext->output[outputId];
+    frame_id_t output_frame_id;
     
     LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG, "[%s] Sending packet %s to encoderId %d",
            pOutput->track_id,
@@ -377,7 +366,8 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
             return ret;
         }
 
-        add_packet_frame_id(pOutPacket,pContext->transcoded_frame_first_id+pOutput->stats.totalFrames);
+        output_frame_id = pContext->transcoded_frame_first_id+pOutput->stats.totalFrames;
+        add_packet_frame_id(pOutPacket,output_frame_id);
 
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] received encoded frame %s from encoder Id %d",
                pOutput->track_id,
@@ -387,7 +377,7 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
         pOutPacket->pos=clock_estimator_get_clock(&pContext->clock_estimator,pOutPacket->dts);
 
         if(pContext->ack_handler == pOutput){
-            _S(ackEncode(pContext,pEncoder,pOutput,pOutPacket));
+            _S(ackEncode(pEncoder->ctx,&pContext->ack_handler->acker,pOutPacket));
         }
         ret = transcode_session_output_send_output_packet(pOutput,pOutPacket);
 
@@ -565,6 +555,10 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
                 ctx->offset -= frame->nb_samples;
                 return 0;
             }
+        } else if(decoderCtx->codec_type == AVMEDIA_TYPE_VIDEO && ctx->offset > 0) {
+            //offset designates # of prerolled frames
+             ctx->offset--;
+             return 0;
         }
     }
 
@@ -575,9 +569,11 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
         return 0;
     }
 
-      if(ctx->ack_handler) {
-           ackDecode(&ctx->ack_handler->acker,frame);
-      }
+    if(ctx->ack_handler) {
+         ackDecode(&ctx->ack_handler->acker,frame);
+    }
+
+
 
     for (int filterId=0;filterId<ctx->filters;filterId++) {
         

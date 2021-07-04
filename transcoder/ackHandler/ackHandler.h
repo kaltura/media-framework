@@ -2,7 +2,12 @@
 
 typedef struct {
     uint64_t id;
-    uint32_t offset;
+    union {
+        uint32_t samples;
+        uint32_t offset;
+        uint64_t pts;
+    };
+    unsigned int key : 1;
 } frame_desc_t;
 
 typedef frame_desc_t ack_desc_t;
@@ -20,6 +25,7 @@ typedef struct ack_handler_s {
                        encoded;
     map_ack_handler    map;
     ack_handle_t       ctx;
+    int                codec_type;
 } ack_handler_t;
 
 //factory
