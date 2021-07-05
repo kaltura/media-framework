@@ -50,10 +50,16 @@ public:
         if(it == m_output.end()){
             throw std::out_of_range("ack is out of range");
         }
+        if(it->second.offset){
+            LOGGER(LoggingCategory,AV_LOG_WARNING,"(%s) video map. mapped ack %lld to non-key frame %lld offset %ld",
+                m_name.c_str(), ack, it->second.id, it->second.offset);
+        }
         ao.offset = it->second.offset;
         ao.id = it->second.id;
         m_output.erase(m_output.begin(),it);
-    }
+        LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) video map. map ack %lld -> %lld,%lld",
+             m_name.c_str(),id,ao.id,ao.offset);
+     }
 };
 
 extern "C"
