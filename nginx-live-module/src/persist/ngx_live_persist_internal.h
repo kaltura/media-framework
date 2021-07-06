@@ -29,7 +29,7 @@ typedef struct {
 
     size_t                         size;
     ngx_msec_t                     start;
-    ngx_live_persist_scope_t       scope;
+    u_char                         scope[1];
 } ngx_live_persist_write_file_ctx_t;
 
 
@@ -59,7 +59,7 @@ ngx_live_persist_write_file_ctx_t *ngx_live_persist_write_file(
     ngx_live_channel_t *channel, ngx_live_persist_file_conf_t *conf,
     ngx_live_persist_file_type_t *type,
     ngx_live_store_write_handler_pt handler, void *data,
-    ngx_live_persist_scope_t *scope, size_t scope_size);
+    void *scope, size_t scope_size);
 
 void ngx_live_persist_write_file_destroy(
     ngx_live_persist_write_file_ctx_t *ctx);

@@ -2,15 +2,20 @@
 #include <ngx_core.h>
 #include "ngx_live.h"
 #include "ngx_live_segment_cache.h"
+#include "ngx_live_segment_index.h"
 #include "ngx_live_media_info.h"
 #include "ngx_live_input_bufs.h"
 #include "ngx_live_segmenter.h"
 #include "ngx_live_timeline.h"
+#include "ngx_live_notif.h"
+#include "persist/ngx_live_persist_internal.h"
 #include "ngx_live_filler.h"
 #include "ngx_live_filler_json.h"
 
 
 #define NGX_LIVE_FILLER_MAX_SEGMENTS            128
+
+#define NGX_LIVE_PERSIST_TYPE_FILLER            (0x726c6c66)    /* fllr */
 
 #define NGX_LIVE_FILLER_PERSIST_BLOCK           (0x726c6c66)    /* fllr */
 
@@ -20,70 +25,86 @@
 /* Note: the data chains of all segments in a track are connected in a cycle */
 
 typedef struct {
-    int32_t                        pts_delay;
-    uint32_t                       duration;
-    ngx_list_t                     frames;        /* ngx_live_frame_t */
-    ngx_uint_t                     frame_count;
+    int32_t                            pts_delay;
+    uint32_t                           duration;
+    ngx_list_t                         frames;        /* ngx_live_frame_t */
+    ngx_uint_t                         frame_count;
 
-    ngx_buf_chain_t               *data_head;
-    ngx_buf_chain_t               *data_tail;
-    size_t                         data_size;
+    ngx_buf_chain_t                   *data_head;
+    ngx_buf_chain_t                   *data_tail;
+    size_t                             data_size;
 } ngx_live_filler_segment_t;
 
 
 typedef struct {
-    ngx_queue_t                    queue;
-    ngx_pool_t                    *pool;
-    ngx_live_track_t              *track;
-    ngx_live_filler_segment_t     *segments;
-    uint32_t                       bitrate;
-} ngx_live_filler_track_ctx_t;
+    ngx_live_persist_file_conf_t       file;
+} ngx_live_filler_preset_conf_t;
+
 
 typedef struct {
-    ngx_queue_t                    queue;
-    uint32_t                       count;
-    uint32_t                      *durations;
-    uint64_t                       cycle_duration;
-    ngx_str_t                      channel_id;
-    ngx_str_t                      timeline_id;
-    ngx_str_t                      preset_name;
+    ngx_str_t                          channel_id;
+    ngx_str_t                          preset_name;
+    ngx_str_t                          timeline_id;
+} ngx_live_filler_source_t;
 
-    uint32_t                       last_media_type_mask;
+typedef struct {
+    ngx_pool_t                        *pool;
+    ngx_live_filler_source_t           source;
+
+    ngx_live_persist_read_file_ctx_t  *read_ctx;
+
+    uint32_t                           count;
+    uint32_t                          *durations;
+    uint64_t                           cycle_duration;
+    ngx_queue_t                        queue;
+
+    uint32_t                           last_media_type_mask;
 } ngx_live_filler_channel_ctx_t;
 
+typedef struct {
+    ngx_queue_t                        queue;
+    ngx_pool_t                        *pool;
+    ngx_live_track_t                  *track;
+    ngx_live_filler_segment_t         *segments;
+    uint32_t                           bitrate;
+} ngx_live_filler_track_ctx_t;
+
 
 typedef struct {
-    ngx_list_part_t               *part;
-    ngx_live_frame_t              *cur;
-    ngx_live_frame_t              *last;
+    ngx_list_part_t                   *part;
+    ngx_live_frame_t                  *cur;
+    ngx_live_frame_t                  *last;
 } ngx_live_filler_frame_iter_t;
 
 typedef struct {
-    ngx_buf_chain_t               *chain;
-    size_t                         offset;
+    ngx_buf_chain_t                   *chain;
+    size_t                             offset;
 } ngx_live_filler_data_iter_t;
 
 typedef struct {
-    ngx_live_track_t              *track;
-    int64_t                        start_pts;
-    int64_t                        end_pts;
+    ngx_live_track_t                  *track;
+    int64_t                            start_pts;
+    int64_t                            end_pts;
 
-    uint32_t                       frame_count;
-    int64_t                        start_dts;
-    ngx_live_filler_data_iter_t    data_iter;
-    size_t                         data_size;
+    uint32_t                           frame_count;
+    int64_t                            start_dts;
+    ngx_live_filler_data_iter_t        data_iter;
+    size_t                             data_size;
 } ngx_live_filler_serve_ctx_t;
 
 
 typedef struct {
-    uint32_t                       count;
-    uint32_t                      *durations;
-} ngx_live_filler_read_setup_ctx_t;
+    ngx_live_timeline_t               *timeline;
+    ngx_live_segment_cleanup_t        *cln;
+} ngx_live_filler_write_ctx_t;
+
 
 typedef struct {
-    ngx_live_channel_t            *channel;
-    ngx_live_timeline_t           *timeline;
-} ngx_live_filler_source_t;
+    int64_t                            time;
+    uint32_t                           count;
+    uint32_t                           index;
+    uint32_t                          *durations;
+} ngx_live_filler_read_ctx_t;
 
 
 static size_t ngx_live_filler_channel_json_get_size(void *obj);
@@ -92,11 +113,27 @@ static u_char *ngx_live_filler_channel_json_write(u_char *p, void *obj);
 static ngx_int_t ngx_live_filler_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_filler_postconfiguration(ngx_conf_t *cf);
 
+static void *ngx_live_filler_create_preset_conf(ngx_conf_t *cf);
 static char *ngx_live_filler_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
 static ngx_int_t ngx_live_filler_set_channel(ngx_live_json_cmds_ctx_t *jctx,
     ngx_live_json_cmd_t *cmd, ngx_json_value_t *value);
+
+static ngx_int_t ngx_live_filler_post_json(ngx_live_json_cmds_ctx_t *jctx,
+    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value);
+
+
+static ngx_command_t  ngx_live_filler_commands[] = {
+    { ngx_string("persist_filler_path"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_live_set_complex_value_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_filler_preset_conf_t, file.path),
+      NULL },
+
+      ngx_null_command
+};
 
 
 static ngx_live_module_t  ngx_live_filler_module_ctx = {
@@ -106,14 +143,14 @@ static ngx_live_module_t  ngx_live_filler_module_ctx = {
     NULL,                                   /* create main configuration */
     NULL,                                   /* init main configuration */
 
-    NULL,                                   /* create preset configuration */
+    ngx_live_filler_create_preset_conf,     /* create preset configuration */
     ngx_live_filler_merge_preset_conf,      /* merge preset configuration */
 };
 
 ngx_module_t  ngx_live_filler_module = {
     NGX_MODULE_V1,
     &ngx_live_filler_module_ctx,            /* module context */
-    NULL,                                   /* module directives */
+    ngx_live_filler_commands,               /* module directives */
     NGX_LIVE_MODULE,                        /* module type */
     NULL,                                   /* init master */
     NULL,                                   /* init module */
@@ -131,6 +168,9 @@ static ngx_live_json_cmd_t  ngx_live_filler_dyn_cmds[] = {
     { ngx_string("filler"), NGX_JSON_OBJECT,
       ngx_live_filler_set_channel },
 
+    { ngx_null_string, NGX_JSON_NULL,
+      ngx_live_filler_post_json },
+
       ngx_live_null_json_cmd
 };
 
@@ -140,6 +180,10 @@ static ngx_live_json_writer_def_t  ngx_live_filler_json_writers[] = {
       NGX_LIVE_JSON_CTX_CHANNEL },
 
       ngx_live_null_json_writer
+};
+
+static ngx_live_persist_file_type_t  ngx_live_filler_file_type = {
+    NGX_LIVE_PERSIST_TYPE_FILLER, NGX_LIVE_PERSIST_CTX_FILLER_MAIN, 0
 };
 
 
@@ -341,6 +385,9 @@ ngx_live_filler_fill(ngx_live_channel_t *channel, uint32_t media_type_mask,
     ngx_live_filler_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+    if (cctx->pool == NULL) {
+        return NGX_DONE;
+    }
 
     media_type_mask &= channel->filler_media_types;
 
@@ -719,9 +766,16 @@ ngx_live_filler_serve_segment(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_channel_t                 *channel;
     ngx_persist_write_marker_t          marker;
     ngx_live_filler_serve_ctx_t         sctx;
+    ngx_live_filler_channel_ctx_t      *cctx;
     ngx_live_persist_segment_header_t   header;
 
     channel = track->channel;
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+    if (cctx->pool == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, ngx_persist_write_log(write_ctx), 0,
+            "ngx_live_filler_serve_segment: filler not set up");
+        return NGX_ERROR;
+    }
 
     ngx_memzero(&sctx, sizeof(sctx));
     sctx.track = track;
@@ -1069,6 +1123,26 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
     return NGX_OK;
 }
 
+static void
+ngx_live_filler_setup_free_tracks(ngx_live_channel_t *channel)
+{
+    ngx_queue_t       *q;
+    ngx_live_track_t  *cur_track;
+
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue); )
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+        q = ngx_queue_next(q);      /* track may be freed */
+
+        if (cur_track->type != ngx_live_track_type_filler) {
+            continue;
+        }
+
+        ngx_live_track_free(cur_track);
+    }
+}
+
 static ngx_int_t
 ngx_live_filler_setup_track(ngx_live_channel_t *dst,
     ngx_live_track_t *src_track, ngx_live_timeline_t *timeline, ngx_log_t *log)
@@ -1412,16 +1486,46 @@ ngx_live_filler_setup_validate(ngx_live_channel_t *channel)
 #define ngx_live_filler_setup_validate(channel)
 #endif
 
+static void
+ngx_live_filler_setup_free_unused_tracks(ngx_live_channel_t *channel)
+{
+    ngx_queue_t                  *q;
+    ngx_live_track_t             *cur_track;
+    ngx_live_filler_track_ctx_t  *cur_ctx;
+
+    /* Note: filler tracks may be unused if they were saved on the channel
+        using the filler, but later removed from the filler channel itself */
+
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue); )
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+        q = ngx_queue_next(q);      /* track may be freed */
+
+        if (cur_track->type != ngx_live_track_type_filler) {
+            continue;
+        }
+
+        cur_ctx = ngx_live_get_module_ctx(cur_track, ngx_live_filler_module);
+        if (cur_ctx->pool != NULL) {
+            continue;
+        }
+
+        ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
+            "ngx_live_filler_setup_free_unused_tracks: freeing track");
+
+        ngx_live_track_free(cur_track);
+    }
+}
+
 static ngx_int_t
 ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
-    ngx_live_timeline_t *timeline, uint32_t start_segment_index,
-    ngx_log_t *log)
+    ngx_live_timeline_t *timeline, ngx_log_t *log)
 {
     u_char                         *p;
     ngx_queue_t                    *q;
     ngx_live_track_t               *src_track;
     ngx_live_period_t              *period;
-    ngx_live_core_preset_conf_t    *cpcf;
     ngx_live_filler_channel_ctx_t  *cctx;
 
     if (timeline->period_count != 1) {
@@ -1441,30 +1545,14 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
 
     cctx = ngx_live_get_module_ctx(dst, ngx_live_filler_module);
 
-    cpcf = ngx_live_get_module_preset_conf(src, ngx_live_core_module);
-
     cctx->count = timeline->segment_count;
-    p = ngx_palloc(dst->pool, src->sn.str.len + timeline->sn.str.len +
-        cpcf->name.len + cctx->count * sizeof(cctx->durations[0]));
+
+    p = ngx_palloc(cctx->pool, cctx->count * sizeof(cctx->durations[0]));
     if (p == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_filler_setup: alloc failed");
-        return NGX_ERROR;
+        goto failed;
     }
-
-    cctx->channel_id.data = p;
-    cctx->channel_id.len = src->sn.str.len;
-    p = ngx_copy(p, src->sn.str.data, src->sn.str.len);
-
-    cctx->timeline_id.data = p;
-    cctx->timeline_id.len = timeline->sn.str.len;
-    p = ngx_copy(p, timeline->sn.str.data, timeline->sn.str.len);
-
-    cctx->preset_name.data = p;
-    cctx->preset_name.len = cpcf->name.len;
-    p = ngx_copy(p, cpcf->name.data, cpcf->name.len);
-
-    dst->filler_start_index = start_segment_index;
 
     cctx->durations = (void *) p;
 
@@ -1474,7 +1562,7 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
     cctx->cycle_duration = ngx_live_filler_setup_get_cycle_duration(src,
         period->node.key, cctx->count, log);
     if (cctx->cycle_duration <= 0) {
-        return NGX_ERROR;
+        goto failed;
     }
 
     ngx_live_filler_setup_get_durations(cctx, timeline);
@@ -1488,232 +1576,577 @@ ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
         if (ngx_live_filler_setup_track(dst, src_track, timeline, log)
             != NGX_OK)
         {
-            return NGX_ERROR;
+            goto failed;
         }
     }
+
+    ngx_live_filler_setup_free_unused_tracks(dst);
 
     ngx_live_filler_setup_validate(dst);
 
     return NGX_OK;
+
+failed:
+
+    ngx_live_filler_setup_free_tracks(dst);
+
+    cctx->count = 0;
+    cctx->durations = NULL;
+    cctx->cycle_duration = 0;
+
+    return NGX_ERROR;
 }
+
+
+/* json cmd */
+
+static ngx_int_t
+ngx_live_filler_source_set(ngx_live_channel_t *channel,
+    ngx_live_filler_source_t *new, uint32_t filler_start_index, ngx_log_t *log)
+{
+    u_char                         *p;
+    ngx_pool_t                     *pool;
+    ngx_live_filler_source_t       *cur;
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+
+    if (cctx->pool != NULL) {
+        cur = &cctx->source;
+
+        if (cur->channel_id.len != new->channel_id.len ||
+            ngx_memcmp(cur->channel_id.data, new->channel_id.data,
+                new->channel_id.len) != 0 ||
+            cur->timeline_id.len != new->timeline_id.len ||
+            ngx_memcmp(cur->timeline_id.data, new->timeline_id.data,
+                new->timeline_id.len) != 0)
+        {
+            ngx_log_error(NGX_LOG_WARN, log, 0,
+                "ngx_live_filler_source_set: "
+                "attempt to change filler from \"%V:%V\" to \"%V:%V\"",
+                &cur->channel_id, &cur->timeline_id,
+                &new->channel_id, &new->timeline_id);
+        }
+
+        return NGX_OK;
+    }
+
+    pool = ngx_create_pool(1024, &channel->log);
+    if (pool == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_live_filler_source_set: create pool failed");
+        return NGX_ERROR;
+    }
+
+    p = ngx_palloc(pool, new->channel_id.len + new->preset_name.len +
+        new->timeline_id.len);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_live_filler_source_set: alloc failed");
+        ngx_destroy_pool(pool);
+        return NGX_ERROR;
+    }
+
+    cctx->pool = pool;
+
+    cur = &cctx->source;
+
+    cur->channel_id.data = p;
+    cur->channel_id.len = new->channel_id.len;
+    p = ngx_copy(p, new->channel_id.data, new->channel_id.len);
+
+    cur->preset_name.data = p;
+    cur->preset_name.len = new->preset_name.len;
+    p = ngx_copy(p, new->preset_name.data, new->preset_name.len);
+
+    cur->timeline_id.data = p;
+    cur->timeline_id.len = new->timeline_id.len;
+    p = ngx_copy(p, new->timeline_id.data, new->timeline_id.len);
+
+    channel->filler_start_index = filler_start_index;
+
+    return NGX_OK;
+}
+
+static void
+ngx_live_filler_source_unset(ngx_live_channel_t *channel)
+{
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+    if (cctx->pool == NULL) {
+        return;
+    }
+
+    ngx_destroy_pool(cctx->pool);
+    cctx->pool = NULL;
+
+    ngx_memzero(&cctx->source, sizeof(cctx->source));
+}
+
+static void
+ngx_live_filler_write_handler(void *arg, ngx_int_t rc)
+{
+    void                               *data;
+    ngx_live_json_cmds_ctx_t           *jctx;
+    ngx_live_json_cmds_handler_pt       handler;
+    ngx_live_persist_write_file_ctx_t  *ctx = arg;
+
+    jctx = (void *) ctx->scope;
+
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
+            "ngx_live_filler_write_handler: write failed %i", rc);
+
+    } else {
+        ngx_log_error(NGX_LOG_INFO, jctx->pool->log, 0,
+            "ngx_live_filler_write_handler: write success");
+    }
+
+    handler = jctx->handler;
+    data = jctx->data;
+
+    ngx_live_persist_write_file_destroy(ctx);
+
+    handler(data, rc);
+}
+
+static void
+ngx_live_filler_write_cancel(void *arg)
+{
+    ngx_live_channel_t                 *channel;
+    ngx_live_persist_write_file_ctx_t  *write_ctx = arg;
+
+    channel = write_ctx->channel;
+
+    ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
+        "ngx_live_filler_write_cancel: cancelling write request");
+
+    ngx_live_filler_write_handler(write_ctx, NGX_HTTP_CONFLICT);
+}
+
+static ngx_int_t
+ngx_live_filler_write_file(ngx_live_json_cmds_ctx_t *jctx,
+    ngx_str_t *timeline_id)
+{
+    ngx_live_channel_t                 *channel;
+    ngx_live_timeline_t                *timeline;
+    ngx_live_filler_write_ctx_t         ctx;
+    ngx_live_filler_preset_conf_t      *fpcf;
+    ngx_live_persist_write_file_ctx_t  *write_ctx;
+
+    channel = jctx->obj;
+
+    fpcf = ngx_live_get_module_preset_conf(channel, ngx_live_filler_module);
+    if (fpcf->file.path == NULL) {
+        ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
+            "ngx_live_filler_write_file: "
+            "missing \"persist_filler_path\" directive");
+        return NGX_ERROR;
+    }
+
+    timeline = ngx_live_timeline_get(channel, timeline_id);
+    if (timeline == NULL) {
+        ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
+            "ngx_live_filler_write_file: "
+            "unknown timeline \"%V\" in channel \"%V\"",
+            timeline_id, &channel->sn.str);
+        return NGX_ERROR;
+    }
+
+    if (timeline->period_count != 1) {
+        ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
+            "ngx_live_filler_write_file: "
+            "timeline must have a single period, actual: %uD",
+            timeline->period_count);
+        return NGX_ERROR;
+    }
+
+    ctx.timeline = timeline;
+    ctx.cln = NULL;
+
+    write_ctx = ngx_live_persist_write_file(channel, &fpcf->file,
+        &ngx_live_filler_file_type, ngx_live_filler_write_handler, &ctx,
+        jctx, sizeof(*jctx));
+    if (write_ctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
+            "ngx_live_filler_write_file: write failed");
+        return NGX_ERROR;
+    }
+
+    ctx.cln->handler = ngx_live_filler_write_cancel;
+    ctx.cln->data = write_ctx;
+
+    /* Note: if the channel is freed, the segment index module will call
+        ngx_live_filler_write_cancel, which will free the pool */
+
+    return NGX_AGAIN;
+}
+
+static ngx_int_t
+ngx_live_filler_read_create_segments(ngx_live_channel_t *channel,
+    ngx_live_filler_read_ctx_t *ctx)
+{
+    int64_t   time;
+    uint32_t  i;
+    uint32_t  cur;
+
+    time = ctx->time;
+
+    for (i = 0; i < ctx->count; i++) {
+        cur = ctx->durations[i];
+
+        if (ngx_live_timelines_add_segment(channel, time, cur, 0) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                "ngx_live_filler_read_create_segments: add segment failed");
+            return NGX_ERROR;
+        }
+
+        time += cur;
+
+        channel->next_segment_index++;
+    }
+
+    channel->last_segment_created = ngx_time();
+
+    return NGX_OK;
+}
+
+static void
+ngx_live_filler_read_handler(void *data, ngx_int_t rc,
+    ngx_buf_t *response)
+{
+    ngx_str_t                          buf;
+    ngx_pool_cleanup_t                *cln;
+    ngx_live_channel_t                *channel;
+    ngx_live_filler_read_ctx_t         ctx;
+    ngx_live_filler_channel_ctx_t     *cctx;
+    ngx_live_filler_preset_conf_t     *fpcf;
+    ngx_live_persist_read_file_ctx_t  *read_ctx = data;
+
+    channel = read_ctx->channel;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+
+    cctx->read_ctx = NULL;
+
+    /* read_ctx will be freed, make sure the cleanup handler won't run */
+    cln = read_ctx->cln;
+    if (cln) {
+        cln->handler = NULL;
+    }
+
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_filler_read_handler: "
+            "read failed %i, path: %V", rc, &read_ctx->path);
+        goto failed;
+    }
+
+    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+        "ngx_live_filler_read_handler: read success");
+
+    buf.data = response->pos;
+    buf.len = response->last - response->pos;
+
+    fpcf = ngx_live_get_module_preset_conf(channel, ngx_live_filler_module);
+
+    ngx_memzero(&ctx, sizeof(ctx));
+
+    rc = ngx_live_persist_read_parse(channel, &buf,
+        &ngx_live_filler_file_type, fpcf->file.max_size, &ctx);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_filler_read_handler: "
+            "parse failed %i, path: %V", rc, &read_ctx->path);
+        goto failed;
+    }
+
+    if (channel->tracks.count <= 0) {
+        ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
+            "ngx_live_filler_read_handler: no tracks created, path: %V",
+            &read_ctx->path);
+        goto failed;
+    }
+
+    rc = ngx_live_filler_read_create_segments(channel, &ctx);
+    if (rc != NGX_OK) {
+        goto failed;
+    }
+
+    ngx_destroy_pool(read_ctx->pool);
+
+    channel->blocked--;
+
+    if (channel->blocked <= 0) {
+        ngx_live_notif_publish(channel, NGX_LIVE_NOTIF_CHANNEL_READY, NGX_OK);
+    }
+
+    return;
+
+failed:
+
+    ngx_destroy_pool(read_ctx->pool);
+
+    ngx_live_notif_publish(channel, NGX_LIVE_NOTIF_CHANNEL_READY, rc);
+
+    /* Note: channel free calls all subscribers with error */
+    ngx_live_channel_free(channel);
+}
+
+static ngx_live_channel_t *
+ngx_live_filler_read_file(ngx_live_json_cmds_ctx_t *jctx,
+    ngx_str_t *channel_id, ngx_str_t *preset)
+{
+    ngx_int_t                       rc;
+    ngx_live_channel_t             *channel;
+    ngx_pool_cleanup_t             *cln;
+    ngx_live_conf_ctx_t            *conf_ctx;
+    ngx_live_filler_channel_ctx_t  *cctx;
+    ngx_live_filler_preset_conf_t  *fpcf;
+
+    conf_ctx = ngx_live_core_get_preset_conf((ngx_cycle_t *) ngx_cycle,
+        preset);
+    if (conf_ctx == NULL) {
+        ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
+            "ngx_live_filler_read_file: unknown preset \"%V\"", preset);
+        return NULL;
+    }
+
+    fpcf = ngx_live_get_module_preset_conf(conf_ctx, ngx_live_filler_module);
+    if (fpcf->file.path == NULL) {
+        ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
+            "ngx_live_filler_read_file: "
+            "filler not found and persistence is not enabled");
+        return NULL;
+    }
+
+    cln = ngx_pool_cleanup_add(jctx->pool, 0);
+    if (cln == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
+            "ngx_live_filler_read_file: cleanup add failed");
+        return NULL;
+    }
+
+    rc = ngx_live_channel_create(channel_id, conf_ctx, jctx->pool, &channel);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
+            "ngx_live_filler_read_file: create channel failed %i", rc);
+        return NULL;
+    }
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+
+    cctx->read_ctx = ngx_live_persist_read_file(channel, cln, &fpcf->file,
+        ngx_live_filler_read_handler, NULL, 0);
+    if (cctx->read_ctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
+            "ngx_live_filler_read_file: read file failed");
+        ngx_live_channel_free(channel);
+        return NULL;
+    }
+
+    channel->blocked++;
+
+    return channel;
+}
+
+static void
+ngx_live_filler_ready_handler(void *arg, ngx_int_t rc)
+{
+    ngx_live_channel_t        *channel;
+    ngx_live_json_cmds_ctx_t  *jctx = arg;
+
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
+            "ngx_live_filler_ready_handler: notif failed %i", rc);
+
+    } else {
+        ngx_log_error(NGX_LOG_INFO, jctx->pool->log, 0,
+            "ngx_live_filler_ready_handler: notif success");
+    }
+
+    channel = jctx->obj;
+
+    channel->blocked--;
+
+    if (rc != NGX_OK) {
+        ngx_live_filler_source_unset(channel);
+    }
+
+    jctx->handler(jctx->data, rc);
+}
+
+static ngx_int_t
+ngx_live_filler_wait_ready(ngx_live_json_cmds_ctx_t *jctx,
+    ngx_live_channel_t *dst, ngx_live_channel_t *src)
+{
+    ngx_pool_cleanup_t        *cln;
+    ngx_live_notif_sub_t      *sub;
+    ngx_live_json_cmds_ctx_t  *jctx_copy;
+
+    cln = ngx_pool_cleanup_add(jctx->pool, 0);
+    if (cln == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
+            "ngx_live_filler_wait_ready: cleanup add failed");
+        return NGX_ERROR;
+    }
+
+    jctx_copy = ngx_palloc(jctx->pool, sizeof(*jctx_copy));
+    if (jctx_copy == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
+            "ngx_live_filler_wait_ready: alloc failed");
+        return NGX_ERROR;
+    }
+
+    *jctx_copy = *jctx;
+
+    sub = ngx_live_notif_subscribe(src, NGX_LIVE_NOTIF_CHANNEL_READY, dst,
+        cln);
+
+    sub->handler = ngx_live_filler_ready_handler;
+    sub->data = jctx_copy;
+
+    dst->blocked++;
+
+    return NGX_AGAIN;
+}
+
 
 static ngx_int_t
 ngx_live_filler_set_channel(ngx_live_json_cmds_ctx_t *jctx,
     ngx_live_json_cmd_t *cmd, ngx_json_value_t *value)
 {
-    ngx_str_t                       channel_id;
-    ngx_str_t                       timeline_id;
-    ngx_pool_t                     *pool = jctx->pool;
-    ngx_live_channel_t             *dst = jctx->obj;
-    ngx_live_channel_t             *src;
-    ngx_live_timeline_t            *src_timeline;
-    ngx_live_filler_json_t          json;
-    ngx_live_filler_channel_ctx_t  *cctx;
+    ngx_log_t                 *log;
+    ngx_live_channel_t        *dst;
+    ngx_live_filler_json_t     json;
+    ngx_live_filler_source_t   source;
+
+    if (value->v.obj.nelts <= 0) {
+        return NGX_OK;
+    }
+
+    log = jctx->pool->log;
+    dst = jctx->obj;
 
     ngx_memset(&json, 0xff, sizeof(json));
 
-    if (ngx_json_object_parse(pool, &value->v.obj, ngx_live_filler_json,
+    if (ngx_json_object_parse(jctx->pool, &value->v.obj, ngx_live_filler_json,
         ngx_array_entries(ngx_live_filler_json), &json) != NGX_JSON_OK)
     {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+        ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_filler_set_channel: failed to parse json");
         return NGX_ERROR;
     }
 
-    if (json.channel_id.data == NGX_JSON_UNSET_PTR ||
-        json.timeline_id.data == NGX_JSON_UNSET_PTR)
-    {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_filler_set_channel: missing mandatory params");
-        return NGX_ERROR;
-    }
-
-    channel_id = json.channel_id;
-    timeline_id = json.timeline_id;
-
-    cctx = ngx_live_get_module_ctx(dst, ngx_live_filler_module);
-
-    if (cctx->count > 0) {
-
-        if (cctx->channel_id.len == channel_id.len &&
-            ngx_memcmp(cctx->channel_id.data, channel_id.data,
-                channel_id.len) == 0 &&
-            cctx->timeline_id.len == timeline_id.len &&
-            ngx_memcmp(cctx->timeline_id.data, timeline_id.data,
-                timeline_id.len) == 0)
-        {
-            return NGX_OK;
+    if (json.save == 1) {
+        if (json.timeline_id.data == NGX_JSON_UNSET_PTR) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_live_filler_set_channel: missing mandatory params (1)");
+            return NGX_ERROR;
         }
 
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_filler_set_channel: "
-            "attempt to change filler of channel \"%V\""
-            " from \"%V:%V\" to \"%V:%V\"",
-            &dst->sn.str, &cctx->channel_id, &cctx->timeline_id,
-            &channel_id, &timeline_id);
+        value->v.obj.nelts = 0;     /* prevent loop */
+
+        return ngx_live_filler_write_file(jctx, &json.timeline_id);
+    }
+
+    if (json.channel_id.data == NGX_JSON_UNSET_PTR ||
+        json.preset.data == NGX_JSON_UNSET_PTR ||
+        json.timeline_id.data == NGX_JSON_UNSET_PTR)
+    {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_filler_set_channel: missing mandatory params (2)");
         return NGX_ERROR;
     }
+
+    source.channel_id = json.channel_id;
+    source.preset_name = json.preset;
+    source.timeline_id = json.timeline_id;
+
+    return ngx_live_filler_source_set(dst, &source, dst->next_segment_index,
+        log);
+}
+
+static ngx_int_t
+ngx_live_filler_post_json(ngx_live_json_cmds_ctx_t *jctx,
+    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value)
+{
+    ngx_str_t                       channel_id;
+    ngx_pool_t                     *pool = jctx->pool;
+    ngx_live_channel_t             *dst = jctx->obj;
+    ngx_live_channel_t             *src;
+    ngx_live_timeline_t            *src_timeline;
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    /* Note: filler setup is done in 'post json' and not in 'set channel'
+        in order to support reading the filler source from setup file */
+
+    cctx = ngx_live_get_module_ctx(dst, ngx_live_filler_module);
+    if (cctx->pool == NULL || cctx->count > 0) {
+        /* no source set / already set up */
+        return NGX_OK;
+    }
+
+    channel_id = cctx->source.channel_id;
 
     src = ngx_live_channel_get(&channel_id);
     if (src == NULL) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_filler_set_channel: unknown channel \"%V\"",
-            &channel_id);
-        return NGX_ERROR;
+        src = ngx_live_filler_read_file(jctx, &channel_id,
+            &cctx->source.preset_name);
+        if (src == NULL) {
+            goto failed;
+        }
     }
 
     if (src->blocked) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_filler_set_channel: channel \"%V\" is blocked",
-            &channel_id);
-        return NGX_ERROR;
+        if (ngx_live_filler_wait_ready(jctx, dst, src) != NGX_AGAIN) {
+            goto failed;
+        }
+
+        return NGX_AGAIN;
     }
 
-    src_timeline = ngx_live_timeline_get(src, &timeline_id);
+    src_timeline = ngx_live_timeline_get(src, &cctx->source.timeline_id);
     if (src_timeline == NULL) {
         ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_filler_set_channel: "
+            "ngx_live_filler_post_json: "
             "unknown timeline \"%V\" in channel \"%V\"",
-            &timeline_id, &channel_id);
-        return NGX_ERROR;
+            &cctx->source.timeline_id, &channel_id);
+        goto failed;
     }
 
-    if (ngx_live_filler_setup(dst, src, src_timeline, dst->next_segment_index,
-        pool->log) != NGX_OK)
-    {
+    if (ngx_live_filler_setup(dst, src, src_timeline, pool->log) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_filler_set_channel: setup failed");
-        return NGX_ERROR;
+            "ngx_live_filler_post_json: setup failed");
+        goto failed;
     }
 
     ngx_log_error(NGX_LOG_INFO, &dst->log, 0,
-        "ngx_live_filler_set_channel: using channel \"%V\" as filler",
+        "ngx_live_filler_post_json: using channel \"%V\" as filler",
         &channel_id);
 
     return NGX_OK;
+
+failed:
+
+    ngx_live_filler_source_unset(dst);
+
+    return NGX_ERROR;
 }
 
 
 /* persist */
 
 static ngx_int_t
-ngx_live_filler_write_setup_segment(ngx_persist_write_ctx_t *write_ctx,
-    ngx_live_track_t *track, ngx_live_filler_segment_t *segment,
-    uint32_t segment_index, int64_t timeline_pts)
-{
-    media_info_t                       *media_info;
-    kmp_media_info_t                   *kmp_media_info;
-    ngx_live_persist_segment_header_t   sp;
-
-    sp.track_id = track->in.key;
-    sp.segment_index = segment_index;
-    sp.frame_count = segment->frame_count;
-    sp.start_dts = timeline_pts - segment->pts_delay;
-    sp.reserved = 0;
-
-    if (ngx_persist_write_block_open(write_ctx,
-            NGX_LIVE_PERSIST_BLOCK_SEGMENT) != NGX_OK ||
-        ngx_persist_write(write_ctx, &sp, sizeof(sp)) != NGX_OK)
-    {
-        return NGX_ERROR;
-    }
-
-    if (timeline_pts == 0) {
-
-        media_info = ngx_live_media_info_queue_get_last(track,
-            &kmp_media_info);
-        if (media_info == NULL) {
-            ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
-                "ngx_live_filler_write_setup_segment: "
-                "failed to get media info");
-            return NGX_ERROR;
-        }
-
-        if (ngx_live_media_info_write(write_ctx, NULL, kmp_media_info,
-            &media_info->extra_data) != NGX_OK)
-        {
-            return NGX_ERROR;
-        }
-    }
-
-    if (ngx_persist_write_block_open(write_ctx,
-            NGX_LIVE_PERSIST_BLOCK_FRAME_LIST) != NGX_OK ||
-        ngx_persist_write_list_data(write_ctx, &segment->frames)
-            != NGX_OK)
-    {
-        return NGX_ERROR;
-    }
-
-    ngx_persist_write_block_close(write_ctx);      /* frame list */
-
-    if (ngx_persist_write_block_open(write_ctx,
-            NGX_LIVE_PERSIST_BLOCK_FRAME_DATA) != NGX_OK ||
-        ngx_persist_write_append_buf_chain_n(write_ctx,
-            segment->data_head, 0, segment->data_size) != NGX_OK)
-    {
-        return NGX_ERROR;
-    }
-
-    ngx_persist_write_block_close(write_ctx);      /* frame data */
-
-    ngx_persist_write_block_close(write_ctx);      /* segment data */
-
-    return NGX_OK;
-}
-
-static ngx_int_t
-ngx_live_filler_write_setup_track(ngx_persist_write_ctx_t *write_ctx,
-    ngx_live_filler_track_ctx_t *ctx, ngx_live_filler_channel_ctx_t *cctx)
-{
-    int64_t            timeline_pts;
-    uint32_t           i;
-    uint32_t           media_type;
-    ngx_wstream_t     *ws;
-    ngx_live_track_t  *track;
-
-    ws = ngx_persist_write_stream(write_ctx);
-
-    track = ctx->track;
-    media_type = track->media_type;
-
-    if (ngx_persist_write_block_open(write_ctx,
-            NGX_LIVE_FILLER_PERSIST_BLOCK_TRACK) != NGX_OK ||
-        ngx_wstream_str(ws, &track->sn.str) != NGX_OK ||
-        ngx_persist_write(write_ctx, &media_type, sizeof(media_type))
-            != NGX_OK)
-    {
-        return NGX_ERROR;
-    }
-
-    timeline_pts = 0;
-    for (i = 0; i < cctx->count; i++) {
-
-        if (ngx_live_filler_write_setup_segment(write_ctx, track,
-                &ctx->segments[i], i, timeline_pts) != NGX_OK)
-        {
-            return NGX_ERROR;
-        }
-
-        timeline_pts += cctx->durations[i];
-    }
-
-    ngx_persist_write_block_close(write_ctx);
-
-    return NGX_OK;
-}
-
-static ngx_int_t
 ngx_live_filler_write_setup(ngx_persist_write_ctx_t *write_ctx, void *obj)
 {
-    ngx_queue_t                    *q;
     ngx_wstream_t                  *ws;
     ngx_live_channel_t             *channel = obj;
-    ngx_live_filler_track_ctx_t    *cur_ctx;
     ngx_live_filler_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
-
-    if (cctx->count <= 0) {
+    if (cctx->pool == NULL) {
         return NGX_OK;
     }
 
@@ -1721,30 +2154,15 @@ ngx_live_filler_write_setup(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
     if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_FILLER_PERSIST_BLOCK) != NGX_OK ||
-        ngx_wstream_str(ws, &cctx->channel_id) != NGX_OK ||
-        ngx_wstream_str(ws, &cctx->timeline_id) != NGX_OK ||
+        ngx_wstream_str(ws, &cctx->source.channel_id) != NGX_OK ||
+        ngx_wstream_str(ws, &cctx->source.preset_name) != NGX_OK ||
+        ngx_wstream_str(ws, &cctx->source.timeline_id) != NGX_OK ||
         ngx_persist_write(write_ctx, &channel->filler_start_index,
-            sizeof(channel->filler_start_index)) != NGX_OK ||
-        ngx_wstream_str(ws, &cctx->preset_name) != NGX_OK ||
-        ngx_persist_write(write_ctx, &cctx->count, sizeof(cctx->count))
-            != NGX_OK ||
-        ngx_persist_write(write_ctx, cctx->durations,
-            cctx->count * sizeof(cctx->durations[0])) != NGX_OK)
+            sizeof(channel->filler_start_index)) != NGX_OK)
     {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_filler_write_setup: write failed");
         return NGX_ERROR;
-    }
-
-    for (q = ngx_queue_head(&cctx->queue);
-        q != ngx_queue_sentinel(&cctx->queue);
-        q = ngx_queue_next(q))
-    {
-        cur_ctx = ngx_queue_data(q, ngx_live_filler_track_ctx_t, queue);
-
-        if (ngx_live_filler_write_setup_track(write_ctx, cur_ctx, cctx)
-            != NGX_OK)
-        {
-            return NGX_ERROR;
-        }
     }
 
     ngx_persist_write_block_close(write_ctx);
@@ -1752,10 +2170,229 @@ ngx_live_filler_write_setup(ngx_persist_write_ctx_t *write_ctx, void *obj)
     return NGX_OK;
 }
 
+static ngx_int_t
+ngx_live_filler_read_setup(ngx_persist_block_header_t *block,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    uint32_t                        filler_start_index;
+    ngx_live_channel_t             *channel = obj;
+    ngx_live_filler_source_t        source;
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+    if (cctx->pool != NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_setup: channel \"%V\" already has a filler",
+            &channel->sn.str);
+        return NGX_BAD_DATA;
+    }
+
+    if (ngx_mem_rstream_str_get(rs, &source.channel_id) != NGX_OK ||
+        ngx_mem_rstream_str_get(rs, &source.preset_name) != NGX_OK ||
+        ngx_mem_rstream_str_get(rs, &source.timeline_id) != NGX_OK ||
+        ngx_mem_rstream_read(rs, &filler_start_index,
+            sizeof(filler_start_index)) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_setup: read failed");
+        return NGX_BAD_DATA;
+    }
+
+    return ngx_live_filler_source_set(channel, &source, filler_start_index,
+        rs->log);
+}
+
+
+static ngx_int_t
+ngx_live_filler_write_frame_list(ngx_persist_write_ctx_t *write_ctx, void *obj)
+{
+    ngx_live_segment_t  *segment = obj;
+
+    return ngx_persist_write_list_data(write_ctx, &segment->frames);
+}
+
+static ngx_int_t
+ngx_live_filler_read_frame_list(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_int_t            rc;
+    ngx_live_segment_t  *segment = obj;
+
+    if (segment->frames.part.nelts != 0) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_frame_list: duplicate block");
+        return NGX_BAD_DATA;
+    }
+
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+
+    rc = ngx_mem_rstream_read_list(rs, &segment->frames, segment->frame_count);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_filler_read_frame_list: read failed");
+        return rc;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_filler_write_frame_data(ngx_persist_write_ctx_t *write_ctx, void *obj)
+{
+    ngx_live_segment_t  *segment = obj;
+
+    return ngx_persist_write_append_buf_chain(write_ctx, segment->data_head);
+}
+
+static ngx_int_t
+ngx_live_filler_read_frame_data(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_str_t            data;
+    ngx_live_segment_t  *segment = obj;
+
+    if (segment->data_head != NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_frame_data: duplicate block");
+        return NGX_BAD_DATA;
+    }
+
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+
+    ngx_mem_rstream_get_left(rs, &data);
+
+    if (data.len <= 0) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_frame_data: empty frame data");
+        return NGX_BAD_DATA;
+    }
+
+    segment->data_head = ngx_live_input_bufs_read_chain(segment->track,
+        &data, &segment->data_tail);
+    if (segment->data_head == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_filler_read_frame_data: read failed");
+        return NGX_ERROR;
+    }
+
+    segment->data_size = data.len;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_filler_write_segment(ngx_persist_write_ctx_t *write_ctx,
+    ngx_live_segment_t *segment)
+{
+    ngx_live_track_t                   *track = segment->track;
+    ngx_live_persist_segment_header_t   sp;
+
+    sp.track_id = track->in.key;
+    sp.segment_index = segment->node.key;
+    sp.frame_count = segment->frame_count;
+    sp.start_dts = segment->start_dts;
+    sp.reserved = 0;
+
+    if (ngx_persist_write_block_open(write_ctx,
+            NGX_LIVE_PERSIST_BLOCK_SEGMENT) != NGX_OK ||
+        ngx_persist_write(write_ctx, &sp, sizeof(sp)) != NGX_OK ||
+        ngx_live_persist_write_blocks(track->channel, write_ctx,
+            NGX_LIVE_PERSIST_CTX_FILLER_SEGMENT, segment) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_filler_write_segment: write failed");
+        return NGX_ERROR;
+    }
+
+    ngx_persist_write_block_close(write_ctx);
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_filler_write_segments(ngx_persist_write_ctx_t *write_ctx, void *obj)
+{
+    uint32_t                      last_index;
+    uint32_t                      segment_index;
+    ngx_pool_t                   *pool;
+    ngx_queue_t                  *q;
+    ngx_live_track_t             *track = obj;
+    ngx_live_period_t            *period;
+    ngx_live_channel_t           *channel;
+    ngx_live_segment_t           *segment;
+    ngx_live_segment_index_t     *index;
+    ngx_live_filler_write_ctx_t  *ctx;
+
+    ctx = ngx_persist_write_ctx(write_ctx);
+
+    q = ngx_queue_head(&ctx->timeline->periods);
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    segment_index = period->node.key;
+
+    if (ctx->cln == NULL) {
+        channel = track->channel;
+
+        index = ngx_live_segment_index_get(channel, segment_index);
+        if (index == NULL) {
+            ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
+                "ngx_live_filler_write_segments: "
+                "failed to get index %ui", segment_index);
+            return NGX_ERROR;
+        }
+
+        pool = ngx_persist_write_pool(write_ctx);
+
+        ctx->cln = ngx_live_segment_index_cleanup_add(pool, index,
+            channel->tracks.count);
+        if (ctx->cln == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                "ngx_live_filler_write_segments: "
+                "add cleanup item failed");
+            return NGX_ERROR;
+        }
+    }
+
+    for (last_index = segment_index + period->segment_count;
+        segment_index < last_index;
+        segment_index++)
+    {
+        segment = ngx_live_segment_cache_get(track, segment_index);
+        if (segment == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_filler_write_segments: "
+                "failed to get segment %uD", segment_index);
+            return NGX_ERROR;
+        }
+
+        if (segment_index == period->node.key) {
+            if (ngx_live_segment_index_lock(ctx->cln, segment) != NGX_OK) {
+                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                    "ngx_live_filler_write_segments: lock segment failed");
+                return NGX_ERROR;
+            }
+        }
+
+        if (ngx_live_filler_write_segment(write_ctx, segment) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
 
 static void
-ngx_live_filler_read_get_frames_info(ngx_live_segment_t *segment, size_t *size,
-    int64_t *duration)
+ngx_live_filler_read_get_frames_info(ngx_live_segment_t *segment,
+    size_t *size, int64_t *duration)
 {
     ngx_list_part_t   *part;
     ngx_live_frame_t  *cur, *last;
@@ -1785,117 +2422,16 @@ ngx_live_filler_read_get_frames_info(ngx_live_segment_t *segment, size_t *size,
 }
 
 static ngx_int_t
-ngx_live_filler_read_segment_block(ngx_persist_block_header_t *block,
-    ngx_mem_rstream_t *rs, ngx_live_segment_t *segment,
-    ngx_live_persist_segment_header_t *sp)
-{
-    ngx_int_t          rc;
-    ngx_str_t          data;
-    ngx_buf_chain_t    chain;
-    kmp_media_info_t  *media_info;
-
-    switch (block->id) {
-
-    case NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO:
-
-        media_info = ngx_mem_rstream_get_ptr(rs, sizeof(*media_info));
-        if (media_info == NULL) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_filler_read_segment_block: read media info failed");
-            return NGX_BAD_DATA;
-        }
-
-        if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
-            return NGX_BAD_DATA;
-        }
-
-
-        ngx_mem_rstream_get_left(rs, &data);
-
-        chain.data = data.data;
-        chain.size = data.len;
-        chain.next = NULL;
-
-        rc = ngx_live_media_info_pending_add(segment->track, media_info,
-            &chain, chain.size, 0);
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_filler_read_segment_block: media info add failed");
-            return rc;
-        }
-
-        break;
-
-    case NGX_LIVE_PERSIST_BLOCK_FRAME_LIST:
-
-        if (segment->frames.part.nelts != 0) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_filler_read_segment_block: duplicate frame list");
-            return NGX_BAD_DATA;
-        }
-
-        if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
-            return NGX_BAD_DATA;
-        }
-
-
-        rc = ngx_mem_rstream_read_list(rs, &segment->frames, sp->frame_count);
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_filler_read_segment_block: read frame list failed");
-            return rc;
-        }
-
-        break;
-
-    case NGX_LIVE_PERSIST_BLOCK_FRAME_DATA:
-
-        if (segment->data_head != NULL) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_filler_read_segment_block: duplicate frame data");
-            return NGX_BAD_DATA;
-        }
-
-        if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
-            return NGX_BAD_DATA;
-        }
-
-
-        ngx_mem_rstream_get_left(rs, &data);
-
-        if (data.len <= 0) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_filler_read_segment_block: empty frame data");
-            return NGX_BAD_DATA;
-        }
-
-        segment->data_head = ngx_live_input_bufs_read_chain(segment->track,
-            &data, &segment->data_tail);
-        if (segment->data_head == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_filler_read_segment_block: read frame data failed");
-            return NGX_ERROR;
-        }
-
-        segment->data_size = data.len;
-
-        break;
-    }
-
-    return NGX_OK;
-}
-
-static ngx_int_t
-ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
-    ngx_persist_block_header_t *block, ngx_mem_rstream_t *rs,
-    int64_t timeline_pts)
+ngx_live_filler_read_segment(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
 {
     size_t                              size;
     int64_t                             duration;
     ngx_int_t                           rc;
-    ngx_flag_t                          ignore;
-    ngx_mem_rstream_t                   block_rs;
+    ngx_flag_t                          changed;
+    ngx_live_track_t                   *track = obj;
     ngx_live_segment_t                 *segment;
+    ngx_live_filler_read_ctx_t         *ctx;
     ngx_live_persist_segment_header_t  *sp;
 
     sp = ngx_mem_rstream_get_ptr(rs, sizeof(*sp));
@@ -1914,31 +2450,28 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
         return NGX_BAD_DATA;
     }
 
-    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 
 
-    segment = ngx_live_segment_cache_create(track, segment_index);
+    ctx = ngx_mem_rstream_scope(rs);
+
+    segment = ngx_live_segment_cache_create(track, ctx->index);
     if (segment == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_live_filler_read_segment: create segment failed");
         return NGX_ERROR;
     }
 
-    while (!ngx_mem_rstream_eof(rs)) {
+    segment->frame_count = sp->frame_count;
 
-        block = ngx_persist_read_block(rs, &block_rs);
-        if (block == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_filler_read_segment: read block failed");
-            return NGX_BAD_DATA;
-        }
-
-        rc = ngx_live_filler_read_segment_block(block, &block_rs, segment, sp);
-        if (rc != NGX_OK) {
-            return rc;
-        }
+    rc = ngx_live_persist_read_blocks(track->channel,
+        NGX_LIVE_PERSIST_CTX_FILLER_SEGMENT, rs, segment);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_filler_read_segment: read blocks failed");
+        return rc;
     }
 
     if (segment->frames.part.nelts == 0) {
@@ -1953,13 +2486,18 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
         return NGX_BAD_DATA;
     }
 
-    ngx_live_media_info_pending_create_segment(track, segment_index, &ignore);
+    ngx_live_media_info_pending_create_segment(track, ctx->index, &changed);
+    if (ctx->index == 0 && !changed) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_segment: missing media info (1)");
+        return NGX_BAD_DATA;
+    }
 
     segment->media_info = ngx_live_media_info_queue_get_last(track,
         &segment->kmp_media_info);
     if (segment->media_info == NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_filler_read_segment: missing media info");
+        ngx_log_error(NGX_LOG_ALERT, rs->log, 0,
+            "ngx_live_filler_read_segment: missing media info (2)");
         return NGX_BAD_DATA;
     }
 
@@ -1973,233 +2511,279 @@ ngx_live_filler_read_segment(ngx_live_track_t *track, uint32_t segment_index,
         return NGX_BAD_DATA;
     }
 
-    segment->frame_count = sp->frame_count;
     segment->start_dts = sp->start_dts;
     segment->end_dts = segment->start_dts + duration;
 
+    track->has_last_segment = 1;
     ngx_live_segment_cache_finalize(segment);
 
-    return NGX_OK;
-}
-
-static ngx_int_t
-ngx_live_filler_read_segments(ngx_live_track_t *track, ngx_mem_rstream_t *rs,
-    ngx_live_filler_read_setup_ctx_t *read_ctx)
-{
-    int64_t                      timeline_pts;
-    uint32_t                     segment_index;
-    ngx_int_t                    rc;
-    ngx_mem_rstream_t            block_rs;
-    ngx_persist_block_header_t  *block;
-
-    segment_index = 0;
-    timeline_pts = 0;
-
-    while (!ngx_mem_rstream_eof(rs)) {
-
-        block = ngx_persist_read_block(rs, &block_rs);
-        if (block == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_filler_read_segments: read block failed");
-            return NGX_BAD_DATA;
-        }
-
-        if (block->id != NGX_LIVE_PERSIST_BLOCK_SEGMENT) {
-            continue;
-        }
-
-        if (segment_index >= read_ctx->count) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_filler_read_segments: "
-                "too many segments, count: %uD", read_ctx->count);
-            return NGX_BAD_DATA;
-        }
-
-        rc = ngx_live_filler_read_segment(track, segment_index, block,
-            &block_rs, timeline_pts);
-        if (rc != NGX_OK) {
-            return rc;
-        }
-
-        timeline_pts += read_ctx->durations[segment_index];
-        segment_index++;
-    }
-
-    if (segment_index != read_ctx->count) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_filler_read_segments: "
-            "missing segments, expected: %uD, got: %uD",
-            read_ctx->count, segment_index);
-        return NGX_BAD_DATA;
-    }
+    ctx->index++;
 
     return NGX_OK;
 }
 
-static ngx_int_t
-ngx_live_filler_read_tracks(ngx_live_channel_t *channel, ngx_mem_rstream_t *rs,
-    ngx_live_filler_read_setup_ctx_t *read_ctx)
-{
-    uint32_t                     media_type;
-    ngx_int_t                    rc;
-    ngx_str_t                    track_id;
-    ngx_live_track_t            *cur_track;
-    ngx_mem_rstream_t            block_rs;
-    ngx_persist_block_header_t  *block;
-
-    while (!ngx_mem_rstream_eof(rs)) {
-
-        block = ngx_persist_read_block(rs, &block_rs);
-        if (block == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_filler_read_tracks: read block failed");
-            return NGX_BAD_DATA;
-        }
-
-        if (block->id != NGX_LIVE_FILLER_PERSIST_BLOCK_TRACK) {
-            continue;
-        }
-
-        if (ngx_mem_rstream_str_get(&block_rs, &track_id) != NGX_OK ||
-            ngx_mem_rstream_read(&block_rs, &media_type, sizeof(media_type))
-            != NGX_OK)
-        {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_filler_read_tracks: read track header failed");
-            return NGX_BAD_DATA;
-        }
-
-        if (ngx_persist_read_skip_block_header(&block_rs, block)
-            != NGX_OK)
-        {
-            return NGX_BAD_DATA;
-        }
-
-
-        rc = ngx_live_track_create(channel, &track_id,
-            NGX_LIVE_INVALID_TRACK_ID, media_type, rs->log, &cur_track);
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-                "ngx_live_filler_read_tracks: create track failed");
-
-            if (rc == NGX_EXISTS || rc == NGX_INVALID_ARG) {
-                return NGX_BAD_DATA;
-            }
-            return NGX_ERROR;
-        }
-
-        rc = ngx_live_filler_read_segments(cur_track, &block_rs, read_ctx);
-        if (rc != NGX_OK) {
-            return rc;
-        }
-    }
-
-    return NGX_OK;
-}
-
-static ngx_live_timeline_t *
-ngx_live_filler_read_setup_timeline(ngx_live_channel_t *channel, ngx_str_t *id,
-    ngx_live_filler_read_setup_ctx_t *read_ctx, ngx_log_t *log)
-{
-    int64_t                             time;
-    uint32_t                           *cur, *last;
-    ngx_live_timeline_t                *timeline;
-    ngx_live_timeline_conf_t            conf;
-    ngx_live_timeline_manifest_conf_t   manifest_conf;
-
-    ngx_live_timeline_conf_default(&conf, &manifest_conf);
-
-    if (ngx_live_timeline_create(channel, id, &conf, &manifest_conf,
-        log, &timeline) != NGX_OK)
-    {
-        return NULL;
-    }
-
-    time = 0;
-
-    cur = read_ctx->durations;
-    last = cur + read_ctx->count;
-
-    for (; cur < last; cur++) {
-
-        if (ngx_live_timelines_add_segment(channel, time, *cur, 0) != NGX_OK) {
-            return NULL;
-        }
-
-        time += *cur;
-
-        channel->next_segment_index++;
-    }
-
-    channel->last_segment_created = ngx_time();
-
-    return timeline;
-}
 
 static ngx_int_t
-ngx_live_filler_read_setup_channel(ngx_persist_block_header_t *block,
-    ngx_mem_rstream_t *rs, ngx_str_t *channel_id, ngx_str_t *timeline_id,
-    ngx_live_filler_source_t *src)
+ngx_live_filler_write_media_info(ngx_persist_write_ctx_t *write_ctx, void *obj)
 {
-    ngx_int_t                          rc;
-    ngx_str_t                          preset_name;
-    ngx_log_t                         *log = rs->log;
-    ngx_pool_t                        *temp_pool;
-    ngx_live_channel_t                *channel;
-    ngx_live_conf_ctx_t               *conf_ctx;
-    ngx_live_filler_read_setup_ctx_t   read_ctx;
+    media_info_t      *media_info;
+    ngx_live_track_t  *track = obj;
+    kmp_media_info_t  *kmp_media_info;
 
-    if (ngx_mem_rstream_str_get(rs, &preset_name) != NGX_OK ||
-        ngx_mem_rstream_read(rs, &read_ctx.count, sizeof(read_ctx.count))
-        != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_filler_read_setup_channel: read header failed");
-        return NGX_BAD_DATA;
-    }
-
-    if (read_ctx.count <= 0 || read_ctx.count > NGX_LIVE_FILLER_MAX_SEGMENTS) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_filler_read_setup_channel: invalid count %uD",
-            read_ctx.count);
-        return NGX_BAD_DATA;
-    }
-
-    read_ctx.durations = ngx_mem_rstream_get_ptr(rs,
-        read_ctx.count * sizeof(read_ctx.durations[0]));
-    if (read_ctx.durations == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_filler_read_setup_channel: read duration array failed");
-        return NGX_BAD_DATA;
-    }
-
-    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
-        return NGX_BAD_DATA;
-    }
-
-
-    conf_ctx = ngx_live_core_get_preset_conf((ngx_cycle_t *) ngx_cycle,
-        &preset_name);
-    if (conf_ctx == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_filler_read_setup_channel: "
-            "unknown preset \"%V\"", &preset_name);
-        return NGX_BAD_DATA;
-    }
-
-    temp_pool = ngx_create_pool(1024, log);
-    if (temp_pool == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_live_filler_read_setup_channel: create temp pool failed");
+    media_info = ngx_live_media_info_queue_get_last(track, &kmp_media_info);
+    if (media_info == NULL) {
+        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
+            "ngx_live_filler_write_media_info: "
+            "failed to get media info");
         return NGX_ERROR;
     }
 
-    rc = ngx_live_channel_create(channel_id, conf_ctx, temp_pool, &channel);
+    if (ngx_live_media_info_write(write_ctx, NULL, kmp_media_info,
+        &media_info->extra_data) != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
 
-    ngx_destroy_pool(temp_pool);
+    return NGX_OK;
+}
 
+static ngx_int_t
+ngx_live_filler_read_media_info(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_int_t          rc;
+    ngx_str_t          data;
+    ngx_buf_chain_t    chain;
+    kmp_media_info_t  *media_info;
+    ngx_live_track_t  *track = obj;
+
+    media_info = ngx_mem_rstream_get_ptr(rs, sizeof(*media_info));
+    if (media_info == NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_media_info: read media info failed");
+        return NGX_BAD_DATA;
+    }
+
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+
+    ngx_mem_rstream_get_left(rs, &data);
+
+    chain.data = data.data;
+    chain.size = data.len;
+    chain.next = NULL;
+
+    rc = ngx_live_media_info_pending_add(track, media_info,
+        &chain, chain.size, 0);
     if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_live_filler_read_setup_channel: create channel failed");
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_filler_read_media_info: media info add failed");
+        return rc;
+    }
+
+    return rc;
+}
+
+
+static ngx_int_t
+ngx_live_filler_write_tracks(ngx_persist_write_ctx_t *write_ctx, void *obj)
+{
+    uint32_t             media_type;
+    ngx_queue_t         *q;
+    ngx_wstream_t       *ws;
+    ngx_live_track_t    *cur_track;
+    ngx_live_channel_t  *channel = obj;
+
+    ws = ngx_persist_write_stream(write_ctx);
+
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
+        q = ngx_queue_next(q))
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+
+        media_type = cur_track->media_type;
+
+        if (ngx_persist_write_block_open(write_ctx,
+                NGX_LIVE_PERSIST_BLOCK_TRACK) != NGX_OK ||
+            ngx_wstream_str(ws, &cur_track->sn.str) != NGX_OK ||
+            ngx_persist_write(write_ctx, &media_type, sizeof(media_type))
+                != NGX_OK ||
+            ngx_live_persist_write_blocks(channel, write_ctx,
+                NGX_LIVE_PERSIST_CTX_FILLER_TRACK, cur_track) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &cur_track->log, 0,
+                "ngx_live_filler_write_tracks: write failed");
+            return NGX_ERROR;
+        }
+
+        ngx_persist_write_block_close(write_ctx);
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_filler_read_track(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    uint32_t                     media_type;
+    ngx_int_t                    rc;
+    ngx_str_t                    id;
+    ngx_log_t                   *orig_log;
+    ngx_live_track_t            *track;
+    ngx_live_channel_t          *channel = obj;
+    ngx_live_filler_read_ctx_t  *ctx;
+
+    ctx = ngx_mem_rstream_scope(rs);
+    if (ctx->count <= 0) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_track: timeline was not read");
+        return NGX_BAD_DATA;
+    }
+
+    if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK ||
+        ngx_mem_rstream_read(rs, &media_type, sizeof(media_type)) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_track: read failed");
+        return NGX_BAD_DATA;
+    }
+
+    rc = ngx_live_track_create(channel, &id, NGX_LIVE_INVALID_TRACK_ID,
+        media_type, rs->log, &track);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_filler_read_track: "
+            "create failed %i, track: %V", rc, &id);
+
+        if (rc == NGX_EXISTS || rc == NGX_INVALID_ARG) {
+            return NGX_BAD_DATA;
+        }
+        return NGX_ERROR;
+    }
+
+    orig_log = rs->log;
+    rs->log = &track->log;
+
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+
+    ctx->index = 0;
+
+    rc = ngx_live_persist_read_blocks(channel,
+        NGX_LIVE_PERSIST_CTX_FILLER_TRACK, rs, track);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_filler_read_track: read blocks failed");
+        return rc;
+    }
+
+    if (ctx->index != ctx->count) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_track: "
+            "segment count mismatch, expected: %uD, actual: %uD",
+            ctx->count, ctx->index);
+        return NGX_BAD_DATA;
+    }
+
+    rs->log = orig_log;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_filler_write_timeline(ngx_persist_write_ctx_t *write_ctx, void *obj)
+{
+    uint32_t                      i;
+    uint32_t                      duration;
+    ngx_queue_t                  *q;
+    ngx_wstream_t                *ws;
+    ngx_live_period_t            *period;
+    ngx_live_timeline_t          *timeline;
+    ngx_live_segment_iter_t       iter;
+    ngx_live_filler_write_ctx_t  *ctx;
+
+    ctx = ngx_persist_write_ctx(write_ctx);
+    timeline = ctx->timeline;
+
+    q = ngx_queue_head(&timeline->periods);
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    ws = ngx_persist_write_stream(write_ctx);
+
+    if (ngx_wstream_str(ws, &timeline->sn.str) != NGX_OK ||
+        ngx_persist_write(write_ctx, &period->time, sizeof(period->time))
+            != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &timeline->log, 0,
+            "ngx_live_filler_write_timeline: write failed (1)");
+        return NGX_ERROR;
+    }
+
+    ngx_persist_write_block_set_header(write_ctx, 0);
+
+    iter = period->segment_iter;
+    for (i = 0; i < period->segment_count; i++) {
+        duration = ngx_live_segment_iter_get_one(&iter);
+
+        if (ngx_persist_write(write_ctx, &duration, sizeof(duration))
+            != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &timeline->log, 0,
+                "ngx_live_filler_write_timeline: write failed (2)");
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_filler_read_timeline(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_int_t                           rc;
+    ngx_str_t                           id;
+    ngx_str_t                           durations;
+    ngx_live_channel_t                 *channel = obj;
+    ngx_live_timeline_t                *timeline;
+    ngx_live_timeline_conf_t            conf;
+    ngx_live_filler_read_ctx_t         *ctx;
+    ngx_live_timeline_manifest_conf_t   manifest_conf;
+
+    ctx = ngx_mem_rstream_scope(rs);
+    if (ctx->count > 0) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_timeline: duplicate block");
+        return NGX_BAD_DATA;
+    }
+
+    if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK ||
+        ngx_mem_rstream_read(rs, &ctx->time, sizeof(ctx->time)) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_timeline: read failed");
+        return NGX_BAD_DATA;
+    }
+
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+
+    ngx_live_timeline_conf_default(&conf, &manifest_conf);
+
+    rc = ngx_live_timeline_create(channel, &id, &conf, &manifest_conf, rs->log,
+        &timeline);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_filler_read_timeline: create failed %i", rc);
 
         if (rc == NGX_INVALID_ARG) {
             return NGX_BAD_DATA;
@@ -2207,111 +2791,149 @@ ngx_live_filler_read_setup_channel(ngx_persist_block_header_t *block,
         return NGX_ERROR;
     }
 
-    rc = ngx_live_filler_read_tracks(channel, rs, &read_ctx);
-    if (rc != NGX_OK) {
-        goto failed;
+    ngx_mem_rstream_get_left(rs, &durations);
+
+    ctx->count = durations.len / sizeof(ctx->durations[0]);
+    if (ctx->count <= 0) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_timeline: no segments");
+        return NGX_BAD_DATA;
     }
 
-    src->timeline = ngx_live_filler_read_setup_timeline(channel, timeline_id,
-        &read_ctx, log);
-    if (src->timeline == NULL) {
-        rc = NGX_ERROR;
-        goto failed;
-    }
-
-    src->channel = channel;
+    ctx->durations = (void *) durations.data;
 
     return NGX_OK;
-
-failed:
-
-    ngx_live_channel_free(channel);
-
-    return rc;
 }
 
+
 static ngx_int_t
-ngx_live_filler_read_setup(ngx_persist_block_header_t *block,
-    ngx_mem_rstream_t *rs, void *obj)
+ngx_live_filler_write_channel(ngx_persist_write_ctx_t *write_ctx, void *obj)
 {
-    uint32_t                        start_segment_index;
-    ngx_int_t                       rc;
-    ngx_str_t                       channel_id;
-    ngx_str_t                       timeline_id;
-    ngx_log_t                      *log = rs->log;
-    ngx_live_channel_t             *dst = obj;
-    ngx_live_filler_source_t        src;
-    ngx_live_filler_channel_ctx_t  *cctx;
+    ngx_live_channel_t           *channel = obj;
+    ngx_live_filler_write_ctx_t  *ctx;
 
-    cctx = ngx_live_get_module_ctx(dst, ngx_live_filler_module);
+    ctx = ngx_persist_write_ctx(write_ctx);
 
-    if (cctx->count > 0) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_filler_read_setup: channel \"%V\" already has a filler",
-            &dst->sn.str);
-        return NGX_BAD_DATA;
-    }
-
-    if (ngx_mem_rstream_str_get(rs, &channel_id) != NGX_OK ||
-        ngx_mem_rstream_str_get(rs, &timeline_id) != NGX_OK ||
-        ngx_mem_rstream_read(rs, &start_segment_index,
-            sizeof(start_segment_index)) != NGX_OK)
+    if (ngx_live_persist_write_channel_header(write_ctx, channel) != NGX_OK ||
+        ngx_live_persist_write_blocks(channel, write_ctx,
+            NGX_LIVE_PERSIST_CTX_FILLER_CHANNEL, channel) != NGX_OK)
     {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_filler_read_setup: read channel/timeline id failed");
-        return NGX_BAD_DATA;
-    }
-
-    src.channel = ngx_live_channel_get(&channel_id);
-    if (src.channel == NULL) {
-
-        src.timeline = NULL;    /* suppress warning */
-
-        rc = ngx_live_filler_read_setup_channel(block, rs, &channel_id,
-            &timeline_id, &src);
-        if (rc != NGX_OK) {
-            return rc;
-        }
-
-    } else {
-
-        if (src.channel->blocked) {
-            ngx_log_error(NGX_LOG_ERR, log, 0,
-                "ngx_live_filler_read_setup: channel \"%V\" is blocked",
-                &channel_id);
-            return NGX_ERROR;
-        }
-
-        src.timeline = ngx_live_timeline_get(src.channel, &timeline_id);
-        if (src.timeline == NULL) {
-            ngx_log_error(NGX_LOG_ERR, log, 0,
-                "ngx_live_filler_read_setup: "
-                "unknown timeline \"%V\" in channel \"%V\"",
-                &timeline_id, &channel_id);
-            return NGX_ERROR;
-        }
-    }
-
-    if (ngx_live_filler_setup(dst, src.channel, src.timeline,
-        start_segment_index, log) != NGX_OK)
-    {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_live_filler_read_setup: setup failed");
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_filler_write_channel: write failed");
         return NGX_ERROR;
     }
 
-    ngx_log_error(NGX_LOG_INFO, log, 0,
-        "ngx_live_filler_read_setup: using channel \"%V\" as filler",
-        &channel_id);
+    if (ctx->cln == NULL) {
+        ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
+            "ngx_live_filler_write_channel: no segments written");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_filler_read_channel(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_int_t            rc;
+    ngx_live_channel_t  *channel = obj;
+
+    rc = ngx_live_persist_read_channel_header(channel, rs);
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+
+    rc = ngx_live_persist_read_blocks(channel,
+        NGX_LIVE_PERSIST_CTX_FILLER_CHANNEL, rs, channel);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_filler_read_channel: read blocks failed");
+        return rc;
+    }
 
     return NGX_OK;
 }
 
 
 static ngx_persist_block_t  ngx_live_filler_blocks[] = {
+    /*
+     * persist data:
+     *   ngx_str_t  channel_id;
+     *   ngx_str_t  preset_name;
+     *   ngx_str_t  timeline_id;
+     *   uint32_t   filler_start_index;
+     */
     { NGX_LIVE_FILLER_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, 0,
       ngx_live_filler_write_setup,
       ngx_live_filler_read_setup },
+
+    /*
+     * persist header:
+     *   ngx_str_t  id;
+     *   ngx_str_t  opaquep;
+     */
+    { NGX_LIVE_PERSIST_BLOCK_CHANNEL, NGX_LIVE_PERSIST_CTX_FILLER_MAIN,
+      NGX_PERSIST_FLAG_SINGLE,
+      ngx_live_filler_write_channel,
+      ngx_live_filler_read_channel },
+
+    /*
+     * persist header:
+     *   ngx_str_t  id;
+     *   int64_t    time;
+     *
+     * persist data:
+     *   uint32_t  duration[];
+     */
+    { NGX_LIVE_PERSIST_BLOCK_TIMELINE, NGX_LIVE_PERSIST_CTX_FILLER_CHANNEL,
+      NGX_PERSIST_FLAG_SINGLE,
+      ngx_live_filler_write_timeline,
+      ngx_live_filler_read_timeline },
+
+    /*
+     * persist header:
+     *   ngx_str_t  id;
+     *   uint32_t   media_type;
+     */
+    { NGX_LIVE_PERSIST_BLOCK_TRACK, NGX_LIVE_PERSIST_CTX_FILLER_CHANNEL, 0,
+      ngx_live_filler_write_tracks,
+      ngx_live_filler_read_track },
+
+    /*
+     * persist header:
+     *   kmp_media_info_t  kmp;
+     */
+    { NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO, NGX_LIVE_PERSIST_CTX_FILLER_TRACK, 0,
+      ngx_live_filler_write_media_info,
+      ngx_live_filler_read_media_info },
+
+    /*
+     * persist header:
+     *   ngx_live_persist_segment_header_t  sp;
+     */
+    { NGX_LIVE_PERSIST_BLOCK_SEGMENT, NGX_LIVE_PERSIST_CTX_FILLER_TRACK, 0,
+      ngx_live_filler_write_segments,
+      ngx_live_filler_read_segment },
+
+    /*
+     * persist data:
+     *   ngx_live_frame_t  frame[];
+     */
+    { NGX_LIVE_PERSIST_BLOCK_FRAME_LIST, NGX_LIVE_PERSIST_CTX_FILLER_SEGMENT,
+      NGX_PERSIST_FLAG_SINGLE,
+      ngx_live_filler_write_frame_list,
+      ngx_live_filler_read_frame_list },
+
+    { NGX_LIVE_PERSIST_BLOCK_FRAME_DATA, NGX_LIVE_PERSIST_CTX_FILLER_SEGMENT,
+      NGX_PERSIST_FLAG_SINGLE,
+      ngx_live_filler_write_frame_data,
+      ngx_live_filler_read_frame_data },
 
     /*
      * persist data:
@@ -2341,13 +2963,34 @@ ngx_live_filler_channel_init(ngx_live_channel_t *channel, void *ectx)
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
     if (cctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_filler_channel_init: alloc failed");
+            "ngx_live_filler_channel_init: alloc ctx failed");
         return NGX_ERROR;
     }
 
+    ngx_queue_init(&cctx->queue);
+
     ngx_live_set_ctx(channel, cctx, ngx_live_filler_module);
 
-    ngx_queue_init(&cctx->queue);
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_filler_channel_free(ngx_live_channel_t *channel, void *ectx)
+{
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+    if (cctx == NULL) {
+        return NGX_OK;
+    }
+
+    if (cctx->read_ctx != NULL) {
+        ngx_live_filler_read_handler(cctx->read_ctx, NGX_HTTP_CONFLICT, NULL);
+    }
+
+    if (cctx->pool != NULL) {
+        ngx_destroy_pool(cctx->pool);
+    }
 
     return NGX_OK;
 }
@@ -2355,34 +2998,15 @@ ngx_live_filler_channel_init(ngx_live_channel_t *channel, void *ectx)
 static ngx_int_t
 ngx_live_filler_channel_read(ngx_live_channel_t *channel, void *ectx)
 {
-    ngx_queue_t                  *q;
-    ngx_live_track_t             *cur_track;
-    ngx_live_filler_track_ctx_t  *cur_ctx;
+    ngx_live_filler_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
+    if (cctx->pool == NULL) {
+        return NGX_OK;
+    }
 
     ngx_live_filler_set_last_media_types(channel,
         channel->filler_media_types & ~channel->last_segment_media_types);
-
-    /* if we somehow have filler tracks that were not set up, remove them */
-    for (q = ngx_queue_head(&channel->tracks.queue);
-        q != ngx_queue_sentinel(&channel->tracks.queue); )
-    {
-        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
-        q = ngx_queue_next(q);      /* track may be freed */
-
-        if (cur_track->type != ngx_live_track_type_filler) {
-            continue;
-        }
-
-        cur_ctx = ngx_live_get_module_ctx(cur_track, ngx_live_filler_module);
-        if (cur_ctx->pool != NULL) {
-            continue;
-        }
-
-        ngx_log_error(NGX_LOG_INFO, &cur_track->log, 0,
-            "ngx_live_filler_channel_read: freeing unused filler track");
-
-        ngx_live_track_free(cur_track);
-    }
 
     return NGX_OK;
 }
@@ -2446,18 +3070,20 @@ static size_t
 ngx_live_filler_channel_json_get_size(void *obj)
 {
     ngx_live_channel_t             *channel = obj;
+    ngx_live_filler_source_t       *src;
     ngx_live_filler_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
-
-    if (cctx->count <= 0) {
+    if (cctx->pool == NULL) {
         return 0;
     }
 
+    src = &cctx->source;
+
     return sizeof("\"filler\":{\"channel_id\":\"") - 1 +
-        ngx_escape_json(NULL, cctx->channel_id.data, cctx->channel_id.len) +
+        ngx_escape_json(NULL, src->channel_id.data, src->channel_id.len) +
         sizeof("\",\"timeline_id\":\"") - 1 +
-        ngx_escape_json(NULL, cctx->timeline_id.data, cctx->timeline_id.len) +
+        ngx_escape_json(NULL, src->timeline_id.data, src->timeline_id.len) +
         sizeof("\",\"segments\":") - 1 +
         NGX_INT32_LEN +
         sizeof("}") - 1;
@@ -2467,23 +3093,26 @@ static u_char *
 ngx_live_filler_channel_json_write(u_char *p, void *obj)
 {
     ngx_live_channel_t             *channel = obj;
+    ngx_live_filler_source_t       *src;
     ngx_live_filler_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_filler_module);
-
-    if (cctx->count <= 0) {
+    if (cctx->pool == NULL) {
         return p;
     }
 
+    src = &cctx->source;
+
     p = ngx_copy_fix(p, "\"filler\":{\"channel_id\":\"");
-    p = (u_char *) ngx_escape_json(p, cctx->channel_id.data,
-        cctx->channel_id.len);
+    p = (u_char *) ngx_escape_json(p, src->channel_id.data,
+        src->channel_id.len);
     p = ngx_copy_fix(p, "\",\"timeline_id\":\"");
-    p = (u_char *) ngx_escape_json(p, cctx->timeline_id.data,
-        cctx->timeline_id.len);
+    p = (u_char *) ngx_escape_json(p, src->timeline_id.data,
+        src->timeline_id.len);
     p = ngx_copy_fix(p, "\",\"segments\":");
     p = ngx_sprintf(p, "%uD", cctx->count);
     *p++ = '}';
+
     return p;
 }
 
@@ -2512,6 +3141,7 @@ ngx_live_filler_preconfiguration(ngx_conf_t *cf)
 
 static ngx_live_channel_event_t  ngx_live_filler_channel_events[] = {
     { ngx_live_filler_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
+    { ngx_live_filler_channel_free, NGX_LIVE_EVENT_CHANNEL_FREE },
     { ngx_live_filler_channel_read, NGX_LIVE_EVENT_CHANNEL_READ },
       ngx_live_null_event
 };
@@ -2540,9 +3170,40 @@ ngx_live_filler_postconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+static void *
+ngx_live_filler_create_preset_conf(ngx_conf_t *cf)
+{
+    ngx_live_filler_preset_conf_t  *conf;
+
+    conf = ngx_pcalloc(cf->pool, sizeof(ngx_live_filler_preset_conf_t));
+    if (conf == NULL) {
+        return NULL;
+    }
+
+    conf->file.max_size = NGX_CONF_UNSET_SIZE;
+
+    return conf;
+}
+
 static char *
 ngx_live_filler_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 {
+    ngx_live_filler_preset_conf_t   *prev = parent;
+    ngx_live_filler_preset_conf_t   *conf = child;
+    ngx_live_persist_preset_conf_t  *ppcf;
+
+    ppcf = ngx_live_conf_get_module_preset_conf(cf, ngx_live_persist_module);
+
+    if (ppcf->store == NULL) {
+        conf->file.path = NULL;
+
+    } else if (conf->file.path == NULL) {
+        conf->file.path = prev->file.path;
+    }
+
+    ngx_conf_merge_size_value(conf->file.max_size,
+                              prev->file.max_size, 5 * 1024 * 1024);
+
     if (ngx_live_reserve_track_ctx_size(cf, ngx_live_filler_module,
         sizeof(ngx_live_filler_track_ctx_t)) != NGX_OK)
     {

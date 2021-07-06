@@ -1,15 +1,13 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "../ngx_live.h"
+#include "../ngx_live_notif.h"
 #include "../ngx_live_timeline.h"
 #include "ngx_live_persist_core.h"
 #include "ngx_live_persist_index.h"
 #include "ngx_live_persist_media.h"
 #include "ngx_live_persist_setup.h"
 #include "ngx_live_persist_snap_frames.h"
-
-
-#define NGX_HTTP_CONFLICT                  409
 
 
 static ngx_int_t ngx_live_persist_core_postconfiguration(ngx_conf_t *cf);
@@ -156,18 +154,18 @@ static ngx_live_persist_core_file_t  ngx_live_persist_files[] = {
 static void
 ngx_live_persist_core_write_file_complete(void *arg, ngx_int_t rc)
 {
-    ngx_uint_t                            file;
     ngx_live_channel_t                   *channel;
+    ngx_live_persist_scope_t             *scope;
     ngx_live_persist_file_stats_t        *stats;
     ngx_live_persist_write_file_ctx_t    *ctx = arg;
     ngx_live_persist_core_channel_ctx_t  *cctx;
 
     channel = ctx->channel;
 
-    file = ctx->scope.file;
+    scope = (void *) ctx->scope;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_core_module);
-    stats = &cctx->stats[file];
+    stats = &cctx->stats[scope->file];
 
     if (rc != NGX_OK) {
         stats->error++;
@@ -178,7 +176,7 @@ ngx_live_persist_core_write_file_complete(void *arg, ngx_int_t rc)
         stats->success_size += ctx->size;
     }
 
-    ngx_live_persist_files[file].write_handler(ctx, rc);
+    ngx_live_persist_files[scope->file].write_handler(ctx, rc);
 }
 
 ngx_live_persist_write_file_ctx_t *
@@ -252,8 +250,6 @@ ngx_live_persist_core_read_file(ngx_live_channel_t *channel,
 
     cctx->read_ctx = read_ctx;
 
-    channel->blocked++;
-
     return NGX_DONE;
 }
 
@@ -281,8 +277,6 @@ ngx_live_persist_core_read_handler(void *data, ngx_int_t rc,
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_core_module);
 
     cctx->read_ctx = NULL;
-
-    channel->blocked--;
 
     switch (rc) {
 
@@ -358,6 +352,12 @@ done:
         rc = NGX_DONE;
     }
 
+    channel->blocked--;
+
+    if (channel->blocked <= 0) {
+        ngx_live_notif_publish(channel, NGX_LIVE_NOTIF_CHANNEL_READY, NGX_OK);
+    }
+
 failed:
 
     if (pool != NULL) {
@@ -377,6 +377,7 @@ ngx_live_persist_core_read(ngx_live_channel_t *channel,
     ngx_pool_t *handler_pool, ngx_live_persist_read_handler_pt handler,
     void *data)
 {
+    ngx_int_t                             rc;
     ngx_pool_cleanup_t                   *cln;
     ngx_live_persist_core_read_ctx_t      ctx;
     ngx_live_persist_core_preset_conf_t  *pcpcf;
@@ -398,8 +399,15 @@ ngx_live_persist_core_read(ngx_live_channel_t *channel,
     ctx.handler = handler;
     ctx.data = data;
 
-    return ngx_live_persist_core_read_file(channel, cln,
+    rc = ngx_live_persist_core_read_file(channel, cln,
         &pcpcf->files[ctx.file], &ctx);
+    if (rc != NGX_DONE) {
+        return rc;
+    }
+
+    channel->blocked++;
+
+    return NGX_DONE;
 }
 
 

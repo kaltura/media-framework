@@ -193,7 +193,7 @@ ngx_live_persist_write_file_ctx_t *
 ngx_live_persist_write_file(ngx_live_channel_t *channel,
     ngx_live_persist_file_conf_t *conf, ngx_live_persist_file_type_t *type,
     ngx_live_store_write_handler_pt handler, void *data,
-    ngx_live_persist_scope_t *scope, size_t scope_size)
+    void *scope, size_t scope_size)
 {
     size_t                              size;
     ngx_int_t                           rc;
@@ -285,7 +285,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel,
     ctx->channel = channel;
     ctx->start = ngx_current_msec;
     ctx->size = size;
-    ngx_memcpy(&ctx->scope, scope, scope_size);
+    ngx_memcpy(ctx->scope, scope, scope_size);
 
     rc = ppcf->store->write(&request);
     if (rc != NGX_DONE) {

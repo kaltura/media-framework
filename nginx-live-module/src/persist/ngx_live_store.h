@@ -8,6 +8,7 @@
 
 #ifndef NGX_HTTP_NOT_FOUND
 #define NGX_HTTP_NOT_FOUND                 404
+#define NGX_HTTP_CONFLICT                  409
 #define NGX_HTTP_INTERNAL_SERVER_ERROR     500
 #define NGX_HTTP_BAD_GATEWAY               502
 #define NGX_HTTP_GATEWAY_TIME_OUT          504

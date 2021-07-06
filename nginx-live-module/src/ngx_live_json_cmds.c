@@ -27,6 +27,13 @@ ngx_live_json_cmds_prepare(ngx_conf_t *cf)
         if (ngx_hash_keys_array_init(cur->keys, NGX_HASH_SMALL) != NGX_OK) {
             return NGX_ERROR;
         }
+
+        if (ngx_array_init(&cur->post, cf->pool, 1,
+                           sizeof(ngx_live_json_cmd_t))
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
     }
 
     return NGX_OK;
@@ -40,10 +47,16 @@ ngx_live_json_cmds_add(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t ctx)
     ngx_hash_keys_arrays_t     *keys;
     ngx_live_core_main_conf_t  *cmcf;
 
+    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
+
     if (name->len == 0) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-            "ngx_live_json_cmds_add: empty name");
-        return NULL;
+        v = ngx_array_push(&cmcf->json_cmds[ctx].post);
+        if (v == NULL) {
+            return NULL;
+        }
+
+        ngx_memzero(v, sizeof(*v));
+        return v;
     }
 
     v = ngx_palloc(cf->pool, sizeof(ngx_live_json_cmd_t));
@@ -62,7 +75,6 @@ ngx_live_json_cmds_add(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t ctx)
     v->set_handler = NULL;
     v->type = NGX_JSON_NULL;
 
-    cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
     keys = cmcf->json_cmds[ctx].keys;
     rc = ngx_hash_add_key(keys, &v->name, v, 0);
     if (rc == NGX_ERROR) {
@@ -84,7 +96,7 @@ ngx_live_json_cmds_add_multi(ngx_conf_t *cf, ngx_live_json_cmd_t *cmds,
 {
     ngx_live_json_cmd_t  *cmd, *c;
 
-    for (c = cmds; c->name.len; c++) {
+    for (c = cmds; c->set_handler; c++) {
         cmd = ngx_live_json_cmds_add(cf, &c->name, ctx);
         if (cmd == NULL) {
             return NGX_ERROR;
@@ -131,6 +143,44 @@ ngx_live_json_cmds_init(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+static ngx_int_t
+ngx_live_json_cmds_post(ngx_live_channel_t *channel,
+    ngx_live_json_cmds_ctx_t *jctx)
+{
+    ngx_int_t                   rc;
+    ngx_uint_t                  i, n;
+    ngx_array_t                *post;
+    ngx_live_json_cmd_t        *cmd, *cmds;
+    ngx_live_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_live_get_module_main_conf(channel, ngx_live_core_module);
+
+    post = &cmcf->json_cmds[jctx->ctx].post;
+    n = post->nelts;
+    cmds = post->elts;
+
+    for (i = 0; i < n; i++) {
+
+        cmd = &cmds[i];
+        rc = cmd->set_handler(jctx, cmd, NULL);
+        switch (rc) {
+
+        case NGX_OK:
+            break;
+
+        case NGX_AGAIN:
+            return NGX_AGAIN;
+
+        default:
+            ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
+                "ngx_live_json_cmds_post: post handler failed %i", rc);
+            return rc;
+        }
+    }
+
+    return NGX_OK;
+}
+
 ngx_int_t
 ngx_live_json_cmds_exec(ngx_live_channel_t *channel,
     ngx_live_json_cmds_ctx_t *jctx, ngx_json_object_t *json)
@@ -162,7 +212,15 @@ ngx_live_json_cmds_exec(ngx_live_channel_t *channel,
         }
 
         rc = cmd->set_handler(jctx, cmd, &cur->value);
-        if (rc != NGX_OK) {
+        switch (rc) {
+
+        case NGX_OK:
+            break;
+
+        case NGX_AGAIN:
+            return NGX_AGAIN;
+
+        default:
             ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
                 "ngx_live_json_cmds_exec: handler failed %i, key: %V",
                 rc, &cur->key);
@@ -176,5 +234,5 @@ ngx_live_json_cmds_exec(ngx_live_channel_t *channel,
         ngx_live_channel_setup_changed(channel);
     }
 
-    return NGX_OK;
+    return ngx_live_json_cmds_post(channel, jctx);
 }

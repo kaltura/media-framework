@@ -1420,7 +1420,7 @@ ngx_live_persist_media_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
     ngx_live_persist_media_scope_t  *sp, scope;
 
     channel = ctx->channel;
-    sp = (void *) &ctx->scope;
+    sp = (void *) ctx->scope;
     scope = *sp;
 
     if (rc != NGX_OK) {
@@ -1448,7 +1448,7 @@ ngx_live_persist_media_write_cancel(void *arg)
     ngx_live_persist_write_file_ctx_t  *write_ctx = arg;
 
     channel = write_ctx->channel;
-    scope = (void *) &write_ctx->scope;
+    scope = (void *) write_ctx->scope;
 
     ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
         "ngx_live_persist_media_write_cancel: "

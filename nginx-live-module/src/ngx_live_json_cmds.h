@@ -45,6 +45,7 @@ struct ngx_live_json_cmd_s {
 typedef struct {
     ngx_hash_keys_arrays_t         *keys;
     ngx_hash_t                      hash;
+    ngx_array_t                     post;   /* ngx_live_json_cmd_t */
 } ngx_live_json_cmds_conf_t;
 
 

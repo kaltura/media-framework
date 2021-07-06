@@ -30,10 +30,37 @@ CHANNEL_ID = 'test'
 TIMELINE_ID = 'main'
 VARIANT_ID = 'var1'
 FILLER_CHANNEL_ID = '__filler'
+FILLER_PRESET = 'main'
 FILLER_TIMELINE_ID = 'main'
 
 def nginxLiveClient():
     return NginxLive(NGINX_LIVE_API_URL)
+
+def getHttpResponseRegular(body = '', status = '200 OK', length = None, headers = {}):
+    if length == None:
+        length = len(body)
+    headersStr = ''
+    if len(headers) > 0:
+        for curHeader in headers.items():
+            headersStr +='%s: %s\r\n' % curHeader
+    return 'HTTP/1.1 %s\r\nContent-Length: %s\r\n%s\r\n%s' % (status, length, headersStr, body)
+
+def getHttpResponseChunked(body = '', status = '200 OK', length = None, headers = {}):
+    if length == None:
+        length = len(body)
+    headersStr = ''
+    if len(headers) > 0:
+        for curHeader in headers.items():
+            headersStr +='%s: %s\r\n' % curHeader
+    return 'HTTP/1.1 %s\r\nTransfer-Encoding: Chunked\r\n%s\r\n%x\r\n%s\r\n0\r\n' % (status, headersStr, length, body)
+
+def getFiller():
+    return NginxLiveFiller(channel_id=FILLER_CHANNEL_ID, preset=FILLER_PRESET,
+        timeline_id=FILLER_TIMELINE_ID)
+
+def saveFiller(nl, channelId=FILLER_CHANNEL_ID):
+    nl.channel.update(NginxLiveChannel(id=channelId,
+        filler=NginxLiveFiller(save=True, timeline_id=FILLER_TIMELINE_ID)))
 
 def setupChannelTimeline(channelId, timelineId=TIMELINE_ID, preset='main'):
     nl = nginxLiveClient()
@@ -55,6 +82,21 @@ def createVariant(nl, varName, tracks):
     for trackName, mediaType in tracks:
         result.append(createTrack(nl, trackName, mediaType, varName))
     return result
+
+def setupChannelVideoAudio(channelId, duration=10, timelineId=TIMELINE_ID):
+    nl = setupChannelTimeline(channelId, timelineId)
+    sv, sa = createVariant(nl, VARIANT_ID, [('v1', 'video'), ('a1', 'audio')])
+
+    st = KmpSendTimestamps()
+
+    kmpSendStreams([
+        (KmpMediaFileReader(TEST_VIDEO1, 0), sv),
+        (KmpMediaFileReader(TEST_VIDEO1, 1), sa),
+    ], st, duration, realtime=False)
+
+    kmpSendEndOfStream([sv, sa])
+
+    return nl
 
 def getConfBlock(c, path):
     for cur in c:

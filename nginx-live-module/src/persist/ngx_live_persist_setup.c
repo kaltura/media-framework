@@ -477,7 +477,7 @@ ngx_live_persist_setup_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
     ngx_live_persist_setup_channel_ctx_t  *cctx;
 
     channel = ctx->channel;
-    scope = (void *) &ctx->scope;
+    scope = (void *) ctx->scope;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_setup_module);
 
@@ -661,7 +661,7 @@ ngx_live_persist_setup_channel_free(ngx_live_channel_t *channel, void *ectx)
 
     ctx = cctx->write_ctx;
     if (ctx != NULL) {
-        scope = (void *) &ctx->scope;
+        scope = (void *) ctx->scope;
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_setup_channel_free: "
             "cancelling write, version: %uD", scope->version);

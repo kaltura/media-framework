@@ -554,12 +554,16 @@ ngx_live_input_bufs_track_init(ngx_live_track_t *track, void *ectx)
 static ngx_int_t
 ngx_live_input_bufs_track_free(ngx_live_track_t *track, void *ectx)
 {
+    ngx_live_input_bufs_t            *input_bufs;
     ngx_live_input_bufs_track_ctx_t  *ctx;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_input_bufs_module);
 
-    if (ctx->input_bufs != NULL) {
-        ngx_live_input_bufs_free(ctx->input_bufs);
+    input_bufs = ctx->input_bufs;
+    if (input_bufs != NULL) {
+        ngx_buf_queue_detach(&input_bufs->buf_queue);
+
+        ngx_live_input_bufs_free(input_bufs);
         ctx->input_bufs = NULL;
     }
 

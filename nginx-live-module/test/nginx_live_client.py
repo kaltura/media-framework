@@ -52,9 +52,11 @@ class NginxLiveChannel:
         self.mem_limit = mem_limit
 
 class NginxLiveFiller:
-    def __init__(self, channel_id=None, timeline_id=None):
+    def __init__(self, channel_id=None, preset=None, timeline_id=None, save=None):
         self.channel_id = channel_id
+        self.preset = preset
         self.timeline_id = timeline_id
+        self.save = save
 
 class NginxLiveChannelService:
     def __init__(self, base):

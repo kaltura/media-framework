@@ -182,23 +182,21 @@ ngx_http_live_api_channel_update_handler(void *arg, ngx_int_t rc)
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_api_module);
 
-    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
-        "ngx_http_live_api_channel_update_handler: called %i", rc);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_live_api_channel_update_handler: update failed %i", rc);
 
-    switch (rc) {
+        if (rc == NGX_BAD_DATA) {
+            rc = NGX_HTTP_SERVICE_UNAVAILABLE;
 
-    case NGX_OK:
-        break;
-
-    case NGX_BAD_DATA:
-        rc = NGX_HTTP_SERVICE_UNAVAILABLE;
-        goto failed;
-
-    default:
-        if (rc < 400 || rc > 599) {
+        } else if (rc < 400 || rc > 599) {
             rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
         }
         goto failed;
+
+    } else {
+        ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+            "ngx_http_live_api_channel_update_handler: update success");
     }
 
     rc = ngx_http_live_api_channel_update(r);
@@ -308,16 +306,17 @@ ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
     channel = ctx->channel;
     log = r->connection->log;
 
-    ngx_log_error(NGX_LOG_INFO, log, 0,
-        "ngx_http_live_api_channel_read_handler: called %i", rc);
-
     switch (rc) {
 
     case NGX_OK:
+        ngx_log_error(NGX_LOG_INFO, log, 0,
+            "ngx_http_live_api_channel_read_handler: read success");
         ctx->status = NGX_HTTP_LIVE_API_LOADED;
         break;
 
     case NGX_DONE:
+        ngx_log_error(NGX_LOG_INFO, log, 0,
+            "ngx_http_live_api_channel_read_handler: no file was read");
         break;
 
     case NGX_DECLINED:
@@ -358,15 +357,16 @@ ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
 
         break;
 
-    case NGX_BAD_DATA:
-        rc = NGX_HTTP_SERVICE_UNAVAILABLE;
-        goto failed;
-
     default:
-        if (rc < 400 || rc > 599) {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_http_live_api_channel_read_handler: read failed %i", rc);
+
+        if (rc == NGX_BAD_DATA) {
+            rc = NGX_HTTP_SERVICE_UNAVAILABLE;
+
+        } else if (rc < 400 || rc > 599) {
             rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
         }
-
         goto failed;
     }
 
