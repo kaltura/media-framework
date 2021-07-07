@@ -2171,7 +2171,7 @@ ngx_live_filler_write_setup(ngx_persist_write_ctx_t *write_ctx, void *obj)
 }
 
 static ngx_int_t
-ngx_live_filler_read_setup(ngx_persist_block_header_t *block,
+ngx_live_filler_read_setup(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                        filler_start_index;

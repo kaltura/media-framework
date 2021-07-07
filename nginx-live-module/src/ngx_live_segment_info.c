@@ -752,7 +752,7 @@ done:
 }
 
 static ngx_int_t
-ngx_live_segment_info_read_index(ngx_persist_block_header_t *block,
+ngx_live_segment_info_read_index(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                              count;
@@ -767,7 +767,7 @@ ngx_live_segment_info_read_index(ngx_persist_block_header_t *block,
     ngx_live_segment_info_track_ctx_t    *ctx;
     ngx_live_segment_info_preset_conf_t  *sipcf;
 
-    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 

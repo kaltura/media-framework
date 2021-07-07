@@ -3413,7 +3413,7 @@ ngx_live_segmenter_write_setup(ngx_persist_write_ctx_t *write_ctx,
 }
 
 static ngx_int_t
-ngx_live_segmenter_read_setup(ngx_persist_block_header_t *block,
+ngx_live_segmenter_read_setup(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_channel_t             *channel = obj;

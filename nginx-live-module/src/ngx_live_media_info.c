@@ -1974,7 +1974,7 @@ ngx_live_media_info_write_setup(ngx_persist_write_ctx_t *write_ctx,
 }
 
 static ngx_int_t
-ngx_live_media_info_read_setup(ngx_persist_block_header_t *block,
+ngx_live_media_info_read_setup(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_track_t                 *track = obj;
@@ -2078,7 +2078,7 @@ done:
 }
 
 static ngx_int_t
-ngx_live_media_info_read_index_source(ngx_persist_block_header_t *block,
+ngx_live_media_info_read_index_source(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                          source_id;
@@ -2146,7 +2146,7 @@ ngx_live_media_info_write_index_queue(ngx_persist_write_ctx_t *write_ctx,
 }
 
 static ngx_int_t
-ngx_live_media_info_read_index_queue(ngx_persist_block_header_t *block,
+ngx_live_media_info_read_index_queue(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                          min_index;
@@ -2161,7 +2161,7 @@ ngx_live_media_info_read_index_queue(ngx_persist_block_header_t *block,
         return NGX_OK;
     }
 
-    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_live_media_info_read_index_queue: skip header failed");
         return NGX_BAD_DATA;
@@ -2258,7 +2258,7 @@ ngx_live_media_info_write_index(ngx_persist_write_ctx_t *write_ctx,
 
 
 static ngx_int_t
-ngx_live_media_info_read_index(ngx_persist_block_header_t *block,
+ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                          min_index;
@@ -2314,7 +2314,7 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *block,
 
     min_index = mp->segment_index + 1;
 
-    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 
