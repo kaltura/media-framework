@@ -1,0 +1,134 @@
+URL: /master.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-INDEPENDENT-SEGMENTS
+
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=127637,RESOLUTION=160x120,FRAME-RATE=15.000,CODECS="avc1.64000b,mp4a.40.2"
+index-svar1.m3u8
+
+URL: /index-svar1.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:2019-12-31T23:59:59.976+00:00
+#EXTINF:3.957,
+#EXT-X-BITRATE:112
+seg-1-svar1.ts
+#EXTINF:3.933,
+#EXT-X-BITRATE:145
+seg-2-svar1.ts
+#EXTINF:4.067,
+#EXT-X-BITRATE:144
+seg-3-svar1.ts
+#EXTINF:3.933,
+#EXT-X-BITRATE:134
+seg-4-svar1.ts
+#EXTINF:4.000,
+seg-5-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:118
+seg-6-svar1.ts
+#EXTINF:3.800,
+#EXT-X-BITRATE:119
+seg-7-svar1.ts
+#EXTINF:3.934,
+#EXT-X-BITRATE:111
+seg-8-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:132
+seg-9-svar1.ts
+#EXTINF:4.066,
+seg-10-svar1.ts
+#EXTINF:3.934,
+#EXT-X-BITRATE:133
+seg-11-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:132
+seg-12-svar1.ts
+#EXTINF:4.000,
+seg-13-svar1.ts
+#EXTINF:4.000,
+seg-14-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:121
+seg-15-svar1.ts
+#EXTINF:3.800,
+seg-16-svar1.ts
+#EXTINF:2.118,
+#EXT-X-BITRATE:127
+seg-17-svar1.ts
+#EXT-X-ENDLIST
+
+URL: /seg-1-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 57716, MD5: c701ca4ac6e8382c2876ed41ab2a8d63
+
+URL: /seg-2-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 72756, MD5: 8cc8f2379e4b23ac51f916be4262e07b
+
+URL: /seg-3-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 69748, MD5: 7adae2a1690e7dd86138b78f0667de5b
+
+URL: /seg-4-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 66740, MD5: 418636372c4f2cef0d2fd1a18692fabd
+
+URL: /seg-5-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 69748, MD5: 23c527ee16bf273a62f2cbd6a1992fb5
+
+URL: /seg-6-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 60724, MD5: bececad628c829d9e305e1eb9ba0548d
+
+URL: /seg-7-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 54708, MD5: a15a15c0bff3189b9294eeaf848986eb
+
+URL: /seg-8-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 57716, MD5: 758c13f9a8e79fc9ea954e7fe8353a71
+
+URL: /seg-9-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 66740, MD5: aeec19f8fe6053a2444c69f83abbac72
+
+URL: /seg-10-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 69748, MD5: 164ad926a6ed3ac9c891505c0e7400a7
+
+URL: /seg-11-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 66740, MD5: 78814b8cc31228634a89b8dfe2babf4d
+
+URL: /seg-12-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 69748, MD5: 2a7ffbd36a00ac2d4d67b081bcb1a0b2
+
+URL: /seg-13-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 66740, MD5: 8cf3ebb6c075c71ddf090490a3a3c459
+
+URL: /seg-14-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 66740, MD5: 1d872bf036962ea396f15596ccc7cc35
+
+URL: /seg-15-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 60724, MD5: f52a91e9ca4dfb5718c0f7c65bcde01a
+
+URL: /seg-16-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 54708, MD5: c5297b97299f05f4ca7eba7be694ef41
+
+URL: /seg-17-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 42676, MD5: 4ef99edbd7d4ec296f39354dc0126023
+

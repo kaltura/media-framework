@@ -16,6 +16,7 @@ static char *ngx_live_persist_index_merge_preset_conf(ngx_conf_t *cf,
 typedef struct {
     uint32_t                            success_index;
     uint32_t                            success_delta;
+    uint32_t                            history_changed;
     ngx_live_persist_write_file_ctx_t  *write_ctx;
     ngx_live_persist_snap_t            *frames_snap;
     ngx_live_persist_snap_index_t      *pending;
@@ -219,7 +220,8 @@ ngx_live_persist_index_snap_close(void *data,
         scope->max_index - channel->min_segment_index + 1 >
             pipcf->max_delta_segments &&
         scope->max_index - cctx->success_index <=
-            pipcf->max_delta_segments)
+            pipcf->max_delta_segments &&
+        !cctx->history_changed)
     {
         scope->base.file = NGX_LIVE_PERSIST_FILE_DELTA;
         scope->min_index = cctx->success_index + 1;
@@ -227,6 +229,9 @@ ngx_live_persist_index_snap_close(void *data,
     } else {
         scope->base.file = NGX_LIVE_PERSIST_FILE_INDEX;
         scope->min_index = channel->min_segment_index;
+        if (scope->max_index >= cctx->history_changed) {
+            cctx->history_changed = 0;
+        }
     }
 
     cctx->write_ctx = ngx_live_persist_core_write_file(channel,
@@ -736,6 +741,22 @@ ngx_live_persist_index_channel_free(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+static ngx_int_t
+ngx_live_persist_index_channel_history_changed(ngx_live_channel_t *channel,
+    void *ectx)
+{
+    ngx_live_persist_index_channel_ctx_t  *cctx;
+
+    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+        "ngx_live_persist_index_channel_history_changed: called");
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_index_module);
+
+    cctx->history_changed = channel->next_segment_index;
+
+    return NGX_OK;
+}
+
 
 static void *
 ngx_live_persist_index_create_preset_conf(ngx_conf_t *cf)
@@ -807,6 +828,8 @@ static ngx_live_channel_event_t  ngx_live_persist_index_channel_events[] = {
     { ngx_live_persist_index_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
     { ngx_live_persist_index_channel_free, NGX_LIVE_EVENT_CHANNEL_FREE },
     { ngx_live_persist_index_channel_snap, NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP },
+    { ngx_live_persist_index_channel_history_changed,
+        NGX_LIVE_EVENT_CHANNEL_HISTORY_CHANGED },
 
       ngx_live_null_event
 };
