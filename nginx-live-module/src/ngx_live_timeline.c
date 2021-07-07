@@ -1963,7 +1963,7 @@ ngx_live_timelines_write_setup(ngx_persist_write_ctx_t *write_ctx,
 }
 
 static ngx_int_t
-ngx_live_timeline_read_setup(ngx_persist_block_header_t *block,
+ngx_live_timeline_read_setup(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                           rc;
@@ -2278,7 +2278,7 @@ ngx_live_timeline_read_alloc_period(ngx_live_timeline_t *timeline,
 }
 
 static ngx_int_t
-ngx_live_timeline_read_periods(ngx_persist_block_header_t *block,
+ngx_live_timeline_read_periods(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                              min_index;
@@ -2290,15 +2290,15 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *block,
     ngx_live_timeline_t                  *timeline = obj;
     ngx_live_persist_index_scope_t       *scope;
     ngx_live_timeline_persist_period_t   *cur, *end;
-    ngx_live_timeline_persist_periods_t   header;
+    ngx_live_timeline_persist_periods_t   ph;
 
-    if (ngx_mem_rstream_read(rs, &header, sizeof(header)) != NGX_OK) {
+    if (ngx_mem_rstream_read(rs, &ph, sizeof(ph)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_timeline_read_periods: read failed");
         return NGX_BAD_DATA;
     }
 
-    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 
@@ -2332,7 +2332,7 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *block,
     } else {
         period = NULL;
 
-        timeline->first_period_initial_time = header.first_period_initial_time;
+        timeline->first_period_initial_time = ph.first_period_initial_time;
     }
 
     channel = timeline->channel;
@@ -2365,7 +2365,7 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *block,
 
         min_index = cur->segment_index + cur->segment_count;
 
-        if (!header.merge) {
+        if (!ph.merge) {
             rc = ngx_live_timeline_read_alloc_period(timeline, cur);
             if (rc != NGX_OK) {
                 return rc;
@@ -2374,7 +2374,7 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *block,
             continue;
         }
 
-        header.merge = 0;
+        ph.merge = 0;
 
         if (period == NULL ||
             cur->segment_index != period->node.key + period->segment_count)
@@ -2504,7 +2504,7 @@ ngx_live_manifest_timeline_read(ngx_live_timeline_t *timeline,
 }
 
 static ngx_int_t
-ngx_live_timeline_read_index(ngx_persist_block_header_t *block,
+ngx_live_timeline_read_index(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                               hash;
@@ -2545,7 +2545,7 @@ ngx_live_timeline_read_index(ngx_persist_block_header_t *block,
 
     mp = (void *) (tp + 1);
 
-    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 
@@ -2600,7 +2600,7 @@ ngx_live_timelines_channel_write_index(ngx_persist_write_ctx_t *write_ctx,
 }
 
 static ngx_int_t
-ngx_live_timelines_channel_read_index(ngx_persist_block_header_t *block,
+ngx_live_timelines_channel_read_index(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_channel_t                   *channel = obj;
@@ -2641,7 +2641,7 @@ ngx_live_timeline_write_segment_list(ngx_persist_write_ctx_t *write_ctx,
 }
 
 static ngx_int_t
-ngx_live_timeline_read_segment_list(ngx_persist_block_header_t *block,
+ngx_live_timeline_read_segment_list(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_channel_t               *channel = obj;
@@ -2649,7 +2649,7 @@ ngx_live_timeline_read_segment_list(ngx_persist_block_header_t *block,
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
-    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 

@@ -474,7 +474,7 @@ ngx_live_segment_list_write_periods(ngx_persist_write_ctx_t *write_ctx,
 }
 
 ngx_int_t
-ngx_live_segment_list_read_period(ngx_persist_block_header_t *block,
+ngx_live_segment_list_read_period(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                         period_index;
@@ -508,7 +508,7 @@ ngx_live_segment_list_read_period(ngx_persist_block_header_t *block,
         return NGX_BAD_DATA;
     }
 
-    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 
