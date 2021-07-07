@@ -611,11 +611,11 @@ ngx_live_filler_serve_audio_write_frames(ngx_persist_write_ctx_t *write_ctx,
             &duration);
         switch (rc) {
 
-        case NGX_DONE:
-            return NGX_OK;
-
         case NGX_OK:
             break;
+
+        case NGX_DONE:
+            return NGX_OK;
 
         default:
             return NGX_ERROR;

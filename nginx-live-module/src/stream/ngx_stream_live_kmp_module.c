@@ -352,11 +352,11 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
     rc = ngx_live_add_frame(&req);
     switch (rc) {
 
-    case NGX_DONE:
-        goto done;
-
     case NGX_OK:
         break;
+
+    case NGX_DONE:
+        goto done;
 
     case NGX_ABORT:
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,

@@ -1546,13 +1546,13 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
         rc = ngx_live_media_info_source_set(cur_track);
         switch (rc) {
 
-        case NGX_DONE:
-            continue;
-
         case NGX_OK:
             cur_track->last_segment_bitrate =
                 cur_ctx->source->last_segment_bitrate;
             break;
+
+        case NGX_DONE:
+            continue;
 
         default:
             ngx_log_error(NGX_LOG_NOTICE, &cur_track->log, 0,
