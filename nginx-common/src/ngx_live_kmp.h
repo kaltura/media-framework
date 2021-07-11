@@ -2,10 +2,6 @@
 #define _NGX_LIVE_KMP_H_INCLUDED_
 
 
-#include <ngx_config.h>
-#include <ngx_core.h>
-
-
 /* constants */
 #define KMP_MAX_CHANNEL_ID_LEN  (32)
 #define KMP_MAX_TRACK_ID_LEN    (32)
