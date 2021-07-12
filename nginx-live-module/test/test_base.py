@@ -146,9 +146,10 @@ def getStreamUrl(channelId, prefix, suffix='', timelineId=TIMELINE_ID):
 
     return NGINX_LIVE_URL + '/%s/%s/tl/%s/%s' % (prefix, channelId, timelineId, suffix)
 
-def testDefaultStreams(channelId, basePath):
+def testDefaultStreams(channelId, basePath, timelineId=TIMELINE_ID):
     for prefix in ['hls-ts', 'hls-fmp4']:
-        testStream(getStreamUrl(channelId, prefix), basePath, prefix)
+        url = getStreamUrl(channelId, prefix, timelineId=timelineId)
+        testStream(url, basePath, prefix)
 
 
 def assertHttpError(func, status):

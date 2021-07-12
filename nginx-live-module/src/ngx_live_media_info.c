@@ -1453,6 +1453,7 @@ ngx_live_media_info_pending_free_all(ngx_live_track_t *track)
 static ngx_int_t
 ngx_live_media_info_queue_copy(ngx_live_track_t *track)
 {
+    ngx_int_t                         rc;
     ngx_queue_t                      *q;
     ngx_live_track_t                 *source;
     ngx_live_channel_t               *channel;
@@ -1498,7 +1499,13 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track)
     ctx->added = source_ctx->added - source_ctx->removed;
     source_ctx->source_refs++;
 
-    return ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_COPY, source);
+    rc = ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_COPY, source);
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    return ngx_live_core_channel_event(channel,
+        NGX_LIVE_EVENT_CHANNEL_HISTORY_CHANGED, NULL);
 }
 
 ngx_int_t

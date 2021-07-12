@@ -1429,7 +1429,8 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
 
     ngx_live_channel_setup_changed(channel);
 
-    return NGX_OK;
+    return ngx_live_core_channel_event(channel,
+        NGX_LIVE_EVENT_CHANNEL_HISTORY_CHANGED, NULL);
 }
 
 static void
