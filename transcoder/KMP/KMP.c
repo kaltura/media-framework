@@ -37,12 +37,13 @@ static ssize_t KMP_send( KMP_session_t *context,const void *buf, size_t len)
         int valread = (int)send(context->socket ,buf+bytesRead , len , 0 );
         if (valread<=0) {
             if (errno==EAGAIN || errno==EWOULDBLOCK) {
-                
-                struct timespec tv;
-                tv.tv_sec=0;
-                tv.tv_nsec=250*1000000;//wait 250ms
-                nanosleep(&tv,NULL);
-                continue;
+                if(context->non_blocking) {
+                    struct timespec tv;
+                    tv.tv_sec=0;
+                    tv.tv_nsec=250*1000000;//wait 250ms
+                    nanosleep(&tv,NULL);
+                    continue;
+                }
             }
             LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"incomplete send, returned %d errno=%d",valread,errno);
             return AVERROR(errno);
@@ -488,24 +489,35 @@ int KMP_accept( KMP_session_t *context, KMP_session_t *client)
     }
     client->socket =clientSocket;
     client->listenPort=0;
+    client->non_blocking = false;
+    json_get_int(GetConfig(),"kmp.sndRcvTimeout",60*3,&tv_sec);
+    tv.tv_sec = tv_sec;
+    tv.tv_usec = 0;
+    _S(setsockopt(client->socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv));
+    _S(setsockopt(client->socket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof tv));
 
-    
-    sprintf(client->sessionName,"%s => %s",socketAddress(&client->address),socketAddress(&context->address));
+    sprintf(client->sessionName,"%s => %s | snd.rcv.tout %d",socketAddress(&client->address),
+        socketAddress(&context->address),
+      tv_sec);
 
     return 1;
 }
 
-
-int recvExact(int socket,char* buffer,int bytesToRead) {
+static
+int recvExact(KMP_session_t *context,char* buffer,int bytesToRead) {
     
     if (bytesToRead==0) {
         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"!!!!recvExact invalid bytesToRead=  %d",bytesToRead);
 
     }
     int bytesRead=0;
+    struct timeval tv = {0};
     while (bytesToRead>0) {
-        int valread = (int)recv(socket,buffer+bytesRead, bytesToRead, 0);
+        int valread = (int)recv(context->socket,buffer+bytesRead, bytesToRead, 0);
         if (valread<=0){
+            if(valread == -1 && (errno == EAGAIN || errno == EWOULDBLOCK) && context->non_blocking) {
+                continue;
+            }
             LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"incomplete recv when reading offset %d-%d, returned %d (errno=%d)",bytesRead,bytesRead+bytesToRead,valread,errno);
             return checkReturn(valread);
         }
@@ -518,7 +530,7 @@ int recvExact(int socket,char* buffer,int bytesToRead) {
 
 int KMP_read_header( KMP_session_t *context,kmp_packet_header_t *header)
 {
-    int valread =recvExact(context->socket,(char*)header,sizeof(kmp_packet_header_t));
+    int valread =recvExact(context,(char*)header,sizeof(kmp_packet_header_t));
     return checkReturn(valread);
 }
 int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char* channel_id,char* track_id,uint64_t* initial_frame_id)
@@ -529,7 +541,7 @@ int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char*
         return -1;
     }
     int bytesToRead = sizeof(kmp_connect_header_t)-sizeof(kmp_packet_header_t);
-    int valread =recvExact(context->socket,((char*)&connect)+sizeof(kmp_packet_header_t),bytesToRead);
+    int valread =recvExact(context,((char*)&connect)+sizeof(kmp_packet_header_t),bytesToRead);
     if (valread < bytesToRead) {
          LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"KMP_read_handshake, expected %d bytes, read %d",bytesToRead,valread);
          return -1;
@@ -633,7 +645,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"invalid packet, expceted PACKET_TYPE_HEADER received packet_type=%d",header->packet_type);
         return -1;
     }
-    int valread =recvExact(context->socket,(char*)&mediaInfo,sizeof(kmp_media_info_t));
+    int valread =recvExact(context,(char*)&mediaInfo,sizeof(kmp_media_info_t));
     if (valread<=0) {
         return checkReturn(valread);
     }
@@ -673,7 +685,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
     params->extradata=NULL;
     if (params->extradata_size>0) {
         params->extradata=av_mallocz(params->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-        valread =recvExact(context->socket,(char*)params->extradata,header->data_size);
+        valread =recvExact(context,(char*)params->extradata,header->data_size);
         return checkReturn(valread);
     }
     
@@ -685,7 +697,7 @@ int KMP_read_packet( KMP_session_t *context,kmp_packet_header_t *header,AVPacket
 {
     kmp_frame_t sample;
     
-    int valread =recvExact(context->socket,(char*)&sample,sizeof(kmp_frame_t));
+    int valread =recvExact(context,(char*)&sample,sizeof(kmp_frame_t));
     if (valread<=0){
         return checkReturn(valread);
     }
@@ -697,7 +709,7 @@ int KMP_read_packet( KMP_session_t *context,kmp_packet_header_t *header,AVPacket
     packet->pos=sample.created;
     packet->flags=((sample.flags& KMP_FRAME_FLAG_KEY )==KMP_FRAME_FLAG_KEY)? AV_PKT_FLAG_KEY : 0;
     
-    valread =recvExact(context->socket,(char*)packet->data,(int)header->data_size);
+    valread =recvExact(context,(char*)packet->data,(int)header->data_size);
 
     return checkReturn(valread);
 }
@@ -711,7 +723,7 @@ bool KMP_read_ack(KMP_session_t *context,uint64_t* frame_id)
             return *frame_id!=0;
         }
         kmp_ack_frames_packet_t pkt;
-        recvExact(context->socket,(char*)&pkt,(int)sizeof(kmp_ack_frames_packet_t));
+        recvExact(context,(char*)&pkt,(int)sizeof(kmp_ack_frames_packet_t));
         *frame_id=pkt.frame_id;
     }
     
