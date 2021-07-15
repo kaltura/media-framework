@@ -66,6 +66,8 @@ typedef struct {
 
 typedef struct {
     ngx_http_complex_value_t         *uri;
+    ngx_uint_t                        format;
+
     ngx_http_complex_value_t         *channel_id;
     ngx_http_complex_value_t         *timeline_id;
     size_t                            max_uncomp_size;

@@ -9,6 +9,8 @@
 #include "media/media_format.h"
 
 
+#define NGX_PCKG_PERSIST_TYPE_MEDIA          (0x73746773)    /* sgts */
+
 #define NGX_INT32_HEX_LEN  (8)
 
 
@@ -112,7 +114,10 @@ struct ngx_pckg_channel_s {
     ngx_pool_t                    *pool;
     ngx_log_t                     *log;
     ngx_persist_conf_t            *persist;
+    uint32_t                       format;
+
     uint32_t                       flags;
+    uint32_t                       track_id;        /* sgts only */
 
     ngx_str_t                      id;
     ngx_ksmp_channel_header_t     *header;
