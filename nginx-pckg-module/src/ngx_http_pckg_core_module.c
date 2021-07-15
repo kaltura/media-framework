@@ -59,6 +59,12 @@ typedef struct {
 } ngx_http_pckg_read_source_t;
 
 
+static ngx_conf_enum_t  ngx_http_pckg_format[] = {
+    { ngx_string("ksmp"), NGX_KSMP_PERSIST_TYPE },
+    { ngx_string("sgts"), NGX_PCKG_PERSIST_TYPE_MEDIA },
+    { ngx_null_string, 0 }
+};
+
 static ngx_conf_enum_t  ngx_http_pckg_active_policy[] = {
     { ngx_string("last"), NGX_KSMP_FLAG_ACTIVE_LAST },
     { ngx_string("any"),  NGX_KSMP_FLAG_ACTIVE_ANY },
@@ -87,6 +93,13 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, uri),
       NULL },
+
+    { ngx_string("pckg_format"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_enum_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t, format),
+      &ngx_http_pckg_format },
 
     { ngx_string("pckg_channel_id"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -335,6 +348,30 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
     channel->pool = r->pool;
     channel->persist = pmcf->persist;
     channel->flags = ctx->params.flags;
+    channel->format = plcf->format;
+
+    if (plcf->format == NGX_PCKG_PERSIST_TYPE_MEDIA) {
+        channel->track_id = ngx_atoi(ctx->params.variant_ids.data,
+            ctx->params.variant_ids.len);
+        if (channel->track_id == (uint32_t) NGX_ERROR) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_pckg_core_post_handler: invalid track id \"%V\"",
+                &ctx->params.variant_ids);
+            rc = NGX_HTTP_BAD_REQUEST;
+            goto done;
+        }
+
+        channel->segment_index = ngx_pcalloc(r->pool,
+            sizeof(*channel->segment_index));
+        if (channel->segment_index == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_pckg_core_post_handler: alloc index failed");
+            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            goto done;
+        }
+
+        channel->segment_index->segment_index = ctx->params.segment_index;
+    }
 
     ngx_rbtree_init(&channel->vars.rbtree, &channel->vars.sentinel,
         ngx_str_rbtree_insert_value);
@@ -441,10 +478,15 @@ ngx_http_pckg_core_subrequest(ngx_http_request_t *r,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    if (ngx_pckg_ksmp_create_request(r->pool, params, &args) != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_pckg_core_subrequest: create request failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    if (plcf->format == NGX_KSMP_PERSIST_TYPE) {
+        if (ngx_pckg_ksmp_create_request(r->pool, params, &args) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_pckg_core_subrequest: create request failed");
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+    } else {
+        args.len = 0;
     }
 
     psr = ngx_palloc(r->pool, sizeof(ngx_http_post_subrequest_t));
@@ -1455,6 +1497,7 @@ ngx_http_pckg_core_create_loc_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    conf->format = NGX_CONF_UNSET_UINT;
     conf->max_uncomp_size = NGX_CONF_UNSET_SIZE;
 
     for (type = 0; type < NGX_HTTP_PCKG_EXPIRES_COUNT; type++) {
@@ -1481,6 +1524,10 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->uri == NULL) {
         conf->uri = prev->uri;
     }
+
+    ngx_conf_merge_uint_value(conf->format,
+                              prev->format,
+                              NGX_KSMP_PERSIST_TYPE);
 
     if (conf->channel_id == NULL) {
         conf->channel_id = prev->channel_id;
