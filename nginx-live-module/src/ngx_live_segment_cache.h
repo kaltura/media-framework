@@ -17,6 +17,7 @@ struct ngx_live_segment_s {
     ngx_queue_t             queue;
 
     ngx_live_track_t       *track;
+    uint32_t                track_id;
     ngx_pool_t             *pool;
 
     media_info_t           *media_info;
@@ -31,6 +32,16 @@ struct ngx_live_segment_s {
     ngx_buf_chain_t        *data_tail;
     size_t                  data_size;
 };
+
+
+typedef struct {
+    ngx_live_segment_t     *segment;
+    ngx_list_part_t         part;
+    ngx_uint_t              count;
+    int64_t                 start_dts;
+    size_t                  offset;
+    size_t                  size;
+} ngx_live_segment_write_ctx_t;
 
 
 typedef void (*ngx_live_segment_cleanup_pt)(void *data);
@@ -77,7 +88,9 @@ typedef struct {
     ngx_live_channel_t                 *channel;
     ngx_live_track_ref_t               *tracks;
     uint32_t                            track_count;
+    uint32_t                            flags;
     uint32_t                            segment_index;
+    int64_t                             time;
     ngx_live_segment_writer_t           writer;
 
     size_t                              size;
@@ -115,9 +128,12 @@ void ngx_live_segment_cache_finalize(ngx_live_segment_t *segment);
 ngx_live_segment_t *ngx_live_segment_cache_get(ngx_live_track_t *track,
     uint32_t segment_index);
 
+void ngx_live_segment_write_init_ctx(ngx_live_segment_write_ctx_t *ctx,
+    ngx_live_segment_t *segment, uint32_t flags, int64_t time);
+
 ngx_int_t ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
-    ngx_live_segment_t *segment, ngx_live_segment_cleanup_t *cln,
-    uint32_t *header_size);
+    ngx_live_segment_write_ctx_t *ctx, ngx_live_persist_main_conf_t *pmcf,
+    ngx_live_segment_cleanup_t *cln, uint32_t *header_size);
 
 void ngx_live_segment_cache_free_input_bufs(ngx_live_track_t *track);
 

@@ -327,9 +327,26 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_pckg_core_post_handler: "
             "upstream connection was closed with %O bytes left to read",
-            u->headers_in.content_length_n - (off_t) input.len);
+            u->headers_in.content_length_n - (off_t)input.len);
         rc = NGX_HTTP_BAD_GATEWAY;
         goto done;
+    }
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+
+    if (ctx->params.padding) {
+        ctx->params.padding = ngx_max(ctx->params.padding,
+            NGX_KSMP_MIN_PADDING);
+        if (input.len <= ctx->params.padding) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_pckg_core_post_handler: "
+                "response size %uz smaller than padding size %uz",
+                input.len, ctx->params.padding);
+            rc = NGX_HTTP_BAD_GATEWAY;
+            goto done;
+        }
+
+        input.len -= ctx->params.padding;
     }
 
     channel = ngx_pcalloc(r->pool, sizeof(*channel));
@@ -340,7 +357,6 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         goto done;
     }
 
-    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
     pmcf = ngx_http_get_module_main_conf(r, ngx_http_pckg_core_module);
     plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
 
@@ -432,7 +448,7 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         }
 
         rc = ctx->handler->handler(r);
-        if (rc != NGX_OK) {
+        if (rc != NGX_OK && rc < NGX_HTTP_SPECIAL_RESPONSE) {
             ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
                 "ngx_http_pckg_core_post_handler: handler failed %i", rc);
         }

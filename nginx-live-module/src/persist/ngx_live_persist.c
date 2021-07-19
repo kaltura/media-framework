@@ -78,6 +78,14 @@ ngx_module_t  ngx_live_persist_module = {
 
 
 ngx_int_t
+ngx_live_persist_write_blocks_internal(ngx_live_persist_main_conf_t *pmcf,
+    ngx_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj)
+{
+    return ngx_persist_conf_write_blocks(pmcf->conf, write_ctx, block_ctx,
+        obj);
+}
+
+ngx_int_t
 ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
     ngx_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj)
 {
@@ -85,7 +93,7 @@ ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
 
     pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
 
-    return ngx_persist_conf_write_blocks(pmcf->conf, write_ctx, block_ctx,
+    return ngx_live_persist_write_blocks_internal(pmcf, write_ctx, block_ctx,
         obj);
 }
 

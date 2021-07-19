@@ -7,9 +7,6 @@
 #include "../ngx_live.h"
 
 
-typedef struct ngx_live_persist_main_conf_s  ngx_live_persist_main_conf_t;
-
-
 typedef struct {
     ngx_live_complex_value_t      *path;
     size_t                         max_size;
@@ -54,6 +51,10 @@ typedef struct {
 
 ngx_int_t ngx_live_persist_write_channel_header(
     ngx_persist_write_ctx_t *write_ctx, ngx_live_channel_t *channel);
+
+ngx_int_t ngx_live_persist_write_blocks_internal(
+    ngx_live_persist_main_conf_t *pmcf, ngx_persist_write_ctx_t *write_ctx,
+    ngx_uint_t block_ctx, void *obj);
 
 ngx_live_persist_write_file_ctx_t *ngx_live_persist_write_file(
     ngx_live_channel_t *channel, ngx_live_persist_file_conf_t *conf,

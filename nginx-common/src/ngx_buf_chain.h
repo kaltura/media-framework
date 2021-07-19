@@ -15,6 +15,8 @@ struct ngx_buf_chain_s {
 };
 
 
+ngx_buf_chain_t *ngx_buf_chain_seek(ngx_buf_chain_t *head, size_t *offset);
+
 ngx_int_t ngx_buf_chain_skip(ngx_buf_chain_t **head_ptr, size_t size);
 
 void *ngx_buf_chain_copy(ngx_buf_chain_t **head_ptr, void *buf, size_t size);

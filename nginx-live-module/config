@@ -71,6 +71,49 @@ else
 END
 fi
 
+# libavcodec
+#
+LIB_AV_UTIL=${LIB_AV_UTIL:--lavutil}
+LIB_AV_CODEC=${LIB_AV_CODEC:--lavcodec}
+
+ngx_feature="libavcodec"
+ngx_feature_name="NGX_HAVE_LIB_AV_CODEC"
+ngx_feature_run=no
+ngx_feature_incs="#include <libavcodec/avcodec.h>"
+ngx_feature_path=
+ngx_feature_libs="$LIB_AV_CODEC"
+ngx_feature_test="avcodec_send_packet(NULL, NULL)"
+. auto/feature
+
+if [ $ngx_found = yes ]; then
+    ngx_module_libs="$ngx_module_libs $LIB_AV_CODEC $LIB_AV_UTIL -lm"
+    LIVE_FEATURE_SRCS="                                       \
+        $ngx_addon_dir/src/media/thumb/thumb_grabber.c        \
+        "
+
+    LIVE_FEATURE_DEPS="                                       \
+        $ngx_addon_dir/src/media/thumb/thumb_grabber.h        \
+        "
+
+    LIVE_MEDIA_SRCS="$LIVE_MEDIA_SRCS $LIVE_FEATURE_SRCS"
+    LIVE_MEDIA_DEPS="$LIVE_MEDIA_DEPS $LIVE_FEATURE_DEPS"
+fi
+
+# libswscale
+#
+ngx_feature="libswscale"
+ngx_feature_name="NGX_HAVE_LIB_SW_SCALE"
+ngx_feature_run=no
+ngx_feature_incs="#include <libswscale/swscale.h>"
+ngx_feature_path=
+ngx_feature_libs="-lswscale"
+ngx_feature_test="sws_scale(NULL, NULL, NULL, 0, 0, NULL, NULL)"
+. auto/feature
+
+if [ $ngx_found = yes ]; then
+    ngx_module_libs="$ngx_module_libs -lswscale"
+fi
+
 # source
 #
 LIVE_CORE_MODULES="                                           \

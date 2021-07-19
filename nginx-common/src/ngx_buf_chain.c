@@ -3,6 +3,20 @@
 #include "ngx_buf_chain.h"
 
 
+ngx_buf_chain_t *
+ngx_buf_chain_seek(ngx_buf_chain_t *head, size_t *offset)
+{
+    for ( ;; ) {
+
+        if (*offset < head->size) {
+            return head;
+        }
+
+        *offset -= head->size;
+        head = head->next;
+    }
+}
+
 ngx_int_t
 ngx_buf_chain_skip(ngx_buf_chain_t **head_ptr, size_t size)
 {

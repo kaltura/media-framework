@@ -5,9 +5,8 @@
 #include "ngx_live_segment_index.h"
 #include "ngx_live_media_info.h"
 #include "ngx_live_segmenter.h"
+#include "persist/ngx_live_persist_internal.h"
 
-
-#define NGX_MAX_INT32_BIT  31
 
 #define NGX_LIVE_SEGMENT_CACHE_MAX_BITRATE  (64 * 1024 * 1024)
 
@@ -102,6 +101,7 @@ ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
     ctx = ngx_live_get_module_ctx(track, ngx_live_segment_cache_module);
 
     segment->node.key = segment_index;
+    segment->track_id = track->in.key;
     segment->track = track;
     segment->pool = pool;
 
@@ -588,10 +588,10 @@ static ngx_int_t
 ngx_live_segment_cache_write_frame_list(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    ngx_live_segment_t  *segment = obj;
+    ngx_live_segment_write_ctx_t  *ctx = obj;
 
-    if (ngx_persist_write_list_data(write_ctx, &segment->frames)
-        != NGX_OK)
+    if (ngx_persist_write_list_data_n(write_ctx, &ctx->part, ctx->count,
+        sizeof(ngx_live_frame_t)) != NGX_OK)
     {
         return NGX_ERROR;
     }
@@ -604,10 +604,19 @@ static ngx_int_t
 ngx_live_segment_cache_write_frame_data(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    ngx_live_segment_t  *segment = obj;
+    size_t                         offset;
+    ngx_buf_chain_t               *head;
+    ngx_live_segment_write_ctx_t  *ctx = obj;
 
-    if (ngx_persist_write_append_buf_chain(write_ctx, segment->data_head)
-        != NGX_OK)
+    offset = ctx->offset;
+    head = ctx->segment->data_head;
+
+    if (offset > 0) {
+        head = ngx_buf_chain_seek(head, &offset);
+    }
+
+    if (ngx_persist_write_append_buf_chain_n(write_ctx, head, offset,
+        ctx->size) != NGX_OK)
     {
         return NGX_ERROR;
     }
@@ -616,35 +625,215 @@ ngx_live_segment_cache_write_frame_data(ngx_persist_write_ctx_t *write_ctx,
 }
 
 
+static void
+ngx_live_segment_write_init_ctx_closest_key(ngx_live_segment_write_ctx_t *ctx,
+    int64_t time)
+{
+    size_t               offset;
+    int64_t              dts, pts;
+    int64_t              min_diff, cur_diff;
+    ngx_list_part_t     *part;
+    ngx_live_frame_t    *cur, *last;
+    ngx_live_segment_t  *segment = ctx->segment;
+
+    part = &segment->frames.part;
+    cur = part->elts;
+    last = cur + part->nelts;
+
+    dts = segment->start_dts;
+    offset = 0;
+
+    pts = dts + cur->pts_delay;
+    min_diff = ngx_abs_diff(pts, time);
+
+    ctx->part.elts = cur;
+    ctx->part.nelts = 1;
+    ctx->part.next = NULL;
+    ctx->count = 1;
+    ctx->offset = 0;
+    ctx->size = cur->size;
+    ctx->start_dts = dts;
+
+    for ( ;; ) {
+
+        dts += cur->duration;
+        offset += cur->size;
+        cur++;
+
+        if (cur >= last) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            cur = part->elts;
+            last = cur + part->nelts;
+        }
+
+        if (!cur->key_frame) {
+            continue;
+        }
+
+        pts = dts + cur->pts_delay;
+        cur_diff = ngx_abs_diff(pts, time);
+        if (cur_diff >= min_diff) {
+            continue;
+        }
+
+        min_diff = cur_diff;
+
+        ctx->part.elts = cur;
+        ctx->offset = offset;
+        ctx->size = cur->size;
+        ctx->start_dts = dts;
+    }
+}
+
+static void
+ngx_live_segment_write_init_ctx_min_gop(ngx_live_segment_write_ctx_t *ctx,
+    int64_t time)
+{
+    size_t               offset;
+    size_t               key_offset;
+    int64_t              key_dts;
+    int64_t              max_pts;
+    int64_t              dts, pts;
+    int64_t              min_diff, cur_diff;
+    ngx_uint_t           count;
+    ngx_flag_t           last_used;
+    ngx_list_part_t     *part;
+    ngx_list_part_t      key_part;
+    ngx_live_frame_t    *cur, *last;
+    ngx_live_segment_t  *segment = ctx->segment;
+
+    part = &segment->frames.part;
+    cur = part->elts;
+    last = cur + part->nelts;
+
+    dts = segment->start_dts;
+    offset = 0;
+    count = 1;
+
+    key_part = *part;
+    key_dts = dts;
+    key_offset = 0;
+
+    pts = dts + cur->pts_delay;
+
+    max_pts = pts;
+    min_diff = ngx_abs_diff(pts, time);
+
+    ctx->part = *part;
+    ctx->count = 1;
+    ctx->start_dts = dts;
+    ctx->offset = 0;
+    ctx->size = cur->size;
+
+    last_used = 1;
+
+    for ( ;; ) {
+
+        if (pts > max_pts) {
+            max_pts = pts;
+        }
+
+        dts += cur->duration;
+        offset += cur->size;
+        count++;
+        cur++;
+
+        if (cur >= last) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            cur = part->elts;
+            last = cur + part->nelts;
+        }
+
+        if (cur->key_frame) {
+            key_part.elts = cur;
+            key_part.nelts = last - cur;
+            key_part.next = part->next;
+            key_dts = dts;
+            key_offset = offset;
+            count = 1;
+        }
+
+        pts = dts + cur->pts_delay;
+        cur_diff = ngx_abs_diff(pts, time);
+
+        /* if the current frame has a pts smaller than the max, it means it's
+            a B frame, if the last frame was used, must take this one too */
+
+        if (cur_diff >= min_diff && (!last_used || pts >= max_pts)) {
+            last_used = 0;
+            continue;
+        }
+
+        min_diff = ngx_min(cur_diff, min_diff);
+
+        ctx->part = key_part;
+        ctx->count = count;
+        ctx->start_dts = key_dts;
+        ctx->offset = key_offset;
+        ctx->size = offset + cur->size - key_offset;
+
+        last_used = 1;
+    }
+}
+
+
+void
+ngx_live_segment_write_init_ctx(ngx_live_segment_write_ctx_t *ctx,
+    ngx_live_segment_t *segment, uint32_t flags, int64_t time)
+{
+    ctx->segment = segment;
+
+    if (flags & NGX_KSMP_FLAG_MEDIA_CLOSEST_KEY) {
+        ngx_live_segment_write_init_ctx_closest_key(ctx, time);
+
+    } else if (flags & NGX_KSMP_FLAG_MEDIA_MIN_GOP) {
+        ngx_live_segment_write_init_ctx_min_gop(ctx, time);
+
+    } else {
+        ctx->part = segment->frames.part;
+        ctx->count = segment->frame_count;
+        ctx->start_dts = segment->start_dts;
+        ctx->offset = 0;
+        ctx->size = segment->data_size;
+    }
+}
+
+
 ngx_int_t
 ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
-    ngx_live_segment_t *segment, ngx_live_segment_cleanup_t *cln,
-    uint32_t *header_size)
+    ngx_live_segment_write_ctx_t *ctx, ngx_live_persist_main_conf_t *pmcf,
+    ngx_live_segment_cleanup_t *cln, uint32_t *header_size)
 {
     size_t                              start;
-    ngx_live_track_t                   *track;
-    ngx_live_channel_t                 *channel;
+    ngx_live_segment_t                 *segment;
     ngx_live_persist_segment_header_t   header;
-
-    track = segment->track;
-    channel = track->channel;
 
     /* segment header */
     start = ngx_persist_write_get_size(write_ctx);
 
-    header.track_id = segment->track->in.key;
+    segment = ctx->segment;
+
+    header.track_id = segment->track_id;
     header.segment_index = segment->node.key;
-    header.frame_count = segment->frame_count;
-    header.start_dts = segment->start_dts;
+    header.frame_count = ctx->count;
+    header.start_dts = ctx->start_dts;
     header.reserved = 0;
 
     if (ngx_persist_write_block_open(write_ctx,
             NGX_KSMP_BLOCK_SEGMENT) != NGX_OK ||
         ngx_persist_write(write_ctx, &header, sizeof(header)) != NGX_OK ||
-        ngx_live_persist_write_blocks(channel, write_ctx,
-            NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, segment) != NGX_OK)
+        ngx_live_persist_write_blocks_internal(pmcf, write_ctx,
+            NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, ctx) != NGX_OK)
     {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, segment->pool->log, 0,
             "ngx_live_segment_cache_write: write failed (1)");
         return NGX_ERROR;
     }
@@ -652,10 +841,10 @@ ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
     *header_size = ngx_persist_write_get_size(write_ctx) - start;
 
     /* segment data */
-    if (ngx_live_persist_write_blocks(channel, write_ctx,
-            NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_DATA, segment) != NGX_OK)
+    if (ngx_live_persist_write_blocks_internal(pmcf, write_ctx,
+            NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_DATA, ctx) != NGX_OK)
     {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, segment->pool->log, 0,
             "ngx_live_segment_cache_write: write failed (2)");
         return NGX_ERROR;
     }
@@ -663,10 +852,12 @@ ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
     ngx_persist_write_block_close(write_ctx);     /* segment */
 
     /* lock the segment data */
-    if (ngx_live_segment_index_lock(cln, segment) != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_live_segment_cache_write: lock segment failed");
-        return NGX_ERROR;
+    if (cln != NULL) {
+        if (ngx_live_segment_index_lock(cln, segment) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, segment->pool->log, 0,
+                "ngx_live_segment_cache_write: lock segment failed");
+            return NGX_ERROR;
+        }
     }
 
     return NGX_OK;
@@ -676,19 +867,23 @@ ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
 ngx_int_t
 ngx_live_segment_cache_copy(ngx_live_segment_copy_req_t *req)
 {
-    uint32_t                     ignore;
-    uint32_t                     segment_index;
-    ngx_pool_t                  *pool;
-    ngx_live_segment_t          *segment;
-    ngx_live_track_ref_t        *cur, *last;
-    ngx_persist_write_ctx_t     *write_ctx;
-    ngx_live_segment_index_t    *index;
-    ngx_live_segment_cleanup_t  *cln;
+    uint32_t                       ignore;
+    uint32_t                       segment_index;
+    ngx_pool_t                    *pool;
+    ngx_live_channel_t            *channel;
+    ngx_live_segment_t            *segment;
+    ngx_live_track_ref_t          *cur, *last;
+    ngx_persist_write_ctx_t       *write_ctx;
+    ngx_live_segment_index_t      *index;
+    ngx_live_segment_cleanup_t    *cln;
+    ngx_live_segment_write_ctx_t   sctx;
+    ngx_live_persist_main_conf_t  *pmcf;
 
     pool = req->pool;
+    channel = req->channel;
     segment_index = req->segment_index;
 
-    index = ngx_live_segment_index_get(req->channel, segment_index);
+    index = ngx_live_segment_index_get(channel, segment_index);
     if (index == NULL) {
         if (ngx_live_next_copy != NULL) {
             return ngx_live_next_copy(req);
@@ -741,7 +936,11 @@ ngx_live_segment_cache_copy(ngx_live_segment_copy_req_t *req)
             }
         }
 
-        if (ngx_live_segment_cache_write(write_ctx, segment, cln, &ignore)
+        ngx_live_segment_write_init_ctx(&sctx, segment, req->flags, req->time);
+
+        pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
+
+        if (ngx_live_segment_cache_write(write_ctx, &sctx, pmcf, cln, &ignore)
             != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
@@ -891,7 +1090,7 @@ static ngx_persist_block_t  ngx_live_segment_cache_blocks[] = {
      * persist header:
      *   ngx_ksmp_segment_header_t  header;
      */
-    { NGX_KSMP_BLOCK_SEGMENT, NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL, 0,
+    { NGX_KSMP_BLOCK_SEGMENT, NGX_LIVE_PERSIST_CTX_SERVE_MAIN, 0,
       NULL, NULL },
 
       ngx_null_persist_block

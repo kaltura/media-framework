@@ -2358,14 +2358,49 @@ static ngx_int_t
 ngx_live_media_info_write_media_segment(
     ngx_persist_write_ctx_t *write_ctx, void *obj)
 {
-    ngx_live_segment_t  *segment;
+    ngx_live_segment_t            *segment;
+    ngx_live_segment_write_ctx_t  *ctx = obj;
 
-    segment = obj;
+    segment = ctx->segment;
 
     return ngx_live_media_info_write(write_ctx, NULL, segment->kmp_media_info,
         &segment->media_info->extra_data);
 }
 
+static ngx_int_t
+ngx_live_media_info_read_media_segment(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    media_info_t        *media_info;
+    kmp_media_info_t    *kmp_media_info;
+    ngx_live_segment_t  *segment = obj;
+
+    kmp_media_info = ngx_mem_rstream_get_ptr(rs, sizeof(*kmp_media_info));
+    if (kmp_media_info == NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_media_info_read_media_segment: read header failed");
+        return NGX_BAD_DATA;
+    }
+
+    media_info = ngx_pcalloc(segment->pool, sizeof(*media_info));
+    if (media_info == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_media_info_read_media_segment: alloc failed");
+        return NGX_ERROR;
+    }
+
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+
+    ngx_mem_rstream_get_left(rs, &media_info->extra_data);
+
+    segment->kmp_media_info = kmp_media_info;
+    segment->media_info = media_info;
+
+    return NGX_OK;
+}
 
 static ngx_int_t
 ngx_live_media_info_write_serve_queue(ngx_persist_write_ctx_t *write_ctx,
@@ -2416,7 +2451,7 @@ ngx_live_media_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
 
     scope = ngx_persist_write_ctx(write_ctx);
 
-    if (scope->segment_index != NGX_LIVE_INVALID_SEGMENT_INDEX) {
+    if (scope->si.segment_index != NGX_LIVE_INVALID_SEGMENT_INDEX) {
         scope->media_info_count = 1;
         return ngx_live_media_info_node_write(write_ctx,
             track->media_info_node);
@@ -2491,7 +2526,8 @@ static ngx_persist_block_t  ngx_live_media_info_blocks[] = {
      */
     { NGX_KSMP_BLOCK_MEDIA_INFO,
       NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, 0,
-      ngx_live_media_info_write_media_segment, NULL },
+      ngx_live_media_info_write_media_segment,
+      ngx_live_media_info_read_media_segment },
 
     /*
      * persist header:

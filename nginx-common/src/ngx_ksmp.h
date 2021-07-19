@@ -23,6 +23,7 @@
 #define NGX_KSMP_BLOCK_FRAME_DATA           (0x7461646d)  /* mdat */
 #define NGX_KSMP_BLOCK_DYNAMIC_VAR          (0x766e7964)  /* dynv */
 #define NGX_KSMP_BLOCK_ERROR                (0x72727265)  /* errr */
+#define NGX_KSMP_BLOCK_PADDING              (0x65657266)  /* free */
 
 
 #define NGX_KSMP_FLAG_MEDIA                 (0x00000001)
@@ -31,6 +32,9 @@
 #define NGX_KSMP_FLAG_MEDIA_INFO            (0x00000008)
 #define NGX_KSMP_FLAG_SEGMENT_INFO          (0x00000010)
 #define NGX_KSMP_FLAG_DYNAMIC_VAR           (0x00000020)
+
+#define NGX_KSMP_FLAG_MEDIA_CLOSEST_KEY     (0x00001000)
+#define NGX_KSMP_FLAG_MEDIA_MIN_GOP         (0x00002000)
 
 #define NGX_KSMP_FLAG_TIME_START_RELATIVE   (0x00010000)
 #define NGX_KSMP_FLAG_TIME_END_RELATIVE     (0x00020000)
@@ -42,6 +46,12 @@
 #define NGX_KSMP_FLAG_RELATIVE_DTS          (0x08000000)  /* to period start */
 
 
+#define NGX_KSMP_FLAG_MEDIA_CLIP            (NGX_KSMP_FLAG_MEDIA_CLOSEST_KEY \
+                                             | NGX_KSMP_FLAG_MEDIA_MIN_GOP)
+
+#define NGX_KSMP_FLAG_TIME_RELATIVE         (NGX_KSMP_FLAG_TIME_START_RELATIVE \
+                                            | NGX_KSMP_FLAG_TIME_END_RELATIVE)
+
 #define NGX_KSMP_INVALID_SEGMENT_INDEX      (NGX_MAX_UINT32_VALUE)
 #define NGX_KSMP_INVALID_TIMESTAMP          (LLONG_MAX)
 
@@ -52,6 +62,9 @@
 #define NGX_KSMP_MAX_VARIANTS               (1024)
 #define NGX_KSMP_MAX_PERIODS                (65536)
 #define NGX_KSMP_MAX_MEDIA_INFOS            (65536)
+
+#define NGX_KSMP_MIN_PADDING                sizeof(ngx_persist_block_header_t)
+#define NGX_KSMP_MAX_PADDING                128
 
 
 /* Note: ordered by desc prio */
@@ -162,6 +175,7 @@ typedef struct {
     uint32_t    segment_index;
     uint32_t    reserved;
     int64_t     correction;
+    int64_t     time;
 } ngx_ksmp_segment_index_t;
 
 

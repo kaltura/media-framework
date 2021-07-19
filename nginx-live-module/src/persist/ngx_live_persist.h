@@ -102,9 +102,8 @@ typedef struct {
     ngx_ksmp_channel_header_t         header;
     ngx_live_variant_t              **variants;
     ngx_array_t                      *track_refs;   /* ngx_live_track_ref_t */
-    uint32_t                          segment_index;
+    ngx_ksmp_segment_index_t          si;
     uint32_t                          flags;
-    int64_t                           correction;
     ngx_uint_t                        media_info_count;
 } ngx_live_persist_serve_scope_t;
 

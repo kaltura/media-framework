@@ -30,6 +30,7 @@ typedef struct {
     uint32_t                       media_type_mask;
     uint32_t                       segment_index;
     int64_t                        time;
+    size_t                         padding;
     uint32_t                       flags;
 } ngx_pckg_ksmp_req_t;
 
@@ -117,7 +118,7 @@ struct ngx_pckg_channel_s {
     uint32_t                       format;
 
     uint32_t                       flags;
-    uint32_t                       track_id;        /* sgts only */
+    uint32_t                       track_id;    /* sgts only */
 
     ngx_str_t                      id;
     ngx_ksmp_channel_header_t     *header;

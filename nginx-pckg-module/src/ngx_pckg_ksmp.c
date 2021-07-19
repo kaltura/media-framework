@@ -1613,6 +1613,10 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
         size += sizeof("&media_type_mask=") - 1 + NGX_INT32_HEX_LEN;
     }
 
+    if (req->padding) {
+        size += sizeof("&padding=") - 1 + NGX_SIZE_T_LEN;
+    }
+
     p = ngx_pnalloc(pool, size);
     if (p == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
@@ -1667,6 +1671,11 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
     if (req->media_type_mask) {
         p = ngx_copy(p, "&media_type_mask=", sizeof("&media_type_mask=") - 1);
         p = ngx_sprintf(p, "%uxD", req->media_type_mask);
+    }
+
+    if (req->padding) {
+        p = ngx_copy(p, "&padding=", sizeof("&padding=") - 1);
+        p = ngx_sprintf(p, "%uz", req->padding);
     }
 
     result->len = p - result->data;
