@@ -403,7 +403,6 @@ ngx_http_live_hls_handle_index_playlist(ngx_http_request_t *r,
     ngx_str_t                      result;
     hls_encryption_params_t        encryption_params;
     ngx_http_live_core_ctx_t      *ctx;
-    ngx_http_live_hls_loc_conf_t  *conf;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_core_module);
 
@@ -415,9 +414,11 @@ ngx_http_live_hls_handle_index_playlist(ngx_http_request_t *r,
         return ngx_http_live_gone(r);
     }
 
+#if (NGX_HAVE_OPENSSL_EVP)
+    ngx_http_live_hls_loc_conf_t  *conf;
+
     conf = ngx_http_get_module_loc_conf(r, ngx_http_live_hls_module);
 
-#if (NGX_HAVE_OPENSSL_EVP)
     rc = ngx_http_live_hls_init_encryption_params(r, &encryption_params);
     if (rc != NGX_OK) {
         return rc;
