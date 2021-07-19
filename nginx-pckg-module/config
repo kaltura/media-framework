@@ -1,5 +1,23 @@
 ngx_addon_name="ngx_pckg_module"
 
+# nginx-common dependency
+#
+if test -n "$ngx_module_link"; then
+    if test -n "$LIVE_COMMON_CORE_SRCS"; then
+        echo "found ngx_live_common for nginx_pckg_module; looks good."
+    else
+        echo "error: ngx_live_common is required to build nginx_pckg_module; please put it before nginx_pckg_module." 1>&2
+        exit 1
+    fi
+else
+    if echo $NGX_ADDON_SRCS | grep " ngx_json_parser" > /dev/null; then
+        echo "found ngx_live_common for nginx_pckg_module; looks good."
+    else
+        echo "error: ngx_live_common is required to build nginx_pckg_module; please put it before nginx_pckg_module." 1>&2
+        exit 1
+    fi
+fi
+
 # version
 #
 PCKG_DEFAULT_VERSION=0.1
@@ -70,16 +88,20 @@ ngx_feature_test="avcodec_send_packet(NULL, NULL)"
 
 if [ $ngx_found = yes ]; then
     ngx_module_libs="$ngx_module_libs $LIB_AV_CODEC $LIB_AV_UTIL -lm"
-    PCKG_FEATURE_SRCS="                                       \
+
+    PCKG_MEDIA_SRCS="$PCKG_MEDIA_SRCS                         \
         $ngx_addon_dir/src/media/thumb/thumb_grabber.c        \
         "
-
-    PCKG_FEATURE_DEPS="                                       \
+    PCKG_MEDIA_DEPS="$PCKG_MEDIA_DEPS                         \
         $ngx_addon_dir/src/media/thumb/thumb_grabber.h        \
         "
 
-    PCKG_MEDIA_SRCS="$PCKG_MEDIA_SRCS $PCKG_FEATURE_SRCS"
-    PCKG_MEDIA_DEPS="$PCKG_MEDIA_DEPS $PCKG_FEATURE_DEPS"
+    PCKG_HTTP_MODULES="$PCKG_HTTP_MODULES                     \
+        ngx_http_pckg_capture_module                          \
+        "
+    PCKG_HTTP_SRCS="$PCKG_HTTP_SRCS                           \
+        $ngx_addon_dir/src/ngx_http_pckg_capture.c            \
+        "
 fi
 
 # libswscale
@@ -159,18 +181,16 @@ PCKG_MEDIA_DEPS="$PCKG_MEDIA_DEPS                             \
 
 # main
 #
-PCKG_HTTP_MODULES="                                           \
+PCKG_HTTP_MODULES="$PCKG_HTTP_MODULES                         \
     ngx_http_pckg_core_module                                 \
     ngx_http_pckg_enc_module                                  \
     ngx_http_pckg_mpd_module                                  \
     ngx_http_pckg_m3u8_module                                 \
     ngx_http_pckg_fmp4_module                                 \
     ngx_http_pckg_mpegts_module                               \
-    ngx_http_pckg_capture_module                              \
     "
 
-PCKG_HTTP_SRCS="                                              \
-    $ngx_addon_dir/src/ngx_http_pckg_capture.c                \
+PCKG_HTTP_SRCS="$PCKG_HTTP_SRCS                               \
     $ngx_addon_dir/src/ngx_http_pckg_core_module.c            \
     $ngx_addon_dir/src/ngx_http_pckg_enc.c                    \
     $ngx_addon_dir/src/ngx_http_pckg_fmp4.c                   \
