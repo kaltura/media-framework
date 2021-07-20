@@ -1462,7 +1462,7 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track)
     ngx_live_media_info_track_ctx_t  *source_ctx;
 
     channel = track->channel;
-    if (channel->next_segment_index == 0) {
+    if (channel->next_segment_index == channel->initial_segment_index) {
         return NGX_OK;
     }
 
@@ -1480,6 +1480,13 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track)
     {
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
+        /* Note: if the source is a filler that was just added, the segment
+            index of the node will be next_segment_index, must not add it */
+
+        if (node->node.key >= channel->next_segment_index) {
+            break;
+        }
+
         node = ngx_live_media_info_node_clone(channel, node);
         if (node == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
@@ -1489,6 +1496,7 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track)
 
         ngx_rbtree_insert(&ctx->rbtree, &node->node);
         ngx_queue_insert_tail(&ctx->active, &node->queue);
+        ctx->added++;
     }
 
     ngx_log_error(NGX_LOG_INFO, &track->log, 0,
@@ -1496,7 +1504,6 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track)
         "setting source to \"%V\"", &source->sn.str);
 
     ctx->source = source;
-    ctx->added = source_ctx->added - source_ctx->removed;
     source_ctx->source_refs++;
 
     rc = ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_COPY, source);
