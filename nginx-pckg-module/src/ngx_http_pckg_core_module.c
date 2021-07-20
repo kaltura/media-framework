@@ -665,7 +665,8 @@ ngx_http_pckg_core_handler(ngx_http_request_t *r)
 
     if (r->method == NGX_HTTP_OPTIONS) {
         rc = ngx_http_pckg_send_header(r, 0,
-            &ngx_http_pckg_content_type_options, -1, 0);
+            &ngx_http_pckg_content_type_options, -1,
+            NGX_HTTP_PCKG_EXPIRES_STATIC);
         if (rc != NGX_OK) {
             return rc;
         }
@@ -961,7 +962,7 @@ ngx_http_pckg_writer_close(ngx_http_request_t *r)
     last->next = NULL;
 
     rc = ngx_http_pckg_send_header(r, ctx->segment_writer_ctx.total_size,
-        NULL, -1, 0);
+        NULL, -1, NGX_HTTP_PCKG_EXPIRES_STATIC);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -1152,7 +1153,8 @@ ngx_http_pckg_core_write_segment(ngx_http_request_t *r)
         ctx->content_length = processor.response_size;
 
         /* send the response header */
-        rc = ngx_http_pckg_send_header(r, ctx->content_length, NULL, -1, 0);
+        rc = ngx_http_pckg_send_header(r, ctx->content_length, NULL, -1,
+            NGX_HTTP_PCKG_EXPIRES_STATIC);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
                 "ngx_http_pckg_core_write_segment: send header failed %i", rc);

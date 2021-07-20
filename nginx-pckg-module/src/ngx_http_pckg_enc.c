@@ -182,7 +182,7 @@ ngx_http_pckg_handle_enc_key(ngx_http_request_t *r)
     }
 
     rc = ngx_http_pckg_send_header(r, response.len,
-        &ngx_http_pckg_enc_key_content_type, -1, 0);
+        &ngx_http_pckg_enc_key_content_type, -1, NGX_HTTP_PCKG_EXPIRES_STATIC);
     if (rc != NGX_OK) {
         return rc;
     }
