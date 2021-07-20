@@ -806,7 +806,7 @@ ngx_live_filler_serve_segment(ngx_persist_write_ctx_t *write_ctx,
     ngx_persist_write_block_close(write_ctx);     /* segment */
 
     header.track_id = track->in.key;
-    header.segment_index = segment_index;
+    header.index = segment_index;
     header.frame_count = sctx.frame_count;
     header.start_dts = sctx.start_dts;
     header.reserved = 0;
@@ -2296,7 +2296,7 @@ ngx_live_filler_write_segment(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_persist_segment_header_t   sp;
 
     sp.track_id = track->in.key;
-    sp.segment_index = segment->node.key;
+    sp.index = segment->node.key;
     sp.frame_count = segment->frame_count;
     sp.start_dts = segment->start_dts;
     sp.reserved = 0;

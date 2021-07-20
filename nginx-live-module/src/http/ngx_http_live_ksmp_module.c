@@ -1088,7 +1088,7 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
         scope->si.correction = 0;
     }
 
-    scope->si.segment_index = params->segment_index;
+    scope->si.index = params->segment_index;
     scope->si.time = params->time;
     scope->si.reserved = 0;
 
@@ -1223,7 +1223,7 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
     }
 
     rc = ngx_live_filler_serve_segments(r->pool, scope->track_refs,
-        scope->si.segment_index, &ctx->last, &ctx->size);
+        scope->si.index, &ctx->last, &ctx->size);
     switch (rc) {
 
     case NGX_OK:

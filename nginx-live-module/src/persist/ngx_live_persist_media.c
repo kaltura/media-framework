@@ -981,7 +981,7 @@ ngx_live_segment_cache_read_segment(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    segment->node.key = h->segment_index;
+    segment->node.key = h->index;
     segment->track_id = h->track_id;
     segment->frame_count = h->frame_count;
     segment->start_dts = h->start_dts;

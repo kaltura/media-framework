@@ -822,7 +822,7 @@ ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
     segment = ctx->segment;
 
     header.track_id = segment->track_id;
-    header.segment_index = segment->node.key;
+    header.index = segment->node.key;
     header.frame_count = ctx->count;
     header.start_dts = ctx->start_dts;
     header.reserved = 0;

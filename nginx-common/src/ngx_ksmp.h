@@ -172,7 +172,7 @@ typedef struct {
 
 
 typedef struct {
-    uint32_t    segment_index;
+    uint32_t    index;
     uint32_t    reserved;
     int64_t     correction;
     int64_t     time;
@@ -181,7 +181,7 @@ typedef struct {
 
 typedef struct {
     uint32_t    track_id;
-    uint32_t    segment_index;
+    uint32_t    index;
     uint32_t    frame_count;
     uint32_t    reserved;
     int64_t     start_dts;
