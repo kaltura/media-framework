@@ -2451,7 +2451,7 @@ ngx_live_media_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
 
     scope = ngx_persist_write_ctx(write_ctx);
 
-    if (scope->si.segment_index != NGX_LIVE_INVALID_SEGMENT_INDEX) {
+    if (scope->si.index != NGX_LIVE_INVALID_SEGMENT_INDEX) {
         scope->media_info_count = 1;
         return ngx_live_media_info_node_write(write_ctx,
             track->media_info_node);

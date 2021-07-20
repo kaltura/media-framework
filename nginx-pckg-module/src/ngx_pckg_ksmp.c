@@ -1310,12 +1310,12 @@ ngx_pckg_ksmp_read_sgts_segment(ngx_persist_block_header_t *header,
     }
 
     if (h->track_id != channel->track_id ||
-        h->segment_index != channel->segment_index->segment_index)
+        h->index != channel->segment_index->index)
     {
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, rs->log, 0,
             "ngx_pckg_ksmp_read_sgts_segment: "
             "skipping segment, track: %uD, index: %uD",
-            h->track_id, h->segment_index);
+            h->track_id, h->index);
         return NGX_OK;
     }
 

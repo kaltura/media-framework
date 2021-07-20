@@ -386,7 +386,7 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
             goto done;
         }
 
-        channel->segment_index->segment_index = ctx->params.segment_index;
+        channel->segment_index->index = ctx->params.segment_index;
     }
 
     ngx_rbtree_init(&channel->vars.rbtree, &channel->vars.sentinel,
@@ -1009,7 +1009,7 @@ ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
     dst_track = (void *)(dst + 1);
 
     dst->tracks = dst_track;
-    dst->segment_index = channel->segment_index->segment_index;
+    dst->segment_index = channel->segment_index->index;
 
     found = 0;
 

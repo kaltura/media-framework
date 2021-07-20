@@ -153,7 +153,7 @@ ngx_live_persist_serve_write_segment_index(
     ngx_live_persist_serve_scope_t  *scope;
 
     scope = ngx_persist_write_ctx(write_ctx);
-    if (scope->si.segment_index == NGX_LIVE_INVALID_SEGMENT_INDEX) {
+    if (scope->si.index == NGX_LIVE_INVALID_SEGMENT_INDEX) {
         return NGX_OK;
     }
 
