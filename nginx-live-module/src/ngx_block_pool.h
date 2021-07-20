@@ -15,8 +15,12 @@
 
 typedef struct {
     size_t                  size;
-    size_t                  used;
     ngx_uint_t              nalloc;
+    size_t                  total_size;
+
+    size_t                  auto_used;
+    ngx_uint_t              auto_nalloc;
+
 #if !(NGX_BLOCK_POOL_SKIP)
     size_t                  alloc;
     void                   *free_head;
