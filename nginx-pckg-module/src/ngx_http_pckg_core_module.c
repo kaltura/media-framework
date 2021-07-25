@@ -418,6 +418,7 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         case NGX_KSMP_ERR_TIMELINE_EMPTIED:
         case NGX_KSMP_ERR_TIMELINE_EXPIRED:
         case NGX_KSMP_ERR_VARIANT_INACTIVE:
+        case NGX_KSMP_ERR_SEGMENT_REMOVED:
             rc = ngx_http_pckg_gone(r);
             break;
 

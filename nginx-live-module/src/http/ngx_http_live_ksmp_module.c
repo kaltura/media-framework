@@ -992,6 +992,7 @@ static ngx_int_t
 ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
     ngx_live_persist_serve_scope_t *scope)
 {
+    uint32_t                      code;
     ngx_int_t                     rc;
     ngx_http_request_t           *r = params->r;
     ngx_live_channel_t           *channel;
@@ -1074,11 +1075,10 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
     }
 
     if (params->flags & NGX_KSMP_FLAG_MEDIA) {
-        if (!ngx_live_timeline_get_segment_info(timeline,
-            params->segment_index, params->flags, &scope->si.correction))
-        {
-            return ngx_http_live_ksmp_output_error(r,
-                NGX_KSMP_ERR_SEGMENT_NOT_FOUND,
+        code = ngx_live_timeline_get_segment_info(timeline,
+            params->segment_index, params->flags, &scope->si.correction);
+        if (code != NGX_KSMP_ERR_SUCCESS) {
+            return ngx_http_live_ksmp_output_error(r, code,
                 "segment %uD does not exist, timeline: %V, channel: %V",
                 params->segment_index, &params->timeline_id,
                 &params->channel_id);
