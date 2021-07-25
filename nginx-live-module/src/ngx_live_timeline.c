@@ -49,6 +49,11 @@ typedef struct {
     int64_t                   last_segment_created;
 
     /* manifest */
+    uint32_t                  first_period_index;
+    uint32_t                  first_period_segment_index;
+    int64_t                   first_period_initial_time;
+    uint32_t                  first_period_initial_segment_index;
+
     uint32_t                  target_duration;
     uint32_t                  target_duration_segments;
     uint32_t                  sequence;
@@ -2010,7 +2015,8 @@ ngx_live_timeline_read_setup(ngx_persist_block_header_t *header,
 static ngx_int_t
 ngx_live_timeline_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
 {
-    ngx_queue_t                          *q;
+    ngx_queue_t                          *q, *pq;
+    ngx_live_period_t                    *period;
     ngx_live_timeline_t                  *timeline;
     ngx_live_timeline_snap_t             *ts;
     ngx_live_persist_snap_index_t        *snap = ectx;
@@ -2052,6 +2058,44 @@ ngx_live_timeline_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
         ts->last_modified = timeline->manifest.last_modified;
         ngx_memcpy(ts->last_durations, timeline->manifest.last_durations,
             sizeof(ts->last_durations));
+
+        /* Note: the manifest timeline fields are set according to the last
+            segment in the timeline. the below fields are used only when the
+            manifest timeline position exceeds the scope max index. if it
+            doesn't, the latest values at the time of writing the index will
+            be used instead */
+
+        ts->first_period_index = timeline->manifest.first_period_index;
+
+        switch (timeline->manifest.period_count) {
+
+        case 0:
+            ts->first_period_segment_index = NGX_LIVE_INVALID_SEGMENT_INDEX;
+            ts->first_period_initial_time = 0;
+            ts->first_period_initial_segment_index = 0;
+            break;
+
+        case 1:
+            ts->first_period_segment_index =
+                timeline->manifest.first_period.node.key
+                + timeline->manifest.segment_count - 1;
+            ts->first_period_initial_time =
+                timeline->manifest.first_period_initial_time;
+            ts->first_period_initial_segment_index =
+                timeline->manifest.first_period_initial_segment_index;
+            break;
+
+        default:
+            pq = ngx_queue_last(&timeline->periods);
+            period = ngx_queue_data(pq, ngx_live_period_t, queue);
+
+            ts->first_period_index += timeline->manifest.period_count - 1;
+            ts->first_period_segment_index = period->node.key
+                + period->segment_count - 1;
+            ts->first_period_initial_time = period->time;
+            ts->first_period_initial_segment_index = period->node.key;
+        }
+
         ts++;
     }
 
@@ -2139,19 +2183,53 @@ static ngx_int_t
 ngx_live_timeline_write_index(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_timeline_t *timeline, ngx_live_timeline_snap_t *ts)
 {
+    uint32_t                               max_index;
+    ngx_queue_t                           *q;
     ngx_wstream_t                         *ws;
+    ngx_live_period_t                     *period;
+    ngx_live_persist_snap_t               *snap;
     ngx_live_timeline_persist_t            tp;
     ngx_live_timeline_persist_manifest_t   mp;
 
     ws = ngx_persist_write_stream(write_ctx);
 
     mp.availability_start_time = timeline->manifest.availability_start_time;
-    mp.first_period_segment_index = timeline->manifest.first_period.node.key;
-    mp.first_period_initial_time =
-        timeline->manifest.first_period_initial_time;
-    mp.first_period_initial_segment_index =
-        timeline->manifest.first_period_initial_segment_index;
-    mp.first_period_index = timeline->manifest.first_period_index;
+
+    q = ngx_queue_head(&timeline->periods);
+    if (q != ngx_queue_sentinel(&timeline->periods)) {
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    } else {
+        period = NULL;
+    }
+
+    snap = ngx_persist_write_ctx(write_ctx);
+    max_index = snap->scope.max_index;
+
+    if (period == NULL || period->node.key > max_index ||
+        ts->first_period_segment_index == NGX_LIVE_INVALID_SEGMENT_INDEX)
+    {
+        mp.first_period_index = ts->first_period_index;
+        mp.first_period_segment_index = NGX_LIVE_INVALID_SEGMENT_INDEX;
+        mp.first_period_initial_time = 0;
+        mp.first_period_initial_segment_index = 0;
+
+    } else if (timeline->manifest.first_period.node.key > max_index) {
+        mp.first_period_index = ts->first_period_index;
+        mp.first_period_segment_index = ts->first_period_segment_index;
+        mp.first_period_initial_time = ts->first_period_initial_time;
+        mp.first_period_initial_segment_index =
+            ts->first_period_initial_segment_index;
+
+    } else {
+        mp.first_period_index = timeline->manifest.first_period_index;
+        mp.first_period_segment_index =
+            timeline->manifest.first_period.node.key;
+        mp.first_period_initial_time =
+            timeline->manifest.first_period_initial_time;
+        mp.first_period_initial_segment_index =
+            timeline->manifest.first_period_initial_segment_index;
+    }
 
     mp.target_duration = ts->target_duration;
     mp.target_duration_segments = ts->target_duration_segments;
