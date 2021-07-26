@@ -32,15 +32,15 @@ int processedFrameCB(receiver_server_session_t *session,bool completed)
 
 
         char* tmpBuf=av_malloc(MAX_DIAGNOSTICS_STRING_LENGTH);
-        JSON_SERIALIZE_INIT(tmpBuf)
-        char tmpBuf2[MAX_DIAGNOSTICS_STRING_LENGTH];
-        transcode_session_get_diagnostics(server->transcode_session,tmpBuf2,sizeof(tmpBuf2));
-        JSON_SERIALIZE_OBJECT("transcoder", tmpBuf2)
-        pthread_mutex_lock(&server->diagnostics_locker);  // lock the critical section
-        sample_stats_get_diagnostics(&server->receiverStats,tmpBuf2);
-        pthread_mutex_unlock(&server->diagnostics_locker);  // lock the critical section
-
-        JSON_SERIALIZE_OBJECT("receiver", tmpBuf2)
+        JSON_SERIALIZE_INIT(tmpBuf,MAX_DIAGNOSTICS_STRING_LENGTH)
+        JSON_SERIALIZE_OBJECT_BEGIN("transcoder")
+         transcode_session_get_diagnostics(server->transcode_session,js);
+        JSON_SERIALIZE_OBJECT_END()
+        JSON_SERIALIZE_OBJECT_BEGIN("receiver")
+            pthread_mutex_lock(&server->diagnostics_locker);  // lock the critical section
+            sample_stats_get_diagnostics(&server->receiverStats,js);
+            pthread_mutex_unlock(&server->diagnostics_locker);  // lock the critical section
+        JSON_SERIALIZE_OBJECT_END()
         JSON_SERIALIZE_INT64("time",(uint64_t)time(NULL));
         JSON_SERIALIZE_END()
         
@@ -254,11 +254,11 @@ void receiver_server_close(receiver_server_t *server)
     pthread_mutex_destroy(&server->diagnostics_locker);
 }
 
-void receiver_server_get_diagnostics(receiver_server_t *server,char* diagnostics)
+void receiver_server_get_diagnostics(receiver_server_t *server,json_writer_ctx_t js)
 {
     pthread_mutex_lock(&server->diagnostics_locker);  // lock the critical section
     if (server->lastDiagnsotics) {
-        strcpy(diagnostics,server->lastDiagnsotics);
+       JSON_WRITE("%s",server->lastDiagnsotics);
     }
     pthread_mutex_unlock(&server->diagnostics_locker);  // lock the critical section
 }

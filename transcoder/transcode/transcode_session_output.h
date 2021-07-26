@@ -74,7 +74,7 @@ int transcode_session_output_connect(transcode_session_output_t *pOutput,uint64_
 int transcode_session_output_set_media_info(transcode_session_output_t *,transcode_mediaInfo_t* extra) ;
 int transcode_session_output_send_output_packet(transcode_session_output_t *,struct AVPacket* ) ;
 
-int transcode_session_output_get_diagnostics (transcode_session_output_t *,uint64_t recieveDts,uint64_t startProcessDts,char* );
+void transcode_session_output_get_diagnostics (transcode_session_output_t *,uint64_t recieveDts,uint64_t startProcessDts,json_writer_ctx_t js);
 
 #endif /* output_h */
 

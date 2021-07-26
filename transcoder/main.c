@@ -38,27 +38,24 @@ http_server_t http_server;
 int on_http_request(const char* uri, char* buf,int bufSize,int* bytesWritten)
 {
     int retVal=404;
-    JSON_SERIALIZE_INIT(buf)
-    JSON_SERIALIZE_STRING("uri", uri)
-    
-    char diagnostics[4096];
-    strcpy(diagnostics,"{}");
-    if (strcmp(uri,"/control/diagnostics")==0) {
-        receiver_server_get_diagnostics(&receiver,diagnostics);
-        retVal=200;
-    }
-    if (strcmp(uri,"/status")==0) {
-        JSON_SERIALIZE_STRING("state", "ready")
-        retVal=200;
-    }
-    if (strcmp(uri,"/control/status")==0) {
-        JSON_SERIALIZE_STRING("state", "ready")
-        retVal=200;
-    }
-    
-    JSON_SERIALIZE_OBJECT("result",diagnostics);
+    JSON_SERIALIZE_INIT(buf,bufSize)
+        JSON_SERIALIZE_STRING("uri", uri)
+        JSON_SERIALIZE_OBJECT_BEGIN("result")
+            if (strcmp(uri,"/control/diagnostics")==0) {
+                receiver_server_get_diagnostics(&receiver,js);
+                retVal=200;
+            }
+            if (strcmp(uri,"/status")==0) {
+                JSON_SERIALIZE_STRING("state", "ready")
+                retVal=200;
+            }
+            if (strcmp(uri,"/control/status")==0) {
+                JSON_SERIALIZE_STRING("state", "ready")
+                retVal=200;
+            }
+        JSON_SERIALIZE_OBJECT_END();
     JSON_SERIALIZE_END()
-    *bytesWritten=n;
+    *bytesWritten=JSON_WRITTEN();
     
     return retVal;
 }

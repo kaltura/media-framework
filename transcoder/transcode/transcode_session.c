@@ -490,7 +490,6 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
         }
         av_frame_free(&pOutFrame);
     }
-    return 0;
 filter_error:
     return 0;
 }
@@ -672,7 +671,7 @@ int transcode_session_close(transcode_session_t *session,int exitErrorCode) {
 }
 
 static
-int transcode_session_get_pipeline_diagnostics(transcode_session_t *ctx,char* p){
+void transcode_session_get_pipeline_diagnostics(transcode_session_t *ctx,json_writer_ctx_t js){
     uint64_t totalDecoderErrors = 0, totalEncoderErrors = 0, totalFilterErrors = 0;
 
     for (int i=0;i<ctx->decoders;i++)
@@ -691,7 +690,6 @@ int transcode_session_get_pipeline_diagnostics(transcode_session_t *ctx,char* p)
           totalFilterErrors += context->totalInErrors + context->totalOutErrors;
      }
      if(totalFilterErrors || totalEncoderErrors || totalDecoderErrors){
-            JSON_SERIALIZE_INIT(p);
             if(totalDecoderErrors){
                 JSON_SERIALIZE_INT("decoderErrors",totalDecoderErrors)
             }
@@ -701,38 +699,32 @@ int transcode_session_get_pipeline_diagnostics(transcode_session_t *ctx,char* p)
             if(totalFilterErrors){
                  JSON_SERIALIZE_INT("filterErrors",totalFilterErrors)
             }
-            JSON_SERIALIZE_END();
-            return true;
       }
-      return false;
 }
 
-int transcode_session_get_diagnostics(transcode_session_t *ctx,char* buf,size_t maxlen)
+void transcode_session_get_diagnostics(transcode_session_t *ctx,json_writer_ctx_t js)
 {
     int64_t now=av_rescale_q( getClock64(), clockScale, standard_timebase);
 
-    
-    JSON_SERIALIZE_INIT(buf)
-    char tmpBuf2[MAX_DIAGNOSTICS_STRING_LENGTH];
-    sample_stats_get_diagnostics(&ctx->processedStats,tmpBuf2);
-    JSON_SERIALIZE_OBJECT("processed", tmpBuf2)
+    JSON_SERIALIZE_OBJECT_BEGIN("processed");
+    sample_stats_get_diagnostics(&ctx->processedStats,js);
+    JSON_SERIALIZE_OBJECT_END()
+
     /*
     JSON_SERIALIZE_ARRAY_START("decoders")
     for (int i=0;i<ctx->decoders;i++)
     {
         transcode_codec_t* context=&ctx->decoder[i];
-        char tmp[MAX_DIAGNOSTICS_STRING_LENGTH];
-        transcode_codec_get_diagnostics(context,tmp);
-        JSON_SERIALIZE_ARRAY_ITEM(tmp)
+        transcode_codec_get_diagnostics(context,js);
+        JSON_SERIALIZE_ARRAY_ITEM()
     }
     JSON_SERIALIZE_ARRAY_END()
     JSON_SERIALIZE_ARRAY_START("encoders")
     for (int i=0;i<ctx->encoders;i++)
     {
         transcode_codec_t* context=&ctx->encoder[i];
-        char tmp[MAX_DIAGNOSTICS_STRING_LENGTH];
-        transcode_codec_get_diagnostics(context,tmp);
-        JSON_SERIALIZE_ARRAY_ITEM(tmp)
+        transcode_codec_get_diagnostics(context,js);
+        JSON_SERIALIZE_ARRAY_ITEM()
     }
     JSON_SERIALIZE_ARRAY_END()
      */
@@ -748,8 +740,8 @@ int transcode_session_get_diagnostics(transcode_session_t *ctx,char* buf,size_t 
             lastDts=output->stats.lastDts;
             lastTimeStamp=output->stats.lastTimeStamp;
         }
-        transcode_session_output_get_diagnostics(output,ctx->lastQueuedDts,ctx->processedStats.lastDts,tmpBuf2);
-        JSON_SERIALIZE_ARRAY_ITEM(tmpBuf2)
+        transcode_session_output_get_diagnostics(output,ctx->lastQueuedDts,ctx->processedStats.lastDts,js);
+       JSON_SERIALIZE_ARRAY_ITEM();
     }
     JSON_SERIALIZE_ARRAY_END()
     
@@ -760,11 +752,5 @@ int transcode_session_get_diagnostics(transcode_session_t *ctx,char* buf,size_t 
     JSON_SERIALIZE_INT64("latency",(now-lastTimeStamp)/90);
     JSON_SERIALIZE_INT("currentIncommingQueueLength",ctx->packetQueue.queue ? av_thread_message_queue_nb_elems(ctx->packetQueue.queue) : -1);
 
-    if(transcode_session_get_pipeline_diagnostics(ctx,tmpBuf2)){
-         JSON_SERIALIZE_OBJECT("errors", tmpBuf2);
-    }
-
-    JSON_SERIALIZE_END()
-
-    return n;
+    transcode_session_get_pipeline_diagnostics(ctx,js);
 }

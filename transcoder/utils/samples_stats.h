@@ -45,7 +45,7 @@ typedef struct
 
 void sample_stats_init(samples_stats_t* pStats,AVRational basetime);
 void samples_stats_add(samples_stats_t* pStats,uint64_t dts,uint64_t creationTime,int size);
-int sample_stats_get_diagnostics(samples_stats_t *pStats,char* buf);
+void sample_stats_get_diagnostics(samples_stats_t *pStats,json_writer_ctx_t js);
 void samples_stats_log(const char* category,int level,samples_stats_t *stats,const char*prefix);
 
 #endif /* Stats_h */

@@ -485,25 +485,22 @@ int transcode_decoder_receive_frame( transcode_codec_t *decoder,AVFrame *pFrame)
 }
 
 
-int transcode_codec_get_diagnostics( transcode_codec_t *codec,char *buf)
+void transcode_codec_get_diagnostics( transcode_codec_t *codec,json_writer_ctx_t js)
 {
-    char tmp[MAX_DIAGNOSTICS_STRING_LENGTH];
-    JSON_SERIALIZE_INIT(buf)
-    JSON_SERIALIZE_STRING("name",codec->name)
-    
-    JSON_SERIALIZE_OBJECT_BEGIN("input")
-        sample_stats_get_diagnostics(&codec->inStats,tmp);
-        JSON_SERIALIZE_INT64("dts", codec->inDts)
-        JSON_SERIALIZE_OBJECT("stats", tmp)
-    JSON_SERIALIZE_OBJECT_END()
-    
-    JSON_SERIALIZE_OBJECT_BEGIN("output")
-        sample_stats_get_diagnostics(&codec->outStats,tmp);
-        JSON_SERIALIZE_INT64("dts", codec->outDts)
-        JSON_SERIALIZE_OBJECT("stats", tmp)
-    JSON_SERIALIZE_OBJECT_END()
-    JSON_SERIALIZE_INT64("delay", codec->outDts-codec->inDts)
-
-    JSON_SERIALIZE_END()
-    return n;
+    JSON_SERIALIZE_SCOPE_BEGIN();
+        JSON_SERIALIZE_STRING("name",codec->name)
+        JSON_SERIALIZE_OBJECT_BEGIN("input")
+            JSON_SERIALIZE_OBJECT_BEGIN("stats")
+              sample_stats_get_diagnostics(&codec->inStats,js);
+            JSON_SERIALIZE_OBJECT_END()
+            JSON_SERIALIZE_INT64("dts", codec->inDts)
+        JSON_SERIALIZE_OBJECT_END()
+        JSON_SERIALIZE_OBJECT_BEGIN("output")
+             JSON_SERIALIZE_OBJECT_BEGIN("stats")
+               sample_stats_get_diagnostics(&codec->outStats,js);
+             JSON_SERIALIZE_OBJECT_END()
+             JSON_SERIALIZE_INT64("dts", codec->outDts)
+        JSON_SERIALIZE_OBJECT_END()
+        JSON_SERIALIZE_INT64("delay", codec->outDts-codec->inDts)
+   JSON_SERIALIZE_END()
 }

@@ -91,9 +91,8 @@ void samples_stats_add(samples_stats_t* pStats,uint64_t dts,uint64_t ts,int fram
 }
 
 
-int sample_stats_get_diagnostics(samples_stats_t *pStats,char* buf)
+void sample_stats_get_diagnostics(samples_stats_t *pStats,json_writer_ctx_t js)
 {
-    JSON_SERIALIZE_INIT(buf)
     JSON_SERIALIZE_INT64("totalSamples",pStats->totalFrames)
     JSON_SERIALIZE_INT64("totalErrors",pStats->totalErrors)
     JSON_SERIALIZE_INT("bitrate",pStats->currentBitRate)
@@ -103,8 +102,6 @@ int sample_stats_get_diagnostics(samples_stats_t *pStats,char* buf)
     JSON_SERIALIZE_STRING("firstTimeStamp",pStats->firstTimeStamp>0 ? ts2str(pStats->firstTimeStamp,false): "N/A")
     JSON_SERIALIZE_STRING("lastTimeStamp",pStats->lastTimeStamp>0 ? ts2str(pStats->lastTimeStamp,false) : "N/A")
     JSON_SERIALIZE_INT64("lastDts",pStats->lastDts)
-    JSON_SERIALIZE_END()
-    return n;
 }
 
 
