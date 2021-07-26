@@ -3137,7 +3137,7 @@ ngx_live_segmenter_inactive_handler(ngx_event_t *ev)
     if (ngx_live_segmenter_create_segments(channel) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_segmenter_inactive_handler: create segments failed");
-        ngx_live_channel_free(channel);
+        ngx_live_channel_free(channel, ngx_live_free_create_segment_failed);
         return;
     }
 }
@@ -3150,7 +3150,7 @@ ngx_live_segmenter_create_handler(ngx_event_t *ev)
     if (ngx_live_segmenter_create_segments(channel) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_segmenter_create_handler: create segments failed");
-        ngx_live_channel_free(channel);
+        ngx_live_channel_free(channel, ngx_live_free_create_segment_failed);
         return;
     }
 }
@@ -3317,8 +3317,23 @@ ngx_live_segmenter_channel_free(ngx_live_channel_t *channel, void *ectx)
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
+    if (cctx == NULL) {
+        return NGX_OK;
+    }
 
-    if (cctx != NULL && cctx->create.posted) {
+    switch (channel->free_reason) {
+
+    case ngx_live_free_alloc_chain_failed:
+    case ngx_live_free_alloc_buf_failed:
+        ngx_live_segmenter_dump(channel, cctx->last_segment_end_pts,
+            cctx->last_segment_end_pts - 1);
+        break;
+
+    default:
+        break;
+    }
+
+    if (cctx->create.posted) {
         ngx_delete_posted_event(&cctx->create);
     }
 

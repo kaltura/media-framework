@@ -1891,7 +1891,7 @@ failed:
     ngx_live_notif_publish(channel, NGX_LIVE_NOTIF_CHANNEL_READY, rc);
 
     /* Note: channel free calls all subscribers with error */
-    ngx_live_channel_free(channel);
+    ngx_live_channel_free(channel, ngx_live_free_read_failed);
 }
 
 static ngx_live_channel_t *
@@ -1942,7 +1942,7 @@ ngx_live_filler_read_file(ngx_live_json_cmds_ctx_t *jctx,
     if (cctx->read_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, jctx->pool->log, 0,
             "ngx_live_filler_read_file: read file failed");
-        ngx_live_channel_free(channel);
+        ngx_live_channel_free(channel, ngx_live_free_read_failed);
         return NULL;
     }
 

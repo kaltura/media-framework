@@ -51,6 +51,21 @@ typedef void (*ngx_live_track_disconnect_pt)(ngx_live_track_t *track,
     ngx_uint_t rc);
 
 
+typedef enum {
+    ngx_live_free_none,
+    ngx_live_free_api,
+
+    ngx_live_free_update_failed,
+    ngx_live_free_read_failed,
+    ngx_live_free_read_cancelled,
+
+    ngx_live_free_alloc_chain_failed,
+    ngx_live_free_alloc_buf_failed,
+    ngx_live_free_add_media_info_failed,
+    ngx_live_free_add_frame_failed,
+    ngx_live_free_create_segment_failed,
+} ngx_live_free_reason_e;
+
 typedef struct {
     ngx_rbtree_t                   rbtree;
     ngx_rbtree_node_t              sentinel;
@@ -88,8 +103,9 @@ struct ngx_live_channel_s {
     time_t                         last_modified;
     time_t                         last_accessed;
 
-    ngx_event_t                    close;
     time_t                         start_sec;
+    ngx_event_t                    close;
+    ngx_live_free_reason_e         free_reason;
 
     void                         **ctx;
     void                         **main_conf;
@@ -111,7 +127,6 @@ struct ngx_live_channel_s {
     uint32_t                       snapshots;
     unsigned                       blocked:8;
     unsigned                       active:1;
-    unsigned                       free:1;
 };
 
 
@@ -202,7 +217,11 @@ ngx_int_t ngx_live_channel_init_process(ngx_cycle_t *cycle);
 ngx_int_t ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
     ngx_pool_t *temp_pool, ngx_live_channel_t **result);
 
-void ngx_live_channel_free(ngx_live_channel_t *channel);
+void ngx_live_channel_free(ngx_live_channel_t *channel,
+    ngx_live_free_reason_e reason);
+
+void ngx_live_channel_finalize(ngx_live_channel_t *channel,
+    ngx_live_free_reason_e reason);
 
 ngx_live_channel_t *ngx_live_channel_get(ngx_str_t *id);
 
@@ -210,8 +229,6 @@ void ngx_live_channel_update(ngx_live_channel_t *channel,
     uint32_t initial_segment_index);
 
 void ngx_live_channel_setup_changed(ngx_live_channel_t *channel);
-
-void ngx_live_channel_finalize(ngx_live_channel_t *channel);
 
 void ngx_live_channel_ack_frames(ngx_live_channel_t *channel);
 

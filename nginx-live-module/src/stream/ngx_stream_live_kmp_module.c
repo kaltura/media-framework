@@ -245,7 +245,8 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
     default:
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_stream_live_kmp_media_info: push failed");
-        ngx_live_channel_finalize(ctx->channel);
+        ngx_live_channel_finalize(ctx->channel,
+            ngx_live_free_add_media_info_failed);
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
     }
 
@@ -361,7 +362,8 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
     case NGX_ABORT:
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_stream_live_kmp_frame: add frame returned abort");
-        ngx_live_channel_finalize(ctx->channel);
+        ngx_live_channel_finalize(ctx->channel,
+            ngx_live_free_add_frame_failed);
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
 
     default:
@@ -482,7 +484,8 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
                     ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                         "ngx_stream_live_kmp_process_buffer: "
                         "alloc chain failed");
-                    ngx_live_channel_finalize(ctx->channel);
+                    ngx_live_channel_finalize(ctx->channel,
+                        ngx_live_free_alloc_chain_failed);
                     return NGX_STREAM_INTERNAL_SERVER_ERROR;
                 }
 
@@ -592,7 +595,8 @@ ngx_stream_live_kmp_read_packets(ngx_stream_live_kmp_ctx_t *ctx)
             if (rc != NGX_OK) {
                 ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                     "ngx_stream_live_kmp_read_packets: failed to get buffer");
-                ngx_live_channel_finalize(ctx->channel);
+                ngx_live_channel_finalize(ctx->channel,
+                    ngx_live_free_alloc_buf_failed);
                 return NGX_STREAM_INTERNAL_SERVER_ERROR;
             }
         }

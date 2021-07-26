@@ -238,19 +238,15 @@ error:
     return NGX_ERROR;
 }
 
-void
-ngx_live_channel_free(ngx_live_channel_t *channel)
+static void
+ngx_live_channel_free_internal(ngx_live_channel_t *channel)
 {
     ngx_queue_t       *q;
     ngx_live_track_t  *cur_track;
 
-    if (channel->free) {
-        return;
-    }
-    channel->free = 1;
-
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_channel_free: freeing %p", channel);
+        "ngx_live_channel_free: freeing %p, reason: %d",
+        channel, channel->free_reason);
 
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
@@ -272,6 +268,49 @@ ngx_live_channel_free(ngx_live_channel_t *channel)
 }
 
 void
+ngx_live_channel_free(ngx_live_channel_t *channel,
+    ngx_live_free_reason_e reason)
+{
+    if (channel->free_reason) {
+        return;
+    }
+
+    channel->free_reason = reason;
+
+    ngx_live_channel_free_internal(channel);
+}
+
+static void
+ngx_live_channel_close_handler(ngx_event_t *ev)
+{
+    ngx_live_channel_t  *channel;
+
+    channel = ev->data;
+
+    ngx_live_channel_free_internal(channel);
+}
+
+void
+ngx_live_channel_finalize(ngx_live_channel_t *channel,
+    ngx_live_free_reason_e reason)
+{
+    ngx_event_t  *e;
+
+    if (channel->free_reason) {
+        return;
+    }
+
+    channel->free_reason = reason;
+
+    e = &channel->close;
+    e->data = channel;
+    e->handler = ngx_live_channel_close_handler;
+    e->log = &channel->log;
+
+    ngx_post_event(e, &ngx_posted_events);
+}
+
+void
 ngx_live_channel_update(ngx_live_channel_t *channel,
     uint32_t initial_segment_index)
 {
@@ -288,29 +327,6 @@ ngx_live_channel_setup_changed(ngx_live_channel_t *channel)
 
     (void) ngx_live_core_channel_event(channel,
         NGX_LIVE_EVENT_CHANNEL_SETUP_CHANGED, NULL);
-}
-
-static void
-ngx_live_channel_close_handler(ngx_event_t *ev)
-{
-    ngx_live_channel_t  *channel;
-
-    channel = ev->data;
-
-    ngx_live_channel_free(channel);
-}
-
-void
-ngx_live_channel_finalize(ngx_live_channel_t *channel)
-{
-    ngx_event_t  *e;
-
-    e = &channel->close;
-    e->data = channel;
-    e->handler = ngx_live_channel_close_handler;
-    e->log = &channel->log;
-
-    ngx_post_event(e, &ngx_posted_events);
 }
 
 void
