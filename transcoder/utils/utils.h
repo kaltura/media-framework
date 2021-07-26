@@ -51,4 +51,8 @@ static AVRational clockScale = {1,1000*1000};
 #define __MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define __MIN(x, y) (((x) < (y)) ? (x) : (y))
 
+#ifdef DATA_CORRUPTION_TEST
+void randomize_data(uint8_t *data,int size);
+#endif
+
 #endif /* utils_h */

@@ -26,6 +26,7 @@ typedef struct
 {
     uint64_t firstDts,lastDts;
     uint64_t totalFrames;
+    uint64_t totalErrors;
     uint64_t head,tail;
     samples_stats_history_t history[HISTORY_SIZE];
     

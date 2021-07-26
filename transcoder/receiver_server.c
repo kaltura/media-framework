@@ -57,6 +57,7 @@ int processedFrameCB(receiver_server_session_t *session,bool completed)
     
     return 0;
 }
+
 static
 int clientLoop(receiver_server_t *server,receiver_server_session_t *session,transcode_session_t *transcode_session)
 {
@@ -113,7 +114,6 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
             pthread_mutex_lock(&server->diagnostics_locker);  // lock the critical section
             samples_stats_add(&server->receiverStats,packet->dts,packet->pos,packet->size);
             pthread_mutex_unlock(&server->diagnostics_locker);  // lock the critical section
-
             LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] received packet %s (%p) #: %lld",session->stream_name,getPacketDesc(packet),transcode_session,received_frame_id);
             _S(transcode_session_async_send_packet(transcode_session, packet));
             av_packet_free(&packet);

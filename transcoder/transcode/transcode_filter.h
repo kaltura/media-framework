@@ -18,6 +18,7 @@ typedef  struct
     AVFilterGraph* filter_graph;
     AVFilterContext *sink_ctx;
     AVFilterContext *src_ctx;
+    uint64_t totalInErrors, totalOutErrors;
 } transcode_filter_t;
 
 int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,const char *filters_descr);

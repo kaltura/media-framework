@@ -57,6 +57,9 @@
             }
         }
     },
+    "errorPolicy": {
+        "exitOnError": false
+    },
     "outputTracks": [
         {
             "trackId": "v32",

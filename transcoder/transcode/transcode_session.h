@@ -16,6 +16,7 @@
 #include "../utils/time_estimator.h"
 #include "../utils/packetQueue.h"
 #include "./transcode_dropper.h"
+#include "../utils/policy_provider.h"
 #define MAX_INPUTS 10
 #define MAX_OUTPUTS 10
 
@@ -55,6 +56,7 @@ typedef struct  {
     transcode_session_processedFrameCB* onProcessedFrame;
     transcode_dropper_t dropper;
     int64_t input_frame_first_id,completed_frame_id;
+    policy_provider_s policy;
 } transcode_session_t;
 
 
