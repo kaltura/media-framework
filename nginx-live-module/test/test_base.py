@@ -3,6 +3,7 @@ from cleanup_stack import *
 from kmp_utils import *
 from threading import Thread
 import manifest_utils
+import errno
 import os
 import re
 
@@ -53,6 +54,24 @@ def getHttpResponseChunked(body = '', status = '200 OK', length = None, headers 
         for curHeader in headers.items():
             headersStr +='%s: %s\r\n' % curHeader
     return 'HTTP/1.1 %s\r\nTransfer-Encoding: Chunked\r\n%s\r\n%x\r\n%s\r\n0\r\n' % (status, headersStr, length, body)
+
+def readRequestBody(s, header):
+    headerEnd = header.find('\r\n\r\n') + 4
+    body = header[headerEnd:]
+    header = header[:headerEnd]
+    contentLength = int(re.findall('Content-Length: (\d+)', header)[0])
+    while len(body) < contentLength:
+        body += s.recv(contentLength - len(body))
+    return body
+
+def writeFile(path, data):
+    try:
+        os.makedirs(os.path.dirname(path))
+    except OSError as e:
+        if errno.EEXIST != e.errno:
+            raise
+    with open(path, 'wb') as f:
+        f.write(data)
 
 def getFiller():
     return NginxLiveFiller(channel_id=FILLER_CHANNEL_ID, preset=FILLER_PRESET,

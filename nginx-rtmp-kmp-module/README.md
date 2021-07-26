@@ -20,7 +20,7 @@ rtmp {
 
         listen 1935;
 
-        application live{
+        application live {
             live on;
             deny play all;
 

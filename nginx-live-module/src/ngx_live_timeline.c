@@ -744,10 +744,11 @@ ngx_live_timeline_get(ngx_live_channel_t *channel, ngx_str_t *id)
     return timeline;
 }
 
-ngx_flag_t
+uint32_t
 ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
     uint32_t segment_index, uint32_t flags, int64_t *correction)
 {
+    ngx_queue_t        *q;
     ngx_rbtree_t       *rbtree = &timeline->rbtree;
     ngx_rbtree_node_t  *node;
     ngx_rbtree_node_t  *sentinel;
@@ -759,7 +760,23 @@ ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
     for ( ;; ) {
 
         if (node == sentinel) {
-            return 0;
+            q = ngx_queue_head(&timeline->periods);
+            if (q == ngx_queue_sentinel(&timeline->periods)) {
+                return NGX_KSMP_ERR_TIMELINE_EMPTY;
+            }
+
+            period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+            /* Note: can't know for sure whether a segment existed in the
+                timeline or not... if the index makes sense, assuming it was */
+
+            if (segment_index >= timeline->channel->initial_segment_index &&
+                segment_index < period->node.key)
+            {
+                return NGX_KSMP_ERR_SEGMENT_REMOVED;
+            }
+
+            return NGX_KSMP_ERR_SEGMENT_NOT_FOUND;
         }
 
         if (segment_index < node->key) {
@@ -787,7 +804,7 @@ ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
         *correction = period->correction;
     }
 
-    return 1;
+    return NGX_KSMP_ERR_SUCCESS;
 }
 
 ngx_flag_t
