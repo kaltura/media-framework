@@ -245,7 +245,7 @@ ngx_live_channel_free_internal(ngx_live_channel_t *channel)
     ngx_live_track_t  *cur_track;
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_channel_free: freeing %p, reason: %d",
+        "ngx_live_channel_free_internal: freeing %p, reason: %d",
         channel, channel->free_reason);
 
     for (q = ngx_queue_head(&channel->tracks.queue);
