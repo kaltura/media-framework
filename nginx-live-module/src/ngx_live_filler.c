@@ -104,6 +104,7 @@ typedef struct {
     uint32_t                           count;
     uint32_t                           index;
     uint32_t                          *durations;
+    unsigned                           got_media_info:1;
 } ngx_live_filler_read_ctx_t;
 
 
@@ -2551,11 +2552,19 @@ static ngx_int_t
 ngx_live_filler_read_media_info(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
-    ngx_int_t          rc;
-    ngx_str_t          data;
-    ngx_buf_chain_t    chain;
-    kmp_media_info_t  *media_info;
-    ngx_live_track_t  *track = obj;
+    ngx_int_t                    rc;
+    ngx_str_t                    data;
+    ngx_buf_chain_t              chain;
+    kmp_media_info_t            *media_info;
+    ngx_live_track_t            *track = obj;
+    ngx_live_filler_read_ctx_t  *ctx;
+
+    ctx = ngx_mem_rstream_scope(rs);
+    if (ctx->got_media_info) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_media_info: duplicate block");
+        return NGX_BAD_DATA;
+    }
 
     media_info = ngx_mem_rstream_get_ptr(rs, sizeof(*media_info));
     if (media_info == NULL) {
@@ -2582,6 +2591,8 @@ ngx_live_filler_read_media_info(ngx_persist_block_header_t *header,
             "ngx_live_filler_read_media_info: media info add failed");
         return rc;
     }
+
+    ctx->got_media_info = 1;
 
     return rc;
 }
@@ -2674,6 +2685,7 @@ ngx_live_filler_read_track(ngx_persist_block_header_t *header,
 
 
     ctx->index = 0;
+    ctx->got_media_info = 0;
 
     rc = ngx_live_persist_read_blocks(channel,
         NGX_LIVE_PERSIST_CTX_FILLER_TRACK, rs, track);
@@ -2797,6 +2809,13 @@ ngx_live_filler_read_timeline(ngx_persist_block_header_t *header,
     if (ctx->count <= 0) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_filler_read_timeline: no segments");
+        return NGX_BAD_DATA;
+    }
+
+    if (ctx->count > NGX_LIVE_FILLER_MAX_SEGMENTS) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_filler_read_timeline: invalid segment count %uD",
+            ctx->count);
         return NGX_BAD_DATA;
     }
 
