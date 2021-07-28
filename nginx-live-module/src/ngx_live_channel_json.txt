@@ -51,6 +51,7 @@ out nostatic ngx_live_channel_json ngx_live_channel_t
     blocked %b false
     uid %016uxL
     uptime %T (ngx_time() - obj->start_sec)
+    read_time %T
     preset %V cpcf->name
     opaque %bs
     initial_segment_index %uD
