@@ -1877,6 +1877,7 @@ ngx_live_filler_read_handler(void *data, ngx_int_t rc,
 
     ngx_destroy_pool(read_ctx->pool);
 
+    channel->read_time = ngx_time();
     channel->blocked--;
 
     if (channel->blocked <= 0) {

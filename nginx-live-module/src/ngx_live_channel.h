@@ -104,6 +104,7 @@ struct ngx_live_channel_s {
     time_t                         last_accessed;
 
     time_t                         start_sec;
+    time_t                         read_time;
     ngx_event_t                    close;
     ngx_live_free_reason_e         free_reason;
 

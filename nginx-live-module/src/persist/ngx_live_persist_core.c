@@ -344,6 +344,8 @@ done:
             rc = NGX_DECLINED;
 
         } else {
+            channel->read_time = ngx_time();
+
             rc = ngx_live_core_channel_event(channel,
                 NGX_LIVE_EVENT_CHANNEL_READ, NULL);
         }
