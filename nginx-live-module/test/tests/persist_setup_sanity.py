@@ -51,5 +51,5 @@ def compareObjects(c1, c2, ignore_keys=set([])):
 def test(channelId=CHANNEL_ID):
     nl = nginxLiveClient()
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
-    ignore_keys = set(['uptime', 'success', 'success_size', 'success_msec'])
+    ignore_keys = set(['uptime', 'success', 'success_size', 'success_msec', 'read_time'])
     compareObjects(before, nl.channel.get(channelId), ignore_keys)

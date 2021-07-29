@@ -32,7 +32,7 @@ out ngx_live_variant_json ngx_live_variant_t
     lang %V obj->conf.
     role %enum-ngx_live_variant_role_names obj->conf.
     is_default %b obj->conf.
-    active %b ngx_live_variant_is_main_track_active(obj, UINT_MAX)
+    active %b ngx_live_variant_is_active_channel_last(obj, UINT_MAX)
 
 out nostatic noobject ngx_live_variants_json ngx_live_channel_t
     - %objQueue-ngx_live_variant_json,ngx_live_variant_t,queue,sn.str obj->variants.queue

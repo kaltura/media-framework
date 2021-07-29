@@ -1170,7 +1170,7 @@ ngx_live_filler_setup_track(ngx_live_channel_t *dst,
             return NGX_ERROR;
         }
 
-        if (ngx_live_media_info_queue_get_last(dst_track, NULL) != NULL) {
+        if (ngx_live_media_info_queue_get_last(dst_track) != NULL) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_filler_setup_track: "
                 "track \"%V\" already has media info", &src_track->sn.str);
@@ -2495,8 +2495,7 @@ ngx_live_filler_read_segment(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    segment->media_info = ngx_live_media_info_queue_get_last(track,
-        &segment->kmp_media_info);
+    segment->media_info = ngx_live_media_info_queue_get_last(track);
     if (segment->media_info == NULL) {
         ngx_log_error(NGX_LOG_ALERT, rs->log, 0,
             "ngx_live_filler_read_segment: missing media info (2)");
@@ -2528,11 +2527,10 @@ ngx_live_filler_read_segment(ngx_persist_block_header_t *header,
 static ngx_int_t
 ngx_live_filler_write_media_info(ngx_persist_write_ctx_t *write_ctx, void *obj)
 {
-    media_info_t      *media_info;
-    ngx_live_track_t  *track = obj;
-    kmp_media_info_t  *kmp_media_info;
+    ngx_live_track_t       *track = obj;
+    ngx_live_media_info_t  *media_info;
 
-    media_info = ngx_live_media_info_queue_get_last(track, &kmp_media_info);
+    media_info = ngx_live_media_info_queue_get_last(track);
     if (media_info == NULL) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_live_filler_write_media_info: "
@@ -2540,9 +2538,7 @@ ngx_live_filler_write_media_info(ngx_persist_write_ctx_t *write_ctx, void *obj)
         return NGX_ERROR;
     }
 
-    if (ngx_live_media_info_write(write_ctx, NULL, kmp_media_info,
-        &media_info->extra_data) != NGX_OK)
-    {
+    if (ngx_live_media_info_write(write_ctx, NULL, media_info) != NGX_OK) {
         return NGX_ERROR;
     }
 

@@ -22,6 +22,8 @@ def test(channelId=CHANNEL_ID):
 
     nl.timeline.update(NginxLiveTimeline(id=EMPTY_TIMELINE_ID, end_list=True))
 
+    time.sleep(1)
+
 def validate(channelId=CHANNEL_ID):
     nl = nginxLiveClient()
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))

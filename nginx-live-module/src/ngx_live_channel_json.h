@@ -222,7 +222,7 @@ ngx_live_variant_json_write(u_char *p, ngx_live_variant_t *obj)
         p = ngx_copy_fix(p, "false");
     }
     p = ngx_copy_fix(p, ",\"active\":");
-    if (ngx_live_variant_is_main_track_active(obj, UINT_MAX)) {
+    if (ngx_live_variant_is_active_channel_last(obj, UINT_MAX)) {
         p = ngx_copy_fix(p, "true");
     } else {
         p = ngx_copy_fix(p, "false");

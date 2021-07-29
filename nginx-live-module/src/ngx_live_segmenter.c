@@ -2519,10 +2519,9 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
     uint32_t                           segment_index;
     ngx_int_t                          rc;
     ngx_flag_t                         changed;
-    media_info_t                      *media_info;
-    kmp_media_info_t                  *kmp_media_info;
     ngx_live_segment_t                *segment;
     ngx_live_channel_t                *channel;
+    ngx_live_media_info_t             *media_info;
     ngx_live_segmenter_track_ctx_t    *ctx;
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
@@ -2542,7 +2541,7 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
         cctx->force_new_period = 1;
     }
 
-    media_info = ngx_live_media_info_queue_get_last(track, &kmp_media_info);
+    media_info = ngx_live_media_info_queue_get_last(track);
     if (media_info == NULL) {
         ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
             "ngx_live_segmenter_track_create_segment: no media info");
@@ -2558,7 +2557,6 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
     }
 
     segment->media_info = media_info;
-    segment->kmp_media_info = kmp_media_info;
 
     /* add the frames */
     rc = ngx_live_segmenter_frame_list_copy(&ctx->frames, segment,

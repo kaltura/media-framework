@@ -6,7 +6,6 @@
 #include <ngx_core.h>
 #include <ngx_buf_chain.h>
 #include "ngx_live.h"
-#include "media/media_format.h"
 
 
 #define NGX_LIVE_READ_FLAG_LOCK_DATA  (0x01)
@@ -20,8 +19,7 @@ struct ngx_live_segment_s {
     uint32_t                track_id;
     ngx_pool_t             *pool;
 
-    media_info_t           *media_info;
-    kmp_media_info_t       *kmp_media_info;
+    ngx_live_media_info_t  *media_info;
 
     ngx_list_t              frames;        /* ngx_live_frame_t */
     ngx_uint_t              frame_count;
@@ -62,17 +60,6 @@ typedef struct {
     ngx_live_track_t                   *track;
 } ngx_live_track_ref_t;
 
-typedef struct {
-    ngx_pool_t                         *pool;
-    ngx_live_channel_t                 *channel;
-    ngx_live_track_ref_t               *tracks;
-    uint32_t                            flags;
-    media_segment_t                    *segment;
-    ngx_live_read_segment_callback_pt   callback;
-    ngx_live_segment_cleanup_pt         cleanup;
-    void                               *arg;
-} ngx_live_segment_read_req_t;
-
 
 typedef struct {
     ngx_live_copy_segment_set_size_pt   set_size;
@@ -106,9 +93,6 @@ typedef struct {
  * NGX_ERROR - error
  */
 
-typedef ngx_int_t (*ngx_live_read_segment_pt)(
-    ngx_live_segment_read_req_t *req);
-
 typedef ngx_int_t (*ngx_live_copy_segment_pt)(
     ngx_live_segment_copy_req_t *req);
 
@@ -137,8 +121,6 @@ ngx_int_t ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
 
 void ngx_live_segment_cache_free_input_bufs(ngx_live_track_t *track);
 
-
-extern ngx_live_read_segment_pt  ngx_live_read_segment;
 
 extern ngx_live_copy_segment_pt  ngx_live_copy_segment;
 

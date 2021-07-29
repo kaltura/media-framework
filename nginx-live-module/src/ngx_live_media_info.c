@@ -5,7 +5,6 @@
 #include "ngx_live_segment_info.h"
 #include "ngx_live_segment_cache.h"
 #include "ngx_live_timeline.h"
-#include "media/mp4/mp4_defs.h"
 
 #include "ngx_live_media_info_json.h"
 
@@ -31,56 +30,54 @@ enum {
 typedef void *(*ngx_live_media_info_alloc_pt)(void *ctx, size_t size);
 
 struct ngx_live_media_info_node_s {
-    ngx_rbtree_node_t   node;
-    ngx_queue_t         queue;
-    kmp_media_info_t    kmp_media_info;
-    media_info_t        media_info;
-    u_char              codec_name[MAX_CODEC_NAME_SIZE];
-    uint32_t            track_id;
-    uint32_t            frame_index_delta;     /* used when pending */
-    uint64_t            bitrate_sum;
-    uint32_t            bitrate_count;
-    uint32_t            bitrate_max;
+    ngx_rbtree_node_t      node;
+    ngx_queue_t            queue;
+    ngx_live_media_info_t  media_info;
+    uint32_t               track_id;
+    uint32_t               frame_index_delta;     /* used when pending */
+    uint64_t               bitrate_sum;
+    uint32_t               bitrate_count;
+    uint32_t               bitrate_max;
 };
 
 
 typedef struct {
-    ngx_queue_t         pending;
-    uint32_t            delta_sum;
+    ngx_queue_t            pending;
+    uint32_t               delta_sum;
 
-    ngx_rbtree_t        rbtree;
-    ngx_rbtree_node_t   sentinel;
-    ngx_queue_t         active;
-    uint32_t            added;
-    uint32_t            removed;
+    ngx_rbtree_t           rbtree;
+    ngx_rbtree_node_t      sentinel;
+    ngx_queue_t            active;
+    uint32_t               added;
+    uint32_t               removed;
 
-    ngx_str_t           group_id;
-    u_char              group_id_buf[NGX_LIVE_TRACK_MAX_GROUP_ID_LEN];
+    ngx_str_t              group_id;
+    u_char                 group_id_buf[NGX_LIVE_TRACK_MAX_GROUP_ID_LEN];
 
-    ngx_live_track_t   *source;
-    uint32_t            source_refs;
+    ngx_live_track_t      *source;
+    uint32_t               source_refs;
 } ngx_live_media_info_track_ctx_t;
 
 typedef struct {
-    uint32_t            min_free_index;
+    uint32_t               min_free_index;
 } ngx_live_media_info_channel_ctx_t;
 
 
 typedef struct {
-    ngx_queue_t        *q;
-    ngx_queue_t        *sentinel;
-    uint32_t            track_id;
+    ngx_queue_t           *q;
+    ngx_queue_t           *sentinel;
+    uint32_t               track_id;
 } ngx_live_media_info_own_iter_t;
 
 
 typedef struct {
-    uint32_t            track_id;
-    uint32_t            source_id;
+    uint32_t               track_id;
+    uint32_t               source_id;
 } ngx_live_media_info_snap_t;
 
 
 typedef struct {
-    ngx_uint_t          bp_idx[NGX_LIVE_BP_COUNT];
+    ngx_uint_t             bp_idx[NGX_LIVE_BP_COUNT];
 } ngx_live_media_info_preset_conf_t;
 
 
@@ -136,223 +133,9 @@ static ngx_live_json_cmd_t  ngx_live_media_info_dyn_cmds[] = {
 
 /* utility */
 
-static ngx_int_t
-ngx_live_media_info_copy_str(ngx_live_channel_t *channel, ngx_str_t *dst,
-    ngx_str_t *src)
-{
-    if (src->data == NULL) {
-        return NGX_OK;
-    }
-
-    dst->data = ngx_live_channel_auto_alloc(channel, src->len);
-    if (dst->data == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_media_info_copy_str: alloc failed");
-        return NGX_ERROR;
-    }
-
-    ngx_memcpy(dst->data, src->data, src->len);
-
-    return NGX_OK;
-}
-
-static ngx_int_t
-ngx_live_media_info_parse(ngx_log_t *log, ngx_live_media_info_alloc_pt alloc,
-    void *alloc_ctx, kmp_media_info_t *src, ngx_buf_chain_t *extra_data,
-    uint32_t extra_data_size, media_info_t *dest)
-{
-    u_char        *p;
-    size_t         size;
-    vod_status_t   rc;
-
-    /* Note: returns NGX_BAD_DATA on parsing error, NGX_ERROR on any other */
-
-    dest->extra_data.len = extra_data_size;
-    if (dest->extra_data.len > 0) {
-
-        dest->extra_data.data = alloc(alloc_ctx, dest->extra_data.len);
-        if (dest->extra_data.data == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_media_info_parse: alloc failed, size: %uz",
-                dest->extra_data.len);
-            return NGX_ERROR;
-        }
-
-        if (ngx_buf_chain_copy(&extra_data, dest->extra_data.data,
-            dest->extra_data.len) == NULL)
-        {
-            ngx_log_error(NGX_LOG_ALERT, log, 0,
-                "ngx_live_media_info_parse: failed to copy extra data");
-            return NGX_ERROR;
-        }
-
-    } else {
-        dest->extra_data.data = NULL;
-    }
-
-    dest->parsed_extra_data.data = NULL;
-
-    switch (src->media_type) {
-
-    case KMP_MEDIA_VIDEO:
-        if (src->codec_id != KMP_CODEC_VIDEO_H264) {
-            ngx_log_error(NGX_LOG_ERR, log, 0,
-                "ngx_live_media_info_parse: invalid video codec id %uD",
-                src->codec_id);
-            return NGX_BAD_DATA;
-        }
-
-        if (src->u.video.frame_rate.denom == 0) {
-            ngx_log_error(NGX_LOG_ERR, log, 0,
-                "ngx_live_media_info_parse: invalid video frame rate");
-            return NGX_BAD_DATA;
-        }
-
-        // XXXX initial pts delay
-
-        // XXXX transfer_characteristics
-
-        size = codec_config_avcc_nal_units_get_size(log, &dest->extra_data,
-            &dest->u.video.nal_packet_size_length);
-        if (size == 0) {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_media_info_parse: failed to parse avc extra data");
-            return NGX_BAD_DATA;
-        }
-
-        p = alloc(alloc_ctx, size);
-        if (p == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_media_info_parse: alloc parsed failed");
-            return NGX_ERROR;
-        }
-
-        dest->parsed_extra_data.data = p;
-        p = codec_config_avcc_nal_units_write(p, &dest->extra_data);
-        dest->parsed_extra_data.len = p - dest->parsed_extra_data.data;
-
-        if (dest->parsed_extra_data.len != size) {
-            ngx_log_error(NGX_LOG_ALERT, log, 0,
-                "ngx_live_media_info_parse: "
-                "actual extra data size %uz different from calculated %uz",
-                dest->parsed_extra_data.len, size);
-            return NGX_ERROR;
-        }
-
-        vod_log_buffer(VOD_LOG_DEBUG_LEVEL, log, 0,
-            "ngx_live_media_info_parse: parsed extra data ",
-            dest->parsed_extra_data.data, dest->parsed_extra_data.len);
-
-        dest->media_type = MEDIA_TYPE_VIDEO;
-        dest->codec_id = VOD_CODEC_ID_AVC;
-        dest->format = FORMAT_AVC1;
-
-        dest->u.video.width = src->u.video.width;
-        dest->u.video.height = src->u.video.height;
-        dest->u.video.frame_rate_num = src->u.video.frame_rate.num;
-        dest->u.video.frame_rate_denom = src->u.video.frame_rate.denom;
-
-        if (codec_config_get_video_codec_name(log, dest) != VOD_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_media_info_parse: failed to get video codec name");
-            return NGX_BAD_DATA;
-        }
-        break;
-
-    case KMP_MEDIA_AUDIO:
-
-        switch (src->codec_id) {
-
-        case KMP_CODEC_AUDIO_AAC:
-
-            rc = codec_config_mp4a_config_parse(log, &dest->extra_data,
-                &dest->u.audio.codec_config);
-            if (rc != VOD_OK) {
-                ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                    "ngx_live_media_info_parse: failed to parse mp4a config");
-                return NGX_BAD_DATA;
-            }
-
-            dest->codec_id = VOD_CODEC_ID_AAC;
-            dest->format = FORMAT_MP4A;
-            dest->u.audio.object_type_id = 0x40;
-            break;
-
-        case KMP_CODEC_AUDIO_MP3:
-            dest->codec_id = VOD_CODEC_ID_MP3;
-            dest->format = FORMAT_MP4A;
-            dest->u.audio.object_type_id = src->u.audio.sample_rate > 24000 ?
-                0x6B : 0x69;
-            break;
-
-        default:
-            ngx_log_error(NGX_LOG_ERR, log, 0,
-                "ngx_live_media_info_parse: invalid audio codec id %uD",
-                src->codec_id);
-            return NGX_BAD_DATA;
-        }
-
-        dest->media_type = MEDIA_TYPE_AUDIO;
-        dest->u.audio.channels = src->u.audio.channels;
-        dest->u.audio.bits_per_sample = src->u.audio.bits_per_sample;
-        dest->u.audio.packet_size = 0;
-        dest->u.audio.sample_rate = src->u.audio.sample_rate;
-
-        if (codec_config_get_audio_codec_name(log, dest) != VOD_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_media_info_parse: failed to get audio codec name");
-            return NGX_BAD_DATA;
-        }
-        break;
-
-    default:
-        ngx_log_error(NGX_LOG_ALERT, log, 0,
-            "ngx_live_media_info_parse: invalid media type %uD",
-            src->media_type);
-        return NGX_BAD_DATA;
-    }
-
-    dest->bitrate = src->bitrate;
-    dest->timescale = src->timescale;
-    dest->frames_timescale = src->timescale;
-
-    return NGX_OK;
-}
-
-media_info_t *
-ngx_live_media_info_clone(ngx_pool_t *pool, media_info_t *src)
-{
-    u_char        *p;
-    media_info_t  *dst;
-
-    dst = ngx_palloc(pool, sizeof(*dst) + src->codec_name.len +
-        src->extra_data.len + src->parsed_extra_data.len);
-    if (dst == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_LIVE, pool->log, 0,
-            "ngx_live_media_info_clone: alloc failed");
-        return NULL;
-    }
-
-    *dst = *src;
-
-    p = (void *) (dst + 1);
-
-    dst->codec_name.data = p;
-    p = ngx_copy(p, src->codec_name.data, src->codec_name.len);
-
-    dst->extra_data.data = p;
-    p = ngx_copy(p, src->extra_data.data, src->extra_data.len);
-
-    dst->parsed_extra_data.data = p;
-    ngx_memcpy(p, src->parsed_extra_data.data, src->parsed_extra_data.len);
-
-    return dst;
-}
-
 ngx_int_t
 ngx_live_media_info_write(ngx_persist_write_ctx_t *write_ctx,
-    ngx_live_media_info_persist_t *mp, kmp_media_info_t *kmp_media_info,
-    ngx_str_t *extra_data)
+    ngx_live_media_info_persist_t *mp, ngx_live_media_info_t *media_info)
 {
     if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO) != NGX_OK)
@@ -366,16 +149,16 @@ ngx_live_media_info_write(ngx_persist_write_ctx_t *write_ctx,
         return NGX_ERROR;
     }
 
-    if (ngx_persist_write(write_ctx, kmp_media_info, sizeof(*kmp_media_info))
-        != NGX_OK)
+    if (ngx_persist_write(write_ctx, &media_info->info,
+        sizeof(media_info->info)) != NGX_OK)
     {
         return NGX_ERROR;
     }
 
     ngx_persist_write_block_set_header(write_ctx, 0);
 
-    if (ngx_persist_write(write_ctx, extra_data->data, extra_data->len)
-        != NGX_OK)
+    if (ngx_persist_write(write_ctx, media_info->extra.data,
+        media_info->extra.len) != NGX_OK)
     {
         return NGX_ERROR;
     }
@@ -397,13 +180,8 @@ ngx_live_media_info_node_free(ngx_live_channel_t *channel,
     mipcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_media_info_module);
 
-    if (node->media_info.extra_data.data != NULL) {
-        ngx_live_channel_auto_free(channel, node->media_info.extra_data.data);
-    }
-
-    if (node->media_info.parsed_extra_data.data != NULL) {
-        ngx_live_channel_auto_free(channel,
-            node->media_info.parsed_extra_data.data);
+    if (node->media_info.extra.data != NULL) {
+        ngx_live_channel_auto_free(channel, node->media_info.extra.data);
     }
 
     if (node->queue.next != NULL) {
@@ -419,7 +197,6 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
     kmp_media_info_t *media_info, ngx_buf_chain_t *extra_data,
     uint32_t extra_data_size, ngx_live_media_info_node_t **result)
 {
-    ngx_int_t                           rc;
     ngx_live_channel_t                 *channel;
     ngx_live_media_info_node_t         *node;
     ngx_live_core_preset_conf_t        *cpcf;
@@ -456,20 +233,33 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
         return NGX_ERROR;
     }
 
-    node->media_info.codec_name.data = node->codec_name;
+    node->media_info.info = *media_info;
 
-    rc = ngx_live_media_info_parse(&track->log,
-        (ngx_live_media_info_alloc_pt) ngx_block_pool_auto_alloc,
-        channel->block_pool, media_info, extra_data, extra_data_size,
-        &node->media_info);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_live_media_info_node_create: failed to parse media info");
-        ngx_live_media_info_node_free(channel, node);
-        return rc;
+    if (extra_data_size > 0) {
+
+        node->media_info.extra.data = ngx_live_channel_auto_alloc(channel,
+            extra_data_size);
+        if (node->media_info.extra.data == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_media_info_node_create: alloc failed, size: %uD",
+                extra_data_size);
+            ngx_live_media_info_node_free(channel, node);
+            return NGX_ERROR;
+        }
+
+        if (ngx_buf_chain_copy(&extra_data, node->media_info.extra.data,
+            extra_data_size) == NULL)
+        {
+            ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
+                "ngx_live_media_info_node_create: failed to copy extra data");
+            ngx_live_media_info_node_free(channel, node);
+            return NGX_ERROR;
+        }
+
+    } else {
+        node->media_info.extra.data = NULL;
     }
-
-    node->kmp_media_info = *media_info;
+    node->media_info.extra.len = extra_data_size;
 
     node->track_id = track->in.key;
 
@@ -492,41 +282,33 @@ ngx_live_media_info_node_clone(ngx_live_channel_t *channel,
         mipcf->bp_idx[NGX_LIVE_BP_MEDIA_INFO_NODE]);
     if (node == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_media_info_node_clone: alloc failed");
+            "ngx_live_media_info_node_clone: alloc failed (1)");
         return NULL;
     }
 
     *node = *src;
 
     node->queue.next = NULL;
-    node->media_info.codec_name.data = node->codec_name;
-    node->media_info.extra_data.data = NULL;
-    node->media_info.parsed_extra_data.data = NULL;
 
-    if (ngx_live_media_info_copy_str(channel, &node->media_info.extra_data,
-        &src->media_info.extra_data) != NGX_OK)
-    {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_media_info_node_clone: copy extra data failed");
-        goto error;
+    if (src->media_info.extra.len <= 0) {
+        node->media_info.extra.data = NULL;
+        return node;
     }
 
-    if (ngx_live_media_info_copy_str(channel,
-        &node->media_info.parsed_extra_data,
-        &src->media_info.parsed_extra_data) != NGX_OK)
-    {
+    node->media_info.extra.data = ngx_live_channel_auto_alloc(channel,
+        src->media_info.extra.len);
+    if (node->media_info.extra.data == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_media_info_node_clone: copy parsed extra data failed");
-        goto error;
+            "ngx_live_media_info_node_clone: alloc failed (2)");
+        ngx_block_pool_free(channel->block_pool,
+            mipcf->bp_idx[NGX_LIVE_BP_MEDIA_INFO_NODE], node);
+        return NULL;
     }
+
+    ngx_memcpy(node->media_info.extra.data, src->media_info.extra.data,
+        src->media_info.extra.len);
 
     return node;
-
-error:
-
-    ngx_live_media_info_node_free(channel, node);
-
-    return NULL;
 }
 
 static ngx_flag_t
@@ -534,10 +316,10 @@ ngx_live_media_info_node_compare(ngx_live_media_info_node_t *node,
     kmp_media_info_t *media_info, ngx_buf_chain_t *extra_data,
     uint32_t extra_data_size)
 {
-    return ngx_memcmp(&node->kmp_media_info, media_info,
-        sizeof(node->kmp_media_info)) == 0 &&
-        node->media_info.extra_data.len == extra_data_size &&
-        ngx_buf_chain_compare(extra_data, node->media_info.extra_data.data,
+    return ngx_memcmp(&node->media_info.info, media_info,
+        sizeof(node->media_info.info)) == 0 &&
+        node->media_info.extra.len == extra_data_size &&
+        ngx_buf_chain_compare(extra_data, node->media_info.extra.data,
             extra_data_size) == 0;
 }
 
@@ -554,8 +336,7 @@ ngx_live_media_info_node_write(ngx_persist_write_ctx_t *write_ctx,
     mp.bitrate_count = node->bitrate_count;
     mp.bitrate_max = node->bitrate_max;
 
-    return ngx_live_media_info_write(write_ctx, &mp, &node->kmp_media_info,
-        &node->media_info.extra_data);
+    return ngx_live_media_info_write(write_ctx, &mp, &node->media_info);
 }
 
 
@@ -848,24 +629,6 @@ ngx_live_media_info_queue_get_after(ngx_live_media_info_track_ctx_t *ctx,
 }
 #endif
 
-media_info_t *
-ngx_live_media_info_queue_get(ngx_live_track_t *track, uint32_t segment_index,
-    uint32_t *track_id)
-{
-    ngx_live_media_info_node_t       *node;
-    ngx_live_media_info_track_ctx_t  *ctx;
-
-    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
-
-    node = ngx_live_media_info_queue_get_before(ctx, segment_index);
-    if (node == NULL) {
-        return NULL;
-    }
-
-    *track_id = node->track_id;
-    return &node->media_info;
-}
-
 ngx_live_media_info_node_t *
 ngx_live_media_info_queue_get_node(ngx_live_track_t *track,
     uint32_t segment_index, uint32_t *track_id)
@@ -884,9 +647,8 @@ ngx_live_media_info_queue_get_node(ngx_live_track_t *track,
     return node;
 }
 
-media_info_t *
-ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
-    kmp_media_info_t **kmp_media_info)
+ngx_live_media_info_t *
+ngx_live_media_info_queue_get_last(ngx_live_track_t *track)
 {
     ngx_queue_t                      *q;
     ngx_live_media_info_node_t       *node;
@@ -901,9 +663,6 @@ ngx_live_media_info_queue_get_last(ngx_live_track_t *track,
 
     node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
-    if (kmp_media_info != NULL) {
-        *kmp_media_info = &node->kmp_media_info;
-    }
     return &node->media_info;
 }
 
@@ -943,7 +702,7 @@ ngx_live_media_info_queue_copy_last(ngx_live_track_t *dst,
 
 /* source */
 
-static media_info_t *
+static kmp_media_info_t *
 ngx_live_media_info_source_get_target(ngx_live_track_t *track)
 {
     ngx_queue_t                      *q;
@@ -955,7 +714,7 @@ ngx_live_media_info_source_get_target(ngx_live_track_t *track)
     q = ngx_queue_last(&ctx->pending);
     if (q != ngx_queue_sentinel(&ctx->pending)) {
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-        return &node->media_info;
+        return &node->media_info.info;
     }
 
     for (q = ngx_queue_last(&ctx->active);
@@ -967,15 +726,15 @@ ngx_live_media_info_source_get_target(ngx_live_track_t *track)
             continue;
         }
 
-        return &node->media_info;
+        return &node->media_info.info;
     }
 
     return NULL;
 }
 
 static ngx_int_t
-ngx_live_media_info_source_compare(media_info_t *target, media_info_t *mi1,
-    media_info_t *mi2)
+ngx_live_media_info_source_compare(kmp_media_info_t *target,
+    kmp_media_info_t *mi1, kmp_media_info_t *mi2)
 {
     /* return: -1 = mi1 is closer to target, 1 = mi2 is closer to target */
 
@@ -1074,9 +833,9 @@ ngx_live_media_info_source_get(ngx_live_track_t *track,
     ngx_flag_t require_last_segment)
 {
     ngx_queue_t                      *q, *cq;
-    media_info_t                     *cur_media_info;
-    media_info_t                     *target_media_info;
-    media_info_t                     *source_media_info;
+    kmp_media_info_t                 *cur_media_info;
+    kmp_media_info_t                 *target_media_info;
+    kmp_media_info_t                 *source_media_info;
     ngx_live_track_t                 *source;
     ngx_live_track_t                 *cur_track;
     ngx_live_channel_t               *channel;
@@ -1130,7 +889,7 @@ ngx_live_media_info_source_get(ngx_live_track_t *track,
         }
 
         node = ngx_queue_data(cq, ngx_live_media_info_node_t, queue);
-        cur_media_info = &node->media_info;
+        cur_media_info = &node->media_info.info;
 
         if (source == NULL ||
             source->type > cur_track->type ||   /* prefer non-filler */
@@ -1581,73 +1340,6 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
 }
 
 
-/* iterator */
-
-ngx_flag_t
-ngx_live_media_info_iter_init(ngx_live_media_info_iter_t *iter,
-    ngx_live_track_t *track, uint32_t segment_index)
-{
-    ngx_queue_t                      *q;
-    ngx_live_media_info_track_ctx_t  *ctx;
-
-    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
-
-    iter->sentinel = ngx_queue_sentinel(&ctx->active);
-
-    iter->cur = ngx_live_media_info_queue_get_before(ctx, segment_index);
-    if (iter->cur != NULL) {
-        return 1;
-    }
-
-    q = ngx_queue_head(&ctx->active);
-    if (q != ngx_queue_sentinel(&ctx->active)) {
-        iter->cur = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-        return 1;
-    }
-
-    /* iter->cur was already set to NULL */
-    return 0;
-}
-
-uint32_t
-ngx_live_media_info_iter_next(ngx_live_media_info_iter_t *iter,
-    uint32_t segment_index, media_info_t **media_info)
-{
-    ngx_queue_t                 *q;
-    ngx_live_media_info_node_t  *next;
-
-    if (iter->cur == NULL) {
-        *media_info = NULL;
-        return NGX_LIVE_INVALID_SEGMENT_INDEX;
-    }
-
-    for ( ;; ) {
-
-        q = ngx_queue_next(&iter->cur->queue);
-        if (q == iter->sentinel) {
-            break;
-        }
-
-        next = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-
-        if (segment_index < next->node.key) {
-            break;
-        }
-
-        iter->cur = next;
-    }
-
-    if (segment_index >= iter->cur->node.key) {
-        *media_info = &iter->cur->media_info;
-
-    } else {
-        *media_info = NULL;
-    }
-
-    return iter->cur->node.key;
-}
-
-
 static void
 ngx_live_media_info_own_iter_init(ngx_live_media_info_own_iter_t *iter,
     ngx_live_track_t *track, uint32_t start_index)
@@ -1844,16 +1536,14 @@ ngx_live_media_info_track_json_get_size(void *obj)
 
     result += sizeof(",\"last\":") - 1;
 
-    switch (node->media_info.media_type) {
+    switch (node->media_info.info.media_type) {
 
     case KMP_MEDIA_VIDEO:
-        result += ngx_live_media_info_json_video_get_size(
-            &node->kmp_media_info, &node->media_info);
+        result += ngx_live_media_info_json_video_get_size(&node->media_info);
         break;
 
     case KMP_MEDIA_AUDIO:
-        result += ngx_live_media_info_json_audio_get_size(
-            &node->kmp_media_info, &node->media_info);
+        result += ngx_live_media_info_json_audio_get_size(&node->media_info);
         break;
     }
 
@@ -1901,16 +1591,14 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
 
     p = ngx_copy_fix(p, ",\"last\":");
 
-    switch (node->media_info.media_type) {
+    switch (node->media_info.info.media_type) {
 
     case KMP_MEDIA_VIDEO:
-        p = ngx_live_media_info_json_video_write(p, &node->kmp_media_info,
-            &node->media_info);
+        p = ngx_live_media_info_json_video_write(p, &node->media_info);
         break;
 
     case KMP_MEDIA_AUDIO:
-        p = ngx_live_media_info_json_audio_write(p, &node->kmp_media_info,
-            &node->media_info);
+        p = ngx_live_media_info_json_audio_write(p, &node->media_info);
         break;
     }
 
@@ -2370,30 +2058,29 @@ ngx_live_media_info_write_media_segment(
 
     segment = ctx->segment;
 
-    return ngx_live_media_info_write(write_ctx, NULL, segment->kmp_media_info,
-        &segment->media_info->extra_data);
+    return ngx_live_media_info_write(write_ctx, NULL, segment->media_info);
 }
 
 static ngx_int_t
 ngx_live_media_info_read_media_segment(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
-    media_info_t        *media_info;
-    kmp_media_info_t    *kmp_media_info;
-    ngx_live_segment_t  *segment = obj;
+    ngx_live_segment_t     *segment = obj;
+    ngx_live_media_info_t  *media_info;
 
-    kmp_media_info = ngx_mem_rstream_get_ptr(rs, sizeof(*kmp_media_info));
-    if (kmp_media_info == NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_media_info_read_media_segment: read header failed");
-        return NGX_BAD_DATA;
-    }
-
-    media_info = ngx_pcalloc(segment->pool, sizeof(*media_info));
+    media_info = ngx_palloc(segment->pool, sizeof(*media_info));
     if (media_info == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_live_media_info_read_media_segment: alloc failed");
         return NGX_ERROR;
+    }
+
+    if (ngx_mem_rstream_read(rs, &media_info->info, sizeof(media_info->info))
+        != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_media_info_read_media_segment: read header failed");
+        return NGX_BAD_DATA;
     }
 
     if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
@@ -2401,9 +2088,8 @@ ngx_live_media_info_read_media_segment(ngx_persist_block_header_t *header,
     }
 
 
-    ngx_mem_rstream_get_left(rs, &media_info->extra_data);
+    ngx_mem_rstream_get_left(rs, &media_info->extra);
 
-    segment->kmp_media_info = kmp_media_info;
     segment->media_info = media_info;
 
     return NGX_OK;

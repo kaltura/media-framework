@@ -820,7 +820,7 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
             }
 
         } else {
-            if (ngx_live_media_info_queue_get_last(cur_track, NULL) == NULL) {
+            if (ngx_live_media_info_queue_get_last(cur_track) == NULL) {
                 ngx_http_live_ksmp_set_error(params,
                     NGX_KSMP_ERR_MEDIA_INFO_NOT_FOUND,
                     "no media info, track: %V, variant: %V, channel: %V",
@@ -1056,7 +1056,8 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
     if (params->time != NGX_KSMP_INVALID_TIMESTAMP) {
         cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
-        params->time = rescale_time(params->time, 1000, cpcf->timescale);
+        params->time = ngx_live_rescale_time(params->time, 1000,
+            cpcf->timescale);
 
         if (ngx_live_timeline_get_time(timeline, params->flags,
             r->connection->log, &params->time))

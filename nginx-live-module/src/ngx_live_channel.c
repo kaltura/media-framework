@@ -592,7 +592,7 @@ ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
 
 
 ngx_flag_t
-ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
+ngx_live_variant_is_active_channel_last(ngx_live_variant_t *variant,
     uint32_t req_media_types)
 {
     uint32_t             media_type_flag;
@@ -655,7 +655,8 @@ ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
 
     if (segment_index + 1 == channel->next_segment_index) {
         /* more optimized impl. when the timeline has the last segment */
-        return ngx_live_variant_is_main_track_active(variant, req_media_types);
+        return ngx_live_variant_is_active_channel_last(variant,
+            req_media_types);
     }
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
