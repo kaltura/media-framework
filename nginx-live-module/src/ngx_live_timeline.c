@@ -591,8 +591,6 @@ ngx_live_timeline_log_error(ngx_log_t *log, u_char *buf, size_t len)
 
         p = ngx_snprintf(buf, len, ", nsi: %uD, timeline: %V, channel: %V",
             channel->next_segment_index, &timeline->sn.str, &channel->sn.str);
-        len -= p - buf;
-        buf = p;
     }
 
     return p;

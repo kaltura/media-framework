@@ -480,36 +480,6 @@ ngx_live_media_info_queue_free_all(ngx_live_track_t *track)
 
 
 static ngx_live_media_info_node_t *
-ngx_live_media_info_queue_get_exact(ngx_live_media_info_track_ctx_t *ctx,
-    uint32_t segment_index)
-{
-    ngx_rbtree_t       *rbtree;
-    ngx_rbtree_node_t  *rbnode;
-    ngx_rbtree_node_t  *sentinel;
-
-    rbtree = &ctx->rbtree;
-    rbnode = rbtree->root;
-    sentinel = rbtree->sentinel;
-
-    while (rbnode != sentinel) {
-
-        if (segment_index < rbnode->key) {
-            rbnode = rbnode->left;
-            continue;
-        }
-
-        if (segment_index > rbnode->key) {
-            rbnode = rbnode->right;
-            continue;
-        }
-
-        return (ngx_live_media_info_node_t *) rbnode;
-    }
-
-    return NULL;
-}
-
-static ngx_live_media_info_node_t *
 ngx_live_media_info_queue_get_before(ngx_live_media_info_track_ctx_t *ctx,
     uint32_t segment_index)
 {
@@ -1963,9 +1933,9 @@ static ngx_int_t
 ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
-    uint32_t                          min_index;
     ngx_int_t                         rc;
     ngx_str_t                         data;
+    ngx_queue_t                      *q;
     ngx_buf_chain_t                   chain;
     ngx_live_track_t                 *track = obj;
     kmp_media_info_t                 *media_info;
@@ -1973,10 +1943,6 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
     ngx_live_media_info_persist_t    *mp;
     ngx_live_persist_index_scope_t   *scope;
     ngx_live_media_info_track_ctx_t  *ctx;
-
-    scope = ngx_mem_rstream_scope(rs);
-
-    min_index = scope->min_index;
 
     mp = ngx_mem_rstream_get_ptr(rs, sizeof(*mp) + sizeof(*media_info));
     if (mp == NULL) {
@@ -1987,23 +1953,35 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
-    if (mp->segment_index < min_index && !ngx_queue_empty(&ctx->active)) {
+    scope = ngx_mem_rstream_scope(rs);
 
-        /* update bitrate stats */
-        node = ngx_live_media_info_queue_get_exact(ctx, mp->segment_index);
-        if (node == NULL) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_media_info_read_index: "
-                "segment index %uD is before min %uD and does not exist",
-                mp->segment_index, min_index);
-            return NGX_BAD_DATA;
+    q = ngx_queue_last(&ctx->active);
+    if (q != ngx_queue_sentinel(&ctx->active)) {
+        node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+
+        if (mp->segment_index < scope->min_index) {
+            if (mp->segment_index != node->node.key) {
+                ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                    "ngx_live_media_info_read_index: "
+                    "index %uD is before min %uD and does not match last %ui",
+                    mp->segment_index, scope->min_index, node->node.key);
+                return NGX_BAD_DATA;
+            }
+
+            /* update bitrate stats */
+            node->bitrate_sum = mp->bitrate_sum;
+            node->bitrate_count = mp->bitrate_count;
+            node->bitrate_max = mp->bitrate_max;
+
+            return NGX_OK;
         }
 
-        node->bitrate_sum = mp->bitrate_sum;
-        node->bitrate_count = mp->bitrate_count;
-        node->bitrate_max = mp->bitrate_max;
-
-        return NGX_OK;
+        if (mp->segment_index <= node->node.key) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_live_media_info_read_index: index %uD is before last %ui",
+                mp->segment_index, node->node.key);
+            return NGX_BAD_DATA;
+        }
     }
 
     if (mp->segment_index > scope->max_index) {
@@ -2013,8 +1991,6 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
             mp->segment_index, scope->max_index);
         return NGX_BAD_DATA;
     }
-
-    min_index = mp->segment_index + 1;
 
     if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;

@@ -162,7 +162,7 @@ ngx_http_live_ksmp_args_parse(ngx_http_request_t *r,
 
     p = ngx_copy(buf, r->args.data, r->args.len);
     *p++ = '&';
-    *p++ = '\0';
+    *p = '\0';
 
     p = buf;
 

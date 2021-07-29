@@ -87,8 +87,6 @@ ngx_live_channel_log_error(ngx_log_t *log, u_char *buf, size_t len)
     if (channel != NULL) {
         p = ngx_snprintf(buf, len, ", nsi: %uD, channel: %V",
             channel->next_segment_index, &channel->sn.str);
-        len -= p - buf;
-        buf = p;
     }
 
     return p;
@@ -883,8 +881,6 @@ ngx_live_track_log_error(ngx_log_t *log, u_char *buf, size_t len)
 
         p = ngx_snprintf(buf, len, ", nsi: %uD, track: %V, channel: %V",
             channel->next_segment_index, &track->sn.str, &channel->sn.str);
-        len -= p - buf;
-        buf = p;
     }
 
     return p;

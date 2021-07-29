@@ -208,7 +208,6 @@ ngx_live_input_bufs_free_bufs(ngx_live_input_bufs_t *input_bufs)
         cur = ngx_queue_data(q, ngx_live_input_bufs_lock_t, queue);
 
         if (cur->segment_index < segment_index) {
-            segment_index = cur->segment_index;
             ptr = cur->ptr;
         }
     }

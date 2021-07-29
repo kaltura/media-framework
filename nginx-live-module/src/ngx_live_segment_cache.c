@@ -18,12 +18,6 @@ typedef struct {
     uint32_t                count;
 } ngx_live_segment_cache_track_ctx_t;
 
-typedef struct {
-    size_t                  frame_left;
-    ngx_buf_chain_t        *chain;
-    u_char                 *pos;
-} ngx_live_segment_cache_source_state_t;
-
 
 static ngx_int_t ngx_live_segment_cache_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_segment_cache_postconfiguration(ngx_conf_t *cf);

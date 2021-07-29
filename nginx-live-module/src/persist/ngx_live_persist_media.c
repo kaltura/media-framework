@@ -801,7 +801,7 @@ ngx_live_persist_media_serve(ngx_live_segment_serve_req_t *req)
 
     if (req->flags & NGX_KSMP_FLAG_MEDIA_CLIP) {
         ctx->write_ctx = ngx_persist_write_init(pool, 0, 0);
-        if (ctx == NULL) {
+        if (ctx->write_ctx == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
                 "ngx_live_persist_media_serve: failed to init writer");
             return NGX_ERROR;
