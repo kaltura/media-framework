@@ -123,7 +123,7 @@ static ngx_live_variable_t  ngx_live_persist_media_vars[] = {
 };
 
 
-/* copy */
+/* serve */
 
 typedef struct {
     uint32_t    id;
@@ -155,13 +155,13 @@ typedef struct {
     uint32_t                                  read_tracks;
     uint32_t                                  track_count;
     ngx_live_persist_media_read_track_ctx_t   tracks[1];    /* must be last */
-} ngx_live_persist_media_copy_ctx_t;
+} ngx_live_persist_media_serve_ctx_t;
 
 
 /* TODO: rename the below functions to use the module prefix */
 
 static ngx_int_t
-ngx_live_segment_cache_read_frame_list(ngx_persist_block_header_t *header,
+ngx_live_persist_media_read_frame_list(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_str_t            frames;
@@ -170,7 +170,7 @@ ngx_live_segment_cache_read_frame_list(ngx_persist_block_header_t *header,
 
     if (segment->frames.part.elts != NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-            "ngx_live_segment_cache_read_frame_list: duplicate block");
+            "ngx_live_persist_media_read_frame_list: duplicate block");
         return NGX_BAD_DATA;
     }
 
@@ -184,7 +184,7 @@ ngx_live_segment_cache_read_frame_list(ngx_persist_block_header_t *header,
     frame_count = frames.len / sizeof(ngx_live_frame_t);
     if (frame_count != segment->frame_count) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_segment_cache_read_frame_list: frame count mismatch"
+            "ngx_live_persist_media_read_frame_list: frame count mismatch"
             ", expected: %ui, actual: %ui",
             segment->frame_count, frame_count);
         return NGX_BAD_DATA;
@@ -198,7 +198,7 @@ ngx_live_segment_cache_read_frame_list(ngx_persist_block_header_t *header,
 
 
 static ngx_int_t
-ngx_live_segment_cache_read_frame_data(ngx_persist_block_header_t *header,
+ngx_live_persist_media_read_frame_data(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_str_t            data;
@@ -207,7 +207,7 @@ ngx_live_segment_cache_read_frame_data(ngx_persist_block_header_t *header,
 
     if (segment->data_head != NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-            "ngx_live_segment_cache_read_frame_data: duplicate block");
+            "ngx_live_persist_media_read_frame_data: duplicate block");
         return NGX_BAD_DATA;
     }
 
@@ -221,7 +221,7 @@ ngx_live_segment_cache_read_frame_data(ngx_persist_block_header_t *header,
     chain = ngx_palloc(segment->pool, sizeof(*chain));
     if (chain == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-            "ngx_live_segment_cache_read_frame_data: alloc failed");
+            "ngx_live_persist_media_read_frame_data: alloc failed");
         return NGX_ERROR;
     }
 
@@ -288,7 +288,7 @@ ngx_live_persist_media_finalize_segment(ngx_live_segment_t *segment,
 
 
 static ngx_int_t
-ngx_live_segment_cache_read_segment(ngx_persist_block_header_t *header,
+ngx_live_persist_media_read_segment(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                      rc;
@@ -299,20 +299,20 @@ ngx_live_segment_cache_read_segment(ngx_persist_block_header_t *header,
 
     if (segment->frame_count > 0) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_segment_cache_read_segment: duplicate block");
+            "ngx_live_persist_media_read_segment: duplicate block");
         return NGX_BAD_DATA;
     }
 
     h = ngx_mem_rstream_get_ptr(rs, sizeof(*h));
     if (h == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_segment_cache_read_segment: read header failed");
+            "ngx_live_persist_media_read_segment: read header failed");
         return NGX_BAD_DATA;
     }
 
     if (h->frame_count <= 0) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_segment_cache_read_segment: invalid frame count");
+            "ngx_live_persist_media_read_segment: invalid frame count");
         return NGX_BAD_DATA;
     }
 
@@ -331,7 +331,7 @@ ngx_live_segment_cache_read_segment(ngx_persist_block_header_t *header,
     pmcf = ngx_mem_rstream_scope(rs);
 
     rc = ngx_live_persist_read_blocks_internal(pmcf,
-        NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, rs, segment);
+        NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER, rs, segment);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -339,7 +339,7 @@ ngx_live_segment_cache_read_segment(ngx_persist_block_header_t *header,
     *rs = save;
 
     rc = ngx_live_persist_read_blocks_internal(pmcf,
-        NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_DATA, rs, segment);
+        NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_DATA, rs, segment);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -350,8 +350,8 @@ ngx_live_segment_cache_read_segment(ngx_persist_block_header_t *header,
 
 
 static ngx_int_t
-ngx_live_persist_media_copy_parse_header(
-    ngx_live_persist_media_copy_ctx_t *ctx, ngx_str_t *buf)
+ngx_live_persist_media_serve_parse_header(
+    ngx_live_persist_media_serve_ctx_t *ctx, ngx_str_t *buf)
 {
     size_t                           total_size;
     uint32_t                         i;
@@ -372,7 +372,7 @@ ngx_live_persist_media_copy_parse_header(
         NULL, &rs);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_live_persist_media_copy_parse_header: "
+            "ngx_live_persist_media_serve_parse_header: "
             "read file header failed %i", rc);
         return rc == NGX_DECLINED ? NGX_HTTP_NOT_FOUND : NGX_HTTP_BAD_GATEWAY;
     }
@@ -380,27 +380,28 @@ ngx_live_persist_media_copy_parse_header(
     header = ngx_persist_read_block(&rs, &rs);
     if (header == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_live_persist_media_copy_parse_header: read block failed (1)");
+            "ngx_live_persist_media_serve_parse_header: "
+            "read block failed (1)");
         return NGX_HTTP_BAD_GATEWAY;
     }
 
     if (header->id != NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY_LIST) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_persist_media_copy_parse_header: "
+            "ngx_live_persist_media_serve_parse_header: "
             "unexpected block, id: 0x%uxD", header->id);
         return NGX_HTTP_BAD_GATEWAY;
     }
 
     if (ngx_mem_rstream_str_get(&rs, &channel_id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_persist_media_copy_parse_header: "
+            "ngx_live_persist_media_serve_parse_header: "
             "read channel id failed");
         return NGX_HTTP_BAD_GATEWAY;
     }
 
     if (ngx_mem_rstream_str_get(&rs, &opaque) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_persist_media_copy_parse_header: "
+            "ngx_live_persist_media_serve_parse_header: "
             "read channel header failed");
         return NGX_HTTP_BAD_GATEWAY;
     }
@@ -409,7 +410,7 @@ ngx_live_persist_media_copy_parse_header(
     channel_id_hash = ngx_crc32_short(channel_id.data, channel_id.len);
     if (channel_id_hash != ctx->channel_id_hash) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_persist_media_copy_parse_header: "
+            "ngx_live_persist_media_serve_parse_header: "
             "channel id \"%V\" mismatch", &channel_id);
         return NGX_HTTP_BAD_GATEWAY;
     }
@@ -417,14 +418,14 @@ ngx_live_persist_media_copy_parse_header(
     uid = ngx_mem_rstream_get_ptr(&rs, sizeof(*uid));
     if (uid == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_persist_media_copy_parse_header: "
+            "ngx_live_persist_media_serve_parse_header: "
             "read uid failed");
         return NGX_HTTP_BAD_GATEWAY;
     }
 
     if (*uid != ctx->uid) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_persist_media_copy_parse_header: "
+            "ngx_live_persist_media_serve_parse_header: "
             "uid mismatch, actual: %016uxL, expected: %016uxL",
             *uid, ctx->uid);
         return NGX_HTTP_BAD_GATEWAY;
@@ -432,7 +433,7 @@ ngx_live_persist_media_copy_parse_header(
 
     if (ngx_persist_read_skip_block_header(&rs, header) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_live_persist_media_copy_parse_header: skip header failed");
+            "ngx_live_persist_media_serve_parse_header: skip header failed");
         return NGX_HTTP_BAD_GATEWAY;
     }
 
@@ -446,7 +447,7 @@ ngx_live_persist_media_copy_parse_header(
         header = ngx_persist_read_block(&rs, &block_rs);
         if (header == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_persist_media_copy_parse_header: "
+                "ngx_live_persist_media_serve_parse_header: "
                 "read block failed (2)");
             return NGX_HTTP_BAD_GATEWAY;
         }
@@ -458,7 +459,7 @@ ngx_live_persist_media_copy_parse_header(
         entry = ngx_mem_rstream_get_ptr(&block_rs, sizeof(*entry));
         if (entry == NULL) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
-                "ngx_live_persist_media_copy_parse_header: "
+                "ngx_live_persist_media_serve_parse_header: "
                 "read segment entry failed");
             return NGX_HTTP_BAD_GATEWAY;
         }
@@ -476,7 +477,7 @@ ngx_live_persist_media_copy_parse_header(
 
             if (found_tracks & (1 << i)) {
                 ngx_log_error(NGX_LOG_ERR, log, 0,
-                    "ngx_live_persist_media_copy_parse_header: "
+                    "ngx_live_persist_media_serve_parse_header: "
                     "track %uD found more than once", entry->track_id);
                 return NGX_HTTP_BAD_GATEWAY;
             }
@@ -493,7 +494,7 @@ ngx_live_persist_media_copy_parse_header(
 
     if (!found_tracks) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_live_persist_media_copy_parse_header: "
+            "ngx_live_persist_media_serve_parse_header: "
             "segment %uD not found on any track",
             ctx->segment_index);
     }
@@ -502,7 +503,7 @@ ngx_live_persist_media_copy_parse_header(
         rc = ctx->writer.set_size(ctx->writer.arg, total_size);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "ngx_live_persist_media_copy_parse_header: "
+                "ngx_live_persist_media_serve_parse_header: "
                 "set size failed %i", rc);
             return rc;
         }
@@ -512,7 +513,7 @@ ngx_live_persist_media_copy_parse_header(
 }
 
 static ngx_int_t
-ngx_live_persist_media_copy_passthrough(ngx_live_persist_media_copy_ctx_t *ctx,
+ngx_live_persist_media_serve_copy(ngx_live_persist_media_serve_ctx_t *ctx,
     ngx_buf_t *response)
 {
     ngx_buf_t    *b;
@@ -522,7 +523,7 @@ ngx_live_persist_media_copy_passthrough(ngx_live_persist_media_copy_ctx_t *ctx,
     b = ngx_calloc_buf(ctx->pool);
     if (b == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_copy_passthrough: alloc buf failed");
+            "ngx_live_persist_media_serve_copy: alloc buf failed");
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
@@ -533,7 +534,7 @@ ngx_live_persist_media_copy_passthrough(ngx_live_persist_media_copy_ctx_t *ctx,
     cl = ngx_alloc_chain_link(ctx->pool);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_copy_passthrough: alloc chain failed");
+            "ngx_live_persist_media_serve_copy: alloc chain failed");
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
@@ -543,7 +544,7 @@ ngx_live_persist_media_copy_passthrough(ngx_live_persist_media_copy_ctx_t *ctx,
     rc = ctx->writer.write(ctx->writer.arg, cl);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_copy_passthrough: write failed %i", rc);
+            "ngx_live_persist_media_serve_copy: write failed %i", rc);
         return rc;
     }
 
@@ -551,8 +552,8 @@ ngx_live_persist_media_copy_passthrough(ngx_live_persist_media_copy_ctx_t *ctx,
 }
 
 static ngx_int_t
-ngx_live_persist_media_copy_clip_write(ngx_live_persist_media_copy_ctx_t *ctx,
-    ngx_buf_t *response)
+ngx_live_persist_media_serve_clip_write(
+    ngx_live_persist_media_serve_ctx_t *ctx, ngx_buf_t *response)
 {
     uint32_t                       ignore;
     ngx_int_t                      rc;
@@ -566,7 +567,7 @@ ngx_live_persist_media_copy_clip_write(ngx_live_persist_media_copy_ctx_t *ctx,
     segment = ngx_pcalloc(ctx->pool, sizeof(*segment));
     if (segment == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_copy_clip_write: alloc failed");
+            "ngx_live_persist_media_serve_clip_write: alloc failed");
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
@@ -574,10 +575,10 @@ ngx_live_persist_media_copy_clip_write(ngx_live_persist_media_copy_ctx_t *ctx,
     segment->pool = ctx->pool;
 
     rc = ngx_live_persist_read_blocks_internal(ctx->pmcf,
-        NGX_LIVE_PERSIST_CTX_SERVE_MAIN, &rs, segment);
+        NGX_LIVE_PERSIST_CTX_MEDIA_BUCKET, &rs, segment);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_copy_clip_write: "
+            "ngx_live_persist_media_serve_clip_write: "
             "read blocks failed %i", rc);
         return rc == NGX_BAD_DATA ? NGX_HTTP_BAD_GATEWAY
             : NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -585,7 +586,7 @@ ngx_live_persist_media_copy_clip_write(ngx_live_persist_media_copy_ctx_t *ctx,
 
     if (segment->frame_count <= 0) {
         ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
-            "ngx_live_persist_media_copy_clip_write: no segment read");
+            "ngx_live_persist_media_serve_clip_write: no segment read");
         return NGX_HTTP_BAD_GATEWAY;
     }
 
@@ -595,7 +596,7 @@ ngx_live_persist_media_copy_clip_write(ngx_live_persist_media_copy_ctx_t *ctx,
         &ignore) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_copy_clip_write: write failed");
+            "ngx_live_persist_media_serve_clip_write: write failed");
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
@@ -603,7 +604,8 @@ ngx_live_persist_media_copy_clip_write(ngx_live_persist_media_copy_ctx_t *ctx,
 }
 
 static ngx_int_t
-ngx_live_persist_media_copy_clip_close(ngx_live_persist_media_copy_ctx_t *ctx)
+ngx_live_persist_media_serve_clip_close(
+    ngx_live_persist_media_serve_ctx_t *ctx)
 {
     size_t        size;
     ngx_int_t     rc;
@@ -612,21 +614,21 @@ ngx_live_persist_media_copy_clip_close(ngx_live_persist_media_copy_ctx_t *ctx)
     cl = ngx_persist_write_close(ctx->write_ctx, &size, NULL);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_copy_clip_close: close failed");
+            "ngx_live_persist_media_serve_clip_close: close failed");
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     rc = ctx->writer.set_size(ctx->writer.arg, size);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_copy_clip_close: set size failed %i", rc);
+            "ngx_live_persist_media_serve_clip_close: set size failed %i", rc);
         return rc;
     }
 
     rc = ctx->writer.write(ctx->writer.arg, cl);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_copy_clip_close: write failed %i", rc);
+            "ngx_live_persist_media_serve_clip_close: write failed %i", rc);
         return rc;
     }
 
@@ -634,18 +636,18 @@ ngx_live_persist_media_copy_clip_close(ngx_live_persist_media_copy_ctx_t *ctx)
 }
 
 static void
-ngx_live_persist_media_copy_complete(void *arg, ngx_int_t code,
+ngx_live_persist_media_serve_complete(void *arg, ngx_int_t code,
     ngx_buf_t *response)
 {
     ngx_int_t                                 rc;
     ngx_str_t                                 buf;
-    ngx_live_persist_media_copy_ctx_t        *ctx = arg;
+    ngx_live_persist_media_serve_ctx_t       *ctx = arg;
     ngx_live_persist_media_channel_ctx_t     *cctx;
     ngx_live_persist_media_read_track_ctx_t  *tctx;
 
     if (code != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_copy_complete: read failed %i", code);
+            "ngx_live_persist_media_serve_complete: read failed %i", code);
         rc = code;
         goto done;
     }
@@ -655,10 +657,10 @@ ngx_live_persist_media_copy_complete(void *arg, ngx_int_t code,
         buf.data = response->pos;
         buf.len = response->last - response->pos;
 
-        rc = ngx_live_persist_media_copy_parse_header(ctx, &buf);
+        rc = ngx_live_persist_media_serve_parse_header(ctx, &buf);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-                "ngx_live_persist_media_copy_complete: "
+                "ngx_live_persist_media_serve_complete: "
                 "parse header failed %i", rc);
             goto done;
         }
@@ -666,10 +668,10 @@ ngx_live_persist_media_copy_complete(void *arg, ngx_int_t code,
     } else {
 
         if (ctx->write_ctx != NULL) {
-            rc = ngx_live_persist_media_copy_clip_write(ctx, response);
+            rc = ngx_live_persist_media_serve_clip_write(ctx, response);
 
         } else {
-            rc = ngx_live_persist_media_copy_passthrough(ctx, response);
+            rc = ngx_live_persist_media_serve_copy(ctx, response);
         }
 
         if (rc != NGX_OK) {
@@ -689,7 +691,7 @@ ngx_live_persist_media_copy_complete(void *arg, ngx_int_t code,
         rc = ctx->read(ctx->read_ctx, tctx->offset, tctx->size);
         if (rc != NGX_DONE) {
             ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-                "ngx_live_persist_media_copy_complete: read failed %i", rc);
+                "ngx_live_persist_media_serve_complete: read failed %i", rc);
             rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
             goto done;
         }
@@ -700,7 +702,7 @@ ngx_live_persist_media_copy_complete(void *arg, ngx_int_t code,
     }
 
     if (ctx->write_ctx != NULL) {
-        rc = ngx_live_persist_media_copy_clip_close(ctx);
+        rc = ngx_live_persist_media_serve_clip_close(ctx);
 
     } else {
         rc = NGX_OK;
@@ -729,9 +731,9 @@ done:
 }
 
 static void
-ngx_live_persist_media_copy_detach(void *data)
+ngx_live_persist_media_serve_detach(void *data)
 {
-    ngx_live_persist_media_copy_ctx_t     *ctx = data;
+    ngx_live_persist_media_serve_ctx_t    *ctx = data;
     ngx_live_persist_media_channel_ctx_t  *cctx;
 
     if (ctx->channel == NULL) {
@@ -748,7 +750,7 @@ ngx_live_persist_media_copy_detach(void *data)
 }
 
 static ngx_int_t
-ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
+ngx_live_persist_media_serve(ngx_live_segment_serve_req_t *req)
 {
     size_t                                 ctx_size;
     uint32_t                               i;
@@ -762,7 +764,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
     ngx_live_variables_ctx_t               vctx;
     ngx_live_store_read_request_t          request;
     ngx_live_persist_preset_conf_t        *ppcf;
-    ngx_live_persist_media_copy_ctx_t     *ctx;
+    ngx_live_persist_media_serve_ctx_t    *ctx;
     ngx_live_persist_core_preset_conf_t   *pcpcf;
     ngx_live_persist_media_preset_conf_t  *pmpcf;
     ngx_live_persist_media_channel_ctx_t  *cctx;
@@ -775,22 +777,22 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
 
     if (pcpcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_persist_media_copy: not enabled");
+            "ngx_live_persist_media_serve: not enabled");
         return NGX_OK;
     }
 
-    ctx_size = offsetof(ngx_live_persist_media_copy_ctx_t, tracks) +
+    ctx_size = offsetof(ngx_live_persist_media_serve_ctx_t, tracks) +
         req->track_count * sizeof(ctx->tracks[0]);
     cln = ngx_pool_cleanup_add(pool, ctx_size);
     if (cln == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_persist_media_copy: cleanup add failed");
+            "ngx_live_persist_media_serve: cleanup add failed");
         return NGX_ERROR;
     }
 
     if (ngx_live_variables_init_ctx(channel, pool, &vctx) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_persist_media_copy: failed to init var ctx");
+            "ngx_live_persist_media_serve: failed to init var ctx");
         return NGX_ERROR;
     }
 
@@ -801,7 +803,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
         ctx->write_ctx = ngx_persist_write_init(pool, 0, 0);
         if (ctx == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                "ngx_live_persist_media_copy: failed to init writer");
+                "ngx_live_persist_media_serve: failed to init writer");
             return NGX_ERROR;
         }
     }
@@ -822,13 +824,13 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
 
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_persist_media_copy: get path failed %i", rc);
+            "ngx_live_persist_media_serve: get path failed %i", rc);
         return NGX_ERROR;
     }
 
     request.pool = pool;
     request.channel = channel;
-    request.handler = ngx_live_persist_media_copy_complete;
+    request.handler = ngx_live_persist_media_serve_complete;
     request.data = ctx;
     request.max_size = 0;
 
@@ -838,7 +840,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
     ctx->read_ctx = store->read_init(&request);
     if (ctx->read_ctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_persist_media_copy: read init failed");
+            "ngx_live_persist_media_serve: read init failed");
         return NGX_ERROR;
     }
 
@@ -869,7 +871,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
     rc = ctx->read(ctx->read_ctx, 0, pmpcf->initial_read_size);
     if (rc != NGX_DONE) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_persist_media_copy: read failed %i", rc);
+            "ngx_live_persist_media_serve: read failed %i", rc);
         cctx->read_stats.error++;
         return NGX_ERROR;
     }
@@ -879,7 +881,7 @@ ngx_live_persist_media_copy(ngx_live_segment_copy_req_t *req)
     ctx->channel = channel;
     ngx_queue_insert_tail(&cctx->reads, &ctx->queue);
 
-    cln->handler = ngx_live_persist_media_copy_detach;
+    cln->handler = ngx_live_persist_media_serve_detach;
 
     return NGX_DONE;
 }
@@ -1475,7 +1477,7 @@ static ngx_int_t
 ngx_live_persist_media_channel_free(ngx_live_channel_t *channel, void *ectx)
 {
     ngx_queue_t                           *q;
-    ngx_live_persist_media_copy_ctx_t     *ctx;
+    ngx_live_persist_media_serve_ctx_t    *ctx;
     ngx_live_persist_media_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_media_module);
@@ -1487,7 +1489,7 @@ ngx_live_persist_media_channel_free(ngx_live_channel_t *channel, void *ectx)
         q != ngx_queue_sentinel(&cctx->reads);
         q = ngx_queue_next(q))
     {
-        ctx = ngx_queue_data(q, ngx_live_persist_media_copy_ctx_t, queue);
+        ctx = ngx_queue_data(q, ngx_live_persist_media_serve_ctx_t, queue);
 
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
             "ngx_live_persist_media_channel_free: detaching from channel");
@@ -1624,42 +1626,20 @@ static ngx_persist_block_t  ngx_live_persist_media_blocks[] = {
      *   ngx_live_persist_segment_header_t  header;
      */
     { NGX_LIVE_PERSIST_BLOCK_SEGMENT, NGX_LIVE_PERSIST_CTX_MEDIA_BUCKET, 0,
-      ngx_live_persist_media_write_segments, NULL },
+      ngx_live_persist_media_write_segments,
+      ngx_live_persist_media_read_segment },
 
     /*
      * persist data:
      *   ngx_live_frame_t  frame[];
      */
     { NGX_LIVE_PERSIST_BLOCK_FRAME_LIST,
-      NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER,
-      NGX_PERSIST_FLAG_SINGLE,
-      NULL, NULL },
+      NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER, 0, NULL,
+      ngx_live_persist_media_read_frame_list },
 
     { NGX_LIVE_PERSIST_BLOCK_FRAME_DATA,
-      NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_DATA,
-      NGX_PERSIST_FLAG_SINGLE,
-      NULL, NULL },
-
-    /* TODO: move the blocks below from SERVE ctx to MEDIA */
-
-    { NGX_LIVE_PERSIST_BLOCK_FRAME_LIST,
-      NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER,
-      NGX_PERSIST_FLAG_SINGLE,
-      NULL,
-      ngx_live_segment_cache_read_frame_list },
-
-    { NGX_LIVE_PERSIST_BLOCK_FRAME_DATA,
-      NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_DATA,
-      NGX_PERSIST_FLAG_SINGLE,
-      NULL,
-      ngx_live_segment_cache_read_frame_data },
-
-    /*
-     * persist header:
-     *   ngx_ksmp_segment_header_t  header;
-     */
-    { NGX_LIVE_PERSIST_BLOCK_SEGMENT, NGX_LIVE_PERSIST_CTX_SERVE_MAIN, 0,
-      NULL, ngx_live_segment_cache_read_segment },
+      NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_DATA, 0, NULL,
+      ngx_live_persist_media_read_frame_data },
 
       ngx_null_persist_block
 };
@@ -1667,7 +1647,7 @@ static ngx_persist_block_t  ngx_live_persist_media_blocks[] = {
 static ngx_int_t
 ngx_live_persist_media_preconfiguration(ngx_conf_t *cf)
 {
-    ngx_live_copy_segment = ngx_live_persist_media_copy;
+    ngx_live_serve_segment = ngx_live_persist_media_serve;
 
     if (ngx_live_variable_add_multi(cf, ngx_live_persist_media_vars)
         != NGX_OK)

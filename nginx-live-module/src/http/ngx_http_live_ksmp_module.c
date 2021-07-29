@@ -1152,8 +1152,8 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
     ngx_persist_write_ctx_t        *write_ctx;
     ngx_http_live_ksmp_ctx_t       *ctx;
     ngx_persist_write_marker_t      marker;
-    ngx_live_segment_copy_req_t     req;
     ngx_live_core_preset_conf_t    *cpcf;
+    ngx_live_segment_serve_req_t    req;
     ngx_http_live_ksmp_loc_conf_t  *klcf;
 
     klcf = ngx_http_get_module_loc_conf(r, ngx_http_live_ksmp_module);
@@ -1259,7 +1259,7 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
         req.writer.cleanup = ngx_http_live_ksmp_cleanup;
         req.writer.arg = r;
 
-        rc = ngx_live_copy_segment(&req);
+        rc = ngx_live_serve_segment(&req);
 
     } else {
         rc = NGX_OK;

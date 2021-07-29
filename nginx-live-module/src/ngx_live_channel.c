@@ -543,15 +543,11 @@ ngx_live_variant_set_track(ngx_live_variant_t *variant,
         return NGX_ERROR;
     }
 
-    if (variant->tracks[track->media_type] != NULL) {
-        variant->track_count--;
+    if (variant->tracks[track->media_type] == NULL) {
+        variant->track_count++;
     }
 
     variant->tracks[track->media_type] = track;
-
-    if (track != NULL) {
-        variant->track_count++;
-    }
 
     ngx_live_channel_setup_changed(variant->channel);
 

@@ -2217,10 +2217,15 @@ static ngx_persist_block_t  ngx_live_media_info_blocks[] = {
      * persist header:
      *   kmp_media_info_t  kmp;
      */
-    { NGX_KSMP_BLOCK_MEDIA_INFO,
-      NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, 0,
-      ngx_live_media_info_write_media_segment,
-      ngx_live_media_info_read_media_segment },
+    { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER, 0,
+      NULL, ngx_live_media_info_read_media_segment },
+
+    /*
+     * persist header:
+     *   kmp_media_info_t  kmp;
+     */
+    { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, 0,
+      ngx_live_media_info_write_media_segment, NULL },
 
     /*
      * persist header:
