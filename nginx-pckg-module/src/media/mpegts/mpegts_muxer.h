@@ -1,5 +1,5 @@
-#ifndef __HLS_MUXER_H__
-#define __HLS_MUXER_H__
+#ifndef __MPEGTS_MUXER_H__
+#define __MPEGTS_MUXER_H__
 
 // includes
 #include "mp4_to_annexb_filter.h"
@@ -15,7 +15,7 @@ typedef struct id3_context_s id3_context_t;
 typedef struct {
     bool_t interleave_frames;
     bool_t align_frames;
-} hls_mpegts_muxer_conf_t;
+} mpegts_muxer_conf_t;
 
 typedef struct {
     int media_type;
@@ -45,14 +45,14 @@ typedef struct {
 
     // mpegts
     mpegts_encoder_state_t mpegts_encoder_state;
-} hls_muxer_stream_state_t;
+} mpegts_muxer_stream_state_t;
 
 typedef struct {
     request_context_t* request_context;
 
     // fixed
-    hls_muxer_stream_state_t* first_stream;
-    hls_muxer_stream_state_t* last_stream;
+    mpegts_muxer_stream_state_t* first_stream;
+    mpegts_muxer_stream_state_t* last_stream;
 
     // child states
     write_buffer_queue_t queue;
@@ -70,12 +70,12 @@ typedef struct {
     frames_source_t* frames_source;
     void* frames_source_context;
     bool_t first_time;
-} hls_muxer_state_t;
+} mpegts_muxer_state_t;
 
 // functions
-vod_status_t hls_muxer_init_segment(
+vod_status_t mpegts_muxer_init_segment(
     request_context_t* request_context,
-    hls_mpegts_muxer_conf_t* conf,
+    mpegts_muxer_conf_t* conf,
     hls_encryption_params_t* encryption_params,
     media_segment_t* segment,
     write_callback_t write_callback,
@@ -83,14 +83,14 @@ vod_status_t hls_muxer_init_segment(
     bool_t reuse_buffers,
     size_t* response_size,
     vod_str_t* response_header,
-    hls_muxer_state_t** processor_state);
+    mpegts_muxer_state_t** processor_state);
 
-vod_status_t hls_muxer_process(hls_muxer_state_t* state);
+vod_status_t mpegts_muxer_process(mpegts_muxer_state_t* state);
 
-void hls_muxer_get_bitrate_estimator(
-    hls_mpegts_muxer_conf_t* conf,
+void mpegts_muxer_get_bitrate_estimator(
+    mpegts_muxer_conf_t* conf,
     media_info_t** media_infos,
     uint32_t count,
     media_bitrate_estimator_t* result);
 
-#endif // __HLS_MUXER_H__
+#endif // __MPEGTS_MUXER_H__

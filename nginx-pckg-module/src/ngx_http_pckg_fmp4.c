@@ -12,7 +12,7 @@
 #include "media/mp4/mp4_defs.h"
 
 #if (NGX_HAVE_OPENSSL_EVP)
-#include "media/hls/aes_cbc_encrypt.h"
+#include "media/mpegts/aes_cbc_encrypt.h"
 #endif /* NGX_HAVE_OPENSSL_EVP */
 
 

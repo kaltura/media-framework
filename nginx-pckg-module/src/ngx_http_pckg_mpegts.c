@@ -6,10 +6,10 @@
 #include "ngx_http_pckg_utils.h"
 #include "ngx_http_pckg_enc.h"
 
-#include "media/hls/hls_muxer.h"
+#include "media/mpegts/mpegts_muxer.h"
 
 #if (NGX_HAVE_OPENSSL_EVP)
-#include "media/hls/aes_cbc_encrypt.h"
+#include "media/mpegts/aes_cbc_encrypt.h"
 #endif /* NGX_HAVE_OPENSSL_EVP */
 
 
@@ -21,7 +21,7 @@ static char *ngx_http_pckg_mpegts_merge_loc_conf(ngx_conf_t *cf, void *parent,
 
 
 typedef struct {
-    hls_mpegts_muxer_conf_t  muxer;
+    mpegts_muxer_conf_t  muxer;
 } ngx_http_pckg_mpegts_loc_conf_t;
 
 
@@ -91,7 +91,8 @@ ngx_http_pckg_mpegts_get_bitrate_estimator(ngx_http_request_t *r,
 
     mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_mpegts_module);
 
-    hls_muxer_get_bitrate_estimator(&mlcf->muxer, media_infos, count, result);
+    mpegts_muxer_get_bitrate_estimator(&mlcf->muxer, media_infos, count,
+        result);
 }
 
 
@@ -158,7 +159,7 @@ ngx_http_pckg_mpegts_init_frame_processor(ngx_http_request_t *r,
 {
     bool_t                            reuse_output_buffers;
     vod_status_t                      rc;
-    hls_muxer_state_t                *state;
+    mpegts_muxer_state_t             *state;
     hls_encryption_params_t           enc_params;
     ngx_http_pckg_core_ctx_t         *ctx;
     ngx_http_pckg_mpegts_loc_conf_t  *mlcf;
@@ -200,7 +201,7 @@ ngx_http_pckg_mpegts_init_frame_processor(ngx_http_request_t *r,
     }
 #endif /* NGX_HAVE_OPENSSL_EVP */
 
-    rc = hls_muxer_init_segment(&ctx->request_context, &mlcf->muxer,
+    rc = mpegts_muxer_init_segment(&ctx->request_context, &mlcf->muxer,
         &enc_params, segment, ctx->segment_writer.write_tail,
         ctx->segment_writer.context, reuse_output_buffers,
         &processor->response_size, &processor->output, &state);
@@ -216,7 +217,8 @@ ngx_http_pckg_mpegts_init_frame_processor(ngx_http_request_t *r,
             processor->response_size);
     }
 
-    processor->process = (ngx_http_pckg_frame_processor_pt) hls_muxer_process;
+    processor->process = (ngx_http_pckg_frame_processor_pt)
+        mpegts_muxer_process;
     processor->ctx = state;
 
     processor->content_type = ngx_http_pckg_mpegts_content_type;

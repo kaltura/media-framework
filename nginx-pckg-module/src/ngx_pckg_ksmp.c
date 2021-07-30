@@ -737,7 +737,6 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
 
     dest->bitrate = src->bitrate;
     dest->timescale = src->timescale;
-    dest->frames_timescale = src->timescale;
 
     return NGX_OK;
 }

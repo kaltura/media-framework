@@ -81,7 +81,6 @@ typedef struct media_info_s {
     uint32_t media_type;
     uint32_t format;
     uint32_t timescale;
-    uint32_t frames_timescale;
     uint32_t bitrate;
     uint32_t codec_id;
     vod_str_t codec_name;
@@ -109,7 +108,6 @@ typedef struct {
     media_segment_track_t* tracks;
     media_segment_track_t* tracks_end;
     uint32_t track_count;
-    vod_str_t source;
     vod_str_t metadata;
 } media_segment_t;
 

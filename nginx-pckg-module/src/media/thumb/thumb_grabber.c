@@ -134,7 +134,7 @@ thumb_grabber_init_decoder(
 
     decoder->codec_tag = media_info->format;
     decoder->time_base.num = 1;
-    decoder->time_base.den = media_info->frames_timescale;
+    decoder->time_base.den = media_info->timescale;
     decoder->pkt_timebase = decoder->time_base;
     decoder->extradata = media_info->extra_data.data;
     decoder->extradata_size = media_info->extra_data.len;

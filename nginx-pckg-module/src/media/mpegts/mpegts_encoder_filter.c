@@ -275,7 +275,7 @@ mpegts_write_pes_header(
         *p++ = 1 + SIZEOF_PCR;    /* size */
         *p++ = 0x10; /* PCR */
 
-        p = mpegts_write_pcr(p, f->dts + INITIAL_PCR);
+        p = mpegts_write_pcr(p, f->dts + MPEGTS_INITIAL_PCR);
     }
 
     /* PES header */
@@ -300,11 +300,11 @@ mpegts_write_pes_header(
     *p++ = (u_char) flags;
     *p++ = (u_char) header_size;
 
-    p = mpegts_write_pts(p, flags >> 6, f->pts + INITIAL_DTS);
+    p = mpegts_write_pts(p, flags >> 6, f->pts + MPEGTS_INITIAL_DTS);
 
     if (write_dts)
     {
-        p = mpegts_write_pts(p, 1, f->dts + INITIAL_DTS);
+        p = mpegts_write_pts(p, 1, f->dts + MPEGTS_INITIAL_DTS);
     }
 
     return p;
