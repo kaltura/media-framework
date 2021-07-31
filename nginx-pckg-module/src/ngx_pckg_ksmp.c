@@ -717,7 +717,6 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
         dest->u.audio.channels = src->u.audio.channels;
         dest->u.audio.channel_layout = src->u.audio.channel_layout;
         dest->u.audio.bits_per_sample = src->u.audio.bits_per_sample;
-        dest->u.audio.packet_size = 0;
         dest->u.audio.sample_rate = src->u.audio.sample_rate;
 
         if (codec_config_get_audio_codec_name(channel->log, dest) != VOD_OK) {

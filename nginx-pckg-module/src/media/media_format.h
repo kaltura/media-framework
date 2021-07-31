@@ -64,7 +64,6 @@ typedef struct {
     uint8_t cea_captions;
     uint32_t frame_rate_num;
     uint32_t frame_rate_denom;
-    uint32_t initial_pts_delay;
 } video_media_info_t;
 
 typedef struct {
@@ -72,7 +71,6 @@ typedef struct {
     uint16_t channels;
     uint64_t channel_layout;
     uint16_t bits_per_sample;
-    uint16_t packet_size;
     uint32_t sample_rate;
     mp4a_config_t codec_config;
 } audio_media_info_t;

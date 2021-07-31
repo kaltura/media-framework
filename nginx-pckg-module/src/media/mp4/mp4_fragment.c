@@ -86,7 +86,7 @@ mp4_fragment_write_video_trun_atom(
     vod_list_part_t* part;
     input_frame_t* cur_frame;
     input_frame_t* last_frame;
-    uint32_t initial_pts_delay = 0;
+    uint32_t initial_pts_delay;
     uint32_t flags;
     int32_t pts_delay;
     size_t atom_size;
@@ -99,14 +99,20 @@ mp4_fragment_write_video_trun_atom(
     write_be32(p, track->frame_count);
     write_be32(p, first_frame_offset);    // first frame offset relative to moof start offset
 
-    if (version == 1)
-    {
-        initial_pts_delay = track->media_info->u.video.initial_pts_delay;
-    }
-
     part = &track->frames.part;
     cur_frame = part->elts;
     last_frame = cur_frame + part->nelts;
+
+    if (version == 1 && part->nelts > 0)
+    {
+        initial_pts_delay = cur_frame->pts_delay;
+    }
+    else
+    {
+        initial_pts_delay = 0;
+    }
+
+
     for (;; cur_frame++)
     {
         if (cur_frame >= last_frame)
