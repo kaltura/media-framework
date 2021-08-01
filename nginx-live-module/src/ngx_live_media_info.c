@@ -323,7 +323,7 @@ ngx_live_media_info_node_compare(ngx_live_media_info_node_t *node,
             extra_data_size) == 0;
 }
 
-ngx_int_t
+static ngx_int_t
 ngx_live_media_info_node_write(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_media_info_node_t *node)
 {

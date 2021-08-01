@@ -138,7 +138,6 @@ PCKG_MEDIA_SRCS="$PCKG_MEDIA_SRCS                             \
     $ngx_addon_dir/src/media/mpegts/mp4_to_annexb_filter.c    \
     $ngx_addon_dir/src/media/mpegts/mpegts_encoder_filter.c   \
     $ngx_addon_dir/src/media/mp4/mp4_cbcs_encrypt.c           \
-    $ngx_addon_dir/src/media/mp4/mp4_fragment.c               \
     $ngx_addon_dir/src/media/mp4/mp4_init_segment.c           \
     $ngx_addon_dir/src/media/mp4/mp4_muxer.c                  \
     "
@@ -169,7 +168,6 @@ PCKG_MEDIA_DEPS="$PCKG_MEDIA_DEPS                             \
     $ngx_addon_dir/src/media/mp4/mp4_cbcs_encrypt.h           \
     $ngx_addon_dir/src/media/mp4/mp4_cenc_encrypt.h           \
     $ngx_addon_dir/src/media/mp4/mp4_defs.h                   \
-    $ngx_addon_dir/src/media/mp4/mp4_fragment.h               \
     $ngx_addon_dir/src/media/mp4/mp4_init_segment.h           \
     $ngx_addon_dir/src/media/mp4/mp4_muxer.h                  \
     $ngx_addon_dir/src/media/mp4/mp4_write_stream.h           \

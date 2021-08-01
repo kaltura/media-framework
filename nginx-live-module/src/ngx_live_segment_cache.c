@@ -670,7 +670,7 @@ ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_live_segment_cache_serve(ngx_live_segment_serve_req_t *req)
 {
     uint32_t                       ignore;

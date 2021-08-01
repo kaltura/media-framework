@@ -37,7 +37,7 @@ ngx_live_period_json_write(u_char *p, ngx_live_period_t *obj)
 
 /* ngx_live_timeline_conf_json writer */
 
-size_t
+static size_t
 ngx_live_timeline_conf_json_get_size(ngx_live_timeline_t *obj)
 {
     size_t  result =
@@ -58,7 +58,7 @@ ngx_live_timeline_conf_json_get_size(ngx_live_timeline_t *obj)
     return result;
 }
 
-u_char *
+static u_char *
 ngx_live_timeline_conf_json_write(u_char *p, ngx_live_timeline_t *obj)
 {
     p = ngx_copy_fix(p, "{\"active\":");

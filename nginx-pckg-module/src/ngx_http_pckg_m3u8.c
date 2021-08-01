@@ -1075,7 +1075,7 @@ ngx_http_pckg_m3u8_get_selector(ngx_http_request_t *r,
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     ngx_pckg_channel_t *channel,
     ngx_http_pckg_m3u8_enc_params_t *enc_params, ngx_str_t *result)

@@ -3,7 +3,7 @@
 #include "ngx_pckg_segment_info.h"
 
 
-void
+static void
 ngx_pckg_segment_info_iter_reset(ngx_pckg_segment_info_iter_t *iter,
     ngx_pckg_track_t *track)
 {
@@ -13,7 +13,7 @@ ngx_pckg_segment_info_iter_reset(ngx_pckg_segment_info_iter_t *iter,
 }
 
 
-uint32_t
+static uint32_t
 ngx_pckg_segment_info_iter_get(ngx_pckg_segment_info_iter_t *iter,
     uint32_t segment_index)
 {
@@ -26,7 +26,7 @@ ngx_pckg_segment_info_iter_get(ngx_pckg_segment_info_iter_t *iter,
 }
 
 
-ngx_flag_t
+static ngx_flag_t
 ngx_pckg_segment_info_iter_has_bitrate(ngx_pckg_segment_info_iter_t *iter)
 {
     ngx_ksmp_segment_info_elt_t  *cur;
@@ -41,7 +41,7 @@ ngx_pckg_segment_info_iter_has_bitrate(ngx_pckg_segment_info_iter_t *iter)
 }
 
 
-uint32_t
+static uint32_t
 ngx_pckg_segment_info_iter_gap_count(ngx_pckg_segment_info_iter_t *iter,
     uint32_t first_index, uint32_t last_index)
 {

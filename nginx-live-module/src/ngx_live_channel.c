@@ -16,6 +16,9 @@ typedef struct {
 static ngx_live_channels_t  ngx_live_channels;
 
 
+static ngx_flag_t ngx_live_variant_is_active_channel_last(
+    ngx_live_variant_t *variant, uint32_t req_media_types);
+
 static size_t ngx_live_variant_json_track_ids_get_size(
     ngx_live_variant_t *obj);
 
@@ -368,7 +371,7 @@ ngx_live_channel_block_str_set(ngx_live_channel_t *channel,
     return NGX_OK;
 }
 
-void
+static void
 ngx_live_channel_block_str_free(ngx_live_channel_t *channel,
     ngx_block_str_t *str)
 {
@@ -593,7 +596,7 @@ ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
 }
 
 
-ngx_flag_t
+static ngx_flag_t
 ngx_live_variant_is_active_channel_last(ngx_live_variant_t *variant,
     uint32_t req_media_types)
 {

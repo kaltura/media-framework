@@ -5,7 +5,7 @@ out ngx_live_period_json ngx_live_period_t
     segment_index %ui obj->node.key
     segment_count %uD
 
-out nostatic ngx_live_timeline_conf_json ngx_live_timeline_t
+out ngx_live_timeline_conf_json ngx_live_timeline_t
     active %b obj->conf.
     no_truncate %b obj->conf.
     end_list %b obj->manifest.conf.

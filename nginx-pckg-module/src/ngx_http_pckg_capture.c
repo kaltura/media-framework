@@ -194,7 +194,7 @@ ngx_http_pckg_capture_parse_dims(ngx_http_request_t *r, u_char *cur,
 }
 #endif
 
-ngx_int_t
+static ngx_int_t
 ngx_http_pckg_capture_parse_uri(ngx_http_request_t *r,
     u_char *cur, u_char *end, ngx_pckg_ksmp_req_t *result)
 {

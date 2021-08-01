@@ -240,9 +240,6 @@ void ngx_live_channel_ack_frames(ngx_live_channel_t *channel);
 ngx_int_t ngx_live_channel_block_str_set(ngx_live_channel_t *channel,
     ngx_block_str_t *dest, ngx_str_t *src);
 
-void ngx_live_channel_block_str_free(ngx_live_channel_t *channel,
-    ngx_block_str_t *str);
-
 ngx_int_t ngx_live_channel_block_str_read(ngx_live_channel_t *channel,
     ngx_block_str_t *dest, ngx_mem_rstream_t *rs);
 
@@ -273,9 +270,6 @@ ngx_int_t ngx_live_variant_set_track(ngx_live_variant_t *variant,
 
 ngx_int_t ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
     ngx_live_track_t **tracks, ngx_log_t *log);
-
-ngx_flag_t ngx_live_variant_is_active_channel_last(ngx_live_variant_t *variant,
-    uint32_t req_media_types);
 
 ngx_flag_t ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
     ngx_live_timeline_t *timeline, uint32_t req_media_types);
