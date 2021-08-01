@@ -30,54 +30,54 @@ enum {
 typedef void *(*ngx_live_media_info_alloc_pt)(void *ctx, size_t size);
 
 struct ngx_live_media_info_node_s {
-    ngx_rbtree_node_t      node;
-    ngx_queue_t            queue;
-    ngx_live_media_info_t  media_info;
-    uint32_t               track_id;
-    uint32_t               frame_index_delta;     /* used when pending */
-    uint64_t               bitrate_sum;
-    uint32_t               bitrate_count;
-    uint32_t               bitrate_max;
+    ngx_rbtree_node_t       node;
+    ngx_queue_t             queue;
+    ngx_live_media_info_t   media_info;
+    uint32_t                track_id;
+    uint32_t                frame_index_delta;     /* used when pending */
+    uint64_t                bitrate_sum;
+    uint32_t                bitrate_count;
+    uint32_t                bitrate_max;
 };
 
 
 typedef struct {
-    ngx_queue_t            pending;
-    uint32_t               delta_sum;
+    ngx_queue_t             pending;
+    uint32_t                delta_sum;
 
-    ngx_rbtree_t           rbtree;
-    ngx_rbtree_node_t      sentinel;
-    ngx_queue_t            active;
-    uint32_t               added;
-    uint32_t               removed;
+    ngx_rbtree_t            rbtree;
+    ngx_rbtree_node_t       sentinel;
+    ngx_queue_t             active;
+    uint32_t                added;
+    uint32_t                removed;
 
-    ngx_json_str_t         group_id;
-    u_char                 group_id_buf[NGX_LIVE_TRACK_MAX_GROUP_ID_LEN];
+    ngx_json_str_t          group_id;
+    u_char                  group_id_buf[NGX_LIVE_TRACK_MAX_GROUP_ID_LEN];
 
-    ngx_live_track_t      *source;
-    uint32_t               source_refs;
+    ngx_live_track_t       *source;
+    uint32_t                source_refs;
 } ngx_live_media_info_track_ctx_t;
 
 typedef struct {
-    uint32_t               min_free_index;
+    uint32_t                min_free_index;
 } ngx_live_media_info_channel_ctx_t;
 
 
 typedef struct {
-    ngx_queue_t           *q;
-    ngx_queue_t           *sentinel;
-    uint32_t               track_id;
+    ngx_queue_t            *q;
+    ngx_queue_t            *sentinel;
+    uint32_t                track_id;
 } ngx_live_media_info_own_iter_t;
 
 
 typedef struct {
-    uint32_t               track_id;
-    uint32_t               source_id;
+    uint32_t                track_id;
+    uint32_t                source_id;
 } ngx_live_media_info_snap_t;
 
 
 typedef struct {
-    ngx_uint_t             bp_idx[NGX_LIVE_BP_COUNT];
+    ngx_uint_t              bp_idx[NGX_LIVE_BP_COUNT];
 } ngx_live_media_info_preset_conf_t;
 
 
@@ -374,7 +374,7 @@ ngx_live_media_info_update_bitrate(ngx_live_track_t *track)
     node->bitrate_sum += track->last_segment_bitrate;
     node->bitrate_count++;
 
-    if (track->last_segment_bitrate > node->bitrate_max) {
+    if (node->bitrate_max < track->last_segment_bitrate) {
         node->bitrate_max = track->last_segment_bitrate;
     }
 }
@@ -405,6 +405,7 @@ ngx_live_media_info_queue_track_segment_free(ngx_live_track_t *track,
         }
 
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+
         ngx_rbtree_delete(&ctx->rbtree, &node->node);
         ngx_live_media_info_node_free(track->channel, node);
         ctx->removed++;
@@ -840,14 +841,6 @@ ngx_live_media_info_source_get(ngx_live_track_t *track,
         cur_ctx = ngx_live_get_module_ctx(cur_track,
             ngx_live_media_info_module);
 
-        if (ctx->group_id.s.len &&
-            ctx->group_id.s.len == cur_ctx->group_id.s.len &&
-            ngx_memcmp(ctx->group_id.s.data, cur_ctx->group_id.s.data,
-                ctx->group_id.s.len) == 0)
-        {
-            return cur_track;
-        }
-
         cq = ngx_queue_last(&cur_ctx->active);
         if (cq == ngx_queue_sentinel(&cur_ctx->active)) {
             if (cur_track->has_last_segment) {
@@ -856,6 +849,14 @@ ngx_live_media_info_source_get(ngx_live_track_t *track,
             }
 
             continue;
+        }
+
+        if (ctx->group_id.s.len &&
+            ctx->group_id.s.len == cur_ctx->group_id.s.len &&
+            ngx_memcmp(ctx->group_id.s.data, cur_ctx->group_id.s.data,
+                ctx->group_id.s.len) == 0)
+        {
+            return cur_track;
         }
 
         node = ngx_queue_data(cq, ngx_live_media_info_node_t, queue);
@@ -1611,7 +1612,6 @@ ngx_live_media_info_set_group_id(ngx_live_json_cmds_ctx_t *jctx,
 
     ngx_memcpy(ctx->group_id.s.data, group_id_buf, group_id.len);
     ctx->group_id.s.len = group_id.len;
-
     ngx_json_str_set_escape(&ctx->group_id);
 
     /* remove any source references to/from this track */
@@ -1671,7 +1671,6 @@ ngx_live_media_info_read_setup(ngx_persist_block_header_t *header,
             "ngx_live_media_info_read_setup: read failed");
         return NGX_BAD_DATA;
     }
-
     ngx_json_str_set_escape(&ctx->group_id);
 
     return NGX_OK;
@@ -1896,8 +1895,7 @@ ngx_live_media_info_write_index(ngx_persist_write_ctx_t *write_ctx,
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
     snap = ngx_persist_write_ctx(write_ctx);
 
-    node = ngx_live_media_info_queue_get_before(ctx,
-        snap->scope.min_index);
+    node = ngx_live_media_info_queue_get_before(ctx, snap->scope.min_index);
     if (node == NULL) {
         q = ngx_queue_head(&ctx->active);
         if (q == ngx_queue_sentinel(&ctx->active)) {

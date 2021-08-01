@@ -158,13 +158,11 @@ typedef struct {
 } ngx_live_persist_media_serve_ctx_t;
 
 
-/* TODO: rename the below functions to use the module prefix */
-
 static ngx_int_t
 ngx_live_persist_media_read_frame_list(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
-    ngx_str_t            frames;
+    ngx_str_t            data;
     ngx_uint_t           frame_count;
     ngx_live_segment_t  *segment = obj;
 
@@ -179,9 +177,9 @@ ngx_live_persist_media_read_frame_list(ngx_persist_block_header_t *header,
     }
 
 
-    ngx_mem_rstream_get_left(rs, &frames);
+    ngx_mem_rstream_get_left(rs, &data);
 
-    frame_count = frames.len / sizeof(ngx_live_frame_t);
+    frame_count = data.len / sizeof(ngx_live_frame_t);
     if (frame_count != segment->frame_count) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_media_read_frame_list: frame count mismatch"
@@ -190,7 +188,7 @@ ngx_live_persist_media_read_frame_list(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    segment->frames.part.elts = (void *) frames.data;
+    segment->frames.part.elts = (void *) data.data;
     segment->frames.part.nelts = frame_count;
 
     return NGX_OK;
@@ -350,6 +348,131 @@ ngx_live_persist_media_read_segment(ngx_persist_block_header_t *header,
 
 
 static ngx_int_t
+ngx_live_persist_media_serve_clip_write(
+    ngx_live_persist_media_serve_ctx_t *ctx, ngx_buf_t *response)
+{
+    uint32_t                       ignore;
+    ngx_int_t                      rc;
+    ngx_mem_rstream_t              rs;
+    ngx_live_segment_t            *segment;
+    ngx_live_segment_write_ctx_t   sctx;
+
+    ngx_mem_rstream_set(&rs, response->pos, response->last, ctx->pool->log,
+        ctx->pmcf, 0);
+
+    segment = ngx_pcalloc(ctx->pool, sizeof(*segment));
+    if (segment == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_media_serve_clip_write: alloc failed");
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    segment->node.key = ctx->segment_index;
+    segment->pool = ctx->pool;
+
+    rc = ngx_live_persist_read_blocks_internal(ctx->pmcf,
+        NGX_LIVE_PERSIST_CTX_MEDIA_BUCKET, &rs, segment);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_media_serve_clip_write: "
+            "read blocks failed %i", rc);
+        return rc == NGX_BAD_DATA ? NGX_HTTP_BAD_GATEWAY
+            : NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    if (segment->frame_count <= 0) {
+        ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
+            "ngx_live_persist_media_serve_clip_write: no segment read");
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    ngx_live_segment_write_init_ctx(&sctx, segment, ctx->flags, ctx->time);
+
+    if (ngx_live_segment_cache_write(ctx->write_ctx, &sctx, ctx->pmcf, NULL,
+        &ignore) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_media_serve_clip_write: write failed");
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_persist_media_serve_clip_close(
+    ngx_live_persist_media_serve_ctx_t *ctx)
+{
+    size_t        size;
+    ngx_int_t     rc;
+    ngx_chain_t  *cl;
+
+    cl = ngx_persist_write_close(ctx->write_ctx, &size, NULL);
+    if (cl == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_media_serve_clip_close: close failed");
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    rc = ctx->writer.set_size(ctx->writer.arg, size);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_media_serve_clip_close: set size failed %i", rc);
+        return rc;
+    }
+
+    rc = ctx->writer.write(ctx->writer.arg, cl);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_media_serve_clip_close: write failed %i", rc);
+        return rc;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_persist_media_serve_copy(ngx_live_persist_media_serve_ctx_t *ctx,
+    ngx_buf_t *response)
+{
+    ngx_buf_t    *b;
+    ngx_int_t     rc;
+    ngx_chain_t  *cl;
+
+    b = ngx_calloc_buf(ctx->pool);
+    if (b == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_media_serve_copy: alloc buf failed");
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    b->start = b->pos = response->pos;
+    b->end = b->last = response->last;
+    b->memory = 1;
+
+    cl = ngx_alloc_chain_link(ctx->pool);
+    if (cl == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_media_serve_copy: alloc chain failed");
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    cl->buf = b;
+    cl->next = NULL;
+
+    rc = ctx->writer.write(ctx->writer.arg, cl);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
+            "ngx_live_persist_media_serve_copy: write failed %i", rc);
+        return rc;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_live_persist_media_serve_parse_header(
     ngx_live_persist_media_serve_ctx_t *ctx, ngx_str_t *buf)
 {
@@ -418,8 +541,7 @@ ngx_live_persist_media_serve_parse_header(
     uid = ngx_mem_rstream_get_ptr(&rs, sizeof(*uid));
     if (uid == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_persist_media_serve_parse_header: "
-            "read uid failed");
+            "ngx_live_persist_media_serve_parse_header: read uid failed");
         return NGX_HTTP_BAD_GATEWAY;
     }
 
@@ -507,129 +629,6 @@ ngx_live_persist_media_serve_parse_header(
                 "set size failed %i", rc);
             return rc;
         }
-    }
-
-    return NGX_OK;
-}
-
-static ngx_int_t
-ngx_live_persist_media_serve_copy(ngx_live_persist_media_serve_ctx_t *ctx,
-    ngx_buf_t *response)
-{
-    ngx_buf_t    *b;
-    ngx_int_t     rc;
-    ngx_chain_t  *cl;
-
-    b = ngx_calloc_buf(ctx->pool);
-    if (b == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_serve_copy: alloc buf failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    b->start = b->pos = response->pos;
-    b->end = b->last = response->last;
-    b->memory = 1;
-
-    cl = ngx_alloc_chain_link(ctx->pool);
-    if (cl == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_serve_copy: alloc chain failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    cl->buf = b;
-    cl->next = NULL;
-
-    rc = ctx->writer.write(ctx->writer.arg, cl);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_serve_copy: write failed %i", rc);
-        return rc;
-    }
-
-    return NGX_OK;
-}
-
-static ngx_int_t
-ngx_live_persist_media_serve_clip_write(
-    ngx_live_persist_media_serve_ctx_t *ctx, ngx_buf_t *response)
-{
-    uint32_t                       ignore;
-    ngx_int_t                      rc;
-    ngx_mem_rstream_t              rs;
-    ngx_live_segment_t            *segment;
-    ngx_live_segment_write_ctx_t   sctx;
-
-    ngx_mem_rstream_set(&rs, response->pos, response->last, ctx->pool->log,
-        ctx->pmcf, 0);
-
-    segment = ngx_pcalloc(ctx->pool, sizeof(*segment));
-    if (segment == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_serve_clip_write: alloc failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    segment->node.key = ctx->segment_index;
-    segment->pool = ctx->pool;
-
-    rc = ngx_live_persist_read_blocks_internal(ctx->pmcf,
-        NGX_LIVE_PERSIST_CTX_MEDIA_BUCKET, &rs, segment);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_serve_clip_write: "
-            "read blocks failed %i", rc);
-        return rc == NGX_BAD_DATA ? NGX_HTTP_BAD_GATEWAY
-            : NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    if (segment->frame_count <= 0) {
-        ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
-            "ngx_live_persist_media_serve_clip_write: no segment read");
-        return NGX_HTTP_BAD_GATEWAY;
-    }
-
-    ngx_live_segment_write_init_ctx(&sctx, segment, ctx->flags, ctx->time);
-
-    if (ngx_live_segment_cache_write(ctx->write_ctx, &sctx, ctx->pmcf, NULL,
-        &ignore) != NGX_OK)
-    {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_serve_clip_write: write failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    return NGX_OK;
-}
-
-static ngx_int_t
-ngx_live_persist_media_serve_clip_close(
-    ngx_live_persist_media_serve_ctx_t *ctx)
-{
-    size_t        size;
-    ngx_int_t     rc;
-    ngx_chain_t  *cl;
-
-    cl = ngx_persist_write_close(ctx->write_ctx, &size, NULL);
-    if (cl == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_serve_clip_close: close failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    rc = ctx->writer.set_size(ctx->writer.arg, size);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_serve_clip_close: set size failed %i", rc);
-        return rc;
-    }
-
-    rc = ctx->writer.write(ctx->writer.arg, cl);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
-            "ngx_live_persist_media_serve_clip_close: write failed %i", rc);
-        return rc;
     }
 
     return NGX_OK;
@@ -910,6 +909,7 @@ ngx_live_persist_media_write_segment(ngx_persist_write_ctx_t *write_idx,
 {
     size_t                               start;
     uint32_t                             header_size;
+    ngx_live_track_t                    *track;
     ngx_live_channel_t                  *channel;
     ngx_persist_block_header_t           header;
     ngx_live_persist_main_conf_t        *pmcf;
@@ -919,12 +919,13 @@ ngx_live_persist_media_write_segment(ngx_persist_write_ctx_t *write_idx,
 
     ctx = ngx_persist_write_ctx(write_idx);
 
-    start = ngx_persist_write_get_size(ctx->write_data);
+    track = segment->track;
+    channel = track->channel;
+    pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
 
     ngx_live_segment_write_init_ctx(&sctx, segment, 0, 0);
 
-    channel = segment->track->channel;
-    pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
+    start = ngx_persist_write_get_size(ctx->write_data);
 
     if (ngx_live_segment_cache_write(ctx->write_data, &sctx, pmcf, ctx->cln,
         &header_size) != NGX_OK)
@@ -936,12 +937,12 @@ ngx_live_persist_media_write_segment(ngx_persist_write_ctx_t *write_idx,
     header.id = NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY;
     header.header_size = header_size | NGX_PERSIST_HEADER_FLAG_INDEX;
 
-    entry.track_id = segment->track->in.key;
+    entry.track_id = track->in.key;
     entry.segment_index = segment->node.key;
     entry.size = ngx_persist_write_get_size(ctx->write_data) - start;
 
-    if (ngx_persist_write_block(write_idx, &header, &entry,
-        sizeof(entry)) != NGX_OK)
+    if (ngx_persist_write_block(write_idx, &header, &entry, sizeof(entry))
+        != NGX_OK)
     {
         return NGX_ERROR;
     }
