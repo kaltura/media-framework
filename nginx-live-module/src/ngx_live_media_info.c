@@ -51,7 +51,7 @@ typedef struct {
     uint32_t               added;
     uint32_t               removed;
 
-    ngx_str_t              group_id;
+    ngx_json_str_t         group_id;
     u_char                 group_id_buf[NGX_LIVE_TRACK_MAX_GROUP_ID_LEN];
 
     ngx_live_track_t      *source;
@@ -840,10 +840,10 @@ ngx_live_media_info_source_get(ngx_live_track_t *track,
         cur_ctx = ngx_live_get_module_ctx(cur_track,
             ngx_live_media_info_module);
 
-        if (ctx->group_id.len &&
-            ctx->group_id.len == cur_ctx->group_id.len &&
-            ngx_memcmp(ctx->group_id.data, cur_ctx->group_id.data,
-                ctx->group_id.len) == 0)
+        if (ctx->group_id.s.len &&
+            ctx->group_id.s.len == cur_ctx->group_id.s.len &&
+            ngx_memcmp(ctx->group_id.s.data, cur_ctx->group_id.s.data,
+                ctx->group_id.s.len) == 0)
         {
             return cur_track;
         }
@@ -1456,7 +1456,7 @@ ngx_live_media_info_track_init(ngx_live_track_t *track, void *ectx)
     ngx_queue_init(&ctx->active);
     ngx_rbtree_init(&ctx->rbtree, &ctx->sentinel, ngx_rbtree_insert_value);
 
-    ctx->group_id.data = ctx->group_id_buf;
+    ctx->group_id.s.data = ctx->group_id_buf;
 
     return NGX_OK;
 }
@@ -1477,7 +1477,6 @@ static size_t
 ngx_live_media_info_track_json_get_size(void *obj)
 {
     size_t                            result;
-    ngx_str_t                        *source_id;
     ngx_queue_t                      *q;
     ngx_live_track_t                 *track = obj;
     ngx_live_media_info_node_t       *node;
@@ -1486,7 +1485,7 @@ ngx_live_media_info_track_json_get_size(void *obj)
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     result = sizeof("\"group_id\":\"") - 1 +
-        ngx_escape_json(NULL, ctx->group_id.data, ctx->group_id.len) +
+        ngx_json_str_get_size(&ctx->group_id) +
         sizeof("\",\"media_info\":{\"added\":,\"removed\":}") - 1 +
         2 * NGX_INT32_LEN;
 
@@ -1495,10 +1494,8 @@ ngx_live_media_info_track_json_get_size(void *obj)
     }
 
     if (ctx->source) {
-        source_id = &ctx->source->sn.str;
         result += sizeof(",\"source\":\"\"") - 1 +
-            source_id->len + ngx_escape_json(NULL, source_id->data,
-                source_id->len);
+            ctx->source->sn.str.len + ctx->source->id_escape;
     }
 
     q = ngx_queue_last(&ctx->active);
@@ -1528,7 +1525,6 @@ ngx_live_media_info_track_json_get_size(void *obj)
 static u_char *
 ngx_live_media_info_track_json_write(u_char *p, void *obj)
 {
-    ngx_str_t                        *source_id;
     ngx_queue_t                      *q;
     ngx_live_track_t                 *track = obj;
     ngx_live_media_info_node_t       *node;
@@ -1537,8 +1533,7 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     p = ngx_copy_fix(p, "\"group_id\":\"");
-    p = (u_char *) ngx_escape_json(p, ctx->group_id.data, ctx->group_id.len);
-
+    p = ngx_json_str_write(p, &ctx->group_id);
     p = ngx_copy_fix(p, "\",\"media_info\":{\"added\":");
     p = ngx_sprintf(p, "%uD", ctx->added);
     p = ngx_copy_fix(p, ",\"removed\":");
@@ -1550,9 +1545,9 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
     }
 
     if (ctx->source) {
-        source_id = &ctx->source->sn.str;
         p = ngx_copy_fix(p, ",\"source\":\"");
-        p = (u_char *) ngx_escape_json(p, source_id->data, source_id->len);
+        p = ngx_json_str_write_escape(p, &ctx->source->sn.str,
+            ctx->source->id_escape);
         *p++ = '\"';
     }
 
@@ -1589,8 +1584,11 @@ static ngx_int_t
 ngx_live_media_info_set_group_id(ngx_live_json_cmds_ctx_t *jctx,
     ngx_live_json_cmd_t *cmd, ngx_json_value_t *value)
 {
+    ngx_str_t                         group_id;
     ngx_live_track_t                 *track = jctx->obj;
     ngx_live_media_info_track_ctx_t  *ctx;
+
+    u_char  group_id_buf[NGX_LIVE_TRACK_MAX_GROUP_ID_LEN];
 
     if (value->v.str.s.len > NGX_LIVE_TRACK_MAX_GROUP_ID_LEN) {
         ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
@@ -1601,8 +1599,20 @@ ngx_live_media_info_set_group_id(ngx_live_json_cmds_ctx_t *jctx,
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
-    ctx->group_id.len = value->v.str.s.len;
-    ngx_memcpy(ctx->group_id.data, value->v.str.s.data, ctx->group_id.len);
+    group_id.data = group_id_buf;
+    group_id.len = 0;
+
+    if (ngx_json_decode_string(&group_id, &value->v.str.s) != NGX_JSON_OK) {
+        ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
+            "ngx_live_media_info_set_group_id: invalid group id \"%V\"",
+            &value->v.str.s);
+        return NGX_ERROR;
+    }
+
+    ngx_memcpy(ctx->group_id.s.data, group_id_buf, group_id.len);
+    ctx->group_id.s.len = group_id.len;
+
+    ngx_json_str_set_escape(&ctx->group_id);
 
     /* remove any source references to/from this track */
     if (ctx->source) {
@@ -1625,7 +1635,7 @@ ngx_live_media_info_write_setup(ngx_persist_write_ctx_t *write_ctx,
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
-    if (ctx->group_id.len == 0) {
+    if (ctx->group_id.s.len == 0) {
         return NGX_OK;
     }
 
@@ -1633,7 +1643,7 @@ ngx_live_media_info_write_setup(ngx_persist_write_ctx_t *write_ctx,
 
     if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_SETUP) != NGX_OK ||
-        ngx_wstream_str(ws, &ctx->group_id) != NGX_OK)
+        ngx_wstream_str(ws, &ctx->group_id.s) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_media_info_write_setup: write failed");
@@ -1654,13 +1664,15 @@ ngx_live_media_info_read_setup(ngx_persist_block_header_t *header,
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
-    if (ngx_mem_rstream_str_fixed(rs, &ctx->group_id,
+    if (ngx_mem_rstream_str_fixed(rs, &ctx->group_id.s,
         sizeof(ctx->group_id_buf)) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_media_info_read_setup: read failed");
         return NGX_BAD_DATA;
     }
+
+    ngx_json_str_set_escape(&ctx->group_id);
 
     return NGX_OK;
 }

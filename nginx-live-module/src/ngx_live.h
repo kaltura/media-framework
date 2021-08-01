@@ -5,6 +5,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_ksmp.h>
+#include <ngx_json_str.h>
 
 
 typedef struct ngx_live_channel_s            ngx_live_channel_t;

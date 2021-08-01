@@ -42,9 +42,9 @@ typedef struct {
 
 
 typedef struct {
-    ngx_str_t                          channel_id;
-    ngx_str_t                          preset_name;
-    ngx_str_t                          timeline_id;
+    ngx_json_str_t                     channel_id;
+    ngx_json_str_t                     preset_name;
+    ngx_json_str_t                     timeline_id;
 } ngx_live_filler_source_t;
 
 typedef struct {
@@ -1615,18 +1615,18 @@ ngx_live_filler_source_set(ngx_live_channel_t *channel,
     if (cctx->pool != NULL) {
         cur = &cctx->source;
 
-        if (cur->channel_id.len != new->channel_id.len ||
-            ngx_memcmp(cur->channel_id.data, new->channel_id.data,
-                new->channel_id.len) != 0 ||
-            cur->timeline_id.len != new->timeline_id.len ||
-            ngx_memcmp(cur->timeline_id.data, new->timeline_id.data,
-                new->timeline_id.len) != 0)
+        if (cur->channel_id.s.len != new->channel_id.s.len ||
+            ngx_memcmp(cur->channel_id.s.data, new->channel_id.s.data,
+                new->channel_id.s.len) != 0 ||
+            cur->timeline_id.s.len != new->timeline_id.s.len ||
+            ngx_memcmp(cur->timeline_id.s.data, new->timeline_id.s.data,
+                new->timeline_id.s.len) != 0)
         {
             ngx_log_error(NGX_LOG_WARN, log, 0,
                 "ngx_live_filler_source_set: "
                 "attempt to change filler from \"%V:%V\" to \"%V:%V\"",
-                &cur->channel_id, &cur->timeline_id,
-                &new->channel_id, &new->timeline_id);
+                &cur->channel_id.s, &cur->timeline_id.s,
+                &new->channel_id.s, &new->timeline_id.s);
         }
 
         return NGX_OK;
@@ -1639,8 +1639,8 @@ ngx_live_filler_source_set(ngx_live_channel_t *channel,
         return NGX_ERROR;
     }
 
-    p = ngx_palloc(pool, new->channel_id.len + new->preset_name.len +
-        new->timeline_id.len);
+    p = ngx_palloc(pool, new->channel_id.s.len + new->preset_name.s.len +
+        new->timeline_id.s.len);
     if (p == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_filler_source_set: alloc failed");
@@ -1652,17 +1652,20 @@ ngx_live_filler_source_set(ngx_live_channel_t *channel,
 
     cur = &cctx->source;
 
-    cur->channel_id.data = p;
-    cur->channel_id.len = new->channel_id.len;
-    p = ngx_copy(p, new->channel_id.data, new->channel_id.len);
+    cur->channel_id.s.data = p;
+    cur->channel_id.s.len = new->channel_id.s.len;
+    p = ngx_copy(p, new->channel_id.s.data, new->channel_id.s.len);
+    ngx_json_str_set_escape(&cur->channel_id);
 
-    cur->preset_name.data = p;
-    cur->preset_name.len = new->preset_name.len;
-    p = ngx_copy(p, new->preset_name.data, new->preset_name.len);
+    cur->preset_name.s.data = p;
+    cur->preset_name.s.len = new->preset_name.s.len;
+    p = ngx_copy(p, new->preset_name.s.data, new->preset_name.s.len);
+    ngx_json_str_set_escape(&cur->preset_name);
 
-    cur->timeline_id.data = p;
-    cur->timeline_id.len = new->timeline_id.len;
-    p = ngx_copy(p, new->timeline_id.data, new->timeline_id.len);
+    cur->timeline_id.s.data = p;
+    cur->timeline_id.s.len = new->timeline_id.s.len;
+    p = ngx_copy(p, new->timeline_id.s.data, new->timeline_id.s.len);
+    ngx_json_str_set_escape(&cur->timeline_id);
 
     channel->filler_start_index = filler_start_index;
 
@@ -2062,9 +2065,10 @@ ngx_live_filler_set_channel(ngx_live_json_cmds_ctx_t *jctx,
         return NGX_ERROR;
     }
 
-    source.channel_id = json.channel_id;
-    source.preset_name = json.preset;
-    source.timeline_id = json.timeline_id;
+    /* Note: no need to set 'escape' */
+    source.channel_id.s = json.channel_id;
+    source.preset_name.s = json.preset;
+    source.timeline_id.s = json.timeline_id;
 
     return ngx_live_filler_source_set(dst, &source, dst->next_segment_index,
         log);
@@ -2090,12 +2094,12 @@ ngx_live_filler_post_json(ngx_live_json_cmds_ctx_t *jctx,
         return NGX_OK;
     }
 
-    channel_id = cctx->source.channel_id;
+    channel_id = cctx->source.channel_id.s;
 
     src = ngx_live_channel_get(&channel_id);
     if (src == NULL) {
         src = ngx_live_filler_read_file(jctx, &channel_id,
-            &cctx->source.preset_name);
+            &cctx->source.preset_name.s);
         if (src == NULL) {
             goto failed;
         }
@@ -2109,7 +2113,7 @@ ngx_live_filler_post_json(ngx_live_json_cmds_ctx_t *jctx,
         return NGX_AGAIN;
     }
 
-    src_timeline = ngx_live_timeline_get(src, &cctx->source.timeline_id);
+    src_timeline = ngx_live_timeline_get(src, &cctx->source.timeline_id.s);
     if (src_timeline == NULL) {
         ngx_log_error(NGX_LOG_ERR, pool->log, 0,
             "ngx_live_filler_post_json: "
@@ -2156,9 +2160,9 @@ ngx_live_filler_write_setup(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
     if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_FILLER_PERSIST_BLOCK) != NGX_OK ||
-        ngx_wstream_str(ws, &cctx->source.channel_id) != NGX_OK ||
-        ngx_wstream_str(ws, &cctx->source.preset_name) != NGX_OK ||
-        ngx_wstream_str(ws, &cctx->source.timeline_id) != NGX_OK ||
+        ngx_wstream_str(ws, &cctx->source.channel_id.s) != NGX_OK ||
+        ngx_wstream_str(ws, &cctx->source.preset_name.s) != NGX_OK ||
+        ngx_wstream_str(ws, &cctx->source.timeline_id.s) != NGX_OK ||
         ngx_persist_write(write_ctx, &channel->filler_start_index,
             sizeof(channel->filler_start_index)) != NGX_OK)
     {
@@ -2189,9 +2193,9 @@ ngx_live_filler_read_setup(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    if (ngx_mem_rstream_str_get(rs, &source.channel_id) != NGX_OK ||
-        ngx_mem_rstream_str_get(rs, &source.preset_name) != NGX_OK ||
-        ngx_mem_rstream_str_get(rs, &source.timeline_id) != NGX_OK ||
+    if (ngx_mem_rstream_str_get(rs, &source.channel_id.s) != NGX_OK ||
+        ngx_mem_rstream_str_get(rs, &source.preset_name.s) != NGX_OK ||
+        ngx_mem_rstream_str_get(rs, &source.timeline_id.s) != NGX_OK ||
         ngx_mem_rstream_read(rs, &filler_start_index,
             sizeof(filler_start_index)) != NGX_OK)
     {
@@ -3097,9 +3101,9 @@ ngx_live_filler_channel_json_get_size(void *obj)
     src = &cctx->source;
 
     return sizeof("\"filler\":{\"channel_id\":\"") - 1 +
-        ngx_escape_json(NULL, src->channel_id.data, src->channel_id.len) +
+        ngx_json_str_get_size(&src->channel_id) +
         sizeof("\",\"timeline_id\":\"") - 1 +
-        ngx_escape_json(NULL, src->timeline_id.data, src->timeline_id.len) +
+        ngx_json_str_get_size(&src->timeline_id) +
         sizeof("\",\"segments\":") - 1 +
         NGX_INT32_LEN +
         sizeof("}") - 1;
@@ -3120,11 +3124,9 @@ ngx_live_filler_channel_json_write(u_char *p, void *obj)
     src = &cctx->source;
 
     p = ngx_copy_fix(p, "\"filler\":{\"channel_id\":\"");
-    p = (u_char *) ngx_escape_json(p, src->channel_id.data,
-        src->channel_id.len);
+    p = ngx_json_str_write(p, &src->channel_id);
     p = ngx_copy_fix(p, "\",\"timeline_id\":\"");
-    p = (u_char *) ngx_escape_json(p, src->timeline_id.data,
-        src->timeline_id.len);
+    p = ngx_json_str_write(p, &src->timeline_id);
     p = ngx_copy_fix(p, "\",\"segments\":");
     p = ngx_sprintf(p, "%uD", cctx->count);
     *p++ = '}';

@@ -72,6 +72,7 @@ typedef struct {
 
 struct ngx_live_timeline_s {
     ngx_str_node_t                     sn;
+    uintptr_t                          id_escape;
     ngx_queue_t                        queue;
     u_char                             id_buf[NGX_LIVE_TIMELINE_MAX_ID_LEN];
     ngx_live_channel_t                *channel;

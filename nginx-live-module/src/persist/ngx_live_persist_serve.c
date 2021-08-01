@@ -75,8 +75,8 @@ ngx_live_persist_serve_write_variant(ngx_persist_write_ctx_t *write_ctx,
                 NGX_KSMP_BLOCK_VARIANT) != NGX_OK ||
             ngx_wstream_str(ws, &cur_variant->sn.str) != NGX_OK ||
             ngx_persist_write(write_ctx, &v, sizeof(v)) != NGX_OK ||
-            ngx_wstream_str(ws, &cur_variant->conf.label) != NGX_OK ||
-            ngx_wstream_str(ws, &cur_variant->conf.lang) != NGX_OK ||
+            ngx_wstream_str(ws, &cur_variant->conf.label.s) != NGX_OK ||
+            ngx_wstream_str(ws, &cur_variant->conf.lang.s) != NGX_OK ||
             ngx_persist_write(write_ctx, track_ids,
                 (u_char *) cur_id - (u_char *) track_ids) != NGX_OK)
         {

@@ -643,6 +643,8 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
     timeline->sn.str.data = timeline->id_buf;
     timeline->sn.str.len = id->len;
     ngx_memcpy(timeline->sn.str.data, id->data, timeline->sn.str.len);
+    timeline->id_escape = ngx_json_str_get_escape(id);
+
     timeline->sn.node.key = hash;
     timeline->int_id = ++cctx->last_id;
 

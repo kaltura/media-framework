@@ -235,7 +235,7 @@ def getObjectWriter(objectInfo, properties):
                 valueSize = '%s_get_size(%s)' % (baseFunc, expr[2:])
             elif format.startswith('objQueue-'):
                 params = format[len('objQueue-'):].split(',')
-                baseFunc, objectType, queueNode, idField = params
+                baseFunc, objectType, queueNode, idField, escField = params
                 fixed += '{'
                 nextFixed = '}'
 
@@ -245,11 +245,11 @@ for (q = ngx_queue_head(&%s);
     q = ngx_queue_next(q))
 {
     %s *cur = ngx_queue_data(q, %s, %s);
-    result += cur->%s.len + ngx_escape_json(NULL, cur->%s.data, cur->%s.len);
+    result += cur->%s.len + cur->%s;
     result += %s_get_size(cur) + sizeof(",\\"\\":") - 1;
 }
-''' % (expr, expr, objectType, objectType, queueNode, idField, idField,
-        idField, baseFunc)
+''' % (expr, expr, objectType, objectType, queueNode, idField, escField,
+        baseFunc)
 
                 valueWrite = '''
 for (q = ngx_queue_head(&%s);
@@ -263,13 +263,13 @@ for (q = ngx_queue_head(&%s);
         *p++ = ',';
     }
     *p++ = '"';
-    p = (u_char *) ngx_escape_json(p, cur->%s.data, cur->%s.len);
+    p = ngx_json_str_write_escape(p, &cur->%s, cur->%s);
     *p++ = '"';
     *p++ = ':';
     p = %s_write(p, cur);
 }
 ''' % (expr, expr, objectType, objectType, queueNode, expr, idField,
-        idField, baseFunc)
+        escField, baseFunc)
 
                 listAdd(funcDefs, 'ngx_queue_t  *q;')
                 valueSize = ''
@@ -352,6 +352,11 @@ for (n = 0; n < %s.nelts; ++n) {
 ''' % (expr, objectType, objectType, expr, baseFunc)
                 listAdd(funcDefs, 'ngx_uint_t  n;')
                 valueSize = ''
+            elif format == 'jV':
+                fixed += '"'
+                nextFixed = '"'
+                valueWrite = 'p = ngx_json_str_write(p, &%s);' % expr
+                valueSize = 'ngx_json_str_get_size(&%s)' % expr
             elif format == 'V':
                 fixed += '"'
                 nextFixed = '"'

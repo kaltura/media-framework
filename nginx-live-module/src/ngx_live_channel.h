@@ -87,6 +87,7 @@ struct ngx_live_channel_s {
     ngx_str_node_t                 sn;        /* must be first */
     uint64_t                       uid;
     ngx_queue_t                    queue;
+    uintptr_t                      id_escape;
     ngx_block_str_t                opaque;
 
     ngx_block_pool_t              *block_pool;
@@ -149,7 +150,7 @@ typedef struct {
     ngx_live_track_disconnect_pt   disconnect;
 
     ngx_atomic_uint_t              connection;
-    ngx_str_t                      remote_addr;
+    ngx_json_str_t                 remote_addr;
 
     time_t                         start_sec;
     off_t                          received_bytes;
@@ -163,6 +164,7 @@ struct ngx_live_track_s {
     ngx_queue_t                    queue;
     ngx_live_channel_t            *channel;
     u_char                         id_buf[NGX_LIVE_TRACK_MAX_ID_LEN];
+    uintptr_t                      id_escape;
     ngx_block_str_t                opaque;
 
     uint32_t                       media_type;
@@ -189,8 +191,8 @@ struct ngx_live_track_s {
 
 
 typedef struct {
-    ngx_str_t                      label;
-    ngx_str_t                      lang;
+    ngx_json_str_t                 label;
+    ngx_json_str_t                 lang;
     ngx_ksmp_variant_role_e        role;
     unsigned                       is_default:1;
 } ngx_live_variant_conf_t;
@@ -200,6 +202,7 @@ typedef struct {
     ngx_queue_t                    queue;
     ngx_live_channel_t            *channel;
     u_char                         id_buf[NGX_LIVE_VARIANT_MAX_ID_LEN];
+    uintptr_t                      id_escape;
     ngx_block_str_t                opaque;
 
     ngx_live_track_t              *tracks[KMP_MEDIA_COUNT];

@@ -71,7 +71,7 @@ typedef struct {
 
 
 typedef struct ngx_live_core_preset_conf_s {
-    ngx_str_t                       name;
+    ngx_json_str_t                  name;
     ngx_live_conf_ctx_t            *ctx;
 
     size_t                          mem_limit;

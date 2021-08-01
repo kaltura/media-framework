@@ -21,8 +21,9 @@ typedef struct {
 
 typedef struct {
     ngx_str_node_t          sn;        /* must be first */
+    uintptr_t               id_escape;
     ngx_queue_t             queue;
-    ngx_str_t               value;
+    ngx_json_str_t          value;
 } ngx_live_dynamic_var_t;
 
 
@@ -165,12 +166,13 @@ ngx_live_dynamic_var_set_vars(ngx_live_json_cmds_ctx_t *jctx,
                 "failed to decode key \"%V\"", &cur->key);
             goto failed;
         }
+        var->id_escape = ngx_json_str_get_escape(&var->sn.str);
 
-        var->value.data = var->sn.str.data + var->sn.str.len;
+        var->value.s.data = var->sn.str.data + var->sn.str.len;
 
         if (cur->value.v.str.escape) {
-            var->value.len = 0;
-            if (ngx_json_decode_string(&var->value, &cur->value.v.str.s)
+            var->value.s.len = 0;
+            if (ngx_json_decode_string(&var->value.s, &cur->value.v.str.s)
                 != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
@@ -180,10 +182,11 @@ ngx_live_dynamic_var_set_vars(ngx_live_json_cmds_ctx_t *jctx,
             }
 
         } else {
-            var->value.len = cur->value.v.str.s.len;
-            ngx_memcpy(var->value.data, cur->value.v.str.s.data,
-                var->value.len);
+            var->value.s.len = cur->value.v.str.s.len;
+            ngx_memcpy(var->value.s.data, cur->value.v.str.s.data,
+                var->value.s.len);
         }
+        ngx_json_str_set_escape(&var->value);
     }
 
     /* remove existing vars */
@@ -257,11 +260,11 @@ ngx_live_dynamic_var_get(ngx_live_variables_ctx_t *ctx,
         return NGX_OK;
     }
 
-    v->len = var->value.len;
+    v->len = var->value.s.len;
     v->valid = 1;
     v->no_cacheable = 0;
     v->not_found = 0;
-    v->data = var->value.data;
+    v->data = var->value.s.data;
 
     return NGX_OK;
 }
@@ -332,7 +335,7 @@ ngx_live_dynamic_var_write_setup(ngx_persist_write_ctx_t *write_ctx,
         if (ngx_persist_write_block_open(write_ctx,
                 NGX_LIVE_DYNAMIC_VAR_PERSIST_BLOCK) != NGX_OK ||
             ngx_wstream_str(ws, &cur->sn.str) != NGX_OK ||
-            ngx_wstream_str(ws, &cur->value) != NGX_OK)
+            ngx_wstream_str(ws, &cur->value.s) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
                 "ngx_live_dynamic_var_write_setup: write failed");
@@ -377,15 +380,17 @@ ngx_live_dynamic_var_read_setup(ngx_persist_block_header_t *header,
             "ngx_live_dynamic_var_read_setup: read key failed");
         return NGX_BAD_DATA;
     }
+    var->id_escape = ngx_json_str_get_escape(&var->sn.str);
 
-    var->value.data = var->sn.str.data + var->sn.str.len;
+    var->value.s.data = var->sn.str.data + var->sn.str.len;
     left -= var->sn.str.len;
 
-    if (ngx_mem_rstream_str_fixed(rs, &var->value, left) != NGX_OK) {
+    if (ngx_mem_rstream_str_fixed(rs, &var->value.s, left) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_dynamic_var_read_setup: read value failed");
         return NGX_BAD_DATA;
     }
+    ngx_json_str_set_escape(&var->value);
 
     ngx_queue_insert_tail(&cctx->queue, &var->queue);
 

@@ -351,8 +351,8 @@ ngx_live_persist_setup_write_variant(ngx_persist_write_ctx_t *write_ctx,
                 NGX_LIVE_PERSIST_BLOCK_VARIANT) != NGX_OK ||
             ngx_wstream_str(ws, &cur_variant->sn.str) != NGX_OK ||
             ngx_persist_write(write_ctx, &v, sizeof(v)) != NGX_OK ||
-            ngx_wstream_str(ws, &cur_variant->conf.label) != NGX_OK ||
-            ngx_wstream_str(ws, &cur_variant->conf.lang) != NGX_OK ||
+            ngx_wstream_str(ws, &cur_variant->conf.label.s) != NGX_OK ||
+            ngx_wstream_str(ws, &cur_variant->conf.lang.s) != NGX_OK ||
             ngx_persist_write(write_ctx, track_ids,
                 (u_char *) cur_id - (u_char *) track_ids) != NGX_OK ||
             ngx_block_str_write(ws, &cur_variant->opaque) != NGX_OK)
@@ -397,8 +397,8 @@ ngx_live_persist_setup_read_variant(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    if (ngx_mem_rstream_str_get(rs, &conf.label) != NGX_OK ||
-        ngx_mem_rstream_str_get(rs, &conf.lang) != NGX_OK)
+    if (ngx_mem_rstream_str_get(rs, &conf.label.s) != NGX_OK ||
+        ngx_mem_rstream_str_get(rs, &conf.lang.s) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_variant: "

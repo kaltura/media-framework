@@ -29,7 +29,7 @@ out nostatic ngx_live_timeline_json ngx_live_timeline_t
     last_periods %func-ngx_live_timeline_last_periods_json obj
 
 out noobject ngx_live_timelines_json ngx_live_timeline_channel_ctx_t
-    - %objQueue-ngx_live_timeline_json,ngx_live_timeline_t,queue,sn.str obj->queue
+    - %objQueue-ngx_live_timeline_json,ngx_live_timeline_t,queue,sn.str,id_escape obj->queue
 
 out noobject ngx_live_timelines_module_json ngx_live_timeline_channel_ctx_t
     timelines %func-ngx_live_timelines_json obj

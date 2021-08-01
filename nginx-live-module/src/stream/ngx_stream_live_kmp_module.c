@@ -997,13 +997,14 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
     }
 
     /* get the address name with port */
-    track->input.remote_addr.data = ctx->remote_addr_buf;
-    track->input.remote_addr.len = ngx_sock_ntop(c->sockaddr,
+    track->input.remote_addr.s.data = ctx->remote_addr_buf;
+    track->input.remote_addr.s.len = ngx_sock_ntop(c->sockaddr,
         c->socklen, ctx->remote_addr_buf,
         NGX_SOCKADDR_STRLEN, 1);
-    if (track->input.remote_addr.len == 0) {
-        track->input.remote_addr = c->addr_text;
+    if (track->input.remote_addr.s.len == 0) {
+        track->input.remote_addr.s = c->addr_text;
     }
+    ngx_json_str_set_escape(&track->input.remote_addr);
 
     ngx_stream_set_ctx(s, ctx, ngx_stream_live_kmp_module);
 

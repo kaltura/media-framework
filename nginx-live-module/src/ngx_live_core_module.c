@@ -264,7 +264,8 @@ ngx_live_core_preset(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 
     cpcf = ngx_live_get_module_preset_conf(ctx, ngx_live_core_module);
     cpcf->ctx = ctx;
-    cpcf->name = value[1];
+    cpcf->name.s = value[1];
+    ngx_json_str_set_escape(&cpcf->name);
 
 
     cmcf = ngx_live_get_module_main_conf(ctx, ngx_live_core_module);

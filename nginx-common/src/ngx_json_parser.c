@@ -65,7 +65,7 @@ static ngx_json_status_t ngx_json_parser_int(
 
 
 static ngx_json_type_t  ngx_json_string = {
-    NGX_JSON_STRING, sizeof(ngx_json_str_t), ngx_json_parser_string
+    NGX_JSON_STRING, sizeof(ngx_json_esc_str_t), ngx_json_parser_string
 };
 
 static ngx_json_type_t  ngx_json_array = {
@@ -149,7 +149,8 @@ ngx_json_skip_spaces(ngx_json_parser_state_t *state)
 }
 
 static ngx_json_status_t
-ngx_json_parse_string(ngx_json_parser_state_t *state, ngx_json_str_t *result)
+ngx_json_parse_string(ngx_json_parser_state_t *state,
+    ngx_json_esc_str_t *result)
 {
     u_char  c;
 
@@ -528,7 +529,7 @@ static ngx_json_status_t
 ngx_json_parser_string(ngx_json_parser_state_t *state, void *result)
 {
     ASSERT_CHAR(state, '"');
-    return ngx_json_parse_string(state, (ngx_json_str_t *) result);
+    return ngx_json_parse_string(state, (ngx_json_esc_str_t *) result);
 }
 
 static ngx_json_status_t

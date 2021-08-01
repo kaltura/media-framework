@@ -166,6 +166,8 @@ ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
     channel->sn.str.data = (void *) (channel + 1);
     channel->sn.str.len = id->len;
     ngx_memcpy(channel->sn.str.data, id->data, channel->sn.str.len);
+    channel->id_escape = ngx_json_str_get_escape(id);
+
     channel->sn.node.key = hash;
 
     ngx_live_random_bytes(temp_pool->log, &channel->uid, sizeof(channel->uid));
@@ -387,14 +389,14 @@ ngx_live_channel_block_str_read(ngx_live_channel_t *channel,
 static ngx_int_t
 ngx_live_variant_validate_conf(ngx_live_variant_conf_t *conf, ngx_log_t *log)
 {
-    if (conf->label.len > NGX_LIVE_VARIANT_MAX_LABEL_LEN) {
+    if (conf->label.s.len > NGX_LIVE_VARIANT_MAX_LABEL_LEN) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_variant_validate_conf: label \"%V\" too long",
             &conf->label);
         return NGX_ERROR;
     }
 
-    if (conf->lang.len > NGX_LIVE_VARIANT_MAX_LANG_LEN) {
+    if (conf->lang.s.len > NGX_LIVE_VARIANT_MAX_LANG_LEN) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_variant_validate_conf: lang \"%V\" too long",
             &conf->lang);
@@ -453,15 +455,19 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
     variant->sn.str.data = variant->id_buf;
     variant->sn.str.len = id->len;
     ngx_memcpy(variant->sn.str.data, id->data, variant->sn.str.len);
+    variant->id_escape = ngx_json_str_get_escape(id);
+
     variant->sn.node.key = hash;
 
-    variant->conf.label.data = variant->label_buf;
-    variant->conf.label.len = conf->label.len;
-    ngx_memcpy(variant->label_buf, conf->label.data, conf->label.len);
+    variant->conf.label.s.data = variant->label_buf;
+    variant->conf.label.s.len = conf->label.s.len;
+    ngx_memcpy(variant->label_buf, conf->label.s.data, conf->label.s.len);
+    ngx_json_str_set_escape(&variant->conf.label);
 
-    variant->conf.lang.data = variant->lang_buf;
-    variant->conf.lang.len = conf->lang.len;
-    ngx_memcpy(variant->lang_buf, conf->lang.data, conf->lang.len);
+    variant->conf.lang.s.data = variant->lang_buf;
+    variant->conf.lang.s.len = conf->lang.s.len;
+    ngx_memcpy(variant->lang_buf, conf->lang.s.data, conf->lang.s.len);
+    ngx_json_str_set_escape(&variant->conf.lang);
 
     variant->conf.role = conf->role;
     variant->conf.is_default = conf->is_default;
@@ -511,15 +517,17 @@ ngx_live_variant_update(ngx_live_variant_t *variant,
         return NGX_ERROR;
     }
 
-    variant->conf.label.len = conf->label.len;
-    if (conf->label.data != variant->label_buf) {
-        ngx_memcpy(variant->label_buf, conf->label.data, conf->label.len);
+    variant->conf.label.s.len = conf->label.s.len;
+    if (conf->label.s.data != variant->label_buf) {
+        ngx_memcpy(variant->label_buf, conf->label.s.data, conf->label.s.len);
     }
+    ngx_json_str_set_escape(&variant->conf.label);
 
-    variant->conf.lang.len = conf->lang.len;
-    if (conf->lang.data != variant->lang_buf) {
-        ngx_memcpy(variant->lang_buf, conf->lang.data, conf->lang.len);
+    variant->conf.lang.s.len = conf->lang.s.len;
+    if (conf->lang.s.data != variant->lang_buf) {
+        ngx_memcpy(variant->lang_buf, conf->lang.s.data, conf->lang.s.len);
     }
+    ngx_json_str_set_escape(&variant->conf.lang);
 
     variant->conf.role = conf->role;
     variant->conf.is_default = conf->is_default;
@@ -775,8 +783,7 @@ ngx_live_variant_json_track_ids_get_size(ngx_live_variant_t *obj)
         }
 
         result += sizeof("\"video\":\"") - 1 + sizeof("\",") - 1 +
-            cur_track->sn.str.len + ngx_escape_json(NULL,
-                cur_track->sn.str.data, cur_track->sn.str.len);
+            cur_track->sn.str.len + cur_track->id_escape;
     }
 
     return result;
@@ -814,8 +821,8 @@ ngx_live_variant_json_track_ids_write(u_char *p, ngx_live_variant_t *obj)
             p = ngx_copy_fix(p, "\"audio\":\"");
             break;
         }
-        p = (u_char *) ngx_escape_json(p, cur_track->sn.str.data,
-            cur_track->sn.str.len);
+        p = ngx_json_str_write_escape(p, &cur_track->sn.str,
+            cur_track->id_escape);
         *p++ = '"';
     }
 
@@ -963,9 +970,12 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     }
 
     track->channel = channel;
+
     track->sn.str.data = track->id_buf;
     track->sn.str.len = id->len;
     ngx_memcpy(track->sn.str.data, id->data, track->sn.str.len);
+    track->id_escape = ngx_json_str_get_escape(id);
+
     track->sn.node.key = hash;
     track->in.key = int_id;
 

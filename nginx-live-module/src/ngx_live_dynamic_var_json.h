@@ -10,8 +10,7 @@ static size_t
 ngx_live_dynamic_var_json_get_size(ngx_live_dynamic_var_t *obj)
 {
     size_t  result =
-        sizeof("\"") - 1 + obj->value.len + ngx_escape_json(NULL,
-            obj->value.data, obj->value.len) +
+        sizeof("\"") - 1 + ngx_json_str_get_size(&obj->value) +
         sizeof("\"") - 1;
 
     return result;
@@ -21,7 +20,7 @@ static u_char *
 ngx_live_dynamic_var_json_write(u_char *p, ngx_live_dynamic_var_t *obj)
 {
     *p++ = '\"';
-    p = (u_char *) ngx_escape_json(p, obj->value.data, obj->value.len);
+    p = ngx_json_str_write(p, &obj->value);
     *p++ = '\"';
 
     return p;
@@ -43,8 +42,7 @@ ngx_live_dynamic_vars_json_get_size(ngx_live_dynamic_var_channel_ctx_t *obj)
     {
         ngx_live_dynamic_var_t *cur = ngx_queue_data(q,
             ngx_live_dynamic_var_t, queue);
-        result += cur->sn.str.len + ngx_escape_json(NULL, cur->sn.str.data,
-            cur->sn.str.len);
+        result += cur->sn.str.len + cur->id_escape;
         result += ngx_live_dynamic_var_json_get_size(cur) + sizeof(",\"\":") -
             1;
     }
@@ -71,7 +69,7 @@ ngx_live_dynamic_vars_json_write(u_char *p, ngx_live_dynamic_var_channel_ctx_t
             *p++ = ',';
         }
         *p++ = '"';
-        p = (u_char *) ngx_escape_json(p, cur->sn.str.data, cur->sn.str.len);
+        p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
         *p++ = '"';
         *p++ = ':';
         p = ngx_live_dynamic_var_json_write(p, cur);

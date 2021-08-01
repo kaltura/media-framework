@@ -8,6 +8,8 @@
 #include <ngx_live_version.h>
 
 
+static ngx_int_t ngx_http_live_api_init_process(ngx_cycle_t *cycle);
+
 static ngx_int_t ngx_http_live_api_postconfiguration(ngx_conf_t *cf);
 
 static void *ngx_http_live_api_create_loc_conf(ngx_conf_t *cf);
@@ -19,11 +21,27 @@ static char *ngx_http_live_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static ngx_int_t ngx_http_live_api_channel_update(ngx_http_request_t *r);
 
 
-static ngx_str_t  ngx_http_live_version = ngx_string(NGX_LIVE_VERSION);
-static ngx_str_t  ngx_http_live_nginx_version = ngx_string(NGINX_VERSION);
-static ngx_str_t  ngx_http_live_compiler = ngx_string(NGX_COMPILER);
-static ngx_str_t  ngx_http_live_built = ngx_string(__DATE__ " " __TIME__);
-static time_t     ngx_http_live_start_time = 0;
+static ngx_json_str_t  ngx_http_live_version = {
+    ngx_string(NGX_LIVE_VERSION),
+    0
+};
+
+static ngx_json_str_t  ngx_http_live_nginx_version = {
+    ngx_string(NGINX_VERSION),
+    0
+};
+
+static ngx_json_str_t  ngx_http_live_compiler = {
+    ngx_string(NGX_COMPILER),
+    0
+};
+
+static ngx_json_str_t  ngx_http_live_built = {
+    ngx_string(__DATE__ " " __TIME__),
+    0
+};
+
+static time_t          ngx_http_live_start_time = 0;
 
 
 #include "ngx_http_live_api_json.h"
@@ -82,7 +100,7 @@ ngx_module_t  ngx_http_live_api_module = {
     NGX_HTTP_MODULE,                        /* module type */
     NULL,                                   /* init master */
     NULL,                                   /* init module */
-    NULL,                                   /* init process */
+    ngx_http_live_api_init_process,         /* init process */
     NULL,                                   /* init thread */
     NULL,                                   /* exit thread */
     NULL,                                   /* exit process */
@@ -90,6 +108,17 @@ ngx_module_t  ngx_http_live_api_module = {
     NGX_MODULE_V1_PADDING
 };
 
+
+static ngx_int_t
+ngx_http_live_api_init_process(ngx_cycle_t *cycle)
+{
+    ngx_json_str_set_escape(&ngx_http_live_version);
+    ngx_json_str_set_escape(&ngx_http_live_nginx_version);
+    ngx_json_str_set_escape(&ngx_http_live_compiler);
+    ngx_json_str_set_escape(&ngx_http_live_built);
+
+    return NGX_OK;
+}
 
 static ngx_int_t
 ngx_http_live_api_build_json(ngx_http_request_t *r,
@@ -705,8 +734,8 @@ ngx_http_live_api_variant_init_conf(ngx_live_variant_json_t *json,
     ngx_live_variant_conf_t *conf, ngx_log_t *log)
 {
     ngx_json_set_uint_value(conf->role, json->role);
-    ngx_json_set_str_value(conf->label, json->label);
-    ngx_json_set_str_value(conf->lang, json->lang);
+    ngx_json_set_str_value(conf->label.s, json->label);
+    ngx_json_set_str_value(conf->lang.s, json->lang);
     ngx_json_set_value(conf->is_default, json->is_default);
 }
 

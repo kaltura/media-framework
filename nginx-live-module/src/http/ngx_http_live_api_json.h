@@ -436,19 +436,14 @@ static size_t
 ngx_http_live_api_json_get_size(void *obj)
 {
     size_t  result =
-        sizeof("{\"version\":\"") - 1 + ngx_http_live_version.len +
-            ngx_escape_json(NULL, ngx_http_live_version.data,
-            ngx_http_live_version.len) +
+        sizeof("{\"version\":\"") - 1 +
+            ngx_json_str_get_size(&ngx_http_live_version) +
         sizeof("\",\"nginx_version\":\"") - 1 +
-            ngx_http_live_nginx_version.len + ngx_escape_json(NULL,
-            ngx_http_live_nginx_version.data, ngx_http_live_nginx_version.len)
-            +
-        sizeof("\",\"compiler\":\"") - 1 + ngx_http_live_compiler.len +
-            ngx_escape_json(NULL, ngx_http_live_compiler.data,
-            ngx_http_live_compiler.len) +
-        sizeof("\",\"built\":\"") - 1 + ngx_http_live_built.len +
-            ngx_escape_json(NULL, ngx_http_live_built.data,
-            ngx_http_live_built.len) +
+            ngx_json_str_get_size(&ngx_http_live_nginx_version) +
+        sizeof("\",\"compiler\":\"") - 1 +
+            ngx_json_str_get_size(&ngx_http_live_compiler) +
+        sizeof("\",\"built\":\"") - 1 +
+            ngx_json_str_get_size(&ngx_http_live_built) +
         sizeof("\",\"pid\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"time\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"uptime\":") - 1 + NGX_TIME_T_LEN +
@@ -465,17 +460,13 @@ ngx_http_live_api_json_write(u_char *p, void *obj)
 {
     u_char  *next;
     p = ngx_copy_fix(p, "{\"version\":\"");
-    p = (u_char *) ngx_escape_json(p, ngx_http_live_version.data,
-        ngx_http_live_version.len);
+    p = ngx_json_str_write(p, &ngx_http_live_version);
     p = ngx_copy_fix(p, "\",\"nginx_version\":\"");
-    p = (u_char *) ngx_escape_json(p, ngx_http_live_nginx_version.data,
-        ngx_http_live_nginx_version.len);
+    p = ngx_json_str_write(p, &ngx_http_live_nginx_version);
     p = ngx_copy_fix(p, "\",\"compiler\":\"");
-    p = (u_char *) ngx_escape_json(p, ngx_http_live_compiler.data,
-        ngx_http_live_compiler.len);
+    p = ngx_json_str_write(p, &ngx_http_live_compiler);
     p = ngx_copy_fix(p, "\",\"built\":\"");
-    p = (u_char *) ngx_escape_json(p, ngx_http_live_built.data,
-        ngx_http_live_built.len);
+    p = ngx_json_str_write(p, &ngx_http_live_built);
     p = ngx_copy_fix(p, "\",\"pid\":");
     p = ngx_sprintf(p, "%ui", (ngx_uint_t) ngx_getpid());
     p = ngx_copy_fix(p, ",\"time\":");
