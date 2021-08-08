@@ -707,6 +707,7 @@ ngx_kmp_push_upstream_ack_frames(ngx_kmp_push_upstream_t *u)
             goto failed;
         }
     }
+
     u->acked_upstream_frame_id = u->ack_frames.upstream_frame_id;
     u->acked_offset = u->ack_frames.offset;
 
