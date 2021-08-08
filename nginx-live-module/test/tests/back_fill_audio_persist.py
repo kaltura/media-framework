@@ -10,7 +10,7 @@ FILLER_VIDEO = TEST_VIDEO1
 
 def updateConf(conf):
     getConfBlock(conf, ['stream', 'server']).append(['live_kmp_read_timeout', '1000000'])
-    getConfBlock(conf, ['live']).append(['persist_cancel_read_if_empty', 'off'])
+    getConfBlock(conf, ['http', 'server']).append(['pckg_back_fill', 'on'])
 
 def setupFiller():
     nl = setupChannelTimeline(FILLER_CHANNEL_ID, FILLER_TIMELINE_ID)

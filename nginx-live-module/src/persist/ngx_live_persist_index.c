@@ -40,10 +40,14 @@ typedef struct {
 } ngx_live_persist_index_channel_t;
 
 typedef struct {
+    uint32_t                            initial_segment_index;
+} ngx_live_persist_index_variant_t;
+
+typedef struct {
     uint32_t                            track_id;
     uint32_t                            has_last_segment;
     uint32_t                            last_segment_bitrate;
-    uint32_t                            reserved;
+    uint32_t                            initial_segment_index;
     int64_t                             last_frame_pts;
     uint64_t                            next_frame_id;
 } ngx_live_persist_index_track_t;
@@ -127,9 +131,9 @@ ngx_live_persist_index_channel_snap(ngx_live_channel_t *channel, void *ectx)
         tp->track_id = cur_track->in.key;
         tp->has_last_segment = cur_track->has_last_segment;
         tp->last_segment_bitrate = cur_track->last_segment_bitrate;
+        tp->initial_segment_index = cur_track->initial_segment_index;
         tp->last_frame_pts = cur_track->last_frame_pts;
         tp->next_frame_id = cur_track->next_frame_id;
-        tp->reserved = 0;
         tp++;
     }
 
@@ -431,6 +435,83 @@ ngx_live_persist_index_read_channel(ngx_persist_block_header_t *header,
 
 
 static ngx_int_t
+ngx_live_persist_index_write_variant(ngx_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_queue_t                       *q;
+    ngx_wstream_t                     *ws;
+    ngx_live_variant_t                *cur_variant;
+    ngx_live_channel_t                *channel = obj;
+    ngx_live_persist_snap_t           *snap;
+    ngx_live_persist_index_variant_t   vp;
+
+    ws = ngx_persist_write_stream(write_ctx);
+    snap = ngx_persist_write_ctx(write_ctx);
+
+    for (q = ngx_queue_head(&channel->variants.queue);
+        q != ngx_queue_sentinel(&channel->variants.queue);
+        q = ngx_queue_next(q))
+    {
+        cur_variant = ngx_queue_data(q, ngx_live_variant_t, queue);
+
+        vp.initial_segment_index = cur_variant->initial_segment_index;
+        if (vp.initial_segment_index > snap->scope.max_index) {
+            vp.initial_segment_index = NGX_LIVE_INVALID_SEGMENT_INDEX;
+        }
+
+        if (ngx_persist_write_block_open(write_ctx,
+                NGX_LIVE_PERSIST_BLOCK_VARIANT) != NGX_OK ||
+            ngx_wstream_str(ws, &cur_variant->sn.str) != NGX_OK ||
+            ngx_persist_write(write_ctx, &vp, sizeof(vp)) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                "ngx_live_persist_index_write_variant: write failed");
+            return NGX_ERROR;
+        }
+
+        ngx_persist_write_block_close(write_ctx);
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_persist_index_read_variant(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_str_t                          id;
+    ngx_live_variant_t                *variant;
+    ngx_live_channel_t                *channel = obj;
+    ngx_live_persist_index_variant_t  *vp;
+
+    if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_index_read_variant: read id failed");
+        return NGX_BAD_DATA;
+    }
+
+    vp = ngx_mem_rstream_get_ptr(rs, sizeof(*vp));
+    if (vp == NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_index_read_variant: read failed");
+        return NGX_BAD_DATA;
+    }
+
+    variant = ngx_live_variant_get(channel, &id);
+    if (variant == NULL) {
+        ngx_log_error(NGX_LOG_WARN, rs->log, 0,
+            "ngx_live_persist_index_read_variant: "
+            "variant \"%V\" not found", &id);
+        return NGX_OK;
+    }
+
+    variant->initial_segment_index = vp->initial_segment_index;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_live_persist_index_write_track(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
@@ -536,6 +617,7 @@ ngx_live_persist_index_read_track(ngx_persist_block_header_t *header,
 
     track->has_last_segment = tp->has_last_segment;
     track->last_segment_bitrate = tp->last_segment_bitrate;
+    track->initial_segment_index = tp->initial_segment_index;
     track->last_frame_pts = tp->last_frame_pts;
     track->next_frame_id = tp->next_frame_id;
 
@@ -798,6 +880,15 @@ static ngx_persist_block_t  ngx_live_persist_index_blocks[] = {
       NGX_PERSIST_FLAG_SINGLE,
       ngx_live_persist_index_write_channel,
       ngx_live_persist_index_read_channel },
+
+    /*
+     * persist header:
+     *   ngx_str_t                         id;
+     *   ngx_live_persist_index_variant_t  p;
+     */
+    { NGX_LIVE_PERSIST_BLOCK_VARIANT, NGX_LIVE_PERSIST_CTX_INDEX_CHANNEL, 0,
+      ngx_live_persist_index_write_variant,
+      ngx_live_persist_index_read_variant },
 
     /*
      * persist header:

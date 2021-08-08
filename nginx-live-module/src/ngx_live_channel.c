@@ -16,9 +16,6 @@ typedef struct {
 static ngx_live_channels_t  ngx_live_channels;
 
 
-static ngx_flag_t ngx_live_variant_is_active_channel_last(
-    ngx_live_variant_t *variant, uint32_t req_media_types);
-
 static size_t ngx_live_variant_json_track_ids_get_size(
     ngx_live_variant_t *obj);
 
@@ -475,6 +472,8 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
     variant->conf.role = conf->role;
     variant->conf.is_default = conf->is_default;
 
+    variant->initial_segment_index = NGX_LIVE_INVALID_SEGMENT_INDEX;
+
     ngx_rbtree_insert(&channel->variants.rbtree, &variant->sn.node);
     ngx_queue_insert_tail(&channel->variants.queue, &variant->queue);
 
@@ -627,12 +626,37 @@ ngx_live_variant_is_active_channel_last(ngx_live_variant_t *variant,
             return 0;
         }
 
-        if (channel->filler_media_types & media_type_flag) {
+        if ((channel->filler_media_types & media_type_flag) &&
+            ngx_live_media_info_queue_get_last(cur_track))
+        {
             return 1;
         }
     }
 
     return 0;
+}
+
+void
+ngx_live_variants_update_active(ngx_live_channel_t *channel)
+{
+    ngx_queue_t         *q;
+    ngx_live_variant_t  *cur_variant;
+
+    for (q = ngx_queue_head(&channel->variants.queue);
+        q != ngx_queue_sentinel(&channel->variants.queue);
+        q = ngx_queue_next(q))
+    {
+        cur_variant = ngx_queue_data(q, ngx_live_variant_t, queue);
+
+        cur_variant->active = ngx_live_variant_is_active_channel_last(
+            cur_variant, KMP_MEDIA_TYPE_MASK);
+
+        if (cur_variant->initial_segment_index ==
+                NGX_LIVE_INVALID_SEGMENT_INDEX && cur_variant->active)
+        {
+            cur_variant->initial_segment_index = channel->next_segment_index;
+        }
+    }
 }
 
 ngx_flag_t
@@ -660,8 +684,7 @@ ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
 
     if (segment_index + 1 == channel->next_segment_index) {
         /* more optimized impl. when the timeline has the last segment */
-        return ngx_live_variant_is_active_channel_last(variant,
-            req_media_types);
+        return variant->active;
     }
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
@@ -997,6 +1020,8 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     for (i = 0; i < cpcf->track_ctx_offset.nelts; i++) {
         track->ctx[offsets[i].index] = (u_char *) track + offsets[i].offset;
     }
+
+    track->initial_segment_index = NGX_LIVE_INVALID_SEGMENT_INDEX;
 
     rc = ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_INIT, NULL);
     if (rc != NGX_OK) {

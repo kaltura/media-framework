@@ -40,6 +40,7 @@ enum {
 
     NGX_LIVE_PERSIST_CTX_SERVE_MAIN,
     NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL,
+    NGX_LIVE_PERSIST_CTX_SERVE_VARIANT,
     NGX_LIVE_PERSIST_CTX_SERVE_TRACK,
     NGX_LIVE_PERSIST_CTX_SERVE_TIMELINE,
     NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO,
@@ -104,6 +105,8 @@ typedef struct {
     ngx_array_t                      *track_refs;   /* ngx_live_track_ref_t */
     ngx_ksmp_segment_index_t          si;
     uint32_t                          flags;
+    uint32_t                          min_index;
+    uint32_t                          max_index;
     ngx_uint_t                        media_info_count;
 } ngx_live_persist_serve_scope_t;
 

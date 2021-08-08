@@ -39,11 +39,8 @@ static ngx_int_t
 ngx_live_persist_serve_write_variant(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    uint32_t                        *cur_id;
-    uint32_t                         track_ids[KMP_MEDIA_COUNT];
-    ngx_uint_t                       i, j;
+    ngx_uint_t                       i;
     ngx_wstream_t                   *ws;
-    ngx_live_track_t                *cur_track;
     ngx_live_channel_t              *channel = obj;
     ngx_live_variant_t              *cur_variant;
     ngx_ksmp_variant_t               v;
@@ -57,19 +54,8 @@ ngx_live_persist_serve_write_variant(ngx_persist_write_ctx_t *write_ctx,
 
         cur_variant = scope->variants[i];
 
-        cur_id = track_ids;
-        for (j = 0; j < KMP_MEDIA_COUNT; j++) {
-            cur_track = cur_variant->tracks[j];
-            if (cur_track == NULL || !cur_track->output) {
-                continue;
-            }
-
-            *cur_id++ = cur_track->in.key;
-        }
-
         v.role = cur_variant->conf.role;
         v.is_default = cur_variant->conf.is_default;
-        v.track_count = cur_id - track_ids;
 
         if (ngx_persist_write_block_open(write_ctx,
                 NGX_KSMP_BLOCK_VARIANT) != NGX_OK ||
@@ -77,8 +63,8 @@ ngx_live_persist_serve_write_variant(ngx_persist_write_ctx_t *write_ctx,
             ngx_persist_write(write_ctx, &v, sizeof(v)) != NGX_OK ||
             ngx_wstream_str(ws, &cur_variant->conf.label.s) != NGX_OK ||
             ngx_wstream_str(ws, &cur_variant->conf.lang.s) != NGX_OK ||
-            ngx_persist_write(write_ctx, track_ids,
-                (u_char *) cur_id - (u_char *) track_ids) != NGX_OK)
+            ngx_live_persist_write_blocks(channel, write_ctx,
+                NGX_LIVE_PERSIST_CTX_SERVE_VARIANT, cur_variant) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
                 "ngx_live_persist_serve_write_variant: "
@@ -97,49 +83,56 @@ static ngx_int_t
 ngx_live_persist_serve_write_track(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    ngx_uint_t                       i, j;
+    uint32_t                         min_index;
+    ngx_uint_t                       i;
     ngx_live_track_t                *cur_track;
-    ngx_live_channel_t              *channel = obj;
-    ngx_live_variant_t              *cur_variant;
+    ngx_live_channel_t              *channel;
+    ngx_live_variant_t              *variant = obj;
     ngx_ksmp_track_header_t          tp;
     ngx_live_persist_serve_scope_t  *scope;
 
+    channel = variant->channel;
+
     scope = ngx_persist_write_ctx(write_ctx);
 
-    for (i = 0; i < scope->header.variant_count; i++) {
+    min_index = scope->min_index;
 
-        cur_variant = scope->variants[i];
+    for (i = 0; i < KMP_MEDIA_COUNT; i++) {
 
-        for (j = 0; j < KMP_MEDIA_COUNT; j++) {
-
-            cur_track = cur_variant->tracks[j];
-            if (cur_track == NULL
-                || !cur_track->output
-                || cur_track->written)
-            {
-                continue;
-            }
-
-            tp.id = cur_track->in.key;
-            tp.media_type = cur_track->media_type;
-
-            if (ngx_persist_write_block_open(write_ctx,
-                    NGX_KSMP_BLOCK_TRACK) != NGX_OK ||
-                ngx_persist_write(write_ctx, &tp, sizeof(tp)) != NGX_OK ||
-                ngx_live_persist_write_blocks(channel, write_ctx,
-                    NGX_LIVE_PERSIST_CTX_SERVE_TRACK, cur_track) != NGX_OK)
-            {
-                ngx_log_error(NGX_LOG_NOTICE, &cur_track->log, 0,
-                    "ngx_live_persist_serve_write_track: write failed");
-                return NGX_ERROR;
-            }
-
-            ngx_persist_write_block_close(write_ctx);
-
-            cur_track->written = 1;     /* avoid writing more than once */
-            scope->header.track_count++;
+        if (!(variant->output_media_types & (1 << i))) {
+            continue;
         }
+
+        cur_track = variant->tracks[i];
+
+        tp.id = cur_track->in.key;
+        tp.media_type = cur_track->media_type;
+
+        scope->min_index = min_index;
+        if (!(scope->flags & NGX_KSMP_FLAG_BACK_FILL) &&
+            cur_track->initial_segment_index > min_index &&
+            cur_track->initial_segment_index > variant->initial_segment_index)
+        {
+            scope->min_index = cur_track->initial_segment_index;
+        }
+
+        if (ngx_persist_write_block_open(write_ctx,
+                NGX_KSMP_BLOCK_TRACK) != NGX_OK ||
+            ngx_persist_write(write_ctx, &tp, sizeof(tp)) != NGX_OK ||
+            ngx_live_persist_write_blocks(channel, write_ctx,
+                NGX_LIVE_PERSIST_CTX_SERVE_TRACK, cur_track) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &cur_track->log, 0,
+                "ngx_live_persist_serve_write_track: write failed");
+            return NGX_ERROR;
+        }
+
+        ngx_persist_write_block_close(write_ctx);
+
+        scope->header.track_count++;
     }
+
+    scope->min_index = min_index;
 
     return NGX_OK;
 }
@@ -185,7 +178,7 @@ static ngx_persist_block_t  ngx_live_persist_serve_blocks[] = {
      * persist header:
      *   ngx_ksmp_track_header_t  p;
      */
-    { NGX_KSMP_BLOCK_TRACK, NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL, 0,
+    { NGX_KSMP_BLOCK_TRACK, NGX_LIVE_PERSIST_CTX_SERVE_VARIANT, 0,
       ngx_live_persist_serve_write_track, NULL },
 
     /*

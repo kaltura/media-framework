@@ -178,15 +178,13 @@ struct ngx_live_track_s {
     int64_t                        last_frame_pts;
     uint64_t                       next_frame_id;
 
+    uint32_t                       initial_segment_index;
     ngx_live_media_info_node_t    *media_info_node;     /* temp during serve */
 
     /* Note: when a track gets a segment from another track (gap filling),
         has_last_segment = 0 while last_segment_bitrate != 0 */
     uint32_t                       last_segment_bitrate;
     unsigned                       has_last_segment:1;
-
-    unsigned                       output:1;            /* temp during serve */
-    unsigned                       written:1;           /* temp during serve */
 };
 
 
@@ -208,9 +206,15 @@ typedef struct {
     ngx_live_track_t              *tracks[KMP_MEDIA_COUNT];
     uint32_t                       track_count;
 
+    uint32_t                       initial_segment_index;
+
     ngx_live_variant_conf_t        conf;
     u_char                         label_buf[NGX_LIVE_VARIANT_MAX_LABEL_LEN];
     u_char                         lang_buf[NGX_LIVE_VARIANT_MAX_LANG_LEN];
+
+    uint32_t                       output_media_types;  /* temp during serve */
+
+    unsigned                       active:1;
 } ngx_live_variant_t;
 
 
@@ -270,6 +274,8 @@ ngx_int_t ngx_live_variant_set_track(ngx_live_variant_t *variant,
 
 ngx_int_t ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
     ngx_live_track_t **tracks, ngx_log_t *log);
+
+void ngx_live_variants_update_active(ngx_live_channel_t *channel);
 
 ngx_flag_t ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
     ngx_live_timeline_t *timeline, uint32_t req_media_types);

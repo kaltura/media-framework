@@ -2434,7 +2434,6 @@ ngx_live_filler_read_segment(ngx_persist_block_header_t *header,
     size_t                              size;
     int64_t                             duration;
     ngx_int_t                           rc;
-    ngx_flag_t                          changed;
     ngx_live_track_t                   *track = obj;
     ngx_live_segment_t                 *segment;
     ngx_live_filler_read_ctx_t         *ctx;
@@ -2492,11 +2491,19 @@ ngx_live_filler_read_segment(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    ngx_live_media_info_pending_create_segment(track, ctx->index, &changed);
-    if (ctx->index == 0 && !changed) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_filler_read_segment: missing media info (1)");
-        return NGX_BAD_DATA;
+    rc = ngx_live_media_info_pending_create_segment(track, ctx->index);
+    if (rc != NGX_OK) {
+        if (rc != NGX_DONE) {
+            ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+                "ngx_live_filler_read_segment: create media info failed");
+            return NGX_ERROR;
+        }
+
+        if (ctx->index == 0) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_live_filler_read_segment: missing media info (1)");
+            return NGX_BAD_DATA;
+        }
     }
 
     segment->media_info = ngx_live_media_info_queue_get_last(track);

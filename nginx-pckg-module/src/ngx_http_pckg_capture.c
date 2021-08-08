@@ -396,16 +396,14 @@ ngx_http_pckg_capture_parse_request(ngx_http_request_t *r, u_char *cur,
 
     if (clcf->redirect && (result->flags & NGX_KSMP_FLAG_TIME_RELATIVE)) {
         *handler = &ngx_http_pckg_redirect_handler;
-
-        result->flags |= NGX_KSMP_FLAG_DYNAMIC_VAR;
         return NGX_OK;
     }
 
     *handler = &ngx_http_pckg_capture_handler;
 
     result->padding = VOD_BUFFER_PADDING_SIZE;
-    result->flags |= NGX_KSMP_FLAG_DYNAMIC_VAR | NGX_KSMP_FLAG_MEDIA_INFO
-        | NGX_KSMP_FLAG_MEDIA | clcf->granularity;
+    result->flags |= NGX_KSMP_FLAG_MEDIA_INFO | NGX_KSMP_FLAG_MEDIA
+        | clcf->granularity;
 
     return NGX_OK;
 }

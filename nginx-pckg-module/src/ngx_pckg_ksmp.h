@@ -91,11 +91,13 @@ struct ngx_pckg_track_s {
 
 
 typedef struct {
+    ngx_pckg_channel_t            *channel;
     ngx_str_t                      id;
     ngx_ksmp_variant_t            *header;
     ngx_str_t                      label;
     ngx_str_t                      lang;
     ngx_pckg_track_t              *tracks[KMP_MEDIA_COUNT];
+    ngx_uint_t                     track_count;
 } ngx_pckg_variant_t;
 
 
@@ -125,7 +127,6 @@ struct ngx_pckg_channel_s {
     ngx_pckg_timeline_t            timeline;
     ngx_array_t                    variants;    /* ngx_pckg_variant_t */
     ngx_array_t                    tracks;      /* ngx_pckg_track_t */
-    ngx_pckg_track_t             **sorted_tracks;
     ngx_ksmp_segment_index_t      *segment_index;
     ngx_pckg_dynamic_vars_t        vars;
     uint32_t                       media_types;

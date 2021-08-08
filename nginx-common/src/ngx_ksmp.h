@@ -44,6 +44,7 @@
 #define NGX_KSMP_FLAG_ACTIVE_ANY            (0x02000000)
 #define NGX_KSMP_FLAG_CHECK_EXPIRY          (0x04000000)
 #define NGX_KSMP_FLAG_RELATIVE_DTS          (0x08000000)  /* to period start */
+#define NGX_KSMP_FLAG_BACK_FILL             (0x10000000)
 
 
 #define NGX_KSMP_FLAG_MEDIA_CLIP            (NGX_KSMP_FLAG_MEDIA_CLOSEST_KEY \
@@ -142,7 +143,6 @@ typedef enum {
 typedef struct {
     uint32_t    role;
     uint32_t    is_default;
-    uint32_t    track_count;
 } ngx_ksmp_variant_t;
 
 

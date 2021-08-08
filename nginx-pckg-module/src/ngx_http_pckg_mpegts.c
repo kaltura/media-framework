@@ -251,8 +251,7 @@ ngx_http_pckg_mpegts_parse_ts_request(ngx_http_request_t *r, u_char *start_pos,
             NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT |
             NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
-        result->flags = NGX_KSMP_FLAG_DYNAMIC_VAR | NGX_KSMP_FLAG_MEDIA_INFO
-            | NGX_KSMP_FLAG_MEDIA;
+        result->flags = NGX_KSMP_FLAG_MEDIA_INFO | NGX_KSMP_FLAG_MEDIA;
 
     } else {
         return NGX_DECLINED;

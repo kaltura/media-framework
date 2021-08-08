@@ -77,10 +77,13 @@ typedef struct {
 
     ngx_uint_t                        active_policy;
     ngx_uint_t                        media_type_selector;
+    ngx_flag_t                        back_fill;
 
     ngx_flag_t                        empty_segments;
     buffer_pool_t                    *output_buffer_pool;
     ngx_http_complex_value_t         *segment_metadata;
+
+    uint32_t                          base_flags;
 } ngx_http_pckg_core_loc_conf_t;
 
 

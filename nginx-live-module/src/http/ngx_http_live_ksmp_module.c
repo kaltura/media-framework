@@ -752,7 +752,6 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
 {
     uint32_t           track_id;
     uint32_t           req_media_types;
-    uint32_t           res_media_types;
     ngx_int_t          rc;
     ngx_uint_t         i;
     ngx_live_track_t  *cur_track;
@@ -785,7 +784,7 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
         }
     }
 
-    res_media_types = 0;
+    variant->output_media_types = 0;
     for (i = 0; i < KMP_MEDIA_COUNT; i++) {
         cur_track = variant->tracks[i];
         if (cur_track == NULL) {
@@ -793,50 +792,39 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
         }
 
         if (!(req_media_types & (1 << i))) {
-            cur_track->output = 0;
             continue;
         }
 
-        if (params->segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {
-            cur_track->media_info_node = ngx_live_media_info_queue_get_node(
-                cur_track, params->segment_index, &track_id);
-            if (cur_track->media_info_node == NULL) {
-                ngx_http_live_ksmp_set_error(params,
-                    NGX_KSMP_ERR_MEDIA_INFO_NOT_FOUND,
-                    "no media info, index: %uD, track: %V, variant: %V"
-                    ", channel: %V",
-                    params->segment_index, &cur_track->sn.str,
-                    &variant->sn.str, &variant->channel->sn.str);
-                cur_track->output = 0;
-                continue;
-            }
+        if (!(params->flags & NGX_KSMP_FLAG_BACK_FILL) &&
+            cur_track->initial_segment_index > scope->max_index &&
+            cur_track->initial_segment_index > variant->initial_segment_index)
+        {
+            continue;
+        }
 
-            if (scope->track_refs) {
-                rc = ngx_http_live_ksmp_add_track_ref(scope, track_id,
-                    cur_track);
-                if (rc != NGX_OK) {
-                    return rc;
-                }
-            }
+        cur_track->media_info_node = ngx_live_media_info_queue_get_node(
+            cur_track, scope->max_index, &track_id);
+        if (cur_track->media_info_node == NULL) {
+            ngx_http_live_ksmp_set_error(params,
+                NGX_KSMP_ERR_MEDIA_INFO_NOT_FOUND,
+                "no media info, index: %uD, track: %V, variant: %V"
+                ", channel: %V",
+                scope->max_index, &cur_track->sn.str, &variant->sn.str,
+                &variant->channel->sn.str);
+            continue;
+        }
 
-        } else {
-            if (ngx_live_media_info_queue_get_last(cur_track) == NULL) {
-                ngx_http_live_ksmp_set_error(params,
-                    NGX_KSMP_ERR_MEDIA_INFO_NOT_FOUND,
-                    "no media info, track: %V, variant: %V, channel: %V",
-                    &cur_track->sn.str, &variant->sn.str,
-                    &variant->channel->sn.str);
-                cur_track->output = 0;
-                continue;
+        if (scope->track_refs) {
+            rc = ngx_http_live_ksmp_add_track_ref(scope, track_id, cur_track);
+            if (rc != NGX_OK) {
+                return rc;
             }
         }
 
-        cur_track->output = 1;
-        cur_track->written = 0;
-        res_media_types |= 1 << cur_track->media_type;
+        variant->output_media_types |= 1 << cur_track->media_type;
     }
 
-    if (!res_media_types) {
+    if (!variant->output_media_types) {
         ngx_http_live_ksmp_set_error(params,
             NGX_KSMP_ERR_TRACK_NOT_FOUND,
             "no tracks found, mask: 0x%uxD, variant: %V, channel: %V",
@@ -845,7 +833,7 @@ ngx_http_live_ksmp_output_variant(ngx_http_live_ksmp_params_t *params,
         return NGX_ABORT;
     }
 
-    scope->header.res_media_types |= res_media_types;
+    scope->header.res_media_types |= variant->output_media_types;
 
     return NGX_OK;
 }
@@ -994,6 +982,8 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
 {
     uint32_t                      code;
     ngx_int_t                     rc;
+    ngx_queue_t                  *q;
+    ngx_live_period_t            *period;
     ngx_http_request_t           *r = params->r;
     ngx_live_channel_t           *channel;
     ngx_live_timeline_t          *timeline;
@@ -1095,7 +1085,21 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
 
     scope->timeline = timeline;
 
-    /* scope */
+    /* min / max index */
+    if (params->segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {
+        scope->min_index = scope->max_index = params->segment_index;
+
+    } else {
+        q = ngx_queue_head(&timeline->periods);
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
+        scope->min_index = period->node.key;
+
+        q = ngx_queue_last(&timeline->periods);
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
+        scope->max_index = period->node.key + period->segment_count - 1;
+    }
+
+    /* track refs */
     if (params->flags & NGX_KSMP_FLAG_MEDIA) {
         scope->track_refs = ngx_array_create(r->pool, KMP_MEDIA_COUNT,
             sizeof(ngx_live_track_ref_t));
@@ -1111,6 +1115,7 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
 
     scope->flags = params->flags;
 
+    /* variants */
     if (params->variant_ids.data != NULL) {
         rc = ngx_http_live_ksmp_parse_variant_ids(r, params, scope);
         if (rc != NGX_OK) {

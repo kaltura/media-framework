@@ -12,6 +12,7 @@ enum {
     NGX_PCKG_KSMP_CTX_MAIN = 0,
     NGX_PCKG_KSMP_CTX_CHANNEL,
     NGX_PCKG_KSMP_CTX_TIMELINE,
+    NGX_PCKG_KSMP_CTX_VARIANT,
     NGX_PCKG_KSMP_CTX_TRACK,
     NGX_PCKG_KSMP_CTX_MEDIA_INFO,
     NGX_PCKG_KSMP_CTX_SEGMENT,
@@ -343,14 +344,9 @@ ngx_pckg_ksmp_read_track(ngx_persist_block_header_t *header,
 {
     ngx_int_t                 rc;
     ngx_pckg_track_t         *track;
-    ngx_pckg_channel_t       *channel = obj;
+    ngx_pckg_variant_t       *variant = obj;
+    ngx_pckg_channel_t       *channel;
     ngx_ksmp_track_header_t  *h;
-
-    if (channel->sorted_tracks != NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_track: got track after variant");
-        return NGX_BAD_DATA;
-    }
 
     h = ngx_mem_rstream_get_ptr(rs, sizeof(*h));
     if (h == NULL) {
@@ -365,6 +361,15 @@ ngx_pckg_ksmp_read_track(ngx_persist_block_header_t *header,
             h->media_type);
         return NGX_BAD_DATA;
     }
+
+    if (variant->tracks[h->media_type] != NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_track: variant already has media type %uD",
+            h->media_type);
+        return NGX_BAD_DATA;
+    }
+
+    channel = variant->channel;
 
     track = ngx_array_push(&channel->tracks);
     if (track == NULL) {
@@ -410,79 +415,10 @@ ngx_pckg_ksmp_read_track(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    return NGX_OK;
-}
-
-
-static int ngx_libc_cdecl
-ngx_pckg_ksmp_track_ptr_compare(const void *one, const void *two)
-{
-    ngx_pckg_track_t  *first = *(ngx_pckg_track_t **) one;
-    ngx_pckg_track_t  *second = *(ngx_pckg_track_t **) two;
-
-    return (int) first->header->id - (int) second->header->id;
-}
-
-
-static ngx_int_t
-ngx_pckg_ksmp_track_create_index(ngx_pckg_channel_t *channel)
-{
-    ngx_uint_t          i, n;
-    ngx_pckg_track_t   *tracks;
-    ngx_pckg_track_t  **sorted;
-
-    n = channel->tracks.nelts;
-
-    sorted = ngx_palloc(channel->pool, sizeof(sorted[0]) * n);
-    if (sorted == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-            "ngx_pckg_ksmp_track_create_index: alloc failed");
-        return NGX_ERROR;
-    }
-
-    tracks = channel->tracks.elts;
-    for (i = 0; i < n; i++) {
-        sorted[i] = &tracks[i];
-    }
-
-    ngx_qsort(sorted, n, sizeof(ngx_pckg_track_t *),
-        ngx_pckg_ksmp_track_ptr_compare);
-
-    channel->sorted_tracks = sorted;
+    variant->tracks[h->media_type] = track;
+    variant->track_count++;
 
     return NGX_OK;
-}
-
-
-static ngx_pckg_track_t *
-ngx_pckg_ksmp_track_get(ngx_pckg_channel_t *channel, uint32_t id)
-{
-    ngx_int_t          left, right, index;
-    ngx_pckg_track_t  *track;
-
-    left = 0;
-    right = channel->tracks.nelts - 1;
-    for ( ;; ) {
-
-        if (left > right) {
-            return NULL;
-        }
-
-        index = (left + right) / 2;
-        track = channel->sorted_tracks[index];
-
-        if (track->header->id < id) {
-            left = index + 1;
-
-        } else if (track->header->id > id) {
-            right = index - 1;
-
-        } else {
-            break;
-        }
-    }
-
-    return track;
 }
 
 
@@ -811,10 +747,8 @@ static ngx_int_t
 ngx_pckg_ksmp_read_variant(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
-    uint32_t             i;
-    uint32_t             track_id;
     ngx_str_t            id;
-    ngx_pckg_track_t    *track;
+    ngx_int_t            rc;
     ngx_ksmp_variant_t  *h;
     ngx_pckg_variant_t  *variant;
     ngx_pckg_channel_t  *channel = obj;
@@ -839,13 +773,6 @@ ngx_pckg_ksmp_read_variant(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    if (h->track_count <= 0 || h->track_count > KMP_MEDIA_COUNT) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_variant: invalid track count %uD",
-            h->track_count);
-        return NGX_BAD_DATA;
-    }
-
     variant = ngx_array_push(&channel->variants);
     if (variant == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -865,37 +792,23 @@ ngx_pckg_ksmp_read_variant(ngx_persist_block_header_t *header,
         variant->label.len = 0;
     }
 
-    if (channel->sorted_tracks == NULL) {
-        if (ngx_pckg_ksmp_track_create_index(channel) != NGX_OK) {
-            return NGX_ERROR;
-        }
+    ngx_memzero(variant->tracks, sizeof(variant->tracks));
+    variant->track_count = 0;
+
+    variant->channel = channel;
+
+    rc = ngx_persist_conf_read_blocks(channel->persist,
+        NGX_PCKG_KSMP_CTX_VARIANT, rs, variant);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_pckg_ksmp_read_variant: read blocks failed %i", rc);
+        return rc;
     }
 
-    ngx_memzero(variant->tracks, sizeof(variant->tracks));
-
-    for (i = 0; i < h->track_count; i++) {
-        if (ngx_mem_rstream_read(rs, &track_id, sizeof(track_id)) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_pckg_ksmp_read_variant: read track id failed");
-            return NGX_BAD_DATA;
-        }
-
-        track = ngx_pckg_ksmp_track_get(channel, track_id);
-        if (track == NULL) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_pckg_ksmp_read_variant: failed to get track %uD",
-                track_id);
-            return NGX_BAD_DATA;
-        }
-
-        if (variant->tracks[track->header->media_type] != NULL) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_pckg_ksmp_read_variant: media type %uD already assigned",
-                track->header->media_type);
-            return NGX_BAD_DATA;
-        }
-
-        variant->tracks[track->header->media_type] = track;
+    if (variant->track_count <= 0) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_variant: no tracks read");
+        return NGX_BAD_DATA;
     }
 
     variant->id = id;
@@ -1241,8 +1154,6 @@ ngx_pckg_ksmp_sgts_init(ngx_pckg_channel_t *channel)
         return NGX_ERROR;
     }
 
-    variant->header->track_count = 1;
-
 
     /* track */
 
@@ -1402,6 +1313,7 @@ ngx_pckg_ksmp_read_sgts_segment(ngx_persist_block_header_t *header,
 
     variant = channel->variants.elts;
     variant->tracks[track->header->media_type] = track;
+    variant->track_count = 1;
 
     return NGX_OK;
 }
@@ -1495,7 +1407,10 @@ static ngx_persist_block_t  ngx_pckg_ksmp_blocks[] = {
     { NGX_KSMP_BLOCK_PERIOD, NGX_PCKG_KSMP_CTX_TIMELINE, 0, NULL,
       ngx_pckg_ksmp_read_period },
 
-    { NGX_KSMP_BLOCK_TRACK, NGX_PCKG_KSMP_CTX_CHANNEL, 0, NULL,
+    { NGX_KSMP_BLOCK_VARIANT, NGX_PCKG_KSMP_CTX_CHANNEL, 0, NULL,
+      ngx_pckg_ksmp_read_variant },
+
+    { NGX_KSMP_BLOCK_TRACK, NGX_PCKG_KSMP_CTX_VARIANT, 0, NULL,
       ngx_pckg_ksmp_read_track },
 
     { NGX_KSMP_BLOCK_MEDIA_INFO_QUEUE, NGX_PCKG_KSMP_CTX_TRACK, 0, NULL,
@@ -1506,9 +1421,6 @@ static ngx_persist_block_t  ngx_pckg_ksmp_blocks[] = {
 
     { NGX_KSMP_BLOCK_SEGMENT_INFO, NGX_PCKG_KSMP_CTX_TRACK, 0, NULL,
       ngx_pckg_ksmp_read_segment_info },
-
-    { NGX_KSMP_BLOCK_VARIANT, NGX_PCKG_KSMP_CTX_CHANNEL, 0, NULL,
-      ngx_pckg_ksmp_read_variant },
 
     { NGX_KSMP_BLOCK_SEGMENT_INDEX, NGX_PCKG_KSMP_CTX_CHANNEL, 0, NULL,
       ngx_pckg_ksmp_read_segment_index },

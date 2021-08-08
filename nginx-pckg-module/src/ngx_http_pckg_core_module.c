@@ -175,6 +175,13 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       offsetof(ngx_http_pckg_core_loc_conf_t, media_type_selector),
       &ngx_http_pckg_media_type_selector },
 
+    { ngx_string("pckg_back_fill"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t, back_fill),
+      NULL },
+
     { ngx_string("pckg_empty_segments"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_flag_slot,
@@ -598,6 +605,7 @@ ngx_http_pckg_core_parse(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
     ngx_uint_t                       key;
     ngx_array_t                     *parsers;
     ngx_http_pckg_parse_uri_pt      *cur, *last;
+    ngx_http_pckg_core_loc_conf_t   *plcf;
     ngx_http_pckg_core_main_conf_t  *pmcf;
 
     pmcf = ngx_http_get_module_main_conf(r, ngx_http_pckg_core_module);
@@ -633,11 +641,20 @@ ngx_http_pckg_core_parse(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
     params->time = NGX_KSMP_INVALID_TIMESTAMP;
 
     cur = parsers->elts;
-    for (last = cur + parsers->nelts; cur < last; cur++) {
+    for (last = cur + parsers->nelts; ; cur++) {
+
+        if (cur >= last) {
+            base.data = start_pos;
+            base.len = end_pos - start_pos;
+
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_pckg_core_parse: unknown request \"%V\"", &base);
+            return NGX_HTTP_BAD_REQUEST;
+        }
 
         rc = (*cur)(r, start_pos, end_pos, params, handler);
         if (rc == NGX_OK) {
-            return NGX_OK;
+            break;
         }
 
         if (rc != NGX_DECLINED) {
@@ -647,12 +664,11 @@ ngx_http_pckg_core_parse(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
         }
     }
 
-    base.data = start_pos;
-    base.len = end_pos - start_pos;
+    plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
 
-    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-        "ngx_http_pckg_core_parse: unknown request \"%V\"", &base);
-    return NGX_HTTP_BAD_REQUEST;
+    params->flags |= plcf->base_flags;
+
+    return NGX_OK;
 }
 
 
@@ -1526,6 +1542,7 @@ ngx_http_pckg_core_create_loc_conf(ngx_conf_t *cf)
 
     conf->active_policy = NGX_CONF_UNSET_UINT;
     conf->media_type_selector = NGX_CONF_UNSET_UINT;
+    conf->back_fill = NGX_CONF_UNSET;
 
     conf->empty_segments = NGX_CONF_UNSET;
 
@@ -1577,6 +1594,9 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
                               prev->media_type_selector,
                               NGX_HTTP_PCKG_MTS_REQUEST);
 
+    ngx_conf_merge_value(conf->back_fill,
+                         prev->back_fill, 0);
+
     ngx_conf_merge_value(conf->empty_segments,
                          prev->empty_segments, 0);
 
@@ -1586,6 +1606,11 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 
     if (conf->segment_metadata == NULL) {
         conf->segment_metadata = prev->segment_metadata;
+    }
+
+    conf->base_flags = NGX_KSMP_FLAG_DYNAMIC_VAR;
+    if (conf->back_fill) {
+        conf->base_flags |= NGX_KSMP_FLAG_BACK_FILL;
     }
 
     return NGX_CONF_OK;

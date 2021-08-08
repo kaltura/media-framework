@@ -1043,8 +1043,8 @@ ngx_http_pckg_mpd_parse_request(ngx_http_request_t *r, u_char *start_pos,
             NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
         result->flags = plcf->active_policy | NGX_KSMP_FLAG_CHECK_EXPIRY
-            | NGX_KSMP_FLAG_DYNAMIC_VAR | NGX_KSMP_FLAG_MEDIA_INFO
-            | NGX_KSMP_FLAG_TIMELINE | NGX_KSMP_FLAG_PERIODS;
+            | NGX_KSMP_FLAG_MEDIA_INFO | NGX_KSMP_FLAG_TIMELINE
+            | NGX_KSMP_FLAG_PERIODS;
 
     } else {
         return NGX_DECLINED;

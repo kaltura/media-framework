@@ -81,7 +81,8 @@ typedef struct {
 } ngx_live_media_info_preset_conf_t;
 
 
-static ngx_int_t ngx_live_media_info_queue_copy(ngx_live_track_t *track);
+static ngx_int_t ngx_live_media_info_queue_copy(ngx_live_track_t *track,
+    kmp_media_info_t *target_media_info, uint32_t segment_index);
 
 static ngx_int_t ngx_live_media_info_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_media_info_postconfiguration(ngx_conf_t *cf);
@@ -801,22 +802,16 @@ ngx_live_media_info_source_compare(kmp_media_info_t *target,
 
 static ngx_live_track_t *
 ngx_live_media_info_source_get(ngx_live_track_t *track,
-    ngx_flag_t require_last_segment)
+    kmp_media_info_t *target_media_info, ngx_flag_t require_last_segment)
 {
     ngx_queue_t                      *q, *cq;
     kmp_media_info_t                 *cur_media_info;
-    kmp_media_info_t                 *target_media_info;
     kmp_media_info_t                 *source_media_info;
     ngx_live_track_t                 *source;
     ngx_live_track_t                 *cur_track;
     ngx_live_channel_t               *channel;
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx, *cur_ctx;
-
-    target_media_info = ngx_live_media_info_source_get_target(track);
-    if (target_media_info == NULL) {
-        return NULL;
-    }
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
@@ -829,7 +824,7 @@ ngx_live_media_info_source_get(ngx_live_track_t *track,
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
-        if (cur_track->media_type != track->media_type) {
+        if (cur_track->media_type != track->media_type || cur_track == track) {
             continue;
         }
 
@@ -879,6 +874,7 @@ static ngx_int_t
 ngx_live_media_info_source_set(ngx_live_track_t *track)
 {
     ngx_queue_t                      *q;
+    kmp_media_info_t                 *target_media_info;
     ngx_live_track_t                 *source;
     ngx_live_channel_t               *channel;
     ngx_live_media_info_node_t       *node;
@@ -886,15 +882,15 @@ ngx_live_media_info_source_set(ngx_live_track_t *track)
     ngx_live_media_info_track_ctx_t  *source_ctx;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
+    if (ngx_queue_empty(&ctx->active)) {
+        return NGX_DONE;
+    }
+
     channel = track->channel;
 
     if (ngx_queue_empty(&ctx->pending)) {
 
         q = ngx_queue_last(&ctx->active);
-        if (q == ngx_queue_sentinel(&ctx->active)) {
-            return NGX_DONE;
-        }
-
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
         if (node->track_id == track->in.key) {
@@ -915,7 +911,14 @@ ngx_live_media_info_source_set(ngx_live_track_t *track)
         }
     }
 
-    source = ngx_live_media_info_source_get(track, 1);
+    target_media_info = ngx_live_media_info_source_get_target(track);
+    if (target_media_info == NULL) {
+        ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
+            "ngx_live_media_info_source_set: failed to get media info");
+        return NGX_DONE;
+    }
+
+    source = ngx_live_media_info_source_get(track, target_media_info, 1);
     if (source == NULL) {
         ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
             "ngx_live_media_info_source_set: failed to get source");
@@ -998,14 +1001,11 @@ ngx_live_media_info_pending_add(ngx_live_track_t *track,
     uint32_t extra_data_size, uint32_t frame_index)
 {
     ngx_int_t                         rc;
-    ngx_flag_t                        first;
     ngx_queue_t                      *q;
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_track_ctx_t  *ctx;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
-
-    first = 0;
 
     q = ngx_queue_last(&ctx->pending);
     if (q != ngx_queue_sentinel(&ctx->pending)) {
@@ -1029,9 +1029,6 @@ ngx_live_media_info_pending_add(ngx_live_track_t *track,
                 /* no change - ignore */
                 return NGX_DONE;
             }
-
-        } else {
-            first = 1;
         }
     }
 
@@ -1047,15 +1044,6 @@ ngx_live_media_info_pending_add(ngx_live_track_t *track,
     ctx->delta_sum = frame_index;
 
     ngx_queue_insert_tail(&ctx->pending, &node->queue);
-
-    if (first) {
-        rc = ngx_live_media_info_queue_copy(track);
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_live_media_info_pending_add: copy queue failed");
-            return rc;
-        }
-    }
 
     return NGX_OK;
 }
@@ -1095,10 +1083,11 @@ ngx_live_media_info_pending_remove_frames(ngx_live_track_t *track,
     }
 }
 
-void
+ngx_int_t
 ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
-    uint32_t segment_index, ngx_flag_t *changed)
+    uint32_t segment_index)
 {
+    ngx_int_t                         rc;
     ngx_queue_t                      *q;
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_node_t       *cur;
@@ -1136,15 +1125,26 @@ ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
     }
 
     if (node == NULL) {
-        *changed = 0;
-        return;
+        return NGX_DONE;
+    }
+
+    if (ngx_queue_empty(&ctx->active)) {
+        track->initial_segment_index = track->channel->next_segment_index;
+
+        rc = ngx_live_media_info_queue_copy(track, &node->media_info.info,
+            segment_index);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_media_info_pending_create_segment: copy failed");
+            return rc;
+        }
     }
 
     ngx_live_media_info_queue_push(track, node, segment_index);
 
     ngx_live_media_info_source_remove_refs(track);
 
-    *changed = 1;
+    return NGX_OK;
 }
 
 void
@@ -1181,7 +1181,8 @@ ngx_live_media_info_pending_free_all(ngx_live_track_t *track)
 /* gap filling */
 
 static ngx_int_t
-ngx_live_media_info_queue_copy(ngx_live_track_t *track)
+ngx_live_media_info_queue_copy(ngx_live_track_t *track,
+    kmp_media_info_t *target_media_info, uint32_t segment_index)
 {
     ngx_int_t                         rc;
     ngx_queue_t                      *q;
@@ -1196,7 +1197,7 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track)
         return NGX_OK;
     }
 
-    source = ngx_live_media_info_source_get(track, 0);
+    source = ngx_live_media_info_source_get(track, target_media_info, 0);
     if (source == NULL) {
         return NGX_OK;
     }
@@ -1210,10 +1211,11 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track)
     {
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
-        /* Note: if the source is a filler that was just added, the segment
-            index of the node will be next_segment_index, must not add it */
+        /* Note: must not add nodes that come after the node that is about to
+            be added. if the source is a filler that was just added, it will
+            have a node with an index equal to next_segment_index. */
 
-        if (node->node.key >= channel->next_segment_index) {
+        if (node->node.key >= segment_index) {
             break;
         }
 
@@ -1229,12 +1231,13 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track)
         ctx->added++;
     }
 
-    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-        "ngx_live_media_info_queue_copy: "
-        "setting source to \"%V\"", &source->sn.str);
+    if (!ctx->added) {
+        return NGX_OK;
+    }
 
-    ctx->source = source;
-    source_ctx->source_refs++;
+    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+        "ngx_live_media_info_queue_copy: copied %uD nodes from \"%V\"",
+        ctx->added, &source->sn.str);
 
     rc = ngx_live_core_track_event(track, NGX_LIVE_EVENT_TRACK_COPY, source);
     if (rc != NGX_OK) {
@@ -2141,13 +2144,31 @@ ngx_live_media_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
+    node = ngx_live_media_info_queue_get_before(ctx, scope->min_index);
+    if (node == NULL) {
+        q = ngx_queue_head(&ctx->active);
+        if (q == ngx_queue_sentinel(&ctx->active)) {
+            ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
+                "ngx_live_media_info_write_serve: active queue is empty");
+            return NGX_ERROR;
+        }
+
+        node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+        if (node->node.key > scope->max_index) {
+            ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
+                "ngx_live_media_info_write_serve: "
+                "no nodes in scope, scope: %uD..%uD, first: %ui",
+                scope->min_index, scope->max_index, node->node.key);
+            return NGX_ERROR;
+        }
+
+    } else {
+        q = &node->queue;
+    }
+
     count = 0;
 
-    for (q = ngx_queue_head(&ctx->active);
-        q != ngx_queue_sentinel(&ctx->active);
-        q = ngx_queue_next(q))
-    {
-        node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+    for ( ;; ) {
 
         if (ngx_live_media_info_node_write(write_ctx, node) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
@@ -2156,8 +2177,17 @@ ngx_live_media_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
         }
 
         count++;
-    }
 
+        q = ngx_queue_next(q);
+        if (q == ngx_queue_sentinel(&ctx->active)) {
+            break;
+        }
+
+        node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+        if (node->node.key > scope->max_index) {
+            break;
+        }
+    }
 
     scope->media_info_count = count;
 

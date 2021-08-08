@@ -1,19 +1,17 @@
 from test_base import *
 
 # EXPECTED:
-#   30 sec video2 + audio2
-#   30 sec video1 + audio2
-#   30 sec video2 + audio2
+#   30 sec audio1
+#   30 sec video2 + audio1
+#   30 sec video1 + audio1
 
 TEST_VIDEO = TEST_VIDEO2
 FILLER_VIDEO = TEST_VIDEO1
 
 def updateConf(conf):
     getConfBlock(conf, ['stream', 'server']).append(['live_kmp_read_timeout', '1000000'])
-    getConfBlock(conf, ['live']).append(['persist_cancel_read_if_empty', 'off'])
 
-def test(channelId=CHANNEL_ID):
-    # create filler channel
+def setupFiller():
     nl = setupChannelTimeline(FILLER_CHANNEL_ID, FILLER_TIMELINE_ID)
 
     sv = createTrack(nl, 'fv1', 'video')
@@ -28,33 +26,45 @@ def test(channelId=CHANNEL_ID):
 
     kmpSendEndOfStream([sv, sa])
 
-    # create main channel
-    nl = nginxLiveClient()
-    nl.channel.create(NginxLiveChannel(id=channelId, preset='main', filler=getFiller()))
-    nl.setChannelId(channelId)
-    nl.timeline.create(NginxLiveTimeline(id=TIMELINE_ID, active=True))
+    return getFiller()
 
-    sv1, sa1 = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
+
+def test(channelId=CHANNEL_ID):
+    # create main channel
+    nl = setupChannelTimeline(channelId)
+
+    nl.variant.create(NginxLiveVariant(id=VARIANT_ID))
 
     st = KmpSendTimestamps()
 
-    kmpSendStreams([
-        (KmpMediaFileReader(TEST_VIDEO, 0), sv1),
-        (KmpMediaFileReader(TEST_VIDEO, 1), sa1),
-    ], st, 30)
+    # stream audio
+    sa = createTrack(nl, 'a1', 'audio', VARIANT_ID)
 
     kmpSendStreams([
-        (KmpMediaFileReader(TEST_VIDEO, 1), sa1),
-    ], st, 30)
+        (KmpMediaFileReader(TEST_VIDEO, 1), sa),
+    ], st, 30, realtime=False)
 
-    sv2, sa2 = createVariant(nl, 'var2', [('v2', 'video'), ('a2', 'audio')])
+    time.sleep(1)
+
+    # configure filler
+    nl.channel.update(NginxLiveChannel(id=channelId, filler=setupFiller()))
+
+    # stream audio
+    kmpSendStreams([
+        (KmpMediaFileReader(TEST_VIDEO, 1), sa),
+    ], st, 30, realtime=False)
+
+    time.sleep(1)
+
+    # stream video + audio
+    sv = createTrack(nl, 'v1', 'video', VARIANT_ID)
 
     kmpSendStreams([
-        (KmpMediaFileReader(TEST_VIDEO, 0), sv2),
-        (KmpMediaFileReader(TEST_VIDEO, 1), sa2),
-    ], st, 30)
+        (KmpMediaFileReader(TEST_VIDEO, 0), sv),
+        (KmpMediaFileReader(TEST_VIDEO, 1), sa),
+    ], st, 30, realtime=False)
 
-    kmpSendEndOfStream([sv1, sa1, sv2, sa2])
+    kmpSendEndOfStream([sv, sa])
 
     # deactivate the timeline
     nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))

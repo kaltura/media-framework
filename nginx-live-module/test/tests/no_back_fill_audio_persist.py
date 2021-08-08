@@ -1,8 +1,8 @@
 from test_base import *
 
 # EXPECTED:
-#   30 sec audio1
-#   30 sec video2 + audio1
+#   30 sec video1
+#   30 sec video1 + audio2
 #   30 sec video1 + audio1
 
 TEST_VIDEO = TEST_VIDEO2
@@ -10,7 +10,6 @@ FILLER_VIDEO = TEST_VIDEO1
 
 def updateConf(conf):
     getConfBlock(conf, ['stream', 'server']).append(['live_kmp_read_timeout', '1000000'])
-    getConfBlock(conf, ['http', 'server']).append(['pckg_back_fill', 'on'])
 
 def setupFiller():
     nl = setupChannelTimeline(FILLER_CHANNEL_ID, FILLER_TIMELINE_ID)
@@ -27,10 +26,12 @@ def setupFiller():
 
     kmpSendEndOfStream([sv, sa])
 
+    saveFiller(nl)
+
     return getFiller()
 
 
-def test(channelId=CHANNEL_ID):
+def setup(channelId=CHANNEL_ID):
     # create main channel
     nl = setupChannelTimeline(channelId)
 
@@ -38,11 +39,11 @@ def test(channelId=CHANNEL_ID):
 
     st = KmpSendTimestamps()
 
-    # stream audio
-    sa = createTrack(nl, 'a1', 'audio', VARIANT_ID)
+    # stream video
+    sv = createTrack(nl, 'v1', 'video', VARIANT_ID)
 
     kmpSendStreams([
-        (KmpMediaFileReader(TEST_VIDEO, 1), sa),
+        (KmpMediaFileReader(TEST_VIDEO, 0), sv),
     ], st, 30, realtime=False)
 
     time.sleep(1)
@@ -50,15 +51,25 @@ def test(channelId=CHANNEL_ID):
     # configure filler
     nl.channel.update(NginxLiveChannel(id=channelId, filler=setupFiller()))
 
-    # stream audio
+    # stream video
     kmpSendStreams([
-        (KmpMediaFileReader(TEST_VIDEO, 1), sa),
+        (KmpMediaFileReader(TEST_VIDEO, 0), sv),
     ], st, 30, realtime=False)
 
-    time.sleep(1)
+    kmpSendEndOfStream([sv])
+
+def test(channelId=CHANNEL_ID):
+    nl = nginxLiveClient()
+    nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
+    nl.setChannelId(channelId)
+
+    st = KmpSendTimestamps()
+    st.dts += 90000 * 60
+    st.created += 90000 * 60
 
     # stream video + audio
-    sv = createTrack(nl, 'v1', 'video', VARIANT_ID)
+    sv = KmpTcpSender(NGINX_LIVE_KMP_ADDR, nl.channelId, 'v1', 'video', initialFrameId=100000)
+    sa = createTrack(nl, 'a1', 'audio', VARIANT_ID)
 
     kmpSendStreams([
         (KmpMediaFileReader(TEST_VIDEO, 0), sv),

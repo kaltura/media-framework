@@ -476,6 +476,14 @@ ngx_live_core_prepare_preset(ngx_conf_t *cf, ngx_live_core_preset_conf_t *cpcf)
 }
 
 
+static ngx_int_t
+ngx_live_core_channel_read(ngx_live_channel_t *channel, void *ectx)
+{
+    ngx_live_variants_update_active(channel);
+
+    return NGX_OK;
+}
+
 static void *
 ngx_live_core_create_preset_conf(ngx_conf_t *cf)
 {
@@ -578,9 +586,21 @@ ngx_live_core_preconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+static ngx_live_channel_event_t  ngx_live_core_channel_events[] = {
+    { ngx_live_core_channel_read, NGX_LIVE_EVENT_CHANNEL_READ },
+
+      ngx_live_null_event
+};
+
 static ngx_int_t
 ngx_live_core_postconfiguration(ngx_conf_t *cf)
 {
+    if (ngx_live_core_channel_events_add(cf, ngx_live_core_channel_events)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
     return NGX_OK;
 }
 

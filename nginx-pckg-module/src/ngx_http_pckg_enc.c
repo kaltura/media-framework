@@ -217,8 +217,6 @@ ngx_http_pckg_parse_key_request(ngx_http_request_t *r, u_char *start_pos,
         flags = NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT |
             NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
-        result->flags = NGX_KSMP_FLAG_DYNAMIC_VAR;
-
     } else {
         return NGX_DECLINED;
     }

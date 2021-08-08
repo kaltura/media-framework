@@ -2518,7 +2518,6 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
 {
     uint32_t                           segment_index;
     ngx_int_t                          rc;
-    ngx_flag_t                         changed;
     ngx_live_segment_t                *segment;
     ngx_live_channel_t                *channel;
     ngx_live_media_info_t             *media_info;
@@ -2530,8 +2529,15 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
     ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
 
     /* get the media info */
-    ngx_live_media_info_pending_create_segment(track, segment_index, &changed);
-    if (changed) {
+    rc = ngx_live_media_info_pending_create_segment(track, segment_index);
+    if (rc != NGX_DONE) {
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_segmenter_track_create_segment: "
+                "create media info failed");
+            return NGX_ERROR;
+        }
+
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
             "ngx_live_segmenter_track_create_segment: "
             "media info changed, forcing new period");
@@ -2696,6 +2702,8 @@ ngx_live_segmenter_create_segment(ngx_live_channel_t *channel)
             return NGX_ERROR;
         }
     }
+
+    ngx_live_variants_update_active(channel);
 
     return NGX_OK;
 }

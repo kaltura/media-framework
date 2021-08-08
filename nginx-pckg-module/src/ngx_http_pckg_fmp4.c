@@ -367,8 +367,8 @@ ngx_http_pckg_fmp4_parse_m4s_request(ngx_http_request_t *r, u_char *start_pos,
             NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT |
             NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
-        result->flags = NGX_KSMP_FLAG_DYNAMIC_VAR | NGX_KSMP_FLAG_MEDIA_INFO
-            | NGX_KSMP_FLAG_MEDIA | NGX_KSMP_FLAG_RELATIVE_DTS;
+        result->flags = NGX_KSMP_FLAG_MEDIA_INFO | NGX_KSMP_FLAG_MEDIA
+            | NGX_KSMP_FLAG_RELATIVE_DTS;
 
     } else {
         return NGX_DECLINED;
@@ -396,7 +396,7 @@ ngx_http_pckg_fmp4_parse_mp4_request(ngx_http_request_t *r, u_char *start_pos,
             NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT |
             NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
-        result->flags = NGX_KSMP_FLAG_DYNAMIC_VAR | NGX_KSMP_FLAG_MEDIA_INFO;
+        result->flags = NGX_KSMP_FLAG_MEDIA_INFO;
 
     } else {
         return NGX_DECLINED;
