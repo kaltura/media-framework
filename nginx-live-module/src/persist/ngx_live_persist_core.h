@@ -41,6 +41,12 @@ typedef struct {
 } ngx_live_persist_file_stats_t;
 
 
+/*
+ * NGX_OK - read at least one file successfully
+ * NGX_DONE - didn't read any file (not found/old version)
+ * NGX_BAD_DATA - one of files is corrupt
+ * NGX_DECLINED - no segments after load, read should be cancelled
+ */
 typedef void (*ngx_live_persist_read_handler_pt)(void *arg, ngx_int_t rc);
 
 

@@ -245,7 +245,8 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
     default:
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_stream_live_kmp_media_info: push failed");
-        ngx_live_channel_finalize(ctx->channel);
+        ngx_live_channel_finalize(ctx->channel,
+            ngx_live_free_add_media_info_failed);
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
     }
 
@@ -352,16 +353,17 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
     rc = ngx_live_add_frame(&req);
     switch (rc) {
 
-    case NGX_DONE:
-        goto done;
-
     case NGX_OK:
         break;
+
+    case NGX_DONE:
+        goto done;
 
     case NGX_ABORT:
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_stream_live_kmp_frame: add frame returned abort");
-        ngx_live_channel_finalize(ctx->channel);
+        ngx_live_channel_finalize(ctx->channel,
+            ngx_live_free_add_frame_failed);
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
 
     default:
@@ -482,7 +484,8 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
                     ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                         "ngx_stream_live_kmp_process_buffer: "
                         "alloc chain failed");
-                    ngx_live_channel_finalize(ctx->channel);
+                    ngx_live_channel_finalize(ctx->channel,
+                        ngx_live_free_alloc_chain_failed);
                     return NGX_STREAM_INTERNAL_SERVER_ERROR;
                 }
 
@@ -592,7 +595,8 @@ ngx_stream_live_kmp_read_packets(ngx_stream_live_kmp_ctx_t *ctx)
             if (rc != NGX_OK) {
                 ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
                     "ngx_stream_live_kmp_read_packets: failed to get buffer");
-                ngx_live_channel_finalize(ctx->channel);
+                ngx_live_channel_finalize(ctx->channel,
+                    ngx_live_free_alloc_buf_failed);
                 return NGX_STREAM_INTERNAL_SERVER_ERROR;
             }
         }
@@ -805,8 +809,6 @@ ngx_stream_live_kmp_log_error(ngx_log_t *log, u_char *buf, size_t len)
         p = ngx_snprintf(buf, len, ", nsi: %uD, track: %V, channel: %V",
             channel->next_segment_index, &ctx->track->sn.str,
             &channel->sn.str);
-        len -= p - buf;
-        buf = p;
     }
 
     return p;
@@ -995,13 +997,14 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
     }
 
     /* get the address name with port */
-    track->input.remote_addr.data = ctx->remote_addr_buf;
-    track->input.remote_addr.len = ngx_sock_ntop(c->sockaddr,
+    track->input.remote_addr.s.data = ctx->remote_addr_buf;
+    track->input.remote_addr.s.len = ngx_sock_ntop(c->sockaddr,
         c->socklen, ctx->remote_addr_buf,
         NGX_SOCKADDR_STRLEN, 1);
-    if (track->input.remote_addr.len == 0) {
-        track->input.remote_addr = c->addr_text;
+    if (track->input.remote_addr.s.len == 0) {
+        track->input.remote_addr.s = c->addr_text;
     }
+    ngx_json_str_set_escape(&track->input.remote_addr);
 
     ngx_stream_set_ctx(s, ctx, ngx_stream_live_kmp_module);
 

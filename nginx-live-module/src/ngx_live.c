@@ -60,11 +60,11 @@ static ngx_uint_t  argument_number[] = {
 static ngx_int_t
 ngx_live_preset_names(ngx_conf_t *cf, ngx_live_core_main_conf_t *cmcf)
 {
-    ngx_int_t                   rc;
-    ngx_uint_t                  s;
-    ngx_hash_init_t             hash;
-    ngx_hash_keys_arrays_t      ha;
-    ngx_live_core_preset_conf_t  **cscfp;
+    ngx_int_t                      rc;
+    ngx_uint_t                     s;
+    ngx_hash_init_t                hash;
+    ngx_hash_keys_arrays_t         ha;
+    ngx_live_core_preset_conf_t  **cpcfp;
 
     ngx_memzero(&ha, sizeof(ngx_hash_keys_arrays_t));
 
@@ -79,11 +79,11 @@ ngx_live_preset_names(ngx_conf_t *cf, ngx_live_core_main_conf_t *cmcf)
         goto failed;
     }
 
-    cscfp = cmcf->presets.elts;
+    cpcfp = cmcf->presets.elts;
 
     for (s = 0; s < cmcf->presets.nelts; s++) {
 
-        rc = ngx_hash_add_key(&ha, &cscfp[s]->name, cscfp[s], 0);
+        rc = ngx_hash_add_key(&ha, &cpcfp[s]->name.s, cpcfp[s], 0);
 
         if (rc == NGX_ERROR) {
             goto failed;
@@ -92,7 +92,7 @@ ngx_live_preset_names(ngx_conf_t *cf, ngx_live_core_main_conf_t *cmcf)
         if (rc == NGX_BUSY) {
             ngx_log_error(NGX_LOG_WARN, cf->log, 0,
                 "conflicting preset name \"%V\", ignored",
-                &cscfp[s]->name);
+                &cpcfp[s]->name.s);
         }
     }
 
@@ -126,9 +126,9 @@ ngx_live_merge_presets(ngx_conf_t *cf, ngx_live_core_main_conf_t *cmcf,
     char                          *rv;
     ngx_uint_t                     s;
     ngx_live_conf_ctx_t           *ctx, saved;
-    ngx_live_core_preset_conf_t  **cscfp;
+    ngx_live_core_preset_conf_t  **cpcfp;
 
-    cscfp = cmcf->presets.elts;
+    cpcfp = cmcf->presets.elts;
     ctx = (ngx_live_conf_ctx_t *) cf->ctx;
     saved = *ctx;
     rv = NGX_CONF_OK;
@@ -137,11 +137,11 @@ ngx_live_merge_presets(ngx_conf_t *cf, ngx_live_core_main_conf_t *cmcf,
 
         /* merge the preset{}s' preset_conf's */
 
-        ctx->preset_conf = cscfp[s]->ctx->preset_conf;
+        ctx->preset_conf = cpcfp[s]->ctx->preset_conf;
 
         if (module->merge_preset_conf) {
             rv = module->merge_preset_conf(cf, saved.preset_conf[ctx_index],
-                cscfp[s]->ctx->preset_conf[ctx_index]);
+                cpcfp[s]->ctx->preset_conf[ctx_index]);
             if (rv != NGX_CONF_OK) {
                 goto failed;
             }
@@ -178,14 +178,14 @@ ngx_live_prepare_presets(ngx_conf_t *cf)
 {
     ngx_uint_t                     s;
     ngx_live_core_main_conf_t     *cmcf;
-    ngx_live_core_preset_conf_t  **cscfp;
+    ngx_live_core_preset_conf_t  **cpcfp;
 
     cmcf = ngx_live_conf_get_module_main_conf(cf, ngx_live_core_module);
 
-    cscfp = cmcf->presets.elts;
+    cpcfp = cmcf->presets.elts;
 
     for (s = 0; s < cmcf->presets.nelts; s++) {
-        if (ngx_live_core_prepare_preset(cf, cscfp[s]) != NGX_OK) {
+        if (ngx_live_core_prepare_preset(cf, cpcfp[s]) != NGX_OK) {
             return NGX_ERROR;
         }
     }

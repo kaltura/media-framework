@@ -27,7 +27,7 @@ def setupFiller():
 
     kmpSendEndOfStream([sv, sa])
 
-    return NginxLiveFiller(channel_id=FILLER_CHANNEL_ID, timeline_id=FILLER_TIMELINE_ID)
+    return getFiller()
 
 
 def test(channelId=CHANNEL_ID):
@@ -48,7 +48,6 @@ def test(channelId=CHANNEL_ID):
     time.sleep(1)
 
     # configure filler
-    filler = NginxLiveFiller(channel_id=FILLER_CHANNEL_ID, timeline_id=FILLER_TIMELINE_ID)
     nl.channel.update(NginxLiveChannel(id=channelId, filler=setupFiller()))
 
     # stream audio

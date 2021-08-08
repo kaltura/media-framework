@@ -7,8 +7,10 @@
 /* ngx_live_filler_json reader */
 
 typedef struct {
-    ngx_str_t  channel_id;
-    ngx_str_t  timeline_id;
+    ngx_str_t   channel_id;
+    ngx_str_t   preset;
+    ngx_str_t   timeline_id;
+    ngx_flag_t  save;
 } ngx_live_filler_json_t;
 
 static ngx_json_prop_t ngx_live_filler_json_channel_id = {
@@ -17,6 +19,15 @@ static ngx_json_prop_t ngx_live_filler_json_channel_id = {
     NGX_JSON_STRING,
     ngx_json_set_str_slot,
     offsetof(ngx_live_filler_json_t, channel_id),
+    NULL
+};
+
+static ngx_json_prop_t ngx_live_filler_json_preset = {
+    ngx_string("preset"),
+    3314868959ULL,
+    NGX_JSON_STRING,
+    ngx_json_set_str_slot,
+    offsetof(ngx_live_filler_json_t, preset),
     NULL
 };
 
@@ -29,9 +40,21 @@ static ngx_json_prop_t ngx_live_filler_json_timeline_id = {
     NULL
 };
 
+static ngx_json_prop_t ngx_live_filler_json_save = {
+    ngx_string("save"),
+    3522941ULL,
+    NGX_JSON_BOOL,
+    ngx_json_set_flag_slot,
+    offsetof(ngx_live_filler_json_t, save),
+    NULL
+};
+
 static ngx_json_prop_t *ngx_live_filler_json[] = {
-    NULL,
     &ngx_live_filler_json_timeline_id,
-    NULL,
     &ngx_live_filler_json_channel_id,
+    &ngx_live_filler_json_save,
+    &ngx_live_filler_json_preset,
+    NULL,
+    NULL,
+    NULL,
 };

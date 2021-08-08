@@ -12,7 +12,7 @@
 #include "media/mp4/mp4_defs.h"
 
 #if (NGX_HAVE_OPENSSL_EVP)
-#include "media/hls/aes_cbc_encrypt.h"
+#include "media/mpegts/aes_cbc_encrypt.h"
 #endif /* NGX_HAVE_OPENSSL_EVP */
 
 
@@ -221,7 +221,8 @@ ngx_http_pckg_fmp4_handle_init_segment(ngx_http_request_t *r)
     ngx_http_pckg_fmp4_get_content_type(segment.first[0].media_info,
         &content_type);
 
-    rc = ngx_http_pckg_send_header(r, response.len, &content_type, -1, 0);
+    rc = ngx_http_pckg_send_header(r, response.len, &content_type, -1,
+        NGX_HTTP_PCKG_EXPIRES_STATIC);
     if (rc != NGX_OK) {
         return rc;
     }

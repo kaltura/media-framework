@@ -13,6 +13,7 @@
 void sample_stats_init(samples_stats_t* pStats,AVRational basetime)
 {
     pStats->totalFrames=0;
+    pStats->totalErrors=0;
     pStats->head=-1;
     pStats->tail=-1;
     pStats->totalWindowSizeInBytes=0;
@@ -90,10 +91,10 @@ void samples_stats_add(samples_stats_t* pStats,uint64_t dts,uint64_t ts,int fram
 }
 
 
-int sample_stats_get_diagnostics(samples_stats_t *pStats,char* buf)
+void sample_stats_get_diagnostics(samples_stats_t *pStats,json_writer_ctx_t js)
 {
-    JSON_SERIALIZE_INIT(buf)
     JSON_SERIALIZE_INT64("totalSamples",pStats->totalFrames)
+    JSON_SERIALIZE_INT64("totalErrors",pStats->totalErrors)
     JSON_SERIALIZE_INT("bitrate",pStats->currentBitRate)
     JSON_SERIALIZE_DOUBLE("fps",pStats->currentFrameRate)
     JSON_SERIALIZE_DOUBLE("rate",pStats->currentRate)
@@ -101,16 +102,15 @@ int sample_stats_get_diagnostics(samples_stats_t *pStats,char* buf)
     JSON_SERIALIZE_STRING("firstTimeStamp",pStats->firstTimeStamp>0 ? ts2str(pStats->firstTimeStamp,false): "N/A")
     JSON_SERIALIZE_STRING("lastTimeStamp",pStats->lastTimeStamp>0 ? ts2str(pStats->lastTimeStamp,false) : "N/A")
     JSON_SERIALIZE_INT64("lastDts",pStats->lastDts)
-    JSON_SERIALIZE_END()
-    return n;
 }
 
 
 void samples_stats_log(const char* category,int level,samples_stats_t *stats,const char *prefix)
 {
-    LOGGER(category,level,"[%s] Stats: total frames: %ld total time: %s (%s), clock drift %s,bitrate %.2lf Kbit/s fps=%.2lf rate=x%.2lf",
+    LOGGER(category,level,"[%s] Stats: total frames: %ld total errors: %ld total time: %s (%s), clock drift %s,bitrate %.2lf Kbit/s fps=%.2lf rate=x%.2lf",
            prefix,
            stats->totalFrames,
+           stats->totalErrors,
            pts2str(stats->dtsPassed),
            pts2str(stats->firstDts),
            pts2str(stats->clockDrift),

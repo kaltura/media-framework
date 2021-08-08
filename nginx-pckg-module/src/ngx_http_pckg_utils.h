@@ -17,6 +17,12 @@
 #define NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE     (0x8)
 
 
+u_char *ngx_http_pckg_parse_uint32(u_char *start_pos, u_char *end_pos,
+    uint32_t *result);
+
+u_char *ngx_http_pckg_extract_string(u_char *start_pos, u_char *end_pos,
+    ngx_str_t *result);
+
 ngx_int_t ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
     u_char *start_pos, u_char *end_pos, uint32_t flags,
     ngx_pckg_ksmp_req_t *result);

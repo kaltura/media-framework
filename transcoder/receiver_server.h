@@ -48,6 +48,6 @@ int receiver_server_async_listen( receiver_server_t *server);
 int receiver_server_sync_listen( receiver_server_t *server);
 
 void receiver_server_close( receiver_server_t *server);
-void receiver_server_get_diagnostics( receiver_server_t *server,char* diagnostics);
+void receiver_server_get_diagnostics( receiver_server_t *server,json_writer_ctx_t js);
 
 #endif /* listener_h */

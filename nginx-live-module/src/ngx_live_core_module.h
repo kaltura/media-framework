@@ -24,6 +24,7 @@ enum {
     NGX_LIVE_EVENT_CHANNEL_SETUP_CHANGED,
     NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP,
     NGX_LIVE_EVENT_CHANNEL_READ,
+    NGX_LIVE_EVENT_CHANNEL_HISTORY_CHANGED,
 
     NGX_LIVE_EVENT_CHANNEL_SEGMENT_CREATED,
     NGX_LIVE_EVENT_CHANNEL_SEGMENT_FREE,
@@ -70,7 +71,7 @@ typedef struct {
 
 
 typedef struct ngx_live_core_preset_conf_s {
-    ngx_str_t                       name;
+    ngx_json_str_t                  name;
     ngx_live_conf_ctx_t            *ctx;
 
     size_t                          mem_limit;

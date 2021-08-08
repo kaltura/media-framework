@@ -473,133 +473,6 @@ ngx_live_segment_info_timeline_exists(ngx_live_track_t *track,
 }
 
 
-void
-ngx_live_segment_info_iter_init(ngx_live_segment_info_iter_t *iter,
-    ngx_live_track_t *track, uint32_t segment_index)
-{
-    ngx_live_segment_info_track_ctx_t  *ctx;
-
-    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_info_module);
-
-    iter->bitrate = ctx->initial_bitrate;
-
-    iter->node = ngx_live_segment_info_lookup(ctx, segment_index);
-    if (iter->node == NULL) {
-        return;
-    }
-
-    iter->sentinel = ngx_queue_sentinel(&ctx->queue);
-    iter->cur = iter->node->elts;
-    iter->last = iter->cur + iter->node->nelts;
-}
-
-uint32_t
-ngx_live_segment_info_iter_next(ngx_live_segment_info_iter_t *iter,
-    uint32_t segment_index)
-{
-    ngx_queue_t  *next;
-
-    if (iter->node == NULL) {
-        return iter->bitrate;
-    }
-
-    while (iter->cur->index <= segment_index) {
-
-        iter->bitrate = iter->cur->bitrate;
-
-        iter->cur++;
-        if (iter->cur < iter->last) {
-            continue;
-        }
-
-        next = ngx_queue_next(&iter->node->queue);
-        if (next == iter->sentinel) {
-            iter->node = NULL;
-            break;
-        }
-
-        iter->node = ngx_queue_data(next, ngx_live_segment_info_node_t,
-            queue);
-
-        iter->cur = iter->node->elts;
-        iter->last = iter->cur + iter->node->nelts;
-    }
-
-    return iter->bitrate;
-}
-
-
-void
-ngx_live_segment_info_count(ngx_live_track_t *track, uint32_t first_index,
-    uint32_t last_index, uint32_t *bitrate_count, uint32_t *gap_count)
-{
-    uint32_t                            prev_index;
-    uint32_t                            prev_bitrate;
-    ngx_queue_t                        *next;
-    ngx_live_segment_info_elt_t        *cur, *last;
-    ngx_live_segment_info_node_t       *node;
-    ngx_live_segment_info_track_ctx_t  *ctx;
-
-    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_info_module);
-
-    prev_index = first_index;
-    prev_bitrate = ctx->initial_bitrate;
-
-    node = ngx_live_segment_info_lookup(ctx, first_index);
-    if (node == NULL) {
-        goto done;
-    }
-
-    cur = node->elts;
-    last = cur + node->nelts;
-
-    for ( ;; ) {
-
-        if (cur->index > prev_index) {
-
-            if (cur->index >= last_index) {
-                break;
-            }
-
-            if (prev_bitrate == 0) {
-                *gap_count += cur->index - prev_index;
-
-            } else if (prev_bitrate != NGX_LIVE_SEGMENT_NO_BITRATE) {
-                (*bitrate_count)++;
-            }
-
-            prev_index = cur->index;
-        }
-
-        prev_bitrate = cur->bitrate;
-
-        cur++;
-        if (cur < last) {
-            continue;
-        }
-
-        next = ngx_queue_next(&node->queue);
-        if (next == ngx_queue_sentinel(&ctx->queue)) {
-            break;
-        }
-
-        node = ngx_queue_data(next, ngx_live_segment_info_node_t, queue);
-
-        cur = node->elts;
-        last = cur + node->nelts;
-    }
-
-done:
-
-    if (prev_bitrate == 0) {
-        *gap_count += last_index - prev_index;
-
-    } else if (prev_bitrate != NGX_LIVE_SEGMENT_NO_BITRATE) {
-        (*bitrate_count)++;
-    }
-}
-
-
 static ngx_int_t
 ngx_live_segment_info_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
@@ -752,7 +625,7 @@ done:
 }
 
 static ngx_int_t
-ngx_live_segment_info_read_index(ngx_persist_block_header_t *block,
+ngx_live_segment_info_read_index(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                              count;
@@ -767,7 +640,7 @@ ngx_live_segment_info_read_index(ngx_persist_block_header_t *block,
     ngx_live_segment_info_track_ctx_t    *ctx;
     ngx_live_segment_info_preset_conf_t  *sipcf;
 
-    if (ngx_persist_read_skip_block_header(rs, block) != NGX_OK) {
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
     }
 

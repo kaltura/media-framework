@@ -59,6 +59,12 @@ typedef struct {
 } ngx_http_pckg_read_source_t;
 
 
+static ngx_conf_enum_t  ngx_http_pckg_format[] = {
+    { ngx_string("ksmp"), NGX_KSMP_PERSIST_TYPE },
+    { ngx_string("sgts"), NGX_PCKG_PERSIST_TYPE_MEDIA },
+    { ngx_null_string, 0 }
+};
+
 static ngx_conf_enum_t  ngx_http_pckg_active_policy[] = {
     { ngx_string("last"), NGX_KSMP_FLAG_ACTIVE_LAST },
     { ngx_string("any"),  NGX_KSMP_FLAG_ACTIVE_ANY },
@@ -87,6 +93,13 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, uri),
       NULL },
+
+    { ngx_string("pckg_format"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_enum_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t, format),
+      &ngx_http_pckg_format },
 
     { ngx_string("pckg_channel_id"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -314,9 +327,26 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_pckg_core_post_handler: "
             "upstream connection was closed with %O bytes left to read",
-            u->headers_in.content_length_n - (off_t) input.len);
+            u->headers_in.content_length_n - (off_t)input.len);
         rc = NGX_HTTP_BAD_GATEWAY;
         goto done;
+    }
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+
+    if (ctx->params.padding) {
+        ctx->params.padding = ngx_max(ctx->params.padding,
+            NGX_KSMP_MIN_PADDING);
+        if (input.len <= ctx->params.padding) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_pckg_core_post_handler: "
+                "response size %uz smaller than padding size %uz",
+                input.len, ctx->params.padding);
+            rc = NGX_HTTP_BAD_GATEWAY;
+            goto done;
+        }
+
+        input.len -= ctx->params.padding;
     }
 
     channel = ngx_pcalloc(r->pool, sizeof(*channel));
@@ -327,7 +357,6 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         goto done;
     }
 
-    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
     pmcf = ngx_http_get_module_main_conf(r, ngx_http_pckg_core_module);
     plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
 
@@ -335,6 +364,30 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
     channel->pool = r->pool;
     channel->persist = pmcf->persist;
     channel->flags = ctx->params.flags;
+    channel->format = plcf->format;
+
+    if (plcf->format == NGX_PCKG_PERSIST_TYPE_MEDIA) {
+        channel->track_id = ngx_atoi(ctx->params.variant_ids.data,
+            ctx->params.variant_ids.len);
+        if (channel->track_id == (uint32_t) NGX_ERROR) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_pckg_core_post_handler: invalid track id \"%V\"",
+                &ctx->params.variant_ids);
+            rc = NGX_HTTP_BAD_REQUEST;
+            goto done;
+        }
+
+        channel->segment_index = ngx_pcalloc(r->pool,
+            sizeof(*channel->segment_index));
+        if (channel->segment_index == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_pckg_core_post_handler: alloc index failed");
+            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            goto done;
+        }
+
+        channel->segment_index->index = ctx->params.segment_index;
+    }
 
     ngx_rbtree_init(&channel->vars.rbtree, &channel->vars.sentinel,
         ngx_str_rbtree_insert_value);
@@ -365,6 +418,7 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         case NGX_KSMP_ERR_TIMELINE_EMPTIED:
         case NGX_KSMP_ERR_TIMELINE_EXPIRED:
         case NGX_KSMP_ERR_VARIANT_INACTIVE:
+        case NGX_KSMP_ERR_SEGMENT_REMOVED:
             rc = ngx_http_pckg_gone(r);
             break;
 
@@ -395,7 +449,7 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         }
 
         rc = ctx->handler->handler(r);
-        if (rc != NGX_OK) {
+        if (rc != NGX_OK && rc < NGX_HTTP_SPECIAL_RESPONSE) {
             ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
                 "ngx_http_pckg_core_post_handler: handler failed %i", rc);
         }
@@ -441,10 +495,15 @@ ngx_http_pckg_core_subrequest(ngx_http_request_t *r,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    if (ngx_pckg_ksmp_create_request(r->pool, params, &args) != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_pckg_core_subrequest: create request failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    if (plcf->format == NGX_KSMP_PERSIST_TYPE) {
+        if (ngx_pckg_ksmp_create_request(r->pool, params, &args) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_pckg_core_subrequest: create request failed");
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+    } else {
+        args.len = 0;
     }
 
     psr = ngx_palloc(r->pool, sizeof(ngx_http_post_subrequest_t));
@@ -607,7 +666,8 @@ ngx_http_pckg_core_handler(ngx_http_request_t *r)
 
     if (r->method == NGX_HTTP_OPTIONS) {
         rc = ngx_http_pckg_send_header(r, 0,
-            &ngx_http_pckg_content_type_options, -1, 0);
+            &ngx_http_pckg_content_type_options, -1,
+            NGX_HTTP_PCKG_EXPIRES_STATIC);
         if (rc != NGX_OK) {
             return rc;
         }
@@ -903,7 +963,7 @@ ngx_http_pckg_writer_close(ngx_http_request_t *r)
     last->next = NULL;
 
     rc = ngx_http_pckg_send_header(r, ctx->segment_writer_ctx.total_size,
-        NULL, -1, 0);
+        NULL, -1, NGX_HTTP_PCKG_EXPIRES_STATIC);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -950,7 +1010,7 @@ ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
     dst_track = (void *)(dst + 1);
 
     dst->tracks = dst_track;
-    dst->segment_index = channel->segment_index->segment_index;
+    dst->segment_index = channel->segment_index->index;
 
     found = 0;
 
@@ -1094,7 +1154,8 @@ ngx_http_pckg_core_write_segment(ngx_http_request_t *r)
         ctx->content_length = processor.response_size;
 
         /* send the response header */
-        rc = ngx_http_pckg_send_header(r, ctx->content_length, NULL, -1, 0);
+        rc = ngx_http_pckg_send_header(r, ctx->content_length, NULL, -1,
+            NGX_HTTP_PCKG_EXPIRES_STATIC);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
                 "ngx_http_pckg_core_write_segment: send header failed %i", rc);
@@ -1455,6 +1516,7 @@ ngx_http_pckg_core_create_loc_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    conf->format = NGX_CONF_UNSET_UINT;
     conf->max_uncomp_size = NGX_CONF_UNSET_SIZE;
 
     for (type = 0; type < NGX_HTTP_PCKG_EXPIRES_COUNT; type++) {
@@ -1481,6 +1543,10 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->uri == NULL) {
         conf->uri = prev->uri;
     }
+
+    ngx_conf_merge_uint_value(conf->format,
+                              prev->format,
+                              NGX_KSMP_PERSIST_TYPE);
 
     if (conf->channel_id == NULL) {
         conf->channel_id = prev->channel_id;

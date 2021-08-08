@@ -566,7 +566,7 @@ ngx_live_syncer_write_index_track(ngx_persist_write_ctx_t *write_ctx,
 }
 
 static ngx_int_t
-ngx_live_syncer_read_index_track(ngx_persist_block_header_t *block,
+ngx_live_syncer_read_index_track(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_track_t                 *track = obj;
@@ -622,7 +622,7 @@ ngx_live_syncer_write_index(ngx_persist_write_ctx_t *write_ctx,
 }
 
 static ngx_int_t
-ngx_live_syncer_read_index(ngx_persist_block_header_t *block,
+ngx_live_syncer_read_index(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_channel_t                 *channel = obj;

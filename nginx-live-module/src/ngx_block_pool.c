@@ -95,6 +95,7 @@ ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
         }
 
         slot->end = ptr + slot->alloc;
+        slot->total_size += slot->alloc;
         *block_pool->mem_limit -= slot->alloc;
     }
 
@@ -137,6 +138,8 @@ ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
         return NULL;
     }
 
+    *block_pool->mem_limit -= slot->size;
+
     slot->nalloc++;
     *ptr = slot;
     return ptr + 1;
@@ -161,6 +164,8 @@ ngx_block_pool_free_list_internal(ngx_block_pool_t *block_pool,
         }
 
         ngx_pfree(block_pool->pool, ptr);
+
+        *block_pool->mem_limit += slot->size;
     }
 }
 
@@ -193,7 +198,10 @@ ngx_block_pool_create(ngx_pool_t *pool, size_t *sizes, ngx_uint_t count,
 
         cur_slot->size = *sizes;
         cur_slot->nalloc = 0;
-        cur_slot->used = 0;
+        cur_slot->total_size = 0;
+
+        cur_slot->auto_used = 0;
+        cur_slot->auto_nalloc = 0;
 
         ngx_block_pool_init_slot(cur_slot);
     }
@@ -343,7 +351,8 @@ ngx_block_pool_auto_alloc(ngx_block_pool_t *block_pool, size_t size)
         return NULL;
     }
 
-    slot->used += size;
+    slot->auto_used += size;
+    slot->auto_nalloc++;
     ptr->slot = index;
     return ptr + 1;
 }
@@ -364,9 +373,11 @@ ngx_block_pool_json_get_size(ngx_block_pool_t *block_pool)
 {
     size_t  slot_size;
 
-    slot_size = sizeof("{\"size\":") - 1 + NGX_SIZE_T_LEN +
+    slot_size = sizeof("{\"block_size\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"nalloc\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"used\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"size\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"auto_used\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"auto_nalloc\":") - 1 + NGX_INT64_LEN +
         sizeof("}") - 1;
 
     return sizeof("[]") - 1 +
@@ -393,12 +404,16 @@ ngx_block_pool_json_write(u_char *p, ngx_block_pool_t *block_pool)
             comma = 1;
         }
 
-        p = ngx_copy_fix(p, "{\"size\":");
+        p = ngx_copy_fix(p, "{\"block_size\":");
         p = ngx_sprintf(p, "%uz", cur->size);
         p = ngx_copy_fix(p, ",\"nalloc\":");
         p = ngx_sprintf(p, "%ui", cur->nalloc);
-        p = ngx_copy_fix(p, ",\"used\":");
-        p = ngx_sprintf(p, "%uz", cur->used);
+        p = ngx_copy_fix(p, ",\"size\":");
+        p = ngx_sprintf(p, "%uz", cur->total_size);
+        p = ngx_copy_fix(p, ",\"auto_used\":");
+        p = ngx_sprintf(p, "%uz", cur->auto_used);
+        p = ngx_copy_fix(p, ",\"auto_nalloc\":");
+        p = ngx_sprintf(p, "%ui", cur->auto_nalloc);
         *p++ = '}';
     }
 

@@ -16,6 +16,9 @@ typedef struct {
 static ngx_live_channels_t  ngx_live_channels;
 
 
+static ngx_flag_t ngx_live_variant_is_active_channel_last(
+    ngx_live_variant_t *variant, uint32_t req_media_types);
+
 static size_t ngx_live_variant_json_track_ids_get_size(
     ngx_live_variant_t *obj);
 
@@ -87,8 +90,6 @@ ngx_live_channel_log_error(ngx_log_t *log, u_char *buf, size_t len)
     if (channel != NULL) {
         p = ngx_snprintf(buf, len, ", nsi: %uD, channel: %V",
             channel->next_segment_index, &channel->sn.str);
-        len -= p - buf;
-        buf = p;
     }
 
     return p;
@@ -168,6 +169,8 @@ ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
     channel->sn.str.data = (void *) (channel + 1);
     channel->sn.str.len = id->len;
     ngx_memcpy(channel->sn.str.data, id->data, channel->sn.str.len);
+    channel->id_escape = ngx_json_str_get_escape(id);
+
     channel->sn.node.key = hash;
 
     ngx_live_random_bytes(temp_pool->log, &channel->uid, sizeof(channel->uid));
@@ -238,19 +241,15 @@ error:
     return NGX_ERROR;
 }
 
-void
-ngx_live_channel_free(ngx_live_channel_t *channel)
+static void
+ngx_live_channel_free_internal(ngx_live_channel_t *channel)
 {
     ngx_queue_t       *q;
     ngx_live_track_t  *cur_track;
 
-    if (channel->free) {
-        return;
-    }
-    channel->free = 1;
-
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_channel_free: freeing %p", channel);
+        "ngx_live_channel_free_internal: freeing %p, reason: %d",
+        channel, channel->free_reason);
 
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
@@ -272,6 +271,49 @@ ngx_live_channel_free(ngx_live_channel_t *channel)
 }
 
 void
+ngx_live_channel_free(ngx_live_channel_t *channel,
+    ngx_live_free_reason_e reason)
+{
+    if (channel->free_reason) {
+        return;
+    }
+
+    channel->free_reason = reason;
+
+    ngx_live_channel_free_internal(channel);
+}
+
+static void
+ngx_live_channel_close_handler(ngx_event_t *ev)
+{
+    ngx_live_channel_t  *channel;
+
+    channel = ev->data;
+
+    ngx_live_channel_free_internal(channel);
+}
+
+void
+ngx_live_channel_finalize(ngx_live_channel_t *channel,
+    ngx_live_free_reason_e reason)
+{
+    ngx_event_t  *e;
+
+    if (channel->free_reason) {
+        return;
+    }
+
+    channel->free_reason = reason;
+
+    e = &channel->close;
+    e->data = channel;
+    e->handler = ngx_live_channel_close_handler;
+    e->log = &channel->log;
+
+    ngx_post_event(e, &ngx_posted_events);
+}
+
+void
 ngx_live_channel_update(ngx_live_channel_t *channel,
     uint32_t initial_segment_index)
 {
@@ -288,29 +330,6 @@ ngx_live_channel_setup_changed(ngx_live_channel_t *channel)
 
     (void) ngx_live_core_channel_event(channel,
         NGX_LIVE_EVENT_CHANNEL_SETUP_CHANGED, NULL);
-}
-
-static void
-ngx_live_channel_close_handler(ngx_event_t *ev)
-{
-    ngx_live_channel_t  *channel;
-
-    channel = ev->data;
-
-    ngx_live_channel_free(channel);
-}
-
-void
-ngx_live_channel_finalize(ngx_live_channel_t *channel)
-{
-    ngx_event_t  *e;
-
-    e = &channel->close;
-    e->data = channel;
-    e->handler = ngx_live_channel_close_handler;
-    e->log = &channel->log;
-
-    ngx_post_event(e, &ngx_posted_events);
 }
 
 void
@@ -352,7 +371,7 @@ ngx_live_channel_block_str_set(ngx_live_channel_t *channel,
     return NGX_OK;
 }
 
-void
+static void
 ngx_live_channel_block_str_free(ngx_live_channel_t *channel,
     ngx_block_str_t *str)
 {
@@ -373,14 +392,14 @@ ngx_live_channel_block_str_read(ngx_live_channel_t *channel,
 static ngx_int_t
 ngx_live_variant_validate_conf(ngx_live_variant_conf_t *conf, ngx_log_t *log)
 {
-    if (conf->label.len > NGX_LIVE_VARIANT_MAX_LABEL_LEN) {
+    if (conf->label.s.len > NGX_LIVE_VARIANT_MAX_LABEL_LEN) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_variant_validate_conf: label \"%V\" too long",
             &conf->label);
         return NGX_ERROR;
     }
 
-    if (conf->lang.len > NGX_LIVE_VARIANT_MAX_LANG_LEN) {
+    if (conf->lang.s.len > NGX_LIVE_VARIANT_MAX_LANG_LEN) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_variant_validate_conf: lang \"%V\" too long",
             &conf->lang);
@@ -439,15 +458,19 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
     variant->sn.str.data = variant->id_buf;
     variant->sn.str.len = id->len;
     ngx_memcpy(variant->sn.str.data, id->data, variant->sn.str.len);
+    variant->id_escape = ngx_json_str_get_escape(id);
+
     variant->sn.node.key = hash;
 
-    variant->conf.label.data = variant->label_buf;
-    variant->conf.label.len = conf->label.len;
-    ngx_memcpy(variant->label_buf, conf->label.data, conf->label.len);
+    variant->conf.label.s.data = variant->label_buf;
+    variant->conf.label.s.len = conf->label.s.len;
+    ngx_memcpy(variant->label_buf, conf->label.s.data, conf->label.s.len);
+    ngx_json_str_set_escape(&variant->conf.label);
 
-    variant->conf.lang.data = variant->lang_buf;
-    variant->conf.lang.len = conf->lang.len;
-    ngx_memcpy(variant->lang_buf, conf->lang.data, conf->lang.len);
+    variant->conf.lang.s.data = variant->lang_buf;
+    variant->conf.lang.s.len = conf->lang.s.len;
+    ngx_memcpy(variant->lang_buf, conf->lang.s.data, conf->lang.s.len);
+    ngx_json_str_set_escape(&variant->conf.lang);
 
     variant->conf.role = conf->role;
     variant->conf.is_default = conf->is_default;
@@ -497,15 +520,17 @@ ngx_live_variant_update(ngx_live_variant_t *variant,
         return NGX_ERROR;
     }
 
-    variant->conf.label.len = conf->label.len;
-    if (conf->label.data != variant->label_buf) {
-        ngx_memcpy(variant->label_buf, conf->label.data, conf->label.len);
+    variant->conf.label.s.len = conf->label.s.len;
+    if (conf->label.s.data != variant->label_buf) {
+        ngx_memcpy(variant->label_buf, conf->label.s.data, conf->label.s.len);
     }
+    ngx_json_str_set_escape(&variant->conf.label);
 
-    variant->conf.lang.len = conf->lang.len;
-    if (conf->lang.data != variant->lang_buf) {
-        ngx_memcpy(variant->lang_buf, conf->lang.data, conf->lang.len);
+    variant->conf.lang.s.len = conf->lang.s.len;
+    if (conf->lang.s.data != variant->lang_buf) {
+        ngx_memcpy(variant->lang_buf, conf->lang.s.data, conf->lang.s.len);
     }
+    ngx_json_str_set_escape(&variant->conf.lang);
 
     variant->conf.role = conf->role;
     variant->conf.is_default = conf->is_default;
@@ -527,15 +552,11 @@ ngx_live_variant_set_track(ngx_live_variant_t *variant,
         return NGX_ERROR;
     }
 
-    if (variant->tracks[track->media_type] != NULL) {
-        variant->track_count--;
+    if (variant->tracks[track->media_type] == NULL) {
+        variant->track_count++;
     }
 
     variant->tracks[track->media_type] = track;
-
-    if (track != NULL) {
-        variant->track_count++;
-    }
 
     ngx_live_channel_setup_changed(variant->channel);
 
@@ -575,9 +596,9 @@ ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
 }
 
 
-ngx_flag_t
-ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
-    uint32_t media_type_mask)
+static ngx_flag_t
+ngx_live_variant_is_active_channel_last(ngx_live_variant_t *variant,
+    uint32_t req_media_types)
 {
     uint32_t             media_type_flag;
     ngx_uint_t           media_type;
@@ -589,8 +610,7 @@ ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
         media_type_flag = 1 << media_type;
-
-        if (!(media_type_mask & media_type_flag)) {
+        if (!(req_media_types & media_type_flag)) {
             continue;
         }
 
@@ -617,7 +637,7 @@ ngx_live_variant_is_main_track_active(ngx_live_variant_t *variant,
 
 ngx_flag_t
 ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
-    ngx_live_timeline_t *timeline, uint32_t media_type_mask)
+    ngx_live_timeline_t *timeline, uint32_t req_media_types)
 {
     uint32_t             track_id;
     uint32_t             segment_index;
@@ -640,12 +660,13 @@ ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
 
     if (segment_index + 1 == channel->next_segment_index) {
         /* more optimized impl. when the timeline has the last segment */
-        return ngx_live_variant_is_main_track_active(variant, media_type_mask);
+        return ngx_live_variant_is_active_channel_last(variant,
+            req_media_types);
     }
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
-        if (!(media_type_mask & (1 << media_type))) {
+        if (!(req_media_types & (1 << media_type))) {
             continue;
         }
 
@@ -686,11 +707,13 @@ ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
     return 0;
 }
 
-ngx_flag_t
+uint32_t
 ngx_live_variant_is_active_any(ngx_live_variant_t *variant,
-    ngx_live_timeline_t *timeline, uint32_t media_type_mask)
+    ngx_live_timeline_t *timeline, uint32_t req_media_types)
 {
     uint32_t             segment_index;
+    uint32_t             res_media_types;
+    uint32_t             media_type_flag;
     ngx_uint_t           media_type;
     ngx_queue_t         *q;
     ngx_live_track_t    *cur_track;
@@ -707,9 +730,12 @@ ngx_live_variant_is_active_any(ngx_live_variant_t *variant,
 
     channel = variant->channel;
 
+    res_media_types = 0;
+
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
-        if (!(media_type_mask & (1 << media_type))) {
+        media_type_flag = 1 << media_type;
+        if (!(req_media_types & media_type_flag)) {
             continue;
         }
 
@@ -723,17 +749,25 @@ ngx_live_variant_is_active_any(ngx_live_variant_t *variant,
         {
             /* when both timeline and track have the last segment,
                 no need to search */
-            return 1;
+            res_media_types |= media_type_flag;
+            continue;
         }
 
         if (!ngx_live_segment_info_timeline_exists(cur_track, timeline)) {
             continue;
         }
 
-        return ngx_live_media_info_track_exists(timeline, cur_track);
+        if (ngx_live_media_info_track_exists(timeline, cur_track)) {
+            res_media_types |= media_type_flag;
+            continue;
+        }
+
+        if (!res_media_types) {
+            return 0;
+        }
     }
 
-    return 0;
+    return res_media_types;
 }
 
 
@@ -752,8 +786,7 @@ ngx_live_variant_json_track_ids_get_size(ngx_live_variant_t *obj)
         }
 
         result += sizeof("\"video\":\"") - 1 + sizeof("\",") - 1 +
-            cur_track->sn.str.len + ngx_escape_json(NULL,
-                cur_track->sn.str.data, cur_track->sn.str.len);
+            cur_track->sn.str.len + cur_track->id_escape;
     }
 
     return result;
@@ -791,8 +824,8 @@ ngx_live_variant_json_track_ids_write(u_char *p, ngx_live_variant_t *obj)
             p = ngx_copy_fix(p, "\"audio\":\"");
             break;
         }
-        p = (u_char *) ngx_escape_json(p, cur_track->sn.str.data,
-            cur_track->sn.str.len);
+        p = ngx_json_str_write_escape(p, &cur_track->sn.str,
+            cur_track->id_escape);
         *p++ = '"';
     }
 
@@ -858,8 +891,6 @@ ngx_live_track_log_error(ngx_log_t *log, u_char *buf, size_t len)
 
         p = ngx_snprintf(buf, len, ", nsi: %uD, track: %V, channel: %V",
             channel->next_segment_index, &track->sn.str, &channel->sn.str);
-        len -= p - buf;
-        buf = p;
     }
 
     return p;
@@ -942,9 +973,12 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     }
 
     track->channel = channel;
+
     track->sn.str.data = track->id_buf;
     track->sn.str.len = id->len;
     ngx_memcpy(track->sn.str.data, id->data, track->sn.str.len);
+    track->id_escape = ngx_json_str_get_escape(id);
+
     track->sn.node.key = hash;
     track->in.key = int_id;
 

@@ -10,6 +10,7 @@
 
 /* block ids */
 #define NGX_LIVE_PERSIST_BLOCK_CHANNEL           NGX_KSMP_BLOCK_CHANNEL
+#define NGX_LIVE_PERSIST_BLOCK_TIMELINE          NGX_KSMP_BLOCK_TIMELINE
 #define NGX_LIVE_PERSIST_BLOCK_VARIANT           NGX_KSMP_BLOCK_VARIANT
 #define NGX_LIVE_PERSIST_BLOCK_TRACK             NGX_KSMP_BLOCK_TRACK
 #define NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO        NGX_KSMP_BLOCK_MEDIA_INFO
@@ -46,6 +47,11 @@ enum {
     NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_DATA,
     NGX_LIVE_PERSIST_CTX_SERVE_FILLER_HEADER,
     NGX_LIVE_PERSIST_CTX_SERVE_FILLER_DATA,
+
+    NGX_LIVE_PERSIST_CTX_FILLER_MAIN,
+    NGX_LIVE_PERSIST_CTX_FILLER_CHANNEL,
+    NGX_LIVE_PERSIST_CTX_FILLER_TRACK,
+    NGX_LIVE_PERSIST_CTX_FILLER_SEGMENT,
 
     NGX_LIVE_PERSIST_CTX_COUNT
 };
@@ -96,9 +102,8 @@ typedef struct {
     ngx_ksmp_channel_header_t         header;
     ngx_live_variant_t              **variants;
     ngx_array_t                      *track_refs;   /* ngx_live_track_ref_t */
-    uint32_t                          segment_index;
+    ngx_ksmp_segment_index_t          si;
     uint32_t                          flags;
-    int64_t                           correction;
     ngx_uint_t                        media_info_count;
 } ngx_live_persist_serve_scope_t;
 

@@ -258,7 +258,7 @@ int transcode_session_output_close(transcode_session_output_t* pOutput)
     return 0;
 }
 
-int transcode_session_output_get_diagnostics(transcode_session_output_t *pOutput,uint64_t recieveDts,uint64_t startProcessDts,char* buf)
+void transcode_session_output_get_diagnostics(transcode_session_output_t *pOutput,uint64_t recieveDts,uint64_t startProcessDts,json_writer_ctx_t js)
 {
     char codecData[100]={0};
     if (pOutput->codec_type==AVMEDIA_TYPE_VIDEO)
@@ -266,7 +266,7 @@ int transcode_session_output_get_diagnostics(transcode_session_output_t *pOutput
     if (pOutput->codec_type==AVMEDIA_TYPE_AUDIO)
         sprintf(codecData,"%d",pOutput->actualAudioParams.samplingRate);
     
-    JSON_SERIALIZE_INIT(buf)
+    JSON_SERIALIZE_SCOPE_BEGIN()
     JSON_SERIALIZE_STRING("track_id",pOutput->track_id)
     JSON_SERIALIZE_INT64("totalFrames",pOutput->stats.totalFrames)
     JSON_SERIALIZE_DOUBLE("currentFrameRate",pOutput->stats.currentFrameRate)
@@ -275,7 +275,5 @@ int transcode_session_output_get_diagnostics(transcode_session_output_t *pOutput
     JSON_SERIALIZE_INT64("lastDts",pOutput->stats.lastDts)
     JSON_SERIALIZE_INT("bitrate",pOutput->bitrate > 0 ? pOutput->bitrate : -1)
     JSON_SERIALIZE_INT("currenBitrate",pOutput->stats.currentBitRate)
-   
     JSON_SERIALIZE_END()
-    return n;
 }

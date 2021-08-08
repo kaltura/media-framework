@@ -3,6 +3,7 @@ from cleanup_stack import *
 from kmp_utils import *
 from threading import Thread
 import manifest_utils
+import errno
 import os
 import re
 
@@ -30,10 +31,55 @@ CHANNEL_ID = 'test'
 TIMELINE_ID = 'main'
 VARIANT_ID = 'var1'
 FILLER_CHANNEL_ID = '__filler'
+FILLER_PRESET = 'main'
 FILLER_TIMELINE_ID = 'main'
 
 def nginxLiveClient():
     return NginxLive(NGINX_LIVE_API_URL)
+
+def getHttpResponseRegular(body = '', status = '200 OK', length = None, headers = {}):
+    if length == None:
+        length = len(body)
+    headersStr = ''
+    if len(headers) > 0:
+        for curHeader in headers.items():
+            headersStr +='%s: %s\r\n' % curHeader
+    return 'HTTP/1.1 %s\r\nContent-Length: %s\r\n%s\r\n%s' % (status, length, headersStr, body)
+
+def getHttpResponseChunked(body = '', status = '200 OK', length = None, headers = {}):
+    if length == None:
+        length = len(body)
+    headersStr = ''
+    if len(headers) > 0:
+        for curHeader in headers.items():
+            headersStr +='%s: %s\r\n' % curHeader
+    return 'HTTP/1.1 %s\r\nTransfer-Encoding: Chunked\r\n%s\r\n%x\r\n%s\r\n0\r\n' % (status, headersStr, length, body)
+
+def readRequestBody(s, header):
+    headerEnd = header.find('\r\n\r\n') + 4
+    body = header[headerEnd:]
+    header = header[:headerEnd]
+    contentLength = int(re.findall('Content-Length: (\d+)', header)[0])
+    while len(body) < contentLength:
+        body += s.recv(contentLength - len(body))
+    return body
+
+def writeFile(path, data):
+    try:
+        os.makedirs(os.path.dirname(path))
+    except OSError as e:
+        if errno.EEXIST != e.errno:
+            raise
+    with open(path, 'wb') as f:
+        f.write(data)
+
+def getFiller():
+    return NginxLiveFiller(channel_id=FILLER_CHANNEL_ID, preset=FILLER_PRESET,
+        timeline_id=FILLER_TIMELINE_ID)
+
+def saveFiller(nl, channelId=FILLER_CHANNEL_ID):
+    nl.channel.update(NginxLiveChannel(id=channelId,
+        filler=NginxLiveFiller(save=True, timeline_id=FILLER_TIMELINE_ID)))
 
 def setupChannelTimeline(channelId, timelineId=TIMELINE_ID, preset='main'):
     nl = nginxLiveClient()
@@ -55,6 +101,21 @@ def createVariant(nl, varName, tracks):
     for trackName, mediaType in tracks:
         result.append(createTrack(nl, trackName, mediaType, varName))
     return result
+
+def setupChannelVideoAudio(channelId, duration=10, timelineId=TIMELINE_ID):
+    nl = setupChannelTimeline(channelId, timelineId)
+    sv, sa = createVariant(nl, VARIANT_ID, [('v1', 'video'), ('a1', 'audio')])
+
+    st = KmpSendTimestamps()
+
+    kmpSendStreams([
+        (KmpMediaFileReader(TEST_VIDEO1, 0), sv),
+        (KmpMediaFileReader(TEST_VIDEO1, 1), sa),
+    ], st, duration, realtime=False)
+
+    kmpSendEndOfStream([sv, sa])
+
+    return nl
 
 def getConfBlock(c, path):
     for cur in c:
@@ -104,9 +165,10 @@ def getStreamUrl(channelId, prefix, suffix='', timelineId=TIMELINE_ID):
 
     return NGINX_LIVE_URL + '/%s/%s/tl/%s/%s' % (prefix, channelId, timelineId, suffix)
 
-def testDefaultStreams(channelId, basePath):
+def testDefaultStreams(channelId, basePath, timelineId=TIMELINE_ID):
     for prefix in ['hls-ts', 'hls-fmp4']:
-        testStream(getStreamUrl(channelId, prefix), basePath, prefix)
+        url = getStreamUrl(channelId, prefix, timelineId=timelineId)
+        testStream(url, basePath, prefix)
 
 
 def assertHttpError(func, status):

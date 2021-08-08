@@ -5,14 +5,17 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_ksmp.h>
+#include <ngx_json_str.h>
 
 
-typedef struct ngx_live_channel_s          ngx_live_channel_t;
-typedef struct ngx_live_track_s            ngx_live_track_t;
-typedef struct ngx_live_timeline_s         ngx_live_timeline_t;
-typedef struct ngx_live_segment_s          ngx_live_segment_t;
-typedef struct ngx_live_segment_cleanup_s  ngx_live_segment_cleanup_t;
-typedef struct ngx_live_media_info_node_s  ngx_live_media_info_node_t;
+typedef struct ngx_live_channel_s            ngx_live_channel_t;
+typedef struct ngx_live_track_s              ngx_live_track_t;
+typedef struct ngx_live_timeline_s           ngx_live_timeline_t;
+typedef struct ngx_live_segment_s            ngx_live_segment_t;
+typedef struct ngx_live_segment_cleanup_s    ngx_live_segment_cleanup_t;
+typedef struct ngx_live_media_info_s         ngx_live_media_info_t;
+typedef struct ngx_live_media_info_node_s    ngx_live_media_info_node_t;
+typedef struct ngx_live_persist_main_conf_s  ngx_live_persist_main_conf_t;
 
 typedef ngx_ksmp_frame_t  ngx_live_frame_t;
 

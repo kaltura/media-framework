@@ -1,15 +1,13 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "../ngx_live.h"
+#include "../ngx_live_notif.h"
 #include "../ngx_live_timeline.h"
 #include "ngx_live_persist_core.h"
 #include "ngx_live_persist_index.h"
 #include "ngx_live_persist_media.h"
 #include "ngx_live_persist_setup.h"
 #include "ngx_live_persist_snap_frames.h"
-
-
-#define NGX_HTTP_CONFLICT                  409
 
 
 static ngx_int_t ngx_live_persist_core_postconfiguration(ngx_conf_t *cf);
@@ -156,18 +154,18 @@ static ngx_live_persist_core_file_t  ngx_live_persist_files[] = {
 static void
 ngx_live_persist_core_write_file_complete(void *arg, ngx_int_t rc)
 {
-    ngx_uint_t                            file;
     ngx_live_channel_t                   *channel;
+    ngx_live_persist_scope_t             *scope;
     ngx_live_persist_file_stats_t        *stats;
     ngx_live_persist_write_file_ctx_t    *ctx = arg;
     ngx_live_persist_core_channel_ctx_t  *cctx;
 
     channel = ctx->channel;
 
-    file = ctx->scope.file;
+    scope = (void *) ctx->scope;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_core_module);
-    stats = &cctx->stats[file];
+    stats = &cctx->stats[scope->file];
 
     if (rc != NGX_OK) {
         stats->error++;
@@ -178,7 +176,7 @@ ngx_live_persist_core_write_file_complete(void *arg, ngx_int_t rc)
         stats->success_size += ctx->size;
     }
 
-    ngx_live_persist_files[file].write_handler(ctx, rc);
+    ngx_live_persist_files[scope->file].write_handler(ctx, rc);
 }
 
 ngx_live_persist_write_file_ctx_t *
@@ -252,8 +250,6 @@ ngx_live_persist_core_read_file(ngx_live_channel_t *channel,
 
     cctx->read_ctx = read_ctx;
 
-    channel->blocked++;
-
     return NGX_DONE;
 }
 
@@ -282,21 +278,22 @@ ngx_live_persist_core_read_handler(void *data, ngx_int_t rc,
 
     cctx->read_ctx = NULL;
 
-    channel->blocked--;
+    switch (rc) {
 
-    if (rc != NGX_OK) {
-        if (rc == NGX_HTTP_NOT_FOUND) {
-            ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-                "ngx_live_persist_core_read_handler: "
-                "read file not found, path: %V", &read_ctx->path);
-            rc = NGX_OK;
+    case NGX_OK:
+        break;
 
-        } else {
-            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-                "ngx_live_persist_core_read_handler: "
-                "read failed %i, path: %V", rc, &read_ctx->path);
-        }
+    case NGX_HTTP_NOT_FOUND:
+        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+            "ngx_live_persist_core_read_handler: "
+            "read file not found, path: %V", &read_ctx->path);
         goto done;
+
+    default:
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_core_read_handler: "
+            "read failed %i, path: %V", rc, &read_ctx->path);
+        goto failed;
     }
 
     buf.data = response->pos;
@@ -304,16 +301,18 @@ ngx_live_persist_core_read_handler(void *data, ngx_int_t rc,
 
     rc = ngx_live_persist_files[ctx.file].read_handler(channel, ctx.file,
         &buf);
-    if (rc != NGX_OK) {
-        if (rc == NGX_DECLINED) {
-            /* ignore files with old version/uid mismatch */
-            rc = NGX_OK;
-        }
-        goto done;
-    }
+    switch (rc) {
 
-    ngx_destroy_pool(pool);
-    pool = NULL;
+    case NGX_OK:
+        break;
+
+    case NGX_DECLINED:
+        /* ignore files with old version/uid mismatch */
+        goto done;
+
+    default:
+        goto failed;
+    }
 
     ctx.file++;
     if (ctx.file >= NGX_LIVE_PERSIST_FILE_MEDIA ||
@@ -322,19 +321,20 @@ ngx_live_persist_core_read_handler(void *data, ngx_int_t rc,
         goto done;
     }
 
+    ngx_destroy_pool(pool);
+    pool = NULL;
+
     rc = ngx_live_persist_core_read_file(channel, cln, &pcpcf->files[ctx.file],
         &ctx);
-    if (rc == NGX_DONE) {
-        return;
+    if (rc != NGX_DONE) {
+        goto failed;
     }
+
+    return;
 
 done:
 
-    if (pool != NULL) {
-        ngx_destroy_pool(pool);
-    }
-
-    if (rc == NGX_OK && ctx.file > NGX_LIVE_PERSIST_FILE_SETUP) {
+    if (ctx.file > NGX_LIVE_PERSIST_FILE_SETUP) {
         if (!ngx_live_timelines_cleanup(channel) &&
             pcpcf->cancel_read_if_empty)
         {
@@ -344,9 +344,26 @@ done:
             rc = NGX_DECLINED;
 
         } else {
+            channel->read_time = ngx_time();
+
             rc = ngx_live_core_channel_event(channel,
                 NGX_LIVE_EVENT_CHANNEL_READ, NULL);
         }
+
+    } else {
+        rc = NGX_DONE;
+    }
+
+    channel->blocked--;
+
+    if (channel->blocked <= 0) {
+        ngx_live_notif_publish(channel, NGX_LIVE_NOTIF_CHANNEL_READY, NGX_OK);
+    }
+
+failed:
+
+    if (pool != NULL) {
+        ngx_destroy_pool(pool);
     }
 
     if (cln) {
@@ -362,6 +379,7 @@ ngx_live_persist_core_read(ngx_live_channel_t *channel,
     ngx_pool_t *handler_pool, ngx_live_persist_read_handler_pt handler,
     void *data)
 {
+    ngx_int_t                             rc;
     ngx_pool_cleanup_t                   *cln;
     ngx_live_persist_core_read_ctx_t      ctx;
     ngx_live_persist_core_preset_conf_t  *pcpcf;
@@ -375,7 +393,7 @@ ngx_live_persist_core_read(ngx_live_channel_t *channel,
     cln = ngx_pool_cleanup_add(handler_pool, 0);
     if (cln == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_read: cleanup add failed");
+            "ngx_live_persist_core_read: cleanup add failed");
         return NGX_ERROR;
     }
 
@@ -383,8 +401,15 @@ ngx_live_persist_core_read(ngx_live_channel_t *channel,
     ctx.handler = handler;
     ctx.data = data;
 
-    return ngx_live_persist_core_read_file(channel, cln,
+    rc = ngx_live_persist_core_read_file(channel, cln,
         &pcpcf->files[ctx.file], &ctx);
+    if (rc != NGX_DONE) {
+        return rc;
+    }
+
+    channel->blocked++;
+
+    return NGX_DONE;
 }
 
 
@@ -424,7 +449,7 @@ ngx_live_persist_core_channel_init(ngx_live_channel_t *channel, void *ectx)
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
     if (cctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_channel_init: alloc failed");
+            "ngx_live_persist_core_channel_init: alloc failed");
         return NGX_ERROR;
     }
 

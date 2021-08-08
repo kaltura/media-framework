@@ -1,9 +1,12 @@
 #include "mp4_muxer.h"
-#include "../mp4/mp4_defs.h"
-#include "../mp4/mp4_fragment.h"
+#include "mp4_write_stream.h"
+#include "mp4_defs.h"
 
 // constants
 #define MDAT_HEADER_SIZE (ATOM_HEADER_SIZE)
+
+#define TRUN_VIDEO_FLAGS (0xF01)        // = data offset, duration, size, key, delay
+#define TRUN_AUDIO_FLAGS (0x301)        // = data offset, duration, size
 
 // macros
 #define mp4_rescale_millis(millis, timescale) (millis * ((timescale) / 1000))
@@ -55,6 +58,32 @@ struct mp4_muxer_state_s {
     bool_t first_time;
 };
 
+// typedefs
+typedef struct {
+    u_char version[1];
+    u_char flags[3];
+    u_char sample_count[4];
+    u_char data_offset[4];
+} trun_atom_t;
+
+typedef struct {
+    u_char duration[4];
+    u_char size[4];
+    u_char flags[4];
+    u_char pts_delay[4];
+} trun_video_frame_t;
+
+typedef struct {
+    u_char duration[4];
+    u_char size[4];
+} trun_audio_frame_t;
+
+typedef struct {
+    u_char version[1];
+    u_char flags[3];
+    u_char sequence_number[4];
+} mfhd_atom_t;
+
 typedef struct {
     u_char version[1];
     u_char flags[3];
@@ -95,6 +124,53 @@ static const u_char styp_atom[] = {
 };
 
 static vod_status_t mp4_muxer_start_frame(mp4_muxer_state_t* state);
+
+
+static u_char*
+mp4_fragment_write_mfhd_atom(u_char* p, uint32_t segment_index)
+{
+    size_t atom_size = ATOM_HEADER_SIZE + sizeof(mfhd_atom_t);
+
+    write_atom_header(p, atom_size, 'm', 'f', 'h', 'd');
+    write_be32(p, 0);
+    write_be32(p, segment_index);
+    return p;
+}
+
+static u_char*
+mp4_fragment_write_tfhd_atom(u_char* p, uint32_t track_id, uint32_t sample_description_index)
+{
+    size_t atom_size;
+    uint32_t flags;
+
+    flags = 0x020000;                // default-base-is-moof
+    atom_size = ATOM_HEADER_SIZE + sizeof(tfhd_atom_t);
+    if (sample_description_index > 0)
+    {
+        flags |= 0x02;                // sample-description-index-present
+        atom_size += sizeof(uint32_t);
+    }
+
+    write_atom_header(p, atom_size, 't', 'f', 'h', 'd');
+    write_be32(p, flags);            // flags
+    write_be32(p, track_id);        // track id
+    if (sample_description_index > 0)
+    {
+        write_be32(p, sample_description_index);
+    }
+    return p;
+}
+
+static u_char*
+mp4_fragment_write_tfdt64_atom(u_char* p, uint64_t base_media_decode_time)
+{
+    size_t atom_size = ATOM_HEADER_SIZE + sizeof(tfdt64_atom_t);
+
+    write_atom_header(p, atom_size, 't', 'f', 'd', 't');
+    write_be32(p, 0x01000000);            // version = 1
+    write_be64(p, base_media_decode_time);
+    return p;
+}
 
 // trun write functions
 static u_char*

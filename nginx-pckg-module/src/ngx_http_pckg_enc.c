@@ -46,6 +46,13 @@ static ngx_command_t  ngx_http_pckg_enc_commands[] = {
       offsetof(ngx_http_pckg_enc_loc_conf_t, iv_seed),
       NULL },
 
+    { ngx_string("pckg_enc_serve_key"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_enc_loc_conf_t, serve_key),
+      NULL },
+
       ngx_null_command
 };
 
@@ -175,7 +182,7 @@ ngx_http_pckg_handle_enc_key(ngx_http_request_t *r)
     }
 
     rc = ngx_http_pckg_send_header(r, response.len,
-        &ngx_http_pckg_enc_key_content_type, -1, 0);
+        &ngx_http_pckg_enc_key_content_type, -1, NGX_HTTP_PCKG_EXPIRES_STATIC);
     if (rc != NGX_OK) {
         return rc;
     }

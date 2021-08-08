@@ -32,9 +32,11 @@ def setup(channelId=CHANNEL_ID):
 
     kmpSendEndOfStream([sv, sa])
 
+    saveFiller(nl)
+
     # create main channel
     if CREATE_WITH_CHANNEL:
-        filler = NginxLiveFiller(channel_id=FILLER_CHANNEL_ID, timeline_id=FILLER_TIMELINE_ID)
+        filler = getFiller()
     else:
         filler = None
 
@@ -46,8 +48,7 @@ def setup(channelId=CHANNEL_ID):
     createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
 
     if filler is None:
-        filler = NginxLiveFiller(channel_id=FILLER_CHANNEL_ID, timeline_id=FILLER_TIMELINE_ID)
-        nl.channel.update(NginxLiveChannel(id=channelId, filler=filler))
+        nl.channel.update(NginxLiveChannel(id=channelId, filler=getFiller()))
 
 def test(channelId=CHANNEL_ID):
 

@@ -7,6 +7,10 @@
 //
 
 #include "transcode_filter.h"
+#define stream_check_return(val,ret) \
+ if((ret) < 0 && !((ret) == AVERROR(EAGAIN) || (ret) == AVERROR_EOF)) \
+     (val)++;
+
 
 int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,const char *filters_descr)
 {
@@ -124,6 +128,8 @@ int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,
         LOGGER(CATEGORY_FILTER, AV_LOG_ERROR, "Cannot config graph filters_descr: \"%s\" %d (%s)",filters_descr,ret,av_err2str(ret))
         goto end;
     }
+
+    pFilter->totalInErrors = pFilter->totalOutErrors = 0;
     
 end:
     avfilter_inout_free(&inputs);
@@ -144,6 +150,7 @@ int transcode_filter_send_frame( transcode_filter_t *pFilter,const AVFrame* pInF
 {
     int ret=0;
     ret = av_buffersrc_write_frame(pFilter->src_ctx, pInFrame);
+    stream_check_return(pFilter->totalInErrors,ret);
     return ret;
 }
 
@@ -156,6 +163,7 @@ int transcode_filter_receive_frame( transcode_filter_t *pFilter,struct AVFrame* 
         pOutFrame->pts=av_rescale_q(pOutFrame->pts,pFilter->outputTimeScale,standard_timebase);
         pOutFrame->pkt_duration=av_rescale_q(pOutFrame->pkt_duration,pFilter->outputTimeScale,standard_timebase);
     }
+    stream_check_return(pFilter->totalOutErrors,ret);
     return ret;
 }
 

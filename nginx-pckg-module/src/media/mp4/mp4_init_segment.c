@@ -682,7 +682,7 @@ mp4_init_segment_write(
     return p;
 }
 
-vod_status_t
+static vod_status_t
 mp4_init_segment_build_stsd_atom(
     request_context_t* request_context,
     media_init_segment_track_t* track)

@@ -34,7 +34,7 @@ def setup(channelId=CHANNEL_ID):
 
     # create main channel
     if CREATE_WITH_CHANNEL:
-        filler = NginxLiveFiller(channel_id=FILLER_CHANNEL_ID, timeline_id=FILLER_TIMELINE_ID)
+        filler = getFiller()
     else:
         filler = None
 
@@ -46,11 +46,9 @@ def setup(channelId=CHANNEL_ID):
     createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
 
     if filler is None:
-        filler = NginxLiveFiller(channel_id=FILLER_CHANNEL_ID, timeline_id=FILLER_TIMELINE_ID)
-        nl.channel.update(NginxLiveChannel(id=channelId, filler=filler))
+        nl.channel.update(NginxLiveChannel(id=channelId, filler=getFiller()))
 
-def test(channelId=CHANNEL_ID):
-
+def setupVideoOnlyFiller():
     # create video only filler channel
     nl = setupChannelTimeline(FILLER_CHANNEL_ID, FILLER_TIMELINE_ID, preset='volatile')
 
@@ -64,10 +62,15 @@ def test(channelId=CHANNEL_ID):
 
     kmpSendEndOfStream([sv])
 
+
+def test(channelId=CHANNEL_ID):
+    setupVideoOnlyFiller()
+
+    nl = nginxLiveClient()
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
     nl.setChannelId(channelId)
 
-    logTracker.assertContains('ngx_live_filler_channel_read: freeing unused filler track')
+    logTracker.assertContains('ngx_live_filler_setup_free_unused_tracks: freeing track')
 
     sv = KmpTcpSender(NGINX_LIVE_KMP_ADDR, channelId, 'v1', 'video')
     sa = KmpTcpSender(NGINX_LIVE_KMP_ADDR, channelId, 'a1', 'audio')
@@ -103,6 +106,8 @@ def test(channelId=CHANNEL_ID):
     nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
 
 def validate(channelId=CHANNEL_ID):
+    setupVideoOnlyFiller()
+
     nl = nginxLiveClient()
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
     testDefaultStreams(channelId, __file__)

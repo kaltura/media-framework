@@ -37,7 +37,7 @@ ngx_live_period_json_write(u_char *p, ngx_live_period_t *obj)
 
 /* ngx_live_timeline_conf_json writer */
 
-size_t
+static size_t
 ngx_live_timeline_conf_json_get_size(ngx_live_timeline_t *obj)
 {
     size_t  result =
@@ -58,7 +58,7 @@ ngx_live_timeline_conf_json_get_size(ngx_live_timeline_t *obj)
     return result;
 }
 
-u_char *
+static u_char *
 ngx_live_timeline_conf_json_write(u_char *p, ngx_live_timeline_t *obj)
 {
     p = ngx_copy_fix(p, "{\"active\":");
@@ -165,8 +165,7 @@ ngx_live_timelines_json_get_size(ngx_live_timeline_channel_ctx_t *obj)
     {
         ngx_live_timeline_t *cur = ngx_queue_data(q, ngx_live_timeline_t,
             queue);
-        result += cur->sn.str.len + ngx_escape_json(NULL, cur->sn.str.data,
-            cur->sn.str.len);
+        result += cur->sn.str.len + cur->id_escape;
         result += ngx_live_timeline_json_get_size(cur) + sizeof(",\"\":") - 1;
     }
 
@@ -191,7 +190,7 @@ ngx_live_timelines_json_write(u_char *p, ngx_live_timeline_channel_ctx_t *obj)
             *p++ = ',';
         }
         *p++ = '"';
-        p = (u_char *) ngx_escape_json(p, cur->sn.str.data, cur->sn.str.len);
+        p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
         *p++ = '"';
         *p++ = ':';
         p = ngx_live_timeline_json_write(p, cur);

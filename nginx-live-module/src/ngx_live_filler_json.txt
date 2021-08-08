@@ -1,4 +1,6 @@
 
 in ngx_live_filler_json
     channel_id %V
+    preset %V
     timeline_id %V
+    save %b

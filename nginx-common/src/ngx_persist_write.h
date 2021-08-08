@@ -57,6 +57,9 @@ ngx_int_t ngx_persist_write(ngx_persist_write_ctx_t *ctx,
 ngx_int_t ngx_persist_write_list_data(ngx_persist_write_ctx_t *ctx,
     ngx_list_t *list);
 
+ngx_int_t ngx_persist_write_list_data_n(ngx_persist_write_ctx_t *ctx,
+    ngx_list_part_t *part, ngx_uint_t count, size_t size);
+
 ngx_int_t ngx_persist_write_reserve(ngx_persist_write_ctx_t *ctx, size_t size,
     ngx_persist_write_marker_t *marker);
 

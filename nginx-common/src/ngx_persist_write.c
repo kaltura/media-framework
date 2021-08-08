@@ -720,6 +720,31 @@ ngx_persist_write_list_data(ngx_persist_write_ctx_t *ctx, ngx_list_t *list)
 }
 
 ngx_int_t
+ngx_persist_write_list_data_n(ngx_persist_write_ctx_t *ctx,
+    ngx_list_part_t *part, ngx_uint_t count, size_t size)
+{
+    for ( ;; ) {
+
+        if (part->nelts >= count) {
+            if (ngx_persist_write(ctx, part->elts, count * size) != NGX_OK) {
+                return NGX_ERROR;
+            }
+
+            break;
+        }
+
+        if (ngx_persist_write(ctx, part->elts, part->nelts * size) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+        count -= part->nelts;
+        part = part->next;
+    }
+
+    return NGX_OK;
+}
+
+ngx_int_t
 ngx_persist_write_append_buf_chain(ngx_persist_write_ctx_t *ctx,
     ngx_buf_chain_t *chain)
 {

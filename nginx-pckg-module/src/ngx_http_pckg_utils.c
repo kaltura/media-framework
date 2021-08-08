@@ -25,7 +25,7 @@ u_char  ngx_http_pckg_media_type_code[KMP_MEDIA_COUNT] = {
 
 /* uri parsing */
 
-static u_char *
+u_char *
 ngx_http_pckg_parse_uint32(u_char *start_pos, u_char *end_pos,
     uint32_t *result)
 {
@@ -43,7 +43,7 @@ ngx_http_pckg_parse_uint32(u_char *start_pos, u_char *end_pos,
 }
 
 
-static u_char *
+u_char *
 ngx_http_pckg_extract_string(u_char *start_pos, u_char *end_pos,
     ngx_str_t *result)
 {
@@ -58,13 +58,13 @@ ngx_http_pckg_extract_string(u_char *start_pos, u_char *end_pos,
 }
 
 
-#define expect_char(start_pos, end_pos, ch)                 \
-    if (start_pos >= end_pos || *start_pos != ch) {         \
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,   \
-            "ngx_http_pckg_parse_uri_file_name: "      \
-            "expected \"%c\"", ch);                         \
-        return NGX_HTTP_BAD_REQUEST;                        \
-    }                                                       \
+#define expect_char(start_pos, end_pos, ch)                                 \
+    if (start_pos >= end_pos || *start_pos != ch) {                         \
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,                   \
+            "ngx_http_pckg_parse_uri_file_name: "                           \
+            "expected \"%c\"", ch);                                         \
+        return NGX_HTTP_BAD_REQUEST;                                        \
+    }                                                                       \
     start_pos++;
 
 ngx_int_t

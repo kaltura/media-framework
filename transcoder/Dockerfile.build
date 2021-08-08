@@ -3,6 +3,8 @@
 
 ARG  CUDA_VERSION="10.1"
 
+ARG PYTHON_VERSION=3.6
+
 FROM nvidia/cuda:${CUDA_VERSION}-devel
 ENV TZ=Europe/Kiev
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -12,6 +14,7 @@ RUN apt-get update && apt-get install -y sudo git build-essential gdbserver vim 
 
 ARG  FFMPEG_VERSION="n4.3.1"
 ARG  NVIDIA_CODEC_HEADERS_VERSION="n9.0.18.4"
+ARG PYTHON_VERSION
 
 RUN git clone --branch ${NVIDIA_CODEC_HEADERS_VERSION} https://github.com/FFmpeg/nv-codec-headers.git
 RUN cd nv-codec-headers && \
@@ -34,8 +37,8 @@ RUN  cd ffmpeg && ./configure --disable-doc --enable-nonfree --disable-shared --
 
 RUN apt-get install valgrind -y
 
-RUN apt-get update && apt-get install -y sudo python3.8 python3-pip && python3 -m pip install pip
-RUN python3 -m pip install redis
+RUN apt-get update && apt-get install -y sudo python${PYTHON_VERSION} python3-pip && python3 -m pip install pip
+RUN python${PYTHON_VERSION} -m pip install redis
 
 COPY . .
 

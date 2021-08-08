@@ -72,6 +72,7 @@ typedef struct {
 
 struct ngx_live_timeline_s {
     ngx_str_node_t                     sn;
+    uintptr_t                          id_escape;
     ngx_queue_t                        queue;
     u_char                             id_buf[NGX_LIVE_TIMELINE_MAX_ID_LEN];
     ngx_live_channel_t                *channel;
@@ -120,7 +121,7 @@ ngx_int_t ngx_live_timeline_get_time(ngx_live_timeline_t *timeline,
 ngx_int_t ngx_live_timeline_copy(ngx_live_timeline_t *dest,
     ngx_live_timeline_t *source, ngx_log_t *log);
 
-ngx_flag_t ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
+uint32_t ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
     uint32_t segment_index, uint32_t flags, int64_t *correction);
 
 ngx_flag_t ngx_live_timeline_is_expired(ngx_live_timeline_t *timeline);

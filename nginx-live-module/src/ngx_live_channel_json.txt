@@ -8,7 +8,7 @@ out ngx_live_track_input_skip ngx_live_track_input_skip_t
 out ngx_live_track_input ngx_live_track_input_t
     - %return-null !obj->connection
     connection %uA
-    remote_addr %V
+    remote_addr %jV
     uptime %T (ngx_time() - obj->start_sec)
     received_bytes %O
     skipped_frames %func-ngx_live_track_input_skip &obj->skipped
@@ -23,24 +23,24 @@ out ngx_live_track_json ngx_live_track_t
     - %func-ngx_live_core_json obj, obj->channel, NGX_LIVE_JSON_CTX_TRACK
 
 out nostatic noobject ngx_live_tracks_json ngx_live_channel_t
-    - %objQueue-ngx_live_track_json,ngx_live_track_t,queue,sn.str obj->tracks.queue
+    - %objQueue-ngx_live_track_json,ngx_live_track_t,queue,sn.str,id_escape obj->tracks.queue
 
 out ngx_live_variant_json ngx_live_variant_t
     track_ids %objFunc-ngx_live_variant_json_track_ids obj
     opaque %bs
-    label %V obj->conf.
-    lang %V obj->conf.
+    label %jV obj->conf.
+    lang %jV obj->conf.
     role %enum-ngx_live_variant_role_names obj->conf.
     is_default %b obj->conf.
-    active %b ngx_live_variant_is_main_track_active(obj, UINT_MAX)
+    active %b ngx_live_variant_is_active_channel_last(obj, UINT_MAX)
 
 out nostatic noobject ngx_live_variants_json ngx_live_channel_t
-    - %objQueue-ngx_live_variant_json,ngx_live_variant_t,queue,sn.str obj->variants.queue
+    - %objQueue-ngx_live_variant_json,ngx_live_variant_t,queue,sn.str,id_escape obj->variants.queue
 
 out ngx_live_channel_blocked_json ngx_live_channel_t
     - %code ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj, ngx_live_core_module);
     blocked %b true
-    preset %V cpcf->name
+    preset %jV cpcf->name
     mem_left %uz
     mem_limit %uz
     mem_blocks %func-ngx_block_pool_json obj->block_pool
@@ -51,7 +51,8 @@ out nostatic ngx_live_channel_json ngx_live_channel_t
     blocked %b false
     uid %016uxL
     uptime %T (ngx_time() - obj->start_sec)
-    preset %V cpcf->name
+    read_time %T
+    preset %jV cpcf->name
     opaque %bs
     initial_segment_index %uD
     mem_left %uz
@@ -66,4 +67,4 @@ out nostatic ngx_live_channel_json ngx_live_channel_t
     - %func-ngx_live_core_json obj, obj, NGX_LIVE_JSON_CTX_CHANNEL
 
 out nostatic noobject ngx_live_channels_json void
-    - %objQueue-ngx_live_channel_json,ngx_live_channel_t,queue,sn.str ngx_live_channels.queue
+    - %objQueue-ngx_live_channel_json,ngx_live_channel_t,queue,sn.str,id_escape ngx_live_channels.queue

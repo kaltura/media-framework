@@ -21,20 +21,6 @@ typedef struct {
 } ngx_pckg_segment_info_ctx_t;
 
 
-void ngx_pckg_segment_info_iter_reset(ngx_pckg_segment_info_iter_t *iter,
-    ngx_pckg_track_t *track);
-
-uint32_t ngx_pckg_segment_info_iter_get(ngx_pckg_segment_info_iter_t *iter,
-    uint32_t segment_index);
-
-ngx_flag_t ngx_pckg_segment_info_iter_has_bitrate(
-    ngx_pckg_segment_info_iter_t *iter);
-
-uint32_t ngx_pckg_segment_info_iter_gap_count(
-    ngx_pckg_segment_info_iter_t *iter, uint32_t first_index,
-    uint32_t last_index);
-
-
 ngx_pckg_segment_info_ctx_t *ngx_pckg_segment_info_create(
     ngx_pckg_channel_t *channel, media_bitrate_estimator_t *estimators);
 

@@ -14,10 +14,6 @@ typedef struct {
 } atom_writer_t;
 
 // functions
-vod_status_t mp4_init_segment_build_stsd_atom(
-    request_context_t* request_context,
-    media_init_segment_track_t* track);
-
 vod_status_t mp4_init_segment_build(
     request_context_t* request_context,
     media_init_segment_t* segment,

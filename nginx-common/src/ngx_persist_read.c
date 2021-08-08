@@ -14,8 +14,9 @@ ngx_persist_read_file_header(ngx_str_t *buf, uint32_t type, ngx_log_t *log,
 
     if (buf->len < sizeof(*header)) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_persist_read_file_header: buffer size %uz too small",
-            buf->len);
+            "ngx_persist_read_file_header: "
+            "buffer size %uz too small, type: %*s",
+            buf->len, (size_t) sizeof(type), &type);
         return NGX_BAD_DATA;
     }
 
@@ -23,8 +24,8 @@ ngx_persist_read_file_header(ngx_str_t *buf, uint32_t type, ngx_log_t *log,
 
     if (header->magic != NGX_PERSIST_FILE_MAGIC) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_persist_read_file_header: invalid magic 0x%uxD",
-            header->magic);
+            "ngx_persist_read_file_header: invalid magic 0x%uxD, type: %*s",
+            header->magic, (size_t) sizeof(type), &type);
         return NGX_BAD_DATA;
     }
 

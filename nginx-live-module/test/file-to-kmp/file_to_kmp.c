@@ -2,6 +2,7 @@
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <getopt.h>
+#include <sys/types.h>
 #include "../../../nginx-common/src/ngx_live_kmp.h"
 
 
@@ -567,13 +568,15 @@ main(int argc, char **argv)
     av_register_all();
 
     /* open input file */
-    if (avformat_open_input(&fmt_ctx, input_file, NULL, NULL) < 0) {
-        error(0, "could not open source file %s", input_file);
+    ret = avformat_open_input(&fmt_ctx, input_file, NULL, NULL);
+    if (ret < 0) {
+        error(0, "could not open source file %s, err: %d", input_file, ret);
         goto done;
     }
 
-    if (avformat_find_stream_info(fmt_ctx, NULL) < 0) {
-        error(0, "could not find stream information");
+    ret = avformat_find_stream_info(fmt_ctx, NULL);
+    if (ret < 0) {
+        error(0, "could not find stream information, err: %d", ret);
         goto done;
     }
 
@@ -587,7 +590,7 @@ main(int argc, char **argv)
     /* open output file */
     ret = avio_open2(&pb, output_file, AVIO_FLAG_WRITE, NULL, NULL);
     if (ret < 0) {
-        error(0, "failed to open output file %s", output_file);
+        error(0, "failed to open output file %s, err: %d", output_file, ret);
         goto done;
     }
 

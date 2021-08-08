@@ -16,6 +16,7 @@
 #include "../utils/time_estimator.h"
 #include "../utils/packetQueue.h"
 #include "./transcode_dropper.h"
+#include "../utils/policy_provider.h"
 #define MAX_INPUTS 10
 #define MAX_OUTPUTS 10
 
@@ -58,6 +59,7 @@ typedef struct  {
                transcoded_frame_first_id;
     uint32_t   offset;
     transcode_session_output_t *ack_handler;
+    policy_provider_s policy;
 } transcode_session_t;
 
 
@@ -75,7 +77,7 @@ int transcode_session_async_send_packet(transcode_session_t *pContext, struct AV
 
 int transcode_session_close(transcode_session_t *ctx,int exitErrorCode);
 int transcode_session_add_output(transcode_session_t* pContext,const json_value_t* json);
-int transcode_session_get_diagnostics(transcode_session_t *ctx,char* buf,size_t maxlen);
-void transcode_session_get_ack_frame_id(transcode_session_t *ctx,kmp_frame_position_t *pos);
+void transcode_session_get_diagnostics(transcode_session_t *ctx,json_writer_ctx_t js);
+int64_t transcode_session_get_ack_frame_id(transcode_session_t *ctx);
 
 #endif /* TranscodePipeline_hpp */

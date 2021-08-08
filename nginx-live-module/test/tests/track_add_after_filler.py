@@ -32,8 +32,7 @@ def test(channelId=CHANNEL_ID):
 
     # create main channel
     nl = nginxLiveClient()
-    filler = NginxLiveFiller(channel_id=FILLER_CHANNEL_ID, timeline_id=FILLER_TIMELINE_ID)
-    nl.channel.create(NginxLiveChannel(id=channelId, preset='main', filler=filler))
+    nl.channel.create(NginxLiveChannel(id=channelId, preset='main', filler=getFiller()))
     nl.setChannelId(channelId)
     nl.timeline.create(NginxLiveTimeline(id=TIMELINE_ID, active=True))
 

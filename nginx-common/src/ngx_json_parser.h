@@ -71,17 +71,18 @@ typedef struct {
     ngx_array_part_t          part;
 } ngx_json_array_t;
 
+/* Note: when 'escape' is set, the string needs to be decoded */
 typedef struct {
     ngx_str_t                 s;
     unsigned                  escape:1;
-} ngx_json_str_t;
+} ngx_json_esc_str_t;
 
 typedef struct {
     int                       type;
     union {
         ngx_flag_t            boolean;
         ngx_json_fraction_t   num;
-        ngx_json_str_t        str;  /* Note: the string may be json escaped */
+        ngx_json_esc_str_t    str;
         ngx_json_array_t      arr;
         ngx_json_object_t     obj;  /* ngx_json_key_value_t */
     } v;

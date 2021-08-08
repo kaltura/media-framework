@@ -54,6 +54,6 @@ int transcode_codec_reset( transcode_codec_t *decoder);
 
 inline int64_t transcode_codec_get_latency( transcode_codec_t *codec) { return llabs(codec->outDts-codec->inDts);}
 
-int transcode_codec_get_diagnostics( transcode_codec_t *decoder,char* buf);
+void transcode_codec_get_diagnostics( transcode_codec_t *decoder,json_writer_ctx_t js);
 
 #endif /* TranscoderEncoder_h */

@@ -220,8 +220,9 @@ static void *ngx_live_segmenter_create_preset_conf(ngx_conf_t *cf);
 static char *ngx_live_segmenter_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
-static ngx_int_t ngx_live_segmenter_set_segment_duration(void *ctx,
-    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool);
+static ngx_int_t ngx_live_segmenter_set_segment_duration(
+    ngx_live_json_cmds_ctx_t *jctx, ngx_live_json_cmd_t *cmd,
+    ngx_json_value_t *value);
 
 
 static ngx_command_t  ngx_live_segmenter_commands[] = {
@@ -2518,10 +2519,9 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
     uint32_t                           segment_index;
     ngx_int_t                          rc;
     ngx_flag_t                         changed;
-    media_info_t                      *media_info;
-    kmp_media_info_t                  *kmp_media_info;
     ngx_live_segment_t                *segment;
     ngx_live_channel_t                *channel;
+    ngx_live_media_info_t             *media_info;
     ngx_live_segmenter_track_ctx_t    *ctx;
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
@@ -2541,7 +2541,7 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
         cctx->force_new_period = 1;
     }
 
-    media_info = ngx_live_media_info_queue_get_last(track, &kmp_media_info);
+    media_info = ngx_live_media_info_queue_get_last(track);
     if (media_info == NULL) {
         ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
             "ngx_live_segmenter_track_create_segment: no media info");
@@ -2557,7 +2557,6 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
     }
 
     segment->media_info = media_info;
-    segment->kmp_media_info = kmp_media_info;
 
     /* add the frames */
     rc = ngx_live_segmenter_frame_list_copy(&ctx->frames, segment,
@@ -3136,7 +3135,7 @@ ngx_live_segmenter_inactive_handler(ngx_event_t *ev)
     if (ngx_live_segmenter_create_segments(channel) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_segmenter_inactive_handler: create segments failed");
-        ngx_live_channel_free(channel);
+        ngx_live_channel_free(channel, ngx_live_free_create_segment_failed);
         return;
     }
 }
@@ -3149,7 +3148,7 @@ ngx_live_segmenter_create_handler(ngx_event_t *ev)
     if (ngx_live_segmenter_create_segments(channel) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_segmenter_create_handler: create segments failed");
-        ngx_live_channel_free(channel);
+        ngx_live_channel_free(channel, ngx_live_free_create_segment_failed);
         return;
     }
 }
@@ -3316,8 +3315,23 @@ ngx_live_segmenter_channel_free(ngx_live_channel_t *channel, void *ectx)
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
+    if (cctx == NULL) {
+        return NGX_OK;
+    }
 
-    if (cctx != NULL && cctx->create.posted) {
+    switch (channel->free_reason) {
+
+    case ngx_live_free_alloc_chain_failed:
+    case ngx_live_free_alloc_buf_failed:
+        ngx_live_segmenter_dump(channel, cctx->last_segment_end_pts,
+            cctx->last_segment_end_pts - 1);
+        break;
+
+    default:
+        break;
+    }
+
+    if (cctx->create.posted) {
         ngx_delete_posted_event(&cctx->create);
     }
 
@@ -3383,11 +3397,11 @@ ngx_live_segmenter_set_segment_duration_internal(ngx_live_channel_t *channel,
 }
 
 static ngx_int_t
-ngx_live_segmenter_set_segment_duration(void *ctx,
-    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value, ngx_pool_t *pool)
+ngx_live_segmenter_set_segment_duration(ngx_live_json_cmds_ctx_t *jctx,
+    ngx_live_json_cmd_t *cmd, ngx_json_value_t *value)
 {
     return ngx_live_segmenter_set_segment_duration_internal(
-        ctx, value->v.num.num, pool->log);
+        jctx->obj, value->v.num.num, jctx->pool->log);
 }
 
 
@@ -3412,7 +3426,7 @@ ngx_live_segmenter_write_setup(ngx_persist_write_ctx_t *write_ctx,
 }
 
 static ngx_int_t
-ngx_live_segmenter_read_setup(ngx_persist_block_header_t *block,
+ngx_live_segmenter_read_setup(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_channel_t             *channel = obj;

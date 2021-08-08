@@ -49,7 +49,7 @@ int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackI
     json_get_int64(GetConfig(),"frameDropper.decodedFrameDropperThreshold",10,&ctx->dropper.decodedFrameDropperThreshold);
     ctx->dropper.nonKeyFrameDropperThreshold=av_rescale_q(ctx->dropper.nonKeyFrameDropperThreshold,seconds,standard_timebase);
     ctx->dropper.decodedFrameDropperThreshold=av_rescale_q(ctx->dropper.decodedFrameDropperThreshold,seconds,standard_timebase);
-    
+    _S(init_policy_provider(&ctx->policy,GetConfig()));
     sample_stats_init(&ctx->processedStats,standard_timebase);
     return 0;
 }
@@ -329,7 +329,7 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
     transcode_codec_t* pEncoder=&pContext->encoder[encoderId];
     transcode_session_output_t* pOutput=&pContext->output[outputId];
     frame_id_t output_frame_id;
-    
+
     LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG, "[%s] Sending packet %s to encoderId %d",
            pOutput->track_id,
            getFrameDesc(pFrame),
@@ -347,7 +347,14 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
     }
     
     ret=transcode_encoder_send_frame(pEncoder,pFrame);
-    
+encoder_error:
+    if (ret < 0)
+    {
+          LOGGER(CATEGORY_TRANSCODING_SESSION, AV_LOG_ERROR,"Error during encoding %d (%s)",ret,av_err2str(ret))
+          ret = pContext->policy.handle_error(&pContext->policy,ret);
+          if (ret < 0)
+            return ret;
+    }
     while (ret >= 0) {
         AVPacket *pOutPacket = av_packet_alloc();
         
@@ -362,8 +369,7 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
         }
         else if (ret < 0)
         {
-            LOGGER(CATEGORY_TRANSCODING_SESSION, AV_LOG_ERROR,"Error during encoding %d (%s)",ret,av_err2str(ret))
-            return ret;
+            goto encoder_error;
         }
 
         output_frame_id = pContext->transcoded_frame_first_id+pOutput->stats.totalFrames;
@@ -490,7 +496,7 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
         else if (ret < 0)
         {
             av_frame_free(&pOutFrame);
-            return ret;
+            goto filter_error;
         }
         
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] recieved from filterId %d (%s): %s",
@@ -511,6 +517,7 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
         }
         av_frame_free(&pOutFrame);
     }
+filter_error:
     return 0;
 }
 
@@ -603,14 +610,9 @@ int decodePacket(transcode_session_t *transcodingContext,const AVPacket* pkt) {
                getPacketDesc(pkt));
     }
     transcode_codec_t* pDecoder=&transcodingContext->decoder[0];
-    
 
     ret = transcode_decoder_send_packet(pDecoder, pkt);
-    if (ret < 0) {
-        LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR, "[%d] Error sending a packet for decoding %d (%s)",pkt->stream_index,ret,av_err2str(ret));
-        return ret;
-    }
-    
+
     while (ret >= 0) {
         AVFrame *pFrame = av_frame_alloc();
         
@@ -626,7 +628,7 @@ int decodePacket(transcode_session_t *transcodingContext,const AVPacket* pkt) {
         else if (ret < 0)
         {
             LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"[%d] Error during decoding %d (%s)",pkt->stream_index,ret,av_err2str(ret));
-            return ret;
+            break;
         }
         ret = OnDecodedFrame(transcodingContext,pDecoder->ctx,pFrame);
         if (ret < 0)
@@ -635,6 +637,11 @@ int decodePacket(transcode_session_t *transcodingContext,const AVPacket* pkt) {
         }
 
         av_frame_free(&pFrame);
+    }
+
+    if (ret < 0) {
+        LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR, "[%d] decoding error %d (%s)",pkt->stream_index,ret,av_err2str(ret));
+        ret = transcodingContext->policy.handle_error(&transcodingContext->policy,ret);
     }
     return ret;
 }
@@ -715,36 +722,65 @@ int transcode_session_close(transcode_session_t *session,int exitErrorCode) {
         av_free(session->currentMediaInfo);
         session->currentMediaInfo=NULL;
     }
+    free_policy_provider(&session->policy);
     return 0;
 }
 
+static
+void transcode_session_get_pipeline_diagnostics(transcode_session_t *ctx,json_writer_ctx_t js){
+    uint64_t totalDecoderErrors = 0, totalEncoderErrors = 0, totalFilterErrors = 0;
 
-int transcode_session_get_diagnostics(transcode_session_t *ctx,char* buf,size_t maxlen)
+    for (int i=0;i<ctx->decoders;i++)
+     {
+         transcode_codec_t* context=&ctx->decoder[i];
+         totalDecoderErrors += context->inStats.totalErrors + context->outStats.totalErrors;;
+     }
+     for (int i=0;i<ctx->encoders;i++)
+     {
+         transcode_codec_t* context=&ctx->encoder[i];
+         totalEncoderErrors += context->inStats.totalErrors + context->outStats.totalErrors;
+     }
+     for (int i=0;i<ctx->filters;i++)
+     {
+          transcode_filter_t* context=&ctx->filter[i];
+          totalFilterErrors += context->totalInErrors + context->totalOutErrors;
+     }
+     if(totalFilterErrors || totalEncoderErrors || totalDecoderErrors){
+            if(totalDecoderErrors){
+                JSON_SERIALIZE_INT("decoderErrors",totalDecoderErrors)
+            }
+            if(totalEncoderErrors){
+                JSON_SERIALIZE_INT("encoderErrors",totalEncoderErrors)
+            }
+            if(totalFilterErrors){
+                 JSON_SERIALIZE_INT("filterErrors",totalFilterErrors)
+            }
+      }
+}
+
+void transcode_session_get_diagnostics(transcode_session_t *ctx,json_writer_ctx_t js)
 {
     int64_t now=av_rescale_q( getClock64(), clockScale, standard_timebase);
 
-    
-    JSON_SERIALIZE_INIT(buf)
-    char tmpBuf2[MAX_DIAGNOSTICS_STRING_LENGTH];
-    sample_stats_get_diagnostics(&ctx->processedStats,tmpBuf2);
-    JSON_SERIALIZE_OBJECT("processed", tmpBuf2)
+    JSON_SERIALIZE_OBJECT_BEGIN("processed");
+    sample_stats_get_diagnostics(&ctx->processedStats,js);
+    JSON_SERIALIZE_OBJECT_END()
+
     /*
     JSON_SERIALIZE_ARRAY_START("decoders")
     for (int i=0;i<ctx->decoders;i++)
     {
         transcode_codec_t* context=&ctx->decoder[i];
-        char tmp[MAX_DIAGNOSTICS_STRING_LENGTH];
-        transcode_codec_get_diagnostics(context,tmp);
-        JSON_SERIALIZE_ARRAY_ITEM(tmp)
+        transcode_codec_get_diagnostics(context,js);
+        JSON_SERIALIZE_ARRAY_ITEM()
     }
     JSON_SERIALIZE_ARRAY_END()
     JSON_SERIALIZE_ARRAY_START("encoders")
     for (int i=0;i<ctx->encoders;i++)
     {
         transcode_codec_t* context=&ctx->encoder[i];
-        char tmp[MAX_DIAGNOSTICS_STRING_LENGTH];
-        transcode_codec_get_diagnostics(context,tmp);
-        JSON_SERIALIZE_ARRAY_ITEM(tmp)
+        transcode_codec_get_diagnostics(context,js);
+        JSON_SERIALIZE_ARRAY_ITEM()
     }
     JSON_SERIALIZE_ARRAY_END()
      */
@@ -760,9 +796,8 @@ int transcode_session_get_diagnostics(transcode_session_t *ctx,char* buf,size_t 
             lastDts=output->stats.lastDts;
             lastTimeStamp=output->stats.lastTimeStamp;
         }
-        char tmp[MAX_DIAGNOSTICS_STRING_LENGTH];
-        transcode_session_output_get_diagnostics(output,ctx->lastQueuedDts,ctx->processedStats.lastDts,tmp);
-        JSON_SERIALIZE_ARRAY_ITEM(tmp)
+        transcode_session_output_get_diagnostics(output,ctx->lastQueuedDts,ctx->processedStats.lastDts,js);
+       JSON_SERIALIZE_ARRAY_ITEM();
     }
     JSON_SERIALIZE_ARRAY_END()
     
@@ -772,8 +807,6 @@ int transcode_session_get_diagnostics(transcode_session_t *ctx,char* buf,size_t 
     JSON_SERIALIZE_INT64("processTime",(ctx->lastInputDts-lastDts)/90);
     JSON_SERIALIZE_INT64("latency",(now-lastTimeStamp)/90);
     JSON_SERIALIZE_INT("currentIncommingQueueLength",ctx->packetQueue.queue ? av_thread_message_queue_nb_elems(ctx->packetQueue.queue) : -1);
-    
-    JSON_SERIALIZE_END()
 
-    return n;
+    transcode_session_get_pipeline_diagnostics(ctx,js);
 }

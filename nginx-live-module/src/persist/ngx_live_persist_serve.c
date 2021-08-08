@@ -75,8 +75,8 @@ ngx_live_persist_serve_write_variant(ngx_persist_write_ctx_t *write_ctx,
                 NGX_KSMP_BLOCK_VARIANT) != NGX_OK ||
             ngx_wstream_str(ws, &cur_variant->sn.str) != NGX_OK ||
             ngx_persist_write(write_ctx, &v, sizeof(v)) != NGX_OK ||
-            ngx_wstream_str(ws, &cur_variant->conf.label) != NGX_OK ||
-            ngx_wstream_str(ws, &cur_variant->conf.lang) != NGX_OK ||
+            ngx_wstream_str(ws, &cur_variant->conf.label.s) != NGX_OK ||
+            ngx_wstream_str(ws, &cur_variant->conf.lang.s) != NGX_OK ||
             ngx_persist_write(write_ctx, track_ids,
                 (u_char *) cur_id - (u_char *) track_ids) != NGX_OK)
         {
@@ -150,21 +150,16 @@ ngx_live_persist_serve_write_segment_index(
     ngx_persist_write_ctx_t *write_ctx, void *obj)
 {
     ngx_live_channel_t              *channel = obj;
-    ngx_ksmp_segment_index_t         si;
     ngx_live_persist_serve_scope_t  *scope;
 
     scope = ngx_persist_write_ctx(write_ctx);
-    if (scope->segment_index == NGX_LIVE_INVALID_SEGMENT_INDEX) {
+    if (scope->si.index == NGX_LIVE_INVALID_SEGMENT_INDEX) {
         return NGX_OK;
     }
 
-    si.segment_index = scope->segment_index;
-    si.reserved = 0;
-    si.correction = scope->correction;
-
     if (ngx_persist_write_block_open(write_ctx,
             NGX_KSMP_BLOCK_SEGMENT_INDEX) != NGX_OK ||
-        ngx_persist_write(write_ctx, &si, sizeof(si)) != NGX_OK)
+        ngx_persist_write(write_ctx, &scope->si, sizeof(scope->si)) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_serve_write_segment_index: write failed");
