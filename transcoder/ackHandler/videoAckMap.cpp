@@ -58,7 +58,7 @@ public:
         ao.id = it->second.id;
         m_output.erase(m_output.begin(),it);
         LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) video map. map ack %lld -> %lld,%lld",
-             m_name.c_str(),id,ao.id,ao.offset);
+             m_name.c_str(),ack,ao.id,ao.offset);
      }
 };
 

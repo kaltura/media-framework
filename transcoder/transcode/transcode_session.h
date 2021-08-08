@@ -78,6 +78,6 @@ int transcode_session_async_send_packet(transcode_session_t *pContext, struct AV
 int transcode_session_close(transcode_session_t *ctx,int exitErrorCode);
 int transcode_session_add_output(transcode_session_t* pContext,const json_value_t* json);
 void transcode_session_get_diagnostics(transcode_session_t *ctx,json_writer_ctx_t js);
-int64_t transcode_session_get_ack_frame_id(transcode_session_t *ctx);
+void transcode_session_get_ack_frame_id(transcode_session_t *ctx,kmp_frame_position_t *pos);
 
 #endif /* TranscodePipeline_hpp */
