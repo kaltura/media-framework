@@ -538,7 +538,7 @@ int KMP_read_handshake( KMP_session_t *context,kmp_packet_header_t *header,char*
         return -1;
     }
     int bytesToRead = sizeof(kmp_connect_packet_t)-sizeof(kmp_packet_header_t);
-    int valread =recvExact(context->socket,((char*)&connect)+sizeof(kmp_packet_header_t),bytesToRead);
+    int valread =recvExact(context,((char*)&connect)+sizeof(kmp_packet_header_t),bytesToRead);
     if (valread < bytesToRead) {
          LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"KMP_read_handshake, expected %d bytes, read %d",bytesToRead,valread);
          return -1;
@@ -643,7 +643,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"invalid packet, expceted PACKET_TYPE_HEADER received packet_type=%d",header->packet_type);
         return -1;
     }
-    int valread =recvExact(context->socket,(char*)&mediaInfo,sizeof(kmp_media_info_t));
+    int valread =recvExact(context,(char*)&mediaInfo,sizeof(kmp_media_info_t));
     if (valread<=0) {
         return checkReturn(valread);
     }
@@ -683,7 +683,7 @@ int KMP_read_mediaInfo( KMP_session_t *context,kmp_packet_header_t *header,trans
     params->extradata=NULL;
     if (params->extradata_size>0) {
         params->extradata=av_mallocz(params->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-        valread =recvExact(context->socket,(char*)params->extradata,header->data_size);
+        valread =recvExact(context,(char*)params->extradata,header->data_size);
         return checkReturn(valread);
     }
     
@@ -695,7 +695,7 @@ int KMP_read_packet( KMP_session_t *context,kmp_packet_header_t *header,AVPacket
 {
     kmp_frame_t sample;
     
-    int valread =recvExact(context->socket,(char*)&sample,sizeof(kmp_frame_t));
+    int valread =recvExact(context,(char*)&sample,sizeof(kmp_frame_t));
     if (valread<=0){
         return checkReturn(valread);
     }
@@ -721,7 +721,7 @@ bool KMP_read_ack(KMP_session_t *context,uint64_t* frame_id)
             break;
         }
         kmp_ack_frames_packet_t pkt;
-        recvExact(context->socket,(char*)&pkt,(int)sizeof(kmp_ack_frames_packet_t));
+        recvExact(context,(char*)&pkt,(int)sizeof(kmp_ack_frames_packet_t));
         //validate ack packet;
         if(pkt.header.header_size != sizeof(pkt)){
              LOGGER(CATEGORY_KMP,AV_LOG_ERROR,"[%s] KMP_read_ack header_size %d != %d",

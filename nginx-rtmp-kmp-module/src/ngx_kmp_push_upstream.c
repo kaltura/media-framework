@@ -949,7 +949,7 @@ ngx_kmp_push_upstream_send_buffered(ngx_kmp_push_upstream_t *u)
     /* connect header */
     u->connect = u->track->connect;
     u->connect.initial_frame_id = u->acked_frame_id;
-    u->connect.initial_transcoded_frame_id = u->acked_transcoded_frame_id;
+    u->connect.initial_upstream_frame_id = u->acked_upstream_frame_id;
     u->connect.initial_offset = u->acked_offset;
     cl = ngx_kmp_push_alloc_chain_buf(pool, &u->connect, &u->connect + 1);
     if (cl == NULL) {

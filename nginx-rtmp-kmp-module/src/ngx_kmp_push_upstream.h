@@ -43,7 +43,7 @@ typedef struct {
 
     ngx_buf_queue_reader_t     acked_reader;
     uint64_t                   acked_frame_id;
-    uint64_t                   acked_transcoded_frame_id;
+    uint64_t                   acked_upstream_frame_id;
     uint32_t                   acked_offset;
     ngx_buf_t                  acked_media_info;
     off_t                      acked_bytes;
