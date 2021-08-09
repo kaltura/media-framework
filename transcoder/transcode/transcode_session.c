@@ -154,7 +154,7 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
          }
     }
     if(ctx->outputs && !ctx->ack_handler)
-        ctx->ack_handler = ctx->output;
+        ctx->ack_handler = &ctx->output[0];
     return 0;
 }
 
