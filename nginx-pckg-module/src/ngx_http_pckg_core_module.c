@@ -31,6 +31,12 @@ static char *ngx_http_pckg_core_buffer_pool_slot(ngx_conf_t *cf,
 static ngx_int_t ngx_http_pckg_core_ctx_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
+static ngx_int_t ngx_http_pckg_core_channel_variable(ngx_http_request_t* r,
+    ngx_http_variable_value_t* v, uintptr_t data);
+
+static ngx_int_t ngx_http_pckg_core_err_code_variable(ngx_http_request_t* r,
+    ngx_http_variable_value_t* v, uintptr_t data);
+
 static ngx_int_t ngx_http_pckg_core_segment_dts_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
@@ -57,6 +63,13 @@ typedef struct {
     size_t                   left;
     size_t                   frame_size;
 } ngx_http_pckg_read_source_t;
+
+
+static ngx_conf_enum_t  ngx_http_pckg_ksmp_errs[] = {
+#define KSMP_ERR(code, val)  { ngx_string(#code), NGX_KSMP_ERR_##code },
+#include <ngx_ksmp_errs_x.h>
+#undef KSMP_ERR
+};
 
 
 static ngx_conf_enum_t  ngx_http_pckg_format[] = {
@@ -248,6 +261,13 @@ static ngx_http_variable_t  ngx_http_pckg_core_vars[] = {
 
     { ngx_string("pckg_variant_ids"), NULL, ngx_http_pckg_core_ctx_variable,
       offsetof(ngx_http_pckg_core_ctx_t, params.variant_ids), 0, 0 },
+
+    { ngx_string("pckg_err_code"), NULL, ngx_http_pckg_core_err_code_variable,
+      0, 0, 0 },
+
+    { ngx_string("pckg_err_message"), NULL,
+      ngx_http_pckg_core_channel_variable,
+      offsetof(ngx_pckg_channel_t, err_message), 0, 0 },
 
     { ngx_string("pckg_segment_dts"), NULL,
       ngx_http_pckg_core_segment_dts_variable, 0, 0, 0 },
@@ -1359,6 +1379,87 @@ ngx_http_pckg_core_ctx_variable(ngx_http_request_t *r,
     return NGX_OK;
 }
 
+
+static ngx_int_t
+ngx_http_pckg_core_channel_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_str_t                 *s;
+    ngx_http_pckg_core_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    if (ctx == NULL || ctx->channel == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    s = (ngx_str_t *) ((char *) ctx->channel + data);
+
+    if (s->data) {
+        v->len = s->len;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = s->data;
+
+    } else {
+        v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_pckg_core_err_code_variable(ngx_http_request_t* r,
+    ngx_http_variable_value_t* v, uintptr_t data)
+{
+    ngx_str_t                  name;
+    ngx_int_t                  left, right, index;
+    ngx_uint_t                 value;
+    ngx_http_pckg_core_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    if (ctx == NULL || ctx->channel == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    value = ctx->channel->err_code;
+
+    /* binary search for value in ngx_http_pckg_ksmp_errs */
+
+    left = 0;
+    right = vod_array_entries(ngx_http_pckg_ksmp_errs) - 1;
+
+    for ( ;; ) {
+
+        if (left > right) {
+            ngx_str_set(&name, "UNKNOWN");
+            break;
+        }
+
+        index = (left + right) / 2;
+        if (ngx_http_pckg_ksmp_errs[index].value < value) {
+            left = index + 1;
+
+        } else if (ngx_http_pckg_ksmp_errs[index].value > value) {
+            right = index - 1;
+
+        } else {
+            name = ngx_http_pckg_ksmp_errs[index].name;
+            break;
+        }
+    }
+
+    v->len = name.len;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = name.data;
+
+    return NGX_OK;
+}
 
 static ngx_int_t
 ngx_http_pckg_core_segment_dts_variable(ngx_http_request_t *r,
