@@ -433,19 +433,19 @@ int KMP_listen( KMP_session_t *context)
     // Forcefully attaching socket to the port
     if ( (ret=bind(context->socket, (struct sockaddr *)&context->address,sizeof(context->address)))<0)
     {
-        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"bind to port %d failed  error:%d (%s)",context->listenPort,ret,av_err2str(ret));
+        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"bind to port %d failed  error:%d (%s)",context->listenPort,errno,av_err2str(errno));
         return ret;
     }
     
     if ( (ret=listen(context->socket, 10)) < 0)
     {
-        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"listen failed %d (%s)",ret,av_err2str(ret));
+        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"listen failed %d (%s)",errno,av_err2str(errno));
         return ret; 
     }
     
     socklen_t addrLen = sizeof(context->address);
-    if (getsockname(context->socket, (struct sockaddr *)&context->address, &addrLen) == -1) {
-        LOGGER0(CATEGORY_KMP,AV_LOG_FATAL,"getsockname() failed");
+    if (getsockname(context->socket, (struct sockaddr *)&context->address, &addrLen) < 0) {
+        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"getsockname() failed %d (%s)",errno,av_err2str(errno));
         return -1;
     }
     
