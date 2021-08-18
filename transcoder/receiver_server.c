@@ -65,7 +65,7 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
     int retVal = 0;
     uint64_t received_frame_ack_id=0;
     uint64_t received_frame_id=0;
-
+    kmp_frame_position_t current_position;
     while (retVal >= 0 && session->kmpClient.socket) {
 
         if( (retVal = KMP_read_header(&session->kmpClient,&header)) < 0 )
@@ -78,17 +78,17 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
             return 0;
         }
         if (header.packet_type==KMP_PACKET_CONNECT) {
-            uint64_t frame_id=0;
-            if ( (retVal = KMP_read_handshake(&session->kmpClient,&header,session->channel_id,session->track_id,&frame_id))<0) {
+            kmp_frame_position_t start_pos = {0};
+            if ( (retVal = KMP_read_handshake(&session->kmpClient,&header,session->channel_id,session->track_id,&start_pos))<0) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] KMP_read_handshake",session->stream_name);
                 break;
             } else {
-                LOGGER(CATEGORY_KMP,AV_LOG_INFO,"[%s] recieved handshake",session->stream_name);
+                LOGGER(CATEGORY_KMP,AV_LOG_INFO,"[%s] recieved handshake: frame_id: %lld , offset: %ld transcoded_frame_id: %lld",session->stream_name,start_pos.frame_id,start_pos.offset,start_pos.transcoded_frame_id);
                 transcode_session->onProcessedFrame=(transcode_session_processedFrameCB*)processedFrameCB;
                 transcode_session->onProcessedFrameContext=session;
                 sprintf(session->stream_name,"%s_%s",session->channel_id,session->track_id);
-                _S(transcode_session_init(transcode_session,session->channel_id,session->track_id,frame_id));
-                received_frame_id=frame_id;
+                _S(transcode_session_init(transcode_session,session->channel_id,session->track_id,&start_pos));
+                received_frame_id=start_pos.frame_id;
             }
         }
         if (header.packet_type==KMP_PACKET_MEDIA_INFO)
@@ -115,14 +115,17 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
             samples_stats_add(&server->receiverStats,packet->dts,packet->pos,packet->size);
             pthread_mutex_unlock(&server->diagnostics_locker);  // lock the critical section
             LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] received packet %s (%p) #: %lld",session->stream_name,getPacketDesc(packet),transcode_session,received_frame_id);
+            if(add_packet_frame_id(packet,received_frame_id)){
+                LOGGER(CATEGORY_RECEIVER,AV_LOG_ERROR,"[%s] failed to set frame id %lld on packet",session->stream_name,received_frame_id);
+            }
             _S(transcode_session_async_send_packet(transcode_session, packet));
             av_packet_free(&packet);
             received_frame_id++;
-            uint64_t frame_id = transcode_session_get_ack_frame_id(transcode_session);
-            if (frame_id!=0 && received_frame_ack_id!=frame_id) {
-                LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] sending ack for packet # : %lld",session->stream_name,frame_id);
-                KMP_send_ack(&session->kmpClient, frame_id);
-                received_frame_ack_id=frame_id;
+            transcode_session_get_ack_frame_id(transcode_session,&current_position);
+            if (current_position.frame_id!=0 && received_frame_ack_id!=current_position.frame_id) {
+                LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] sending ack for packet # : %lld",session->stream_name,current_position.frame_id);
+                _S(KMP_send_ack(&session->kmpClient,&current_position));
+                received_frame_ack_id=current_position.frame_id;
             }
         }
     }
@@ -134,12 +137,12 @@ void* processClient(void *vargp)
     receiver_server_session_t* session=( receiver_server_session_t *)vargp;
     receiver_server_t *server=session->server;
     transcode_session_t *transcode_session = server->transcode_session;
-    
+
     json_value_t* config=GetConfig();
 
     json_get_int64(config,"debug.diagnosticsIntervalInSeconds",60,&session->diagnosticsIntervalInSeconds);
     session->diagnosticsIntervalInSeconds*=1000LL*1000LL;
-    
+
     session->lastStatsUpdated=0;
     int retval = clientLoop(server,session,transcode_session);
     LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] Destorying receive thread. exit code is %d",session->stream_name,retval);

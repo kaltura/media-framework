@@ -24,12 +24,14 @@ int transcode_session_output_init(transcode_session_output_t* pOutput)  {
     memset(&pOutput->actualVideoParams, 0, sizeof(pOutput->actualVideoParams));
     memset(&pOutput->actualAudioParams, 0, sizeof(pOutput->actualAudioParams));
     
-    pOutput->lastAck=-1;
+    pOutput->lastAck=pOutput->lastMappedAck=0;
     strcpy(pOutput->videoParams.level,"");
     strcpy(pOutput->videoParams.profile,"");
     pOutput->audioParams.samplingRate=pOutput->audioParams.channels=-1;
     pOutput->sender=NULL;
-    
+
+    ack_hanler_init(&pOutput->acker);
+
     sample_stats_init(&pOutput->stats,standard_timebase);
     return 0;
 }
@@ -139,10 +141,15 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
     if (pOutput->sender!=NULL)
     {
         _S(KMP_send_packet(pOutput->sender,packet));
-        uint64_t frame_id;
-        
-        if (KMP_read_ack(pOutput->sender, &frame_id)) {
-            pOutput->lastAck=frame_id;
+        uint64_t frameId;
+        if (KMP_read_ack(pOutput->sender, &frameId)) {
+             ack_desc_t desc = {frameId,0};
+             if(pOutput->acker.ctx){
+                 pOutput->acker.map(&pOutput->acker,frameId,&desc);
+             }
+             pOutput->lastMappedAck = desc.id;
+             pOutput->lastAck=frameId;
+             pOutput->lastOffset=desc.offset;
         }
     }
     
@@ -161,7 +168,7 @@ int transcode_session_output_connect(transcode_session_output_t *pOutput,uint64_
 
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] connecting to %s",pOutput->track_id,senderUrl);
         _S(KMP_connect(pOutput->sender, senderUrl));
-        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending handshake (channelId: %s trackId: %s)",pOutput->track_id,pOutput->channel_id,pOutput->track_id);
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending handshake (channelId: %s trackId: %s initial_frame_id: %lld)",pOutput->track_id,pOutput->channel_id,pOutput->track_id,initial_frame_id);
         _S(KMP_send_handshake(pOutput->sender,pOutput->channel_id,pOutput->track_id,initial_frame_id));
     }
     return 0;
@@ -247,6 +254,7 @@ int transcode_session_output_close(transcode_session_output_t* pOutput)
         av_free(pOutput->sender);
         pOutput->sender = NULL;
     }
+    ack_hanler_destroy(&pOutput->acker);
     return 0;
 }
 

@@ -99,6 +99,7 @@ ngx_kmp_push_upstream_create(ngx_kmp_push_track_t *track, ngx_str_t *id)
 
     ngx_buf_queue_reader_init(&u->acked_reader, &track->buf_queue);
     u->acked_frame_id = track->connect.initial_frame_id;
+    u->acked_upstream_frame_id = track->connect.initial_upstream_frame_id;
 
     ngx_queue_insert_tail(&track->upstreams, &u->queue);
 
@@ -707,6 +708,7 @@ ngx_kmp_push_upstream_ack_frames(ngx_kmp_push_upstream_t *u)
         }
     }
 
+    u->acked_upstream_frame_id = u->ack_frames.upstream_frame_id;
     u->acked_offset = u->ack_frames.offset;
 
     return NGX_OK;
@@ -947,6 +949,7 @@ ngx_kmp_push_upstream_send_buffered(ngx_kmp_push_upstream_t *u)
     /* connect header */
     u->connect = u->track->connect;
     u->connect.initial_frame_id = u->acked_frame_id;
+    u->connect.initial_upstream_frame_id = u->acked_upstream_frame_id;
     u->connect.initial_offset = u->acked_offset;
     cl = ngx_kmp_push_alloc_chain_buf(pool, &u->connect, &u->connect + 1);
     if (cl == NULL) {

@@ -140,6 +140,7 @@ typedef struct {
     u_char                  channel_id[KMP_MAX_CHANNEL_ID_LEN];
     u_char                  track_id[KMP_MAX_TRACK_ID_LEN];
     uint64_t                initial_frame_id;
+    uint64_t                initial_upstream_frame_id;
     uint32_t                initial_offset;
     uint32_t                padding;
 } kmp_connect_packet_t;
@@ -157,8 +158,10 @@ typedef struct {
 typedef struct {
     kmp_packet_header_t     header;
     uint64_t                frame_id;
+    uint64_t                upstream_frame_id;
     uint32_t                offset;
     uint32_t                padding;
 } kmp_ack_frames_packet_t;
+
 
 #endif /* _NGX_LIVE_KMP_H_INCLUDED_ */

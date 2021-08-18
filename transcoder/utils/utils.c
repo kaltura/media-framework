@@ -13,6 +13,9 @@
 #include <sys/ioctl.h> // For FIONREAD
 #include <arpa/inet.h>
 
+const AVRational standard_timebase = {1,90000};
+const AVRational clockScale = {1,1000*1000};
+
 size_t load_file_to_memory(const char *filename, char **result)
 {
     size_t size = 0;
@@ -134,12 +137,15 @@ const char* pict_type_to_string(int pt) {
 
 char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
 {
+    uint64_t frame_id;
     if (pFrame==NULL) {
         return "<NULL>";
     }
+    get_frame_id(pFrame,&frame_id);
     if (pFrame->width>0) {
-        snprintf(buf,size,"pts=%s;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;ar=%d/%d;has_53cc=%d",
+        snprintf(buf,size,"pts=%s;samples=%d;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;ar=%d/%d;has_53cc=%d;frame_id=%ld",
              pts2str(pFrame->pts),
+             pFrame->nb_samples,
              pFrame->pkt_pos != 0 ? ts2str(pFrame->pkt_pos,false) :  "N/A",
              pFrame->key_frame==1 ? "True" : "False",
              &pFrame->data[0],
@@ -150,29 +156,33 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
              pFrame->height,
              pFrame->sample_aspect_ratio.num,
              pFrame->sample_aspect_ratio.den,
-             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL);
+             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL, frame_id);
     } else {
-        snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%lld",
+        snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%ld;frame_id=%ld",
                  pts2str(pFrame->pts),
-                 pFrame->channels,pFrame->sample_rate,pFrame->format,pFrame->nb_samples,pFrame->channel_layout);
+                 pFrame->channels,pFrame->sample_rate,pFrame->format,pFrame->nb_samples,pFrame->channel_layout,frame_id);
     }
     return buf;
 }
 
 char *av_get_packet_desc(char *buf,int len,const  AVPacket * packet)
 {
+    int64_t frame_id;
     if (packet==NULL) {
         return "<NULL>";
     }
-    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;clock=%s;key=%s;size=%d;flags=%d",
+    get_packet_frame_id(packet,&frame_id);
+    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;dur=%s;clock=%s;key=%s;size=%d;flags=%d;frame_id=%ld",
              packet,
              packet->data,
              pts2str(packet->pts),
              pts2str(packet->dts),
+             pts2str(packet->duration),
              packet->pos != 0 ? ts2str(packet->pos,false) :  "N/A",
              (packet->flags & AV_PKT_FLAG_KEY)==AV_PKT_FLAG_KEY ? "Yes" : "No",
              packet->size,
-             packet->flags);
+             packet->flags,
+             frame_id);
     return buf;
 }
 
@@ -240,4 +250,52 @@ void log_frame_side_data(const char* category,const AVFrame *pFrame)
             }
         }
     }
+}
+
+int add_packet_frame_id(AVPacket *packet,int64_t frame_id) {
+     AVDictionary * frameDict = NULL;
+     int frameDictSize = 0;
+     char buf[sizeof("9223372036854775807")];
+     uint8_t *frameDictData = NULL;
+     sprintf(buf,"%lld",frame_id);
+     _S(av_dict_set(&frameDict, "frame_id", buf, 0));
+     // Pack dictionary to be able to use it as a side data in AVPacket
+     frameDictData = av_packet_pack_dictionary(frameDict, &frameDictSize);
+     if(!frameDictData)
+      return AVERROR(ENOMEM);
+     // Free dictionary not used any more
+     av_dict_free(&frameDict);
+     // Add side_data to AVPacket which will be decoded
+     return av_packet_add_side_data(packet, AV_PKT_DATA_STRINGS_METADATA, frameDictData, frameDictSize);
+}
+
+int get_packet_frame_id(const AVPacket *packet,int64_t *frame_id_ptr)
+{
+    const char *frame_str;
+     AVDictionary * frameDict = NULL;
+     int frameDictSize = 0;
+     uint8_t *frameDictData = av_packet_get_side_data(packet, AV_PKT_DATA_STRINGS_METADATA, &frameDictSize);
+     *frame_id_ptr = AV_NOPTS_VALUE;
+     if (!frameDictData)
+        return AVERROR(EINVAL);
+    _S(av_packet_unpack_dictionary(frameDictData,frameDictSize,&frameDict));
+    frame_str = av_dict_get(frameDict, "frame_id", NULL, 0)->value;
+    if(!frame_str)
+       return AVERROR(EINVAL);
+    *frame_id_ptr = strtoull(frame_str,NULL,10);
+    av_dict_free(&frameDict);
+    return 0;
+}
+
+int get_frame_id(const AVFrame *frame,uint64_t *frame_id_ptr)
+{
+    *frame_id_ptr = AV_NOPTS_VALUE;
+    if(frame->metadata) {
+        const char *frame_str = av_dict_get(frame->metadata, "frame_id", NULL, 0)->value;
+         if(!frame_str)
+            return AVERROR(EINVAL);
+        *frame_id_ptr = strtoull(frame_str,NULL,10);
+        return 0;
+    }
+    return AVERROR(EINVAL);
 }

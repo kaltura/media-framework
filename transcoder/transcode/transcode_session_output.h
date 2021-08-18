@@ -13,13 +13,13 @@
 #include "samples_stats.h"
 #include "json_parser.h"
 #include "KMP.h"
+#include "../ackHandler/ackHandler.h"
 
 enum TranscodeOutputType
 {
     TranscodeOutputType_Video,
     TranscodeOutputType_Audio
 };
-
 
 typedef struct
 {
@@ -62,7 +62,11 @@ typedef struct
     AVFormatContext *oc;
     
     uint64_t lastAck;
+    uint64_t lastMappedAck;
+    uint32_t lastOffset;
     KMP_session_t* sender;
+    // ack mapping
+    ack_handler_t acker;
 } transcode_session_output_t;
 
 

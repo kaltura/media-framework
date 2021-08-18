@@ -1,6 +1,7 @@
 #ifndef _LIVE_PROTOCOL_H_INCLUDED_
 #define _LIVE_PROTOCOL_H_INCLUDED_
 
+
 typedef enum {
     KMP_CODEC_VIDEO_JPEG = 1,
     KMP_CODEC_VIDEO_SORENSON_H263 = 2,
@@ -91,14 +92,18 @@ typedef struct {
     uint32_t reserved;
 } kmp_packet_header_t;
 
+typedef uint64_t frame_id_t;
+
+
 typedef struct {
     kmp_packet_header_t header;
     u_char channel_id[KMP_MAX_CHANNEL_ID];
     u_char track_id[KMP_MAX_TRACK_ID];
-    uint64_t initial_frame_id;
-    uint32_t initial_offset;
+    frame_id_t initial_frame_id;
+    frame_id_t initial_transcoded_frame_id;
+    uint32_t offset;
     uint32_t padding;
-} kmp_connect_header_t;
+} kmp_connect_packet_t;
 
 typedef struct {
     kmp_packet_header_t header;
@@ -112,7 +117,8 @@ typedef struct {
 
 typedef struct {
     kmp_packet_header_t header;
-    uint64_t frame_id;
+    frame_id_t frame_id;
+    frame_id_t transcoded_frame_id;
     uint32_t offset;
     uint32_t padding;
 } kmp_ack_frames_packet_t;

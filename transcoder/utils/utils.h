@@ -32,7 +32,9 @@ char *av_get_frame_desc(char *buf,int len, const AVFrame * frame);
 char *av_get_packet_desc(char *buf,int len, const AVPacket * packet);
 char* av_socket_info(char* buf,int len,const struct sockaddr_in* sa);
 void log_frame_side_data(const char* category,const AVFrame *pFrame);
-
+int add_packet_frame_id(AVPacket *packet,int64_t frame_id);
+int get_frame_id(const AVFrame *frame,uint64_t *frame_id_ptr);
+int get_packet_frame_id(const AVPacket *packet,int64_t *frame_id_ptr);
 /**
  * Convenience macro, the return value should be used only directly in
  * function arguments but never stand-alone.
@@ -45,14 +47,26 @@ void log_frame_side_data(const char* category,const AVFrame *pFrame);
 #define pts2str(pts) av_pts_to_string((char[K_TS_MAX_STRING_SIZE]){0}, pts)
 
 
-static AVRational standard_timebase = {1,90000};
-static AVRational clockScale = {1,1000*1000};
+extern const AVRational standard_timebase,clockScale;
 
 #define __MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define __MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-#ifdef DATA_CORRUPTION_TEST
-void randomize_data(uint8_t *data,int size);
-#endif
+av_always_inline int64_t ff_samples_from_time_base(const AVCodecContext *avctx,
+                                                        int64_t pts)
+{
+    if(pts == AV_NOPTS_VALUE)
+      return AV_NOPTS_VALUE;
+     return av_rescale_q(pts, avctx->time_base,(AVRational){ 1, avctx->sample_rate });
+}
+
+av_always_inline int64_t ff_samples_to_time_base(AVCodecContext *avctx,
+                                                        int64_t samples)
+{
+    if(samples == AV_NOPTS_VALUE)
+       return AV_NOPTS_VALUE;
+    return av_rescale_q(samples, (AVRational){ 1, avctx->sample_rate },
+                        avctx->time_base);
+}
 
 #endif /* utils_h */
