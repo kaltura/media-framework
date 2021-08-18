@@ -2,9 +2,16 @@
 ARG ALPINE_VER=3.13.5
 FROM alpine:$ALPINE_VER as builder
 
-RUN apk --update add wget git
+RUN apk update && apk upgrade && apk --update add wget git make cmake yasm zlib-dev alpine-sdk
 
 WORKDIR /tmp
+
+# Capture module dependency
+ARG FFMPEG_VERSION="n4.3.1"
+RUN git clone --branch ${FFMPEG_VERSION}  https://github.com/ffmpeg/ffmpeg.git
+RUN cd ffmpeg && ./configure --disable-everything --disable-doc --enable-shared --enable-parser=h264 --enable-decoder=h264 --enable-encoder=jpeg2000 --enable-encoder=jpegls --enable-encoder=ljpeg --enable-encoder=mjpeg && \
+    make -j 8 && \
+    make install
 
 ARG SECURE_TOKEN_MODULE_VERSION=master
 ARG AKAMAI_G2O_MODULE_VERSION=master
