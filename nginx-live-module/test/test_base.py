@@ -64,6 +64,39 @@ def readRequestBody(s, header):
         body += s.recv(contentLength - len(body))
     return body
 
+def socketSendRegular(s, msg):
+    totalSent = 0
+    while totalSent < len(msg):
+        sent = s.send(msg[totalSent:])
+        if sent == 0:
+            raise SocketException("socket connection broken")
+        totalSent += sent
+
+def socketSendByteByByte(s, msg):
+    if len(msg) > 16 * 1024:     # we may send big buffers when we serve files, disable it there since it takes forever
+        socketSendRegular(s, msg)
+        return
+
+    for curByte in msg:
+        try:
+            if s.send(curByte) == 0:
+                raise SocketException("socket connection broken")
+        except socket.error:        # the server may terminate the connection due to bad data in some tests
+            break
+
+socketSend = socketSendRegular
+
+def socketSendAndShutdown(s, msg):
+    try:
+        socketSend(s, msg)
+        s.shutdown(socket.SHUT_WR)
+    except socket.error:        # the server may terminate the connection due to bad data in some tests
+        pass
+
+def socketSendAndWait(s, msg, sleep):
+    socketSend(s, msg)
+    time.sleep(sleep)
+
 def writeFile(path, data):
     try:
         os.makedirs(os.path.dirname(path))

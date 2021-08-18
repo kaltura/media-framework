@@ -75,6 +75,8 @@ typedef struct {
     time_t                            expires[NGX_HTTP_PCKG_EXPIRES_COUNT];
     time_t                            last_modified_static;
 
+    ngx_uint_t                        pass_codes;
+
     ngx_uint_t                        active_policy;
     ngx_uint_t                        media_type_selector;
     ngx_flag_t                        back_fill;

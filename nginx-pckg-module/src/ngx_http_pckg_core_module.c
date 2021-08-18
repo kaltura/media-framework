@@ -8,6 +8,12 @@
 
 #define NGX_HTTP_PCKG_DEFAULT_LAST_MODIFIED  (1262304000)   /* 1/1/2010 */
 
+#define NGX_HTTP_PCKG_PASS_OFF  0x0002
+#define NGX_HTTP_PCKG_PASS_400  0x0004
+#define NGX_HTTP_PCKG_PASS_404  0x0008
+#define NGX_HTTP_PCKG_PASS_410  0x0010
+#define NGX_HTTP_PCKG_PASS_ANY  0x0020
+
 
 static ngx_int_t ngx_http_pckg_core_add_variables(ngx_conf_t *cf);
 static ngx_int_t ngx_http_pckg_core_postconfiguration(ngx_conf_t *cf);
@@ -75,6 +81,15 @@ static ngx_conf_enum_t  ngx_http_pckg_ksmp_errs[] = {
 static ngx_conf_enum_t  ngx_http_pckg_format[] = {
     { ngx_string("ksmp"), NGX_KSMP_PERSIST_TYPE },
     { ngx_string("sgts"), NGX_PCKG_PERSIST_TYPE_MEDIA },
+    { ngx_null_string, 0 }
+};
+
+static ngx_conf_bitmask_t  ngx_http_pckg_pass_codes_mask[] = {
+    { ngx_string("off"), NGX_HTTP_PCKG_PASS_OFF },
+    { ngx_string("400"), NGX_HTTP_PCKG_PASS_400 },
+    { ngx_string("404"), NGX_HTTP_PCKG_PASS_404 },
+    { ngx_string("410"), NGX_HTTP_PCKG_PASS_410 },
+    { ngx_string("any"), NGX_HTTP_PCKG_PASS_ANY },
     { ngx_null_string, 0 }
 };
 
@@ -173,6 +188,13 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, last_modified_static),
       NULL },
+
+    { ngx_string("pckg_pass_codes"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
+      ngx_conf_set_bitmask_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t, pass_codes),
+      &ngx_http_pckg_pass_codes_mask },
 
     { ngx_string("pckg_active_policy"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -301,6 +323,46 @@ ngx_str_t  ngx_http_pckg_prefix_frame = ngx_string("frame");
 
 
 static ngx_int_t
+ngx_http_pckg_core_map_upstream_code(ngx_http_request_t* r, ngx_int_t rc)
+{
+    ngx_http_pckg_core_loc_conf_t  *plcf;
+
+    plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
+
+    if (plcf->pass_codes & NGX_HTTP_PCKG_PASS_OFF) {
+        return NGX_HTTP_BAD_GATEWAY;
+    }
+
+    if (plcf->pass_codes & NGX_HTTP_PCKG_PASS_ANY) {
+        return rc;
+    }
+
+    switch (rc) {
+
+    case NGX_HTTP_BAD_REQUEST:
+        if (plcf->pass_codes & NGX_HTTP_PCKG_PASS_400) {
+            return rc;
+        }
+        break;
+
+    case NGX_HTTP_NOT_FOUND:
+        if (plcf->pass_codes & NGX_HTTP_PCKG_PASS_404) {
+            return rc;
+        }
+        break;
+
+    case NGX_HTTP_GONE:
+        if (plcf->pass_codes & NGX_HTTP_PCKG_PASS_410) {
+            return rc;
+        }
+        break;
+    }
+
+    return NGX_HTTP_BAD_GATEWAY;
+}
+
+
+static ngx_int_t
 ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
     ngx_int_t rc)
 {
@@ -316,30 +378,30 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
     r = sr->parent;
 
     if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_pckg_core_post_handler: subrequest failed %i", rc);
-        rc = NGX_HTTP_BAD_GATEWAY;
+        rc = ngx_http_pckg_core_map_upstream_code(r, rc);
         goto done;
     }
 
     u = sr->upstream;
     if (u == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+        ngx_log_error(NGX_LOG_CRIT, r->connection->log, 0,
             "ngx_http_pckg_core_post_handler: no upstream");
         rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
         goto done;
     }
 
     if (u->headers_in.status_n != NGX_HTTP_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_pckg_core_post_handler: bad subrequest status %ui",
             u->headers_in.status_n);
-        rc = NGX_HTTP_BAD_GATEWAY;
+        rc = ngx_http_pckg_core_map_upstream_code(r, u->headers_in.status_n);
         goto done;
     }
 
     if (!sr->out || !sr->out->buf) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_pckg_core_post_handler: no subrequest buffer");
         rc = NGX_HTTP_BAD_GATEWAY;
         goto done;
@@ -1686,6 +1748,10 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_value(conf->last_modified_static,
                          prev->last_modified_static,
                          NGX_HTTP_PCKG_DEFAULT_LAST_MODIFIED);
+
+    ngx_conf_merge_bitmask_value(conf->pass_codes, prev->pass_codes,
+                                 (NGX_CONF_BITMASK_SET
+                                 | NGX_HTTP_PCKG_PASS_OFF));
 
     ngx_conf_merge_uint_value(conf->active_policy,
                               prev->active_policy,
