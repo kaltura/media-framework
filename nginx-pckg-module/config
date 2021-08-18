@@ -121,7 +121,7 @@ fi
 
 # media
 #
-PCKG_MEDIA_SRCS="$PCKG_MEDIA_SRCS                             \
+PCKG_MEDIA_SRCS="                                             \
     $ngx_addon_dir/src/media/avc_hevc_parser.c                \
     $ngx_addon_dir/src/media/avc_parser.c                     \
     $ngx_addon_dir/src/media/common.c                         \
@@ -140,9 +140,10 @@ PCKG_MEDIA_SRCS="$PCKG_MEDIA_SRCS                             \
     $ngx_addon_dir/src/media/mp4/mp4_cbcs_encrypt.c           \
     $ngx_addon_dir/src/media/mp4/mp4_init_segment.c           \
     $ngx_addon_dir/src/media/mp4/mp4_muxer.c                  \
+    $PCKG_MEDIA_SRCS                                          \
     "
 
-PCKG_MEDIA_DEPS="$PCKG_MEDIA_DEPS                             \
+PCKG_MEDIA_DEPS="                                             \
     $ngx_addon_dir/src/media/aes_defs.h                       \
     $ngx_addon_dir/src/media/avc_defs.h                       \
     $ngx_addon_dir/src/media/avc_hevc_parser.h                \
@@ -175,20 +176,21 @@ PCKG_MEDIA_DEPS="$PCKG_MEDIA_DEPS                             \
     $ngx_addon_dir/src/media/write_buffer.h                   \
     $ngx_addon_dir/src/media/write_buffer_queue.h             \
     $ngx_addon_dir/src/media/write_stream.h                   \
+    $PCKG_MEDIA_DEPS                                          \
     "
 
 # main
 #
-PCKG_HTTP_MODULES="$PCKG_HTTP_MODULES                         \
+PCKG_HTTP_MODULES="                                           \
     ngx_http_pckg_core_module                                 \
     ngx_http_pckg_enc_module                                  \
     ngx_http_pckg_mpd_module                                  \
     ngx_http_pckg_m3u8_module                                 \
     ngx_http_pckg_fmp4_module                                 \
     ngx_http_pckg_mpegts_module                               \
-    "
+    $PCKG_HTTP_MODULES"
 
-PCKG_HTTP_SRCS="$PCKG_HTTP_SRCS                               \
+PCKG_HTTP_SRCS="                                              \
     $ngx_addon_dir/src/ngx_http_pckg_core_module.c            \
     $ngx_addon_dir/src/ngx_http_pckg_enc.c                    \
     $ngx_addon_dir/src/ngx_http_pckg_fmp4.c                   \
@@ -201,10 +203,11 @@ PCKG_HTTP_SRCS="$PCKG_HTTP_SRCS                               \
     $ngx_addon_dir/src/ngx_pckg_media_group.c                 \
     $ngx_addon_dir/src/ngx_pckg_media_info.c                  \
     $ngx_addon_dir/src/ngx_pckg_segment_info.c                \
+    $PCKG_HTTP_SRCS                                           \
     $PCKG_MEDIA_SRCS                                          \
     "
 
-PCKG_DEPS="$PCKG_DEPS                                         \
+PCKG_DEPS="                                                   \
     $ngx_addon_dir/src/ngx_http_pckg_core_module.h            \
     $ngx_addon_dir/src/ngx_http_pckg_enc.h                    \
     $ngx_addon_dir/src/ngx_http_pckg_fmp4.h                   \
@@ -215,6 +218,7 @@ PCKG_DEPS="$PCKG_DEPS                                         \
     $ngx_addon_dir/src/ngx_pckg_media_group.h                 \
     $ngx_addon_dir/src/ngx_pckg_media_info.h                  \
     $ngx_addon_dir/src/ngx_pckg_segment_info.h                \
+    $PCKG_DEPS                                                \
     $PCKG_MEDIA_DEPS                                          \
     "
 
