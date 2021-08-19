@@ -101,6 +101,7 @@ typedef struct {
     ngx_pckg_ksmp_req_t               params;
     ngx_http_pckg_request_handler_t  *handler;
 
+    ngx_http_request_t               *sr;
     ngx_pckg_channel_t               *channel;
 
     request_context_t                 request_context;

@@ -37,11 +37,14 @@ static char *ngx_http_pckg_core_buffer_pool_slot(ngx_conf_t *cf,
 static ngx_int_t ngx_http_pckg_core_ctx_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
-static ngx_int_t ngx_http_pckg_core_channel_variable(ngx_http_request_t* r,
-    ngx_http_variable_value_t* v, uintptr_t data);
+static ngx_int_t ngx_http_pckg_core_subrequest_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
 
-static ngx_int_t ngx_http_pckg_core_err_code_variable(ngx_http_request_t* r,
-    ngx_http_variable_value_t* v, uintptr_t data);
+static ngx_int_t ngx_http_pckg_core_channel_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
+
+static ngx_int_t ngx_http_pckg_core_err_code_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
 
 static ngx_int_t ngx_http_pckg_core_segment_dts_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
@@ -284,6 +287,32 @@ static ngx_http_variable_t  ngx_http_pckg_core_vars[] = {
     { ngx_string("pckg_variant_ids"), NULL, ngx_http_pckg_core_ctx_variable,
       offsetof(ngx_http_pckg_core_ctx_t, params.variant_ids), 0, 0 },
 
+
+    { ngx_string("pckg_upstream_addr"), NULL,
+      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
+
+    { ngx_string("pckg_upstream_status"), NULL,
+      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
+
+    { ngx_string("pckg_upstream_connect_time"), NULL,
+      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
+
+    { ngx_string("pckg_upstream_header_time"), NULL,
+      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
+
+    { ngx_string("pckg_upstream_response_time"), NULL,
+      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
+
+    { ngx_string("pckg_upstream_response_length"), NULL,
+      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
+
+    { ngx_string("pckg_upstream_bytes_received"), NULL,
+      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
+
+    { ngx_string("pckg_upstream_bytes_sent"), NULL,
+      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
+
+
     { ngx_string("pckg_err_code"), NULL, ngx_http_pckg_core_err_code_variable,
       0, 0, 0 },
 
@@ -293,6 +322,7 @@ static ngx_http_variable_t  ngx_http_pckg_core_vars[] = {
 
     { ngx_string("pckg_segment_dts"), NULL,
       ngx_http_pckg_core_segment_dts_variable, 0, 0, 0 },
+
 
     { ngx_string("pckg_var_"), NULL, ngx_http_pckg_core_unknown_variable,
       0, NGX_HTTP_VAR_PREFIX, 0 },
@@ -323,7 +353,7 @@ ngx_str_t  ngx_http_pckg_prefix_frame = ngx_string("frame");
 
 
 static ngx_int_t
-ngx_http_pckg_core_map_upstream_code(ngx_http_request_t* r, ngx_int_t rc)
+ngx_http_pckg_core_map_upstream_code(ngx_http_request_t *r, ngx_int_t rc)
 {
     ngx_http_pckg_core_loc_conf_t  *plcf;
 
@@ -556,10 +586,13 @@ static ngx_int_t
 ngx_http_pckg_core_subrequest(ngx_http_request_t *r,
     ngx_pckg_ksmp_req_t *params)
 {
+    size_t                          size;
     ngx_int_t                       rc;
     ngx_str_t                       uri;
     ngx_str_t                       args;
     ngx_http_request_t             *sr;
+    ngx_http_pckg_core_ctx_t       *ctx;
+    ngx_http_core_main_conf_t      *cmcf;
     ngx_http_post_subrequest_t     *psr;
     ngx_http_pckg_core_loc_conf_t  *plcf;
 
@@ -605,6 +638,8 @@ ngx_http_pckg_core_subrequest(ngx_http_request_t *r,
     psr->handler = ngx_http_pckg_core_post_handler;
     psr->data = NULL;
 
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+
     rc = ngx_http_subrequest(r, &uri, &args, &sr, psr,
         NGX_HTTP_SUBREQUEST_WAITED | NGX_HTTP_SUBREQUEST_IN_MEMORY);
     if (rc == NGX_ERROR) {
@@ -612,6 +647,20 @@ ngx_http_pckg_core_subrequest(ngx_http_request_t *r,
             "ngx_http_pckg_core_subrequest: subrequest failed %i", rc);
         return rc;
     }
+
+    /* avoid sharing the variables with the subrequest */
+    cmcf = ngx_http_get_module_main_conf(sr, ngx_http_core_module);
+
+    size = cmcf->variables.nelts * sizeof(ngx_http_variable_value_t);
+
+    sr->variables = ngx_palloc(sr->pool, size);
+    if (sr->variables == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_memcpy(sr->variables, r->variables, size);
+
+    ctx->sr = sr;
 
     r->main->count++;
     return NGX_DONE;
@@ -1396,9 +1445,24 @@ ngx_http_pckg_core_buffer_pool_slot(ngx_conf_t *cf, ngx_command_t *cmd,
 static ngx_int_t
 ngx_http_pckg_core_add_variables(ngx_conf_t *cf)
 {
+    ngx_str_t             name;
+    ngx_int_t             index;
     ngx_http_variable_t  *var, *v;
 
     for (v = ngx_http_pckg_core_vars; v->name.len; v++) {
+
+        if (v->get_handler == ngx_http_pckg_core_subrequest_variable) {
+            name.data = v->name.data + sizeof("pckg_") - 1;
+            name.len = v->name.len - (sizeof("pckg_") - 1);
+
+            index = ngx_http_get_variable_index(cf, &name);
+            if (index == NGX_ERROR) {
+                return NGX_ERROR;
+            }
+
+            v->data = index;
+        }
+
         var = ngx_http_add_variable(cf, &v->name, v->flags);
         if (var == NULL) {
             return NGX_ERROR;
@@ -1443,6 +1507,31 @@ ngx_http_pckg_core_ctx_variable(ngx_http_request_t *r,
 
 
 static ngx_int_t
+ngx_http_pckg_core_subrequest_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_http_pckg_core_ctx_t   *ctx;
+    ngx_http_variable_value_t  *vv;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    if (ctx == NULL || ctx->sr == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    vv = ngx_http_get_indexed_variable(ctx->sr, data);
+    if (vv == NULL || vv->not_found) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    *v = *vv;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_http_pckg_core_channel_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
 {
@@ -1473,8 +1562,8 @@ ngx_http_pckg_core_channel_variable(ngx_http_request_t *r,
 
 
 static ngx_int_t
-ngx_http_pckg_core_err_code_variable(ngx_http_request_t* r,
-    ngx_http_variable_value_t* v, uintptr_t data)
+ngx_http_pckg_core_err_code_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
 {
     ngx_str_t                  name;
     ngx_int_t                  left, right, index;
