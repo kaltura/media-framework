@@ -205,7 +205,7 @@ def kmpCreatePacket(type, header, data, reserved = 0):
 def kmpConnectPacket(channelId, trackId, initialFrameId = 0, initialOffset = 0):
     header = (channelId + '\0' * (KMP_MAX_CHANNEL_ID_LEN - len(channelId)) +
         trackId + '\0' * (KMP_MAX_TRACK_ID_LEN - len(trackId)) +
-        struct.pack('<QLL', initialFrameId, initialOffset, 0))
+        struct.pack('<QQLL', initialFrameId, 0, initialOffset, 0))
     return kmpCreatePacket(KMP_PACKET_CONNECT, header, '')
 
 def kmpEndOfStreamPacket():

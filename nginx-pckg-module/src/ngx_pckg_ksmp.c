@@ -1037,7 +1037,7 @@ ngx_pckg_ksmp_read_error(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    if (ngx_mem_rstream_str_get(rs, &channel->err_message) != NGX_OK) {
+    if (ngx_mem_rstream_str_get(rs, &channel->err_msg) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_pckg_ksmp_read_error: read message failed");
         return NGX_BAD_DATA;
