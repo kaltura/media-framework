@@ -132,7 +132,7 @@ struct ngx_pckg_channel_s {
     uint32_t                       media_types;
 
     uint32_t                       err_code;
-    ngx_str_t                      err_message;
+    ngx_str_t                      err_msg;
 };
 
 

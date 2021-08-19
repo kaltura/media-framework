@@ -316,9 +316,9 @@ static ngx_http_variable_t  ngx_http_pckg_core_vars[] = {
     { ngx_string("pckg_err_code"), NULL, ngx_http_pckg_core_err_code_variable,
       0, 0, 0 },
 
-    { ngx_string("pckg_err_message"), NULL,
+    { ngx_string("pckg_err_msg"), NULL,
       ngx_http_pckg_core_channel_variable,
-      offsetof(ngx_pckg_channel_t, err_message), 0, 0 },
+      offsetof(ngx_pckg_channel_t, err_msg), 0, 0 },
 
     { ngx_string("pckg_segment_dts"), NULL,
       ngx_http_pckg_core_segment_dts_variable, 0, 0, 0 },
@@ -526,7 +526,7 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_pckg_core_post_handler: "
             "ksmp error, code: %uD, msg: \"%V\"",
-            channel->err_code, &channel->err_message);
+            channel->err_code, &channel->err_msg);
 
         switch (channel->err_code) {
 
