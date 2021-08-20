@@ -6,6 +6,7 @@ LIVE_COMMON_CORE_SRCS="                             \
     $ngx_addon_dir/src/ngx_buf_queue_reader.c       \
     $ngx_addon_dir/src/ngx_http_call.c              \
     $ngx_addon_dir/src/ngx_json_parser.c            \
+    $ngx_addon_dir/src/ngx_json_pretty.c            \
     $ngx_addon_dir/src/ngx_lba.c                    \
     $ngx_addon_dir/src/ngx_persist.c                \
     $ngx_addon_dir/src/ngx_persist_read.c           \
@@ -24,6 +25,7 @@ LIVE_COMMON_DEPS="                                  \
     $ngx_addon_dir/src/ngx_http_api.h               \
     $ngx_addon_dir/src/ngx_http_call.h              \
     $ngx_addon_dir/src/ngx_json_parser.h            \
+    $ngx_addon_dir/src/ngx_json_pretty.h            \
     $ngx_addon_dir/src/ngx_json_str.h               \
     $ngx_addon_dir/src/ngx_ksmp.h                   \
     $ngx_addon_dir/src/ngx_ksmp_errs_x.h            \

@@ -2,6 +2,7 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 #include "ngx_http_api.h"
+#include "ngx_json_pretty.h"
 
 
 #define ngx_str_equals(s1, s2)                                              \
@@ -52,6 +53,7 @@ typedef struct {
     ngx_event_t                  event;
 
     unsigned                     multi:1;
+    unsigned                     pretty:1;
 } ngx_http_api_ctx_t;
 
 
@@ -101,26 +103,67 @@ static ngx_http_api_method_t  methods[] = {
 
 
 static ngx_int_t
-ngx_http_api_append_buf(ngx_http_request_t *r, ngx_buf_t *b)
+ngx_http_api_append_buf(ngx_http_request_t *r, ngx_str_t *buf, ngx_flag_t last)
 {
+    size_t               size;
+    ngx_buf_t           *b;
+    ngx_uint_t           level;
     ngx_chain_t         *cl;
     ngx_http_api_ctx_t  *ctx;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_api_module);
 
-    cl = ngx_alloc_chain_link(r->pool);
-    if (cl == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_api_append_buf: alloc chain failed");
-        return NGX_ERROR;
+    size = buf->len;
+
+    if (ctx->pretty && size > 0) {
+
+        level = ctx->out == NULL ? 0 : 2;
+
+        cl = ngx_json_pretty(r->pool, buf, level, ctx->last, &size);
+        if (cl == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_api_append_buf: json pretty failed");
+            return NGX_ERROR;
+        }
+
+        b = cl->buf;
+
+    } else {
+
+        cl = ngx_alloc_chain_link(r->pool);
+        if (cl == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_api_append_buf: alloc chain failed");
+            return NGX_ERROR;
+        }
+
+        b = ngx_calloc_buf(r->pool);
+        if (b == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_api_append_buf: alloc buf failed");
+            return NGX_ERROR;
+        }
+
+        if (size > 0) {
+            b->pos = buf->data;
+            b->last = buf->data + size;
+            b->memory = 1;
+        }
+
+        cl->buf = b;
+
+        *ctx->last = cl;
     }
 
-    cl->buf = b;
-
-    *ctx->last = cl;
     ctx->last = &cl->next;
+    ctx->size += size;
 
-    ctx->size += b->last - b->pos;
+    if (last) {
+        b->last_buf = (r == r->main) ? 1 : 0;
+        b->last_in_chain = 1;
+
+        *ctx->last = NULL;
+    }
 
     return NGX_OK;
 }
@@ -130,35 +173,16 @@ static ngx_int_t
 ngx_http_api_send_response(ngx_http_request_t *r, ngx_uint_t status,
     ngx_str_t *response)
 {
-    ngx_buf_t           *b;
     ngx_int_t            rc;
     ngx_http_api_ctx_t  *ctx;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_api_module);
 
-    b = ngx_calloc_buf(r->pool);
-    if (b == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_api_send_response: alloc failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    if (response->len) {
-        b->pos = response->data;
-        b->last = response->data + response->len;
-        b->memory = 1;
-    }
-
-    b->last_buf = (r == r->main) ? 1 : 0;
-    b->last_in_chain = 1;
-
-    if (ngx_http_api_append_buf(r, b) != NGX_OK) {
+    if (ngx_http_api_append_buf(r, response, 1) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_api_send_response: append failed");
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
-
-    *ctx->last = NULL;
 
     if (status == NGX_OK) {
         status = ctx->size > 0 ? NGX_HTTP_OK : NGX_HTTP_NO_CONTENT;
@@ -400,7 +424,7 @@ ngx_http_api_multi_append(ngx_http_request_t *r, ngx_int_t rc,
 {
     size_t               size;
     u_char              *p;
-    ngx_buf_t           *b;
+    ngx_str_t            buf;
     ngx_http_api_ctx_t  *ctx;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_api_module);
@@ -410,13 +434,14 @@ ngx_http_api_multi_append(ngx_http_request_t *r, ngx_int_t rc,
         size += sizeof(NGX_HTTP_API_MULTI_BODY) - 1;
     }
 
-    b = ngx_create_temp_buf(r->pool, size);
-    if (b == NULL) {
+    p = ngx_pnalloc(r->pool, size);
+    if (p == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_api_multi_append: alloc buf failed");
         return NGX_ERROR;
     }
-    p = b->last;
+
+    buf.data = p;
 
     if (ctx->out == NULL) {
         *p++ = '[';
@@ -440,21 +465,19 @@ ngx_http_api_multi_append(ngx_http_request_t *r, ngx_int_t rc,
     if (response->len) {
         p = ngx_copy(p, NGX_HTTP_API_MULTI_BODY,
             sizeof(NGX_HTTP_API_MULTI_BODY) - 1);
-        b->last = p;
-        if (ngx_http_api_append_buf(r, b) != NGX_OK) {
+        buf.len = p - buf.data;
+
+        if (ngx_http_api_append_buf(r, &buf, 0) != NGX_OK) {
             return NGX_ERROR;
         }
 
-        b = ngx_calloc_buf(r->pool);
-        b->start = b->pos = response->data;
-        b->last = b->end = response->data + response->len;
-        b->temporary = 1;
+        buf = *response;
 
     } else {
-        b->last = p;
+        buf.len = p - buf.data;
     }
 
-    if (ngx_http_api_append_buf(r, b) != NGX_OK) {
+    if (ngx_http_api_append_buf(r, &buf, 0) != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -685,6 +708,7 @@ ngx_int_t
 ngx_http_api_handler(ngx_http_request_t *r, ngx_http_api_route_node_t *root)
 {
     ngx_int_t                  rc;
+    ngx_str_t                  value;
     ngx_str_t                  response;
     ngx_table_elt_t           *content_type;
     ngx_http_api_ctx_t        *ctx;
@@ -730,6 +754,9 @@ ngx_http_api_handler(ngx_http_request_t *r, ngx_http_api_route_node_t *root)
     }
 
     ctx->last = &ctx->out;
+
+    ctx->pretty = ngx_http_arg(r, (u_char *) "pretty", 6, &value) == NGX_OK &&
+        value.len == 1 && value.data[0] == '1';
 
     ngx_http_set_ctx(r, ctx, ngx_http_api_module);
 
