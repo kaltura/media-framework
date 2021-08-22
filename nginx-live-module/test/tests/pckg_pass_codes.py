@@ -4,7 +4,7 @@ def updateConf(conf):
     block = getConfBlock(conf, ['http', 'server', 'location /ksmp_proxy/'])
     proxyPass = getConfParam(block, 'proxy_pass')
     proxyPass[1] = 'http://127.0.0.1:8002/ksmp/'
-    
+
     getConfBlock(conf, ['http', 'server']).append(['pckg_pass_codes', '404'])
 
 def test(channelId=CHANNEL_ID):
