@@ -166,6 +166,7 @@ def print_block(file_type, block_id, type, fields):
 def print_spec():
     global specs
 
+    file_types = set([])
     for format, params in specs:
         id, ctx = params[:2]
 
@@ -177,6 +178,7 @@ def print_spec():
         ctx = ctx[len('NGX_LIVE_PERSIST_CTX_'):]
         file_type = ctx.split('_')[0]
         file_type = get_id_value('NGX_LIVE_PERSIST_TYPE_%s' % file_type)
+        file_types.add(file_type)
 
         fields = []
         cur_struct = ''
@@ -201,6 +203,12 @@ def print_spec():
 
         if len(cur_struct) > 0:
             print_block(file_type, block_id, type, parse_struct(cur_struct))
+
+    block_id = get_id_value('NGX_PERSIST_FILE_MAGIC')
+    header = parse_struct(typedefs['ngx_persist_file_header_t'][0])
+    header = header[3:]     # remove the base block fields
+    for file_type in file_types:
+        print_block(file_type, block_id, 'header', header)
 
 base_dir = os.path.join(os.path.dirname(__file__), '../..')
 scan_source_dir(os.path.join(base_dir, 'nginx-common/src'))
