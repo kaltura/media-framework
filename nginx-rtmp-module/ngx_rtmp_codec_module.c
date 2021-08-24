@@ -213,16 +213,84 @@ static u_char ngx_rtmp_codec_cea_header[] = {
     0x34,
 };
 
+
+static ngx_flag_t
+ngx_rtmp_codec_sei_detect_cea(ngx_rtmp_session_t *s,
+    ngx_rtmp_chain_reader_ep_t *reader)
+{
+    u_char                      b;
+    u_char                      buf[sizeof(ngx_rtmp_codec_cea_header)];
+    uint32_t                    payload_type;
+    uint32_t                    payload_size;
+    ngx_rtmp_chain_reader_ep_t  payload;
+
+    while (reader->left >= 2 + sizeof(buf)) {
+
+        payload_type = 0;
+        do {
+            if (ngx_rtmp_chain_reader_ep_read(reader, &b, sizeof(b))
+                != NGX_OK)
+            {
+                ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                    "ngx_rtmp_codec_sei_detect_cea: read payload type failed");
+                return 0;
+            }
+
+            payload_type += b;
+        } while (b == 0xff);
+
+        payload_size = 0;
+        do {
+            if (ngx_rtmp_chain_reader_ep_read(reader, &b, sizeof(b))
+                != NGX_OK)
+            {
+                ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                    "ngx_rtmp_codec_sei_detect_cea: read payload size failed");
+                return 0;
+            }
+
+            payload_size += b;
+        } while (b == 0xff);
+
+        payload = *reader;
+
+        if (ngx_rtmp_chain_reader_ep_skip(reader, payload_size) != NGX_OK) {
+            ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                "ngx_rtmp_codec_sei_detect_cea: skip payload failed");
+            return 0;
+        }
+
+        if (payload_type != 4) {    /* user data registered */
+            continue;
+        }
+
+        payload.left = payload_size;
+
+        if (ngx_rtmp_chain_reader_ep_read(&payload, buf, sizeof(buf))
+            != NGX_OK)
+        {
+            continue;
+        }
+
+        if (ngx_memcmp(buf, ngx_rtmp_codec_cea_header, sizeof(buf)) == 0) {
+            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                "ngx_rtmp_codec_detect_cea: cea captions detected");
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 static ngx_flag_t
 ngx_rtmp_codec_detect_cea(ngx_rtmp_session_t *s, ngx_chain_t *in)
 {
-    u_char                    b;
-    u_char                    buf[sizeof(ngx_rtmp_codec_cea_header)];
-    u_char                   *nalp;
-    uint32_t                  size;
-    ngx_rtmp_codec_ctx_t     *ctx;
-    ngx_rtmp_chain_reader_t   reader;
-    ngx_rtmp_chain_reader_t   nal_reader;
+    u_char                       nal_type;
+    u_char                      *nalp;
+    uint32_t                     size;
+    ngx_rtmp_codec_ctx_t        *ctx;
+    ngx_rtmp_chain_reader_t      reader;
+    ngx_rtmp_chain_reader_ep_t   nal_reader;
 
     ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
@@ -261,7 +329,17 @@ ngx_rtmp_codec_detect_cea(ngx_rtmp_session_t *s, ngx_chain_t *in)
             break;
         }
 
-        nal_reader = reader;
+        if (ngx_rtmp_chain_reader_read(&reader, &nal_type, sizeof(nal_type))
+            != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                "ngx_rtmp_codec_detect_cea: read nal type failed");
+            break;
+        }
+
+        size--;
+
+        ngx_rtmp_chain_reader_ep_init(&nal_reader, &reader);
 
         if (ngx_rtmp_chain_reader_skip(&reader, size) != NGX_OK) {
             ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
@@ -270,28 +348,13 @@ ngx_rtmp_codec_detect_cea(ngx_rtmp_session_t *s, ngx_chain_t *in)
             break;
         }
 
-        if (ngx_rtmp_chain_reader_read(&nal_reader, &b, sizeof(b)) != NGX_OK
-            || (b & 0x1f) != 6      /* nal_type = SEI */
-            || ngx_rtmp_chain_reader_read(&nal_reader, &b, sizeof(b)) != NGX_OK
-            || b != 4)              /* payload_type = user data registered */
-        {
+        if ((nal_type & 0x1f) != 6) {      /* nal_type = SEI */
             continue;
         }
 
-        /* payload_size */
-        do {
-            if (ngx_rtmp_chain_reader_read(&nal_reader, &b, sizeof(b)) != NGX_OK) {
-                break;
-            }
-        } while (b == 0xff);
+        nal_reader.left = size;
 
-        if (ngx_rtmp_chain_reader_read(&nal_reader, buf, sizeof(buf)) != NGX_OK) {
-            continue;
-        }
-
-        if (ngx_memcmp(buf, ngx_rtmp_codec_cea_header, sizeof(buf)) == 0) {
-            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                "ngx_rtmp_codec_detect_cea: cea captions detected");
+        if (ngx_rtmp_codec_sei_detect_cea(s, &nal_reader)) {
             return 1;
         }
     }
