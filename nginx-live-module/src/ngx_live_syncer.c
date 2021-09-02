@@ -19,6 +19,7 @@
 typedef struct {
     ngx_flag_t             enabled;
     time_t                 jump_threshold;
+    time_t                 inter_jump_threshold;
     ngx_uint_t             jump_sync_frames;
     time_t                 max_forward_drift;
     time_t                 correction_reuse_threshold;
@@ -34,6 +35,7 @@ typedef struct {
 
 typedef struct {
     int64_t                last_pts;
+    int64_t                last_output_dts;
     int64_t                correction;
     time_t                 pts_jump_time;
     uint32_t               force_sync_count;
@@ -92,6 +94,13 @@ static ngx_command_t  ngx_live_syncer_commands[] = {
       ngx_conf_set_sec_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_syncer_preset_conf_t, jump_threshold),
+      NULL },
+
+    { ngx_string("syncer_inter_jump_threshold"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_sec_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_syncer_preset_conf_t, inter_jump_threshold),
       NULL },
 
     { ngx_string("syncer_jump_sync_frames"),
@@ -158,6 +167,7 @@ ngx_live_syncer_track_reset(ngx_live_track_t *track, void *ectx)
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
     ctx->last_pts = NGX_LIVE_INVALID_TIMESTAMP;
+    ctx->last_output_dts = NGX_LIVE_INVALID_TIMESTAMP;
     ctx->force_sync_count = 0;
     return NGX_OK;
 }
@@ -185,59 +195,6 @@ ngx_live_syncer_log_add(ngx_live_channel_t *channel,
 }
 
 static void
-ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
-    int64_t created, ngx_flag_t *channel_synched)
-{
-    int64_t                         track_correction;
-    int64_t                         channel_correction;
-    ngx_live_channel_t             *channel = track->channel;
-    ngx_live_syncer_track_ctx_t    *ctx;
-    ngx_live_syncer_preset_conf_t  *spcf;
-    ngx_live_syncer_channel_ctx_t  *cctx;
-
-    ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_syncer_module);
-    spcf = ngx_live_get_module_preset_conf(channel, ngx_live_syncer_module);
-
-    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-        "ngx_live_syncer_sync_track: performing sync, pts: %L, created: %L",
-        pts, created);
-
-    track_correction = created - pts;
-    channel_correction = cctx->correction;
-
-    /* Note: since rtmp timestamps can wrap around, it is possible that
-        different tracks will have timestamps that are several wrap around
-        values apart */
-
-    channel_correction += ngx_round_to_multiple(
-        track_correction - channel_correction,
-        ngx_live_syncer_wraparound_value(spcf->timescale));
-
-    if ((uint64_t) ngx_abs(channel_correction - track_correction) <
-        spcf->correction_reuse_threshold * spcf->timescale)
-    {
-        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-            "ngx_live_syncer_sync_track: "
-            "using channel, track: %L, channel_wrapped: %L, channel: %L",
-            track_correction, channel_correction, cctx->correction);
-        ctx->correction = channel_correction;
-        *channel_synched = 0;
-
-    } else {
-        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-            "ngx_live_syncer_sync_track: "
-            "using track, track: %L, channel_wrapped: %L, channel: %L",
-            track_correction, channel_correction, cctx->correction);
-        ctx->correction = cctx->correction = track_correction;
-        cctx->count++;
-        *channel_synched = 1;
-    }
-
-    ctx->count++;
-}
-
-static void
 ngx_live_syncer_enable_sync_flag(ngx_live_channel_t *channel,
     ngx_live_track_t *skip, uint32_t force_sync_count)
 {
@@ -259,12 +216,88 @@ ngx_live_syncer_enable_sync_flag(ngx_live_channel_t *channel,
     }
 }
 
+static void
+ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
+    int64_t created, uint64_t frame_id, uint32_t sync_frames,
+    int64_t min_correction)
+{
+    int64_t                         track_correction;
+    int64_t                         channel_correction;
+    ngx_live_channel_t             *channel = track->channel;
+    ngx_live_syncer_track_ctx_t    *ctx;
+    ngx_live_syncer_preset_conf_t  *spcf;
+    ngx_live_syncer_channel_ctx_t  *cctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_syncer_module);
+    spcf = ngx_live_get_module_preset_conf(channel, ngx_live_syncer_module);
+
+    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+        "ngx_live_syncer_sync_track: performing sync, pts: %L, created: %L",
+        pts, created);
+
+    track_correction = created - pts;
+    if (track_correction < min_correction) {
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+            "ngx_live_syncer_sync_track: adjusting track correction to min"
+            ", correction: %L, min: %L", track_correction, min_correction);
+
+        track_correction = min_correction;
+
+        /* force resync of other tracks, if track correction will be used */
+        ctx->force_sync_count = 0;
+    }
+
+    channel_correction = cctx->correction;
+
+    /* Note: since rtmp timestamps can wrap around, it is possible that
+        different tracks will have timestamps that are several wrap around
+        values apart */
+
+    channel_correction += ngx_round_to_multiple(
+        track_correction - channel_correction,
+        ngx_live_syncer_wraparound_value(spcf->timescale));
+
+    if ((uint64_t) ngx_abs(channel_correction - track_correction) <
+        spcf->correction_reuse_threshold * spcf->timescale &&
+        channel_correction >= min_correction)
+    {
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+            "ngx_live_syncer_sync_track: "
+            "using channel, track: %L, channel_wrapped: %L, channel: %L",
+            track_correction, channel_correction, cctx->correction);
+        ctx->correction = channel_correction;
+
+        ctx->force_sync_count = 0;
+
+    } else {
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+            "ngx_live_syncer_sync_track: "
+            "using track, track: %L, channel_wrapped: %L, channel: %L",
+            track_correction, channel_correction, cctx->correction);
+        ctx->correction = cctx->correction = track_correction;
+        cctx->count++;
+
+        if (ctx->force_sync_count == 0) {
+            ngx_live_syncer_enable_sync_flag(channel, track, sync_frames);
+
+        } else {
+            ctx->force_sync_count = 0;
+        }
+    }
+
+    ctx->count++;
+
+    ngx_live_syncer_log_add(channel, ctx, frame_id);
+}
+
 static ngx_int_t
 ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
 {
     int64_t                         pts;
+    int64_t                         min_correction;
     uint32_t                        sync_frames;
-    ngx_flag_t                      channel_synched;
+    uint64_t                        pts_diff;
     kmp_frame_t                    *frame;
     ngx_live_track_t               *track;
     ngx_live_channel_t             *channel;
@@ -292,17 +325,35 @@ ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
     if (track->media_type == KMP_MEDIA_VIDEO &&
         (frame->flags & KMP_FRAME_FLAG_KEY) == 0)
     {
-        if ((uint64_t) ngx_abs_diff(pts, ctx->last_pts) >
-            spcf->jump_threshold * spcf->timescale &&
-            ngx_time() >= ctx->pts_jump_time)
+        pts_diff = ngx_abs_diff(pts, ctx->last_pts);
+        if (pts_diff > spcf->jump_threshold * spcf->timescale &&
+            ctx->last_pts != NGX_LIVE_INVALID_TIMESTAMP)
         {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_live_syncer_add_frame: "
-                "non key pts jump, cur: %L, last %L",
-                pts, ctx->last_pts);
+            if (pts_diff > spcf->inter_jump_threshold * spcf->timescale) {
 
-            /* avoid writing to log too often */
-            ctx->pts_jump_time = ngx_time() + NGX_LIVE_SYNCER_PTS_JUMP_PERIOD;
+                /* make sure the frame duration will come out positive */
+                min_correction = ctx->last_output_dts + 1 - frame->dts;
+
+                ngx_log_error(NGX_LOG_WARN, &track->log, 0,
+                    "ngx_live_syncer_add_frame: large inter-frame pts jump"
+                    ", cur: %L, last: %L, min_correction: %L",
+                    pts, ctx->last_pts, min_correction);
+
+                ngx_live_syncer_sync_track(track, pts, frame->created,
+                    req->frame_id, spcf->jump_sync_frames, min_correction);
+                goto done;
+            }
+
+            if (ngx_time() >= ctx->pts_jump_time) {
+                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                    "ngx_live_syncer_add_frame: "
+                    "inter-frame pts jump, cur: %L, last %L",
+                    pts, ctx->last_pts);
+
+                /* avoid writing to log too often */
+                ctx->pts_jump_time = ngx_time() +
+                    NGX_LIVE_SYNCER_PTS_JUMP_PERIOD;
+            }
         }
 
         goto done;
@@ -349,22 +400,15 @@ sync:
 
     frame->flags |= NGX_LIVE_FRAME_FLAG_SPLIT;
 
-    ngx_live_syncer_sync_track(track, pts, frame->created, &channel_synched);
-    if (channel_synched && ctx->force_sync_count == 0) {
-        ngx_live_syncer_enable_sync_flag(track->channel, track, sync_frames);
-
-    } else {
-
-        ctx->force_sync_count = 0;
-    }
-
-    ngx_live_syncer_log_add(channel, ctx, req->frame_id);
+    ngx_live_syncer_sync_track(track, pts, frame->created, req->frame_id,
+        sync_frames, LLONG_MIN);
 
 done:
 
     ctx->last_pts = pts;
 
     frame->dts += ctx->correction;
+    ctx->last_output_dts = frame->dts;
 
     return next_add_frame(req);
 }
@@ -657,6 +701,7 @@ ngx_live_syncer_create_preset_conf(ngx_conf_t *cf)
 
     conf->enabled = NGX_CONF_UNSET;
     conf->jump_threshold = NGX_CONF_UNSET;
+    conf->inter_jump_threshold = NGX_CONF_UNSET;
     conf->jump_sync_frames = NGX_CONF_UNSET_UINT;
     conf->max_forward_drift = NGX_CONF_UNSET;
     conf->correction_reuse_threshold = NGX_CONF_UNSET;
@@ -675,6 +720,9 @@ ngx_live_syncer_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_sec_value(conf->jump_threshold,
                              prev->jump_threshold, 10);
+
+    ngx_conf_merge_sec_value(conf->inter_jump_threshold,
+                             prev->inter_jump_threshold, 100);
 
     ngx_conf_merge_uint_value(conf->jump_sync_frames,
                               prev->jump_sync_frames, 10);

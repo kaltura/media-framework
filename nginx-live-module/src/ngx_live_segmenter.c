@@ -1351,11 +1351,6 @@ ngx_live_segmenter_set_state(ngx_live_track_t *track,
     cctx->count[new_state]++;
 
     ctx->state = new_state;
-
-    if (new_state == ngx_live_track_inactive) {
-        (void) ngx_live_core_track_event(track,
-            NGX_LIVE_EVENT_TRACK_INACTIVE, NULL);
-    }
 }
 
 static void
@@ -1776,6 +1771,10 @@ ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
     ctx->frame_count -= count;
+    if (ctx->frame_count <= 0) {
+        (void) ngx_live_core_track_event(track,
+            NGX_LIVE_EVENT_TRACK_INACTIVE, NULL);
+    }
 
     if (free_data_chains) {
         ctx->dropped_frames += count;
@@ -1870,9 +1869,14 @@ done:
 static void
 ngx_live_segmenter_remove_all_frames(ngx_live_track_t *track)
 {
-    ngx_live_segmenter_track_ctx_t    *ctx;
+    ngx_live_segmenter_track_ctx_t  *ctx;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
+
+    if (ctx->frame_count > 0) {
+        (void) ngx_live_core_track_event(track,
+            NGX_LIVE_EVENT_TRACK_INACTIVE, NULL);
+    }
 
     ngx_live_media_info_pending_free_all(track);
 
