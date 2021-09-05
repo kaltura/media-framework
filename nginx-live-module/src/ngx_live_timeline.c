@@ -1327,6 +1327,10 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
 
     /* Note: assuming dest is an empty, freshly-created timeline */
 
+    ngx_memcpy(dest->src_id_buf, source->sn.str.data, source->sn.str.len);
+    dest->src_id.data = dest->src_id_buf;
+    dest->src_id.len = source->sn.str.len;
+
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
     tpcf = ngx_live_get_module_preset_conf(channel, ngx_live_timeline_module);
 
@@ -1829,6 +1833,50 @@ ngx_live_timeline_channel_free(ngx_live_channel_t *channel, void *ectx)
 }
 
 static ngx_int_t
+ngx_live_timeline_channel_read(ngx_live_channel_t *channel, void *ectx)
+{
+    ngx_int_t                         rc;
+    ngx_queue_t                      *q;
+    ngx_live_timeline_t              *src;
+    ngx_live_timeline_t              *timeline;
+    ngx_live_timeline_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
+
+    for (q = ngx_queue_head(&cctx->queue);
+        q != ngx_queue_sentinel(&cctx->queue);
+        q = ngx_queue_next(q))
+    {
+        timeline = ngx_queue_data(q, ngx_live_timeline_t, queue);
+
+        if (timeline->src_id.len <= 0 || timeline->segment_count > 0 ||
+            timeline->manifest.target_duration_segments > 0)
+        {
+            continue;
+        }
+
+        src = ngx_live_timeline_get(channel, &timeline->src_id);
+        if (src == NULL) {
+            ngx_log_error(NGX_LOG_WARN, &timeline->log, 0,
+                "ngx_live_timeline_channel_read: "
+                "src timeline \"%V\" not found", &timeline->src_id);
+            continue;
+        }
+
+        ngx_log_error(NGX_LOG_INFO, &timeline->log, 0,
+            "ngx_live_timeline_channel_read: "
+            "copying segments from %V", &timeline->src_id);
+
+        rc = ngx_live_timeline_copy(timeline, src, &channel->log);
+        if (rc != NGX_OK) {
+            return rc;
+        }
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
 ngx_live_timeline_channel_inactive(ngx_live_channel_t *channel, void *ectx)
 {
     ngx_live_timeline_channel_ctx_t  *cctx;
@@ -1948,7 +1996,8 @@ ngx_live_timeline_write_setup(ngx_persist_write_ctx_t *write_ctx,
         ngx_persist_write(write_ctx, &timeline->conf,
             sizeof(timeline->conf)) != NGX_OK ||
         ngx_persist_write(write_ctx, &timeline->manifest.conf,
-            sizeof(timeline->manifest.conf)) != NGX_OK)
+            sizeof(timeline->manifest.conf)) != NGX_OK ||
+        ngx_wstream_str(ws, &timeline->src_id) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &timeline->log, 0,
             "ngx_live_timeline_write_setup: write failed");
@@ -1991,6 +2040,7 @@ ngx_live_timeline_read_setup(ngx_persist_block_header_t *header,
 {
     ngx_int_t                           rc;
     ngx_str_t                           id;
+    ngx_str_t                           src_id;
     ngx_live_channel_t                 *channel = obj;
     ngx_live_timeline_t                *timeline;
     ngx_live_timeline_conf_t           *conf;
@@ -2012,6 +2062,24 @@ ngx_live_timeline_read_setup(ngx_persist_block_header_t *header,
 
     manifest_conf = (void *) (conf + 1);
 
+    if (rs->version >= 6) {
+        if (ngx_mem_rstream_str_get(rs, &src_id) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_live_timeline_read_setup: read src id failed");
+            return NGX_BAD_DATA;
+        }
+
+        if (src_id.len > NGX_LIVE_TIMELINE_MAX_ID_LEN) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_live_timeline_read_setup: "
+                "invalid src id \"%V\", timeline: %V", &src_id, &id);
+            return NGX_BAD_DATA;
+        }
+
+    } else {
+        src_id.len = 0;
+    }
+
     rc = ngx_live_timeline_create(channel, &id, conf, manifest_conf,
         rs->log, &timeline);
     if (rc != NGX_OK) {
@@ -2024,6 +2092,10 @@ ngx_live_timeline_read_setup(ngx_persist_block_header_t *header,
         }
         return NGX_ERROR;
     }
+
+    ngx_memcpy(timeline->src_id_buf, src_id.data, src_id.len);
+    timeline->src_id.len = src_id.len;
+    timeline->src_id.data = timeline->src_id_buf;
 
     return NGX_OK;
 }
@@ -2883,6 +2955,7 @@ static ngx_persist_block_t  ngx_live_timeline_blocks[] = {
      *   ngx_str_t                          id;
      *   ngx_live_timeline_conf_t           conf;
      *   ngx_live_timeline_manifest_conf_t  manifest_conf;
+     *   ngx_str_t                          src_id;
      */
     { NGX_LIVE_TIMELINE_PERSIST_BLOCK, NGX_LIVE_PERSIST_CTX_SETUP_CHANNEL, 0,
       ngx_live_timelines_write_setup,
@@ -2973,6 +3046,7 @@ ngx_live_timeline_preconfiguration(ngx_conf_t *cf)
 static ngx_live_channel_event_t    ngx_live_timeline_channel_events[] = {
     { ngx_live_timeline_channel_init,     NGX_LIVE_EVENT_CHANNEL_INIT },
     { ngx_live_timeline_channel_free,     NGX_LIVE_EVENT_CHANNEL_FREE },
+    { ngx_live_timeline_channel_read,     NGX_LIVE_EVENT_CHANNEL_READ },
     { ngx_live_timeline_channel_inactive, NGX_LIVE_EVENT_CHANNEL_INACTIVE },
     { ngx_live_timeline_channel_index_snap,
         NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP },
