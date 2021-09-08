@@ -863,6 +863,7 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
 {
     size_t                            size;
     int32_t                           pts_delay;
+    int64_t                           duration;
     uint32_t                          dts_shift;
     ngx_uint_t                        left;
     ngx_live_frame_t                 *dest, *prev_dest;
@@ -909,7 +910,15 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
         }
 
         if (prev_dest != NULL) {
-            prev_dest->duration = src->dts - prev_src->dts;
+            duration = src->dts - prev_src->dts;
+            if (duration < 0 || duration > NGX_MAX_UINT32_VALUE) {
+                ngx_log_error(NGX_LOG_WARN, &list->track->log, 0,
+                    "ngx_live_segmenter_frame_list_copy: "
+                    "invalid frame duration %L (1), dts: %L, prev: %L",
+                    duration, src->dts, prev_src->dts);
+            }
+
+            prev_dest->duration = duration;
         }
 
         dest = ngx_list_push(&segment->frames);
@@ -937,15 +946,22 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
     }
 
     if (src < last && !(src->flags & NGX_LIVE_FRAME_FLAG_SPLIT)) {
-        prev_dest->duration = src->dts - prev_src->dts;
+        duration = src->dts - prev_src->dts;
 
     } else if (count > 1) {
-        prev_dest->duration = (prev_src->dts - segment->start_dts) /
-            (count - 1);
+        duration = (prev_src->dts - segment->start_dts) / (count - 1);
 
     } else {
-        prev_dest->duration = 0;
+        duration = 0;
     }
+
+    if (duration < 0 || duration > NGX_MAX_UINT32_VALUE) {
+        ngx_log_error(NGX_LOG_WARN, &list->track->log, 0,
+            "ngx_live_segmenter_frame_list_copy: "
+            "invalid frame duration %L (2), count: %uD", duration, count);
+    }
+
+    prev_dest->duration = duration;
 
     segment->end_dts = prev_src->dts + prev_dest->duration - list->dts_shift;
 
