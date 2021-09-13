@@ -14,8 +14,6 @@ PERSIST_HEADER_FLAG_COMPRESSED = 0x40000000
 
 
 def print_hex(data, start, end, pos_format, label, next_label, label_len):
-    result = ''
-
     pos = start
     while pos < end:
         next_pos = min(pos + 16, end)
@@ -29,12 +27,22 @@ def print_hex(data, start, end, pos_format, label, next_label, label_len):
             line += '%02x ' % ch
             raw += chr(ch) if ch >= 32 and ch < 127 else '.'
         line += '   ' * (16 - len(chunk))
-        result += '%s %s\n' % (line, raw)
+        print('%s %s' % (line, raw))
 
         pos = next_pos
         label = next_label
 
-    print(result[:-1])
+
+def print_hex_h264(data, start, end, pos_format, label, next_label, label_len):
+    pos = start
+    while pos + 5 <= end:
+        size, nal_type = struct.unpack('>LB', data[pos:(pos + 5)])
+        nal_type &= 0x1f
+
+        cur_label = '%s nal(%s,%s)' % (label[:-5], nal_type, size)
+        print_hex(data, pos, pos + 4 + size, pos_format, cur_label, next_label,
+            label_len)
+        pos += 4 + size
 
 
 def parse_persist_spec(file_name):
@@ -159,7 +167,10 @@ def parse_fields(fields, data, start, end, base_type, prefix, values, output):
 
     return max(max_pos, pos)
 
+last_codec_id = None
 def print_fields(key, data, start, end, label_len):
+    global last_codec_id
+
     if key.endswith('header'):
         start += 12
 
@@ -173,6 +184,8 @@ def print_fields(key, data, start, end, label_len):
 
     for type, name, value in output:
         print(' ' * label_len + fmt.format(type, name, value))
+        if name == 'kmp.codec_id':
+            last_codec_id = value
 
     return end
 
@@ -180,7 +193,11 @@ def print_data(key, data, start, end, pos_format, label, next_label,
     label_len):
     global spec
 
-    print_hex(data, start, end, pos_format, label, next_label, label_len)
+    if key == 'sgts_mdat_data' and last_codec_id == 7:
+        print_hex_h264(data, start, end, pos_format, label, next_label,
+            label_len)
+    else:
+        print_hex(data, start, end, pos_format, label, next_label, label_len)
 
     if key in spec:
         indent = ' ' * (len(next_label) - 2)
