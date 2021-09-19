@@ -29,6 +29,7 @@ typedef struct {
     ngx_str_t                      variant_ids;
     uint32_t                       media_type_mask;
     uint32_t                       segment_index;
+    uint32_t                       max_segment_index;
     int64_t                        time;
     size_t                         padding;
     uint32_t                       flags;

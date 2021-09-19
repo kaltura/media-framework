@@ -200,7 +200,7 @@ static ngx_persist_block_t  ngx_live_persist_serve_blocks[] = {
       ngx_live_persist_serve_write_segment_index, NULL },
 
     /*
-     * persist header:
+     * persist data:
      *   uint32_t   code;
      *   ngx_str_t  message;
      */

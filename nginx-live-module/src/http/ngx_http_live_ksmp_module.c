@@ -55,6 +55,7 @@ typedef struct {
     uint32_t                  media_type_mask;
     int64_t                   time;
     uint32_t                  segment_index;
+    uint32_t                  max_segment_index;
     size_t                    padding;
     uint32_t                  flags;
 
@@ -331,6 +332,20 @@ ngx_http_live_ksmp_args_handler(void *data, ngx_str_t *key, ngx_str_t *value)
 
         params->segment_index = int_val;
 
+    } else if (key->len == sizeof("max_segment_index") - 1 &&
+        ngx_memcmp(key->data, "max_segment_index",
+            sizeof("max_segment_index") - 1) == 0)
+    {
+        int_val = ngx_atoi(value->data, value->len);
+        if (int_val == NGX_ERROR) {
+            ngx_log_error(NGX_LOG_ERR, params->r->connection->log, 0,
+                "ngx_http_live_ksmp_args_handler: "
+                "invalid max_segment_index \"%V\"", value);
+            return NGX_HTTP_BAD_REQUEST;
+        }
+
+        params->max_segment_index = int_val;
+
     } else if (key->len == sizeof("padding") - 1 &&
         ngx_memcmp(key->data, "padding", sizeof("padding") - 1) == 0)
     {
@@ -407,6 +422,7 @@ ngx_http_live_ksmp_parse(ngx_http_request_t *r,
     params->r = r;
     params->media_type_mask = KMP_MEDIA_TYPE_MASK;
     params->segment_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
+    params->max_segment_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
     params->time = NGX_KSMP_INVALID_TIMESTAMP;
 
     rc = ngx_http_live_ksmp_args_parse(r, ngx_http_live_ksmp_args_handler,
@@ -1097,6 +1113,19 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
         q = ngx_queue_last(&timeline->periods);
         period = ngx_queue_data(q, ngx_live_period_t, queue);
         scope->max_index = period->node.key + period->segment_count - 1;
+
+        if (params->max_segment_index < scope->max_index) {
+            if (params->max_segment_index < scope->min_index) {
+                return ngx_http_live_ksmp_output_error(r,
+                    NGX_KSMP_ERR_TIMELINE_EMPTY,
+                    "no segments in range"
+                    ", min: %uD, max: %uD, timeline: %V, channel: %V",
+                    scope->min_index, params->max_segment_index,
+                    &params->timeline_id, &params->channel_id);
+            }
+
+            scope->max_index = params->max_segment_index;
+        }
     }
 
     /* track refs */

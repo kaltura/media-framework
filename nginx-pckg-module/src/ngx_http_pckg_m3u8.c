@@ -1223,8 +1223,7 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     }
 
     p = ngx_sprintf(p, M3U8_INDEX_HEADER, target_duration, version,
-        timeline->header->sequence - timeline->segment_count,
-        timeline->header->first_period_index);
+        timeline->header->sequence, timeline->header->first_period_index);
 
     if (enc_params->type != NGX_HTTP_PCKG_ENC_NONE) {
         p = ngx_http_pckg_m3u8_enc_key_write(p, mlcf, channel, enc_params);

@@ -1513,6 +1513,10 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
         size += sizeof("&segment_index=") - 1 + NGX_INT32_LEN;
     }
 
+    if (req->max_segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {
+        size += sizeof("&max_segment_index=") - 1 + NGX_INT32_LEN;
+    }
+
     req->media_type_mask &= KMP_MEDIA_TYPE_MASK;
     if ((req->media_type_mask & KMP_MEDIA_TYPE_MASK) ==
         KMP_MEDIA_TYPE_MASK)
@@ -1576,6 +1580,12 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
     if (req->segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {
         p = ngx_copy(p, "&segment_index=", sizeof("&segment_index=") - 1);
         p = ngx_sprintf(p, "%uD", req->segment_index);
+    }
+
+    if (req->max_segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {
+        p = ngx_copy(p, "&max_segment_index=",
+            sizeof("&max_segment_index=") - 1);
+        p = ngx_sprintf(p, "%uD", req->max_segment_index);
     }
 
     if (req->media_type_mask) {

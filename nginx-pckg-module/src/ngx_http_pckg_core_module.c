@@ -146,6 +146,13 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       offsetof(ngx_http_pckg_core_loc_conf_t, timeline_id),
       NULL },
 
+    { ngx_string("pckg_max_segment_index"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_set_complex_value_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t, max_segment_index),
+      NULL },
+
     { ngx_string("pckg_ksmp_max_uncomp_size"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
@@ -672,6 +679,7 @@ ngx_http_pckg_core_init_ctx(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
     ngx_http_pckg_request_handler_t *handler)
 {
     ngx_int_t                       rc;
+    ngx_str_t                       max_segment_index;
     ngx_http_pckg_core_ctx_t       *ctx;
     ngx_http_pckg_core_loc_conf_t  *plcf;
 
@@ -711,6 +719,30 @@ ngx_http_pckg_core_init_ctx(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
 
     } else {
         params->timeline_id = ngx_http_pckg_default_timeline_id;
+    }
+
+    /* get the max segment index */
+    if (plcf->max_segment_index != NULL) {
+        rc = ngx_http_complex_value(r, plcf->max_segment_index,
+            &max_segment_index);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_pckg_core_init_ctx: complex value failed (3) %i",
+                rc);
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+        params->max_segment_index = ngx_atoi(max_segment_index.data,
+            max_segment_index.len);
+        if (params->max_segment_index == (uint32_t) NGX_ERROR) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_pckg_core_init_ctx: "
+                "invalid max_segment_index \"%V\"", &max_segment_index);
+            return NGX_HTTP_BAD_REQUEST;
+        }
+
+    } else {
+        params->max_segment_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
     }
 
     ctx->params = *params;
@@ -1823,6 +1855,10 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 
     if (conf->timeline_id == NULL) {
         conf->timeline_id = prev->timeline_id;
+    }
+
+    if (conf->max_segment_index == NULL) {
+        conf->max_segment_index = prev->max_segment_index;
     }
 
     ngx_conf_merge_size_value(conf->max_uncomp_size,

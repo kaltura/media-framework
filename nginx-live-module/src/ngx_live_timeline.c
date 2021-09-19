@@ -2833,9 +2833,12 @@ static ngx_int_t
 ngx_live_timeline_serve_write(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
+    ngx_queue_t                     *q;
     ngx_wstream_t                   *ws;
+    ngx_live_period_t               *period;
     ngx_live_timeline_t             *timeline;
     ngx_ksmp_timeline_header_t       sp;
+    ngx_persist_write_marker_t       marker;
     ngx_live_persist_serve_scope_t  *scope;
 
     scope = ngx_persist_write_ctx(write_ctx);
@@ -2847,23 +2850,10 @@ ngx_live_timeline_serve_write(ngx_persist_write_ctx_t *write_ctx,
 
     ws = ngx_persist_write_stream(write_ctx);
 
-    sp.availability_start_time = timeline->manifest.availability_start_time;
-    sp.period_count = timeline->manifest.period_count;
-    sp.first_period_index = timeline->manifest.first_period_index;
-    sp.first_period_initial_time =
-        timeline->manifest.first_period_initial_time;
-    sp.first_period_initial_segment_index =
-        timeline->manifest.first_period_initial_segment_index;
-
-    sp.sequence = timeline->manifest.sequence;
-    sp.last_modified = timeline->manifest.last_modified;
-    sp.target_duration = timeline->manifest.target_duration;
-    sp.end_list = timeline->manifest.conf.end_list;
-
     if (ngx_persist_write_block_open(write_ctx,
             NGX_KSMP_BLOCK_TIMELINE) != NGX_OK ||
         ngx_wstream_str(ws, &timeline->sn.str) != NGX_OK ||
-        ngx_persist_write(write_ctx, &sp, sizeof(sp)) != NGX_OK ||
+        ngx_persist_write_reserve(write_ctx, sizeof(sp), &marker) != NGX_OK ||
         ngx_live_persist_write_blocks(timeline->channel, write_ctx,
             NGX_LIVE_PERSIST_CTX_SERVE_TIMELINE, timeline) != NGX_OK)
     {
@@ -2874,6 +2864,30 @@ ngx_live_timeline_serve_write(ngx_persist_write_ctx_t *write_ctx,
 
     ngx_persist_write_block_close(write_ctx);
 
+    sp.availability_start_time = timeline->manifest.availability_start_time;
+    sp.period_count = scope->period_count;
+    sp.first_period_index = timeline->manifest.first_period_index;
+    sp.first_period_initial_time =
+        timeline->manifest.first_period_initial_time;
+    sp.first_period_initial_segment_index =
+        timeline->manifest.first_period_initial_segment_index;
+
+    sp.sequence = timeline->manifest.sequence -
+        timeline->manifest.segment_count;
+    sp.last_modified = timeline->manifest.last_modified;
+    sp.target_duration = timeline->manifest.target_duration;
+
+    sp.end_list = 0;
+    if (timeline->manifest.conf.end_list) {
+        q = ngx_queue_last(&timeline->periods);
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
+        if (period->node.key + period->segment_count - 1 <= scope->max_index) {
+            sp.end_list = 1;
+        }
+    }
+
+    ngx_persist_write_marker_write(&marker, &sp, sizeof(sp));
+
     return NGX_OK;
 }
 
@@ -2881,7 +2895,7 @@ static ngx_int_t
 ngx_live_timeline_serve_write_periods(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    uint32_t                         i;
+    uint32_t                         left;
     ngx_queue_t                     *q;
     ngx_live_period_t               *period;
     ngx_live_timeline_t             *timeline;
@@ -2891,6 +2905,9 @@ ngx_live_timeline_serve_write_periods(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_persist_serve_scope_t  *scope;
 
     scope = ngx_persist_write_ctx(write_ctx);
+
+    scope->period_count = 0;
+
     if (!(scope->flags & NGX_KSMP_FLAG_PERIODS)) {
         return NGX_OK;
     }
@@ -2901,8 +2918,12 @@ ngx_live_timeline_serve_write_periods(ngx_persist_write_ctx_t *write_ctx,
     period = &timeline->manifest.first_period;
     q = &period->queue;
 
-    for ( ;; )
-    {
+    for ( ;; ) {
+
+        if (period->node.key > scope->max_index) {
+            break;
+        }
+
         pp.time = period->time;
         pp.segment_index = period->node.key;
 
@@ -2921,11 +2942,16 @@ ngx_live_timeline_serve_write_periods(ngx_persist_write_ctx_t *write_ctx,
 
         iter = period->segment_iter;
 
-        for (i = period->segment_count; i > 0; i -= sd.count) {
+        left = period->segment_count;
+        if (pp.segment_index + left - 1 > scope->max_index) {
+            left = scope->max_index - pp.segment_index + 1;
+        }
+
+        for (; left > 0; left -= sd.count) {
             ngx_live_segment_iter_get_element(&iter, &sd);
 
-            if (sd.count > i) {
-                sd.count = i;
+            if (sd.count > left) {
+                sd.count = left;
             }
 
             if (ngx_persist_write(write_ctx, &sd, sizeof(sd)) != NGX_OK) {
@@ -2936,6 +2962,8 @@ ngx_live_timeline_serve_write_periods(ngx_persist_write_ctx_t *write_ctx,
         }
 
         ngx_persist_write_block_close(write_ctx);
+
+        scope->period_count++;
 
         q = ngx_queue_next(q);
         if (q == ngx_queue_sentinel(&timeline->periods)) {

@@ -107,7 +107,9 @@ typedef struct {
     uint32_t                          flags;
     uint32_t                          min_index;
     uint32_t                          max_index;
+
     ngx_uint_t                        media_info_count;
+    ngx_uint_t                        period_count;
 } ngx_live_persist_serve_scope_t;
 
 

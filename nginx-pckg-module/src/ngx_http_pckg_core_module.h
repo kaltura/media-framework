@@ -70,6 +70,7 @@ typedef struct {
 
     ngx_http_complex_value_t         *channel_id;
     ngx_http_complex_value_t         *timeline_id;
+    ngx_http_complex_value_t         *max_segment_index;
     size_t                            max_uncomp_size;
 
     time_t                            expires[NGX_HTTP_PCKG_EXPIRES_COUNT];
