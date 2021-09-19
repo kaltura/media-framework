@@ -10,6 +10,7 @@ local os_time = os.time
 local pairs = pairs
 local table_insert = table.insert
 local table_sort = table.sort
+local table_concat = table.concat
 local ngx_re_match = ngx.re.match
 local ngx_time = ngx.time
 
@@ -124,7 +125,7 @@ function _M.get_segment(file, start, dump_log)
     if dump_log then
         ngx.log(ngx.INFO, 'map:')
         for i = 1, map.count do
-            ngx.log(ngx.INFO, i, ' ', map[i][1],' ', map[i][2])
+            ngx.log(ngx.INFO, i, ' ', map[i][1], ' ', map[i][2])
         end
 
         ngx.log(ngx.INFO, 'time: ', ngx_time(), ', start: ', start)
@@ -139,6 +140,17 @@ function _M.get_start_time(file, ts)
     local start = ngx_time() - (tonumber(ts) - map[1][1])
 
     return start
+end
+
+function _M.get_timestamps(file)
+    local map = _parse_file_cached(file)
+
+    local res = {}
+    for i = 1, map.count do
+        res[i] = map[i][1] .. ',' .. map[i][2] .. '\n'
+    end
+
+    return table_concat(res)
 end
 
 return _M
