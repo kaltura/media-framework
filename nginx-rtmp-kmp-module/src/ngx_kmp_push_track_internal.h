@@ -71,13 +71,10 @@ void ngx_kmp_push_track_set_error_reason(ngx_kmp_push_track_t *track,
 ngx_http_call_ctx_t *ngx_kmp_push_track_http_call_create(
     ngx_kmp_push_track_t *track, ngx_http_call_init_t *ci);
 
-ngx_int_t ngx_kmp_push_track_write_chain(ngx_kmp_push_track_t *track,
-    ngx_chain_t *in, u_char *p);
-
 ngx_int_t ngx_kmp_push_track_write_media_info(ngx_kmp_push_track_t *track);
 
 ngx_int_t ngx_kmp_push_track_write_frame(ngx_kmp_push_track_t *track,
-    kmp_frame_packet_t *frame);
+    kmp_frame_packet_t *frame, ngx_chain_t *in, u_char *p);
 
 
 size_t ngx_kmp_push_track_media_info_json_get_size(ngx_kmp_push_track_t *track);
