@@ -32,6 +32,7 @@ typedef struct {
     size_t           audio_mem_limit;
     ngx_lba_t       *audio_lba;
     ngx_msec_t       flush_timeout;
+    ngx_flag_t       log_frames;
 
     time_t           republish_interval;
     ngx_uint_t       max_republishes;

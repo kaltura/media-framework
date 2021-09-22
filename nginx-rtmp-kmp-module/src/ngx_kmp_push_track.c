@@ -1,5 +1,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
+#include <ngx_md5.h>
 
 #include <ngx_http_call.h>
 #include <ngx_buf_queue.h>
@@ -62,6 +63,7 @@ ngx_kmp_push_track_init_conf(ngx_kmp_push_track_conf_t *conf)
     conf->audio_buffer_size = NGX_CONF_UNSET_SIZE;
     conf->audio_mem_limit = NGX_CONF_UNSET_SIZE;
     conf->flush_timeout = NGX_CONF_UNSET_MSEC;
+    conf->log_frames = NGX_CONF_UNSET;
 
     conf->republish_interval = NGX_CONF_UNSET;
     conf->max_republishes = NGX_CONF_UNSET_UINT;
@@ -128,6 +130,8 @@ ngx_kmp_push_track_merge_conf(ngx_kmp_push_track_conf_t *conf,
                               prev->audio_mem_limit, 1 * 1024 * 1024);
 
     ngx_conf_merge_msec_value(conf->flush_timeout, prev->flush_timeout, 1000);
+
+    ngx_conf_merge_value(conf->log_frames, prev->log_frames, 0);
 
     ngx_conf_merge_value(conf->republish_interval,
                          prev->republish_interval, 1);
@@ -780,7 +784,7 @@ ngx_kmp_push_track_mem_watermark(ngx_kmp_push_track_t *track)
     return NGX_OK;
 }
 
-ngx_int_t
+static ngx_int_t
 ngx_kmp_push_track_write_chain(ngx_kmp_push_track_t *track, ngx_chain_t *in,
     u_char *p)
 {
@@ -909,17 +913,66 @@ ngx_kmp_push_track_write_media_info(ngx_kmp_push_track_t *track)
     return NGX_OK;
 }
 
+static void
+ngx_kmp_push_track_chain_md5_hex(u_char dst[32], ngx_chain_t *in, u_char *p)
+{
+    u_char     hash[16];
+    ngx_md5_t  md5;
+
+    ngx_md5_init(&md5);
+
+    for ( ;; ) {
+
+        ngx_md5_update(&md5, p, in->buf->last - p);
+
+        in = in->next;
+        if (in == NULL) {
+            break;
+        }
+
+        p = in->buf->pos;
+    }
+
+    ngx_md5_final(hash, &md5);
+    ngx_hex_dump(dst, hash, sizeof(hash));
+}
+
 ngx_int_t
 ngx_kmp_push_track_write_frame(ngx_kmp_push_track_t *track,
-    kmp_frame_packet_t *frame)
+    kmp_frame_packet_t *frame, ngx_chain_t *in, u_char *p)
 {
+    u_char     data_md5[32];
+    ngx_int_t  rc;
+
+    if (track->conf->log_frames) {
+        ngx_kmp_push_track_chain_md5_hex(data_md5, in, p);
+
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+            "ngx_kmp_push_track_write_frame: created: %L, dts: %L"
+            ", flags: 0x%uxD, ptsDelay: %uD, size: %uD, md5: %*s",
+            frame->f.created, frame->f.dts, frame->f.flags, frame->f.pts_delay,
+            frame->header.data_size, (size_t) sizeof(data_md5), data_md5);
+
+    } else {
+        ngx_log_debug6(NGX_LOG_DEBUG_KMP, &track->log, 0,
+            "ngx_kmp_push_track_write_frame: input: %V, created: %L"
+            ", size: %uD, dts: %L, flags: %uD, ptsDelay: %uD",
+            &track->input_id, frame->f.created, frame->header.data_size,
+            frame->f.dts, frame->f.flags, frame->f.pts_delay);
+    }
+
     track->sent_frames++;
     if (frame->f.flags & KMP_FRAME_FLAG_KEY) {
         track->sent_key_frames++;
     }
     track->last_created = frame->f.created;
 
-    return ngx_kmp_push_track_write(track, (u_char *) frame, sizeof(*frame));
+    rc = ngx_kmp_push_track_write(track, (u_char *) frame, sizeof(*frame));
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    return ngx_kmp_push_track_write_chain(track, in, p);
 }
 
 static ngx_int_t

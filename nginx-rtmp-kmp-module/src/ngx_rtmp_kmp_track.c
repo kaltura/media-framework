@@ -434,21 +434,9 @@ ngx_rtmp_kmp_track_av(ngx_kmp_push_track_t *track, ngx_rtmp_header_t *h,
     }
 
     /* send the frame */
-    ngx_log_debug6(NGX_LOG_DEBUG_KMP, &track->log, 0,
-        "ngx_rtmp_kmp_track_av: input: %V, created: %L, size: %uD, "
-        "dts: %L, flags: %uD, ptsDelay: %uD",
-        &track->input_id, frame.f.created, frame.header.data_size,
-        frame.f.dts, frame.f.flags, frame.f.pts_delay);
-
-    if (ngx_kmp_push_track_write_frame(track, &frame) != NGX_OK) {
+    if (ngx_kmp_push_track_write_frame(track, &frame, in, p) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_rtmp_kmp_track_av: write frame header failed");
-        return NGX_ERROR;
-    }
-
-    if (ngx_kmp_push_track_write_chain(track, in, p) != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_rtmp_kmp_track_av: write chain failed");
+            "ngx_rtmp_kmp_track_av: write frame failed");
         return NGX_ERROR;
     }
 

@@ -1,5 +1,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
+#include <ngx_md5.h>
 #include <ngx_stream.h>
 #include <ngx_live_kmp.h>
 #include "../ngx_live.h"
@@ -17,6 +18,7 @@ typedef struct {
     ngx_msec_t                send_timeout;
     ngx_uint_t                max_skip_frames;
     ngx_str_t                 dump_folder;
+    ngx_flag_t                log_frames;
 } ngx_stream_live_kmp_srv_conf_t;
 
 
@@ -44,6 +46,7 @@ typedef struct {
 
     unsigned                  got_media_info:1;
     unsigned                  wait_key:1;
+    unsigned                  log_frames:1;
 } ngx_stream_live_kmp_ctx_t;
 
 
@@ -90,6 +93,13 @@ static ngx_command_t  ngx_stream_live_kmp_commands[] = {
       ngx_conf_set_str_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_live_kmp_srv_conf_t, dump_folder),
+      NULL },
+
+    { ngx_string("live_kmp_log_frames"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_live_kmp_srv_conf_t, log_frames),
       NULL },
 
       ngx_null_command
@@ -255,9 +265,26 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
     return NGX_OK;
 }
 
+static void
+ngx_stream_live_kmp_chain_md5_hex(u_char dst[32], ngx_buf_chain_t *chain)
+{
+    u_char     hash[16];
+    ngx_md5_t  md5;
+
+    ngx_md5_init(&md5);
+
+    for (; chain; chain = chain->next) {
+        ngx_md5_update(&md5, chain->data, chain->size);
+    }
+
+    ngx_md5_final(hash, &md5);
+    ngx_hex_dump(dst, hash, sizeof(hash));
+}
+
 static ngx_int_t
 ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
 {
+    u_char                     data_md5[32];
     ngx_int_t                  rc;
     kmp_frame_t                frame;
     kmp_frame_t               *frame_ptr;
@@ -305,12 +332,6 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
     }
 
-    ngx_log_debug6(NGX_LOG_DEBUG_STREAM, &track->log, 0,
-        "ngx_stream_live_kmp_frame: track: %V, created: %L, size: %uD, "
-        "dts: %L, flags: 0x%uxD, ptsDelay: %uD",
-        &track->sn.str, frame_ptr->created, ctx->packet_header.data_size,
-        frame_ptr->dts, frame_ptr->flags, frame_ptr->pts_delay);
-
     if (ctx->wait_key) {
 
         /* ignore frames that arrive before the first key */
@@ -337,6 +358,24 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
                 "ngx_stream_live_kmp_frame: skip failed");
             return NGX_STREAM_INTERNAL_SERVER_ERROR;
         }
+    }
+
+    if (ctx->log_frames) {
+        ngx_stream_live_kmp_chain_md5_hex(data_md5, data);
+
+        ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
+            "ngx_stream_live_kmp_frame: created: %L, dts: %L, flags: 0x%uxD"
+            ", ptsDelay: %uD, size: %uD, md5: %*s",
+            frame_ptr->created, frame_ptr->dts, frame_ptr->flags,
+            frame_ptr->pts_delay, ctx->packet_header.data_size,
+            (size_t) sizeof(data_md5), data_md5);
+
+    } else {
+        ngx_log_debug6(NGX_LOG_DEBUG_STREAM, ctx->log, 0,
+            "ngx_stream_live_kmp_frame: track: %V, created: %L, size: %uD"
+            ", dts: %L, flags: 0x%uxD, ptsDelay: %uD",
+            &track->sn.str, frame_ptr->created, ctx->packet_header.data_size,
+            frame_ptr->dts, frame_ptr->flags, frame_ptr->pts_delay);
     }
 
     /* add the frame */
@@ -941,6 +980,8 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
     }
 
     /* initialize the context */
+    lscf = ngx_stream_get_module_srv_conf(s, ngx_stream_live_kmp_module);
+
     ctx->cln.data = ctx;
     ctx->cln.handler = ngx_stream_live_kmp_free;
 
@@ -951,6 +992,7 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
     ctx->track = track;
     ctx->channel = track->channel;
     ctx->log = c->log;
+    ctx->log_frames = lscf->log_frames;
 
     ctx->packet_header_pos = (u_char *) &ctx->packet_header;
     ctx->packet_left = header->header.header_size + header->header.data_size -
@@ -982,8 +1024,6 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
     track->input.connection = c->number;
     track->input.start_sec = ngx_time();
     track->input.received_bytes = sizeof(*header);
-
-    lscf = ngx_stream_get_module_srv_conf(s, ngx_stream_live_kmp_module);
 
     if (track->next_frame_id > ctx->cur_frame_id +
         lscf->max_skip_frames)
@@ -1127,6 +1167,7 @@ ngx_stream_live_kmp_create_srv_conf(ngx_conf_t *cf)
     conf->read_timeout = NGX_CONF_UNSET_MSEC;
     conf->send_timeout = NGX_CONF_UNSET_MSEC;
     conf->max_skip_frames = NGX_CONF_UNSET_UINT;
+    conf->log_frames = NGX_CONF_UNSET;
 
     return conf;
 }
@@ -1147,6 +1188,8 @@ ngx_stream_live_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
                               prev->max_skip_frames, 2000);
 
     ngx_conf_merge_str_value(conf->dump_folder, prev->dump_folder, "");
+
+    ngx_conf_merge_value(conf->log_frames, prev->log_frames, 0);
 
     return NGX_CONF_OK;
 }
