@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from utils import writeText
+import json
 import sys
 import os
 
@@ -12,13 +13,16 @@ INPUT_FILE = sys.argv[1]
 BASE_NAME = sys.argv[2]
 
 # Note: must match ngx_http_api_route_node_t
-METHODS = ['GET', 'DELETE', 'POST', 'PUT']
+METHODS = ['GET', 'LIST', 'DELETE', 'POST', 'PUT']
 
 HEADER_MACRO = '_%s_ROUTES_H_INCLUDED_' % BASE_NAME.upper()
 BASE_VAR_NAME = '%s_route' % BASE_NAME
 
 CHILD_TYPE_NAME = 'ngx_http_api_route_child_t'
 NODE_TYPE_NAME = 'ngx_http_api_route_node_t'
+
+def cEscapeString(fixed):
+    return json.dumps(fixed)
 
 def parseInputFile(inputFile):
     root = { 'children': {}, 'handlers': {}}
@@ -86,6 +90,23 @@ def outputNode(node, base):
         childrenParam = 'NULL'
 
     handlers = node['handlers']
+
+    if not 'LIST' in handlers and len(children) > 0 and not '%' in children:
+        handlerName = base.replace('_route', '') + '_list'
+        handlers['LIST'] = handlerName
+        childKeys = list(children.keys())
+        if node == root:
+            childKeys.append('multi')
+        childKeys.sort()
+        listResponse = cEscapeString(json.dumps(childKeys, separators=(',', ':')))
+        result += '''static ngx_int_t %s(ngx_http_request_t *r, ngx_str_t *params, ngx_str_t *response)
+{
+    ngx_str_set(response, %s);
+    return NGX_OK;
+}
+
+''' % (handlerName, listResponse)
+
     handlersArr = ''
     for method in METHODS:
         if method in handlers:

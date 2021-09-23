@@ -110,9 +110,6 @@ static size_t ngx_live_timeline_last_periods_json_get_size(
 static u_char *ngx_live_timeline_last_periods_json_write(u_char *p,
     ngx_live_timeline_t *obj);
 
-#include "ngx_live_timeline_json.h"
-
-
 static ngx_int_t ngx_live_timeline_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_timeline_postconfiguration(ngx_conf_t *cf);
 
@@ -150,6 +147,8 @@ ngx_module_t  ngx_live_timeline_module = {
     NGX_MODULE_V1_PADDING
 };
 
+
+#include "ngx_live_timeline_json.h"
 
 /* period */
 

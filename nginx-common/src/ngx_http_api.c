@@ -18,6 +18,8 @@
 #define NGX_HTTP_API_MULTI_CODE  "{\"code\":"
 #define NGX_HTTP_API_MULTI_BODY  ",\"body\":"
 
+#define NGX_HTTP_LIST  0x00100000
+
 
 typedef struct {
     ngx_http_api_route_handler_pt       handler;
@@ -285,6 +287,10 @@ ngx_http_api_get_route_node(ngx_http_request_t *r, ngx_http_api_request_t *req,
 
     case NGX_HTTP_GET:
         handler->handler = node->get;
+        break;
+
+    case NGX_HTTP_LIST:
+        handler->handler = node->list;
         break;
 
     case NGX_HTTP_DELETE:
@@ -733,7 +739,15 @@ ngx_http_api_handler(ngx_http_request_t *r, ngx_http_api_route_node_t *root)
         req.uri.len--;
     }
 
-    req.method = r->method;
+    if (r->method == NGX_HTTP_GET &&
+        ngx_http_arg(r, (u_char *) "list", 4, &value) == NGX_OK &&
+        value.len == 1 && value.data[0] == '1')
+    {
+        req.method = NGX_HTTP_LIST;
+
+    } else {
+        req.method = r->method;
+    }
 
     if (req.method == NGX_HTTP_POST && ngx_str_equals_c(req.uri, "multi")) {
         handler.handler = NULL;

@@ -273,6 +273,42 @@ for (q = ngx_queue_head(&%s);
 
                 listAdd(funcDefs, 'ngx_queue_t  *q;')
                 valueSize = ''
+            elif format.startswith('objQueueIds-'):
+                params = format[len('objQueueIds-'):].split(',')
+                objectType, queueNode, idField, escField = params
+                fixed += '['
+                nextFixed = ']'
+
+                getSizeCode += '''
+for (q = ngx_queue_head(&%s);
+    q != ngx_queue_sentinel(&%s);
+    q = ngx_queue_next(q))
+{
+    %s *cur = ngx_queue_data(q, %s, %s);
+    result += cur->%s.len + cur->%s + sizeof(",\\"\\"") - 1;
+}
+''' % (expr, expr, objectType, objectType, queueNode, idField, escField)
+
+                valueWrite = '''
+for (q = ngx_queue_head(&%s);
+    q != ngx_queue_sentinel(&%s);
+    q = ngx_queue_next(q))
+{
+    %s *cur = ngx_queue_data(q, %s, %s);
+
+    if (q != ngx_queue_head(&%s))
+    {
+        *p++ = ',';
+    }
+    *p++ = '"';
+    p = ngx_json_str_write_escape(p, &cur->%s, cur->%s);
+    *p++ = '"';
+}
+''' % (expr, expr, objectType, objectType, queueNode, expr, idField,
+        escField)
+
+                listAdd(funcDefs, 'ngx_queue_t  *q;')
+                valueSize = ''
             elif format.startswith('slist-'):
                 params = format[len('slist-'):].split(',')
                 baseFunc, objectType = params

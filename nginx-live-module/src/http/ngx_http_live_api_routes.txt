@@ -1,6 +1,7 @@
 GET    /
 
 GET    /channels
+LIST   /channels
 POST   /channels
 
 GET    /channels/%
@@ -8,12 +9,14 @@ PUT    /channels/%
 DELETE /channels/%
 
 GET    /channels/%/variants
+LIST   /channels/%/variants
 POST   /channels/%/variants
 
 PUT    /channels/%/variants/%
 DELETE /channels/%/variants/%
 
 GET    /channels/%/tracks
+LIST   /channels/%/tracks
 POST   /channels/%/tracks
 
 PUT    /channels/%/tracks/%
@@ -22,6 +25,7 @@ DELETE /channels/%/tracks/%
 POST   /channels/%/variants/%/tracks
 
 GET    /channels/%/timelines
+LIST   /channels/%/timelines
 POST   /channels/%/timelines
 
 GET    /channels/%/timelines/%

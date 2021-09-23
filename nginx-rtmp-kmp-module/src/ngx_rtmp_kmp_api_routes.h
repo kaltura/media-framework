@@ -6,6 +6,7 @@
 static ngx_http_api_route_node_t  ngx_rtmp_kmp_api_route_sessions_param = {
     NULL,
     NULL,
+    NULL,
     &ngx_rtmp_kmp_api_session_delete,
     NULL,
     NULL,
@@ -23,6 +24,7 @@ static ngx_http_api_route_node_t  ngx_rtmp_kmp_api_route_sessions = {
     NULL,
     NULL,
     NULL,
+    NULL,
 };
 
 static ngx_http_api_route_child_t  ngx_rtmp_kmp_api_route_children[] = {
@@ -30,9 +32,17 @@ static ngx_http_api_route_child_t  ngx_rtmp_kmp_api_route_children[] = {
     { ngx_null_string, NULL },
 };
 
+static ngx_int_t ngx_rtmp_kmp_api_list(ngx_http_request_t *r, ngx_str_t
+    *params, ngx_str_t *response)
+{
+    ngx_str_set(response, "[\"multi\",\"sessions\"]");
+    return NGX_OK;
+}
+
 static ngx_http_api_route_node_t  ngx_rtmp_kmp_api_route = {
     ngx_rtmp_kmp_api_route_children,
     &ngx_rtmp_kmp_api_get,
+    &ngx_rtmp_kmp_api_list,
     NULL,
     NULL,
     NULL,
