@@ -156,4 +156,8 @@ size_t ngx_live_timeline_channel_json_get_size(ngx_live_channel_t *channel);
 u_char *ngx_live_timeline_channel_json_write(u_char *p,
     ngx_live_channel_t *channel);
 
+size_t ngx_live_timeline_ids_json_get_size(ngx_live_channel_t *obj);
+
+u_char *ngx_live_timeline_ids_json_write(u_char *p, ngx_live_channel_t *obj);
+
 #endif /* _NGX_LIVE_TIMELINE_H_INCLUDED_ */

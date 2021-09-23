@@ -25,6 +25,9 @@ out ngx_live_track_json ngx_live_track_t
 out nostatic noobject ngx_live_tracks_json ngx_live_channel_t
     - %objQueue-ngx_live_track_json,ngx_live_track_t,queue,sn.str,id_escape obj->tracks.queue
 
+out nostatic noobject ngx_live_track_ids_json ngx_live_channel_t
+    - %objQueueIds-ngx_live_track_t,queue,sn.str,id_escape obj->tracks.queue
+
 out ngx_live_variant_json ngx_live_variant_t
     track_ids %objFunc-ngx_live_variant_json_track_ids obj
     opaque %bs
@@ -36,6 +39,9 @@ out ngx_live_variant_json ngx_live_variant_t
 
 out nostatic noobject ngx_live_variants_json ngx_live_channel_t
     - %objQueue-ngx_live_variant_json,ngx_live_variant_t,queue,sn.str,id_escape obj->variants.queue
+
+out nostatic noobject ngx_live_variant_ids_json ngx_live_channel_t
+    - %objQueueIds-ngx_live_variant_t,queue,sn.str,id_escape obj->variants.queue
 
 out ngx_live_channel_blocked_json ngx_live_channel_t
     - %code ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj, ngx_live_core_module);
@@ -68,3 +74,6 @@ out nostatic ngx_live_channel_json ngx_live_channel_t
 
 out nostatic noobject ngx_live_channels_json void
     - %objQueue-ngx_live_channel_json,ngx_live_channel_t,queue,sn.str,id_escape ngx_live_channels.queue
+
+out nostatic noobject ngx_live_channel_ids_json void
+    - %objQueueIds-ngx_live_channel_t,queue,sn.str,id_escape ngx_live_channels.queue

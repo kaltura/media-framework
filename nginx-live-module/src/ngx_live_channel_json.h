@@ -176,6 +176,53 @@ ngx_live_tracks_json_write(u_char *p, ngx_live_channel_t *obj)
     return p;
 }
 
+/* ngx_live_track_ids_json writer */
+
+size_t
+ngx_live_track_ids_json_get_size(ngx_live_channel_t *obj)
+{
+    ngx_queue_t  *q;
+    size_t  result =
+        sizeof("[") - 1 +
+        sizeof("]") - 1;
+
+    for (q = ngx_queue_head(&obj->tracks.queue);
+        q != ngx_queue_sentinel(&obj->tracks.queue);
+        q = ngx_queue_next(q))
+    {
+        ngx_live_track_t *cur = ngx_queue_data(q, ngx_live_track_t, queue);
+        result += cur->sn.str.len + cur->id_escape + sizeof(",\"\"") - 1;
+    }
+
+    return result;
+}
+
+u_char *
+ngx_live_track_ids_json_write(u_char *p, ngx_live_channel_t *obj)
+{
+    ngx_queue_t  *q;
+    *p++ = '[';
+
+    for (q = ngx_queue_head(&obj->tracks.queue);
+        q != ngx_queue_sentinel(&obj->tracks.queue);
+        q = ngx_queue_next(q))
+    {
+        ngx_live_track_t *cur = ngx_queue_data(q, ngx_live_track_t, queue);
+
+        if (q != ngx_queue_head(&obj->tracks.queue))
+        {
+            *p++ = ',';
+        }
+        *p++ = '"';
+        p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
+        *p++ = '"';
+    }
+
+    *p++ = ']';
+
+    return p;
+}
+
 /* ngx_live_variant_json writer */
 
 static size_t
@@ -273,6 +320,53 @@ ngx_live_variants_json_write(u_char *p, ngx_live_channel_t *obj)
     }
 
     *p++ = '}';
+
+    return p;
+}
+
+/* ngx_live_variant_ids_json writer */
+
+size_t
+ngx_live_variant_ids_json_get_size(ngx_live_channel_t *obj)
+{
+    ngx_queue_t  *q;
+    size_t  result =
+        sizeof("[") - 1 +
+        sizeof("]") - 1;
+
+    for (q = ngx_queue_head(&obj->variants.queue);
+        q != ngx_queue_sentinel(&obj->variants.queue);
+        q = ngx_queue_next(q))
+    {
+        ngx_live_variant_t *cur = ngx_queue_data(q, ngx_live_variant_t, queue);
+        result += cur->sn.str.len + cur->id_escape + sizeof(",\"\"") - 1;
+    }
+
+    return result;
+}
+
+u_char *
+ngx_live_variant_ids_json_write(u_char *p, ngx_live_channel_t *obj)
+{
+    ngx_queue_t  *q;
+    *p++ = '[';
+
+    for (q = ngx_queue_head(&obj->variants.queue);
+        q != ngx_queue_sentinel(&obj->variants.queue);
+        q = ngx_queue_next(q))
+    {
+        ngx_live_variant_t *cur = ngx_queue_data(q, ngx_live_variant_t, queue);
+
+        if (q != ngx_queue_head(&obj->variants.queue))
+        {
+            *p++ = ',';
+        }
+        *p++ = '"';
+        p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
+        *p++ = '"';
+    }
+
+    *p++ = ']';
 
     return p;
 }
@@ -441,6 +535,53 @@ ngx_live_channels_json_write(u_char *p, void *obj)
     }
 
     *p++ = '}';
+
+    return p;
+}
+
+/* ngx_live_channel_ids_json writer */
+
+size_t
+ngx_live_channel_ids_json_get_size(void *obj)
+{
+    ngx_queue_t  *q;
+    size_t  result =
+        sizeof("[") - 1 +
+        sizeof("]") - 1;
+
+    for (q = ngx_queue_head(&ngx_live_channels.queue);
+        q != ngx_queue_sentinel(&ngx_live_channels.queue);
+        q = ngx_queue_next(q))
+    {
+        ngx_live_channel_t *cur = ngx_queue_data(q, ngx_live_channel_t, queue);
+        result += cur->sn.str.len + cur->id_escape + sizeof(",\"\"") - 1;
+    }
+
+    return result;
+}
+
+u_char *
+ngx_live_channel_ids_json_write(u_char *p, void *obj)
+{
+    ngx_queue_t  *q;
+    *p++ = '[';
+
+    for (q = ngx_queue_head(&ngx_live_channels.queue);
+        q != ngx_queue_sentinel(&ngx_live_channels.queue);
+        q = ngx_queue_next(q))
+    {
+        ngx_live_channel_t *cur = ngx_queue_data(q, ngx_live_channel_t, queue);
+
+        if (q != ngx_queue_head(&ngx_live_channels.queue))
+        {
+            *p++ = ',';
+        }
+        *p++ = '"';
+        p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
+        *p++ = '"';
+    }
+
+    *p++ = ']';
 
     return p;
 }

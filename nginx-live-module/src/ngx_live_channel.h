@@ -255,6 +255,9 @@ size_t ngx_live_channels_json_get_size(void *obj);
 
 u_char *ngx_live_channels_json_write(u_char *p, void *obj);
 
+size_t ngx_live_channel_ids_json_get_size(void *obj);
+
+u_char *ngx_live_channel_ids_json_write(u_char *p, void *obj);
 
 /* variant */
 ngx_int_t ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
@@ -287,6 +290,9 @@ size_t ngx_live_variants_json_get_size(ngx_live_channel_t *obj);
 
 u_char *ngx_live_variants_json_write(u_char *p, ngx_live_channel_t *obj);
 
+size_t ngx_live_variant_ids_json_get_size(ngx_live_channel_t *obj);
+
+u_char *ngx_live_variant_ids_json_write(u_char *p, ngx_live_channel_t *obj);
 
 /* track */
 ngx_int_t ngx_live_track_create(ngx_live_channel_t *channel,
@@ -305,6 +311,10 @@ ngx_live_track_t *ngx_live_track_get_by_int(ngx_live_channel_t *channel,
 size_t ngx_live_tracks_json_get_size(ngx_live_channel_t *obj);
 
 u_char *ngx_live_tracks_json_write(u_char *p, ngx_live_channel_t *obj);
+
+size_t ngx_live_track_ids_json_get_size(ngx_live_channel_t *obj);
+
+u_char *ngx_live_track_ids_json_write(u_char *p, ngx_live_channel_t *obj);
 
 
 extern ngx_str_t  ngx_live_track_type_names[];
