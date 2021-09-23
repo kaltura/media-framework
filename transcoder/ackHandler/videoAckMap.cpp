@@ -48,6 +48,8 @@ public:
             return m.first == ack;
         });
         if(it == m_output.end()){
+            LOGGER(LoggingCategory,AV_LOG_ERROR,"(%s) video map. map ack %lld -> failed in range %lld-%lld",
+                     m_name.c_str(),ack,m_output.front().first,m_output.back().first);
             throw std::out_of_range("ack is out of range");
         }
         if(it->second.offset){
@@ -57,7 +59,7 @@ public:
         ao.offset = it->second.offset;
         ao.id = it->second.id;
         m_output.erase(m_output.begin(),it);
-        LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) video map. map ack %lld -> %lld,%lld",
+        LOGGER(LoggingCategory,AV_LOG_INFO,"(%s) video map. map ack %lld -> %lld,%lld",
              m_name.c_str(),ack,ao.id,ao.offset);
      }
 };

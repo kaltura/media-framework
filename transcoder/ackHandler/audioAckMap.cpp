@@ -187,7 +187,7 @@ struct AudioAckMap : public BaseAckMap {
        ret.id = p.first;
        ret.offset = p.second;
        m_in.removeFrames(ret.id);
-       LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. map ack %lld -> %lld,%lld",
+       LOGGER(LoggingCategory,AV_LOG_INFO,"(%s) audio map. map ack %lld -> %lld,%lld",
             m_name.c_str(),id,ret.id,ret.offset);
   }
 };
