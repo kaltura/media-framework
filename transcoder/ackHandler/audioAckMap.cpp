@@ -33,7 +33,7 @@ class RepeatedFrameId {
     streamOffset_t m_total = 0; // diagnostics
     std::string m_name;
 
-    void handleFrameDiscontinuity(int c,const uint32_t &dur) throw() {
+    void handleFrameDiscontinuity(int c,const uint32_t &dur) {
         if(c < 0){
                if(c == -1){
                    LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. duplicate frame %ld next %ld samples %ld",
@@ -58,7 +58,7 @@ class RepeatedFrameId {
  public:
     RepeatedFrameId(const std::string &name,const frameId_t &id) : m_baseFrame(id),m_lastFrame(id),m_name(name)
     {}
-    void addFrame(const frameId_t &fd,const uint32_t &dur) throw() {
+    void addFrame(const frameId_t &fd,const uint32_t &dur) {
         auto c = int(fd - m_lastFrame);
         m_total += dur;
         handleFrameDiscontinuity(c,dur);
@@ -67,7 +67,7 @@ class RepeatedFrameId {
         m_q.back().m_counter++;
         m_lastFrame += c;
      }
-    auto frameByOffset(streamOffset_t off) throw() {
+    auto frameByOffset(streamOffset_t off) {
         off -= m_streamOffset;
         auto walker = m_baseFrame;
         for(const auto& r : m_q) {
@@ -81,7 +81,7 @@ class RepeatedFrameId {
         }
         throw std::out_of_range("offset out of frame range");
     }
-    auto offsetByFrame(frameId_t fd) throw() {
+    auto offsetByFrame(frameId_t fd)  {
         if(fd < m_baseFrame || fd >= m_lastFrame)
            throw std::out_of_range("offset id out of range");
         fd -= m_baseFrame;
@@ -160,20 +160,20 @@ struct AudioAckMap : public BaseAckMap {
      return m_out.last() - 1;
    }
   // a new frame is fed to encoder
-  void addIn(const ack_desc_t &desc) throw() {
+  void addIn(const ack_desc_t &desc)  {
         m_in.addFrame(desc.id,desc.offset);
         LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. add input frame %lld %ld samples",
              m_name.c_str(), desc.id, desc.samples);
   }
   // new output frame is produced
-  void addOut(const  ack_desc_t &desc) throw() {
+  void addOut(const  ack_desc_t &desc)  {
       auto nextFrameId = m_out.last() + 1;
       LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. add output frame %lld %ld samples",
              m_name.c_str(), nextFrameId, desc.samples);
       m_out.addFrame(nextFrameId,desc.samples);
   }
   // ack is received
-  void map(const uint64_t &id,ack_desc_t &ret) throw() {
+  void map(const uint64_t &id,ack_desc_t &ret)  {
        LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. map ack %lld ",
                 m_name.c_str(),id);
        ret = {id,0};

@@ -37,9 +37,9 @@ protected:
 public:
     BaseAckMap(const std::string &name) :m_name(name){}
     virtual ~BaseAckMap(){}
-    virtual void addIn(const ack_desc_t &desc) throw() = 0;
-    virtual void addOut(const ack_desc_t &desc) throw() = 0;
-    virtual void map(const uint64_t &id,ack_desc_t &ret) throw() = 0;
+    virtual void addIn(const ack_desc_t &desc) = 0;
+    virtual void addOut(const ack_desc_t &desc) = 0;
+    virtual void map(const uint64_t &id,ack_desc_t &ret) = 0;
 
     // helpers
     static void ack_map_add_input(ack_handler_t *h,ack_desc_t *desc);
