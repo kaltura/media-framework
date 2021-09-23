@@ -8,10 +8,10 @@
 #include "ngx_json_parser.h"
 
 
-typedef ngx_int_t(*ngx_http_api_route_handler_pt)(ngx_http_request_t *r,
+typedef ngx_int_t (*ngx_http_api_route_handler_pt)(ngx_http_request_t *r,
     ngx_str_t *params, ngx_str_t *response);
 
-typedef ngx_int_t(*ngx_http_api_route_data_handler_pt)(ngx_http_request_t *r,
+typedef ngx_int_t (*ngx_http_api_route_data_handler_pt)(ngx_http_request_t *r,
     ngx_str_t *params, ngx_json_value_t *body);
 
 typedef struct ngx_http_api_route_child_s ngx_http_api_route_child_t;
@@ -19,6 +19,7 @@ typedef struct ngx_http_api_route_child_s ngx_http_api_route_child_t;
 typedef struct {
     ngx_http_api_route_child_t          *children;
     ngx_http_api_route_handler_pt        get;
+    ngx_http_api_route_handler_pt        list;
     ngx_http_api_route_handler_pt        del;
     ngx_http_api_route_data_handler_pt   post;
     ngx_http_api_route_data_handler_pt   put;
@@ -31,8 +32,8 @@ struct ngx_http_api_route_child_s {
 
 
 typedef struct {
-    unsigned  write:1;
-    unsigned  upsert:1;
+    unsigned                             write:1;
+    unsigned                             upsert:1;
 } ngx_http_api_options_t;
 
 

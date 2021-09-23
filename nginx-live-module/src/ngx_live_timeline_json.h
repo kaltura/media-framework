@@ -201,6 +201,59 @@ ngx_live_timelines_json_write(u_char *p, ngx_live_timeline_channel_ctx_t *obj)
     return p;
 }
 
+/* ngx_live_timeline_ids_json writer */
+
+size_t
+ngx_live_timeline_ids_json_get_size(ngx_live_channel_t *obj)
+{
+    ngx_live_timeline_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
+        ngx_live_timeline_module);
+    ngx_queue_t  *q;
+    size_t  result =
+        sizeof("[") - 1 +
+        sizeof("]") - 1;
+
+    for (q = ngx_queue_head(&cctx->queue);
+        q != ngx_queue_sentinel(&cctx->queue);
+        q = ngx_queue_next(q))
+    {
+        ngx_live_timeline_t *cur = ngx_queue_data(q, ngx_live_timeline_t,
+            queue);
+        result += cur->sn.str.len + cur->id_escape + sizeof(",\"\"") - 1;
+    }
+
+    return result;
+}
+
+u_char *
+ngx_live_timeline_ids_json_write(u_char *p, ngx_live_channel_t *obj)
+{
+    ngx_live_timeline_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
+        ngx_live_timeline_module);
+    ngx_queue_t  *q;
+    *p++ = '[';
+
+    for (q = ngx_queue_head(&cctx->queue);
+        q != ngx_queue_sentinel(&cctx->queue);
+        q = ngx_queue_next(q))
+    {
+        ngx_live_timeline_t *cur = ngx_queue_data(q, ngx_live_timeline_t,
+            queue);
+
+        if (q != ngx_queue_head(&cctx->queue))
+        {
+            *p++ = ',';
+        }
+        *p++ = '"';
+        p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
+        *p++ = '"';
+    }
+
+    *p++ = ']';
+
+    return p;
+}
+
 /* ngx_live_timelines_module_json writer */
 
 static size_t

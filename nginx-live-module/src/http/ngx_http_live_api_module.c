@@ -180,6 +180,18 @@ ngx_http_live_api_channels_get(ngx_http_request_t *r, ngx_str_t *params,
     return ngx_http_live_api_build_json(r, &writer, NULL, response);
 }
 
+static ngx_int_t
+ngx_http_live_api_channels_list(ngx_http_request_t *r, ngx_str_t *params,
+    ngx_str_t *response)
+{
+    static ngx_live_json_writer_t  writer = {
+        ngx_live_channel_ids_json_get_size,
+        ngx_live_channel_ids_json_write,
+    };
+
+    return ngx_http_live_api_build_json(r, &writer, NULL, response);
+}
+
 static ngx_http_live_api_channel_ctx_t *
 ngx_http_live_api_alloc_ctx(ngx_http_request_t *r)
 {
@@ -729,6 +741,30 @@ ngx_http_live_api_variants_get(ngx_http_request_t *r, ngx_str_t *params,
     return ngx_http_live_api_build_json(r, &writer, channel, response);
 }
 
+static ngx_int_t
+ngx_http_live_api_variants_list(ngx_http_request_t *r, ngx_str_t *params,
+    ngx_str_t *response)
+{
+    static ngx_live_json_writer_t  writer = {
+        (ngx_live_json_writer_get_size_pt) ngx_live_variant_ids_json_get_size,
+        (ngx_live_json_writer_write_pt) ngx_live_variant_ids_json_write,
+    };
+
+    ngx_str_t            channel_id;
+    ngx_live_channel_t  *channel;
+
+    channel_id = params[0];
+    channel = ngx_live_channel_get(&channel_id);
+    if (channel == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_api_variants_list: unknown channel \"%V\"",
+            &channel_id);
+        return NGX_HTTP_NOT_FOUND;
+    }
+
+    return ngx_http_live_api_build_json(r, &writer, channel, response);
+}
+
 static void
 ngx_http_live_api_variant_init_conf(ngx_live_variant_json_t *json,
     ngx_live_variant_conf_t *conf, ngx_log_t *log)
@@ -1049,6 +1085,30 @@ ngx_http_live_api_tracks_get(ngx_http_request_t *r, ngx_str_t *params,
 }
 
 static ngx_int_t
+ngx_http_live_api_tracks_list(ngx_http_request_t *r, ngx_str_t *params,
+    ngx_str_t *response)
+{
+    static ngx_live_json_writer_t  writer = {
+        (ngx_live_json_writer_get_size_pt) ngx_live_track_ids_json_get_size,
+        (ngx_live_json_writer_write_pt) ngx_live_track_ids_json_write,
+    };
+
+    ngx_str_t            channel_id;
+    ngx_live_channel_t  *channel;
+
+    channel_id = params[0];
+    channel = ngx_live_channel_get(&channel_id);
+    if (channel == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_api_tracks_list: unknown channel \"%V\"",
+            &channel_id);
+        return NGX_HTTP_NOT_FOUND;
+    }
+
+    return ngx_http_live_api_build_json(r, &writer, channel, response);
+}
+
+static ngx_int_t
 ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
 {
@@ -1360,6 +1420,30 @@ ngx_http_live_api_timelines_get(ngx_http_request_t *r, ngx_str_t *params,
     if (channel == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_live_api_timelines_get: unknown channel \"%V\"",
+            &channel_id);
+        return NGX_HTTP_NOT_FOUND;
+    }
+
+    return ngx_http_live_api_build_json(r, &writer, channel, response);
+}
+
+static ngx_int_t
+ngx_http_live_api_timelines_list(ngx_http_request_t *r, ngx_str_t *params,
+    ngx_str_t *response)
+{
+    static ngx_live_json_writer_t  writer = {
+        (ngx_live_json_writer_get_size_pt) ngx_live_timeline_ids_json_get_size,
+        (ngx_live_json_writer_write_pt) ngx_live_timeline_ids_json_write,
+    };
+
+    ngx_str_t            channel_id;
+    ngx_live_channel_t  *channel;
+
+    channel_id = params[0];
+    channel = ngx_live_channel_get(&channel_id);
+    if (channel == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_api_timelines_list: unknown channel \"%V\"",
             &channel_id);
         return NGX_HTTP_NOT_FOUND;
     }
