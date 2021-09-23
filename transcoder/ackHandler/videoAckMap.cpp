@@ -18,7 +18,7 @@ public:
     VideoAckMap(uint64_t initialFrameId,const char * name)
         :BaseAckMap(name),m_lastKeyFrameId(initialFrameId)
     {}
-    void addIn(const ack_desc_t &desc)  throw() {
+    void addIn(const ack_desc_t &desc) {
         // wait for the first key frame to arrive
         FrameDesc fd = {desc.id,0};
         if(desc.key) {
@@ -29,7 +29,7 @@ public:
         }
         m_input.push_back(std::make_pair(desc.pts,fd));
     }
-    void addOut(const ack_desc_t &desc) throw() {
+    void addOut(const ack_desc_t &desc) {
         if(desc.key){
             //ffmpeg encoders do not modify input sample timestamps...
             auto it = std::find_if(m_input.begin(),m_input.end(),[&desc](const auto &f)->bool{
@@ -43,11 +43,13 @@ public:
         }
     }
 
-    void map(const frameId_t &ack,ack_desc_t &ao) throw() {
+    void map(const frameId_t &ack,ack_desc_t &ao) {
         auto it = std::find_if(m_output.begin(),m_output.end(),[&ack](const auto &m)->bool{
             return m.first == ack;
         });
         if(it == m_output.end()){
+            LOGGER(LoggingCategory,AV_LOG_ERROR,"(%s) video map. map ack %lld -> failed in range %lld-%lld",
+                     m_name.c_str(),ack,m_output.front().first,m_output.back().first);
             throw std::out_of_range("ack is out of range");
         }
         if(it->second.offset){
@@ -57,7 +59,7 @@ public:
         ao.offset = it->second.offset;
         ao.id = it->second.id;
         m_output.erase(m_output.begin(),it);
-        LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) video map. map ack %lld -> %lld,%lld",
+        LOGGER(LoggingCategory,AV_LOG_INFO,"(%s) video map. map ack %lld -> %lld,%lld",
              m_name.c_str(),ack,ao.id,ao.offset);
      }
 };
