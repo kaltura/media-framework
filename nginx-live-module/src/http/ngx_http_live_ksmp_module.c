@@ -631,6 +631,23 @@ ngx_http_live_ksmp_segment_close(void *arg, ngx_int_t rc)
     if (rc != NGX_OK) {
         if (r->header_sent) {
             rc = NGX_ERROR;
+            goto done;
+        }
+
+        switch (rc) {
+
+        case NGX_DECLINED:
+            rc = NGX_HTTP_NOT_FOUND;
+            break;
+
+        case NGX_BAD_DATA:
+            rc = NGX_HTTP_BAD_GATEWAY;
+            break;
+
+        default:
+            if (rc < 400 || rc > 599) {
+                rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            }
         }
         goto done;
     }
