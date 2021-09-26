@@ -13,6 +13,19 @@
        }
     }
 
+     void BaseAckMap::ack_map_add_filtered(ack_handler_t *h,ack_desc_t *desc) {
+           if(h){
+                ack_handler_ctx_t *ahc = (ack_handler_ctx_t*)h->ctx;
+                auto &am = *reinterpret_cast<BaseAckMap*>(ahc->ctx);
+                try {
+                   am.addFiltered(*desc);
+                 } catch(const std::exception &e) {
+                       LOGGER(LoggingCategory,AV_LOG_ERROR," %s map. ack_map_add_filtered %d %lld failed due to %s",
+                            am.m_name.c_str(),desc->id, desc->pts,e.what());
+                 }
+           }
+        }
+
     void BaseAckMap::ack_map_add_output(ack_handler_t *h,ack_desc_t *desc) {
         if(h){
             ack_handler_ctx_t *ahc = (ack_handler_ctx_t*)h->ctx;

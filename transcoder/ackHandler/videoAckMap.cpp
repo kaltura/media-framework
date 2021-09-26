@@ -1,8 +1,12 @@
 #include "./ackHandlerInternal.h"
 #include <algorithm>
 
+typedef uint64_t Timestamp;
+
+const Timestamp sigma = 450; // 5 ms as in 1:90000 timebase
+
 class VideoAckMap : public BaseAckMap {
-    typedef uint64_t Timestamp;
+
     struct FrameDesc {
         frameId_t id;
         uint32_t  offset;
@@ -33,7 +37,7 @@ public:
         if(desc.key){
             //ffmpeg encoders do not modify input sample timestamps...
             auto it = std::find_if(m_input.begin(),m_input.end(),[&desc](const auto &f)->bool{
-                 return f.first == desc.pts;
+                 return std::abs(int64_t(f.first - desc.pts)) < sigma;
             });
             if(it == m_input.end()){
                 throw std::out_of_range("didn't find input frame corresponding to output frame");
