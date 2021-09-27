@@ -220,10 +220,13 @@ struct AudioAckMap : public BaseAckMap {
         LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. add input frame %lld %ld samples",
              m_name.c_str(), desc.id, desc.samples);
   }
-  void addFiltered(const ack_desc_t &desc) {
+  void addFiltered(const ack_desc_t &desc_in) {
       // desc contains input frame id and in/deflated samples
+      auto desc = desc_in;
+      if(desc.id == INVALID_FRAME_ID)
+            desc.id = m_in.last();
       m_filtered.push_back(desc);
-      LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. add input frame %lld %ld samples",
+      LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. add filtered frame %lld %ld samples",
            m_name.c_str(), desc.id, desc.samples);
   }
   // new output frame is produced
@@ -240,16 +243,22 @@ struct AudioAckMap : public BaseAckMap {
            LOGGER(LoggingCategory,AV_LOG_ERROR,"(%s) audio map. cannot find filtered frame id for %lld , %ld samples",
               m_name.c_str(), nextFrameId, desc.samples);
       } else  {
+           auto &filtered = m_filtered.front();
+           auto samples = std::min(desc.samples,filtered.samples);
+           filtered.samples -= samples;
            // find sample range corresponding to input frame id
-           const auto inOff = m_in.offsetByFrame(m_filtered.front().id);
+           const auto inOff = m_in.offsetByFrame(filtered.id);
            const auto outOff = m_out.offsetByFrame(m_out.last());
            const auto newFrameOffset = outOff.first;
            if(newFrameOffset < inOff.first) {
                m_out.adjustFrameDuration(m_out.last(),inOff.first-newFrameOffset);
            } else if(newFrameOffset > inOff.first + inOff.second) {
-               m_out.adjustFrameDuration(m_out.last(),newFrameOffset - inOff.first - inOff.second);
+               m_out.adjustFrameDuration(m_out.last(),inOff.first + inOff.second - newFrameOffset);
            }
-           m_filtered.pop_front();
+           if(!filtered.samples)
+               m_filtered.pop_front();
+           if(!m_filtered.empty() && samples < desc.samples)
+                m_filtered.front().samples -= (desc.samples - samples);
       }
   }
   // ack is received

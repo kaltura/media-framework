@@ -23,7 +23,7 @@ typedef struct ack_handler_ctx_s {
     destroy_handler destroy;
 } ack_handler_ctx_t;
 
-#define LoggingCategory CATEGORY_OUTPUT
+
 
 #ifdef __cplusplus
 }

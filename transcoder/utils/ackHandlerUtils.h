@@ -6,7 +6,6 @@ av_always_inline
 int frame_desc_from_avframe(enum AVMediaType codec_type,
     const AVFrame *pFrame,
     frame_desc_t *ret) {
-    _S(get_frame_id(pFrame,&ret->id));
     switch (codec_type){
         case AVMEDIA_TYPE_AUDIO:
            ret->samples = pFrame->nb_samples;
@@ -15,9 +14,11 @@ int frame_desc_from_avframe(enum AVMediaType codec_type,
            ret->pts = pFrame->pts;
            break;
         default:
-           return -1;
+           return AVERROR_INVALIDDATA;
     };
     ret->key = pFrame->key_frame;
+    ret->id = INVALID_FRAME_ID;
+    get_frame_id(pFrame,&ret->id);
     return 0;
 }
 
@@ -46,6 +47,9 @@ void handleAckFrame(AVFrame *pFrame,ack_handler_t *acker,frame_ack_handler metho
    frame_desc_t desc;
    if(!frame_desc_from_avframe(acker->codec_type,pFrame,&desc)) {
          method(acker,&desc);
+   } else {
+       LOGGER(LoggingCategory,AV_LOG_ERROR,"handleAckFrame(%p) . failed to extract frame id from frame",
+              acker->ctx);
    }
 }
 
