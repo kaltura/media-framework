@@ -17,6 +17,8 @@
 #include "../utils/packetQueue.h"
 #include "./transcode_dropper.h"
 #include "../utils/policy_provider.h"
+#include "../utils/cc_atsc_a53.h"
+
 #define MAX_INPUTS 10
 #define MAX_OUTPUTS 10
 
@@ -60,6 +62,7 @@ typedef struct  {
     uint32_t   offset;
     transcode_session_output_t *ack_handler;
     policy_provider_s policy;
+    atsc_a53_handler_t cc_a53;
 } transcode_session_t;
 
 

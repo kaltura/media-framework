@@ -9,6 +9,7 @@ SRC += $(wildcard ./transcode/*.c)
 SRC += $(wildcard ./debug/*.c)
 DEPS = $(wildcard *.h)
 SRC_CPP += $(wildcard ./ackHandler/*.cpp)
+SRC_CPP += $(wildcard ./utils/*.cpp)
 ODIR=obj
 _OBJ = $(SRC:.c=.o)
 _OBJ_CPP = $(SRC_CPP:.cpp=.o)
