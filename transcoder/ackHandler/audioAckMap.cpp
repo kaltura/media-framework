@@ -1,7 +1,7 @@
 #include "./ackHandlerInternal.h"
 #include <sstream>
 
-typedef uint64_t streamOffset_t;
+typedef int64_t streamOffset_t;
 
 
 template<typename T,typename C>
@@ -28,7 +28,7 @@ struct Repeated {
 };
 
 class RepeatedFrameId {
-    typedef Repeated<int32_t,uint32_t> RepeatedFrame;
+    typedef Repeated<int32_t,int32_t> RepeatedFrame;
     typedef std::deque<RepeatedFrame> Frames;
     typedef Frames::iterator iterator;
 
@@ -94,18 +94,17 @@ class RepeatedFrameId {
            throw std::out_of_range(reason.str().c_str());
         }
         fd -= m_baseFrame;
-        auto off = m_streamOffset;
-        RepeatedFrame::duration left = 0;
+        auto lo = m_streamOffset, hi = lo;
         for(const auto& r : m_q) {
             if(r.m_counter >= fd) {
-                off += fd * r.m_val;
-                left = (r.m_counter - fd) * r.m_val;
+                lo += fd * r.m_val;
+                hi = lo + r.m_val;
                 break;
             }
-            off += r.m_val * r.m_counter;
+            lo += r.m_val * r.m_counter;
             fd -= r.m_counter;
         }
-        return std::make_pair(off,left);
+        return std::make_pair(lo,hi);
     }
     void removeFrames(const frameId_t &fd)  {
          if(fd < m_baseFrame || fd >= m_lastFrame)
@@ -145,48 +144,17 @@ class RepeatedFrameId {
          LOGGER(LoggingCategory,level,"(%s) audio map. ~dump. samples since last ack point: %lld total samples: %lld",
             m_name.c_str(),totalSamples, m_total);
     }
-    void adjustFrameDuration(frameId_t id,RepeatedFrame::duration by) {
-        LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. adjustFrameDuration frame %lld %ld samples",
-                m_name.c_str(),id,by);
-
-        id -= m_baseFrame;
-        for(auto it = m_q.begin(); it != m_q.end(); it++){
-            if(id < it->m_counter) {
-                // input was inflated by filter
-                if(by > 0){
-                    if(it->m_counter > 1) {
-                        //split last item
-                        m_q.insert(it,RepeatedFrame(it->m_val+by,1));
-                        it->m_counter--;
-                    } else {
-                        // adjust item's # of samples
-                        it->m_val += by;
-                    }
-                } else {
-                    // input was deflated by filter.
-                    // cancel input frames
-                    for(;by && it <= m_q.begin();it--){
-                        while( by && it->m_counter > 1) {
-                            it->m_counter--;
-                            it = m_q.insert(it,RepeatedFrame(0,1));
-                            by+=it->m_val;
-                        }
-                        if(by) {
-                           const auto s = std::max(-by,-it->m_val);
-                           it->m_val += s;
-                           by += s;
-                       }
-                    }
-                    if(by){
-                        LOGGER(LoggingCategory,AV_LOG_ERROR,"(%s) audio map. adjustFrameDuration left %lld samples",
-                          m_name.c_str(),by);
-                    }
-                }
-                m_total += by;
-            }
-            id -= it->m_counter;
+    void adjustLastFrameDuration(RepeatedFrame::duration by) {
+        if(!by)    return;
+        LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. adjustLastFrameDuration frame %lld %ld samples",
+                m_name.c_str(),last(),by);
+        auto &last = m_q.back();
+        if(last.m_counter == 1)
+            last.m_val += by;
+        else {
+            last.m_counter--;
+            m_q.push_back(RepeatedFrame(by,1));
         }
-
     }
 };
 
@@ -225,7 +193,10 @@ struct AudioAckMap : public BaseAckMap {
       auto desc = desc_in;
       if(desc.id == INVALID_FRAME_ID)
             desc.id = m_in.last();
-      m_filtered.push_back(desc);
+      if(m_filtered.empty() || m_filtered.back().id != desc.id)
+            m_filtered.push_back(desc);
+      else
+            m_filtered.back().samples +=  desc.samples;
       LOGGER(LoggingCategory,AV_LOG_DEBUG,"(%s) audio map. add filtered frame %lld %ld samples",
            m_name.c_str(), desc.id, desc.samples);
   }
@@ -251,14 +222,12 @@ struct AudioAckMap : public BaseAckMap {
            const auto outOff = m_out.offsetByFrame(m_out.last());
            const auto newFrameOffset = outOff.first;
            if(newFrameOffset < inOff.first) {
-               m_out.adjustFrameDuration(m_out.last(),inOff.first-newFrameOffset);
-           } else if(newFrameOffset > inOff.first + inOff.second) {
-               m_out.adjustFrameDuration(m_out.last(),inOff.first + inOff.second - newFrameOffset);
+               m_out.adjustLastFrameDuration(inOff.first-newFrameOffset);
+           } else if(newFrameOffset > inOff.second) {
+               m_out.adjustLastFrameDuration(newFrameOffset-inOff.second);
            }
            if(!filtered.samples)
                m_filtered.pop_front();
-           if(!m_filtered.empty() && samples < desc.samples)
-                m_filtered.front().samples -= (desc.samples - samples);
       }
   }
   // ack is received
