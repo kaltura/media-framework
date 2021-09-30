@@ -64,8 +64,13 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
     kmp_packet_header_t header;
     int retVal = 0;
     uint64_t received_frame_ack_id=0;
+    bool autoAckMode;
     uint64_t received_frame_id=0;
     kmp_frame_position_t current_position;
+
+    json_get_bool(GetConfig(),"autoAckModeEnabled",false,&autoAckMode);
+
+
     while (retVal >= 0 && session->kmpClient.socket) {
 
         if( (retVal = KMP_read_header(&session->kmpClient,&header)) < 0 )
@@ -121,11 +126,13 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
             _S(transcode_session_async_send_packet(transcode_session, packet));
             av_packet_free(&packet);
             received_frame_id++;
-            transcode_session_get_ack_frame_id(transcode_session,&current_position);
-            if (current_position.frame_id!=0 && received_frame_ack_id!=current_position.frame_id) {
-                LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] sending ack for packet # : %lld",session->stream_name,current_position.frame_id);
-                _S(KMP_send_ack(&session->kmpClient,&current_position));
-                received_frame_ack_id=current_position.frame_id;
+            if(!autoAckMode) {
+                transcode_session_get_ack_frame_id(transcode_session,&current_position);
+                if (current_position.frame_id!=0 && received_frame_ack_id!=current_position.frame_id) {
+                    LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] sending ack for packet # : %lld",session->stream_name,current_position.frame_id);
+                    _S(KMP_send_ack(&session->kmpClient,&current_position));
+                    received_frame_ack_id=current_position.frame_id;
+                }
             }
         }
     }
