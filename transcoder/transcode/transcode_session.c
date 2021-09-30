@@ -226,6 +226,9 @@ transcode_filter_t* GetFilter(transcode_session_t* pContext,transcode_session_ou
         }
         
         pOutput->filterId=pContext->filters++;
+        if(pDecoderContext->codec->type == AVMEDIA_TYPE_VIDEO) {
+             _S(atsc_a53_add_stream(pContext->cc_a53,pOutput->filterId));
+        }
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Output %s - Created new  filter %s",pOutput->track_id,filterConfig);
     }
     return pFilter;
@@ -352,8 +355,6 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
         else
             pFrame->pict_type=AV_PICTURE_TYPE_NONE;
 
-        if(pEncoder->codec->type == AVMEDIA_TYPE_VIDEO)
-            atsc_a53_output_frame(pContext->cc_a53,pFrame);
     }
     
     ret=transcode_encoder_send_frame(pEncoder,pFrame);
@@ -508,6 +509,10 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
             av_frame_free(&pOutFrame);
             goto filter_error;
         }
+
+        if(pDecoderContext->codec->type == AVMEDIA_TYPE_VIDEO)
+            atsc_a53_output_frame(pContext->cc_a53,filterId,pFrame);
+
         
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] recieved from filterId %d (%s): %s",
                pContext->name,
