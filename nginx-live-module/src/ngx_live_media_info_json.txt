@@ -8,11 +8,16 @@ out noobject ngx_live_media_info_json_stats ngx_live_media_info_node_t
     frame_rate_max %.2uD stats->
     frame_rate_avg %.2uD frame_rate_avg
 
-out ngx_live_media_info_json_video ngx_live_media_info_node_t
+out noobject ngx_live_media_info_json_base ngx_live_media_info_node_t
     - %code ngx_live_media_info_t *mi = &obj->media_info;
+    segment_index %ui obj->node.key
     codec_id %uD mi->info.
     bitrate %uD mi->info.
     extra_data %xV mi->extra
+
+out ngx_live_media_info_json_video ngx_live_media_info_node_t
+    - %writeCode ngx_live_media_info_t *mi = &obj->media_info;
+    - %func-ngx_live_media_info_json_base obj
     width %uD mi->info.u.video.
     height %uD mi->info.u.video.
     frame_rate %.2F mi->info.u.video.
@@ -20,10 +25,8 @@ out ngx_live_media_info_json_video ngx_live_media_info_node_t
     - %func-ngx_live_media_info_json_stats obj
 
 out ngx_live_media_info_json_audio ngx_live_media_info_node_t
-    - %code ngx_live_media_info_t *mi = &obj->media_info;
-    codec_id %uD mi->info.
-    bitrate %uD mi->info.
-    extra_data %xV mi->extra
+    - %writeCode ngx_live_media_info_t *mi = &obj->media_info;
+    - %func-ngx_live_media_info_json_base obj
     channels %uD mi->info.u.audio.
     channel_layout %uL mi->info.u.audio.
     bits_per_sample %uD mi->info.u.audio.
