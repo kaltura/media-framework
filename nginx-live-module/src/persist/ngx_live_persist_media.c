@@ -364,7 +364,7 @@ ngx_live_persist_media_serve_clip_write(
     if (segment == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
             "ngx_live_persist_media_serve_clip_write: alloc failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        return NGX_ERROR;
     }
 
     segment->node.key = ctx->segment_index;
@@ -376,14 +376,16 @@ ngx_live_persist_media_serve_clip_write(
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
             "ngx_live_persist_media_serve_clip_write: "
             "read blocks failed %i", rc);
-        return rc == NGX_BAD_DATA ? NGX_HTTP_BAD_GATEWAY
-            : NGX_HTTP_INTERNAL_SERVER_ERROR;
+        if (rc != NGX_BAD_DATA) {
+            rc = NGX_ERROR;
+        }
+        return rc;
     }
 
     if (segment->frame_count <= 0) {
         ngx_log_error(NGX_LOG_ERR, ctx->pool->log, 0,
             "ngx_live_persist_media_serve_clip_write: no segment read");
-        return NGX_HTTP_BAD_GATEWAY;
+        return NGX_BAD_DATA;
     }
 
     ngx_live_segment_write_init_ctx(&sctx, segment, ctx->flags, ctx->time);
@@ -393,7 +395,7 @@ ngx_live_persist_media_serve_clip_write(
     {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
             "ngx_live_persist_media_serve_clip_write: write failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        return NGX_ERROR;
     }
 
     return NGX_OK;
@@ -411,7 +413,7 @@ ngx_live_persist_media_serve_clip_close(
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
             "ngx_live_persist_media_serve_clip_close: close failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        return NGX_ERROR;
     }
 
     rc = ctx->writer.set_size(ctx->writer.arg, size);
@@ -444,7 +446,7 @@ ngx_live_persist_media_serve_copy(ngx_live_persist_media_serve_ctx_t *ctx,
     if (b == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
             "ngx_live_persist_media_serve_copy: alloc buf failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        return NGX_ERROR;
     }
 
     b->start = b->pos = response->pos;
@@ -455,7 +457,7 @@ ngx_live_persist_media_serve_copy(ngx_live_persist_media_serve_ctx_t *ctx,
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
             "ngx_live_persist_media_serve_copy: alloc chain failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        return NGX_ERROR;
     }
 
     cl->buf = b;
@@ -497,7 +499,7 @@ ngx_live_persist_media_serve_parse_header(
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_persist_media_serve_parse_header: "
             "read file header failed %i", rc);
-        return rc == NGX_DECLINED ? NGX_HTTP_NOT_FOUND : NGX_HTTP_BAD_GATEWAY;
+        return rc;
     }
 
     header = ngx_persist_read_block(&rs, &rs);
@@ -505,28 +507,28 @@ ngx_live_persist_media_serve_parse_header(
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_persist_media_serve_parse_header: "
             "read block failed (1)");
-        return NGX_HTTP_BAD_GATEWAY;
+        return NGX_BAD_DATA;
     }
 
     if (header->id != NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY_LIST) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_serve_parse_header: "
             "unexpected block, id: 0x%uxD", header->id);
-        return NGX_HTTP_BAD_GATEWAY;
+        return NGX_BAD_DATA;
     }
 
     if (ngx_mem_rstream_str_get(&rs, &channel_id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_serve_parse_header: "
             "read channel id failed");
-        return NGX_HTTP_BAD_GATEWAY;
+        return NGX_BAD_DATA;
     }
 
     if (ngx_mem_rstream_str_get(&rs, &opaque) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_serve_parse_header: "
             "read channel header failed");
-        return NGX_HTTP_BAD_GATEWAY;
+        return NGX_BAD_DATA;
     }
 
 
@@ -535,14 +537,14 @@ ngx_live_persist_media_serve_parse_header(
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_serve_parse_header: "
             "channel id \"%V\" mismatch", &channel_id);
-        return NGX_HTTP_BAD_GATEWAY;
+        return NGX_BAD_DATA;
     }
 
     uid = ngx_mem_rstream_get_ptr(&rs, sizeof(*uid));
     if (uid == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_serve_parse_header: read uid failed");
-        return NGX_HTTP_BAD_GATEWAY;
+        return NGX_BAD_DATA;
     }
 
     if (*uid != ctx->uid) {
@@ -550,13 +552,13 @@ ngx_live_persist_media_serve_parse_header(
             "ngx_live_persist_media_serve_parse_header: "
             "uid mismatch, actual: %016uxL, expected: %016uxL",
             *uid, ctx->uid);
-        return NGX_HTTP_BAD_GATEWAY;
+        return NGX_BAD_DATA;
     }
 
     if (ngx_persist_read_skip_block_header(&rs, header) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_persist_media_serve_parse_header: skip header failed");
-        return NGX_HTTP_BAD_GATEWAY;
+        return NGX_BAD_DATA;
     }
 
 
@@ -571,7 +573,7 @@ ngx_live_persist_media_serve_parse_header(
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
                 "ngx_live_persist_media_serve_parse_header: "
                 "read block failed (2)");
-            return NGX_HTTP_BAD_GATEWAY;
+            return NGX_BAD_DATA;
         }
 
         if (header->id != NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY) {
@@ -583,7 +585,7 @@ ngx_live_persist_media_serve_parse_header(
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_persist_media_serve_parse_header: "
                 "read segment entry failed");
-            return NGX_HTTP_BAD_GATEWAY;
+            return NGX_BAD_DATA;
         }
 
         if (entry->segment_index != ctx->segment_index) {
@@ -601,7 +603,7 @@ ngx_live_persist_media_serve_parse_header(
                 ngx_log_error(NGX_LOG_ERR, log, 0,
                     "ngx_live_persist_media_serve_parse_header: "
                     "track %uD found more than once", entry->track_id);
-                return NGX_HTTP_BAD_GATEWAY;
+                return NGX_BAD_DATA;
             }
 
             ctx->tracks[i].offset = offset;
@@ -691,7 +693,7 @@ ngx_live_persist_media_serve_complete(void *arg, ngx_int_t code,
         if (rc != NGX_DONE) {
             ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
                 "ngx_live_persist_media_serve_complete: read failed %i", rc);
-            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            rc = NGX_ERROR;
             goto done;
         }
 
