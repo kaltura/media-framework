@@ -1,93 +1,181 @@
 #include <vector>
 #include <unordered_map>
+#include <deque>
+#include <algorithm>
 
-typedef std::vector<uint8_t> cc_fifo_t;
-const cc_fifo_t::size_type MaxCCLength = 93;
+extern "C"
+{
+#include "../KMP/kalturaMediaProtocol.h"
+#include <libavcodec/cbs_sei.h>
+#include "./logger.h"
+#include "cc_atsc_a53.h"
+}
+
+typedef std::vector<uint8_t> CC_Payload;
+const CC_Payload::size_type MaxCCLength = 93;
+
+struct A53Stream {
+    typedef int64_t Timestamp;
+    struct FrameInfo {
+        CC_Payload payload;
+        frame_id_t fid;
+        Timestamp  pts;
+        bool acked;
+    };
+    typedef std::deque<FrameInfo> Frames;
+
+    Frames m_frames;
+
+    void decoded(AVFrame *pFrame,frame_id_t fid,const AVFrameSideData *sd) {
+          if(sd)
+          {
+             const auto it = std::find_if(m_frames.begin(),m_frames.end(),[&fid] (const auto &s)->bool{
+                return fid == s.fid;
+             });
+             if(it == m_frames.end()) {
+                 m_frames.push_back({{sd->data,sd->data+sd->size},fid,pFrame->pts,false});
+             }
+          }
+    }
+    void filtered(AVFrame *pFrame,frame_id_t fid) {
+        auto itPts = std::find_if(m_frames.begin(),m_frames.end(), [&pFrame] (const auto &s)->bool{
+              return s.pts == pFrame->pts;
+        });
+        if(itPts != m_frames.end()){
+            itPts->acked = true;
+            auto it = itPts;
+            // append cc for all unacknowledged frames to either end
+            for(;it != m_frames.begin() && !it->acked;--it) {
+                  itPts->payload.insert(itPts->payload.end(),it->payload.begin(),it->payload.end());
+            }
+            m_frames.erase(it,itPts);
+        }
+    }
+    void encoded(AVPacket *&pPacket) {
+        LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"encoded(%p). encoded: frames %d",
+                             this,m_frames.size());
+        auto it = std::find_if(m_frames.begin(),m_frames.end(), [&pPacket] (const auto &s)->bool{
+            return s.pts == pPacket->pts;
+         });
+        if(it != m_frames.end()) {
+           // TODO: append cc data in chunks of MaxCCLength
+           m_frames.erase(it);
+        }
+    }
+ };
+
 struct A53Mapper
 {
-    std::unordered_map<int,cc_fifo_t> m_cc;
+    CodedBitstreamContext *m_cbs = nullptr;
+    std::unordered_map<int,A53Stream> m_cc;
+
+    ~A53Mapper()
+    {
+        if(m_cbs)
+            ff_cbs_close(&m_cbs);
+    }
 };
 
 extern "C"
 {
-#include "./logger.h"
-#include "cc_atsc_a53.h"
 
-    int atsc_a53_handler_create(atsc_a53_handler_t *h)
+
+    int atsc_a53_handler_create(enum AVCodecID codecId,atsc_a53_handler_t *h)
     {
-        *h = new A53Mapper();
-        return *h ? 0 : AVERROR(ENOMEM);
+        *h = nullptr;
+        auto m = new A53Mapper();
+        if(!m)
+            return AVERROR(ENOMEM);
+        auto ret = ff_cbs_init(&m->m_cbs,codecId,nullptr);
+        if(ret < 0) {
+            delete m;
+        }
+        *h = m;
+        return 0;
     }
-
-
     void atsc_a53_handler_free(atsc_a53_handler_t *h)
     {
         if(*h)
             delete (A53Mapper*)*h;
-        *h = NULL;
+        *h = nullptr;
     }
-
     int atsc_a53_add_stream(atsc_a53_handler_t h,int streamId) {
         if(h)
         {
              LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"atsc_a53_add_stream(%p). stream %d",
                      h,streamId);
               auto &m = *reinterpret_cast<A53Mapper*>(h);
-              m.m_cc.insert(std::make_pair(streamId,cc_fifo_t()));
-              if(m.m_cc.find(-1) == m.m_cc.end())
-                m.m_cc.insert(std::make_pair(-1,cc_fifo_t()));
+              m.m_cc.insert(std::make_pair(streamId,A53Stream()));
         }
         return 0;
     }
-
-
-    int atsc_a53_input_frame(atsc_a53_handler_t h,AVFrame *pFrame)
+    int atsc_a53_decoded(atsc_a53_handler_t h,AVFrame *f)
     {
-       if(h)
+        LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"atsc_a53_decoded(%p). %p",
+                   h,f);
+        if(h && f)
        {
-            auto &m = *reinterpret_cast<A53Mapper*>(h);
-            const auto sd = av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC);
-            if(sd)
-            {
-                LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"atsc_a53_input_frame(%p). cc %d bytes",
-                       h,sd->size);
-                for(auto &it: m.m_cc)
-                {
-                   it.second.insert(it.second.end(),sd->data,sd->data + sd->size);
+           const auto sd = av_frame_get_side_data(f,AV_FRAME_DATA_A53_CC);
+           if(sd)  {
+               frame_id_t fid = AV_NOPTS_VALUE;
+               //best effort
+               get_frame_id(f,&fid);
+                auto &m = *reinterpret_cast<A53Mapper*>(h);
+                try {
+                    for(auto &it: m.m_cc) {
+                      it.second.decoded(f,fid,sd);
+                    }
+                } catch (std::exception &e) {
+                     LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_WARNING,"atsc_a53_decoded(%p).error %s",
+                          h,e.what());
+                     return -1;
                 }
+                av_frame_remove_side_data(f,AV_FRAME_DATA_A53_CC);
             }
-            av_frame_remove_side_data(pFrame,AV_FRAME_DATA_A53_CC);
-            _S(atsc_a53_output_frame(h,-1,pFrame));
-        }
-        return 0;
+       }
+       return 0;
     }
-
-
-    int atsc_a53_output_frame(atsc_a53_handler_t h,int streamId,AVFrame *pFrame)
+    int atsc_a53_filtered(atsc_a53_handler_t h,int streamId,AVFrame *f)
     {
-        if(h)
-        {
-            auto &m = *reinterpret_cast<A53Mapper*>(h);
-            const auto it = m.m_cc.find(streamId);
-            if(it == m.m_cc.end()) {
-                LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_WARNING,"atsc_a53_output_frame(%p). stream %d not found",
-                    h,streamId);
-                return AVERROR(EINVAL);
-            }
-            auto &v = it->second;
-            if(v.size())
-            {
-                av_frame_remove_side_data(pFrame,AV_FRAME_DATA_A53_CC);
-                const auto sdSize = std::min(v.size(),MaxCCLength );
-                auto sd = av_frame_new_side_data(pFrame,AV_FRAME_DATA_A53_CC,sdSize);
-                if(!sd)
-                    return AVERROR(ENOMEM);
-                LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"atsc_a53_output_frame(%p). stream %d . cc %d bytes. pts %lld",
-                    h,streamId, sdSize, pFrame->pts);
-                std::copy(v.begin(),v.begin()+sdSize,sd->data);
-                v.erase(v.begin(),v.begin() + sdSize);
-            }
-        }
-        return 0;
+         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"atsc_a53_filtered(%p). %p",
+                       h,f);
+          if(h && f)
+          {
+               frame_id_t fid = AV_NOPTS_VALUE;
+               //best effort
+               get_frame_id(f,&fid);
+               auto &m = *reinterpret_cast<A53Mapper*>(h);
+               try {
+                  auto it = m.m_cc.find(streamId);
+                  if(it == m.m_cc.end())
+                     throw std::out_of_range("streamId out of range");
+                  it->second.filtered(f,fid);
+               } catch (std::exception &e) {
+                    LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_WARNING,"atsc_a53_filtered(%p).error %s",
+                         h,e.what());
+                    return -1;
+               }
+          }
+          return 0;
+    }
+    int atsc_a53_encoded(atsc_a53_handler_t h,int streamId,AVPacket **ppPacket)
+    {
+         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"atsc_a53_encoded(%p). stream %d %p",
+                        h,streamId,ppPacket);
+          if(h && ppPacket && *ppPacket)
+         {
+              auto &m = *reinterpret_cast<A53Mapper*>(h);
+              try {
+                   auto it = m.m_cc.find(streamId);
+                   if(it == m.m_cc.end())
+                      throw std::out_of_range("streamId out of range");
+                   it->second.encoded(*ppPacket);
+              } catch (std::exception &e) {
+                   LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_WARNING,"atsc_a53_encoded(%p).error %s",
+                        h,e.what());
+                   return -1;
+              }
+         }
+         return 0;
     }
 }
