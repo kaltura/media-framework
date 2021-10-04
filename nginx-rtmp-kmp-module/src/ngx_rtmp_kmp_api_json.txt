@@ -4,6 +4,7 @@ out ngx_rtmp_kmp_api_upstream_json ngx_kmp_push_upstream_t
     remote_addr %V
     local_addr %V
     connection %uA obj->log.
+    auto_ack %b
 
     sent_bytes %O (obj->peer.connection ? obj->peer.connection->sent : 0)
     position %O (obj->peer.connection ? obj->sent_base + obj->peer.connection->sent : 0)
