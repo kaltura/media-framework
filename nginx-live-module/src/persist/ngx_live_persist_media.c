@@ -1281,7 +1281,6 @@ ngx_live_persist_media_bucket_time_variable(ngx_live_variables_ctx_t *ctx,
     uint32_t                                   limit;
     ngx_tm_t                                   tm;
     ngx_live_channel_t                        *channel;
-    ngx_live_core_preset_conf_t               *cpcf;
     ngx_live_persist_media_channel_ctx_t      *cctx;
     ngx_live_persist_media_preset_conf_t      *pmpcf;
     ngx_live_persist_media_bucket_time_ctx_t  *var = (void *) data;
@@ -1320,9 +1319,7 @@ ngx_live_persist_media_bucket_time_variable(ngx_live_variables_ctx_t *ctx,
         segment_index++;
     }
 
-    cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
-
-    sec = time / cpcf->timescale;
+    sec = time / channel->timescale;
 
     if (var->gmt) {
         ngx_libc_gmtime(sec, &tm);

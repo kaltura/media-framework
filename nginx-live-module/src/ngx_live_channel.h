@@ -112,6 +112,7 @@ struct ngx_live_channel_s {
     void                         **ctx;
     void                         **main_conf;
     void                         **preset_conf;
+    ngx_uint_t                     timescale;
 
     ngx_live_channel_variants_t    variants;
 

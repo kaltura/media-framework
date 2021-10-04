@@ -160,6 +160,19 @@ ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
         goto error;
     }
 
+    /* create block pool */
+    cpcf = ngx_live_get_module_preset_conf(conf_ctx, ngx_live_core_module);
+
+    channel->block_pool = ngx_block_pool_create(pool, cpcf->mem_blocks.elts,
+        cpcf->mem_blocks.nelts, &channel->mem_left);
+    if (channel->block_pool == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
+            "ngx_live_channel_create: create block pool failed");
+        goto error;
+    }
+
+    channel->bp_idx = cpcf->bp_idx;
+
     /* initialize */
     channel->pool = pool;
 
@@ -183,21 +196,6 @@ ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
 
     channel->start_sec = ngx_time();
     channel->last_modified = ngx_time();
-
-    cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
-
-    /* create block pool */
-    channel->block_pool = ngx_block_pool_create(pool, cpcf->mem_blocks.elts,
-        cpcf->mem_blocks.nelts, &channel->mem_left);
-    if (channel->block_pool == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
-            "ngx_live_channel_create: create block pool failed");
-        (void) ngx_live_core_channel_event(channel,
-            NGX_LIVE_EVENT_CHANNEL_FREE, NULL);
-        goto error;
-    }
-
-    channel->bp_idx = cpcf->bp_idx;
 
     /* call handlers */
     ngx_live_core_channel_init(channel);

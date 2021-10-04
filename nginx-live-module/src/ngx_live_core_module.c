@@ -689,6 +689,8 @@ ngx_live_core_channel_init(ngx_live_channel_t *channel)
         cpcf->mem_limit / 100;
     channel->mem_low_watermark = (100 - cpcf->mem_low_watermark) *
         cpcf->mem_limit / 100;
+
+    channel->timescale = cpcf->timescale;
 }
 
 ngx_int_t
