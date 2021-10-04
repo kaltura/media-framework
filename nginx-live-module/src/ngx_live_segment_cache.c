@@ -264,21 +264,20 @@ ngx_live_segment_cache_shift_dts(ngx_live_segment_t *segment, uint32_t shift)
 void
 ngx_live_segment_cache_finalize(ngx_live_segment_t *segment)
 {
-    int64_t                       min_duration;
-    uint64_t                      last_segment_bitrate;
-    ngx_live_track_t             *track;
-    ngx_live_core_preset_conf_t  *cpcf;
+    int64_t              min_duration;
+    uint64_t             last_segment_bitrate;
+    ngx_live_track_t    *track;
+    ngx_live_channel_t  *channel;
 
     track = segment->track;
-    cpcf = ngx_live_get_module_preset_conf(track->channel,
-        ngx_live_core_module);
+    channel = track->channel;
 
     /* calculate bitrate only for segments with duration > .25 sec */
-    min_duration = cpcf->timescale / 4;
+    min_duration = channel->timescale / 4;
     if (segment->end_dts > segment->start_dts + min_duration) {
 
         last_segment_bitrate =
-            (segment->data_size * 8 * cpcf->timescale) /
+            (segment->data_size * 8 * channel->timescale) /
             (segment->end_dts - segment->start_dts);
 
         if (last_segment_bitrate > 0 &&

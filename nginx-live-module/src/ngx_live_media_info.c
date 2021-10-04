@@ -200,7 +200,6 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
 {
     ngx_live_channel_t                 *channel;
     ngx_live_media_info_node_t         *node;
-    ngx_live_core_preset_conf_t        *cpcf;
     ngx_live_media_info_preset_conf_t  *mipcf;
 
     if (media_info->media_type != track->media_type) {
@@ -212,13 +211,12 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
     }
 
     channel = track->channel;
-    cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
-    if (media_info->timescale != cpcf->timescale) {
+    if (media_info->timescale != channel->timescale) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_live_media_info_node_create: "
             "input timescale %uD doesn't match channel timescale %ui",
-            media_info->timescale, cpcf->timescale);
+            media_info->timescale, channel->timescale);
         return NGX_BAD_DATA;
     }
 
@@ -365,14 +363,11 @@ ngx_live_media_info_update_stats(ngx_live_segment_t *segment)
     ngx_queue_t                      *q;
     ngx_live_track_t                 *track;
     ngx_live_media_info_node_t       *node;
-    ngx_live_core_preset_conf_t      *cpcf;
     ngx_ksmp_media_info_stats_t      *stats;
     ngx_live_media_info_track_ctx_t  *ctx;
 
     track = segment->track;
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
-    cpcf = ngx_live_get_module_preset_conf(track->channel,
-        ngx_live_core_module);
 
     q = ngx_queue_last(&ctx->active);
     node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
@@ -394,7 +389,8 @@ ngx_live_media_info_update_stats(ngx_live_segment_t *segment)
         stats->duration += duration;
         stats->frame_count += segment->frame_count;
 
-        frame_rate = segment->frame_count * 100 * cpcf->timescale / duration;
+        frame_rate = segment->frame_count * 100 * track->channel->timescale
+            / duration;
 
         if (!stats->frame_rate_min || frame_rate < stats->frame_rate_min) {
             stats->frame_rate_min = frame_rate;
