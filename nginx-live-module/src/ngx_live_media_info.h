@@ -32,7 +32,7 @@ void ngx_live_media_info_pending_free_all(ngx_live_track_t *track);
 
 
 /* active */
-void ngx_live_media_info_update_bitrate(ngx_live_track_t *track);
+void ngx_live_media_info_update_stats(ngx_live_segment_t *segment);
 
 ngx_live_media_info_node_t *ngx_live_media_info_queue_get_node(
     ngx_live_track_t *track, uint32_t segment_index, uint32_t *track_id);

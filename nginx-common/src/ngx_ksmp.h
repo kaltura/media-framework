@@ -76,6 +76,14 @@ enum {
 };
 
 
+typedef enum {
+    ngx_ksmp_variant_role_main,
+    ngx_ksmp_variant_role_alternate,
+
+    ngx_ksmp_variant_role_count
+} ngx_ksmp_variant_role_e;
+
+
 typedef struct {
     uint32_t    track_count;
     uint32_t    variant_count;
@@ -115,13 +123,6 @@ typedef struct {
 } ngx_ksmp_segment_repeat_t;
 
 
-typedef enum {
-    ngx_ksmp_variant_role_main,
-    ngx_ksmp_variant_role_alternate,
-
-    ngx_ksmp_variant_role_count
-} ngx_ksmp_variant_role_e;
-
 typedef struct {
     uint32_t    role;
     uint32_t    is_default;
@@ -140,11 +141,21 @@ typedef struct {
 
 
 typedef struct {
-    uint32_t    track_id;
-    uint32_t    segment_index;
     uint64_t    bitrate_sum;
     uint32_t    bitrate_count;
     uint32_t    bitrate_max;
+
+    uint64_t    duration;
+    uint64_t    frame_count;
+    uint32_t    frame_rate_min;     /* frames / 100 sec */
+    uint32_t    frame_rate_max;     /* frames / 100 sec */
+} ngx_ksmp_media_info_stats_t;
+
+
+typedef struct {
+    uint32_t                     track_id;
+    uint32_t                     segment_index;
+    ngx_ksmp_media_info_stats_t  stats;
 } ngx_ksmp_media_info_header_t;
 
 

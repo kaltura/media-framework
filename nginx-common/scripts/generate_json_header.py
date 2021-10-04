@@ -456,11 +456,22 @@ if (d) {
     *p++ = '0';
 }''' % (expr, expr, format, printParams)
             else:
-                match = re.match('^\.(\d+)f$', format)
-                if not match is None:
-                    valueSize = ('NGX_INT64_LEN + %s' %
-                        (int(match.groups()[0]) + 1))
-                    cast = 'double'
+                scale = None
+                match = re.match('^\.(\d+)(\w+)$', format)
+                if match is not None:
+                    precision = int(match.groups()[0])
+                    format = match.groups()[1]
+                    if format == 'f':
+                        valueSize = ('NGX_INT64_LEN + %s' % (precision + 1))
+                        cast = 'double'
+                    elif format == 'uD':
+                        valueSize = 'NGX_INT32_LEN + 1'
+                        cast = 'uint32_t'
+                        scale = 10 ** precision
+                        format += '.%%0%suD' % precision
+                    else:
+                        writeErr('Error: unknown format %s' % format)
+                        sys.exit(1)
                 elif format == 'L':
                     valueSize = 'NGX_INT64_LEN'
                     cast = 'int64_t'
@@ -496,8 +507,14 @@ if (d) {
                 else:
                     writeErr('Error: unknown format %s' % format)
                     sys.exit(1)
-                valueWrite = ('p = ngx_sprintf(p, "%s", (%s) %s);' %
-                    ('%' + format, cast, expr))
+
+                if scale is not None:
+                    valueWrite = (('p = ngx_sprintf(p, "%s", ' +
+                        '(%s) (%s / %s), (uint32_t) (%s %% %s));') %
+                        ('%' + format, cast, expr, scale, expr, scale))
+                else:
+                    valueWrite = ('p = ngx_sprintf(p, "%s", (%s) %s);' %
+                        ('%' + format, cast, expr))
 
         else:
             fixed += '"%s"' % format

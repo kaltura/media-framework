@@ -286,11 +286,11 @@ ngx_live_segment_cache_finalize(ngx_live_segment_t *segment)
         {
             track->last_segment_bitrate = last_segment_bitrate;
 
-            ngx_live_media_info_update_bitrate(track);
-
         } else {
             track->last_segment_bitrate = NGX_LIVE_SEGMENT_NO_BITRATE;
         }
+
+        ngx_live_media_info_update_stats(segment);
 
     } else {
         track->last_segment_bitrate = NGX_LIVE_SEGMENT_NO_BITRATE;
