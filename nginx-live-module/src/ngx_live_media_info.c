@@ -28,52 +28,53 @@ enum {
 typedef void *(*ngx_live_media_info_alloc_pt)(void *ctx, size_t size);
 
 struct ngx_live_media_info_node_s {
-    ngx_rbtree_node_t       node;
-    ngx_queue_t             queue;
-    ngx_live_media_info_t   media_info;
-    uint32_t                track_id;
-    uint32_t                frame_index_delta;     /* used when pending */
+    ngx_rbtree_node_t             node;
+    ngx_queue_t                   queue;
+    ngx_live_media_info_t         media_info;
+    uint32_t                      track_id;
+    uint32_t                      frame_index_delta;    /* used when pending */
     ngx_ksmp_media_info_stats_t   stats;
 };
 
 
 typedef struct {
-    ngx_queue_t             pending;
-    uint32_t                delta_sum;
+    ngx_queue_t                   pending;
+    uint32_t                      delta_sum;
 
-    ngx_rbtree_t            rbtree;
-    ngx_rbtree_node_t       sentinel;
-    ngx_queue_t             active;
-    uint32_t                added;
-    uint32_t                removed;
+    ngx_rbtree_t                  rbtree;
+    ngx_rbtree_node_t             sentinel;
+    ngx_queue_t                   active;
+    uint32_t                      added;
+    uint32_t                      removed;
 
-    ngx_json_str_t          group_id;
-    u_char                  group_id_buf[NGX_LIVE_TRACK_MAX_GROUP_ID_LEN];
+    ngx_json_str_t                group_id;
+    u_char                        group_id_buf
+                                            [NGX_LIVE_TRACK_MAX_GROUP_ID_LEN];
 
-    ngx_live_track_t       *source;
-    uint32_t                source_refs;
+    ngx_live_track_t             *source;
+    uint32_t                      source_refs;
 } ngx_live_media_info_track_ctx_t;
 
 typedef struct {
-    uint32_t                min_free_index;
+    uint32_t                      min_free_index;
 } ngx_live_media_info_channel_ctx_t;
 
 
 typedef struct {
-    ngx_queue_t            *q;
-    ngx_queue_t            *sentinel;
-    uint32_t                track_id;
+    ngx_queue_t                  *q;
+    ngx_queue_t                  *sentinel;
+    uint32_t                      track_id;
 } ngx_live_media_info_own_iter_t;
 
 
 typedef struct {
-    uint32_t                track_id;
-    uint32_t                source_id;
+    uint32_t                      track_id;
+    uint32_t                      source_id;
 } ngx_live_media_info_snap_t;
 
 
 typedef struct {
-    ngx_uint_t              bp_idx[NGX_LIVE_BP_COUNT];
+    ngx_uint_t                    bp_idx[NGX_LIVE_BP_COUNT];
 } ngx_live_media_info_preset_conf_t;
 
 
