@@ -110,6 +110,9 @@ static size_t ngx_live_timeline_last_periods_json_get_size(
 static u_char *ngx_live_timeline_last_periods_json_write(u_char *p,
     ngx_live_timeline_t *obj);
 
+static uint32_t ngx_live_timeline_get_first_index(
+    ngx_live_timeline_t *timeline);
+
 static ngx_int_t ngx_live_timeline_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_timeline_postconfiguration(ngx_conf_t *cf);
 
@@ -809,11 +812,10 @@ ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
 ngx_flag_t
 ngx_live_timeline_is_expired(ngx_live_timeline_t *timeline)
 {
-    uint32_t                     *cur, *end;
-    uint32_t                      max;
-    uint32_t                      expiry;
-    uint32_t                      expiry_threshold;
-    ngx_live_core_preset_conf_t  *cpcf;
+    uint32_t  *cur, *end;
+    uint32_t   max;
+    uint32_t   expiry;
+    uint32_t   expiry_threshold;
 
     expiry_threshold = timeline->manifest.conf.expiry_threshold;
     if (expiry_threshold <= 0) {
@@ -829,10 +831,8 @@ ngx_live_timeline_is_expired(ngx_live_timeline_t *timeline)
         }
     }
 
-    cpcf = ngx_live_get_module_preset_conf(timeline->channel,
-        ngx_live_core_module);
-
-    expiry = ((uint64_t) max * expiry_threshold) / (cpcf->timescale * 100);
+    expiry = ((uint64_t) max * expiry_threshold)
+        / (timeline->channel->timescale * 100);
 
     return ngx_time() > (time_t) (timeline->last_segment_created + expiry);
 }
@@ -1059,11 +1059,10 @@ static void
 ngx_live_timeline_inactive_remove_segments(ngx_live_timeline_t *timeline,
     uint32_t *min_segment_index)
 {
-    uint32_t                      base_count;
-    uint64_t                      base_duration;
-    ngx_queue_t                  *q;
-    ngx_live_period_t            *period;
-    ngx_live_core_preset_conf_t  *cpcf;
+    uint32_t            base_count;
+    uint64_t            base_duration;
+    ngx_queue_t        *q;
+    ngx_live_period_t  *period;
 
     if (ngx_time() <= timeline->last_segment_created ||
         timeline->duration <= 0)
@@ -1080,11 +1079,8 @@ ngx_live_timeline_inactive_remove_segments(ngx_live_timeline_t *timeline,
         return;
     }
 
-    cpcf = ngx_live_get_module_preset_conf(timeline->channel,
-        ngx_live_core_module);
-
-    base_duration = (uint64_t) (ngx_time() - timeline->last_segment_created) *
-        cpcf->timescale;
+    base_duration = (uint64_t) (ngx_time() - timeline->last_segment_created)
+        * timeline->channel->timescale;
 
     base_count = (base_duration * timeline->segment_count) /
         timeline->duration;
@@ -1110,6 +1106,22 @@ ngx_live_timeline_add_segment(ngx_live_timeline_t *timeline, uint32_t duration)
     timeline->duration += duration;
 
     ngx_live_manifest_timeline_add_segment(&timeline->manifest, duration);
+}
+
+static uint32_t
+ngx_live_timeline_get_first_index(ngx_live_timeline_t *timeline)
+{
+    ngx_queue_t        *q;
+    ngx_live_period_t  *period;
+
+    q = ngx_queue_head(&timeline->periods);
+    if (q == ngx_queue_sentinel(&timeline->periods)) {
+        return NGX_LIVE_INVALID_SEGMENT_INDEX;
+    }
+
+    period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+    return period->node.key;
 }
 
 static void

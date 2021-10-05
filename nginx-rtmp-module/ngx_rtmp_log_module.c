@@ -191,6 +191,92 @@ ngx_rtmp_log_var_remote_addr_getdata(ngx_rtmp_session_t *s, u_char *buf,
 
 
 static size_t
+ngx_rtmp_log_var_remote_port_getlen(ngx_rtmp_session_t *s,
+    ngx_rtmp_log_op_t *op)
+{
+    return sizeof("65535") - 1;
+}
+
+
+static u_char *
+ngx_rtmp_log_var_remote_port_getdata(ngx_rtmp_session_t *s, u_char *buf,
+    ngx_rtmp_log_op_t *op)
+{
+    ngx_uint_t  port;
+
+    port = ngx_inet_get_port(s->connection->sockaddr);
+
+    if (port > 0 && port < 65536) {
+        return ngx_sprintf(buf, "%ui", port);
+    }
+
+    return buf;
+}
+
+
+static size_t
+ngx_rtmp_log_var_proxy_protocol_addr_getlen(ngx_rtmp_session_t *s,
+    ngx_rtmp_log_op_t *op)
+{
+    ngx_proxy_protocol_t  *pp;
+
+    pp = s->connection->proxy_protocol;
+    if (pp == NULL) {
+        return 0;
+    }
+
+    return pp->src_addr.len;
+}
+
+
+static u_char *
+ngx_rtmp_log_var_proxy_protocol_addr_getdata(ngx_rtmp_session_t *s, u_char *buf,
+    ngx_rtmp_log_op_t *op)
+{
+    ngx_proxy_protocol_t  *pp;
+
+    pp = s->connection->proxy_protocol;
+    if (pp == NULL) {
+        return buf;
+    }
+
+    return ngx_cpymem(buf, pp->src_addr.data, pp->src_addr.len);
+}
+
+
+#if (nginx_version >= 1017006)
+static size_t
+ngx_rtmp_log_var_proxy_protocol_port_getlen(ngx_rtmp_session_t *s,
+    ngx_rtmp_log_op_t *op)
+{
+    return sizeof("65535") - 1;
+}
+
+
+static u_char *
+ngx_rtmp_log_var_proxy_protocol_port_getdata(ngx_rtmp_session_t *s,
+    u_char *buf, ngx_rtmp_log_op_t *op)
+{
+    ngx_uint_t             port;
+    ngx_proxy_protocol_t  *pp;
+
+    pp = s->connection->proxy_protocol;
+    if (pp == NULL) {
+        return buf;
+    }
+
+    port = pp->src_port;
+
+    if (port > 0 && port < 65536) {
+        return ngx_sprintf(buf, "%ui", port);
+    }
+
+    return buf;
+}
+#endif
+
+
+static size_t
 ngx_rtmp_log_var_msec_getlen(ngx_rtmp_session_t *s,
     ngx_rtmp_log_op_t *op)
 {
@@ -396,6 +482,23 @@ static ngx_rtmp_log_var_t ngx_rtmp_log_vars[] = {
       ngx_rtmp_log_var_remote_addr_getlen,
       ngx_rtmp_log_var_remote_addr_getdata,
       0 },
+
+    { ngx_string("remote_port"),
+      ngx_rtmp_log_var_remote_port_getlen,
+      ngx_rtmp_log_var_remote_port_getdata,
+      0 },
+
+    { ngx_string("proxy_protocol_addr"),
+      ngx_rtmp_log_var_proxy_protocol_addr_getlen,
+      ngx_rtmp_log_var_proxy_protocol_addr_getdata,
+      0 },
+
+#if (nginx_version >= 1017006)
+    { ngx_string("proxy_protocol_port"),
+      ngx_rtmp_log_var_proxy_protocol_port_getlen,
+      ngx_rtmp_log_var_proxy_protocol_port_getdata,
+      0 },
+#endif
 
     { ngx_string("app"),
       ngx_rtmp_log_var_session_string_getlen,

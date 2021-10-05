@@ -50,12 +50,10 @@ ngx_rtmp_proxy_protocol(ngx_rtmp_session_t *s)
 static void
 ngx_rtmp_proxy_protocol_recv(ngx_event_t *rev)
 {
-    u_char               buf[107], *p, *pp, *text;
-    size_t               len;
+    u_char              *p, buf[NGX_PROXY_PROTOCOL_MAX_HEADER];
+    size_t               size;
     ssize_t              n;
     ngx_err_t            err;
-    ngx_int_t            i;
-    ngx_addr_t           addr;
     ngx_connection_t    *c;
     ngx_rtmp_session_t  *s;
 
@@ -101,97 +99,19 @@ ngx_rtmp_proxy_protocol_recv(ngx_event_t *rev)
         return;
     }
 
-    p = buf;
+    p = ngx_proxy_protocol_read(c, buf, buf + n);
 
-    if (n <= 8 && ngx_strncmp(p, "PROXY ", 6) != 0) {
-        goto bad_header;
+    if (p == NULL) {
+        ngx_rtmp_finalize_session(s);
+        return;
     }
 
-    n -= 6;
-    p += 6;
+    size = p - buf;
 
-    ngx_memzero(&addr, sizeof(ngx_addr_t));
-
-    if (n >= 7 && ngx_strncmp(p, "UNKNOWN", 7) == 0) {
-        n -= 7;
-        p += 7;
-        goto skip;
-    }
-
-    if (n < 5 || ngx_strncmp(p, "TCP", 3) != 0
-        || (p[3] != '4' && p[3] != '6') || p[4] != ' ')
-    {
-        goto bad_header;
-    }
-
-    n -= 5;
-    p += 5;
-
-    pp = ngx_strlchr(p, p + n, ' ');
-
-    if (pp == NULL) {
-        goto bad_header;
-    }
-
-    if (ngx_parse_addr(s->connection->pool, &addr, p, pp - p) != NGX_OK) {
-        goto bad_header;
-    }
-
-    n -= pp - p;
-    p = pp;
-
-skip:
-
-    for (i = 0; i + 1 < n; i++) {
-        if (p[i] == CR && p[i + 1] == LF) {
-            break;
-        }
-    }
-
-    if (i + 1 >= n) {
-        goto bad_header;
-    }
-
-    n = p - buf + i + 2;
-
-    if (c->recv(c, buf, n) != n) {
-        goto failed;
-    }
-
-    if (addr.socklen) {
-        text = ngx_palloc(s->connection->pool, NGX_SOCKADDR_STRLEN);
-
-        if (text == NULL) {
-            goto failed;
-        }
-
-        len = ngx_sock_ntop(addr.sockaddr,
-#if (nginx_version >= 1005003)
-                            addr.socklen,
-#endif
-                            text, NGX_SOCKADDR_STRLEN, 0);
-        if (len == 0) {
-            goto failed;
-        }
-
-        c->sockaddr = addr.sockaddr;
-        c->socklen = addr.socklen;
-        c->addr_text.data = text;
-        c->addr_text.len = len;
-
-        ngx_log_debug1(NGX_LOG_DEBUG_RTMP, c->log, 0,
-                       "proxy_protocol: remote_addr:'%V'", &c->addr_text);
+    if (c->recv(c, buf, size) != (ssize_t) size) {
+        ngx_rtmp_finalize_session(s);
+        return;
     }
 
     ngx_rtmp_handshake(s);
-
-    return;
-
-bad_header:
-
-    ngx_log_error(NGX_LOG_ERR, c->log, 0, "proxy_protocol: bad header");
-
-failed:
-
-    ngx_rtmp_finalize_session(s);
 }

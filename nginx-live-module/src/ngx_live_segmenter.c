@@ -3283,7 +3283,6 @@ ngx_live_segmenter_update_segment_duration(
 static ngx_int_t
 ngx_live_segmenter_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
-    ngx_live_core_preset_conf_t       *cpcf;
     ngx_live_segmenter_preset_conf_t  *spcf;
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
@@ -3297,36 +3296,35 @@ ngx_live_segmenter_channel_init(ngx_live_channel_t *channel, void *ectx)
     ngx_live_set_ctx(channel, cctx, ngx_live_segmenter_module);
 
     spcf = ngx_live_get_module_preset_conf(channel, ngx_live_segmenter_module);
-    cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
     cctx->conf.segment_duration = spcf->segment_duration;
     cctx->segment_duration = ngx_live_rescale_time(cctx->conf.segment_duration,
-        1000, cpcf->timescale);
+        1000, channel->timescale);
     ngx_live_segmenter_update_segment_duration(cctx, spcf);
     cctx->cur_ready_duration = cctx->initial_ready_duration;
 
     cctx->min_segment_duration = ngx_live_rescale_time(
-        spcf->min_segment_duration, 1000, cpcf->timescale);
+        spcf->min_segment_duration, 1000, channel->timescale);
     cctx->forward_skip_threshold = ngx_live_rescale_time(
-        spcf->forward_skip_threshold, 1000, cpcf->timescale);
+        spcf->forward_skip_threshold, 1000, channel->timescale);
     cctx->forward_jump_threshold = ngx_live_rescale_time(
-        spcf->forward_jump_threshold, 1000, cpcf->timescale);
+        spcf->forward_jump_threshold, 1000, channel->timescale);
     cctx->backward_jump_threshold = ngx_live_rescale_time(
-        spcf->backward_jump_threshold, 1000, cpcf->timescale);
+        spcf->backward_jump_threshold, 1000, channel->timescale);
     cctx->start_truncate_limit = ngx_live_rescale_time(
-        spcf->start_truncate_limit, 1000, cpcf->timescale);
+        spcf->start_truncate_limit, 1000, channel->timescale);
 
     cctx->track_add_snap_range = ngx_live_rescale_time(
-        spcf->track_add_snap_range, 1000, cpcf->timescale);
+        spcf->track_add_snap_range, 1000, channel->timescale);
     cctx->track_remove_snap_range = ngx_live_rescale_time(
-        spcf->track_remove_snap_range, 1000, cpcf->timescale);
+        spcf->track_remove_snap_range, 1000, channel->timescale);
     cctx->split_snap_range = ngx_live_rescale_time(
-        spcf->split_snap_range, 1000, cpcf->timescale);
+        spcf->split_snap_range, 1000, channel->timescale);
 
     cctx->candidate_margin = ngx_live_rescale_time(
-        spcf->candidate_margin, 1000, cpcf->timescale);
+        spcf->candidate_margin, 1000, channel->timescale);
     cctx->keyframe_alignment_margin = ngx_live_rescale_time(
-        spcf->keyframe_alignment_margin, 1000, cpcf->timescale);
+        spcf->keyframe_alignment_margin, 1000, channel->timescale);
 
     cctx->create.data = channel;
     cctx->create.handler = ngx_live_segmenter_create_handler;
@@ -3392,7 +3390,6 @@ ngx_live_segmenter_set_segment_duration_internal(ngx_live_channel_t *channel,
     int64_t value, ngx_log_t *log)
 {
     ngx_flag_t                         initial;
-    ngx_live_core_preset_conf_t       *cpcf;
     ngx_live_segmenter_preset_conf_t  *spcf;
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
@@ -3406,11 +3403,10 @@ ngx_live_segmenter_set_segment_duration_internal(ngx_live_channel_t *channel,
     }
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
-    cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
     cctx->conf.segment_duration = value;
     cctx->segment_duration = ngx_live_rescale_time(cctx->conf.segment_duration,
-        1000, cpcf->timescale);
+        1000, channel->timescale);
 
     initial = cctx->cur_ready_duration == cctx->initial_ready_duration;
     ngx_live_segmenter_update_segment_duration(cctx, spcf);

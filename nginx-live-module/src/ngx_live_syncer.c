@@ -23,8 +23,6 @@ typedef struct {
     ngx_uint_t             jump_sync_frames;
     time_t                 max_forward_drift;
     time_t                 correction_reuse_threshold;
-
-    ngx_uint_t             timescale;
 } ngx_live_syncer_preset_conf_t;
 
 typedef struct {
@@ -256,10 +254,10 @@ ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
 
     channel_correction += ngx_round_to_multiple(
         track_correction - channel_correction,
-        ngx_live_syncer_wraparound_value(spcf->timescale));
+        ngx_live_syncer_wraparound_value(channel->timescale));
 
     if ((uint64_t) ngx_abs(channel_correction - track_correction) <
-        spcf->correction_reuse_threshold * spcf->timescale &&
+        spcf->correction_reuse_threshold * channel->timescale &&
         channel_correction >= min_correction)
     {
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
@@ -326,10 +324,10 @@ ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
         (frame->flags & KMP_FRAME_FLAG_KEY) == 0)
     {
         pts_diff = ngx_abs_diff(pts, ctx->last_pts);
-        if (pts_diff > spcf->jump_threshold * spcf->timescale &&
+        if (pts_diff > spcf->jump_threshold * channel->timescale &&
             ctx->last_pts != NGX_LIVE_INVALID_TIMESTAMP)
         {
-            if (pts_diff > spcf->inter_jump_threshold * spcf->timescale) {
+            if (pts_diff > spcf->inter_jump_threshold * channel->timescale) {
 
                 /* make sure the frame duration will come out positive */
                 min_correction = ctx->last_output_dts + 1 - frame->dts;
@@ -374,7 +372,7 @@ ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
         goto sync;
 
     } else if ((uint64_t) ngx_abs_diff(pts, ctx->last_pts) >
-        spcf->jump_threshold * spcf->timescale)
+        spcf->jump_threshold * channel->timescale)
     {
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
             "ngx_live_syncer_add_frame: pts jump, cur: %L, last %L",
@@ -383,7 +381,7 @@ ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
         goto sync;
 
     } else if (pts + ctx->correction > frame->created +
-        spcf->max_forward_drift * (ngx_int_t) spcf->timescale)
+        spcf->max_forward_drift * (ngx_int_t) channel->timescale)
     {
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
             "ngx_live_syncer_add_frame: "
@@ -694,7 +692,7 @@ ngx_live_syncer_create_preset_conf(ngx_conf_t *cf)
 {
     ngx_live_syncer_preset_conf_t  *conf;
 
-    conf = ngx_pcalloc(cf->pool, sizeof(ngx_live_core_preset_conf_t));
+    conf = ngx_pcalloc(cf->pool, sizeof(ngx_live_syncer_preset_conf_t));
     if (conf == NULL) {
         return NULL;
     }
@@ -712,7 +710,6 @@ ngx_live_syncer_create_preset_conf(ngx_conf_t *cf)
 static char *
 ngx_live_syncer_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    ngx_live_core_preset_conf_t    *cpcf;
     ngx_live_syncer_preset_conf_t  *prev = parent;
     ngx_live_syncer_preset_conf_t  *conf = child;
 
@@ -732,11 +729,6 @@ ngx_live_syncer_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_sec_value(conf->correction_reuse_threshold,
                              prev->correction_reuse_threshold, 10);
-
-    /* copy the timescale to avoid the need to reference the core conf */
-    cpcf = ngx_live_get_module_preset_conf((ngx_live_conf_ctx_t *) cf->ctx,
-        ngx_live_core_module);
-    conf->timescale = cpcf->timescale;
 
     if (ngx_live_reserve_track_ctx_size(cf, ngx_live_syncer_module,
         sizeof(ngx_live_syncer_track_ctx_t)) != NGX_OK)

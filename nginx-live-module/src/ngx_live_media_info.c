@@ -6,8 +6,6 @@
 #include "ngx_live_segment_cache.h"
 #include "ngx_live_timeline.h"
 
-#include "ngx_live_media_info_json.h"
-
 
 #define NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_QUEUE                             \
     NGX_KSMP_BLOCK_MEDIA_INFO_QUEUE
@@ -30,55 +28,57 @@ enum {
 typedef void *(*ngx_live_media_info_alloc_pt)(void *ctx, size_t size);
 
 struct ngx_live_media_info_node_s {
-    ngx_rbtree_node_t       node;
-    ngx_queue_t             queue;
-    ngx_live_media_info_t   media_info;
-    uint32_t                track_id;
-    uint32_t                frame_index_delta;     /* used when pending */
-    uint64_t                bitrate_sum;
-    uint32_t                bitrate_count;
-    uint32_t                bitrate_max;
+    ngx_rbtree_node_t             node;
+    ngx_queue_t                   queue;
+    ngx_live_media_info_t         media_info;
+    uint32_t                      track_id;
+    uint32_t                      frame_index_delta;    /* used when pending */
+    ngx_ksmp_media_info_stats_t   stats;
 };
 
 
 typedef struct {
-    ngx_queue_t             pending;
-    uint32_t                delta_sum;
+    ngx_queue_t                   pending;
+    uint32_t                      delta_sum;
 
-    ngx_rbtree_t            rbtree;
-    ngx_rbtree_node_t       sentinel;
-    ngx_queue_t             active;
-    uint32_t                added;
-    uint32_t                removed;
+    ngx_rbtree_t                  rbtree;
+    ngx_rbtree_node_t             sentinel;
+    ngx_queue_t                   active;
+    uint32_t                      added;
+    uint32_t                      removed;
 
-    ngx_json_str_t          group_id;
-    u_char                  group_id_buf[NGX_LIVE_TRACK_MAX_GROUP_ID_LEN];
+    ngx_json_str_t                group_id;
+    u_char                        group_id_buf
+                                            [NGX_LIVE_TRACK_MAX_GROUP_ID_LEN];
 
-    ngx_live_track_t       *source;
-    uint32_t                source_refs;
+    ngx_live_track_t             *source;
+    uint32_t                      source_refs;
 } ngx_live_media_info_track_ctx_t;
 
 typedef struct {
-    uint32_t                min_free_index;
+    uint32_t                      min_free_index;
 } ngx_live_media_info_channel_ctx_t;
 
 
 typedef struct {
-    ngx_queue_t            *q;
-    ngx_queue_t            *sentinel;
-    uint32_t                track_id;
+    ngx_queue_t                  *q;
+    ngx_queue_t                  *sentinel;
+    uint32_t                      track_id;
 } ngx_live_media_info_own_iter_t;
 
 
 typedef struct {
-    uint32_t                track_id;
-    uint32_t                source_id;
+    uint32_t                      track_id;
+    uint32_t                      source_id;
 } ngx_live_media_info_snap_t;
 
 
 typedef struct {
-    ngx_uint_t              bp_idx[NGX_LIVE_BP_COUNT];
+    ngx_uint_t                    bp_idx[NGX_LIVE_BP_COUNT];
 } ngx_live_media_info_preset_conf_t;
+
+
+#include "ngx_live_media_info_json.h"
 
 
 static ngx_int_t ngx_live_media_info_queue_copy(ngx_live_track_t *track,
@@ -200,7 +200,6 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
 {
     ngx_live_channel_t                 *channel;
     ngx_live_media_info_node_t         *node;
-    ngx_live_core_preset_conf_t        *cpcf;
     ngx_live_media_info_preset_conf_t  *mipcf;
 
     if (media_info->media_type != track->media_type) {
@@ -212,13 +211,12 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
     }
 
     channel = track->channel;
-    cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
-    if (media_info->timescale != cpcf->timescale) {
+    if (media_info->timescale != channel->timescale) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_live_media_info_node_create: "
             "input timescale %uD doesn't match channel timescale %ui",
-            media_info->timescale, cpcf->timescale);
+            media_info->timescale, channel->timescale);
         return NGX_BAD_DATA;
     }
 
@@ -332,10 +330,7 @@ ngx_live_media_info_node_write(ngx_persist_write_ctx_t *write_ctx,
 
     mp.track_id = node->track_id;
     mp.segment_index = node->node.key;
-
-    mp.bitrate_sum = node->bitrate_sum;
-    mp.bitrate_count = node->bitrate_count;
-    mp.bitrate_max = node->bitrate_max;
+    mp.stats = node->stats;
 
     return ngx_live_media_info_write(write_ctx, &mp, &node->media_info);
 }
@@ -361,22 +356,49 @@ ngx_live_media_info_queue_push(ngx_live_track_t *track,
 }
 
 void
-ngx_live_media_info_update_bitrate(ngx_live_track_t *track)
+ngx_live_media_info_update_stats(ngx_live_segment_t *segment)
 {
+    int64_t                           duration;
+    uint32_t                          frame_rate;
     ngx_queue_t                      *q;
+    ngx_live_track_t                 *track;
     ngx_live_media_info_node_t       *node;
+    ngx_ksmp_media_info_stats_t      *stats;
     ngx_live_media_info_track_ctx_t  *ctx;
 
+    track = segment->track;
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
     q = ngx_queue_last(&ctx->active);
     node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+    stats = &node->stats;
 
-    node->bitrate_sum += track->last_segment_bitrate;
-    node->bitrate_count++;
+    /* bitrate */
+    if (track->last_segment_bitrate != NGX_LIVE_SEGMENT_NO_BITRATE) {
+        stats->bitrate_sum += track->last_segment_bitrate;
+        stats->bitrate_count++;
 
-    if (node->bitrate_max < track->last_segment_bitrate) {
-        node->bitrate_max = track->last_segment_bitrate;
+        if (stats->bitrate_max < track->last_segment_bitrate) {
+            stats->bitrate_max = track->last_segment_bitrate;
+        }
+    }
+
+    /* frame rate */
+    duration = segment->end_dts - segment->start_dts;
+    if (duration > 0) {
+        stats->duration += duration;
+        stats->frame_count += segment->frame_count;
+
+        frame_rate = segment->frame_count * 100 * track->channel->timescale
+            / duration;
+
+        if (!stats->frame_rate_min || frame_rate < stats->frame_rate_min) {
+            stats->frame_rate_min = frame_rate;
+        }
+
+        if (frame_rate > stats->frame_rate_max) {
+            stats->frame_rate_max = frame_rate;
+        }
     }
 }
 
@@ -1510,17 +1532,12 @@ ngx_live_media_info_track_json_get_size(void *obj)
     switch (node->media_info.info.media_type) {
 
     case KMP_MEDIA_VIDEO:
-        result += ngx_live_media_info_json_video_get_size(&node->media_info);
+        result += ngx_live_media_info_json_video_get_size(node);
         break;
 
     case KMP_MEDIA_AUDIO:
-        result += ngx_live_media_info_json_audio_get_size(&node->media_info);
+        result += ngx_live_media_info_json_audio_get_size(node);
         break;
-    }
-
-    if (node->bitrate_count) {
-        result += sizeof(",\"bitrate_max\":,\"bitrate_avg\":") - 1 +
-            2 * NGX_INT32_LEN;
     }
 
     return result;
@@ -1563,21 +1580,12 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
     switch (node->media_info.info.media_type) {
 
     case KMP_MEDIA_VIDEO:
-        p = ngx_live_media_info_json_video_write(p, &node->media_info);
+        p = ngx_live_media_info_json_video_write(p, node);
         break;
 
     case KMP_MEDIA_AUDIO:
-        p = ngx_live_media_info_json_audio_write(p, &node->media_info);
+        p = ngx_live_media_info_json_audio_write(p, node);
         break;
-    }
-
-    if (node->bitrate_count) {
-        p = ngx_copy_fix(p, ",\"bitrate_max\":");
-        p = ngx_sprintf(p, "%uD", node->bitrate_max);
-
-        p = ngx_copy_fix(p, ",\"bitrate_avg\":");
-        p = ngx_sprintf(p, "%uD", (uint32_t) (node->bitrate_sum /
-            node->bitrate_count));
     }
 
     *p++ = '}';
@@ -1942,6 +1950,15 @@ ngx_live_media_info_write_index(ngx_persist_write_ctx_t *write_ctx,
 }
 
 
+/* TODO: remove this! */
+typedef struct {
+    uint32_t    track_id;
+    uint32_t    segment_index;
+    uint64_t    bitrate_sum;
+    uint32_t    bitrate_count;
+    uint32_t    bitrate_max;
+} ngx_ksmp_media_info_header_v1_t;
+
 static ngx_int_t
 ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
@@ -1955,9 +1972,16 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_persist_t    *mp;
     ngx_live_persist_index_scope_t   *scope;
+    ngx_ksmp_media_info_header_v1_t  *mp1;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    mp = ngx_mem_rstream_get_ptr(rs, sizeof(*mp) + sizeof(*media_info));
+    if (rs->version >= 7) {
+        mp = ngx_mem_rstream_get_ptr(rs, sizeof(*mp) + sizeof(*media_info));
+
+    } else {
+        mp = ngx_mem_rstream_get_ptr(rs, sizeof(*mp1) + sizeof(*media_info));
+    }
+
     if (mp == NULL) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_media_info_read_index: read failed");
@@ -1981,10 +2005,16 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
                 return NGX_BAD_DATA;
             }
 
-            /* update bitrate stats */
-            node->bitrate_sum = mp->bitrate_sum;
-            node->bitrate_count = mp->bitrate_count;
-            node->bitrate_max = mp->bitrate_max;
+            /* update stats */
+            if (rs->version >= 7) {
+                node->stats = mp->stats;
+
+            } else {
+                mp1 = (void *) mp;
+                node->stats.bitrate_sum = mp1->bitrate_sum;
+                node->stats.bitrate_count = mp1->bitrate_count;
+                node->stats.bitrate_max = mp1->bitrate_max;
+            }
 
             return NGX_OK;
         }
@@ -2010,7 +2040,13 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
     }
 
 
-    media_info = (void *) (mp + 1);
+    if (rs->version >= 7) {
+        media_info = (void *) (mp + 1);
+
+    } else {
+        mp1 = (void *) mp;
+        media_info = (void *) (mp1 + 1);
+    }
 
     ngx_mem_rstream_get_left(rs, &data);
 
@@ -2028,9 +2064,15 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
 
     node->track_id = mp->track_id;
 
-    node->bitrate_sum = mp->bitrate_sum;
-    node->bitrate_count = mp->bitrate_count;
-    node->bitrate_max = mp->bitrate_max;
+    if (rs->version >= 7) {
+        node->stats = mp->stats;
+
+    } else {
+        mp1 = (void *) mp;
+        node->stats.bitrate_sum = mp1->bitrate_sum;
+        node->stats.bitrate_count = mp1->bitrate_count;
+        node->stats.bitrate_max = mp1->bitrate_max;
+    }
 
     ngx_live_media_info_queue_push(track, node, mp->segment_index);
 

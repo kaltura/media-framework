@@ -631,6 +631,23 @@ ngx_http_live_ksmp_segment_close(void *arg, ngx_int_t rc)
     if (rc != NGX_OK) {
         if (r->header_sent) {
             rc = NGX_ERROR;
+            goto done;
+        }
+
+        switch (rc) {
+
+        case NGX_DECLINED:
+            rc = NGX_HTTP_NOT_FOUND;
+            break;
+
+        case NGX_BAD_DATA:
+            rc = NGX_HTTP_BAD_GATEWAY;
+            break;
+
+        default:
+            if (rc < 400 || rc > 599) {
+                rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            }
         }
         goto done;
     }
@@ -996,14 +1013,13 @@ static ngx_int_t
 ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
     ngx_live_persist_serve_scope_t *scope)
 {
-    uint32_t                      code;
-    ngx_int_t                     rc;
-    ngx_queue_t                  *q;
-    ngx_live_period_t            *period;
-    ngx_http_request_t           *r = params->r;
-    ngx_live_channel_t           *channel;
-    ngx_live_timeline_t          *timeline;
-    ngx_live_core_preset_conf_t  *cpcf;
+    uint32_t              code;
+    ngx_int_t             rc;
+    ngx_queue_t          *q;
+    ngx_live_period_t    *period;
+    ngx_http_request_t   *r = params->r;
+    ngx_live_channel_t   *channel;
+    ngx_live_timeline_t  *timeline;
 
     ngx_memzero(&scope->header, sizeof(scope->header));
 
@@ -1060,10 +1076,9 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
     }
 
     if (params->time != NGX_KSMP_INVALID_TIMESTAMP) {
-        cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
         params->time = ngx_live_rescale_time(params->time, 1000,
-            cpcf->timescale);
+            channel->timescale);
 
         if (ngx_live_timeline_get_time(timeline, params->flags,
             r->connection->log, &params->time))
@@ -1186,7 +1201,6 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
     ngx_persist_write_ctx_t        *write_ctx;
     ngx_http_live_ksmp_ctx_t       *ctx;
     ngx_persist_write_marker_t      marker;
-    ngx_live_core_preset_conf_t    *cpcf;
     ngx_live_segment_serve_req_t    req;
     ngx_http_live_ksmp_loc_conf_t  *klcf;
 
@@ -1219,9 +1233,7 @@ ngx_http_live_ksmp_write(ngx_http_live_ksmp_params_t *params,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
-
-    scope->header.timescale = cpcf->timescale;
+    scope->header.timescale = channel->timescale;
     scope->header.req_media_types = params->media_type_mask;
     scope->header.last_modified = channel->last_modified;
     scope->header.now = ngx_time();

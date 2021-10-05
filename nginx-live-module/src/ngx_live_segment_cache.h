@@ -53,6 +53,11 @@ typedef ngx_int_t (*ngx_live_serve_segment_set_size_pt)(void *arg,
 typedef ngx_int_t (*ngx_live_serve_segment_write_pt)(void *arg,
     ngx_chain_t *cl);
 
+/*
+ * NGX_DECLINED - file not found
+ * NGX_BAD_DATA - error parsing media file
+ * NGX_ERROR - internal error
+ */
 typedef void (*ngx_live_serve_segment_close_pt)(void *arg, ngx_int_t rc);
 
 

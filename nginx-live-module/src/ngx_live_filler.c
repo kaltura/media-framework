@@ -1016,7 +1016,6 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
     ngx_live_segment_t             *src_segment;
     ngx_live_filler_segment_t      *dst_segment;
     ngx_live_filler_track_ctx_t    *ctx;
-    ngx_live_core_preset_conf_t    *cpcf;
     ngx_live_filler_channel_ctx_t  *cctx;
 
     dst_channel = dst_track->channel;
@@ -1114,9 +1113,8 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
 
     dst_segment->data_tail->next = ctx->segments[0].data_head;
 
-    cpcf = ngx_live_get_module_preset_conf(dst_channel, ngx_live_core_module);
-
-    ctx->bitrate = (total_size * 8 * cpcf->timescale) / cctx->cycle_duration;
+    ctx->bitrate = (total_size * 8 * dst_channel->timescale)
+        / cctx->cycle_duration;
     if (ctx->bitrate <= 0) {
         ctx->bitrate = NGX_LIVE_SEGMENT_NO_BITRATE;
     }
