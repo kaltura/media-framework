@@ -69,46 +69,38 @@ int addSeiToPacket(void *logid,AVPacket *pPacket,
         CodedBitstreamFragment *frag,
         const CC_Payload &payload)
 {
-
+   //sanity check
+   if(!(pPacket && frag && cbs && !payload.empty())){
+      LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). validation failed",logid);
+      return 0;
+   }
    ff_cbs_fragment_reset(frag);
    _S(ff_cbs_read_packet(cbs,frag,pPacket));
-   int ret = 1;
-   // 1. append new sei messages
-   for(decltype(payload.size()) i = 0; i < payload.size()/maxPayloadSize; i++){
-       _S(ff_cbs_sei_add_message(cbs,
-                frag,
-                0,
-                seiType,
-                nullptr,
-                nullptr));
-   }
-   // 2. fill in appended messages
+   // append sei messages
    const auto desc = ff_cbs_sei_find_type(cbs, seiType);
    if(!desc)
       throw std::invalid_argument("ff_cbs_sei_find_type desc not found");
-   SEIRawMessage *walker = nullptr;
    const auto end = payload.data() + payload.size();
+   SEIRawMessage *iter = nullptr;
+   int ret = 1;
    for(auto buf = payload.data();ret > 0 && buf < end;buf += ret) {
         if(ff_cbs_sei_find_message(cbs,
              frag,
              seiType,
-             &walker))
+             &iter))
              break;
-        if(walker->payload)
+        if(iter->payload)
             continue;
         std::shared_ptr<AVBufferRef> sei;
         _S(ret = ff_alloc_a53_sei_data(buf,end - buf, sei));
-        LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). add cc: %d bytes",
+        LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). add sei: %d bytes",
                          logid,sei->size);
-        _S(ff_cbs_sei_alloc_message_payload(walker,desc));
-        SEIRawUserDataRegistered *udr = reinterpret_cast<SEIRawUserDataRegistered*>(walker->payload);
+        _S(ff_cbs_sei_alloc_message_payload(iter,desc));
+        SEIRawUserDataRegistered *udr = reinterpret_cast<SEIRawUserDataRegistered*>(iter->payload);
         udr->data_ref = av_buffer_ref(sei.get());
    }
-
    _S(ff_cbs_write_packet(cbs,pPacket,frag));
-
-   LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). success",logid);
-
+   LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). updated packet",logid);
    return 0;
 }
 
@@ -127,63 +119,69 @@ struct A53Stream {
     CodedBitstreamFragment m_frag = {0};
     const AVCodecContext *m_codec;
     bool m_bInited = false;
-    int init(const AVCodecContext *codec){
+    void init(const AVCodecContext *codec){
         if(m_bInited)
             throw std::invalid_argument("A53Stream already initialized");
         m_codec = codec;
-        return 0;
     }
-     ~A53Stream()
-     {
-         if(m_cbs)
-             ff_cbs_close(&m_cbs);
-         ff_cbs_fragment_free(&m_frag);
-     }
+    ~A53Stream()
+    {
+        if(m_cbs)
+           ff_cbs_close(&m_cbs);
+        ff_cbs_fragment_free(&m_frag);
+    }
     void decoded(AVFrame *pFrame,frame_id_t fid,const AVFrameSideData *sd) {
-          if(sd)
-          {
-             const auto it = std::find_if(m_frames.begin(),m_frames.end(),[&fid] (const auto &s)->bool{
-                return fid == s.fid;
-             });
-             if(it == m_frames.end()) {
-                 LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"decoded(%p). fid= %llu pts= %lld cc_size= %d",
-                                     this,fid,pFrame->pts,sd->size);
-                 m_frames.push_back({{sd->data,sd->data+sd->size},fid,pFrame->pts,false});
-             }
-          }
+         CC_Payload payload;
+         if(sd)
+             payload.insert(payload.end(),sd->data,sd->data+sd->size);
+         m_frames.push_back({payload,fid,pFrame->pts,false});
+         LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"decoded(%p). fid= %llu pts= %lld cc_size= %d",
+             this,fid,pFrame->pts,sd ? sd->size : 0);
     }
     void filtered(AVFrame *pFrame,frame_id_t fid) {
         LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). fid= %llu pts= %lld",
                      this,fid,pFrame->pts);
-        auto itPts = std::find_if(m_frames.begin(),m_frames.end(), [&pFrame] (const auto &s)->bool{
-              return s.pts == pFrame->pts;
-        });
-        if(itPts != m_frames.end()){
-            itPts->acked = true;
-            auto it = itPts;
-            // prepend cc for all unacknowledged frames
-            for(;it != m_frames.begin() && !it->acked;--it) {
-                  itPts->payload.insert(itPts->payload.begin(),it->payload.begin(),it->payload.end());
-            }
-            if(!it->acked) {
-                LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). merge range (%lld,%lld) -> (%lld,%lld)",
-                  this,it->fid,it->pts,itPts->fid,itPts->pts);
-                m_frames.erase(it,itPts);
-            }
-            if(itPts->payload.size() > 0) {
-                const auto sd_size = std::min(maxPayloadSize,itPts->payload.size());
-                auto sd = av_frame_new_side_data(pFrame,AV_FRAME_DATA_A53_CC,sd_size);
-                if(!sd)
-                    throw std::bad_alloc();
-                memcpy(sd->data,itPts->payload.data(),sd_size);
-                itPts->payload.erase(itPts->payload.begin(),itPts->payload.begin()+sd_size);
-                if(itPts->payload.empty()){
-                    LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). erase fid= %lld pts= %lld",
-                      this,itPts->fid,itPts->pts);
-                    m_frames.erase(itPts);
+        auto itPts = std::find_if(m_frames.begin(),m_frames.end(),
+            [&pFrame] (const auto &s)->bool{return s.pts >= pFrame->pts;});
+        if(itPts != m_frames.end()) {
+            LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). found frame (%lld,%lld)",
+                this,itPts->fid,itPts->pts);
+            if(!itPts->acked) {
+                // if any of preceding frames are being dropped by filter it should be merged with
+                // current one.
+                auto rit = std::find_if(std::make_reverse_iterator(itPts),m_frames.rend(),
+                    [](const auto &it)->bool{return it.acked;});
+                itPts->acked = true;
+                auto it = (--rit).base();
+                if(it < itPts) {
+                    CC_Payload payload;
+                    for(auto it1 = it;it1 <= itPts;it1++) {
+                        if(!it1->payload.empty())
+                          payload.insert(payload.end(),it1->payload.begin(),it1->payload.end());
+                    }
+                    itPts->payload = payload;
+                    LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). merge range (%lld,%lld) -> (%lld,%lld) payload %d",
+                        this,it->fid,it->pts,itPts->fid,itPts->pts,itPts->payload.size());
+                    itPts = m_frames.erase(it,itPts);
+                }
+                //try to minimize overhead of parsing+adding sei to encoded frame
+                if(itPts->payload.size() > 0) {
+                    const auto sd_size = std::min(maxPayloadSize,itPts->payload.size());
+                    auto sd = av_frame_new_side_data(pFrame,AV_FRAME_DATA_A53_CC,sd_size);
+                    if(!sd)
+                        throw std::bad_alloc();
+                    ::memcpy(sd->data,itPts->payload.data(),sd_size);
+                    itPts->payload.erase(itPts->payload.begin(),itPts->payload.begin()+sd_size);
+                    LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). fid= %lld pts= %lld payload created side data of size %d on filtered frame. payload left %d",
+                       this,itPts->fid,itPts->pts,sd_size,itPts->payload.size());
                 }
             }
-        }
+            if(itPts->payload.empty()) {
+                 LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). fid= %lld pts= %lld empty payload -> erase",
+                   this,itPts->fid,itPts->pts);
+                 m_frames.erase(itPts);
+             }
+         }
     }
     int encoded(AVPacket *&pPacket) {
         LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"encoded(%p). encoded: frames %d pts= %lld",
@@ -199,8 +197,12 @@ struct A53Stream {
                 _S(ff_cbs_read_extradata_from_codec(m_cbs,&m_frag,m_codec));
            }
            if(m_cbs) {
-             addSeiToPacket(this,pPacket,m_cbs,&m_frag,it->payload);
-           }
+                 auto ret = addSeiToPacket(this,pPacket,m_cbs,&m_frag,it->payload);
+                 if(ret < 0) {
+                      LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"encoded(%p). addSeiToPacket error %d",
+                                           this,ret);
+                 }
+            }
            m_frames.erase(it);
         } else {
             LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"encoded(%p). missed frame pts= %lld",
@@ -233,14 +235,20 @@ void atsc_a53_handler_free(atsc_a53_handler_t *h)
 int atsc_a53_add_stream(atsc_a53_handler_t h,AVCodecContext *codec,stream_id_t streamId) {
     if(h)
     {
-         LOGGER(CATEGORY_ATSC_A53,AV_LOG_INFO,"atsc_a53_add_stream(%p). stream %d",
-                 h,streamId);
-          auto &m = *reinterpret_cast<A53Mapper*>(h);
-          std::unique_ptr<A53Stream> ptr(new A53Stream());
-          if(!ptr.get())
-            throw std::bad_alloc();
-          _S(ptr->init(codec));
+        try {
+             LOGGER(CATEGORY_ATSC_A53,AV_LOG_INFO,"atsc_a53_add_stream(%p). stream %d",
+                     h,streamId);
+              auto &m = *reinterpret_cast<A53Mapper*>(h);
+              std::unique_ptr<A53Stream> ptr(new A53Stream());
+              if(!ptr.get())
+                throw std::bad_alloc();
+              ptr->init(codec);
           m.m_cc.insert(std::make_pair(streamId,std::move(ptr)));
+          } catch(std::exception &e){
+               LOGGER(CATEGORY_ATSC_A53,AV_LOG_ERROR,"atsc_a53_add_stream(%p). stream %d. error %s",
+                      h,streamId,e.what());
+             return -1;
+          }
     }
     return 0;
 }
@@ -251,20 +259,20 @@ int atsc_a53_decoded(atsc_a53_handler_t h,AVFrame *f)
     if(h && f)
    {
        const auto sd = av_frame_get_side_data(f,AV_FRAME_DATA_A53_CC);
-       if(sd)  {
-           frame_id_t fid = AV_NOPTS_VALUE;
-           //best effort
-           get_frame_id(f,&fid);
-            auto &m = *reinterpret_cast<A53Mapper*>(h);
-            try {
-                for(auto &it: m.m_cc) {
-                  it.second->decoded(f,fid,sd);
-                }
-            } catch (std::exception &e) {
-                 LOGGER(CATEGORY_ATSC_A53,AV_LOG_WARNING,"atsc_a53_decoded(%p).error %s",
-                      h,e.what());
-                 return -1;
+       frame_id_t fid = AV_NOPTS_VALUE;
+       //best effort
+       get_frame_id(f,&fid);
+        auto &m = *reinterpret_cast<A53Mapper*>(h);
+        try {
+            for(auto &it: m.m_cc) {
+              it.second->decoded(f,fid,sd);
             }
+        } catch (std::exception &e) {
+             LOGGER(CATEGORY_ATSC_A53,AV_LOG_WARNING,"atsc_a53_decoded(%p).error %s",
+                  h,e.what());
+             return -1;
+        }
+        if(sd) {
             av_frame_remove_side_data(f,AV_FRAME_DATA_A53_CC);
         }
    }
