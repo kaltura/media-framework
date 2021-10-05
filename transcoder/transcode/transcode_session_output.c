@@ -187,8 +187,10 @@ int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,
         pOutput->codec_type=AVMEDIA_TYPE_AUDIO;
     }
 
-    LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending header",pOutput->track_id);
-    _S(KMP_send_mediainfo(pOutput->sender,extra));
+    if(pOutput->sender != NULL){
+         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] sending header",pOutput->track_id);
+        _S(KMP_send_mediainfo(pOutput->sender,extra));
+    }
 
     bool saveFile;
     json_get_bool(GetConfig(),"output.saveFile",false,&saveFile);

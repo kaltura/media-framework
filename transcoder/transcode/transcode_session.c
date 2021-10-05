@@ -157,7 +157,7 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
     }
 
     if(pDecoderContext->ctx->codec_type == AVMEDIA_TYPE_VIDEO){
-        _S(atsc_a53_handler_create(pDecoderContext->codec->id,&ctx->cc_a53));
+        _S(atsc_a53_handler_create(&ctx->cc_a53));
     }
 
     if(ctx->outputs && !ctx->ack_handler)
@@ -295,9 +295,6 @@ int transcode_session_init_output(transcode_session_t* pContext,
 
     pOutput->encoderId=pContext->encoders++;
     LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Output %s - Added encoder %d bitrate=%d",pOutput->track_id,pOutput->encoderId,pOutput->bitrate);
-    if(pDecoderContext->codec->type == AVMEDIA_TYPE_VIDEO) {
-         _S(atsc_a53_add_stream(pContext->cc_a53,pOutput->encoderId));
-    }
     transcode_mediaInfo_t extra;
     extra.frameRate=pEncoderContext->ctx->framerate;
     extra.timeScale=pEncoderContext->ctx->time_base;
@@ -309,6 +306,10 @@ int transcode_session_init_output(transcode_session_t* pContext,
         extra.codecParams->bits_per_coded_sample = pDecoderContext->ctx->bits_per_coded_sample;
     }
     _S(transcode_session_output_set_media_info(pOutput,&extra));
+    if(pEncoderContext->codec->type == AVMEDIA_TYPE_VIDEO) {
+         _S(atsc_a53_add_stream(pContext->cc_a53,pEncoderContext->ctx,pOutput->encoderId));
+    }
+
 
     return 0;
 }
