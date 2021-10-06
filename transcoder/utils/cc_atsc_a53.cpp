@@ -15,13 +15,22 @@ const char *CATEGORY_ATSC_A53 = "ATSC_A53";
 #include "./logger.h"
 #include "cc_atsc_a53.h"
 
+#define _L(expr) \
+{\
+    auto __ret = expr;\
+    if(__ret < 0) \
+    {\
+         LOGGER(CATEGORY_ATSC_A53,AV_LOG_ERROR,"%s(%d) " #expr " failed with error= %d .errno= %d", __FUNCTION__, __LINE__,__ret,errno); \
+         return __ret; \
+    } \
+}
 
 typedef std::vector<uint8_t> CC_Payload;
 
 // utils
 
 // return < 0 in case of failure or number of processed bytes
-int ff_alloc_a53_sei_data(const uint8_t *data,size_t side_data_size,
+static int ff_alloc_a53_sei_data(const uint8_t *data,size_t side_data_size,
     std::shared_ptr<AVBufferRef> &sei_payload)
  {
 
@@ -64,7 +73,7 @@ int ff_alloc_a53_sei_data(const uint8_t *data,size_t side_data_size,
 const size_t maxPayloadSize = 0x1f*3;
 const auto seiType = SEI_TYPE_USER_DATA_REGISTERED_ITU_T_T35;
 
-int addSeiToPacket(void *logid,AVPacket *pPacket,
+static int addSeiToPacket(void *logid,AVPacket *pPacket,
         CodedBitstreamContext *cbs,
         CodedBitstreamFragment *frag,
         const CC_Payload &payload)
@@ -75,31 +84,37 @@ int addSeiToPacket(void *logid,AVPacket *pPacket,
       return 0;
    }
    ff_cbs_fragment_reset(frag);
-   _S(ff_cbs_read_packet(cbs,frag,pPacket));
+   _L(ff_cbs_read_packet(cbs,frag,pPacket));
    // append sei messages
    const auto desc = ff_cbs_sei_find_type(cbs, seiType);
    if(!desc)
       throw std::invalid_argument("ff_cbs_sei_find_type desc not found");
+   #if 0
+   auto seiUnit = std::find_if(frag->units,frag->units+frag->nb_units,[](const auto &u)->bool{
+        return /*H264_NAL_SEI*/6 == u.type
+        || /*HEVC_NAL_SEI_PREFIX*/39 == u.type
+        || /*HEVC_NAL_SEI_SUFFIX*/40 == u.type;
+   });
+   #endif
    const auto end = payload.data() + payload.size();
-   SEIRawMessage *iter = nullptr;
    int ret = 1;
    for(auto buf = payload.data();ret > 0 && buf < end;buf += ret) {
-        if(ff_cbs_sei_find_message(cbs,
-             frag,
-             seiType,
-             &iter))
-             break;
-        if(iter->payload)
-            continue;
+         _L(ff_cbs_sei_add_message(cbs,frag,desc->prefix,seiType,nullptr,nullptr));
+          SEIRawMessage *message = nullptr;
+         _L(ff_cbs_sei_find_message(cbs,frag,seiType,&message));
+         while(message->payload)
+            message++;
         std::shared_ptr<AVBufferRef> sei;
-        _S(ret = ff_alloc_a53_sei_data(buf,end - buf, sei));
+        _L(ret = ff_alloc_a53_sei_data(buf,end - buf, sei));
         LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). add sei: %d bytes",
                          logid,sei->size);
-        _S(ff_cbs_sei_alloc_message_payload(iter,desc));
-        SEIRawUserDataRegistered *udr = reinterpret_cast<SEIRawUserDataRegistered*>(iter->payload);
+        _L(ff_cbs_sei_alloc_message_payload(message,desc));
+        SEIRawUserDataRegistered *udr = reinterpret_cast<SEIRawUserDataRegistered*>(message->payload);
         udr->data_ref = av_buffer_ref(sei.get());
+        udr->data = udr->data_ref->data;
+        udr->data_length = udr->data_ref->size;
    }
-   _S(ff_cbs_write_packet(cbs,pPacket,frag));
+   _L(ff_cbs_write_packet(cbs,pPacket,frag));
    LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). updated packet",logid);
    return 0;
 }
@@ -193,16 +208,12 @@ struct A53Stream {
            //ff_cbs_flush(m_cbs);
            if(!m_bInited) {
                 m_bInited = true;
-                _S(ff_cbs_init(&m_cbs,m_codec->codec_id,nullptr));
-                _S(ff_cbs_read_extradata_from_codec(m_cbs,&m_frag,m_codec));
+                _L(ff_cbs_init(&m_cbs,m_codec->codec_id,nullptr));
+                _L(ff_cbs_read_extradata_from_codec(m_cbs,&m_frag,m_codec));
            }
            if(m_cbs) {
-                 auto ret = addSeiToPacket(this,pPacket,m_cbs,&m_frag,it->payload);
-                 if(ret < 0) {
-                      LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"encoded(%p). addSeiToPacket error %d",
-                                           this,ret);
-                 }
-            }
+               addSeiToPacket(this,pPacket,m_cbs,&m_frag,it->payload);
+           }
            m_frames.erase(it);
         } else {
             LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"encoded(%p). missed frame pts= %lld",
