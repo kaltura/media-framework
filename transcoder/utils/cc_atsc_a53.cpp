@@ -30,15 +30,15 @@ typedef std::vector<uint8_t> CC_Payload;
 // utils
 
 // return < 0 in case of failure or number of processed bytes
-static int ff_alloc_a53_sei_data(const uint8_t *data,size_t side_data_size,
+static int ff_alloc_a53_sei_data(const uint8_t *data,size_t size,
     std::shared_ptr<AVBufferRef> &sei_payload)
  {
 
-     const auto cc_count = ((side_data_size/3) & 0x1f);
+     const auto cc_count = ((size/3) & 0x1f);
 
      const auto sei_payload_size = cc_count * 3;
 
-     sei_payload.reset(av_buffer_alloc(sei_payload_size + 11),[](auto b){
+     sei_payload.reset(av_buffer_alloc(sei_payload_size + 10),[](auto b){
         av_buffer_unref(&b);
      });
 
@@ -48,9 +48,9 @@ static int ff_alloc_a53_sei_data(const uint8_t *data,size_t side_data_size,
      uint8_t *sei_data = sei_payload->data;
 
      // country code
-     sei_data[0] = 181;
-     sei_data[1] = 0;
-     sei_data[2] = 49;
+     // *sei_data++ = 181;
+     *sei_data++ = 0;
+     *sei_data++ = 49;
 
      /**
       * 'GA94' is standard in North America for ATSC, but hard coding
@@ -58,14 +58,15 @@ static int ff_alloc_a53_sei_data(const uint8_t *data,size_t side_data_size,
       * do exist. This information is not available in the side_data
       * so we are going with this right now.
       */
-     AV_WL32(sei_data + 3, MKTAG('G', 'A', '9', '4'));
-     sei_data[7] = 3;
-     sei_data[8] = cc_count | 0x40;
-     sei_data[9] = 0;
+     AV_WL32(sei_data, MKTAG('G', 'A', '9', '4'));
+     sei_data += 4;
+     *sei_data++ = 3;
+     *sei_data++ = cc_count | 0x40;
+     *sei_data++ = 0;
 
-     memcpy(sei_data + 10, data, sei_payload_size);
-
-     sei_data[sei_payload_size+10] = 255;
+     memcpy(sei_data, data, sei_payload_size);
+     sei_data += sei_payload_size;
+     *sei_data++ = 255;
 
      return sei_payload_size;
  }
@@ -89,13 +90,6 @@ static int addSeiToPacket(void *logid,AVPacket *pPacket,
    const auto desc = ff_cbs_sei_find_type(cbs, seiType);
    if(!desc)
       throw std::invalid_argument("ff_cbs_sei_find_type desc not found");
-   #if 0
-   auto seiUnit = std::find_if(frag->units,frag->units+frag->nb_units,[](const auto &u)->bool{
-        return /*H264_NAL_SEI*/6 == u.type
-        || /*HEVC_NAL_SEI_PREFIX*/39 == u.type
-        || /*HEVC_NAL_SEI_SUFFIX*/40 == u.type;
-   });
-   #endif
    const auto end = payload.data() + payload.size();
    int ret = 1;
    for(auto buf = payload.data();ret > 0 && buf < end;buf += ret) {
@@ -113,6 +107,7 @@ static int addSeiToPacket(void *logid,AVPacket *pPacket,
         udr->data_ref = av_buffer_ref(sei.get());
         udr->data = udr->data_ref->data;
         udr->data_length = udr->data_ref->size;
+        udr->itu_t_t35_country_code = 0xb5;
    }
    _L(ff_cbs_write_packet(cbs,pPacket,frag));
    LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). updated packet",logid);
@@ -130,6 +125,7 @@ struct A53Stream {
     };
     typedef std::deque<FrameInfo> Frames;
     Frames m_frames;
+    typedef Frames::iterator Fiter;
     CodedBitstreamContext *m_cbs = nullptr;
     CodedBitstreamFragment m_frag = {0};
     const AVCodecContext *m_codec;
@@ -153,48 +149,27 @@ struct A53Stream {
          LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"decoded(%p). fid= %llu pts= %lld cc_size= %d",
              this,fid,pFrame->pts,sd ? sd->size : 0);
     }
+
     void filtered(AVFrame *pFrame,frame_id_t fid) {
         LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). fid= %llu pts= %lld",
                      this,fid,pFrame->pts);
-        auto itPts = std::find_if(m_frames.begin(),m_frames.end(),
-            [&pFrame] (const auto &s)->bool{return s.pts >= pFrame->pts;});
-        if(itPts != m_frames.end()) {
+        // find a filtered frame with corresponding fid
+        auto itFiltered = std::find_if(m_frames.begin(),m_frames.end(),
+            [&fid] (const auto &s)->bool{return s.fid == fid;});
+        if(itFiltered != m_frames.end()) {
             LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). found frame (%lld,%lld)",
-                this,itPts->fid,itPts->pts);
-            if(!itPts->acked) {
-                // if any of preceding frames are being dropped by filter it should be merged with
-                // current one.
-                auto rit = std::find_if(std::make_reverse_iterator(itPts),m_frames.rend(),
-                    [](const auto &it)->bool{return it.acked;});
-                itPts->acked = true;
-                auto it = (--rit).base();
-                if(it < itPts) {
-                    CC_Payload payload;
-                    for(auto it1 = it;it1 <= itPts;it1++) {
-                        if(!it1->payload.empty())
-                          payload.insert(payload.end(),it1->payload.begin(),it1->payload.end());
-                    }
-                    itPts->payload = payload;
-                    LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). merge range (%lld,%lld) -> (%lld,%lld) payload %d",
-                        this,it->fid,it->pts,itPts->fid,itPts->pts,itPts->payload.size());
-                    itPts = m_frames.erase(it,itPts);
-                }
+                this,itFiltered->fid,itFiltered->pts);
+            if(!itFiltered->acked) {
+                //remove frames which won't be encoded while preserving cc content
+                itFiltered = collapseFrames(itFiltered);
                 //try to minimize overhead of parsing+adding sei to encoded frame
-                if(itPts->payload.size() > 0) {
-                    const auto sd_size = std::min(maxPayloadSize,itPts->payload.size());
-                    auto sd = av_frame_new_side_data(pFrame,AV_FRAME_DATA_A53_CC,sd_size);
-                    if(!sd)
-                        throw std::bad_alloc();
-                    ::memcpy(sd->data,itPts->payload.data(),sd_size);
-                    itPts->payload.erase(itPts->payload.begin(),itPts->payload.begin()+sd_size);
-                    LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). fid= %lld pts= %lld payload created side data of size %d on filtered frame. payload left %d",
-                       this,itPts->fid,itPts->pts,sd_size,itPts->payload.size());
-                }
+                //updateFrame(pFrame,itFiltered);
             }
-            if(itPts->payload.empty()) {
+            // remove frame with no cc in it
+            if(itFiltered->payload.empty()) {
                  LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). fid= %lld pts= %lld empty payload -> erase",
-                   this,itPts->fid,itPts->pts);
-                 m_frames.erase(itPts);
+                   this,itFiltered->fid,itFiltered->pts);
+                 m_frames.erase(itFiltered);
              }
          }
     }
@@ -220,6 +195,39 @@ struct A53Stream {
                      this,pPacket->pts);
         }
         return 0;
+    }
+private:
+    Fiter collapseFrames(Fiter itFiltered) {
+        // if any of preceding frames are being dropped by filter it should be merged with
+        // current one.
+        auto rit = std::find_if(std::make_reverse_iterator(itFiltered),m_frames.rend(),
+                         [](const auto &it)->bool{return it.acked;});
+        itFiltered->acked = true;
+        auto it = (--rit).base();
+        if(it < itFiltered) {
+            CC_Payload payload;
+            for(auto it1 = it;it1 <= itFiltered;it1++) {
+                if(!it1->payload.empty())
+                  payload.insert(payload.end(),it1->payload.begin(),it1->payload.end());
+            }
+            itFiltered->payload = payload;
+            LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). merge range (%lld,%lld) -> (%lld,%lld) payload %d",
+                this,it->fid,it->pts,itFiltered->fid,itFiltered->pts,itFiltered->payload.size());
+            itFiltered = m_frames.erase(it,itFiltered);
+        }
+        return itFiltered;
+    }
+    void updateFrame(auto pFrame,Fiter itFiltered){
+         if(!itFiltered->payload.empty()) {
+            const auto sd_size = std::min(maxPayloadSize,itFiltered->payload.size());
+            auto sd = av_frame_new_side_data(pFrame,AV_FRAME_DATA_A53_CC,sd_size);
+            if(!sd)
+                throw std::bad_alloc();
+            ::memcpy(sd->data,itFiltered->payload.data(),sd_size);
+            itFiltered->payload.erase(itFiltered->payload.begin(),itFiltered->payload.begin()+sd_size);
+            LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). fid= %lld pts= %lld payload created side data of size %d on filtered frame. payload left %d",
+               this,itFiltered->fid,itFiltered->pts,sd_size,itFiltered->payload.size());
+        }
     }
 };
 
