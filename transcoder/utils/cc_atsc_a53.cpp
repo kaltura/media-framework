@@ -26,22 +26,22 @@ const char *CATEGORY_ATSC_A53 = "ATSC_A53";
 }
 
 typedef std::vector<uint8_t> CC_Payload;
-
+const auto pa = 3;
+const size_t maxPayloadSize = 0x1f*pa;
+const auto seiType = SEI_TYPE_USER_DATA_REGISTERED_ITU_T_T35;
 // utils
 
 // return < 0 in case of failure or number of processed bytes
-static int ff_alloc_a53_sei_data(const uint8_t *data,size_t size,
-    std::shared_ptr<AVBufferRef> &sei_payload)
+static int ff_alloc_a53_sei_data(const uint8_t *data,
+    size_t size,
+    SEIRawUserDataRegistered *udr)
  {
+     const auto cc_count = std::min(maxPayloadSize,size) / pa;
+     const auto sei_payload_size = cc_count * pa;
 
-     const auto cc_count = ((size/3) & 0x1f);
-
-     const auto sei_payload_size = cc_count * 3;
-
-     sei_payload.reset(av_buffer_alloc(sei_payload_size + 10),[](auto b){
-        av_buffer_unref(&b);
-     });
-
+     std::shared_ptr<AVBufferRef> sei_payload(av_buffer_alloc(sei_payload_size + 10),[](auto b){
+                                                                 av_buffer_unref(&b);
+                                                              });
      if (!sei_payload)
          return AVERROR(ENOMEM);
 
@@ -49,6 +49,7 @@ static int ff_alloc_a53_sei_data(const uint8_t *data,size_t size,
 
      // country code
      // *sei_data++ = 181;
+     udr->itu_t_t35_country_code = 0xb5;
      *sei_data++ = 0;
      *sei_data++ = 49;
 
@@ -68,49 +69,53 @@ static int ff_alloc_a53_sei_data(const uint8_t *data,size_t size,
      sei_data += sei_payload_size;
      *sei_data++ = 255;
 
+     udr->data_ref = av_buffer_ref(sei_payload.get());
+     udr->data = udr->data_ref->data;
+     udr->data_length = udr->data_ref->size;
+
      return sei_payload_size;
  }
 
-const size_t maxPayloadSize = 0x1f*3;
-const auto seiType = SEI_TYPE_USER_DATA_REGISTERED_ITU_T_T35;
+
 
 static int addSeiToPacket(void *logid,AVPacket *pPacket,
         CodedBitstreamContext *cbs,
+        const SEIMessageTypeDescriptor *desc,
         CodedBitstreamFragment *frag,
         const CC_Payload &payload)
 {
    //sanity check
-   if(!(pPacket && frag && cbs && !payload.empty())){
-      LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). validation failed",logid);
+   if(!(pPacket && frag && cbs && desc && payload.size() >= pa)){
+      LOGGER(CATEGORY_ATSC_A53,AV_LOG_INFO,"addSeiToPacket(%p). validation failed packet= %p frag= %p cbs= %p desc= %p payload size= %d",
+        logid,pPacket,frag,cbs,desc,payload.size());
       return 0;
+   }
+   LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). processing payload %d",logid,payload.size());
+   // payload units are <pa> bytes.
+   if(payload.size() % pa) {
+        LOGGER(CATEGORY_ATSC_A53,AV_LOG_ERROR,"addSeiToPacket(%p). misaligned payload -> %d",
+                    logid,payload.size() % pa);
    }
    ff_cbs_fragment_reset(frag);
    _L(ff_cbs_read_packet(cbs,frag,pPacket));
    // append sei messages
-   const auto desc = ff_cbs_sei_find_type(cbs, seiType);
-   if(!desc)
-      throw std::invalid_argument("ff_cbs_sei_find_type desc not found");
-   const auto end = payload.data() + payload.size();
-   int ret = 1;
-   for(auto buf = payload.data();ret > 0 && buf < end;buf += ret) {
+   auto buf = payload.data();
+   const auto end = buf + payload.size() / pa * pa;
+   int ret = 0;
+   for(;buf < end;buf += ret) {
          _L(ff_cbs_sei_add_message(cbs,frag,desc->prefix,seiType,nullptr,nullptr));
-          SEIRawMessage *message = nullptr;
+         SEIRawMessage *message = nullptr;
          _L(ff_cbs_sei_find_message(cbs,frag,seiType,&message));
          while(message->payload)
             message++;
-        std::shared_ptr<AVBufferRef> sei;
-        _L(ret = ff_alloc_a53_sei_data(buf,end - buf, sei));
-        LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). add sei: %d bytes",
-                         logid,sei->size);
         _L(ff_cbs_sei_alloc_message_payload(message,desc));
-        SEIRawUserDataRegistered *udr = reinterpret_cast<SEIRawUserDataRegistered*>(message->payload);
-        udr->data_ref = av_buffer_ref(sei.get());
-        udr->data = udr->data_ref->data;
-        udr->data_length = udr->data_ref->size;
-        udr->itu_t_t35_country_code = 0xb5;
+         SEIRawUserDataRegistered *udr = reinterpret_cast<SEIRawUserDataRegistered*>(message->payload);
+        _L(ret = ff_alloc_a53_sei_data(buf,end - buf, udr));
+     //   LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). left= %d sei= %d. consumed= %d",
+     //                    logid,end - buf,udr->data_length,ret);
    }
    _L(ff_cbs_write_packet(cbs,pPacket,frag));
-   LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). updated packet",logid);
+  // LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"addSeiToPacket(%p). updated packet",logid);
    return 0;
 }
 
@@ -130,6 +135,8 @@ struct A53Stream {
     CodedBitstreamFragment m_frag = {0};
     const AVCodecContext *m_codec;
     bool m_bInited = false;
+    const SEIMessageTypeDescriptor *m_desc = nullptr;
+
     void init(const AVCodecContext *codec){
         if(m_bInited)
             throw std::invalid_argument("A53Stream already initialized");
@@ -174,8 +181,10 @@ struct A53Stream {
          }
     }
     int encoded(AVPacket *&pPacket) {
-        LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"encoded(%p). encoded: frames %d pts= %lld",
-                             this,m_frames.size(),pPacket->pts);
+        int64_t fid;
+        get_packet_frame_id(pPacket,&fid);
+        LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"encoded(%p). encoded: frames %d packet: fid= %lld pts= %lld",
+                             this,m_frames.size(),fid,pPacket->pts);
         auto it = std::find_if(m_frames.begin(),m_frames.end(), [&pPacket] (const auto &s)->bool{
             return s.pts == pPacket->pts;
          });
@@ -185,9 +194,12 @@ struct A53Stream {
                 m_bInited = true;
                 _L(ff_cbs_init(&m_cbs,m_codec->codec_id,nullptr));
                 _L(ff_cbs_read_extradata_from_codec(m_cbs,&m_frag,m_codec));
+                m_desc = ff_cbs_sei_find_type(m_cbs, seiType);
+                if(!m_desc)
+                   throw std::invalid_argument("ff_cbs_sei_find_type desc not found");
            }
            if(m_cbs) {
-               addSeiToPacket(this,pPacket,m_cbs,&m_frag,it->payload);
+               addSeiToPacket(this,pPacket,m_cbs,m_desc,&m_frag,it->payload);
            }
            m_frames.erase(it);
         } else {
