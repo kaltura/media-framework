@@ -170,7 +170,7 @@ struct A53Stream {
                 //remove frames which won't be encoded while preserving cc content
                 itFiltered = collapseFrames(itFiltered);
                 //try to minimize overhead of parsing+adding sei to encoded frame
-                //updateFrame(pFrame,itFiltered);
+                updateFrame(pFrame,itFiltered);
             }
             // remove frame with no cc in it
             if(itFiltered->payload.empty()) {
@@ -214,17 +214,21 @@ private:
         // current one.
         auto rit = std::find_if(std::make_reverse_iterator(itFiltered),m_frames.rend(),
                          [](const auto &it)->bool{return it.acked;});
+        auto it = rit.base();
+        while(it->acked)
+            it++;
         itFiltered->acked = true;
-        auto it = (--rit).base();
         if(it < itFiltered) {
             CC_Payload payload;
             for(auto it1 = it;it1 <= itFiltered;it1++) {
                 if(!it1->payload.empty())
                   payload.insert(payload.end(),it1->payload.begin(),it1->payload.end());
+                //LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). collapse frame (%d,%lld,%lld) payload size= %d",
+                //    this,it1->acked,it1->fid,it1->pts,it1->payload.size());
             }
             itFiltered->payload = payload;
-            LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). merge range (%lld,%lld) -> (%lld,%lld) payload %d",
-                this,it->fid,it->pts,itFiltered->fid,itFiltered->pts,itFiltered->payload.size());
+            LOGGER(CATEGORY_ATSC_A53,AV_LOG_DEBUG,"filtered(%p). merge range (%d,%lld,%lld) -> (%lld,%lld) payload %d",
+                this,it->acked,it->fid,it->pts,itFiltered->fid,itFiltered->pts,itFiltered->payload.size());
             itFiltered = m_frames.erase(it,itFiltered);
         }
         return itFiltered;
