@@ -7,7 +7,7 @@
             try {
                am.addIn(*desc);
              } catch(const std::exception &e) {
-                   LOGGER(LoggingCategory,AV_LOG_ERROR," %s map. ack_map_add_input %d %lld failed due to %s",
+                   LOGGER(LoggingCategory,AV_LOG_ERROR," %s audio map. ack_map_add_input %d %lld failed due to %s",
                         am.m_name.c_str(),desc->id, desc->pts,e.what());
              }
        }
@@ -20,7 +20,7 @@
                 try {
                    am.addFiltered(*desc);
                  } catch(const std::exception &e) {
-                       LOGGER(LoggingCategory,AV_LOG_ERROR," %s map. ack_map_add_filtered %d %lld failed due to %s",
+                       LOGGER(LoggingCategory,AV_LOG_ERROR," %s audio map. ack_map_add_filtered %d %lld failed due to %s",
                             am.m_name.c_str(),desc->id, desc->pts,e.what());
                  }
            }
@@ -33,7 +33,7 @@
              try {
                 am.addOut(*desc);
             } catch(const std::exception &e) {
-                  LOGGER(LoggingCategory,AV_LOG_ERROR," %s map. ack_map_add_output %d %lld failed due to %s",
+                  LOGGER(LoggingCategory,AV_LOG_ERROR," %s audio map. ack_map_add_output %d %lld failed due to %s",
                     am.m_name.c_str(),desc->id, desc->pts,e.what());
             }
         }
@@ -48,7 +48,7 @@
               am.map(ack,*ao);
               return;
             } catch(const std::exception &e) {
-                 LOGGER(LoggingCategory,AV_LOG_ERROR," %s map. ack_map_ack %lld failed due to %s",
+                 LOGGER(LoggingCategory,AV_LOG_ERROR," %s audio map. ack_map_ack %lld failed due to %s",
                         am.m_name.c_str(),ack, e.what());
             }
         }
