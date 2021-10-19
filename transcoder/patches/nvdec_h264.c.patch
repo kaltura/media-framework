@@ -1,0 +1,13 @@
+diff --git a/libavcodec/nvdec_h264.c b/libavcodec/nvdec_h264.c
+index 116bd4fb5d..44d44fe543 100644
+--- a/libavcodec/nvdec_h264.c
++++ b/libavcodec/nvdec_h264.c
+@@ -166,7 +166,7 @@ static int nvdec_h264_frame_params(AVCodecContext *avctx,
+ {
+     const H264Context *h = avctx->priv_data;
+     const SPS       *sps = h->ps.sps;
+-    return ff_nvdec_frame_params(avctx, hw_frames_ctx, sps->ref_frame_count + sps->num_reorder_frames, 0);
++    return ff_nvdec_frame_params(avctx, hw_frames_ctx, /*sps->ref_frame_count + sps->num_reorder_frames*/MAX_DELAYED_PIC_COUNT, 0);
+ }
+ 
+ const AVHWAccel ff_h264_nvdec_hwaccel = {
