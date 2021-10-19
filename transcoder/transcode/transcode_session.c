@@ -25,7 +25,7 @@ int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackI
     strcpy(ctx->channelId,channelId);
     strcpy(ctx->trackId,trackId);
     sprintf(ctx->name,"%s_%s",channelId,trackId);
-
+    ctx->cc_a53 = NULL;
 
     transcode_dropper_init(&ctx->dropper);
 
@@ -51,6 +51,8 @@ int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackI
     ctx->dropper.decodedFrameDropperThreshold=av_rescale_q(ctx->dropper.decodedFrameDropperThreshold,seconds,standard_timebase);
     _S(init_policy_provider(&ctx->policy,GetConfig()));
     sample_stats_init(&ctx->processedStats,standard_timebase);
+
+
     return 0;
 }
 
@@ -153,6 +155,11 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
                        &ctx->ack_handler->acker));
          }
     }
+
+    if(pDecoderContext->ctx->codec_type == AVMEDIA_TYPE_VIDEO){
+        _S(atsc_a53_handler_create(&ctx->cc_a53));
+    }
+
     if(ctx->outputs && !ctx->ack_handler)
         ctx->ack_handler = &ctx->output[0];
     return 0;
@@ -288,7 +295,6 @@ int transcode_session_init_output(transcode_session_t* pContext,
 
     pOutput->encoderId=pContext->encoders++;
     LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Output %s - Added encoder %d bitrate=%d",pOutput->track_id,pOutput->encoderId,pOutput->bitrate);
-
     transcode_mediaInfo_t extra;
     extra.frameRate=pEncoderContext->ctx->framerate;
     extra.timeScale=pEncoderContext->ctx->time_base;
@@ -300,6 +306,10 @@ int transcode_session_init_output(transcode_session_t* pContext,
         extra.codecParams->bits_per_coded_sample = pDecoderContext->ctx->bits_per_coded_sample;
     }
     _S(transcode_session_output_set_media_info(pOutput,&extra));
+    if(pEncoderContext->codec->type == AVMEDIA_TYPE_VIDEO) {
+         _S(atsc_a53_add_stream(pContext->cc_a53,pEncoderContext->ctx,pOutput->encoderId));
+    }
+
 
     return 0;
 }
@@ -344,6 +354,7 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
             pFrame->pict_type=AV_PICTURE_TYPE_I;
         else
             pFrame->pict_type=AV_PICTURE_TYPE_NONE;
+
     }
     
     ret=transcode_encoder_send_frame(pEncoder,pFrame);
@@ -384,6 +395,9 @@ encoder_error:
 
         if(pContext->ack_handler == pOutput){
             _S(ackEncode(pEncoder->ctx,&pContext->ack_handler->acker,pOutPacket));
+        }
+        if(pEncoder->codec->type == AVMEDIA_TYPE_VIDEO) {
+             atsc_a53_encoded(pContext->cc_a53,pOutput->encoderId,&pOutPacket);
         }
         ret = transcode_session_output_send_output_packet(pOutput,pOutPacket);
 
@@ -498,7 +512,8 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
             av_frame_free(&pOutFrame);
             goto filter_error;
         }
-        
+
+
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] recieved from filterId %d (%s): %s",
                pContext->name,
                filterId,
@@ -508,10 +523,15 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
              ackFilter(&pContext->ack_handler->acker,pOutFrame);
         }
 
+
+
         for (int outputId=0;outputId<pContext->outputs;outputId++) {
             transcode_session_output_t *pOutput=&pContext->output[outputId];
             if (pOutput->filterId==filterId && pOutput->encoderId!=-1){
                 LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] sending frame from filterId %d to encoderId %d",pOutput->track_id,filterId,pOutput->encoderId);
+               if(pDecoderContext->codec_type == AVMEDIA_TYPE_VIDEO) {
+                  atsc_a53_filtered(pContext->cc_a53,pOutput->encoderId,pOutFrame);
+               }
                 _S(encodeFrame(pContext,pOutput->encoderId,outputId,pOutFrame));
             }
         }
@@ -548,6 +568,8 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
         return 0;
     }
 
+
+
     if(ctx->offset > 0){
         if(decoderCtx->codec_type == AVMEDIA_TYPE_AUDIO) {
             LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] decoded audio frame samples: %ld. offset: %ld",ctx->name,
@@ -570,7 +592,11 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
     }
 
     LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] decoded: %s",ctx->name,getFrameDesc(frame));
-        
+
+    if(decoderCtx->codec_type == AVMEDIA_TYPE_VIDEO) {
+        atsc_a53_decoded(ctx->cc_a53,frame);
+    }
+
     if (ctx->dropper.enabled && transcode_dropper_should_drop_frame(&ctx->dropper,ctx->lastQueuedDts,frame))
     {
         return 0;
@@ -723,6 +749,9 @@ int transcode_session_close(transcode_session_t *session,int exitErrorCode) {
         session->currentMediaInfo=NULL;
     }
     free_policy_provider(&session->policy);
+
+    atsc_a53_handler_free(&session->cc_a53);
+
     return 0;
 }
 
