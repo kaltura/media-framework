@@ -477,7 +477,7 @@ int transcode_decoder_receive_frame( transcode_codec_t *decoder,AVFrame *pFrame)
     //pFrame->pts = pFrame->best_effort_timestamp;
     log_frame_side_data(CATEGORY_CODEC,pFrame);
     
-    
+    pFrame->pts = FFMAX(decoder->outDts+1,pFrame->pts);
     decoder->outDts=pFrame->pts;
     samples_stats_add(&decoder->outStats,pFrame->pts,pFrame->pkt_pos,0);
 
