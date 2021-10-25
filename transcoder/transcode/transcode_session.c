@@ -423,16 +423,39 @@ bool mediaTypesMatch(transcode_filter_t *pFilter,AVCodecContext *ctx)
     // video
     //TODO: get more video related props to compare
     return ctx->width == pFilter->src_ctx->outputs[0]->w
-       && ctx->height == pFilter->src_ctx->outputs[0]->h;
+       && ctx->height == pFilter->src_ctx->outputs[0]->h
+       && ctx->sample_fmt ==  pFilter->src_ctx->outputs[0]->format;
 }
 
 static
+bool mediaTypesMatchWithFrame(transcode_filter_t *pFilter,AVFrame *pFrame)
+{
+    if(pFilter->src_ctx->outputs[0]->type == AVMEDIA_TYPE_AUDIO)
+    {
+        uint64_t channelLayout=pFrame->channel_layout;
+        if (channelLayout<=0) {
+             channelLayout=av_get_default_channel_layout(pFrame->channels);
+        }
+        return pFrame->format == pFilter->src_ctx->outputs[0]->format
+            && channelLayout == pFilter->src_ctx->outputs[0]->channel_layout
+            && pFrame->channels == pFilter->src_ctx->outputs[0]->channels
+            && pFrame->sample_rate == pFilter->src_ctx->outputs[0]->sample_rate;
+    }
+    // video
+    //TODO: get more video related props to compare
+    return pFrame->width == pFilter->src_ctx->outputs[0]->w
+       && pFrame->height == pFilter->src_ctx->outputs[0]->h
+       && pFrame->format ==  pFilter->src_ctx->outputs[0]->format;
+}
+
+
+static
 int getFilterForStream(transcode_session_t *pContext,int filterId,
-  transcode_codec_t* pDecoderContext,transcode_filter_t **ppFilter)
+  AVFrame *pFrame, transcode_codec_t* pDecoderContext,transcode_filter_t **ppFilter)
 {
    *ppFilter = NULL;
    transcode_filter_t *pFilter =  &pContext->filter[filterId];
-   if(mediaTypesMatch(pFilter,pDecoderContext->ctx))
+   if(pFrame ? mediaTypesMatchWithFrame(pFilter,pFrame) : mediaTypesMatch(pFilter,pDecoderContext->ctx))
    {
        *ppFilter = pFilter;
    }
@@ -471,7 +494,7 @@ int getFilterForStream(transcode_session_t *pContext,int filterId,
 int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext* pDecoderContext, AVFrame *pFrame)
 {
     transcode_filter_t *pFilter;
-    int ret=getFilterForStream(pContext,filterId,&pContext->decoder[0],&pFilter);
+    int ret=getFilterForStream(pContext,filterId,pFrame,&pContext->decoder[0],&pFilter);
     if (ret<0) {
          LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"[%s] getFilterForStream failed for filterId %d (%s): %d (%s)",
                 pContext->name,
