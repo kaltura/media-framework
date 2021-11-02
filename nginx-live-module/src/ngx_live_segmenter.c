@@ -1889,11 +1889,6 @@ ngx_live_segmenter_remove_all_frames(ngx_live_track_t *track)
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
 
-    if (ctx->frame_count > 0) {
-        (void) ngx_live_core_track_event(track,
-            NGX_LIVE_EVENT_TRACK_INACTIVE, NULL);
-    }
-
     ngx_live_media_info_pending_free_all(track);
 
     ngx_live_segmenter_frame_list_free(&ctx->frames);
