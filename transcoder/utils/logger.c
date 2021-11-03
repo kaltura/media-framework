@@ -48,6 +48,8 @@ int parseLoglevel(const char* loglevel)
 
 pthread_mutex_t logger_locker;
 
+char logger_id[256] = {0};
+
 void logger2(const char* category,const char* subcategory,int level,const char *fmt, bool newLine, va_list args)
 {    
     const char* levelStr=getLevelStr(level);
@@ -64,7 +66,7 @@ void logger2(const char* category,const char* subcategory,int level,const char *
 
     FILE* out=stdout;
     
-    fprintf( out, "%s.%03lld %s:%s %s [%p] ",buf,( (now % 1000000)/1000 ),category,subcategory!=NULL ? subcategory : "", levelStr,pthread_self());
+    fprintf( out, "%s.%03lld %s:%s %s |%s| [%p] ",buf,( (now % 1000000)/1000 ),category,subcategory!=NULL ? subcategory : "", levelStr,logger_id,pthread_self());
     if (args!=NULL) {
         vfprintf( out, fmt, args );
     } else {
@@ -139,6 +141,9 @@ void log_init(int level)
 
 void set_log_level(const char* loglevel) {
     logLevel=parseLoglevel(loglevel);
+    if(!*logger_id) {
+        json_get_string(GetConfig(),"logger.id","\0",logger_id,sizeof(logger_id));
+    }
 }
 
 int get_log_level(const char* category)

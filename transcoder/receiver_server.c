@@ -208,14 +208,20 @@ void* listenerThread(void *vargp)
 int receiver_server_init(receiver_server_t *server)
 {
     //event_init(&server->terminiate);
-    
+    int clientSocket;
+    json_get_int(GetConfig(),"kmp.fd",-1,&clientSocket);
     pthread_mutex_init(&server->diagnostics_locker,NULL);
     server->lastDiagnsotics=NULL;
     KMP_init(&server->kmpServer);
     server->kmpServer.listenPort=server->port;
-    int ret;
-    if ((ret=KMP_listen(&server->kmpServer))<0) {
-        return ret;
+    if(clientSocket > 0){
+        LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"kmp.fd  %d",clientSocket);
+        return 0;
+    } else {
+        int ret;
+        if ((ret=KMP_listen(&server->kmpServer))<0) {
+            return ret;
+        }
     }
     vector_init(&server->sessions);
     return 0;

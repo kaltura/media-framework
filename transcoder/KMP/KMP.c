@@ -407,38 +407,39 @@ int KMP_close( KMP_session_t *context)
 
 int KMP_listen( KMP_session_t *context)
 {
-    int ret=0;
-    // Creating socket file descriptor
-    if ((ret = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) <= 0)
-    {
-        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Socket creation error %d (%s)",ret,av_err2str(ret));
-        return checkReturn(ret);
-    }
-    
-    context->socket =ret;
-    
-    /*
-     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
-     &opt, sizeof(opt)))
+    int ret= 0;
+
+     // Creating socket file descriptor
+     if ((ret = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) <= 0)
      {
-     perror("setsockopt");
-     exit(EXIT_FAILURE);
-     }*/
-    context->address.sin_family = AF_INET;
-    context->address.sin_addr.s_addr = INADDR_ANY;
-    context->address.sin_port = htons( context->listenPort );
-    
-    // Forcefully attaching socket to the port
-    if ( (ret=bind(context->socket, (struct sockaddr *)&context->address,sizeof(context->address)))<0)
-    {
-        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"bind to port %d failed  error:%d (%s)",context->listenPort,errno,av_err2str(errno));
-        return ret;
-    }
-    
-    if ( (ret=listen(context->socket, 10)) < 0)
-    {
-        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"listen failed %d (%s)",errno,av_err2str(errno));
-        return ret; 
+         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Socket creation error %d (%s)",ret,av_err2str(ret));
+          return checkReturn(ret);
+     }
+
+     context->socket =ret;
+
+        /*
+         if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
+         &opt, sizeof(opt)))
+         {
+         perror("setsockopt");
+         exit(EXIT_FAILURE);
+         }*/
+     context->address.sin_family = AF_INET;
+     context->address.sin_addr.s_addr = INADDR_ANY;
+     context->address.sin_port = htons( context->listenPort );
+
+        // Forcefully attaching socket to the port
+     if ( (ret=bind(context->socket, (struct sockaddr *)&context->address,sizeof(context->address)))<0)
+     {
+         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"bind to port %d failed  error:%d (%s)",context->listenPort,errno,av_err2str(errno));
+         return ret;
+     }
+
+     if ( (ret=listen(context->socket, 10)) < 0)
+     {
+         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"listen failed %d (%s)",errno,av_err2str(errno));
+         return ret;
     }
     
     socklen_t addrLen = sizeof(context->address);
@@ -456,37 +457,47 @@ int KMP_listen( KMP_session_t *context)
 
 int KMP_accept( KMP_session_t *context, KMP_session_t *client)
 {
+    int clientSocket;
     int addrlen = sizeof(context->address);
-    
-    fd_set rfds;
-    FD_ZERO(&rfds);
-    FD_SET(context->socket, &rfds);
-    
-    int tv_sec=10;
-    json_get_int(GetConfig(),"kmp.acceptTimeout",10,&tv_sec);
     struct timeval tv;
-    tv.tv_sec = tv_sec;
-    tv.tv_usec = 0;
-    
-    int nfd = select(context->socket+1, &rfds, &rfds, NULL, &tv);
+    int flags=0;
+    int tv_sec;
 
-    if (nfd<0)
-    {
-        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"accept failure errno=%d",errno);
-        return -1;
+    json_get_int(GetConfig(),"kmp.fd",-1,&clientSocket);
+    if(clientSocket < 0){
+        fd_set rfds;
+        FD_ZERO(&rfds);
+        FD_SET(context->socket, &rfds);
+
+
+        json_get_int(GetConfig(),"kmp.acceptTimeout",10,&tv_sec);
+
+        tv.tv_sec = tv_sec;
+        tv.tv_usec = 0;
+
+        int nfd = select(context->socket+1, &rfds, &rfds, NULL, &tv);
+
+        if (nfd<0)
+        {
+            LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"accept failure errno=%d",errno);
+            return -1;
+        }
+        if (nfd==0) {
+            LOGGER0(CATEGORY_KMP,AV_LOG_FATAL,"timeout waiting for accept");
+            return -1;
+        }
+        clientSocket=accept(context->socket, (struct sockaddr *)&client->address,
+                                (socklen_t*)&addrlen);
+
     }
-    if (nfd==0) {
-        LOGGER0(CATEGORY_KMP,AV_LOG_FATAL,"timeout waiting for accept");
-        return -1;
-    }
-    int clientSocket=accept(context->socket, (struct sockaddr *)&client->address,
-                            (socklen_t*)&addrlen);
-    
     if (clientSocket<=0) {
         return clientSocket;
     }
     client->socket =clientSocket;
     client->listenPort=0;
+    if (-1 == (flags = fcntl(client->socket, F_GETFL, 0)))
+        flags = 0;
+    fcntl(client->socket, F_SETFL, flags & (~O_NONBLOCK));
     client->non_blocking = false;
     json_get_int(GetConfig(),"kmp.sndRcvTimeout",60*3,&tv_sec);
     tv.tv_sec = tv_sec;
