@@ -38,7 +38,7 @@ class TranscoderTask:
                      **spec.get('required')}
         self.work_dir = os.path.join(base_dir, f"{self.id}-{id}")
         self.process = None
-        self.logger = create_logger("transcoder_session", f"{self.id}")
+        self.logger = create_logger(f"{self.id} transcoder_session", "")
         os.mkdir(self.work_dir)
         self.logger.debug(f"TranscoderTask: {self.desc}")
 

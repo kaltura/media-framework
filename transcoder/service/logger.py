@@ -1,7 +1,7 @@
 import logging
 from config import config
 
-logging.basicConfig(level=config.logging_level.upper())
+logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s - %(message)s", level=config.logging_level.upper())
 
 loggers = {}
 
