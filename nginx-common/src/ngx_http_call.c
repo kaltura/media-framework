@@ -358,7 +358,7 @@ ngx_http_call_connect(ngx_http_call_ctx_t *ctx)
     ngx_str_t          addr_text;
     ngx_connection_t  *cc;
 
-    ctx->peer.sockaddr = (struct sockaddr *)&ctx->url->sockaddr;
+    ctx->peer.sockaddr = (struct sockaddr *) &ctx->url->sockaddr;
     ctx->peer.socklen = ctx->url->socklen;
 
     addr_text.data = ctx->addr_text_buf;

@@ -178,6 +178,9 @@ class KmpTcpSender(object):
     def recv(self, bufsize):
         return self.s.recv(bufsize)
 
+    def close(self):
+        return self.s.close()
+
     def setsockopt(self, level, optname, value):
         return self.s.setsockopt(level, optname, value)
 

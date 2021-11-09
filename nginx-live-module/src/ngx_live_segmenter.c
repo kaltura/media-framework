@@ -120,6 +120,7 @@ typedef struct {
     int64_t                           split_duration;
     uint64_t                          last_id;
     int64_t                           last_pts;
+    int64_t                           last_dts;
 } ngx_live_segmenter_remove_res_t;
 
 
@@ -636,6 +637,7 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
 
                 res->last_id = last[-1].id;
                 res->last_pts = last[-1].pts;
+                res->last_dts = last[-1].dts;
 
                 if (part != &list->part) {
                     ngx_block_pool_free(list->block_pool, list->bp_idx, part);
@@ -688,6 +690,7 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
 
             res->last_id = part->elts[part->nelts - 1].id;
             res->last_pts = part->elts[part->nelts - 1].pts;
+            res->last_dts = part->elts[part->nelts - 1].dts;
 
             if (part != &list->part) {
                 ngx_block_pool_free(list->block_pool, list->bp_idx, part);
@@ -703,6 +706,7 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
     if (cur > part->elts) {
         res->last_id = cur[-1].id;
         res->last_pts = cur[-1].pts;
+        res->last_dts = cur[-1].dts;
     }
 
     /* remove frames from the last part */
@@ -1806,6 +1810,7 @@ ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
         free_data_chains, &ctx->split_count, &rr);
 
     track->last_frame_pts = rr.last_pts;
+    track->last_frame_dts = rr.last_dts;
     track->next_frame_id = rr.last_id + 1;
 
     if (track->media_type == KMP_MEDIA_VIDEO) {
@@ -1888,6 +1893,11 @@ ngx_live_segmenter_remove_all_frames(ngx_live_track_t *track)
     ngx_live_segmenter_track_ctx_t  *ctx;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
+
+    if (ctx->frame_count > 0) {
+        (void) ngx_live_core_track_event(track,
+            NGX_LIVE_EVENT_TRACK_INACTIVE, (void *) 1);
+    }
 
     ngx_live_media_info_pending_free_all(track);
 

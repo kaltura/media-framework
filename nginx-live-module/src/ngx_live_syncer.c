@@ -329,8 +329,13 @@ ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
         {
             if (pts_diff > spcf->inter_jump_threshold * channel->timescale) {
 
-                /* make sure the frame duration will come out positive */
-                min_correction = ctx->last_output_dts + 1 - frame->dts;
+                if (ctx->last_output_dts != NGX_LIVE_INVALID_TIMESTAMP) {
+                    /* make sure the frame duration will come out positive */
+                    min_correction = ctx->last_output_dts + 1 - frame->dts;
+
+                } else {
+                    min_correction = LLONG_MIN;
+                }
 
                 ngx_log_error(NGX_LOG_WARN, &track->log, 0,
                     "ngx_live_syncer_add_frame: large inter-frame pts jump"
@@ -494,7 +499,7 @@ ngx_live_syncer_get_log(ngx_live_track_t *track)
         cur = &ctx->log[i];
 
         if (cur->sequence == 0) {
-            break;
+            continue;
         }
 
         if (cur->frame_id >= track->next_frame_id) {
@@ -507,6 +512,24 @@ ngx_live_syncer_get_log(ngx_live_track_t *track)
     }
 
     return best;
+}
+
+static void
+ngx_live_syncer_remove_future_logs(ngx_live_track_t *track)
+{
+    ngx_uint_t                    i;
+    ngx_live_syncer_log_t        *cur;
+    ngx_live_syncer_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
+
+    for (i = 0; i < NGX_LIVE_SYNCER_LOG_COUNT; i++) {
+        cur = &ctx->log[i];
+
+        if (cur->frame_id >= track->next_frame_id) {
+            cur->sequence = 0;
+        }
+    }
 }
 
 static ngx_int_t
@@ -630,7 +653,11 @@ ngx_live_syncer_read_index_track(ngx_persist_block_header_t *header,
     ctx->correction = tp->correction;
     if (track->last_frame_pts != NGX_LIVE_INVALID_TIMESTAMP) {
         ctx->last_pts = track->last_frame_pts - ctx->correction;
+
+    } else {
+        ctx->last_pts = NGX_LIVE_INVALID_TIMESTAMP;
     }
+    ctx->last_output_dts = track->last_frame_dts;
 
     log = &ctx->log[0];
     log->frame_id = 0;
@@ -682,6 +709,51 @@ ngx_live_syncer_read_index(ngx_persist_block_header_t *header,
 
     cctx->correction = cp->correction;
     cctx->sequence = 2;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_syncer_track_inactive(ngx_live_track_t* track, void* ectx)
+{
+    uintptr_t                     reconnect;
+    ngx_live_syncer_log_t        *log;
+    ngx_live_syncer_track_ctx_t  *ctx;
+
+    reconnect = (uintptr_t) ectx;
+    if (!reconnect) {
+        return ngx_live_syncer_track_reset(track, NULL);
+    }
+
+    log = ngx_live_syncer_get_log(track);
+    if (!log) {
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+            "ngx_live_syncer_track_inactive: log not found, frame_id: %uL",
+            track->next_frame_id);
+        return ngx_live_syncer_track_reset(track, NULL);
+    }
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
+
+    ctx->correction = log->correction;
+    if (track->last_frame_pts != NGX_LIVE_INVALID_TIMESTAMP) {
+        ctx->last_pts = track->last_frame_pts - ctx->correction;
+
+    } else {
+        ctx->last_pts = NGX_LIVE_INVALID_TIMESTAMP;
+    }
+    ctx->last_output_dts = track->last_frame_dts;
+    ctx->force_sync_count = 0;
+
+    ngx_live_syncer_remove_future_logs(track);
+
+    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+        "ngx_live_syncer_track_inactive: "
+        "state was reset, next_frame_id: %uL, correction: %L"
+        ", last_pts: %L, last_output_dts: %L",
+        track->next_frame_id, ctx->correction,
+        ctx->last_pts, ctx->last_output_dts);
 
     return NGX_OK;
 }
@@ -781,7 +853,7 @@ static ngx_live_channel_event_t    ngx_live_syncer_channel_events[] = {
 
 static ngx_live_track_event_t      ngx_live_syncer_track_events[] = {
     { ngx_live_syncer_track_reset, NGX_LIVE_EVENT_TRACK_INIT },
-    { ngx_live_syncer_track_reset, NGX_LIVE_EVENT_TRACK_INACTIVE },
+    { ngx_live_syncer_track_inactive, NGX_LIVE_EVENT_TRACK_INACTIVE },
       ngx_live_null_event
 };
 
