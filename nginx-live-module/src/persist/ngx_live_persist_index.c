@@ -609,6 +609,8 @@ ngx_live_persist_index_read_track(ngx_persist_block_header_t *header,
 
         track_id = tp->track_id;
 
+        tp1 = NULL;
+
     } else {
         /* TODO: remove this */
         tp1 = ngx_mem_rstream_get_ptr(rs, sizeof(*tp1));
@@ -619,6 +621,8 @@ ngx_live_persist_index_read_track(ngx_persist_block_header_t *header,
         }
 
         track_id = tp1->track_id;
+
+        tp = NULL;
     }
 
     track = ngx_live_track_get_by_int(channel, track_id);
