@@ -715,21 +715,15 @@ ngx_live_syncer_read_index(ngx_persist_block_header_t *header,
 
 
 static ngx_int_t
-ngx_live_syncer_track_inactive(ngx_live_track_t* track, void* ectx)
+ngx_live_syncer_track_reconnect(ngx_live_track_t* track, void* ectx)
 {
-    uintptr_t                     reconnect;
     ngx_live_syncer_log_t        *log;
     ngx_live_syncer_track_ctx_t  *ctx;
-
-    reconnect = (uintptr_t) ectx;
-    if (!reconnect) {
-        return ngx_live_syncer_track_reset(track, NULL);
-    }
 
     log = ngx_live_syncer_get_log(track);
     if (!log) {
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-            "ngx_live_syncer_track_inactive: log not found, frame_id: %uL",
+            "ngx_live_syncer_track_reconnect: log not found, frame_id: %uL",
             track->next_frame_id);
         return ngx_live_syncer_track_reset(track, NULL);
     }
@@ -749,7 +743,7 @@ ngx_live_syncer_track_inactive(ngx_live_track_t* track, void* ectx)
     ngx_live_syncer_remove_future_logs(track);
 
     ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-        "ngx_live_syncer_track_inactive: "
+        "ngx_live_syncer_track_reconnect: "
         "state was reset, next_frame_id: %uL, correction: %L"
         ", last_pts: %L, last_output_dts: %L",
         track->next_frame_id, ctx->correction,
@@ -853,7 +847,8 @@ static ngx_live_channel_event_t    ngx_live_syncer_channel_events[] = {
 
 static ngx_live_track_event_t      ngx_live_syncer_track_events[] = {
     { ngx_live_syncer_track_reset, NGX_LIVE_EVENT_TRACK_INIT },
-    { ngx_live_syncer_track_inactive, NGX_LIVE_EVENT_TRACK_INACTIVE },
+    { ngx_live_syncer_track_reset, NGX_LIVE_EVENT_TRACK_INACTIVE },
+    { ngx_live_syncer_track_reconnect, NGX_LIVE_EVENT_TRACK_RECONNECT },
       ngx_live_null_event
 };
 
