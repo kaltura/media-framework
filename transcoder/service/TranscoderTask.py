@@ -119,11 +119,9 @@ class TranscoderTask:
                 client.close()
                 if logFile:
                     logFile.close()
-        except:
-            self.logger.error(
-                f"new client connected: {client.getsockname()} launching exe: {config.exe_path} {exe_args} \nlog: {logPath}")
+        except Exception as e:
+            self.logger.error(f"wait_for_connection error: {e}. exiting now")
             self.handler.task_exited(self)
-            raise
         finally:
             control.close()
             kmp.close()
