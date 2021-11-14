@@ -177,6 +177,7 @@ struct ngx_live_track_s {
 
     ngx_live_track_input_t         input;
     int64_t                        last_frame_pts;
+    int64_t                        last_frame_dts;
     uint64_t                       next_frame_id;
 
     uint32_t                       initial_segment_index;
