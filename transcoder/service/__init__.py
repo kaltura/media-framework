@@ -13,9 +13,6 @@ class TranscoderService(TaskEventsHandler):
         self.tasks = {}
         self.logger = create_logger("transcoder_service", f"{config.bind_ip_address}:{config.listen_port}")
 
-    async def status(self, request):
-        return web.Response(text="running...")
-
     async def allocate(self, request):
         data = (await request.content.read()).decode()
         self.logger.info(f"allocation request: {request} data: {data}")
@@ -34,15 +31,33 @@ class TranscoderService(TaskEventsHandler):
         return web.json_response(body=json.dumps(list(map(lambda x: x.desc, self.tasks.values()))))
 
     async def deallocate(self, request):
+        id = random_sequence(8)
+        logger = create_logger(f"{id} deallocate ", "")
         data = json.loads((await request.content.read()).decode())
-        self.logger.info(f"deallocated {data}")
+        logger.info(F"deallocate tasks {data}")
+        processes = []
+        killed = []
+        if '*' in data:
+            processes = list(map(lambda x: x.suicide(), self.tasks.values()))
+        else:
+            for pattern in map(lambda x: x.lower(), data):
+              for id in filter(lambda x: pattern in x.lower(), self.tasks):
+                 logger.info(F"found task {id}")
+                 task = self.tasks[id]
+                 processes.append(task.suicide())
+        if processes:
+            done, _ = await asyncio.wait(processes, timeout=5)
+            killed = list(map(lambda x: x.result(), done))
+            logger.info(f"tasks exited {killed}")
+        else:
+            logger.warn(f"no tasks found for input {data}")
+        return web.json_response(body=json.dumps(killed))
 
 
 app = web.Application()
 ts = TranscoderService()
-app.add_routes([web.get('/status', ts.status),
+app.add_routes([web.get('/status', ts.get_state),
                 web.post('/allocate/transcoder', ts.allocate),
-                web.post('/deallocate', ts.deallocate),
-                web.get('/getState', ts.get_state)])
+                web.post('/deallocate', ts.deallocate)])
 ts.logger.info(F"running with configuration {config}")
 web.run_app(app, host=config.bind_ip_address, port=config.listen_port)

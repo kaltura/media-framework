@@ -5,7 +5,7 @@ from shutil import rmtree
 import json
 from config import config
 from health import run_health_check_async
-from service_utils import random_sequence
+from service_utils import random_sequence, accept_connection
 import os
 from logger import create_logger
 
@@ -25,7 +25,7 @@ class TranscoderTask:
         id = random_sequence(8)
         spec["config"]['logger']['id'] = id
         self.handler = handler
-        trans_id = f"{pod_name}:{spec.get('channelId')}:{spec.get('inputIndex')}@{'b' if spec.get('sessionType') else 'p'}{ 'v' if 0 == spec.get('trackType') else 'a'}:{id}"
+        trans_id = f"{pod_name}:{spec.get('channelId')}:{spec.get('inputIndex')}{ 'v' if 0 == spec.get('trackType') else 'a'}@{'b' if spec.get('sessionType') else 'p'}:{id}"
         self.desc = {"id": trans_id,
                      "state": 2,
                      "clusterId": spec.get('inputClusterId'),
@@ -85,6 +85,7 @@ class TranscoderTask:
         kmp.listen(1)
         self.desc["kmpPort"] = kmpPort
         self.desc["controlPort"] = controlPort
+        session_config['control'] = {'listenPort': controlPort}
         self.desc["kmpHostName"] = addr
         self.desc["hostName"] = addr
         asyncio.create_task(self.wait_for_connection(kmp, control, logPath, session_config))
@@ -95,11 +96,9 @@ class TranscoderTask:
 
     async def wait_for_connection(self, kmp, control, logPath, session_config):
         try:
-            self.logger.debug(f"waiting for server to connect to: {kmp.getsockname()}")
-            loop = asyncio.get_event_loop()
-            kmp.setblocking(False)
-            kmp.settimeout(session_config.get('kmp', {}).get('acceptTimeout', 10))
-            client, _ = await loop.sock_accept(kmp)
+            self.logger.info(f"waiting for server to connect to: {kmp.getsockname()}")
+            client, _ = await accept_connection(kmp,
+                int(session_config.get('kmp', {}).get('acceptTimeout', 10)))
             client.setblocking(True)
             try:
                 logFile = open(logPath, "w+") if logPath else None
@@ -133,3 +132,9 @@ class TranscoderTask:
         self.desc['errorCode'] = self.process.returncode
         self.logger.info(f" exited with status: {self.process.returncode}")
         self.handler.task_exited(self)
+
+    async def suicide(self) -> str:
+        self.process.kill()
+        await self.process.wait()
+        return self.id
+

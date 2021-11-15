@@ -3,6 +3,7 @@ import random
 import socket
 import os
 from aiohttp import ClientSession, ServerTimeoutError
+import asyncio
 
 def get_bind_ip_address():
     listen_address = os.getenv('MY_POD_IP_ADDR')
@@ -35,3 +36,15 @@ async def deallocate_task_with_retries(die_url: str,data: dict,wait_interval:flo
             except Exception as ex:
                 logger.error(f"deallocate_task_with_retries({id}): error: {ex}")
                 break
+
+#workaround for lousy python 3.8 asyncio.sock_accept which blocks the thread
+async def accept_connection(kmp: socket,timeout):
+    loop = asyncio.get_event_loop()
+    fut = loop.create_future()
+    def handle_accept():
+        fut.set_result(kmp.accept())
+    loop.add_reader(kmp.fileno(),handle_accept)
+    try:
+        return await asyncio.wait_for(fut, timeout)
+    finally:
+        loop.remove_reader(kmp.fileno())
