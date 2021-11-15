@@ -8,6 +8,7 @@ from health import run_health_check_async
 from service_utils import random_sequence, accept_connection
 import os
 from logger import create_logger
+import signal
 
 base_dir = os.getenv('BASE_DIR')
 
@@ -36,7 +37,7 @@ class TranscoderTask:
                      "trackType": "Video" if 0 == spec.get('trackType') else "Audio",
                      "inputSessionType": spec.get('sessionType'),
                      **spec.get('required')}
-        self.work_dir = os.path.join(base_dir, f"{self.id}-{id}")
+        self.work_dir = os.path.join(base_dir, f"{self.id}")
         self.process = None
         self.logger = create_logger(f"{self.id} transcoder_session", "")
         os.mkdir(self.work_dir)
@@ -133,8 +134,16 @@ class TranscoderTask:
         self.logger.info(f" exited with status: {self.process.returncode}")
         self.handler.task_exited(self)
 
-    async def suicide(self) -> str:
-        self.process.kill()
-        await self.process.wait()
+    async def suicide(self, timeout: int = 5) -> str:
+        self.logger.info(f"commiting suicide with timeout: {timeout} sec")
+        # schedule graceful exit
+        self.process.send_signal(signal.SIGINT)
+        try:
+            await asyncio.wait_for(self.process.wait(), timeout=timeout)
+        except:
+            # brutally kill the process
+            self.logger.warning(f" could not exit during given timeout; killing process")
+            self.process.kill()
+            await self.process.wait()
         return self.id
 
