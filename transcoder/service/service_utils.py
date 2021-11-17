@@ -5,8 +5,11 @@ import os
 from aiohttp import ClientSession, ServerTimeoutError
 import asyncio
 
-def get_bind_ip_address():
-    listen_address = os.getenv('MY_POD_IP_ADDR')
+pod_ip_addr = os.getenv('MY_POD_IP_ADDR')
+
+# get preferred ip address visible by others
+def get_host_ip_address():
+    listen_address = pod_ip_addr
     if not listen_address:
         try:
             listen_address = socket.gethostbyname(socket.gethostname())

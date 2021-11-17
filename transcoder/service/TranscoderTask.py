@@ -5,7 +5,7 @@ from shutil import rmtree
 import json
 from config import config
 from health import run_health_check_async
-from service_utils import random_sequence, accept_connection
+from service_utils import random_sequence, accept_connection, get_host_ip_address
 import os
 from logger import create_logger
 import signal
@@ -15,6 +15,8 @@ base_dir = os.getenv('BASE_DIR')
 node_name = os.getenv('MY_NODE_NAME')
 
 pod_name = os.getenv('MY_POD_NAME')
+
+pod_ip_addr = get_host_ip_address()
 
 class TaskEventsHandler:
     def task_exited(self, task):
@@ -66,7 +68,7 @@ class TranscoderTask:
     async def launch(self, session_config: dict):
         control = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
         try:
-            control.bind((config.bind_ip_address, 0))
+            control.bind((pod_ip_addr, 0))
             # unfortunately it's not possible right now to pass inherited handle to ffmpeg http server:(
             control.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             control.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -75,7 +77,7 @@ class TranscoderTask:
             raise
         kmp = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
         try:
-            kmp.bind((config.bind_ip_address, 0))
+            kmp.bind((pod_ip_addr, 0))
         except:
             control.close()
             kmp.close()
