@@ -50,7 +50,7 @@ class TranscoderTask:
     async def run_health_loop(self):
         self.logger.debug(f"run_health_loop. sleeping  health_initial_timeout_sec {config.health_initial_timeout_sec}")
         await asyncio.sleep(config.health_initial_timeout_sec)
-        while self.process and not self.process.returncode:
+        while self.process and self.process.returncode is None:
             try:
                 self.logger.info(f"about to check liveness")
                 await run_health_check_async(self, False, config.health_period_sec * 3)
