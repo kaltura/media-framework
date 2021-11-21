@@ -24,4 +24,4 @@ def test(channelId=CHANNEL_ID):
 
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'seg-1-svar1.m4s'))
     assert(req.status_code == 502)
-    logTracker.assertContains('ngx_persist_read_file_header: file has a newer version 9999999, type: sgts')
+    logTracker.assertContains('ngx_persist_read_file_header: ignoring new file, version: 9999999, type: sgts')

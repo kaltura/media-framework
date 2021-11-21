@@ -25,7 +25,8 @@ def test(channelId=CHANNEL_ID):
         f.write(struct.pack('<L', 9999999))
 
     nl = nginxLiveClient()
-    assertHttpError(
-        lambda: nl.channel.create(NginxLiveChannel(id=channelId, preset='main')), 503)
+    nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
+    nl.setChannelId(channelId)
 
-    logTracker.assertContains('ngx_persist_read_file_header: file has a newer version 9999999, type: setp')
+    logTracker.assertContains('ngx_persist_read_file_header: ignoring new file, version: 9999999, type: setp')
+    assert(nl.variant.getAll() == {})
