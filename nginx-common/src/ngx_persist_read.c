@@ -46,11 +46,11 @@ ngx_persist_read_file_header(ngx_str_t *buf, uint32_t type, ngx_log_t *log,
     }
 
     if (header->version > NGX_PERSIST_FILE_MAX_VERSION) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
+        ngx_log_error(NGX_LOG_WARN, log, 0,
             "ngx_persist_read_file_header: "
-            "file has a newer version %uD, type: %*s",
+            "ignoring new file, version: %uD, type: %*s",
             header->version, (size_t) sizeof(type), &type);
-        return NGX_BAD_DATA;
+        return NGX_DECLINED;
     }
 
     header_size = header->header_size & NGX_PERSIST_HEADER_SIZE_MASK;
