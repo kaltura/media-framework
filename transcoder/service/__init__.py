@@ -30,6 +30,10 @@ class TranscoderService(TaskEventsHandler):
         self.logger.debug(f"get_state")
         return web.json_response(body=json.dumps(list(map(lambda x: x.desc, self.tasks.values()))))
 
+    async def get_healthz(self,request):
+        self.logger.debug(f"get_healthz")
+        return web.json_response(body=':)')
+
     async def deallocate(self, request):
         id = random_sequence(8)
         logger = create_logger(f"{id} deallocate ", "")
@@ -58,6 +62,7 @@ app = web.Application()
 ts = TranscoderService()
 app.add_routes([web.get('/status', ts.get_state),
                 web.post('/allocate/transcoder', ts.allocate),
-                web.post('/deallocate', ts.deallocate)])
+                web.post('/deallocate', ts.deallocate),
+                web.get('/healthz', ts.get_healthz)])
 ts.logger.info(F"running with configuration {config}")
 web.run_app(app, host=config.bind_ip_address, port=config.listen_port)

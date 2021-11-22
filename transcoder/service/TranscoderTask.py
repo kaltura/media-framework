@@ -25,7 +25,7 @@ class TaskEventsHandler:
 
 class TranscoderTask:
     def __init__(self, handler: TaskEventsHandler, spec: dict):
-        id = random_sequence(8)
+        id = spec.get('act')
         spec["config"]['logger']['id'] = id
         self.handler = handler
         trans_id = f"{pod_name}:{spec.get('channelId')}:{spec.get('inputIndex')}{ 'v' if 0 == spec.get('trackType') else 'a'}@{'b' if spec.get('sessionType') else 'p'}:{id}"
@@ -38,6 +38,7 @@ class TranscoderTask:
                      "trackId": spec.get('trackId'),
                      "trackType": "Video" if 0 == spec.get('trackType') else "Audio",
                      "inputSessionType": spec.get('sessionType'),
+                     "act": id,
                      **spec.get('required')}
         self.work_dir = os.path.join(base_dir, f"{self.id}")
         self.process = None
