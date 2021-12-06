@@ -100,9 +100,10 @@ int KMP_connect( KMP_session_t *context,char* url)
     context->socket=fd;
     
     struct timeval tv;
-    tv.tv_sec = 10000;
+    tv.tv_sec = 20;
     tv.tv_usec = 0;
     setsockopt(context->socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
+    setsockopt(context->socket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof tv);
 
     
     if ( connect(context->socket,p->ai_addr, p->ai_addrlen) < 0)

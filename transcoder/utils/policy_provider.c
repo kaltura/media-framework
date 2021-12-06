@@ -6,6 +6,8 @@ static
 bool isFatalError(int error) {
     switch(error) {
     case AVERROR(ENOMEM):
+    case AVERROR(EHOSTUNREACH):
+    case AVERROR(ECONNRESET):
         return true;
     default:
         return false;
@@ -18,8 +20,8 @@ int errorOnExitHandler(policy_provider_t provider,int error){
     bool isFatal = isFatalError(error);
     bool shouldExit = exitOnError || isFatal;
     int logLevel = shouldExit ? AV_LOG_ERROR : AV_LOG_INFO;
-    LOGGER(CATEGORY_TRANSCODING_SESSION,logLevel,"errorOnExitHandler exitOnError: %d is error fatal?: %s",exitOnError,
-        isFatal ? "yes" : "no");
+    LOGGER(CATEGORY_TRANSCODING_SESSION,logLevel,"errorOnExitHandler exitOnError: %d is error <%d> fatal?: %s",exitOnError,
+        error, isFatal ? "yes" : "no");
     return shouldExit ? error : 0;
 }
 
