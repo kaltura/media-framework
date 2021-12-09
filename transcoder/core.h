@@ -5,7 +5,7 @@
 
 #include "libs.h"
 
-#define _S(EXP) if ((EXP)<0) { return -1;}
+#define _S(EXP) if ((EXP)<0) { return EXP;}
 #ifndef u_char
 #define u_char  unsigned char
 #endif
