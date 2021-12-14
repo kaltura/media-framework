@@ -1046,6 +1046,8 @@ ngx_http_pckg_mpd_parse_request(ngx_http_request_t *r, u_char *start_pos,
             | NGX_KSMP_FLAG_MEDIA_INFO | NGX_KSMP_FLAG_TIMELINE
             | NGX_KSMP_FLAG_PERIODS;
 
+        result->parse_flags = NGX_PCKG_KSMP_PARSE_FLAG_CODEC_NAME;
+
     } else {
         return NGX_DECLINED;
     }

@@ -45,6 +45,7 @@
 #define NGX_KSMP_FLAG_CHECK_EXPIRY          (0x04000000)
 #define NGX_KSMP_FLAG_RELATIVE_DTS          (0x08000000)  /* to period start */
 #define NGX_KSMP_FLAG_BACK_FILL             (0x10000000)
+#define NGX_KSMP_FLAG_LAST_SEGMENT_ONLY     (0x20000000)
 
 
 #define NGX_KSMP_FLAG_MEDIA_CLIP            (NGX_KSMP_FLAG_MEDIA_CLOSEST_KEY \

@@ -490,6 +490,7 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
     channel->pool = r->pool;
     channel->persist = pmcf->persist;
     channel->flags = ctx->params.flags;
+    channel->parse_flags = ctx->params.parse_flags;
     channel->format = plcf->format;
 
     if (plcf->format == NGX_PCKG_PERSIST_TYPE_MEDIA) {

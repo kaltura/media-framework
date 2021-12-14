@@ -9,9 +9,13 @@
 #include "media/media_format.h"
 
 
-#define NGX_PCKG_PERSIST_TYPE_MEDIA          (0x73746773)    /* sgts */
-
 #define NGX_INT32_HEX_LEN  (8)
+
+#define NGX_PCKG_PERSIST_TYPE_MEDIA             (0x73746773)    /* sgts */
+
+#define NGX_PCKG_KSMP_PARSE_FLAG_EXTRA_DATA     (0x01)
+#define NGX_PCKG_KSMP_PARSE_FLAG_TRANSFER_CHAR  (0x02)
+#define NGX_PCKG_KSMP_PARSE_FLAG_CODEC_NAME     (0x04)
 
 
 typedef struct ngx_pckg_channel_s     ngx_pckg_channel_t;
@@ -33,6 +37,7 @@ typedef struct {
     int64_t                        time;
     size_t                         padding;
     uint32_t                       flags;
+    uint32_t                       parse_flags;
 } ngx_pckg_ksmp_req_t;
 
 
@@ -121,6 +126,7 @@ struct ngx_pckg_channel_s {
     uint32_t                       format;
 
     uint32_t                       flags;
+    uint32_t                       parse_flags;
     uint32_t                       track_id;    /* sgts only */
 
     ngx_str_t                      id;

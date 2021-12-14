@@ -253,6 +253,8 @@ ngx_http_pckg_mpegts_parse_ts_request(ngx_http_request_t *r, u_char *start_pos,
 
         result->flags = NGX_KSMP_FLAG_MEDIA_INFO | NGX_KSMP_FLAG_MEDIA;
 
+        result->parse_flags = NGX_PCKG_KSMP_PARSE_FLAG_EXTRA_DATA;
+
     } else {
         return NGX_DECLINED;
     }

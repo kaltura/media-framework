@@ -515,16 +515,84 @@ ngx_pckg_ksmp_read_media_info_queue(ngx_persist_block_header_t *header,
 
 
 static ngx_int_t
+ngx_pckg_ksmp_parse_avc_transfer_char(ngx_pckg_channel_t *channel,
+    media_info_t *mi)
+{
+    void               *parser_ctx;
+    vod_status_t        rc;
+    request_context_t   request_context;
+
+    ngx_memzero(&request_context, sizeof(request_context));
+    request_context.pool = channel->pool;
+    request_context.log = channel->log;
+
+    rc = avc_hevc_parser_init_ctx(&request_context, &parser_ctx);
+    if (rc != VOD_OK) {
+        return NGX_ERROR;
+    }
+
+    rc = avc_parser_parse_extra_data(parser_ctx, &mi->extra_data,
+        NULL, NULL);
+    if (rc != VOD_OK) {
+        return rc == VOD_BAD_DATA ? NGX_BAD_DATA : NGX_ERROR;
+    }
+
+    mi->u.video.transfer_characteristics =
+        avc_parser_get_transfer_characteristics(parser_ctx);
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_pckg_ksmp_parse_avc_extra_data(ngx_pckg_channel_t *channel,
+    media_info_t *mi)
+{
+    u_char  *p;
+    size_t   size;
+
+    size = codec_config_avcc_nal_units_get_size(channel->log,
+        &mi->extra_data, &mi->u.video.nal_packet_size_length);
+    if (size <= 0) {
+        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
+            "ngx_pckg_ksmp_parse_avc_extra_data: parse failed");
+        return NGX_BAD_DATA;
+    }
+
+    p = ngx_pnalloc(channel->pool, size);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
+            "ngx_pckg_ksmp_parse_avc_extra_data: alloc failed");
+        return NGX_ERROR;
+    }
+
+    mi->parsed_extra_data.data = p;
+    p = codec_config_avcc_nal_units_write(p, &mi->extra_data);
+    mi->parsed_extra_data.len = p - mi->parsed_extra_data.data;
+
+    if (mi->parsed_extra_data.len != size) {
+        ngx_log_error(NGX_LOG_ALERT, channel->log, 0,
+            "ngx_pckg_ksmp_parse_avc_extra_data: "
+            "actual extra data size %uz different from calculated %uz",
+            mi->parsed_extra_data.len, size);
+        return NGX_ERROR;
+    }
+
+    vod_log_buffer(VOD_LOG_DEBUG_LEVEL, channel->log, 0,
+        "ngx_pckg_ksmp_parse_avc_extra_data: parsed extra data ",
+        mi->parsed_extra_data.data, mi->parsed_extra_data.len);
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
     ngx_pckg_media_info_t *node)
 {
-    void               *parser_ctx;
-    u_char             *p;
-    size_t              size;
-    vod_status_t        rc;
-    media_info_t       *dest = &node->media_info;
-    kmp_media_info_t   *src = node->kmp_media_info;
-    request_context_t   request_context;
+    vod_status_t       rc;
+    media_info_t      *dest = &node->media_info;
+    kmp_media_info_t  *src = node->kmp_media_info;
 
     dest->extra_data = node->extra_data;
     dest->parsed_extra_data.data = NULL;
@@ -532,6 +600,7 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
     switch (src->media_type) {
 
     case KMP_MEDIA_VIDEO:
+
         if (src->codec_id != KMP_CODEC_VIDEO_H264) {
             ngx_log_error(NGX_LOG_ERR, channel->log, 0,
                 "ngx_pckg_ksmp_parse_media_info: invalid video codec id %uD",
@@ -545,57 +614,17 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
             return NGX_BAD_DATA;
         }
 
-        /* TODO: parse extra data only if needed for the specific request */
-
-        ngx_memzero(&request_context, sizeof(request_context));
-        request_context.pool = channel->pool;
-        request_context.log = channel->log;
-
-        rc = avc_hevc_parser_init_ctx(&request_context, &parser_ctx);
-        if (rc != VOD_OK) {
-            return rc;
+        if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_TRANSFER_CHAR) {
+            /* ignore errors - if we fail, just assume no transfer char */
+            (void) ngx_pckg_ksmp_parse_avc_transfer_char(channel, dest);
         }
 
-        rc = avc_parser_parse_extra_data(parser_ctx, &dest->extra_data, NULL,
-            NULL);
-        if (rc != VOD_OK) {
-            return rc;
+        if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_EXTRA_DATA) {
+            rc = ngx_pckg_ksmp_parse_avc_extra_data(channel, dest);
+            if (rc != NGX_OK) {
+                return rc;
+            }
         }
-
-        dest->u.video.transfer_characteristics =
-            avc_parser_get_transfer_characteristics(parser_ctx);
-
-        size = codec_config_avcc_nal_units_get_size(channel->log,
-            &dest->extra_data, &dest->u.video.nal_packet_size_length);
-        if (size <= 0) {
-            ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-                "ngx_pckg_ksmp_parse_media_info: "
-                "failed to parse avc extra data");
-            return NGX_BAD_DATA;
-        }
-
-        p = ngx_pnalloc(channel->pool, size);
-        if (p == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-                "ngx_pckg_ksmp_parse_media_info: alloc parsed failed");
-            return NGX_ERROR;
-        }
-
-        dest->parsed_extra_data.data = p;
-        p = codec_config_avcc_nal_units_write(p, &dest->extra_data);
-        dest->parsed_extra_data.len = p - dest->parsed_extra_data.data;
-
-        if (dest->parsed_extra_data.len != size) {
-            ngx_log_error(NGX_LOG_ALERT, channel->log, 0,
-                "ngx_pckg_ksmp_parse_media_info: "
-                "actual extra data size %uz different from calculated %uz",
-                dest->parsed_extra_data.len, size);
-            return NGX_ERROR;
-        }
-
-        vod_log_buffer(VOD_LOG_DEBUG_LEVEL, channel->log, 0,
-            "ngx_pckg_ksmp_parse_media_info: parsed extra data ",
-            dest->parsed_extra_data.data, dest->parsed_extra_data.len);
 
         dest->media_type = MEDIA_TYPE_VIDEO;
         dest->codec_id = VOD_CODEC_ID_AVC;
@@ -607,7 +636,9 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
         dest->u.video.frame_rate_denom = src->u.video.frame_rate.denom;
         dest->u.video.cea_captions = src->u.video.cea_captions;
 
-        if (codec_config_get_video_codec_name(channel->log, dest) != VOD_OK) {
+        if ((channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_CODEC_NAME) &&
+            codec_config_get_video_codec_name(channel->log, dest) != VOD_OK)
+        {
             ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
                 "ngx_pckg_ksmp_parse_media_info: "
                 "failed to get video codec name");
@@ -655,7 +686,9 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
         dest->u.audio.bits_per_sample = src->u.audio.bits_per_sample;
         dest->u.audio.sample_rate = src->u.audio.sample_rate;
 
-        if (codec_config_get_audio_codec_name(channel->log, dest) != VOD_OK) {
+        if ((channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_CODEC_NAME) &&
+            codec_config_get_audio_codec_name(channel->log, dest) != VOD_OK)
+        {
             ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
                 "ngx_pckg_ksmp_parse_media_info: "
                 "failed to get audio codec name");

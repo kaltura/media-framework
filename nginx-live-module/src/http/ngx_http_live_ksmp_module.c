@@ -1121,13 +1121,18 @@ ngx_http_live_ksmp_init_scope(ngx_http_live_ksmp_params_t *params,
         scope->min_index = scope->max_index = params->segment_index;
 
     } else {
-        q = ngx_queue_head(&timeline->periods);
-        period = ngx_queue_data(q, ngx_live_period_t, queue);
-        scope->min_index = period->node.key;
-
         q = ngx_queue_last(&timeline->periods);
         period = ngx_queue_data(q, ngx_live_period_t, queue);
         scope->max_index = period->node.key + period->segment_count - 1;
+
+        if (params->flags & NGX_KSMP_FLAG_LAST_SEGMENT_ONLY) {
+            scope->min_index = scope->max_index;
+
+        } else {
+            q = ngx_queue_head(&timeline->periods);
+            period = ngx_queue_data(q, ngx_live_period_t, queue);
+            scope->min_index = period->node.key;
+        }
 
         if (params->max_segment_index < scope->max_index) {
             if (params->max_segment_index < scope->min_index) {

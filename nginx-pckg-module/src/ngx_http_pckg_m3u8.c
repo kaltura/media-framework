@@ -1368,7 +1368,11 @@ ngx_http_pckg_m3u8_parse_request(ngx_http_request_t *r, u_char *start_pos,
             NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
         result->flags = plcf->active_policy
-            | NGX_KSMP_FLAG_MEDIA_INFO | NGX_KSMP_FLAG_TIMELINE;
+            | NGX_KSMP_FLAG_MEDIA_INFO | NGX_KSMP_FLAG_TIMELINE
+            | NGX_KSMP_FLAG_LAST_SEGMENT_ONLY;
+
+        result->parse_flags = NGX_PCKG_KSMP_PARSE_FLAG_TRANSFER_CHAR
+            | NGX_PCKG_KSMP_PARSE_FLAG_CODEC_NAME;
 
     } else {
         return NGX_DECLINED;
