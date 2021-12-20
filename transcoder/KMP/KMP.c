@@ -29,8 +29,9 @@ inline __attribute__((always_inline)) int checkReturn(int retval)
 
 static ssize_t KMP_send( KMP_session_t *context,const void *buf, size_t len)
 {
-    if(!context->socket) {
-       return AVERROR_INVALIDDATA;
+    if(context->socket <= 0) {
+       LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Socket invalid error as %d",context->socket);
+       return AVERROR(EBADFD);
     }
     int bytesRead=0;
     while (len>0) {
@@ -168,9 +169,9 @@ static kmp_codec_id get_video_codec(AVCodecParameters *apar)
 
 int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo )
 {
-    if (context->socket==0)
+    if (context->socket <= 0)
     {
-        LOGGER0(CATEGORY_KMP,AV_LOG_FATAL,"Invalid socket");
+        LOGGER0(CATEGORY_KMP,AV_LOG_FATAL,"Invalid socket (KMP_send_mediainfo)");
         return -1;
     }
     LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send kmp_media_info",context->sessionName);
@@ -328,7 +329,8 @@ void print_mp4_units(char* data,uint size) {
 
 int KMP_send_packet( KMP_session_t *context,AVPacket* packet)
 {
-    if (context->socket==-1) {
+    if (context->socket<=0) {
+        LOGGER0(CATEGORY_KMP,AV_LOG_FATAL,"Invalid socket (KMP_send_packet)");
         return -1;
     }
     //LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] send KMP_send_packet",context->sessionName);
@@ -515,11 +517,15 @@ int KMP_accept( KMP_session_t *context, KMP_session_t *client)
 
 static
 int recvExact(KMP_session_t *context,char* buffer,int bytesToRead) {
-    
-    if (bytesToRead==0) {
-        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"!!!!recvExact invalid bytesToRead=  %d",bytesToRead);
 
+    if(context->socket <= 0) {
+       LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Socket invalid error as %d",context->socket);
+       return AVERROR(EBADFD);
     }
+    if (bytesToRead==0) {
+        LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"recvExact invalid bytesToRead=  %d",bytesToRead);
+    }
+
     int bytesRead=0;
     while (bytesToRead>0) {
         int valread = (int)recv(context->socket,buffer+bytesRead, bytesToRead, 0);
