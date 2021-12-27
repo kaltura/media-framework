@@ -418,7 +418,7 @@ int transcode_encoder_receive_packet( transcode_codec_t *encoder,AVPacket* pkt)
         return ret;
     }
     if (ret<0) {
-        LOGGER(CATEGORY_CODEC,AV_LOG_WARNING, "Error recveiving a packet for encoding %d (%s)",ret,av_err2str(ret));
+        LOGGER(CATEGORY_CODEC,AV_LOG_WARNING, "Error receiving a packet for encoding %d (%s)",ret,av_err2str(ret));
         encoder->outStats.totalErrors++;
         return ret;
     }

@@ -18,9 +18,9 @@ class TranscoderService(TaskEventsHandler):
         self.logger.info(f"allocation request: {request} data: {data}")
         spec = json.loads(data)
         task = TranscoderTask(self, spec)
-        responce = await task.launch(spec["config"])
+        response = await task.launch(spec["config"])
         self.tasks[task.id] = task
-        return web.json_response(body=json.dumps(responce))
+        return web.json_response(body=json.dumps(response))
 
     def task_exited(self, task: TranscoderTask):
         del self.tasks[task.id]

@@ -350,7 +350,7 @@ int KMP_send_packet( KMP_session_t *context,AVPacket* packet)
     _S(KMP_send(context, &packetHeader, sizeof(packetHeader)));
     _S(KMP_send(context, &sample, sizeof(sample)));
     if (context->input_is_annex_b) {
-        kk_avc_parse_nal_units(context,packet->data, packet->size);
+        _S(kk_avc_parse_nal_units(context,packet->data, packet->size));
     } else {
         //print_mp4_units(packet->data,packet->size);
         _S(KMP_send(context, packet->data, packet->size));
@@ -531,6 +531,11 @@ int recvExact(KMP_session_t *context,char* buffer,int bytesToRead) {
         int valread = (int)recv(context->socket,buffer+bytesRead, bytesToRead, 0);
         if (valread<=0){
             if(valread == -1 && (errno == EAGAIN || errno == EWOULDBLOCK) && context->non_blocking) {
+                LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"in recvExact, inside recv error -> sleeping, errno = %d", errno);
+                struct timespec tv;
+                tv.tv_sec=0;
+                tv.tv_nsec=250*1000000; // 250 ms
+                nanosleep(&tv,NULL);
                 continue;
             }
             LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"incomplete recv when reading offset %d-%d, returned %d (errno=%d)",bytesRead,bytesRead+bytesToRead,valread,errno);

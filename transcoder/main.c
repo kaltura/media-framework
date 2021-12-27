@@ -149,12 +149,11 @@ void intHandler(int dummy) {
     stop();
 }
 
-
-void timeout(int ignored)
-{
-    printf("timed out\n");
-    intHandler(0);
+void pipeHandler(int dummy) {
+    LOGGER0(CATEGORY_DEFAULT,AV_LOG_WARNING,"SIGPIPE detected!");
+    stop();
 }
+
 
 int set_resource_limits()
 {
@@ -180,8 +179,7 @@ int main(int argc, char **argv)
     LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"Version: %s", APPLICATION_VERSION)
 
     signal(SIGINT, intHandler);
-    signal(SIGPIPE, intHandler);
-    signal(SIGALRM, timeout);
+    signal(SIGPIPE, pipeHandler);
 
     int ret=LoadConfig(argc,argv);
     if (ret < 0) {
@@ -192,10 +190,6 @@ int main(int argc, char **argv)
     if (JSON_OK==json_get_string(GetConfig(),"logger.logLevel","VERBOSE",logLevel,sizeof(logLevel))) {
         set_log_level(logLevel);
     }
-
-
-    //alarm(3);
-    
     
     avformat_network_init();
     

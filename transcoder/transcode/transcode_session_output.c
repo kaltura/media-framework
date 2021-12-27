@@ -104,11 +104,7 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
     
     LOGGER(CATEGORY_OUTPUT,AV_LOG_VERBOSE,"[%s] got data: %s", pOutput->track_id,getPacketDesc(packet))
     samples_stats_log(CATEGORY_OUTPUT,AV_LOG_VERBOSE,&pOutput->stats,pOutput->track_id);
-    
-    if (strcmp("v33",pOutput->track_id)==0) {
-    //  LOGGER0(CATEGORY_OUTPUT,AV_LOG_VERBOSE,"")
-    //  av_usleep(100*1000);
-    }
+
     if (pOutput->oc) {
         
         AVPacket* cpPacket=av_packet_clone(packet);
@@ -129,8 +125,7 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
         int ret=av_write_frame(pOutput->oc, cpPacket);
     
         if (ret<0) {
-            
-            LOGGER(CATEGORY_OUTPUT,AV_LOG_FATAL,"[%s] cannot save frame  %d (%s)",pOutput->track_id,ret,av_err2str(ret))
+            LOGGER(CATEGORY_OUTPUT,AV_LOG_FATAL,"[%s] cannot save frame %d (%s)",pOutput->track_id,ret,av_err2str(ret))
         }
         av_write_frame(pOutput->oc, NULL);
         
