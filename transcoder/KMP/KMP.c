@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <errno.h>
+#include <netinet/tcp.h>
 
 inline __attribute__((always_inline)) int checkReturn(int retval)
 {
@@ -73,6 +74,7 @@ int KMP_connect( KMP_session_t *context,char* url)
     
     char host[256];
     char port[6];
+    int user_timeout_ms = 2 * 1000;  // user timeout in milliseconds
     
     int n=sscanf(url,"kmp://%255[^:]:%5s",host,port);// this line isnt working properly
     if (n!=2) {
@@ -99,26 +101,21 @@ int KMP_connect( KMP_session_t *context,char* url)
         return -1;
     }
     context->socket=fd;
-    
-    struct timeval tv;
-    tv.tv_sec = 20;
-    tv.tv_usec = 0;
-    setsockopt(context->socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
-    setsockopt(context->socket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof tv);
 
-    
+    setsockopt(context->socket, SOL_TCP, TCP_USER_TIMEOUT, (char*) &user_timeout_ms, sizeof (user_timeout_ms));
+
     if ( connect(context->socket,p->ai_addr, p->ai_addrlen) < 0)
     {
         context->socket=-1;
         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Connection Failed for %s - error %d (%s)",url,errno,strerror(errno));
         return -1;
     }
-    
+
     if (context->non_blocking) {
         int flags=0;
-        if (-1 == (flags = fcntl(fd, F_GETFL, 0)))
+        if (-1 == (flags = fcntl(context->socket, F_GETFL, 0)))
             flags = 0;
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+        fcntl(context->socket, F_SETFL, flags | O_NONBLOCK);
     }
     
     struct sockaddr_in address;
