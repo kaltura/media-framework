@@ -4,16 +4,16 @@ ngx_addon_name="ngx_live_module"
 #
 if test -n "$ngx_module_link"; then
     if test -n "$LIVE_COMMON_CORE_SRCS"; then
-        echo "found ngx_live_common for nginx_live_module; looks good."
+        echo "found ngx_live_common for $ngx_addon_name; looks good."
     else
-        echo "error: ngx_live_common is required to build nginx_live_module; please put it before nginx_live_module." 1>&2
+        echo "error: ngx_live_common is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2
         exit 1
     fi
 else
     if echo $NGX_ADDON_SRCS | grep " ngx_json_parser" > /dev/null; then
-        echo "found ngx_live_common for nginx_live_module; looks good."
+        echo "found ngx_live_common for $ngx_addon_name; looks good."
     else
-        echo "error: ngx_live_common is required to build nginx_live_module; please put it before nginx_live_module." 1>&2
+        echo "error: ngx_live_common is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2
         exit 1
     fi
 fi

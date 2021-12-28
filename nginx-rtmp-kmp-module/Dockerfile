@@ -16,9 +16,10 @@ RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     mv nginx-${NGINX_VERSION} nginx && \
     cd /tmp/build
 
-COPY nginx-rtmp-module nginx-rtmp-module
-COPY nginx-rtmp-kmp-module nginx-rtmp-kmp-module
 COPY nginx-common nginx-common
+COPY nginx-rtmp-module nginx-rtmp-module
+COPY nginx-kmp-push-module nginx-kmp-push-module
+COPY nginx-rtmp-kmp-module nginx-rtmp-kmp-module
 
 ARG APP_VERSION=1.0
 
@@ -32,6 +33,7 @@ RUN [ "${DEBUG_BUILD}" -eq "1" ] && debug_option=--with-debug; \
             --with-http_stub_status_module \
             --add-module=/tmp/build/nginx-common \
             --add-module=/tmp/build/nginx-rtmp-module \
+            --add-module=/tmp/build/nginx-kmp-push-module \
             --add-module=/tmp/build/nginx-rtmp-kmp-module \
             --with-file-aio \
             --with-stream \

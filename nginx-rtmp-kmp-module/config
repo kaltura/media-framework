@@ -1,19 +1,19 @@
 ngx_addon_name=ngx_rtmp_kmp_module
 
-# nginx-common dependency
+# nginx-kmp-push dependency
 #
 if test -n "$ngx_module_link"; then
-    if test -n "$LIVE_COMMON_CORE_SRCS"; then
-        echo "found ngx_live_common for nginx_rtmp_kmp_module; looks good."
+    if test -n "$KMP_PUSH_CORE_SRCS"; then
+        echo "found ngx_kmp_push for $ngx_addon_name; looks good."
     else
-        echo "error: ngx_live_common is required to build nginx_rtmp_kmp_module; please put it before nginx_rtmp_kmp_module." 1>&2
+        echo "error: ngx_kmp_push is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2
         exit 1
     fi
 else
-    if echo $NGX_ADDON_SRCS | grep " ngx_json_parser" > /dev/null; then
-        echo "found ngx_live_common for nginx_rtmp_kmp_module; looks good."
+    if echo $NGX_ADDON_SRCS | grep " ngx_kmp_push_track" > /dev/null; then
+        echo "found ngx_kmp_push for $ngx_addon_name; looks good."
     else
-        echo "error: ngx_live_common is required to build nginx_rtmp_kmp_module; please put it before nginx_rtmp_kmp_module." 1>&2
+        echo "error: ngx_kmp_push is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2
         exit 1
     fi
 fi
@@ -28,9 +28,6 @@ echo "#define NGX_RTMP_KMP_VERSION \""$RTMP_KMP_VERSION"\"" > $NGX_OBJS/ngx_rtmp
 # source
 #
 RTMP_KMP_CORE_SRCS="                                  \
-    $ngx_addon_dir/src/ngx_kmp_push_track.c           \
-    $ngx_addon_dir/src/ngx_kmp_push_upstream.c        \
-    $ngx_addon_dir/src/ngx_kmp_push_utils.c           \
     $ngx_addon_dir/src/ngx_rtmp_kmp_module.c          \
     $ngx_addon_dir/src/ngx_rtmp_kmp_track.c           \
     "
@@ -40,12 +37,6 @@ RTMP_KMP_HTTP_SRCS="                                  \
     "
 
 RTMP_KMP_DEPS="                                       \
-    $ngx_addon_dir/src/ngx_kmp_push_track.h           \
-    $ngx_addon_dir/src/ngx_kmp_push_track_internal.h  \
-    $ngx_addon_dir/src/ngx_kmp_push_track_json.h      \
-    $ngx_addon_dir/src/ngx_kmp_push_upstream.h        \
-    $ngx_addon_dir/src/ngx_kmp_push_upstream_json.h   \
-    $ngx_addon_dir/src/ngx_kmp_push_utils.h           \
     $ngx_addon_dir/src/ngx_rtmp_kmp_api_json.h        \
     $ngx_addon_dir/src/ngx_rtmp_kmp_api_routes.h      \
     $ngx_addon_dir/src/ngx_rtmp_kmp_json.h            \
