@@ -109,7 +109,7 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
 
     { ngx_string("kmp_ctrl_add_header"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE2,
-      ngx_kmp_push_headers_add,
+      ngx_conf_set_keyval_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_headers),
       NULL },
