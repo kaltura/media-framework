@@ -49,11 +49,6 @@ typedef struct {
 #include "ngx_rtmp_kmp_json.h"
 
 
-static char *ngx_rtmp_kmp_url_slot(ngx_conf_t *cf, ngx_command_t *cmd,
-       void *conf);
-static char *ngx_rtmp_kmp_headers_add(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf);
-
 static ngx_int_t ngx_rtmp_kmp_postconfiguration(ngx_conf_t *cf);
 
 static void *ngx_rtmp_kmp_create_main_conf(ngx_conf_t *cf);
@@ -86,35 +81,35 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
 
     { ngx_string("kmp_ctrl_connect_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_rtmp_kmp_url_slot,
+      ngx_kmp_push_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, ctrl_connect_url),
       NULL },
 
     { ngx_string("kmp_ctrl_publish_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_rtmp_kmp_url_slot,
+      ngx_kmp_push_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_publish_url),
       NULL },
 
     { ngx_string("kmp_ctrl_unpublish_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_rtmp_kmp_url_slot,
+      ngx_kmp_push_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_unpublish_url),
       NULL },
 
     { ngx_string("kmp_ctrl_republish_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_rtmp_kmp_url_slot,
+      ngx_kmp_push_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_republish_url),
       NULL },
 
     { ngx_string("kmp_ctrl_add_header"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE2,
-      ngx_rtmp_kmp_headers_add,
+      ngx_conf_set_keyval_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_headers),
       NULL },
@@ -286,91 +281,6 @@ ngx_module_t  ngx_rtmp_kmp_module = {
 
 
 static ngx_str_t  ngx_rtmp_kmp_code_ok = ngx_string("ok");
-
-
-static ngx_url_t *
-ngx_rtmp_kmp_parse_url(ngx_conf_t *cf, ngx_str_t *url)
-{
-    size_t      add;
-    ngx_url_t  *u;
-
-    u = ngx_pcalloc(cf->pool, sizeof(ngx_url_t));
-    if (u == NULL) {
-        return NULL;
-    }
-
-    add = 0;
-    if (ngx_strncasecmp(url->data, (u_char *) "http://", 7) == 0) {
-        add = 7;
-    }
-
-    u->url.len = url->len - add;
-    u->url.data = url->data + add;
-    u->default_port = 80;
-    u->uri_part = 1;
-
-    if (ngx_parse_url(cf->pool, u) != NGX_OK) {
-        if (u->err) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                "%s in url \"%V\"", u->err, &u->url);
-        }
-        return NULL;
-    }
-
-    return u;
-}
-
-static char *
-ngx_rtmp_kmp_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
-{
-    char  *p = conf;
-
-    ngx_str_t   *value;
-    ngx_url_t  **u;
-
-    u = (ngx_url_t **) (p + cmd->offset);
-    if (*u != NGX_CONF_UNSET_PTR) {
-        return "is duplicate";
-    }
-
-    value = cf->args->elts;
-
-    *u = ngx_rtmp_kmp_parse_url(cf, &value[1]);
-    if (*u == NULL) {
-        return NGX_CONF_ERROR;
-    }
-
-    return NGX_CONF_OK;
-}
-
-static char *
-ngx_rtmp_kmp_headers_add(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
-{
-    ngx_str_t      *value;
-    ngx_array_t   **headers;
-    ngx_keyval_t   *kv;
-
-    value = cf->args->elts;
-
-    headers = (ngx_array_t **) ((char *) conf + cmd->offset);
-
-    if (*headers == NULL) {
-        *headers = ngx_array_create(cf->pool, 1, sizeof(ngx_keyval_t));
-        if (*headers == NULL) {
-            return NGX_CONF_ERROR;
-        }
-    }
-
-    kv = ngx_array_push(*headers);
-    if (kv == NULL) {
-        return NGX_CONF_ERROR;
-    }
-
-    kv->key = value[1];
-    kv->value = value[2];
-
-    return NGX_CONF_OK;
-}
 
 
 static void *
