@@ -125,7 +125,7 @@ ngx_buf_queue_validate(ngx_buf_queue_t *buf_queue)
 #define ngx_buf_queue_validate(buf_queue)
 #endif
 
-u_char*
+u_char *
 ngx_buf_queue_get(ngx_buf_queue_t *buf_queue)
 {
     ngx_buf_queue_node_t  *result;

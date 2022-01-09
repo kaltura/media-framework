@@ -11,10 +11,10 @@
 #define ngx_buf_queue_next(node) (node)->next
 
 #define ngx_buf_queue_start(node)           \
-    ((u_char*)(node) + sizeof(ngx_buf_queue_node_t))
+    ((u_char *) (node) + sizeof(ngx_buf_queue_node_t))
 
 #define ngx_buf_queue_end(buf_queue, node)  \
-    ((u_char*)(node) + (buf_queue)->alloc_size)
+    ((u_char *) (node) + (buf_queue)->alloc_size)
 
 
 typedef struct ngx_buf_queue_node_s ngx_buf_queue_node_t;
