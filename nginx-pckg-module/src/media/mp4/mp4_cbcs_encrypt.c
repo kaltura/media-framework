@@ -815,15 +815,14 @@ mp4_cbcs_encrypt_get_writers(
     request_context_t* request_context,
     media_segment_t* segment,
     segment_writer_t* segment_writer,
-    const u_char* key,
-    const u_char* iv,
     segment_writer_t** result)
 {
     mp4_cbcs_encrypt_state_t* state;
+    media_segment_track_t* cur_track;
     segment_writer_t* cur_segment_writer;
     segment_writer_t* segment_writers;
-    media_segment_track_t* cur_track;
     vod_status_t rc;
+    media_enc_t* enc;
     uint32_t i;
 
     // allocate the state and writers
@@ -855,8 +854,9 @@ mp4_cbcs_encrypt_get_writers(
         segment_writer->context,
         FALSE);
 
-    vod_memcpy(state->iv, iv, sizeof(state->iv));
-    vod_memcpy(state->key, key, sizeof(state->key));
+    enc = segment->tracks[0].enc;
+    vod_memcpy(state->iv, enc->iv, sizeof(state->iv));
+    vod_memcpy(state->key, enc->key, sizeof(state->key));
     state->flush_left = 0;
 
     for (i = 0; i < segment->track_count; i++)

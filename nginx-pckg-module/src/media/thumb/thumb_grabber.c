@@ -7,7 +7,7 @@
 #include <libavutil/imgutils.h>
 #endif // VOD_HAVE_LIB_SW_SCALE
 
-#define ngx_abs_diff(val1, val2)                                            \
+#define vod_abs_diff(val1, val2)                                            \
     ((val2) > (val1) ? (val2) - (val1) : (val1) - (val2))
 
 // typedefs
@@ -30,7 +30,7 @@ typedef struct
     frames_source_t* frames_source;
     void* frames_source_context;
 
-    ngx_list_part_t* cur_frame_part;
+    vod_list_part_t* cur_frame_part;
     input_frame_t* cur_frame;
     input_frame_t* last_frame;
     bool_t first_time;
@@ -193,7 +193,7 @@ thumb_grabber_init_encoder(
 static uint32_t
 thumb_grabber_get_max_frame_size(media_segment_track_t* track)
 {
-    ngx_list_part_t* part;
+    vod_list_part_t* part;
     input_frame_t* cur_frame;
     input_frame_t* last_frame;
     uint32_t max_frame_size = 0;
@@ -379,7 +379,7 @@ thumb_grabber_decode_frames(thumb_grabber_state_t* state)
 
         avrc = avcodec_receive_frame(state->decoder, decoded_frame);
         if (avrc >= 0 && (state->decoded_frame == NULL ||
-            ngx_abs_diff(decoded_frame->pts, state->time) < ngx_abs_diff(state->decoded_frame->pts, state->time)))
+            vod_abs_diff(decoded_frame->pts, state->time) < vod_abs_diff(state->decoded_frame->pts, state->time)))
         {
             av_frame_free(&state->decoded_frame);
             state->decoded_frame = decoded_frame;

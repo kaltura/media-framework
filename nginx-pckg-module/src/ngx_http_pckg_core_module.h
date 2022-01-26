@@ -111,6 +111,9 @@ typedef struct {
 
     segment_writer_t                  segment_writer;
     ngx_http_pckg_writer_ctx_t        segment_writer_ctx;
+
+    ngx_pckg_variant_t               *variant;
+    uint32_t                          media_type;
 } ngx_http_pckg_core_ctx_t;
 
 
@@ -120,6 +123,9 @@ typedef ngx_int_t (*ngx_http_pckg_parse_uri_pt)(ngx_http_request_t *r,
 
 ngx_int_t ngx_http_pckg_core_add_handler(ngx_conf_t *cf, ngx_str_t *ext,
     ngx_http_pckg_parse_uri_pt parse);
+
+ngx_int_t ngx_http_pckg_core_add_init_handler(ngx_conf_t *cf,
+    ngx_http_handler_pt handler);
 
 
 ngx_int_t ngx_http_pckg_core_write_segment(ngx_http_request_t *r);

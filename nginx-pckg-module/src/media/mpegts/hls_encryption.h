@@ -19,8 +19,6 @@ typedef struct {
     u_char* iv;
     vod_str_t key_uri;
     bool_t return_iv;
-    u_char iv_buf[AES_BLOCK_SIZE];
-    u_char key_buf[AES_BLOCK_SIZE];
 } hls_encryption_params_t;
 
 #endif // __HLS_ENCRYPTION_H__

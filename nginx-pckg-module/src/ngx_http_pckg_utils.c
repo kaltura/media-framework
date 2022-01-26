@@ -23,6 +23,46 @@ u_char  ngx_http_pckg_media_type_code[KMP_MEDIA_COUNT] = {
 };
 
 
+#if nginx_version < 1021000
+char *
+ngx_http_set_complex_value_zero_slot(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf)
+{
+    char  *p = conf;
+
+    ngx_str_t                          *value;
+    ngx_http_complex_value_t          **cv;
+    ngx_http_compile_complex_value_t    ccv;
+
+    cv = (ngx_http_complex_value_t **) (p + cmd->offset);
+
+    if (*cv != NGX_CONF_UNSET_PTR) {
+        return "is duplicate";
+    }
+
+    *cv = ngx_palloc(cf->pool, sizeof(ngx_http_complex_value_t));
+    if (*cv == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    value = cf->args->elts;
+
+    ngx_memzero(&ccv, sizeof(ngx_http_compile_complex_value_t));
+
+    ccv.cf = cf;
+    ccv.value = &value[1];
+    ccv.complex_value = *cv;
+    ccv.zero = 1;
+
+    if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+#endif
+
+
 /* uri parsing */
 
 u_char *
@@ -219,6 +259,152 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
         "ngx_http_pckg_parse_uri_file_name: "
         "did not consume the whole name");
     return NGX_HTTP_BAD_REQUEST;
+}
+
+
+ngx_int_t
+ngx_http_pckg_complex_value_json(ngx_http_request_t *r,
+    ngx_http_complex_value_t *val, ngx_json_value_t *json)
+{
+    ngx_int_t  rc;
+    ngx_str_t  str;
+    u_char     error[128];
+
+    if (ngx_http_complex_value(r, val, &str) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_pckg_complex_value_json: complex value failed");
+        return NGX_ERROR;
+    }
+
+    rc =  ngx_json_parse(r->pool, str.data, json, error, sizeof(error));
+    if (rc != NGX_JSON_OK) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_pckg_complex_value_json: ngx_json_parse failed %i, %s",
+            rc, error);
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_pckg_base64_decoded_length(ngx_str_t *base64, size_t *decoded_len)
+{
+    u_char  *p, *end;
+    size_t   padding;
+
+    if ((base64->len & 3) != 0) {
+        return NGX_BAD_DATA;
+    }
+
+    end = base64->data + base64->len;
+    for (p = end; p > base64->data && p[-1] == '='; p--);
+    padding = end - p;
+
+    if (padding > 2) {
+        return NGX_BAD_DATA;
+    }
+
+    *decoded_len = (base64->len >> 2) * 3 - padding;
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_http_pckg_parse_base64_fixed(ngx_str_t *str, u_char *dst, size_t size)
+{
+    size_t     decoded_len;
+    ngx_str_t  dst_str;
+
+    if (ngx_http_pckg_base64_decoded_length(str, &decoded_len) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+    if (decoded_len != size) {
+        return NGX_BAD_DATA;
+    }
+
+    dst_str.data = dst;
+    if (ngx_decode_base64(&dst_str, str) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+    if (dst_str.len != size) {
+        return NGX_BAD_DATA;
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_http_pckg_parse_base64(ngx_pool_t *pool, ngx_str_t *str, ngx_str_t *dst)
+{
+    dst->data = ngx_pnalloc(pool, ngx_base64_decoded_length(str->len));
+    if (dst->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    if (ngx_decode_base64(dst, str) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_inline int
+ngx_http_pckg_parse_hex_char(int ch)
+{
+    if (ch >= '0' && ch <= '9') {
+        return (ch - '0');
+    }
+
+    ch = (ch | 0x20);        /* lower case */
+
+    if (ch >= 'a' && ch <= 'f') {
+        return (ch - 'a' + 10);
+    }
+
+    return -1;
+}
+
+ngx_int_t
+ngx_http_pckg_parse_guid(ngx_str_t *str, u_char *dst)
+{
+    int      c1, c2;
+    u_char  *p, *end, *dst_end;
+
+    dst_end = dst + NGX_HTTP_PCKG_GUID_SIZE;
+
+    p = str->data;
+    end = p + str->len;
+    while (p + 1 < end) {
+        if (*p == '-') {
+            p++;
+            continue;
+        }
+
+        if (dst >= dst_end) {
+            return NGX_BAD_DATA;
+        }
+
+        c1 = ngx_http_pckg_parse_hex_char(p[0]);
+        c2 = ngx_http_pckg_parse_hex_char(p[1]);
+        if (c1 < 0 || c2 < 0) {
+            return NGX_BAD_DATA;
+        }
+
+        *dst++ = ((c1 << 4) | c2);
+        p += 2;
+    }
+
+    if (dst < dst_end) {
+        return NGX_BAD_DATA;
+    }
+
+    return NGX_OK;
 }
 
 

@@ -58,6 +58,7 @@ struct mp4_muxer_state_s {
     bool_t first_time;
 };
 
+
 // typedefs
 typedef struct {
     u_char version[1];
@@ -492,11 +493,23 @@ mp4_calculate_output_offsets(
         selected_stream->cur_frame++;
     }
 
-    // reset the state
     for (cur_stream = state->first_stream; cur_stream < state->last_stream; cur_stream++)
     {
         cur_stream->total_frames_duration = cur_stream->next_frame_time_offset - cur_stream->first_frame_time_offset;
+    }
 
+    *frames_size = cur_offset;
+
+    return VOD_OK;
+}
+
+void
+mp4_muxer_reset(mp4_muxer_state_t* state)
+{
+    mp4_muxer_stream_state_t* cur_stream;
+
+    for (cur_stream = state->first_stream; cur_stream < state->last_stream; cur_stream++)
+    {
         cur_stream->cur_frame_part = cur_stream->first_frame_part;
         cur_stream->cur_frame = cur_stream->cur_frame_part->elts;
         cur_stream->last_frame = cur_stream->cur_frame + cur_stream->cur_frame_part->nelts;
@@ -505,18 +518,12 @@ mp4_calculate_output_offsets(
     }
 
     state->selected_stream = NULL;
-
-    *frames_size = cur_offset;
-
-    return VOD_OK;
 }
 
-static vod_status_t
+vod_status_t
 mp4_muxer_init_state(
     request_context_t* request_context,
     media_segment_t* segment,
-    segment_writer_t* track_writers,
-    bool_t per_stream_writer,
     bool_t reuse_buffers,
     mp4_muxer_state_t** result)
 {
@@ -548,7 +555,6 @@ mp4_muxer_init_state(
     state->request_context = request_context;
     state->reuse_buffers = reuse_buffers;
     state->segment = segment;
-    state->per_stream_writer = per_stream_writer;
     state->cur_frame = NULL;
     state->selected_stream = NULL;
     state->first_time = TRUE;
@@ -558,12 +564,6 @@ mp4_muxer_init_state(
     {
         cur_track = &segment->tracks[index];
         cur_stream->index = index;
-        cur_stream->write_callback = track_writers->write_tail;
-        cur_stream->write_context = track_writers->context;
-        if (per_stream_writer)
-        {
-            track_writers++;
-        }
 
         // get total frame count for this stream
         cur_stream->frame_count = cur_track->frame_count;
@@ -655,23 +655,22 @@ dash_packager_write_sidx64_atom(
 }
 
 vod_status_t
-mp4_muxer_init_fragment(
+mp4_muxer_build_fragment_header(
     request_context_t* request_context,
-    media_segment_t* segment,
-    segment_writer_t* track_writers,
-    bool_t per_stream_writer,
-    bool_t reuse_buffers,
+    mp4_muxer_state_t* state,
+    uint32_t sample_description_index,
+    mp4_muxer_header_extensions_t* extensions,
     bool_t size_only,
     vod_str_t* header,
-    size_t* total_fragment_size,
-    mp4_muxer_state_t** processor_state)
+    size_t* total_fragment_size)
 {
     mp4_muxer_stream_state_t* cur_stream;
-    mp4_muxer_state_t* state;
+    media_segment_t* segment = state->segment;
     vod_status_t rc;
     uint32_t trun_atom_count;
     int64_t earliest_pres_time;
     size_t styp_atom_size;
+    size_t tfhd_atom_size;
     size_t sidx_atom_size;
     size_t moof_atom_size;
     size_t traf_atom_size;
@@ -679,21 +678,6 @@ mp4_muxer_init_fragment(
     size_t result_size;
     u_char* traf_header;
     u_char* p;
-
-    // initialize the muxer state
-    rc = mp4_muxer_init_state(
-        request_context,
-        segment,
-        track_writers,
-        per_stream_writer,
-        reuse_buffers,
-        &state);
-    if (rc != VOD_OK)
-    {
-        vod_log_debug1(VOD_LOG_DEBUG_LEVEL, request_context->log, 0,
-            "mp4_muxer_init_fragment: mp4_muxer_init_state failed %i", rc);
-        return rc;
-    }
 
     // init output offsets and get the mdat size
     rc = mp4_calculate_output_offsets(state, &mdat_atom_size, &trun_atom_count);
@@ -704,12 +688,19 @@ mp4_muxer_init_fragment(
     mdat_atom_size += MDAT_HEADER_SIZE;
 
     // get the moof size
+    tfhd_atom_size = ATOM_HEADER_SIZE + sizeof(tfhd_atom_t);
+    if (sample_description_index > 0)
+    {
+        tfhd_atom_size += sizeof(uint32_t);
+    }
+
     moof_atom_size =
         ATOM_HEADER_SIZE +        // moof
         ATOM_HEADER_SIZE + sizeof(mfhd_atom_t) +
         (ATOM_HEADER_SIZE +        // traf
-        ATOM_HEADER_SIZE + sizeof(tfhd_atom_t) + sizeof(uint32_t) +
-        ATOM_HEADER_SIZE + sizeof(tfdt64_atom_t)) * segment->track_count +
+            tfhd_atom_size +
+            ATOM_HEADER_SIZE + sizeof(tfdt64_atom_t) +
+            extensions->extra_traf_atoms_size) * segment->track_count +
         (ATOM_HEADER_SIZE + sizeof(trun_atom_t)) * trun_atom_count;
 
     for (cur_stream = state->first_stream; cur_stream < state->last_stream; cur_stream++)
@@ -763,7 +754,7 @@ mp4_muxer_init_fragment(
     if (header->data == NULL)
     {
         vod_log_debug0(VOD_LOG_DEBUG_LEVEL, request_context->log, 0,
-            "mp4_muxer_init_fragment: vod_alloc failed");
+            "mp4_muxer_build_fragment_header: vod_alloc failed");
         return VOD_ALLOC_FAILED;
     }
 
@@ -771,7 +762,7 @@ mp4_muxer_init_fragment(
 
     if (styp_atom_size > 0)
     {
-        p = ngx_copy(p, styp_atom, sizeof(styp_atom));
+        p = vod_copy(p, styp_atom, sizeof(styp_atom));
     }
 
     // sidx
@@ -800,7 +791,7 @@ mp4_muxer_init_fragment(
         p += ATOM_HEADER_SIZE;
 
         // moof.traf.tfhd
-        p = mp4_fragment_write_tfhd_atom(p, cur_stream->index + 1, 1);
+        p = mp4_fragment_write_tfhd_atom(p, cur_stream->index + 1, sample_description_index);
 
         // Note: according to spec, tfdt has the dts time, however, since we force pts delay to 0
         //      on the first frame, we are effectively shifting the dts forward, and need to use
@@ -832,6 +823,12 @@ mp4_muxer_init_fragment(
             break;
         }
 
+        // moof.traf.xxx
+        if (extensions->write_extra_traf_atoms_callback != NULL)
+        {
+            p = extensions->write_extra_traf_atoms_callback(extensions->write_extra_traf_atoms_context, p, moof_atom_size);
+        }
+
         // moof.traf
         traf_atom_size = p - traf_header;
         write_atom_header(traf_header, traf_atom_size, 't', 'r', 'a', 'f');
@@ -845,9 +842,34 @@ mp4_muxer_init_fragment(
     if (header->len != result_size)
     {
         vod_log_error(VOD_LOG_ERR, request_context->log, 0,
-            "mp4_muxer_init_fragment: result length %uz exceeded allocated length %uz",
+            "mp4_muxer_build_fragment_header: result length %uz exceeded allocated length %uz",
             header->len, result_size);
         return VOD_UNEXPECTED;
+    }
+
+    return VOD_OK;
+}
+
+vod_status_t
+mp4_muxer_start(
+    mp4_muxer_state_t* state,
+    segment_writer_t* track_writers,
+    bool_t per_stream_writer,
+    mp4_muxer_state_t** processor_state)
+{
+    mp4_muxer_stream_state_t* cur_stream;
+    vod_status_t rc;
+
+    state->per_stream_writer = per_stream_writer;
+
+    for (cur_stream = state->first_stream; cur_stream < state->last_stream; cur_stream++)
+    {
+        cur_stream->write_callback = track_writers->write_tail;
+        cur_stream->write_context = track_writers->context;
+        if (per_stream_writer)
+        {
+            track_writers++;
+        }
     }
 
     rc = mp4_muxer_start_frame(state);
@@ -859,13 +881,66 @@ mp4_muxer_init_fragment(
             return VOD_OK;
         }
 
-        vod_log_debug1(VOD_LOG_DEBUG_LEVEL, request_context->log, 0,
-            "mp4_muxer_init_fragment: mp4_muxer_start_frame failed %i", rc);
+        vod_log_debug1(VOD_LOG_DEBUG_LEVEL, state->request_context->log, 0,
+            "mp4_muxer_start: mp4_muxer_start_frame failed %i", rc);
         return rc;
     }
 
     *processor_state = state;
     return VOD_OK;
+}
+
+vod_status_t
+mp4_muxer_init_fragment(
+    request_context_t* request_context,
+    media_segment_t* segment,
+    segment_writer_t* track_writers,
+    bool_t per_stream_writer,
+    bool_t reuse_buffers,
+    bool_t size_only,
+    vod_str_t* header,
+    size_t* total_fragment_size,
+    mp4_muxer_state_t** processor_state)
+{
+    mp4_muxer_header_extensions_t extensions;
+    mp4_muxer_state_t* state;
+    vod_status_t rc;
+
+    // initialize the muxer state
+    rc = mp4_muxer_init_state(
+        request_context,
+        segment,
+        reuse_buffers,
+        &state);
+    if (rc != VOD_OK)
+    {
+        vod_log_debug1(VOD_LOG_DEBUG_LEVEL, request_context->log, 0,
+            "mp4_muxer_init_fragment: mp4_muxer_init_state failed %i", rc);
+        return rc;
+    }
+
+    vod_memzero(&extensions, sizeof(extensions));
+
+    rc = mp4_muxer_build_fragment_header(
+        request_context,
+        state,
+        1,
+        &extensions,
+        size_only,
+        header,
+        total_fragment_size);
+    if (rc != VOD_OK)
+    {
+        return rc;
+    }
+
+    mp4_muxer_reset(state);
+
+    return mp4_muxer_start(
+        state,
+        track_writers,
+        per_stream_writer,
+        processor_state);
 }
 
 static vod_status_t

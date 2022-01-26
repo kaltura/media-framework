@@ -5,6 +5,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include <ngx_json_parser.h>
 #include "ngx_pckg_ksmp.h"
 #include "ngx_http_pckg_core_module.h"
 
@@ -16,6 +17,14 @@
 #define NGX_HTTP_PCKG_PARSE_OPTIONAL_VARIANTS       (0x4)
 #define NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE     (0x8)
 
+#define NGX_HTTP_PCKG_GUID_SIZE  (16)
+
+
+#if nginx_version < 1021000
+char *ngx_http_set_complex_value_zero_slot(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+#endif
+
 
 u_char *ngx_http_pckg_parse_uint32(u_char *start_pos, u_char *end_pos,
     uint32_t *result);
@@ -26,6 +35,19 @@ u_char *ngx_http_pckg_extract_string(u_char *start_pos, u_char *end_pos,
 ngx_int_t ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
     u_char *start_pos, u_char *end_pos, uint32_t flags,
     ngx_pckg_ksmp_req_t *result);
+
+
+ngx_int_t ngx_http_pckg_complex_value_json(ngx_http_request_t *r,
+    ngx_http_complex_value_t *val, ngx_json_value_t *json);
+
+ngx_int_t ngx_http_pckg_parse_base64_fixed(ngx_str_t *str, u_char *dst,
+    size_t size);
+
+ngx_int_t ngx_http_pckg_parse_base64(ngx_pool_t *pool, ngx_str_t *str,
+    ngx_str_t *dst);
+
+ngx_int_t ngx_http_pckg_parse_guid(ngx_str_t *str, u_char *dst);
+
 
 ngx_int_t ngx_http_pckg_range_parse(ngx_str_t *range, off_t content_length,
     off_t *out_start, off_t *out_end);

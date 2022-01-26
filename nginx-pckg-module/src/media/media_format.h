@@ -22,6 +22,11 @@
 // constants
 #define MAX_CODEC_NAME_SIZE (64)
 
+#define VOD_ENC_KEY_SIZE     (16)
+#define VOD_ENC_IV_SIZE      (16)
+#define VOD_ENC_KID_SIZE     (16)
+#define VOD_ENC_SYS_ID_SIZE  (16)
+
 #define VOD_CODEC_FLAG(name) (1 << (VOD_CODEC_ID_##name - 1))
 
 #define vod_codec_in_mask(codec_id, mask) (((mask) & (1 << ((codec_id) - 1))) != 0)
@@ -90,8 +95,25 @@ typedef struct media_info_s {
     } u;
 } media_info_t;
 
+
+typedef struct {
+    u_char id[VOD_ENC_SYS_ID_SIZE];
+    vod_str_t data;
+    vod_str_t base64_data;
+} media_enc_sys_t;
+
+typedef struct {
+    u_char key[VOD_ENC_KEY_SIZE];
+    u_char iv[VOD_ENC_IV_SIZE];
+    u_char key_id[VOD_ENC_KID_SIZE];
+    vod_array_t systems;    /* media_enc_sys_t */
+    unsigned has_key_id:1;
+} media_enc_t;
+
+
 typedef struct {
     media_info_t* media_info;
+    media_enc_t* enc;
 
     vod_list_t frames;        // input_frame_t
     vod_uint_t frame_count;
@@ -111,6 +133,7 @@ typedef struct {
 
 typedef struct {
     media_info_t* media_info;
+    media_enc_t* enc;
     vod_str_t stsd_atom;
 } media_init_segment_track_t;
 

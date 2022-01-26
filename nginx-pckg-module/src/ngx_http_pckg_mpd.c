@@ -1,9 +1,15 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+
 #include "ngx_http_pckg_utils.h"
 #include "ngx_http_pckg_fmp4.h"
 #include "ngx_pckg_adapt_set.h"
+
+#if (NGX_HAVE_OPENSSL_EVP)
+#include "media/mp4/mp4_dash_encrypt.h"
+#include "media/mp4/mp4_cenc_encrypt.h"
+#endif
 
 
 static ngx_int_t ngx_http_pckg_mpd_preconfiguration(ngx_conf_t *cf);
@@ -149,6 +155,45 @@ static char *ngx_http_pckg_mpd_merge_loc_conf(ngx_conf_t *cf, void *parent,
     "</MPD>\n"
 
 
+#define MPD_CONT_PROT_CENC                                                  \
+    "      <ContentProtection "                                             \
+    "schemeIdUri=\"urn:mpeg:dash:mp4protection:2011\" value=\"cenc\"/>\n"
+
+#define MPD_CONT_PROT_CENC_SYS_ID                                           \
+    "      <ContentProtection xmlns:cenc=\"urn:mpeg:cenc:2013\" "           \
+    "schemeIdUri=\"urn:uuid:"
+
+#define MPD_CONT_PROT_CENC_KEY_ID                                           \
+    "\" cenc:default_KID=\""
+
+#define MPD_CONT_PROT_CENC_PSSH                                             \
+    "\">\n"                                                                 \
+    "        <cenc:pssh>"
+
+#define MPD_CONT_PROT_CENC_FOOTER                                           \
+    "</cenc:pssh>\n"                                                        \
+    "      </ContentProtection>\n"
+
+#define MPD_CONT_PROT_PLAYREADY_SYS_ID                                      \
+    "      <ContentProtection xmlns:cenc=\"urn:mpeg:cenc:2013\" "           \
+    "xmlns:mspr=\"urn:microsoft:playready\" schemeIdUri=\"urn:uuid:"
+
+#define MPD_CONT_PROT_PLAYREADY_KEY_ID                                      \
+    "\" value=\"2.0\" cenc:default_KID=\""
+
+#define MPD_CONT_PROT_PLAYREADY_PSSH                                        \
+    "\">\n"                                                                 \
+    "        <mspr:pro>"
+
+#define MPD_CONT_PROT_PLAYREADY_FOOTER                                      \
+    "</mspr:pro>\n"                                                         \
+    "      </ContentProtection>\n"
+
+#define mpd_is_playready_sys_id(id)                                         \
+    (ngx_memcmp(id, ngx_http_pckg_mpd_playready_sys_id,                     \
+        sizeof(ngx_http_pckg_mpd_playready_sys_id)) == 0)
+
+
 typedef struct {
     ngx_http_complex_value_t  *profiles;
     ngx_uint_t                 pres_delay_segments;
@@ -221,6 +266,112 @@ static ngx_str_t  ngx_http_pckg_mpd_content_type =
     ngx_string("application/dash+xml");
 
 
+#if (NGX_HAVE_OPENSSL_EVP)
+
+static u_char     ngx_http_pckg_mpd_playready_sys_id[] = {
+    0x9a, 0x04, 0xf0, 0x79, 0x98, 0x40, 0x42, 0x86,
+    0xab, 0x92, 0xe6, 0x5b, 0xe0, 0x88, 0x5f, 0x95
+};
+
+static size_t
+ngx_http_pckg_mpd_cont_prot_get_size(ngx_pckg_track_t *track)
+{
+    size_t            size;
+    ngx_uint_t        i, n;
+    media_enc_t      *enc = track->enc;
+    media_enc_sys_t  *sys, *elts;
+
+    if (enc == NULL) {
+        return 0;
+    }
+
+    n = enc->systems.nelts;
+    elts = enc->systems.elts;
+
+    size = sizeof(MPD_CONT_PROT_CENC) - 1;
+    for (i = 0; i < n; i++) {
+        sys = &elts[i];
+
+        if (mpd_is_playready_sys_id(sys->id)) {
+            size += sizeof(MPD_CONT_PROT_PLAYREADY_SYS_ID) - 1
+                + VOD_GUID_LENGTH
+                + sizeof(MPD_CONT_PROT_PLAYREADY_KEY_ID) - 1
+                + VOD_GUID_LENGTH
+                + sizeof(MPD_CONT_PROT_PLAYREADY_PSSH) - 1
+                + sys->base64_data.len
+                + sizeof(MPD_CONT_PROT_PLAYREADY_FOOTER) - 1;
+
+        } else {
+            size += sizeof(MPD_CONT_PROT_CENC_SYS_ID) - 1
+                + VOD_GUID_LENGTH
+                + sizeof(MPD_CONT_PROT_CENC_KEY_ID) - 1
+                + VOD_GUID_LENGTH
+                + sizeof(MPD_CONT_PROT_CENC_PSSH) - 1
+                + mp4_dash_encrypt_base64_pssh_get_size(sys)
+                + sizeof(MPD_CONT_PROT_CENC_FOOTER) - 1;
+        }
+    }
+
+    return size;
+}
+
+static u_char *
+ngx_http_pckg_mpd_cont_prot_write(u_char *p, ngx_pckg_track_t *track)
+{
+    ngx_uint_t        i, n;
+    media_enc_t      *enc = track->enc;
+    media_enc_sys_t  *sys, *elts;
+
+    if (enc == NULL) {
+        return p;
+    }
+
+    n = enc->systems.nelts;
+    elts = enc->systems.elts;
+
+    p = ngx_copy_fix(p, MPD_CONT_PROT_CENC);
+    for (i = 0; i < n; i++) {
+        sys = &elts[i];
+        if (mpd_is_playready_sys_id(sys->id)) {
+            p = ngx_copy_fix(p, MPD_CONT_PROT_PLAYREADY_SYS_ID);
+            p = mp4_cenc_encrypt_write_guid(p, sys->id);
+            p = ngx_copy_fix(p, MPD_CONT_PROT_PLAYREADY_KEY_ID);
+            p = mp4_cenc_encrypt_write_guid(p, enc->key_id);
+            p = ngx_copy_fix(p, MPD_CONT_PROT_PLAYREADY_PSSH);
+            p = ngx_copy(p, sys->base64_data.data, sys->base64_data.len);
+            p = ngx_copy_fix(p, MPD_CONT_PROT_PLAYREADY_FOOTER);
+
+        } else {
+            p = ngx_copy_fix(p, MPD_CONT_PROT_CENC_SYS_ID);
+            p = mp4_cenc_encrypt_write_guid(p, sys->id);
+            p = ngx_copy_fix(p, MPD_CONT_PROT_CENC_KEY_ID);
+            p = mp4_cenc_encrypt_write_guid(p, enc->key_id);
+            p = ngx_copy_fix(p, MPD_CONT_PROT_CENC_PSSH);
+            p = mp4_dash_encrypt_base64_pssh_write(p, sys);
+            p = ngx_copy_fix(p, MPD_CONT_PROT_CENC_FOOTER);
+        }
+    }
+
+    return p;
+}
+
+#else
+
+static size_t
+ngx_http_pckg_mpd_cont_prot_get_size(ngx_pckg_track_t *track)
+{
+    return 0;
+}
+
+static u_char *
+ngx_http_pckg_mpd_cont_prot_write(u_char *p, ngx_pckg_track_t *track)
+{
+    return p;
+}
+
+#endif
+
+
 static ngx_http_pckg_container_t *
 ngx_http_pckg_mpd_get_container(uint32_t codec_id)
 {
@@ -260,7 +411,7 @@ ngx_http_pckg_mpd_get_segment_time(ngx_pckg_timeline_t *timeline,
 
 
 static uint32_t
-ngx_http_pckg_mpd_get_eac3_channel_config(media_info_t* media_info)
+ngx_http_pckg_mpd_get_eac3_channel_config(media_info_t *media_info)
 {
     uint64_t  cur;
     uint32_t  result = 0;
@@ -494,17 +645,23 @@ static size_t
 ngx_http_pckg_mpd_video_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
     ngx_pckg_period_t *period)
 {
-    ngx_str_t                   content_type;
-    ngx_http_pckg_container_t  *container;
+    ngx_str_t                    content_type;
+    ngx_pckg_track_t            *track;
+    ngx_pckg_variant_t         **variants;
+    ngx_http_pckg_container_t   *container;
 
     container = ngx_http_pckg_mpd_get_container(set->media_info->codec_id);
     container->get_content_type(set->media_info, &content_type);
+
+    variants = set->variants.elts;
+    track = variants[0]->tracks[KMP_MEDIA_VIDEO];
 
     return sizeof(MPD_ADAPTATION_HEADER_VIDEO) - 1 + NGX_INT32_LEN * 5
         + sizeof(MPD_ACCESSIBILITY_CEA_608) - 1
         + ngx_http_pckg_seg_tmpl_get_size(period, container)
         + set->variants.nelts * (sizeof(MPD_REPRESENTATION_VIDEO) - 1
             + content_type.len + MAX_CODEC_NAME_SIZE + NGX_INT32_LEN * 5)
+        + ngx_http_pckg_mpd_cont_prot_get_size(track)
         + sizeof(MPD_ADAPTATION_FOOTER) - 1;
 }
 
@@ -574,6 +731,9 @@ ngx_http_pckg_mpd_video_adapt_set_write(u_char *p, ngx_http_request_t *r,
             &media_info->codec_name);
     }
 
+    track = variants[0]->tracks[KMP_MEDIA_VIDEO];
+    p = ngx_http_pckg_mpd_cont_prot_write(p, track);
+
     p = ngx_copy(p, MPD_ADAPTATION_FOOTER, sizeof(MPD_ADAPTATION_FOOTER) - 1);
 
     return p;
@@ -587,6 +747,7 @@ ngx_http_pckg_mpd_audio_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
 {
     size_t                       size;
     ngx_str_t                    content_type;
+    ngx_pckg_track_t            *track;
     ngx_pckg_variant_t         **variants;
     ngx_http_pckg_container_t   *container;
 
@@ -594,6 +755,7 @@ ngx_http_pckg_mpd_audio_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
     container->get_content_type(set->media_info, &content_type);
 
     variants = set->variants.elts;
+    track = variants[0]->tracks[KMP_MEDIA_AUDIO];
 
     size = sizeof(MPD_ADAPTATION_HEADER_AUDIO_LANG) - 1 + NGX_INT32_LEN
             + variants[0]->lang.len
@@ -601,6 +763,7 @@ ngx_http_pckg_mpd_audio_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
         + ngx_http_pckg_seg_tmpl_get_size(period, container)
         + set->variants.nelts * (sizeof(MPD_REPRESENTATION_AUDIO) - 1
             + NGX_INT32_LEN * 2 + content_type.len + MAX_CODEC_NAME_SIZE)
+        + ngx_http_pckg_mpd_cont_prot_get_size(track)
         + sizeof(MPD_ADAPTATION_FOOTER) - 1;
 
     if (set->media_info->codec_id == VOD_CODEC_ID_EAC3) {
@@ -689,6 +852,9 @@ ngx_http_pckg_mpd_audio_adapt_set_write(u_char *p, ngx_http_request_t *r,
             &content_type,
             &media_info->codec_name);
     }
+
+    track = variants[0]->tracks[KMP_MEDIA_AUDIO];
+    p = ngx_http_pckg_mpd_cont_prot_write(p, track);
 
     p = ngx_copy(p, MPD_ADAPTATION_FOOTER, sizeof(MPD_ADAPTATION_FOOTER) - 1);
 

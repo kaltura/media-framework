@@ -22,15 +22,12 @@ enum {
 
 typedef struct {
     ngx_uint_t                 scheme;
+    ngx_uint_t                 scope;
     ngx_flag_t                 serve_key;
     ngx_http_complex_value_t  *key_seed;
     ngx_http_complex_value_t  *iv_seed;
+    ngx_http_complex_value_t  *json;
 } ngx_http_pckg_enc_loc_conf_t;
-
-
-ngx_int_t ngx_http_pckg_enc_get_key(ngx_http_request_t *r, u_char *result);
-
-ngx_int_t ngx_http_pckg_enc_get_iv(ngx_http_request_t *r, u_char *result);
 
 
 extern ngx_module_t  ngx_http_pckg_enc_module;

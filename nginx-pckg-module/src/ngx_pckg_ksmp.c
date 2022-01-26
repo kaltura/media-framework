@@ -551,8 +551,7 @@ ngx_pckg_ksmp_parse_avc_extra_data(ngx_pckg_channel_t *channel,
     u_char  *p;
     size_t   size;
 
-    size = codec_config_avcc_nal_units_get_size(channel->log,
-        &mi->extra_data, &mi->u.video.nal_packet_size_length);
+    size = codec_config_avcc_nal_units_get_size(channel->log, &mi->extra_data);
     if (size <= 0) {
         ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
             "ngx_pckg_ksmp_parse_avc_extra_data: parse failed");
@@ -611,6 +610,13 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
         if (src->u.video.frame_rate.denom <= 0) {
             ngx_log_error(NGX_LOG_ERR, channel->log, 0,
                 "ngx_pckg_ksmp_parse_media_info: invalid video frame rate");
+            return NGX_BAD_DATA;
+        }
+
+        dest->u.video.nal_packet_size_length =
+            codec_config_avcc_get_nal_length_size(channel->log,
+                &dest->extra_data);
+        if (dest->u.video.nal_packet_size_length == 0) {
             return NGX_BAD_DATA;
         }
 

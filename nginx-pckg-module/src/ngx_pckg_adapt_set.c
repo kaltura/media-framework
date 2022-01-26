@@ -11,7 +11,7 @@ ngx_pckg_adapt_set_has_track(ngx_pckg_adapt_set_t *set,
     ngx_pckg_variant_t  **cur;
     ngx_pckg_variant_t  **last;
 
-    media_type = track->last_media_info->media_info.media_type;
+    media_type = track->header->media_type;
 
     cur = set->variants.elts;
     for (last = cur + set->variants.nelts; cur < last; cur++) {

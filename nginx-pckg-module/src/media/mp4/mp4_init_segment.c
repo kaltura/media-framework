@@ -962,10 +962,9 @@ mp4_init_segment_get_encrypted_stsd_writers(
     media_init_segment_t* segment,
     uint32_t scheme_type,
     bool_t has_clear_lead,
-    u_char* default_kid,
-    u_char* iv,
     atom_writer_t** result)
 {
+    media_init_segment_track_t* cur_track;
     stsd_writer_context_t* stsd_writer_context;
     atom_writer_t* stsd_atom_writer;
     vod_status_t rc;
@@ -989,15 +988,24 @@ mp4_init_segment_get_encrypted_stsd_writers(
         i < segment->count;
         i++, stsd_writer_context++, stsd_atom_writer++)
     {
+        cur_track = &segment->first[i];
+
         // build the stsd writer for the current track
         stsd_writer_context->scheme_type = scheme_type;
         stsd_writer_context->has_clear_lead = has_clear_lead;
-        stsd_writer_context->default_kid = default_kid;
-        stsd_writer_context->iv = iv;
+        if (cur_track->enc->has_key_id)
+        {
+            stsd_writer_context->default_kid = cur_track->enc->key_id;
+        }
+        else
+        {
+            stsd_writer_context->default_kid = NULL;
+        }
+        stsd_writer_context->iv = scheme_type == SCHEME_TYPE_CBCS ? cur_track->enc->iv : NULL;
 
         rc = mp4_init_segment_init_encrypted_stsd_writer(
             request_context,
-            &segment->first[i],
+            cur_track,
             stsd_writer_context);
         if (rc != VOD_OK)
         {

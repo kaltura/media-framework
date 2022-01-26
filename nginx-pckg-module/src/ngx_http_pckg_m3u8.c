@@ -11,6 +11,10 @@
 #include "ngx_pckg_media_info.h"
 #include "ngx_pckg_segment_info.h"
 
+#if (NGX_HAVE_OPENSSL_EVP)
+#include "media/mp4/mp4_dash_encrypt.h"
+#endif
+
 
 static ngx_int_t ngx_http_pckg_m3u8_preconfiguration(ngx_conf_t *cf);
 
@@ -64,9 +68,10 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 
 #define M3U8_ENC_METHOD_AES_128      "AES-128"
 #define M3U8_ENC_METHOD_SAMPLE_AES   "SAMPLE-AES"
-#define M3U8_ENC_METHOD_SAMPLE_AES_CENC                                     \
-    "SAMPLE-AES-CENC"
+#define M3U8_ENC_METHOD_SAMPLE_AES_CTR                                      \
+    "SAMPLE-AES-CTR"
 
+#define M3U8_URI_BASE64_DATA         "data:text/plain;base64,"
 
 enum {
     NGX_HTTP_PCKG_M3U8_CONTAINER_AUTO,
@@ -94,7 +99,6 @@ typedef struct {
     ngx_uint_t                      type;
     ngx_str_t                       key_uri;
     ngx_str_t                       iv;
-    u_char                          iv_buf[AES_BLOCK_SIZE];
 } ngx_http_pckg_m3u8_enc_params_t;
 
 
@@ -214,8 +218,10 @@ ngx_http_pckg_m3u8_get_container(ngx_http_request_t *r,
 {
     media_info_t                      *media_info;
     ngx_http_pckg_container_t         *container;
-    ngx_http_pckg_enc_loc_conf_t      *elcf;
     ngx_http_pckg_m3u8_loc_conf_t     *mlcf;
+#if (NGX_HAVE_OPENSSL_EVP)
+    ngx_http_pckg_enc_loc_conf_t      *elcf;
+#endif
 
     /* Note: must match NGX_HTTP_PCKG_M3U8_XXX in order */
     static ngx_http_pckg_container_t  *containers[] = {
@@ -231,11 +237,13 @@ ngx_http_pckg_m3u8_get_container(ngx_http_request_t *r,
         return container;
     }
 
+#if (NGX_HAVE_OPENSSL_EVP)
     elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
 
     if (elcf->scheme == NGX_HTTP_PCKG_ENC_CENC) {
         return &ngx_http_pckg_fmp4_container;
     }
+#endif
 
     if (tracks[KMP_MEDIA_VIDEO] == NULL) {
         return &ngx_http_pckg_mpegts_container;
@@ -317,14 +325,14 @@ ngx_http_pckg_m3u8_media_group_write(u_char *p, ngx_pckg_media_group_t *group,
         label = variant->label.len > 0 ? &variant->label :
             &ngx_http_pckg_m3u8_default_label;
 
-        p = vod_sprintf(p, M3U8_MEDIA_BASE,
+        p = ngx_sprintf(p, M3U8_MEDIA_BASE,
             &ngx_http_pckg_m3u8_media_type_name[media_type],
             &ngx_http_pckg_m3u8_media_group_id[media_type],
             media_info->codec_id,
             label);
 
         if (variant->lang.len) {
-            p = vod_sprintf(p, M3U8_MEDIA_LANG, &variant->lang);
+            p = ngx_sprintf(p, M3U8_MEDIA_LANG, &variant->lang);
         }
 
         if (variant->header->is_default) {
@@ -335,7 +343,7 @@ ngx_http_pckg_m3u8_media_group_write(u_char *p, ngx_pckg_media_group_t *group,
         }
 
         if (media_type == KMP_MEDIA_AUDIO) {
-            p = vod_sprintf(p, M3U8_MEDIA_CHANNELS,
+            p = ngx_sprintf(p, M3U8_MEDIA_CHANNELS,
                 (uint32_t) media_info->u.audio.channels);
         }
 
@@ -495,7 +503,7 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
         }
 
         if (audio_group != NULL) {
-            p = vod_sprintf(p, M3U8_STREAM_TAG_AUDIO,
+            p = ngx_sprintf(p, M3U8_STREAM_TAG_AUDIO,
                 &ngx_http_pckg_m3u8_media_group_id[KMP_MEDIA_AUDIO],
                 audio->codec_id);
         }
@@ -650,10 +658,10 @@ static ngx_http_pckg_request_handler_t  ngx_http_pckg_m3u8_master_handler = {
 
 #if (NGX_HAVE_OPENSSL_EVP)
 static ngx_int_t
-ngx_http_pckg_m3u8_enc_init(ngx_http_request_t *r,
+ngx_http_pckg_m3u8_enc_init(ngx_http_request_t *r, ngx_pckg_channel_t *channel,
     ngx_http_pckg_m3u8_enc_params_t *enc_params)
 {
-    ngx_int_t                       rc;
+    ngx_pckg_track_t               *track;
     ngx_http_pckg_enc_loc_conf_t   *elcf;
     ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
 
@@ -695,13 +703,10 @@ ngx_http_pckg_m3u8_enc_init(ngx_http_request_t *r,
     }
 
     if (mlcf->enc.output_iv) {
-        rc = ngx_http_pckg_enc_get_iv(r, enc_params->iv_buf);
-        if (rc != NGX_OK) {
-            return rc;
-        }
+        track = channel->tracks.elts;
 
-        enc_params->iv.data = enc_params->iv_buf;
-        enc_params->iv.len = sizeof(enc_params->iv_buf);
+        enc_params->iv.data = track->enc->iv;
+        enc_params->iv.len = sizeof(track->enc->iv);
 
     } else {
         enc_params->iv.len = 0;
@@ -709,7 +714,6 @@ ngx_http_pckg_m3u8_enc_init(ngx_http_request_t *r,
 
     return NGX_OK;
 }
-#endif
 
 
 static size_t
@@ -717,15 +721,21 @@ ngx_http_pckg_m3u8_enc_key_get_size(ngx_http_pckg_m3u8_loc_conf_t *mlcf,
     ngx_pckg_channel_t *channel, ngx_http_pckg_m3u8_enc_params_t *enc_params)
 {
     size_t               result;
+    ngx_pckg_track_t    *track;
     ngx_pckg_variant_t  *variant;
 
     result = sizeof(M3U8_ENC_KEY_BASE) - 1 +
-        sizeof(M3U8_ENC_METHOD_SAMPLE_AES_CENC) - 1 +
+        sizeof(M3U8_ENC_METHOD_SAMPLE_AES_CTR) - 1 +
         sizeof(M3U8_ENC_KEY_URI) - 1 +
         sizeof("\"\n") - 1;
 
     if (enc_params->key_uri.len != 0) {
         result += enc_params->key_uri.len;
+
+    } else if (enc_params->type == NGX_HTTP_PCKG_ENC_CENC) {
+        track = channel->tracks.elts;
+        result += sizeof(M3U8_URI_BASE64_DATA) - 1 +
+            mp4_dash_encrypt_base64_psshs_get_size(track->enc);
 
     } else {
         variant = channel->variants.elts;
@@ -759,6 +769,7 @@ ngx_http_pckg_m3u8_enc_key_write(u_char *p,
     ngx_pckg_channel_t *channel,
     ngx_http_pckg_m3u8_enc_params_t *enc_params)
 {
+    ngx_pckg_track_t    *track;
     ngx_pckg_variant_t  *variant;
 
     p = ngx_copy_fix(p, M3U8_ENC_KEY_BASE);
@@ -774,7 +785,7 @@ ngx_http_pckg_m3u8_enc_key_write(u_char *p,
         break;
 
     case NGX_HTTP_PCKG_ENC_CENC:
-        p = ngx_copy_fix(p, M3U8_ENC_METHOD_SAMPLE_AES_CENC);
+        p = ngx_copy_fix(p, M3U8_ENC_METHOD_SAMPLE_AES_CTR);
         break;
     }
 
@@ -783,10 +794,15 @@ ngx_http_pckg_m3u8_enc_key_write(u_char *p,
     if (enc_params->key_uri.len != 0) {
         p = ngx_copy_str(p, enc_params->key_uri);
 
+    } else if (enc_params->type == NGX_HTTP_PCKG_ENC_CENC) {
+        track = channel->tracks.elts;
+        p = ngx_copy_fix(p, M3U8_URI_BASE64_DATA);
+        p = mp4_dash_encrypt_base64_psshs_write(p, track->enc);
+
     } else {
         variant = channel->variants.elts;
         p = ngx_copy_str(p, ngx_http_pckg_enc_key_prefix);
-        p = vod_sprintf(p, "-s%V", &variant->id);
+        p = ngx_sprintf(p, "-s%V", &variant->id);
         p = ngx_copy_str(p, ngx_http_pckg_enc_key_ext);
     }
     *p++ = '"';
@@ -815,6 +831,7 @@ ngx_http_pckg_m3u8_enc_key_write(u_char *p,
 
     return p;
 }
+#endif
 
 
 static size_t
@@ -1172,10 +1189,12 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
         segment_size * timeline->segment_count +
         sizeof(M3U8_END_LIST) - 1;
 
+#if (NGX_HAVE_OPENSSL_EVP)
     if (enc_params->type != NGX_HTTP_PCKG_ENC_NONE) {
         size += ngx_http_pckg_m3u8_enc_key_get_size(mlcf, channel,
             enc_params);
     }
+#endif
 
     if (ngx_pckg_segment_info_has_bitrate(bi)) {
         size += ngx_http_pckg_m3u8_get_bitrate_size(r, channel,
@@ -1225,9 +1244,11 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     p = ngx_sprintf(p, M3U8_INDEX_HEADER, target_duration, version,
         timeline->header->sequence, timeline->header->first_period_index);
 
+#if (NGX_HAVE_OPENSSL_EVP)
     if (enc_params->type != NGX_HTTP_PCKG_ENC_NONE) {
         p = ngx_http_pckg_m3u8_enc_key_write(p, mlcf, channel, enc_params);
     }
+#endif
 
     last_map_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
 
@@ -1277,7 +1298,7 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     result->len = p - result->data;
 
     if (result->len > size) {
-        vod_log_error(VOD_LOG_ALERT, r->connection->log, 0,
+        ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
             "ngx_http_pckg_m3u8_index_build: "
             "result length %uz greater than allocated length %uz",
             result->len, size);
@@ -1297,17 +1318,17 @@ ngx_http_pckg_m3u8_index_handle(ngx_http_request_t *r)
     ngx_http_pckg_core_ctx_t         *ctx;
     ngx_http_pckg_m3u8_enc_params_t   enc_params;
 
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    channel = ctx->channel;
+
 #if (NGX_HAVE_OPENSSL_EVP)
-    rc = ngx_http_pckg_m3u8_enc_init(r, &enc_params);
+    rc = ngx_http_pckg_m3u8_enc_init(r, channel, &enc_params);
     if (rc != NGX_OK) {
         return rc;
     }
 #else
     enc_params.type = NGX_HTTP_PCKG_ENC_NONE;
 #endif
-
-    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
-    channel = ctx->channel;
 
     rc = ngx_http_pckg_m3u8_index_build(r, channel, &enc_params, &response);
     if (rc != NGX_OK) {

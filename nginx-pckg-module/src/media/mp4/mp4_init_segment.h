@@ -27,8 +27,6 @@ vod_status_t mp4_init_segment_get_encrypted_stsd_writers(
     media_init_segment_t* segment,
     uint32_t scheme_type,
     bool_t has_clear_lead,
-    u_char* default_kid,
-    u_char* iv,
     atom_writer_t** result);
 
 #endif // __MP4_INIT_SEGMENT_H__

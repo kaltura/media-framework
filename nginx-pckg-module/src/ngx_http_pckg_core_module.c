@@ -37,6 +37,12 @@ static char *ngx_http_pckg_core_buffer_pool_slot(ngx_conf_t *cf,
 static ngx_int_t ngx_http_pckg_core_ctx_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
+static ngx_int_t ngx_http_pckg_core_variant_id_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
+
+static ngx_int_t ngx_http_pckg_core_media_type_variable(ngx_http_request_t* r,
+    ngx_http_variable_value_t* v, uintptr_t data);
+
 static ngx_int_t ngx_http_pckg_core_subrequest_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
@@ -63,6 +69,7 @@ typedef struct {
     ngx_persist_conf_t      *persist;
     ngx_hash_t               handlers_hash;
     ngx_hash_keys_arrays_t  *handlers_keys;
+    ngx_array_t              init_handlers; /* ngx_http_handler_pt */
 } ngx_http_pckg_core_main_conf_t;
 
 
@@ -295,6 +302,13 @@ static ngx_http_variable_t  ngx_http_pckg_core_vars[] = {
       offsetof(ngx_http_pckg_core_ctx_t, params.variant_ids), 0, 0 },
 
 
+    { ngx_string("pckg_variant_id"), NULL,
+      ngx_http_pckg_core_variant_id_variable, 0, 0, 0 },
+
+    { ngx_string("pckg_media_type"), NULL,
+      ngx_http_pckg_core_media_type_variable, 0, 0, 0 },
+
+
     { ngx_string("pckg_upstream_addr"), NULL,
       ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
 
@@ -398,6 +412,37 @@ ngx_http_pckg_core_map_upstream_code(ngx_http_request_t *r, ngx_int_t rc)
     return NGX_HTTP_BAD_GATEWAY;
 }
 
+
+static ngx_int_t
+ngx_http_pckg_core_run_handlers(ngx_http_request_t* r)
+{
+    ngx_int_t                        rc;
+    ngx_uint_t                       i, n;
+    ngx_http_handler_pt             *ph;
+    ngx_http_pckg_core_main_conf_t  *pmcf;
+
+    pmcf = ngx_http_get_module_main_conf(r, ngx_http_pckg_core_module);
+
+    ph = pmcf->init_handlers.elts;
+    n = pmcf->init_handlers.nelts;
+    for (i = 0; i < n; i++) {
+
+        rc = ph[i](r);
+        switch (rc) {
+
+        case NGX_OK:
+            break;
+
+        case NGX_BAD_DATA:
+            return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
+
+        default:
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
 
 static ngx_int_t
 ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
@@ -573,6 +618,11 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
 
         } else {
             channel->media_types = header->req_media_types;
+        }
+
+        rc = ngx_http_pckg_core_run_handlers(r);
+        if (rc != NGX_OK) {
+            return rc;
         }
 
         rc = ctx->handler->handler(r);
@@ -751,6 +801,7 @@ ngx_http_pckg_core_init_ctx(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
     ctx->request_context.log = r->connection->log;
     ctx->request_context.pool = r->pool;
     ctx->request_context.output_buffer_pool = plcf->output_buffer_pool;
+    ctx->media_type = KMP_MEDIA_COUNT;
 
     ngx_http_set_ctx(r, ctx, ngx_http_pckg_core_module);
 
@@ -1222,6 +1273,8 @@ ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
 
         dst_track->frames_source = &ngx_http_pckg_source;
 
+        dst_track->enc = tracks[i].enc;
+
         found = 1;
     }
 
@@ -1273,6 +1326,7 @@ ngx_http_pckg_media_init_segment(ngx_http_request_t *r,
     for (i = 0; i < n; i++) {
 
         dst_track->media_info = &tracks[i].last_media_info->media_info;
+        dst_track->enc = tracks[i].enc;
 
         dst_track++;
     }
@@ -1538,6 +1592,56 @@ ngx_http_pckg_core_ctx_variable(ngx_http_request_t *r,
     return NGX_OK;
 }
 
+static ngx_int_t
+ngx_http_pckg_core_variant_id_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_str_t                 *s;
+    ngx_http_pckg_core_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    if (ctx == NULL || ctx->variant == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    s = &ctx->variant->id;
+    v->len = s->len;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = s->data;
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_pckg_core_media_type_variable(ngx_http_request_t* r,
+    ngx_http_variable_value_t* v, uintptr_t data)
+{
+    ngx_str_t                 *s;
+    ngx_http_pckg_core_ctx_t  *ctx;
+
+    static ngx_str_t  media_types[KMP_MEDIA_COUNT] = {
+        ngx_string("video"),
+        ngx_string("audio"),
+    };
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    if (ctx == NULL || ctx->media_type >= KMP_MEDIA_COUNT) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    s = &media_types[ctx->media_type];
+    v->len = s->len;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = s->data;
+
+    return NGX_OK;
+}
 
 static ngx_int_t
 ngx_http_pckg_core_subrequest_variable(ngx_http_request_t *r,
@@ -1806,6 +1910,25 @@ ngx_http_pckg_core_add_handler(ngx_conf_t *cf, ngx_str_t *ext,
 }
 
 
+ngx_int_t
+ngx_http_pckg_core_add_init_handler(ngx_conf_t *cf,
+    ngx_http_handler_pt handler)
+{
+    ngx_http_handler_pt             *ph;
+    ngx_http_pckg_core_main_conf_t  *pmcf;
+
+    pmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_pckg_core_module);
+
+    ph = ngx_array_push(&pmcf->init_handlers);
+    if (ph == NULL) {
+        return NGX_ERROR;
+    }
+
+    *ph = handler;
+    return NGX_OK;
+}
+
+
 static void *
 ngx_http_pckg_core_create_loc_conf(ngx_conf_t *cf)
 {
@@ -1935,6 +2058,13 @@ ngx_http_pckg_core_create_main_conf(ngx_conf_t *cf)
     conf->handlers_keys->temp_pool = cf->pool;
 
     if (ngx_hash_keys_array_init(conf->handlers_keys, NGX_HASH_SMALL)
+        != NGX_OK)
+    {
+        return NULL;
+    }
+
+    if (ngx_array_init(&conf->init_handlers, cf->pool, 1,
+                       sizeof(ngx_http_handler_pt))
         != NGX_OK)
     {
         return NULL;

@@ -525,12 +525,12 @@ mpegts_encoder_add_stream(
     switch (stream_info->media_type)
     {
     case MEDIA_TYPE_AUDIO:
-        stream_state->cur_pid = ngx_max(stream_state->cur_pid,
+        stream_state->cur_pid = vod_max(stream_state->cur_pid,
             INITIAL_PID + 1);
         break;
 
     case MEDIA_TYPE_NONE:
-        stream_state->cur_pid = ngx_max(stream_state->cur_pid,
+        stream_state->cur_pid = vod_max(stream_state->cur_pid,
             INITIAL_PID + 2);
         break;
     }

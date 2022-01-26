@@ -93,6 +93,7 @@ struct ngx_pckg_track_s {
     ngx_pckg_media_info_iter_t     media_info_iter;
     ngx_pckg_segment_info_t        segment_info;
     ngx_pckg_segment_t            *segment;
+    media_enc_t                   *enc;
 };
 
 

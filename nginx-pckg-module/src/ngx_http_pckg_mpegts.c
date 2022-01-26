@@ -107,9 +107,9 @@ ngx_http_pckg_mpegts_get_content_type(media_info_t *media_info,
 #if (NGX_HAVE_OPENSSL_EVP)
 static ngx_int_t
 ngx_http_pckg_mpegts_init_enc_params(ngx_http_request_t *r,
-    hls_encryption_params_t *enc_params)
+    ngx_pckg_channel_t *channel, hls_encryption_params_t *enc_params)
 {
-    ngx_int_t                      rc;
+    ngx_pckg_track_t              *track;
     ngx_http_pckg_enc_loc_conf_t  *elcf;
 
     elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
@@ -135,18 +135,10 @@ ngx_http_pckg_mpegts_init_enc_params(ngx_http_request_t *r,
         return NGX_HTTP_BAD_REQUEST;
     }
 
-    rc = ngx_http_pckg_enc_get_key(r, enc_params->key_buf);
-    if (rc != NGX_OK) {
-        return rc;
-    }
+    track = channel->tracks.elts;
 
-    rc = ngx_http_pckg_enc_get_iv(r, enc_params->iv_buf);
-    if (rc != NGX_OK) {
-        return rc;
-    }
-
-    enc_params->key = enc_params->key_buf;
-    enc_params->iv = enc_params->iv_buf;
+    enc_params->key = track->enc->key;
+    enc_params->iv = track->enc->iv;
 
     return NGX_OK;
 }
@@ -175,7 +167,7 @@ ngx_http_pckg_mpegts_init_frame_processor(ngx_http_request_t *r,
     buffer_pool_t              *buffer_pool;
     aes_cbc_encrypt_context_t  *enc_write_ctx;
 
-    rc = ngx_http_pckg_mpegts_init_enc_params(r, &enc_params);
+    rc = ngx_http_pckg_mpegts_init_enc_params(r, ctx->channel, &enc_params);
     if (rc != NGX_OK) {
         return rc;
     }

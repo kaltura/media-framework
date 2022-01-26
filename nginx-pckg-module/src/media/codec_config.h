@@ -67,6 +67,10 @@ typedef struct {
 } mp4a_config_t;
 
 // functions
+uint32_t codec_config_avcc_get_nal_length_size(
+    vod_log_t* log,
+    vod_str_t* extra_data);
+
 vod_status_t codec_config_hevc_get_nal_units(
     request_context_t* request_context,
     vod_str_t* extra_data,
@@ -76,8 +80,7 @@ vod_status_t codec_config_hevc_get_nal_units(
 
 size_t codec_config_avcc_nal_units_get_size(
     vod_log_t* log,
-    vod_str_t* extra_data,
-    uint32_t* nal_packet_size_length);
+    vod_str_t* extra_data);
 
 u_char* codec_config_avcc_nal_units_write(u_char* p, vod_str_t* extra_data);
 

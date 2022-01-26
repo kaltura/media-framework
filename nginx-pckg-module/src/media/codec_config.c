@@ -10,11 +10,24 @@
 
 #define AOT_ESCAPE (31)
 
+uint32_t
+codec_config_avcc_get_nal_length_size(vod_log_t* log, vod_str_t* extra_data)
+{
+    avcc_config_t* avcc;
+
+    if (extra_data->len < sizeof(*avcc))
+    {
+        vod_log_error(VOD_LOG_ERR, log, 0,
+            "codec_config_avcc_get_nal_length_size: extra data size %uz too small", extra_data->len);
+        return 0;
+    }
+
+    avcc = (void*)extra_data->data;
+    return (avcc->nula_length_size & 0x3) + 1;
+}
+
 size_t
-codec_config_avcc_nal_units_get_size(
-    vod_log_t* log,
-    vod_str_t* extra_data,
-    uint32_t* nal_packet_size_length)
+codec_config_avcc_nal_units_get_size(vod_log_t* log, vod_str_t* extra_data)
 {
     size_t extra_data_size = extra_data->len;
     const u_char* extra_data_start = extra_data->data;
@@ -31,8 +44,6 @@ codec_config_avcc_nal_units_get_size(
             "codec_config_avcc_nal_units_get_size: extra data size %uz too small", extra_data->len);
         return 0;
     }
-
-    *nal_packet_size_length = (((avcc_config_t*)extra_data->data)->nula_length_size & 0x3) + 1;
 
     // calculate total size and validate
     size = 0;

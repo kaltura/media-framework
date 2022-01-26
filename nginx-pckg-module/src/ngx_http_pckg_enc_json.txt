@@ -1,0 +1,6 @@
+
+in ngx_pckg_enc_json
+    key_id %V
+    key %V
+    iv %V
+    systems %o

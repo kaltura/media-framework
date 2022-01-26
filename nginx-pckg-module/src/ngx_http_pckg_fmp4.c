@@ -12,20 +12,12 @@
 #include "media/mp4/mp4_defs.h"
 
 #if (NGX_HAVE_OPENSSL_EVP)
+#include "media/mp4/mp4_dash_encrypt.h"
 #include "media/mpegts/aes_cbc_encrypt.h"
 #endif /* NGX_HAVE_OPENSSL_EVP */
 
 
 static ngx_int_t ngx_http_pckg_fmp4_preconfiguration(ngx_conf_t *cf);
-
-
-typedef struct {
-    ngx_uint_t   scheme;
-    u_char      *key;
-    u_char      *iv;
-    u_char       iv_buf[AES_BLOCK_SIZE];
-    u_char       key_buf[AES_BLOCK_SIZE];
-} ngx_http_pckg_fmp4_enc_params_t;
 
 
 static ngx_http_module_t  ngx_http_pckg_fmp4_module_ctx = {
@@ -92,21 +84,15 @@ ngx_http_pckg_fmp4_get_content_type(media_info_t *media_info,
 
 #if (NGX_HAVE_OPENSSL_EVP)
 static ngx_int_t
-ngx_http_pckg_fmp4_init_enc_params(ngx_http_request_t *r,
-    ngx_http_pckg_fmp4_enc_params_t *enc_params)
+ngx_http_pckg_fmp4_get_enc_scheme(ngx_http_request_t *r, ngx_uint_t *scheme)
 {
-    ngx_int_t                      rc;
     ngx_http_pckg_enc_loc_conf_t  *elcf;
 
     elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
 
-    enc_params->scheme = elcf->scheme;
-
     switch (elcf->scheme) {
 
     case NGX_HTTP_PCKG_ENC_NONE:
-        return NGX_OK;
-
     case NGX_HTTP_PCKG_ENC_AES_128:
     case NGX_HTTP_PCKG_ENC_CBCS:
     case NGX_HTTP_PCKG_ENC_CENC:
@@ -114,24 +100,12 @@ ngx_http_pckg_fmp4_init_enc_params(ngx_http_request_t *r,
 
     default:
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_pckg_fmp4_init_enc_params: "
+            "ngx_http_pckg_fmp4_get_enc_scheme: "
             "scheme %ui not supported", elcf->scheme);
         return NGX_HTTP_BAD_REQUEST;
     }
 
-    rc = ngx_http_pckg_enc_get_key(r, enc_params->key_buf);
-    if (rc != NGX_OK) {
-        return rc;
-    }
-
-    rc = ngx_http_pckg_enc_get_iv(r, enc_params->iv_buf);
-    if (rc != NGX_OK) {
-        return rc;
-    }
-
-    enc_params->key = enc_params->key_buf;
-    enc_params->iv = enc_params->iv_buf;
-
+    *scheme = elcf->scheme;
     return NGX_OK;
 }
 #endif /* NGX_HAVE_OPENSSL_EVP */
@@ -156,31 +130,41 @@ ngx_http_pckg_fmp4_handle_init_segment(ngx_http_request_t *r)
     ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
 
 #if (NGX_HAVE_OPENSSL_EVP)
-    aes_cbc_encrypt_context_t        *enc_write_ctx;
-    ngx_http_pckg_fmp4_enc_params_t   enc_params;
+    ngx_uint_t                  scheme;
+    media_enc_t                *enc;
+    aes_cbc_encrypt_context_t  *enc_write_ctx;
 
-    rc = ngx_http_pckg_fmp4_init_enc_params(r, &enc_params);
+    rc = ngx_http_pckg_fmp4_get_enc_scheme(r, &scheme);
     if (rc != NGX_OK) {
         return rc;
     }
 
-    switch (enc_params.scheme) {
+    switch (scheme) {
 
     case NGX_HTTP_PCKG_ENC_CBCS:
         rc = mp4_init_segment_get_encrypted_stsd_writers(&ctx->request_context,
-            &segment, SCHEME_TYPE_CBCS, FALSE, NULL, enc_params.iv,
-            &stsd_atom_writers);
+            &segment, SCHEME_TYPE_CBCS, FALSE, &stsd_atom_writers);
         if (rc != VOD_OK) {
             ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                 "ngx_http_pckg_fmp4_handle_init_segment: "
-                "mp4_init_segment_get_encrypted_stsd_writers failed %i", rc);
+                "mp4_init_segment_get_encrypted_stsd_writers failed %i (1)",
+                rc);
             return ngx_http_pckg_status_to_ngx_error(r, rc);
         }
 
         break;
 
     case NGX_HTTP_PCKG_ENC_CENC:
-        // TODO: add when supporting drm
+        rc = mp4_init_segment_get_encrypted_stsd_writers(&ctx->request_context,
+            &segment, SCHEME_TYPE_CENC, FALSE, &stsd_atom_writers);
+        if (rc != VOD_OK) {
+            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                "ngx_http_pckg_fmp4_handle_init_segment: "
+                "mp4_init_segment_get_encrypted_stsd_writers failed %i (2)",
+                rc);
+            return ngx_http_pckg_status_to_ngx_error(r, rc);
+        }
+
         break;
     }
 #endif /* NGX_HAVE_OPENSSL_EVP */
@@ -197,10 +181,11 @@ ngx_http_pckg_fmp4_handle_init_segment(ngx_http_request_t *r)
     }
 
 #if (NGX_HAVE_OPENSSL_EVP)
-    if (enc_params.scheme == NGX_HTTP_PCKG_ENC_AES_128) {
+    if (scheme == NGX_HTTP_PCKG_ENC_AES_128) {
+        enc = segment.first[0].enc;
+
         rc = aes_cbc_encrypt_init(&enc_write_ctx,
-            &ctx->request_context, NULL, NULL, NULL,
-            enc_params.key, enc_params.iv);
+            &ctx->request_context, NULL, NULL, NULL, enc->key, enc->iv);
         if (rc != VOD_OK) {
             ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                 "ngx_http_pckg_fmp4_handle_init_segment: "
@@ -230,7 +215,6 @@ ngx_http_pckg_fmp4_handle_init_segment(ngx_http_request_t *r)
     return ngx_http_pckg_send_response(r, &response);
 }
 
-
 static ngx_int_t
 ngx_http_pckg_fmp4_init_frame_processor(ngx_http_request_t *r,
     media_segment_t *segment, ngx_http_pckg_frame_processor_t *processor)
@@ -249,25 +233,31 @@ ngx_http_pckg_fmp4_init_frame_processor(ngx_http_request_t *r,
     per_stream_writer = FALSE;
     reuse_input_buffers = FALSE;
 
-#if (NGX_HAVE_OPENSSL_EVP)
-    aes_cbc_encrypt_context_t        *enc_write_ctx;
-    ngx_http_pckg_fmp4_enc_params_t   enc_params;
+    size_only = r->header_only || r->method == NGX_HTTP_HEAD;
 
-    rc = ngx_http_pckg_fmp4_init_enc_params(r, &enc_params);
+#if (NGX_HAVE_OPENSSL_EVP)
+    ngx_uint_t                  scheme;
+    media_enc_t                *enc;
+    aes_cbc_encrypt_context_t  *enc_write_ctx;
+
+    rc = ngx_http_pckg_fmp4_get_enc_scheme(r, &scheme);
     if (rc != NGX_OK) {
         return rc;
     }
 
-    reuse_input_buffers = enc_params.scheme != NGX_HTTP_PCKG_ENC_NONE;
+    reuse_input_buffers = scheme != NGX_HTTP_PCKG_ENC_NONE;
+    muxer_state = NULL;
 
-    switch (enc_params.scheme) {
+    switch (scheme) {
 
     case NGX_HTTP_PCKG_ENC_AES_128:
+
+        enc = segment->tracks[0].enc;
 
         /* Note: cant use buffer pool for fmp4 - the buffer sizes vary */
         rc = aes_cbc_encrypt_init(&enc_write_ctx,
             &ctx->request_context, segment_writers->write_tail,
-            segment_writers->context, NULL, enc_params.key, enc_params.iv);
+            segment_writers->context, NULL, enc->key, enc->iv);
         if (rc != VOD_OK) {
             ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                 "ngx_http_pckg_fmp4_init_frame_processor: "
@@ -281,8 +271,7 @@ ngx_http_pckg_fmp4_init_frame_processor(ngx_http_request_t *r,
 
     case NGX_HTTP_PCKG_ENC_CBCS:
         rc = mp4_cbcs_encrypt_get_writers(&ctx->request_context, segment,
-            segment_writers, enc_params.key, enc_params.iv,
-            &segment_writers);
+            segment_writers, &segment_writers);
         if (rc != VOD_OK) {
             ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                 "ngx_http_pckg_fmp4_init_frame_processor: "
@@ -301,22 +290,35 @@ ngx_http_pckg_fmp4_init_frame_processor(ngx_http_request_t *r,
             return ngx_http_pckg_status_to_ngx_error(r, VOD_BAD_REQUEST);
         }
 
-        /* TODO: add support for sample aes cenc after adding drm */
-
+        rc = mp4_dash_encrypt_get_fragment_writer(
+            &ctx->segment_writer,
+            &ctx->request_context,
+            segment,
+            FALSE,
+            size_only,
+            &processor->output,
+            &processor->response_size,
+            &muxer_state);
+        if (rc != VOD_OK) {
+            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                "ngx_http_pckg_fmp4_init_frame_processor: "
+                "mp4_dash_encrypt_get_fragment_writer failed %i", rc);
+            return ngx_http_pckg_status_to_ngx_error(r, rc);
+        }
         break;
     }
 #endif /* NGX_HAVE_OPENSSL_EVP */
 
-    size_only = r->header_only || r->method == NGX_HTTP_HEAD;
-
-    rc = mp4_muxer_init_fragment(&ctx->request_context, segment,
-        segment_writers, per_stream_writer, reuse_input_buffers, size_only,
-        &processor->output, &processor->response_size, &muxer_state);
-    if (rc != VOD_OK) {
-        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "ngx_http_pckg_fmp4_init_frame_processor: "
-            "mp4_muxer_init_fragment failed %i", rc);
-        return ngx_http_pckg_status_to_ngx_error(r, rc);
+    if (muxer_state == NULL) {
+        rc = mp4_muxer_init_fragment(&ctx->request_context, segment,
+            segment_writers, per_stream_writer, reuse_input_buffers, size_only,
+            &processor->output, &processor->response_size, &muxer_state);
+        if (rc != VOD_OK) {
+            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                "ngx_http_pckg_fmp4_init_frame_processor: "
+                "mp4_muxer_init_fragment failed %i", rc);
+            return ngx_http_pckg_status_to_ngx_error(r, rc);
+        }
     }
 
     processor->process = (ngx_http_pckg_frame_processor_pt)
@@ -324,7 +326,7 @@ ngx_http_pckg_fmp4_init_frame_processor(ngx_http_request_t *r,
     processor->ctx = muxer_state;
 
 #if (NGX_HAVE_OPENSSL_EVP)
-    if (enc_params.scheme == NGX_HTTP_PCKG_ENC_AES_128) {
+    if (scheme == NGX_HTTP_PCKG_ENC_AES_128) {
         processor->response_size = aes_round_up_to_block(
             processor->response_size);
     }

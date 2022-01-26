@@ -28,6 +28,10 @@ echo "#define NGX_PCKG_VERSION \""$PCKG_VERSION"\"" > $NGX_OBJS/ngx_pckg_version
 # openssl evp
 #
 PCKG_FEATURE_SRCS="                                           \
+    $ngx_addon_dir/src/media/mp4/mp4_aes_ctr.c                \
+    $ngx_addon_dir/src/media/mp4/mp4_cbcs_encrypt.c           \
+    $ngx_addon_dir/src/media/mp4/mp4_cenc_encrypt.c           \
+    $ngx_addon_dir/src/media/mp4/mp4_dash_encrypt.c           \
     $ngx_addon_dir/src/media/mpegts/aes_cbc_encrypt.c         \
     $ngx_addon_dir/src/media/mpegts/eac3_encrypt_filter.c     \
     $ngx_addon_dir/src/media/mpegts/frame_encrypt_filter.c    \
@@ -35,6 +39,10 @@ PCKG_FEATURE_SRCS="                                           \
     "
 
 PCKG_FEATURE_DEPS="                                           \
+    $ngx_addon_dir/src/media/mp4/mp4_aes_ctr.h                \
+    $ngx_addon_dir/src/media/mp4/mp4_cbcs_encrypt.h           \
+    $ngx_addon_dir/src/media/mp4/mp4_cenc_encrypt.h           \
+    $ngx_addon_dir/src/media/mp4/mp4_dash_encrypt.h           \
     $ngx_addon_dir/src/media/mpegts/aes_cbc_encrypt.h         \
     $ngx_addon_dir/src/media/mpegts/eac3_encrypt_filter.h     \
     $ngx_addon_dir/src/media/mpegts/frame_encrypt_filter.h    \
@@ -56,12 +64,9 @@ if [ $OPENSSL = NONE ]; then
 
     if [ $ngx_found = yes ]; then
         ngx_module_libs="$ngx_module_libs $ngx_feature_libs"
-        PCKG_MEDIA_SRCS="$PCKG_MEDIA_SRCS $PCKG_FEATURE_SRCS"
-        PCKG_MEDIA_DEPS="$PCKG_MEDIA_DEPS $PCKG_FEATURE_DEPS"
     fi
 else
-    PCKG_MEDIA_SRCS="$PCKG_MEDIA_SRCS $PCKG_FEATURE_SRCS"
-    PCKG_MEDIA_DEPS="$PCKG_MEDIA_DEPS $PCKG_FEATURE_DEPS"
+    ngx_found=yes
     cat << END >> $NGX_AUTO_CONFIG_H
 
 #ifndef NGX_HAVE_OPENSSL_EVP
@@ -71,6 +76,20 @@ else
 END
 fi
 
+if [ $ngx_found = yes ]; then
+    PCKG_MEDIA_SRCS="$PCKG_MEDIA_SRCS $PCKG_FEATURE_SRCS"
+    PCKG_MEDIA_DEPS="$PCKG_MEDIA_DEPS $PCKG_FEATURE_DEPS"
+
+    PCKG_HTTP_MODULES="$PCKG_HTTP_MODULES                     \
+        ngx_http_pckg_enc_module                              \
+        "
+    PCKG_HTTP_SRCS="$PCKG_HTTP_SRCS                           \
+        $ngx_addon_dir/src/ngx_http_pckg_enc.c                \
+        "
+    PCKG_DEPS="$PCKG_DEPS                                     \
+        $ngx_addon_dir/src/ngx_http_pckg_enc.h                \
+        "
+fi
 
 # libavcodec
 #
@@ -127,6 +146,7 @@ PCKG_MEDIA_SRCS="                                             \
     $ngx_addon_dir/src/media/common.c                         \
     $ngx_addon_dir/src/media/buffer_pool.c                    \
     $ngx_addon_dir/src/media/codec_config.c                   \
+    $ngx_addon_dir/src/media/dynamic_buffer.c                 \
     $ngx_addon_dir/src/media/hevc_parser.c                    \
     $ngx_addon_dir/src/media/write_buffer.c                   \
     $ngx_addon_dir/src/media/write_buffer_queue.c             \
@@ -137,7 +157,6 @@ PCKG_MEDIA_SRCS="                                             \
     $ngx_addon_dir/src/media/mpegts/id3_encoder_filter.c      \
     $ngx_addon_dir/src/media/mpegts/mp4_to_annexb_filter.c    \
     $ngx_addon_dir/src/media/mpegts/mpegts_encoder_filter.c   \
-    $ngx_addon_dir/src/media/mp4/mp4_cbcs_encrypt.c           \
     $ngx_addon_dir/src/media/mp4/mp4_init_segment.c           \
     $ngx_addon_dir/src/media/mp4/mp4_muxer.c                  \
     $PCKG_MEDIA_SRCS                                          \
@@ -151,6 +170,7 @@ PCKG_MEDIA_DEPS="                                             \
     $ngx_addon_dir/src/media/bit_read_stream.h                \
     $ngx_addon_dir/src/media/buffer_pool.h                    \
     $ngx_addon_dir/src/media/codec_config.h                   \
+    $ngx_addon_dir/src/media/dynamic_buffer.h                 \
     $ngx_addon_dir/src/media/common.h                         \
     $ngx_addon_dir/src/media/frames_source.h                  \
     $ngx_addon_dir/src/media/hevc_parser.h                    \
@@ -165,9 +185,6 @@ PCKG_MEDIA_DEPS="                                             \
     $ngx_addon_dir/src/media/mpegts/mp4_to_annexb_filter.h    \
     $ngx_addon_dir/src/media/mpegts/mpegts_encoder_filter.h   \
     $ngx_addon_dir/src/media/media_format.h                   \
-    $ngx_addon_dir/src/media/mp4/mp4_aes_ctr.h                \
-    $ngx_addon_dir/src/media/mp4/mp4_cbcs_encrypt.h           \
-    $ngx_addon_dir/src/media/mp4/mp4_cenc_encrypt.h           \
     $ngx_addon_dir/src/media/mp4/mp4_defs.h                   \
     $ngx_addon_dir/src/media/mp4/mp4_init_segment.h           \
     $ngx_addon_dir/src/media/mp4/mp4_muxer.h                  \
@@ -183,7 +200,6 @@ PCKG_MEDIA_DEPS="                                             \
 #
 PCKG_HTTP_MODULES="                                           \
     ngx_http_pckg_core_module                                 \
-    ngx_http_pckg_enc_module                                  \
     ngx_http_pckg_mpd_module                                  \
     ngx_http_pckg_m3u8_module                                 \
     ngx_http_pckg_fmp4_module                                 \
@@ -192,7 +208,6 @@ PCKG_HTTP_MODULES="                                           \
 
 PCKG_HTTP_SRCS="                                              \
     $ngx_addon_dir/src/ngx_http_pckg_core_module.c            \
-    $ngx_addon_dir/src/ngx_http_pckg_enc.c                    \
     $ngx_addon_dir/src/ngx_http_pckg_fmp4.c                   \
     $ngx_addon_dir/src/ngx_http_pckg_m3u8.c                   \
     $ngx_addon_dir/src/ngx_http_pckg_mpd.c                    \
@@ -209,7 +224,6 @@ PCKG_HTTP_SRCS="                                              \
 
 PCKG_DEPS="                                                   \
     $ngx_addon_dir/src/ngx_http_pckg_core_module.h            \
-    $ngx_addon_dir/src/ngx_http_pckg_enc.h                    \
     $ngx_addon_dir/src/ngx_http_pckg_fmp4.h                   \
     $ngx_addon_dir/src/ngx_http_pckg_mpegts.h                 \
     $ngx_addon_dir/src/ngx_http_pckg_utils.h                  \
