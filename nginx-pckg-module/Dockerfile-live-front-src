@@ -6,6 +6,7 @@ WORKDIR /tmp
 
 ARG SECURE_TOKEN_MODULE_VERSION=master
 ARG AKAMAI_G2O_MODULE_VERSION=master
+ARG LUA_RESTY_HTTP_VERSION=v0.16.1
 ARG FFMPEG_VERSION="n4.3.1"
 
 RUN apk add --no-cache --virtual kaltura-deps wget git make cmake yasm zlib-dev alpine-sdk && \
@@ -16,6 +17,7 @@ RUN apk add --no-cache --virtual kaltura-deps wget git make cmake yasm zlib-dev 
     cd /tmp && \
     git clone --branch ${SECURE_TOKEN_MODULE_VERSION} https://github.com/kaltura/nginx-secure-token-module.git && \
     git clone --branch ${AKAMAI_G2O_MODULE_VERSION} https://github.com/kaltura/nginx_mod_akamai_g2o.git && \
+    git clone --branch ${LUA_RESTY_HTTP_VERSION} https://github.com/ledgetech/lua-resty-http.git /usr/local/src/lua-resty-http && \
     rm -rf ffmpeg && \
     apk del kaltura-deps
 
