@@ -236,13 +236,30 @@ ngx_http_pckg_enc_json_parse_systems(ngx_http_request_t *r,
             return NGX_BAD_DATA;
         }
 
-        sys->base64_data = elt->value.v.str.s;
+        if (elt->value.v.str.escape) {
+            sys->base64_data.data = elt->value.v.str.s.data;
+            sys->base64_data.len = 0;
+
+            if (ngx_json_decode_string(&sys->base64_data, &elt->value.v.str.s)
+                != NGX_JSON_OK)
+            {
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                    "ngx_http_pckg_enc_json_parse_systems: "
+                    "failed to decode data \"%V\"",
+                    &elt->value.v.str.s);
+                return NGX_BAD_DATA;
+            }
+
+        } else {
+            sys->base64_data = elt->value.v.str.s;
+        }
+
         rc = ngx_http_pckg_parse_base64(r->pool, &sys->base64_data,
             &sys->data);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "ngx_http_pckg_enc_json_parse_systems: "
-                "failed to parse data %i", rc);
+                "failed to parse data \"%V\" %i", &sys->base64_data, rc);
             return rc;
         }
     }
