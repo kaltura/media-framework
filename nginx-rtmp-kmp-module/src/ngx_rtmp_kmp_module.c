@@ -11,6 +11,7 @@
 #include <ngx_json_parser.h>
 #include <ngx_lba.h>
 #include "ngx_kmp_push_utils.h"
+#include "ngx_kmp_push_connect.h"
 #include "ngx_rtmp_kmp_module.h"
 
 
@@ -278,9 +279,6 @@ ngx_module_t  ngx_rtmp_kmp_module = {
     NULL,                                   /* exit master */
     NGX_MODULE_V1_PADDING
 };
-
-
-static ngx_str_t  ngx_rtmp_kmp_code_ok = ngx_string("ok");
 
 
 static void *
@@ -642,11 +640,10 @@ static ngx_int_t
 ngx_rtmp_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
     ngx_str_t *content_type, ngx_buf_t *body)
 {
+    ngx_int_t                         rc;
     ngx_log_t                        *log;
     ngx_str_t                         desc;
-    ngx_json_value_t                  obj;
     ngx_rtmp_session_t               *s;
-    ngx_rtmp_kmp_connect_json_t       json;
     ngx_rtmp_kmp_connect_call_ctx_t  *cctx;
 
     cctx = arg;
@@ -654,50 +651,23 @@ ngx_rtmp_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
 
     log = s->connection->log;
 
-    if (ngx_kmp_push_parse_json_response(temp_pool, log,
-        code, content_type, body, &obj) != NGX_OK)
-    {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_rtmp_kmp_connect_handle: parse response failed");
-        goto retry;
-    }
+    rc = ngx_kmp_push_connect_parse(temp_pool, log, code, content_type,
+        body, &desc);
+    switch (rc) {
 
-    ngx_memset(&json, 0xff, sizeof(json));
+    case NGX_OK:
+        break;
 
-    if (ngx_json_object_parse(temp_pool, &obj.v.obj,
-            ngx_rtmp_kmp_connect_json,
-            ngx_array_entries(ngx_rtmp_kmp_connect_json), &json)
-        != NGX_JSON_OK)
-    {
-        ngx_log_error(NGX_LOG_NOTICE, log, 0,
-            "ngx_rtmp_kmp_connect_handle: failed to parse object");
-        goto retry;
-    }
+    case NGX_DECLINED:
+        goto error;
 
-
-    if (json.code.data == NGX_JSON_UNSET_PTR) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_rtmp_kmp_connect_handle: missing \"code\" element in json");
-        goto retry;
-    }
-
-    if (json.code.len != ngx_rtmp_kmp_code_ok.len ||
-        ngx_strncasecmp(json.code.data, ngx_rtmp_kmp_code_ok.data,
-            ngx_rtmp_kmp_code_ok.len) != 0)
-    {
-        if (json.message.data != NGX_JSON_UNSET_PTR) {
-            desc = json.message;
-            desc.data[desc.len] = '\0';
-
-        } else {
-            desc.len = 0;
-            desc.data = NULL;
+    default:    /* NGX_ERROR */
+        if (cctx->retries_left > 0) {
+            cctx->retries_left--;
+            return NGX_AGAIN;
         }
 
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_rtmp_kmp_connect_handle: "
-            "bad code \"%V\" in json, message=\"%V\"", &json.code, &desc);
-
+        desc.data = (u_char *) "Internal server error";
         goto error;
     }
 
@@ -708,15 +678,6 @@ ngx_rtmp_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
     }
 
     return NGX_OK;
-
-retry:
-
-    if (cctx->retries_left > 0) {
-        cctx->retries_left--;
-        return NGX_AGAIN;
-    }
-
-    desc.data = (u_char *) "Internal server error";
 
 error:
 

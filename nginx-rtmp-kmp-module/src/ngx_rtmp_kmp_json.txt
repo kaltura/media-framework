@@ -1,8 +1,4 @@
 
-in ngx_rtmp_kmp_connect_json
-    code %V
-    message %V
-
 out ngx_rtmp_kmp_connect_rtmp_json ngx_rtmp_kmp_connect_t ngx_rtmp_session_t *s
     app %V
     flashver %V
