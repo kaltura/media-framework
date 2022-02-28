@@ -54,7 +54,7 @@ For example, if the URI is ``/foo/bar/baz``, the stream name is ``baz``.
 A simple way to stream MPEG-TS over HTTP is by running ``ffmpeg``:
 
 .. code-block:: bash
-  
+
     $ ffmpeg ... -f mpegts http://127.0.0.1:8000/foo
 
 

@@ -231,7 +231,7 @@ ngx_ts_dash_box_tfhd(ngx_buf_t *b)
 static void
 ngx_ts_dash_box_tfdt(ngx_buf_t *b, ngx_ts_dash_rep_t *rep)
 {
-    /* 
+    /*
      * ETSI TS 126 244 V12.3.0 (2014-10)
      * 13.5 Track Fragment Decode Time Box, p. 55
      */
@@ -747,7 +747,7 @@ ngx_ts_dash_box_stsd(ngx_buf_t *b, ngx_ts_dash_rep_t *rep)
 
     /* entry_count */
     ngx_ts_dash_write32(b, 1);
-    
+
     if (rep->es->video) {
         ngx_ts_dash_box_video(b, rep);
 

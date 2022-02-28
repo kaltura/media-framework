@@ -4,154 +4,6 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
-/* ngx_rtmp_kmp_api_upstream_json writer */
-
-static size_t
-ngx_rtmp_kmp_api_upstream_json_get_size(ngx_kmp_push_upstream_t *obj)
-{
-    size_t  result =
-        sizeof("{\"id\":\"") - 1 + obj->id.len + ngx_escape_json(NULL,
-            obj->id.data, obj->id.len) +
-        sizeof("\",\"remote_addr\":\"") - 1 + obj->remote_addr.len +
-            ngx_escape_json(NULL, obj->remote_addr.data, obj->remote_addr.len)
-            +
-        sizeof("\",\"local_addr\":\"") - 1 + obj->local_addr.len +
-            ngx_escape_json(NULL, obj->local_addr.data, obj->local_addr.len) +
-        sizeof("\",\"connection\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"auto_ack\":") - 1 + sizeof("false") - 1 +
-        sizeof(",\"sent_bytes\":") - 1 + NGX_OFF_T_LEN +
-        sizeof(",\"position\":") - 1 + NGX_OFF_T_LEN +
-        sizeof(",\"acked_frames\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"acked_bytes\":") - 1 + NGX_OFF_T_LEN +
-        sizeof(",\"auto_acked_frames\":") - 1 + NGX_INT_T_LEN +
-        sizeof("}") - 1;
-
-    return result;
-}
-
-static u_char *
-ngx_rtmp_kmp_api_upstream_json_write(u_char *p, ngx_kmp_push_upstream_t *obj)
-{
-    p = ngx_copy_fix(p, "{\"id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->id.data, obj->id.len);
-    p = ngx_copy_fix(p, "\",\"remote_addr\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->remote_addr.data,
-        obj->remote_addr.len);
-    p = ngx_copy_fix(p, "\",\"local_addr\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->local_addr.data,
-        obj->local_addr.len);
-    p = ngx_copy_fix(p, "\",\"connection\":");
-    p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->log.connection);
-    p = ngx_copy_fix(p, ",\"auto_ack\":");
-    if (obj->auto_ack) {
-        p = ngx_copy_fix(p, "true");
-    } else {
-        p = ngx_copy_fix(p, "false");
-    }
-    p = ngx_copy_fix(p, ",\"sent_bytes\":");
-    p = ngx_sprintf(p, "%O", (off_t) (obj->peer.connection ?
-        obj->peer.connection->sent : 0));
-    p = ngx_copy_fix(p, ",\"position\":");
-    p = ngx_sprintf(p, "%O", (off_t) (obj->peer.connection ? obj->sent_base +
-        obj->peer.connection->sent : 0));
-    p = ngx_copy_fix(p, ",\"acked_frames\":");
-    p = ngx_sprintf(p, "%uL", (uint64_t) obj->acked_frame_id -
-        obj->track->connect.initial_frame_id);
-    p = ngx_copy_fix(p, ",\"acked_bytes\":");
-    p = ngx_sprintf(p, "%O", (off_t) obj->acked_bytes);
-    p = ngx_copy_fix(p, ",\"auto_acked_frames\":");
-    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->auto_acked_frames);
-    *p++ = '}';
-
-    return p;
-}
-
-/* ngx_rtmp_kmp_api_track_json writer */
-
-static size_t
-ngx_rtmp_kmp_api_track_json_get_size(ngx_kmp_push_track_t *obj)
-{
-    ngx_queue_t  *q;
-    size_t  result =
-        sizeof("{\"input_id\":\"") - 1 + obj->input_id.len +
-            ngx_escape_json(NULL, obj->input_id.data, obj->input_id.len) +
-        sizeof("\",\"channel_id\":\"") - 1 + obj->channel_id.len +
-            ngx_escape_json(NULL, obj->channel_id.data, obj->channel_id.len) +
-        sizeof("\",\"track_id\":\"") - 1 + obj->track_id.len +
-            ngx_escape_json(NULL, obj->track_id.data, obj->track_id.len) +
-        sizeof("\",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
-        sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
-        sizeof(",\"last_timestamp\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"last_created\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"sent_frames\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"sent_key_frames\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"written\":") - 1 + NGX_SIZE_T_LEN +
-        sizeof(",") - 1 + ngx_kmp_push_track_media_info_json_get_size(obj) +
-        sizeof(",\"upstreams\":[") - 1 +
-        sizeof("]}") - 1;
-
-    for (q = ngx_queue_head(&obj->upstreams);
-        q != ngx_queue_sentinel(&obj->upstreams);
-        q = ngx_queue_next(q))
-    {
-        ngx_kmp_push_upstream_t *cur = ngx_queue_data(q,
-            ngx_kmp_push_upstream_t, queue);
-        result += ngx_rtmp_kmp_api_upstream_json_get_size(cur) + sizeof(",") -
-            1;
-    }
-
-    return result;
-}
-
-static u_char *
-ngx_rtmp_kmp_api_track_json_write(u_char *p, ngx_kmp_push_track_t *obj)
-{
-    ngx_queue_t  *q;
-    u_char  *next;
-    p = ngx_copy_fix(p, "{\"input_id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->input_id.data, obj->input_id.len);
-    p = ngx_copy_fix(p, "\",\"channel_id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->channel_id.data,
-        obj->channel_id.len);
-    p = ngx_copy_fix(p, "\",\"track_id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->track_id.data, obj->track_id.len);
-    p = ngx_copy_fix(p, "\",\"mem_left\":");
-    p = ngx_sprintf(p, "%uz", (size_t) obj->mem_left);
-    p = ngx_copy_fix(p, ",\"mem_limit\":");
-    p = ngx_sprintf(p, "%uz", (size_t) obj->mem_limit);
-    p = ngx_copy_fix(p, ",\"last_timestamp\":");
-    p = ngx_sprintf(p, "%L", (int64_t) obj->last_timestamp);
-    p = ngx_copy_fix(p, ",\"last_created\":");
-    p = ngx_sprintf(p, "%L", (int64_t) obj->last_created);
-    p = ngx_copy_fix(p, ",\"sent_frames\":");
-    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->sent_frames);
-    p = ngx_copy_fix(p, ",\"sent_key_frames\":");
-    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->sent_key_frames);
-    p = ngx_copy_fix(p, ",\"written\":");
-    p = ngx_sprintf(p, "%uz", (size_t) obj->written);
-    *p++ = ',';
-    next = ngx_kmp_push_track_media_info_json_write(p, obj);
-    p = next == p ? p - 1 : next;
-    p = ngx_copy_fix(p, ",\"upstreams\":[");
-
-    for (q = ngx_queue_head(&obj->upstreams);
-        q != ngx_queue_sentinel(&obj->upstreams);
-        q = ngx_queue_next(q))
-    {
-        ngx_kmp_push_upstream_t *cur = ngx_queue_data(q,
-            ngx_kmp_push_upstream_t, queue);
-
-        if (q != ngx_queue_head(&obj->upstreams)) {
-            *p++ = ',';
-        }
-        p = ngx_rtmp_kmp_api_upstream_json_write(p, cur);
-    }
-
-    p = ngx_copy_fix(p, "]}");
-
-    return p;
-}
-
 /* ngx_rtmp_kmp_api_stream_json writer */
 
 static size_t
@@ -350,9 +202,9 @@ ngx_rtmp_kmp_api_server_json_get_size(ngx_rtmp_core_srv_conf_t *obj)
         sizeof("{\"applications\":[") - 1 +
         sizeof("]}") - 1;
 
-    for (n = 0; n < obj->applications.nelts; ++n) {
-        ngx_rtmp_core_app_conf_t* cur =
-            ((ngx_rtmp_core_app_conf_t**)obj->applications.elts)[n];
+    for (n = 0; n < obj->applications.nelts; n++) {
+        ngx_rtmp_core_app_conf_t* cur = ((ngx_rtmp_core_app_conf_t**)
+            obj->applications.elts)[n];
         result += ngx_rtmp_kmp_api_application_json_get_size(cur) +
             sizeof(",") - 1;
     }
@@ -366,9 +218,9 @@ ngx_rtmp_kmp_api_server_json_write(u_char *p, ngx_rtmp_core_srv_conf_t *obj)
     ngx_uint_t  n;
     p = ngx_copy_fix(p, "{\"applications\":[");
 
-    for (n = 0; n < obj->applications.nelts; ++n) {
-        ngx_rtmp_core_app_conf_t* cur =
-            ((ngx_rtmp_core_app_conf_t**)obj->applications.elts)[n];
+    for (n = 0; n < obj->applications.nelts; n++) {
+        ngx_rtmp_core_app_conf_t* cur = ((ngx_rtmp_core_app_conf_t**)
+            obj->applications.elts)[n];
 
         if (n > 0) {
             *p++ = ',';
@@ -414,9 +266,9 @@ ngx_rtmp_kmp_api_json_get_size()
         sizeof(",\"servers\":[") - 1 +
         sizeof("]}") - 1;
 
-    for (n = 0; n < cmcf->servers.nelts; ++n) {
-        ngx_rtmp_core_srv_conf_t* cur =
-            ((ngx_rtmp_core_srv_conf_t**)cmcf->servers.elts)[n];
+    for (n = 0; n < cmcf->servers.nelts; n++) {
+        ngx_rtmp_core_srv_conf_t* cur = ((ngx_rtmp_core_srv_conf_t**)
+            cmcf->servers.elts)[n];
         result += ngx_rtmp_kmp_api_server_json_get_size(cur) + sizeof(",") - 1;
     }
 
@@ -460,9 +312,9 @@ ngx_rtmp_kmp_api_json_write(u_char *p)
     p = ngx_sprintf(p, "%uL", (uint64_t) ngx_rtmp_bw_out.bytes);
     p = ngx_copy_fix(p, ",\"servers\":[");
 
-    for (n = 0; n < cmcf->servers.nelts; ++n) {
-        ngx_rtmp_core_srv_conf_t* cur =
-            ((ngx_rtmp_core_srv_conf_t**)cmcf->servers.elts)[n];
+    for (n = 0; n < cmcf->servers.nelts; n++) {
+        ngx_rtmp_core_srv_conf_t* cur = ((ngx_rtmp_core_srv_conf_t**)
+            cmcf->servers.elts)[n];
 
         if (n > 0) {
             *p++ = ',';

@@ -99,11 +99,18 @@ default:
 }
 
 // parse the input params
-$streamName = $params['rtmp']['name'];
-$mediaType = $params['media_info']['media_type'];
+if (isset($params['rtmp']))
+{
+	$streamName = $params['rtmp']['name'];
+}
+else if (isset($params['mpegts']))
+{
+	$streamName = $params['mpegts']['stream_id'];
+}
 $undPos = strrpos($streamName, '_');
 $channelId = substr($streamName, 0, $undPos);
 $variantId = substr($streamName, $undPos + 1);
+$mediaType = $params['media_info']['media_type'];
 $trackId = $mediaType[0] . $variantId;
 
 // set up the packager

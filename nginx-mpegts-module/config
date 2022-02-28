@@ -1,10 +1,40 @@
-ngx_module_type=STREAM
 ngx_addon_name=ngx_stream_ts_module
-ngx_module_name=ngx_stream_ts_module
-ngx_module_incs=$ngx_addon_dir/src
-ngx_module_deps="$ngx_addon_dir/src/ngx_ts_stream.h"
-ngx_module_srcs="$ngx_addon_dir/src/ngx_stream_ts_module.c \
+
+# source
+#
+MPEGTS_SRCS="$ngx_addon_dir/src/ngx_stream_ts_module.c     \
+                 $ngx_addon_dir/src/ngx_ts_aac.c           \
+                 $ngx_addon_dir/src/ngx_ts_avc.c           \
                  $ngx_addon_dir/src/ngx_ts_stream.c"
 
+MPEGTS_DEPS="$ngx_addon_dir/src/ngx_stream_ts_module.h     \
+                 $ngx_addon_dir/src/ngx_ts_aac.h           \
+                 $ngx_addon_dir/src/ngx_ts_avc.h           \
+                 $ngx_addon_dir/src/ngx_ts_stream.h"
 
-. auto/module
+if [ -f auto/module ] ; then
+    ngx_module_incs=$ngx_addon_dir/src
+    ngx_module_deps=$MPEGTS_DEPS
+
+    if [ $ngx_module_link = DYNAMIC ] ; then
+        ngx_module_name="ngx_stream_ts_module"
+        ngx_module_srcs="$MPEGTS_SRCS"
+
+        . auto/module
+
+    else
+        ngx_module_type=STREAM
+        ngx_module_name=ngx_stream_ts_module
+        ngx_module_srcs=$MPEGTS_SRCS
+
+        . auto/module
+    fi
+
+else
+    STREAM_MODULES="$STREAM_MODULES ngx_stream_ts_module"
+
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $MPEGTS_DEPS"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $MPEGTS_SRCS"
+
+    CFLAGS="$CFLAGS -I$ngx_addon_dir"
+fi

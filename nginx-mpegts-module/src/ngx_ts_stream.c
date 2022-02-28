@@ -11,6 +11,9 @@
 
 
 #define NGX_TS_PACKET_SIZE  188
+#define NGX_TS_CC_UNSET     ((u_char) -1)
+
+#define ngx_ts_bufs_init(bufs)  (bufs).tail = &(bufs).head
 
 
 typedef struct {
@@ -48,12 +51,17 @@ static ngx_int_t ngx_ts_read_pmt(ngx_ts_stream_t *ts, ngx_ts_program_t *prog,
     ngx_ts_header_t *h, ngx_buf_t *b);
 static ngx_int_t ngx_ts_read_pes(ngx_ts_stream_t *ts, ngx_ts_program_t *prog,
     ngx_ts_es_t *es, ngx_ts_header_t *h, ngx_buf_t *b);
+#if 0
 static ngx_chain_t *ngx_ts_packetize(ngx_ts_stream_t *ts, ngx_ts_header_t *h,
     ngx_chain_t *in);
+#endif
 
 static ngx_int_t ngx_ts_free_buf(ngx_ts_stream_t *ts, ngx_buf_t *b);
 static ngx_int_t ngx_ts_append_buf(ngx_ts_stream_t *ts, ngx_ts_header_t *h,
-    ngx_chain_t **ll, ngx_buf_t *b);
+    ngx_ts_bufs_t *bufs, ngx_buf_t *b);
+static void ngx_ts_free_chain(ngx_ts_stream_t *ts, ngx_ts_bufs_t *bufs);
+
+#if 0
 static uint32_t ngx_ts_crc32(u_char *p, size_t len);
 
 
@@ -123,6 +131,7 @@ static uint32_t  ngx_ts_crc32_table_ieee[] = {
     0xb110b0af, 0x060d71ab, 0xdf2b32a6, 0x6836f3a2,
     0x6d66b4bc, 0xda7b75b8, 0x035d36b5, 0xb440f7b1
 };
+#endif
 
 
 ngx_int_t
@@ -232,6 +241,26 @@ ngx_ts_byte_read16(ngx_ts_byte_read_t *br, uint16_t *v)
 }
 
 
+ngx_ts_stream_t *
+ngx_ts_stream_create(ngx_connection_t *c, size_t mem_limit)
+{
+    ngx_ts_stream_t  *ts;
+
+    ts = ngx_pcalloc(c->pool, sizeof(ngx_ts_stream_t));
+    if (ts == NULL) {
+        return NULL;
+    }
+
+    ts->connection = c;
+    ts->pool = c->pool;
+    ts->log = c->log;
+    ts->mem_left = mem_limit;
+
+    ngx_ts_bufs_init(ts->bufs);
+
+    return ts;
+}
+
 ngx_int_t
 ngx_ts_read(ngx_ts_stream_t *ts, ngx_chain_t *in)
 {
@@ -258,10 +287,18 @@ ngx_ts_read(ngx_ts_stream_t *ts, ngx_chain_t *in)
                     b->last = b->start;
 
                 } else {
+                    if (ts->mem_left < NGX_TS_PACKET_SIZE) {
+                        ngx_log_error(NGX_LOG_ERR, ts->log, 0,
+                            "TS mem limit reached");
+                        return NGX_ERROR;
+                    }
+
                     b = ngx_create_temp_buf(ts->pool, NGX_TS_PACKET_SIZE);
                     if (b == NULL) {
                         return NGX_ERROR;
                     }
+
+                    ts->mem_left -= NGX_TS_PACKET_SIZE;
                 }
 
                 ts->buf = b;
@@ -334,7 +371,7 @@ ngx_ts_read_packet(ngx_ts_stream_t *ts, ngx_buf_t *b)
         }
     }
 
-    ngx_log_error(NGX_LOG_INFO, ts->log, 0,
+    ngx_log_debug1(NGX_LOG_DEBUG_CORE, ts->log, 0,
                   "dropping unexpected TS packet pid:0x%04uxd",
                   (unsigned) h.pid);
 
@@ -419,6 +456,13 @@ ngx_ts_read_header(ngx_ts_stream_t *ts, u_char *p, ngx_ts_header_t *h)
             p++;
 
             if (h->pcrf) {
+                if (alen < 7) {
+                    ngx_log_error(NGX_LOG_ERR, ts->log, 0,
+                        "invalid TS adaptation field len %uD",
+                        (uint32_t) alen);
+                    return NGX_ERROR;
+                }
+
                 /* program_clock_reference_base */
                 pcrb = *p++;
                 pcrb = (pcrb << 8) + *p++;
@@ -471,7 +515,7 @@ ngx_ts_read_pat(ngx_ts_stream_t *ts, ngx_ts_header_t *h, ngx_buf_t *b)
         return NGX_ERROR;
     }
 
-    ngx_ts_byte_read_init(&br, ts->bufs);
+    ngx_ts_byte_read_init(&br, ts->bufs.head);
 
     /* pointer_field */
     if (ngx_ts_byte_read8(&br, &ptr) == NGX_AGAIN) {
@@ -534,6 +578,8 @@ ngx_ts_read_pat(ngx_ts_stream_t *ts, ngx_ts_header_t *h, ngx_buf_t *b)
 
             prog->number = number;
             prog->pid = pid;
+            ngx_ts_bufs_init(prog->bufs);
+
             prog++;
 
             ngx_log_debug2(NGX_LOG_DEBUG_CORE, ts->log, 0,
@@ -582,7 +628,7 @@ ngx_ts_read_pmt(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_header_t *h,
         return NGX_ERROR;
     }
 
-    ngx_ts_byte_read_init(&br, prog->bufs);
+    ngx_ts_byte_read_init(&br, prog->bufs.head);
 
     /* pointer_field */
     if (ngx_ts_byte_read8(&br, &ptr) == NGX_AGAIN) {
@@ -682,6 +728,7 @@ ngx_ts_read_pmt(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_header_t *h,
 
         es->type = type;
         es->pid = pid;
+        es->cont = NGX_TS_CC_UNSET;
 
         if (type == NGX_TS_VIDEO_MPEG1
             || type == NGX_TS_VIDEO_MPEG2
@@ -691,6 +738,8 @@ ngx_ts_read_pmt(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_header_t *h,
             es->video = 1;
             prog->video = 1;
         }
+
+        ngx_ts_bufs_init(es->bufs);
 
         ngx_log_debug3(NGX_LOG_DEBUG_CORE, ts->log, 0,
                        "ts es type:%ui, video:%d, pid:0x%04uxd",
@@ -725,13 +774,13 @@ ngx_ts_read_pes(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_es_t *es,
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, ts->log, 0, "ts pes");
 
-    if (es->bufs && h->pusi && b) {
+    if (es->bufs.head && h->pusi && b) {
         if (ngx_ts_read_pes(ts, prog, es, h, NULL) != NGX_OK) {
             return NGX_ERROR;
         }
     }
 
-    if (es->bufs == NULL) {
+    if (es->bufs.head == NULL) {
         es->rand = h->rand;
     }
 
@@ -739,11 +788,20 @@ ngx_ts_read_pes(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_es_t *es,
         prog->pcr = h->pcr;
     }
 
-    if (ngx_ts_append_buf(ts, h, &es->bufs, b) != NGX_OK) {
-        return NGX_ERROR;
+    if (b) {
+        if (es->cont != NGX_TS_CC_UNSET && h->cont != ((es->cont + 1) & 0x0f)) {
+            ngx_log_error(NGX_LOG_WARN, ts->log, 0,
+                "TS invalid continuity counter, cur: %uD, last: %uD, pid: %uD",
+                (uint32_t) es->cont, (uint32_t) h->cont, (uint32_t) h->pid);
+        }
+        es->cont = h->cont;
+
+        if (ngx_ts_append_buf(ts, h, &es->bufs, b) != NGX_OK) {
+            return NGX_ERROR;
+        }
     }
 
-    ngx_ts_byte_read_init(&br, es->bufs);
+    ngx_ts_byte_read_init(&br, es->bufs.head);
 
     /* packet_start_code_prefix */
     if (ngx_ts_byte_read(&br, pfx, 3) == NGX_AGAIN) {
@@ -933,6 +991,7 @@ ngx_ts_read_pes(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_es_t *es,
 }
 
 
+#if 0
 ngx_chain_t *
 ngx_ts_write_pat(ngx_ts_stream_t *ts, ngx_ts_program_t *prog)
 {
@@ -1047,7 +1106,7 @@ ngx_ts_write_pmt(ngx_ts_stream_t *ts, ngx_ts_program_t *prog)
     /* section_syntax_indicator */
     *p++ = 0x80 | (u_char) (len >> 8);
     *p++ = (u_char) len;
-    
+
     /* program_number */
     *p++ = (u_char) (prog->number >> 8);
     *p++ = (u_char) prog->number;
@@ -1362,6 +1421,7 @@ ngx_ts_packetize(ngx_ts_stream_t *ts, ngx_ts_header_t *h, ngx_chain_t *in)
 
     return out;
 }
+#endif
 
 
 static ngx_int_t
@@ -1382,51 +1442,36 @@ ngx_ts_free_buf(ngx_ts_stream_t *ts, ngx_buf_t *b)
 }
 
 
-void
-ngx_ts_free_chain(ngx_ts_stream_t *ts, ngx_chain_t **ll)
+static void
+ngx_ts_free_chain(ngx_ts_stream_t *ts, ngx_ts_bufs_t *bufs)
 {
-    ngx_chain_t  **fl;
-
-    if (*ll == NULL) {
+    if (bufs->head == NULL) {
         return;
     }
 
-    fl = ll;
+    *bufs->tail = ts->free;
+    ts->free = bufs->head;
 
-    while (*ll) {
-        ll = &(*ll)->next;
-    }
-
-    *ll = ts->free;
-    ts->free = *fl;
-
-    *fl = NULL;
+    bufs->head = NULL;
+    ngx_ts_bufs_init(*bufs);
 }
 
 
 static ngx_int_t
-ngx_ts_append_buf(ngx_ts_stream_t *ts, ngx_ts_header_t *h, ngx_chain_t **ll,
+ngx_ts_append_buf(ngx_ts_stream_t *ts, ngx_ts_header_t *h, ngx_ts_bufs_t *bufs,
     ngx_buf_t *b)
 {
     ngx_chain_t  *cl;
 
-    if (b == NULL) {
-        return NGX_OK;
-    }
-
-    if (!h->pusi && *ll == NULL) {
-        ngx_log_error(NGX_LOG_INFO, ts->log, 0, "dropping orhaned TS packet");
+    if (!h->pusi && bufs->head == NULL) {
+        ngx_log_error(NGX_LOG_INFO, ts->log, 0, "dropping orphaned TS packet");
         return ngx_ts_free_buf(ts, b);
     }
 
-    if (h->pusi && *ll) {
+    if (h->pusi && bufs->head) {
         ngx_log_error(NGX_LOG_INFO, ts->log, 0,
                       "dropping unfinished TS packets");
-        ngx_ts_free_chain(ts, ll);
-    }
-
-    while (*ll) {
-        ll = &(*ll)->next;
+        ngx_ts_free_chain(ts, bufs);
     }
 
     cl = ngx_alloc_chain_link(ts->pool);
@@ -1437,12 +1482,14 @@ ngx_ts_append_buf(ngx_ts_stream_t *ts, ngx_ts_header_t *h, ngx_chain_t **ll,
     cl->buf = b;
     cl->next = NULL;
 
-    *ll = cl;
+    *bufs->tail = cl;
+    bufs->tail = &cl->next;
 
     return NGX_OK;
 }
 
 
+#if 0
 static uint32_t
 ngx_ts_crc32(u_char *p, size_t len)
 {
@@ -1493,4 +1540,53 @@ ngx_ts_dash_get_oti(u_char type)
     default:
         return 0;
     }
+}
+#endif
+
+
+ngx_int_t
+ngx_ts_add_init_handler(ngx_conf_t *cf, ngx_array_t **a,
+    ngx_ts_init_handler_pt handler, void *data)
+{
+    ngx_ts_init_handler_t  *ph;
+
+    if (*a == NGX_CONF_UNSET_PTR || *a == NULL) {
+        *a = ngx_array_create(cf->pool, 1, sizeof(ngx_ts_init_handler_t));
+        if (*a == NULL) {
+            return NGX_ERROR;
+        }
+    }
+
+    ph = ngx_array_push(*a);
+    if (ph == NULL) {
+        return NGX_ERROR;
+    }
+
+    ph->handler = handler;
+    ph->data = data;
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_ts_init_handlers(ngx_array_t *handlers, ngx_ts_stream_t *ts)
+{
+    ngx_uint_t              i, n;
+    ngx_ts_init_handler_t  *ph;
+
+    if (!handlers) {
+        return NGX_OK;
+    }
+
+    n = handlers->nelts;
+    ph = handlers->elts;
+
+    for (i = 0; i < n; i++) {
+        if (ph[i].handler(ts, ph[i].data) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
 }

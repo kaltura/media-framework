@@ -50,8 +50,11 @@ typedef struct {
 } ngx_ts_avc_params_t;
 
 
-ngx_ts_avc_params_t *ngx_ts_avc_decode_params(ngx_ts_stream_t *ts, u_char *sps,
-    size_t sps_len, u_char *pps, size_t pps_len);
+ngx_int_t ngx_ts_avc_decode_params(ngx_ts_avc_params_t *avc,
+    ngx_ts_stream_t *ts,  u_char *sps, size_t sps_len,
+    u_char *pps, size_t pps_len);
 
+ngx_flag_t ngx_ts_avc_sei_detect_cea(ngx_log_t *log, ngx_chain_t *in,
+    u_char *pos, size_t size);
 
 #endif /* _NGX_TS_AVC_H_INCLUDED_ */

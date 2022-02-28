@@ -10,28 +10,22 @@
 #include "ngx_ts_aac.h"
 
 
-ngx_ts_aac_params_t *
-ngx_ts_aac_decode_params(ngx_ts_stream_t *ts, u_char *adts, size_t adts_len)
+ngx_int_t
+ngx_ts_aac_decode_params(ngx_ts_aac_params_t *aac, ngx_ts_stream_t *ts,
+    u_char *adts, size_t adts_len)
 {
     /*
      * XXX
      * https://wiki.multimedia.cx/index.php/ADTS
      */
 
-    ngx_ts_aac_params_t  *aac;
-
     static ngx_uint_t  freq[] = {
         96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050,
         16000, 12000, 11025,  8000,  7350,     0,     0,     0
     };
 
-    if (adts_len < 7) {
-        return NULL;
-    }
-
-    aac = ngx_pcalloc(ts->pool, sizeof(ngx_ts_aac_params_t));
-    if (aac == NULL) {
-        return NULL;
+    if (adts_len < NGX_TS_AAC_ADTS_LEN) {
+        return NGX_ERROR;
     }
 
     /* MPEG Version: 0 for MPEG-4, 1 for MPEG-2 */
@@ -59,11 +53,11 @@ ngx_ts_aac_decode_params(ngx_ts_stream_t *ts, u_char *adts, size_t adts_len)
                    "ts aac version:%ui, profile:%ui, freq:%ui, chan:%ui",
                    aac->version, aac->profile, aac->freq, aac->chan);
 
-    return aac;
+    return NGX_OK;
 
 failed:
 
     ngx_log_error(NGX_LOG_ERR, ts->log, 0, "failed to parse AAC parameters");
 
-    return NULL;
+    return NGX_ERROR;
 }

@@ -1,34 +1,4 @@
 
-out ngx_rtmp_kmp_api_upstream_json ngx_kmp_push_upstream_t
-    id %V
-    remote_addr %V
-    local_addr %V
-    connection %uA obj->log.
-    auto_ack %b
-
-    sent_bytes %O (obj->peer.connection ? obj->peer.connection->sent : 0)
-    position %O (obj->peer.connection ? obj->sent_base + obj->peer.connection->sent : 0)
-    acked_frames %uL obj->acked_frame_id - obj->track->connect.initial_frame_id
-    acked_bytes %O
-    auto_acked_frames %ui
-
-out ngx_rtmp_kmp_api_track_json ngx_kmp_push_track_t
-    input_id %V
-    channel_id %V
-    track_id %V
-    mem_left %uz
-    mem_limit %uz
-
-    last_timestamp %L
-    last_created %L
-    sent_frames %ui
-    sent_key_frames %ui
-    written %uz
-
-    - %func-ngx_kmp_push_track_media_info_json obj
-
-    upstreams %queue-ngx_rtmp_kmp_api_upstream_json,ngx_kmp_push_upstream_t,queue
-
 out ngx_rtmp_kmp_api_stream_json ngx_rtmp_kmp_stream_ctx_t ngx_rtmp_live_stream_t *stream
     name %V obj->publish.
     args %V obj->publish.

@@ -1,0 +1,12 @@
+
+out ngx_ts_kmp_track_mpegts_json ngx_ts_kmp_publish_t ngx_connection_t *c
+    stream_id %V
+    pid %uD
+    index %uD
+    prog_num %uD
+    addr %V c->addr_text
+    connection %uA c->number
+
+out noobject ngx_ts_kmp_track_json ngx_ts_kmp_publish_t ngx_connection_t *c
+    input_type mpegts
+    mpegts %func-ngx_ts_kmp_track_mpegts_json obj, c

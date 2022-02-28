@@ -6,7 +6,19 @@ import re
 import os
 
 def cEscapeString(fixed):
-    return json.dumps(fixed)
+    if len(fixed) < 50:
+        return json.dumps(fixed)
+
+    res = []
+    pos = 0
+    while True:
+        comma = fixed.find(',', pos + 2)
+        if comma < 0:
+            res.append(fixed[pos:])
+            break
+        res.append(fixed[pos:comma])
+        pos = comma
+    return ' '.join(map(json.dumps, res))
 
 def writeErr(msg):
     sys.stderr.write(msg + '\n')
@@ -371,14 +383,14 @@ for (q = ngx_queue_head(&%s);
                 fixed += '['
                 nextFixed = ']'
                 getSizeCode += '''
-for (n = 0; n < %s.nelts; ++n) {
-    %s cur = ((%s*)%s.elts)[n];
+for (n = 0; n < %s.nelts; n++) {
+    %s cur = ((%s*) %s.elts)[n];
     result += %s_get_size(cur) + sizeof(",") - 1;
 }
 ''' % (expr, objectType, objectType, expr, baseFunc)
                 valueWrite = '''
-for (n = 0; n < %s.nelts; ++n) {
-    %s cur = ((%s*)%s.elts)[n];
+for (n = 0; n < %s.nelts; n++) {
+    %s cur = ((%s*) %s.elts)[n];
 
     if (n > 0) {
         *p++ = ',';

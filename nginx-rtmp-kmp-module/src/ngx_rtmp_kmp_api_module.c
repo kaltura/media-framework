@@ -7,7 +7,7 @@
 #include <ngx_http_api.h>
 #include "ngx_rtmp_kmp_module.h"
 #include "ngx_rtmp_live_module.h"
-#include "ngx_kmp_push_track_internal.h"
+#include "ngx_kmp_push_track.h"
 #include "ngx_kmp_push_upstream.h"
 #include "ngx_rtmp_kmp_version.h"
 
@@ -178,7 +178,7 @@ ngx_rtmp_kmp_api_tracks_json_get_size(ngx_kmp_push_track_t **tracks)
     track = tracks[KMP_MEDIA_VIDEO];
     if (track != NULL) {
         result += sizeof("\"video\":") - 1;
-        result += ngx_rtmp_kmp_api_track_json_get_size(track);
+        result += ngx_kmp_push_track_json_get_size(track);
     }
 
     track = tracks[KMP_MEDIA_AUDIO];
@@ -186,7 +186,7 @@ ngx_rtmp_kmp_api_tracks_json_get_size(ngx_kmp_push_track_t **tracks)
         result++;      /* ',' */
 
         result += sizeof("\"audio\":") - 1;
-        result += ngx_rtmp_kmp_api_track_json_get_size(track);
+        result += ngx_kmp_push_track_json_get_size(track);
     }
 
     return result;
@@ -201,7 +201,7 @@ ngx_rtmp_kmp_api_tracks_json_write(u_char *p, ngx_kmp_push_track_t **tracks)
     track = tracks[KMP_MEDIA_VIDEO];
     if (track != NULL) {
         p = ngx_copy_fix(p, "\"video\":");
-        p = ngx_rtmp_kmp_api_track_json_write(p, track);
+        p = ngx_kmp_push_track_json_write(p, track);
     }
 
     track = tracks[KMP_MEDIA_AUDIO];
@@ -211,7 +211,7 @@ ngx_rtmp_kmp_api_tracks_json_write(u_char *p, ngx_kmp_push_track_t **tracks)
         }
 
         p = ngx_copy_fix(p, "\"audio\":");
-        p = ngx_rtmp_kmp_api_track_json_write(p, track);
+        p = ngx_kmp_push_track_json_write(p, track);
     }
 
     return p;
@@ -289,12 +289,11 @@ ngx_rtmp_kmp_api_server_get_session(ngx_uint_t connection,
 {
     ngx_uint_t                  n;
     ngx_rtmp_session_t         *s;
-    ngx_rtmp_core_app_conf_t   *cur;
+    ngx_rtmp_core_app_conf_t  **cacfp;
 
-    for (n = 0; n < srv_conf->applications.nelts; ++n) {
-        cur = ((ngx_rtmp_core_app_conf_t **) srv_conf->applications.elts)[n];
-
-        s = ngx_rtmp_kmp_api_application_get_session(connection, cur);
+    cacfp = srv_conf->applications.elts;
+    for (n = 0; n < srv_conf->applications.nelts; n++) {
+        s = ngx_rtmp_kmp_api_application_get_session(connection, cacfp[n]);
         if (s != NULL) {
             return s;
         }
@@ -306,19 +305,18 @@ ngx_rtmp_kmp_api_server_get_session(ngx_uint_t connection,
 static ngx_rtmp_session_t *
 ngx_rtmp_kmp_api_get_session(ngx_uint_t connection)
 {
-    ngx_uint_t                  n;
-    ngx_rtmp_session_t         *s;
-    ngx_rtmp_core_srv_conf_t   *cur;
-    ngx_rtmp_core_main_conf_t  *cmcf = ngx_rtmp_core_main_conf;
+    ngx_uint_t                   n;
+    ngx_rtmp_session_t          *s;
+    ngx_rtmp_core_srv_conf_t   **cscfp;
+    ngx_rtmp_core_main_conf_t   *cmcf = ngx_rtmp_core_main_conf;
 
     if (cmcf == NULL) {
         return NULL;
     }
 
-    for (n = 0; n < cmcf->servers.nelts; ++n) {
-        cur = ((ngx_rtmp_core_srv_conf_t **) cmcf->servers.elts)[n];
-
-        s = ngx_rtmp_kmp_api_server_get_session(connection, cur);
+    cscfp = cmcf->servers.elts;
+    for (n = 0; n < cmcf->servers.nelts; n++) {
+        s = ngx_rtmp_kmp_api_server_get_session(connection, cscfp[n]);
         if (s != NULL) {
             return s;
         }
@@ -380,9 +378,9 @@ ngx_rtmp_kmp_api_ro_handler(ngx_http_request_t *r)
 static char *
 ngx_rtmp_kmp_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    char                          *rv;
-    ngx_http_api_options_t         options;
-    ngx_http_core_loc_conf_t      *clcf;
+    char                      *rv;
+    ngx_http_api_options_t     options;
+    ngx_http_core_loc_conf_t  *clcf;
 
     ngx_memzero(&options, sizeof(options));
     rv = ngx_http_api_parse_options(cf, &options);

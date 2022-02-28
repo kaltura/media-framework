@@ -11,19 +11,44 @@
 
 
 typedef struct {
-    u_char      *pos;
-    u_char      *last;
-    ngx_uint_t   shift;
-    ngx_uint_t   err;  /* unsigned  err:1; */
-    const char  *name;
-    ngx_log_t   *log;
+    u_char                     *pos;
+    u_char                     *last;
+    ngx_uint_t                  shift;
+    ngx_uint_t                  err;  /* unsigned  err:1; */
+    const char                 *name;
+    ngx_log_t                  *log;
 } ngx_ts_avc_reader_t;
+
+
+typedef struct {
+    ngx_chain_t                *cl;
+    ngx_buf_t                  *buf;
+    u_char                     *pos;
+} ngx_ts_avc_chain_reader_t;
+
+typedef struct {
+    ngx_ts_avc_chain_reader_t   base;
+    uint32_t                    last_three;
+    size_t                      left;
+} ngx_ts_avc_chain_reader_ep_t;
 
 
 static void ngx_ts_avc_init_reader(ngx_ts_avc_reader_t *br, u_char *buf,
     size_t len, ngx_log_t *log);
 static uint64_t ngx_ts_avc_read(ngx_ts_avc_reader_t *br, ngx_uint_t bits);
 static uint64_t ngx_ts_avc_read_golomb(ngx_ts_avc_reader_t *br);
+
+
+/* user_data_registered_itu_t_t35 */
+static u_char  ngx_ts_avc_cea_header[] = {
+    0xb5,    /* itu_t_t35_country_code   */
+    0x00,    /* Itu_t_t35_provider_code  */
+    0x31,
+    0x47,    /* user_identifier ('GA94') */
+    0x41,
+    0x39,
+    0x34,
+};
 
 
 static void
@@ -98,7 +123,7 @@ ngx_ts_avc_read_golomb(ngx_ts_avc_reader_t *br)
     }
 
     n = 0;
-    
+
     while (ngx_ts_avc_read(br, 1) == 0) {
         if (br->err) {
             return 0;
@@ -116,9 +141,48 @@ ngx_ts_avc_read_golomb(ngx_ts_avc_reader_t *br)
 }
 
 
-ngx_ts_avc_params_t *
-ngx_ts_avc_decode_params(ngx_ts_stream_t *ts, u_char *sps, size_t sps_len,
-    u_char *pps, size_t pps_len)
+static int64_t
+ngx_ts_avc_read_golomb_signed(ngx_ts_avc_reader_t *br)
+{
+    int64_t  value;
+
+    value = ngx_ts_avc_read_golomb(br);
+    if (value > 0) {
+        if (value & 1) {        /* positive */
+            value = (value + 1) / 2;
+
+        } else {
+            value = -(value / 2);
+        }
+    }
+
+    return value;
+}
+
+
+static void
+ngx_ts_avc_skip_scaling_list(ngx_ts_avc_reader_t *br,
+    ngx_int_t size_of_scaling_list)
+{
+    ngx_int_t  last_scale = 8;
+    ngx_int_t  next_scale = 8;
+    ngx_int_t  delta_scale;
+    ngx_int_t  j;
+
+    for (j = 0; j < size_of_scaling_list; j++) {
+        if (next_scale != 0) {
+            delta_scale = ngx_ts_avc_read_golomb_signed(br);
+            next_scale = (last_scale + delta_scale) & 0xff;
+        }
+
+        last_scale = (next_scale == 0) ? last_scale : next_scale;
+    }
+}
+
+
+ngx_int_t
+ngx_ts_avc_decode_params(ngx_ts_avc_params_t *avc, ngx_ts_stream_t *ts,
+    u_char *sps, size_t sps_len, u_char *pps, size_t pps_len)
 {
     /*
      * ISO/IEC 14496-10:2004(E)
@@ -127,14 +191,8 @@ ngx_ts_avc_decode_params(ngx_ts_stream_t *ts, u_char *sps, size_t sps_len,
 
     ngx_uint_t            type, n, i;
     ngx_ts_avc_reader_t   br;
-    ngx_ts_avc_params_t  *avc;
 
     /* ignore PPS so far */
-
-    avc = ngx_pcalloc(ts->pool, sizeof(ngx_ts_avc_params_t));
-    if (avc == NULL) {
-        return NULL;
-    }
 
     ngx_ts_avc_init_reader(&br, sps, sps_len, ts->log);
 
@@ -175,7 +233,7 @@ ngx_ts_avc_decode_params(ngx_ts_stream_t *ts, u_char *sps, size_t sps_len,
         if (avc->chroma_format_idc == 3) {
             br.name =
                      "residual_colour_transform_flagseparate_colour_plane_flag";
-            avc->residual_colour_transform_flagseparate_colour_plane_flag = 
+            avc->residual_colour_transform_flagseparate_colour_plane_flag =
                                                         ngx_ts_avc_read(&br, 1);
         }
 
@@ -197,7 +255,12 @@ ngx_ts_avc_decode_params(ngx_ts_stream_t *ts, u_char *sps, size_t sps_len,
             for (i = 0; i < n; i++) {
                 br.name = "seq_scaling_list_present_flag[i]";
                 if (ngx_ts_avc_read(&br, 1)) {
-                    goto failed;
+                    if (i < 6) {
+                        ngx_ts_avc_skip_scaling_list(&br, 16);
+
+                    } else {
+                        ngx_ts_avc_skip_scaling_list(&br, 64);
+                    }
                 }
             }
         }
@@ -287,12 +350,186 @@ ngx_ts_avc_decode_params(ngx_ts_stream_t *ts, u_char *sps, size_t sps_len,
     ngx_log_debug2(NGX_LOG_DEBUG_CORE, ts->log, 0,
                    "ts avc width:%ui, height:%ui", avc->width, avc->height);
 
-    return avc;
+    return NGX_OK;
 
 failed:
 
     ngx_log_error(NGX_LOG_ERR, ts->log, 0,
                   "failed to parse AVC parameters");
 
-    return NULL;
+    return NGX_ERROR;
+}
+
+
+static ngx_int_t
+ngx_ts_avc_chain_reader_ep_read(ngx_ts_avc_chain_reader_ep_t *reader,
+    u_char *dst, size_t size)
+{
+    u_char   b;
+    u_char  *dst_end;
+
+    if (size > reader->left) {
+        return NGX_ERROR;
+    }
+    reader->left -= size;
+
+    dst_end = dst + size;
+    while (dst < dst_end) {
+
+        for ( ;; ) {
+
+            if (reader->base.pos < reader->base.buf->last) {
+                b = *reader->base.pos++;
+                break;
+            }
+
+            if (reader->base.cl->next == NULL) {
+                return NGX_ERROR;
+            }
+
+            reader->base.cl = reader->base.cl->next;
+            reader->base.buf = reader->base.cl->buf;
+            reader->base.pos = reader->base.buf->pos;
+        }
+
+        reader->last_three = ((reader->last_three << 8) | b) & 0xffffff;
+        if (reader->last_three == 3) {
+            if (reader->left <= 0) {
+                return NGX_ERROR;
+            }
+            reader->left--;
+            continue;
+        }
+
+        *dst++ = b;
+    }
+
+    return NGX_OK;
+}
+
+ngx_int_t
+ngx_ts_avc_chain_reader_ep_skip(ngx_ts_avc_chain_reader_ep_t *reader,
+    size_t size)
+{
+    u_char  b;
+
+    if (size > reader->left) {
+        return NGX_ERROR;
+    }
+    reader->left -= size;
+
+    while (size > 0) {
+
+        for ( ;; ) {
+
+            if (reader->base.pos < reader->base.buf->last) {
+                b = *reader->base.pos++;
+                break;
+            }
+
+            if (reader->base.cl->next == NULL) {
+                return NGX_ERROR;
+            }
+
+            reader->base.cl = reader->base.cl->next;
+            reader->base.buf = reader->base.cl->buf;
+            reader->base.pos = reader->base.buf->pos;
+        }
+
+
+        reader->last_three = ((reader->last_three << 8) | b) & 0xffffff;
+        if (reader->last_three == 3) {
+            if (reader->left <= 0) {
+                return NGX_ERROR;
+            }
+            reader->left--;
+            continue;
+        }
+
+        size--;
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_flag_t
+ngx_ts_avc_sei_detect_cea(ngx_log_t *log, ngx_chain_t *in, u_char *pos,
+    size_t size)
+{
+    u_char                        b;
+    u_char                        buf[sizeof(ngx_ts_avc_cea_header)];
+    uint32_t                      payload_type;
+    uint32_t                      payload_size;
+    ngx_ts_avc_chain_reader_ep_t  payload;
+    ngx_ts_avc_chain_reader_ep_t  reader;
+
+    reader.base.cl = in;
+    reader.base.buf = in->buf;
+    reader.base.pos = pos;
+    reader.left = size;
+    reader.last_three = 1;
+
+    if (ngx_ts_avc_chain_reader_ep_skip(&reader, 1) != NGX_OK) {
+        ngx_log_error(NGX_LOG_WARN, log, 0,
+            "ngx_ts_avc_sei_detect_cea: skip nal type failed");
+        return 0;
+    }
+
+    while (reader.left >= 2 + sizeof(buf)) {
+
+        payload_type = 0;
+        do {
+            if (ngx_ts_avc_chain_reader_ep_read(&reader, &b, sizeof(b))
+                != NGX_OK)
+            {
+                ngx_log_error(NGX_LOG_WARN, log, 0,
+                    "ngx_ts_avc_sei_detect_cea: read payload type failed");
+                return 0;
+            }
+
+            payload_type += b;
+        } while (b == 0xff);
+
+        payload_size = 0;
+        do {
+            if (ngx_ts_avc_chain_reader_ep_read(&reader, &b, sizeof(b))
+                != NGX_OK)
+            {
+                ngx_log_error(NGX_LOG_WARN, log, 0,
+                    "ngx_ts_avc_sei_detect_cea: read payload size failed");
+                return 0;
+            }
+
+            payload_size += b;
+        } while (b == 0xff);
+
+        payload = reader;
+
+        if (ngx_ts_avc_chain_reader_ep_skip(&reader, payload_size) != NGX_OK) {
+            ngx_log_error(NGX_LOG_WARN, log, 0,
+                "ngx_ts_avc_sei_detect_cea: skip payload failed");
+            return 0;
+        }
+
+        if (payload_type != 4) {    /* user data registered */
+            continue;
+        }
+
+        payload.left = payload_size;
+
+        if (ngx_ts_avc_chain_reader_ep_read(&payload, buf, sizeof(buf))
+            != NGX_OK)
+        {
+            continue;
+        }
+
+        if (ngx_memcmp(buf, ngx_ts_avc_cea_header, sizeof(buf)) == 0) {
+            ngx_log_error(NGX_LOG_INFO, log, 0,
+                "ngx_ts_avc_detect_cea: cea captions detected");
+            return 1;
+        }
+    }
+
+    return 0;
 }

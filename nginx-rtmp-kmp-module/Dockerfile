@@ -3,11 +3,14 @@
 ARG ALPINE_VER=3.11.3
 FROM alpine:$ALPINE_VER as builder
 
-RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base libaio-dev linux-headers
+RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base libaio-dev linux-headers tcl cmake
 
 WORKDIR /tmp/build
 
 ARG NGINX_VERSION=1.17.8
+
+# get srt lib
+RUN git clone https://github.com/Haivision/srt/ && cd srt && ./configure && make && make install
 
 #echo "pulling nginx source code"
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
@@ -20,12 +23,16 @@ COPY nginx-common nginx-common
 COPY nginx-rtmp-module nginx-rtmp-module
 COPY nginx-kmp-push-module nginx-kmp-push-module
 COPY nginx-rtmp-kmp-module nginx-rtmp-kmp-module
+COPY nginx-mpegts-module nginx-mpegts-module
+COPY nginx-mpegts-kmp-module nginx-mpegts-kmp-module
+RUN git clone https://github.com/kaltura/nginx-srt-module
 
 ARG APP_VERSION=1.0
 
 ARG DEBUG_BUILD=0
 
 ENV RTMP_KMP_VERSION="${APP_VERSION}"
+ENV MPEGTS_KMP_VERSION="${APP_VERSION}"
 
 RUN [ "${DEBUG_BUILD}" -eq "1" ] && debug_option=--with-debug; \
     cd /tmp/build/nginx &&  \
@@ -35,6 +42,9 @@ RUN [ "${DEBUG_BUILD}" -eq "1" ] && debug_option=--with-debug; \
             --add-module=/tmp/build/nginx-rtmp-module \
             --add-module=/tmp/build/nginx-kmp-push-module \
             --add-module=/tmp/build/nginx-rtmp-kmp-module \
+            --add-module=/tmp/build/nginx-mpegts-module \
+            --add-module=/tmp/build/nginx-mpegts-kmp-module \
+            --add-module=/tmp/build/nginx-srt-module \
             --with-file-aio \
             --with-stream \
             --with-http_ssl_module \
@@ -52,11 +62,14 @@ RUN apk add --update \
     && rm -rf /var/cache/apk/*
 
 COPY --from=builder /usr/local/nginx /usr/local/nginx
+COPY --from=builder /usr/local/lib64 /usr/local/lib64
 RUN pip3 install redis
+ENV LD_LIBRARY_PATH="/usr/local/lib64"
 
 
 EXPOSE 1935
 EXPOSE 8001
+EXPOSE 7045/udp
 STOPSIGNAL SIGTERM
 
 

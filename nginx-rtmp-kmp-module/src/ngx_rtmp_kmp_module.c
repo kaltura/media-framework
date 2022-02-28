@@ -166,7 +166,7 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
       NULL },
 
     { ngx_string("kmp_max_free_buffers"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF| NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.max_free_buffers),

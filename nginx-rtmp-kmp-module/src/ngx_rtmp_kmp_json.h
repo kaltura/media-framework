@@ -61,8 +61,9 @@ ngx_rtmp_kmp_connect_json_get_size(ngx_rtmp_kmp_connect_t *obj,
     ngx_rtmp_session_t *s)
 {
     size_t  result =
-        sizeof("{\"event_type\":\"connect\",\"input_type\":\"rtmp\",\"rtmp\":")
-             - 1 + ngx_rtmp_kmp_connect_rtmp_json_get_size(obj, s) +
+        sizeof("{\"event_type\":\"connect\"" ",\"input_type\":\"rtmp\""
+            ",\"rtmp\":") - 1 + ngx_rtmp_kmp_connect_rtmp_json_get_size(obj,
+            s) +
         sizeof("}") - 1;
 
     return result;
@@ -72,8 +73,8 @@ static u_char *
 ngx_rtmp_kmp_connect_json_write(u_char *p, ngx_rtmp_kmp_connect_t *obj,
     ngx_rtmp_session_t *s)
 {
-    p = ngx_copy_fix(p,
-        "{\"event_type\":\"connect\",\"input_type\":\"rtmp\",\"rtmp\":");
+    p = ngx_copy_fix(p, "{\"event_type\":\"connect\""
+        ",\"input_type\":\"rtmp\"" ",\"rtmp\":");
     p = ngx_rtmp_kmp_connect_rtmp_json_write(p, obj, s);
     *p++ = '}';
 

@@ -7,7 +7,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
 #ifndef _NGX_TS_STREAM_H_INCLUDED_
 #define _NGX_TS_STREAM_H_INCLUDED_
 
@@ -38,6 +37,12 @@ typedef enum {
 
 
 typedef struct {
+    ngx_chain_t                  *head;
+    ngx_chain_t                 **tail;
+} ngx_ts_bufs_t;
+
+
+typedef struct {
     u_char                        type;
     u_char                        sid;
     u_char                        cont;
@@ -47,7 +52,7 @@ typedef struct {
     unsigned                      ptsf:1;
     unsigned                      rand:1;
     unsigned                      video:1;
-    ngx_chain_t                  *bufs;  /* ES */
+    ngx_ts_bufs_t                 bufs;  /* ES */
 } ngx_ts_es_t;
 
 
@@ -59,23 +64,25 @@ typedef struct {
     ngx_uint_t                    video;  /* unisgned  video:1; */
     ngx_uint_t                    nes;
     ngx_ts_es_t                  *es;
-    ngx_chain_t                  *bufs;  /* PMT */
+    ngx_ts_bufs_t                 bufs;  /* PMT */
 } ngx_ts_program_t;
 
 
 typedef struct ngx_ts_handler_s  ngx_ts_handler_t;
 
-
 typedef struct {
+    ngx_connection_t             *connection;
     ngx_uint_t                    nprogs;
     ngx_ts_program_t             *progs;
     ngx_log_t                    *log;
     ngx_pool_t                   *pool;
     ngx_buf_t                    *buf;
     ngx_chain_t                  *free;
-    ngx_chain_t                  *bufs;  /* PAT */
+    ngx_ts_bufs_t                 bufs;  /* PAT */
     ngx_ts_handler_t             *handlers;
     void                         *data;
+    ngx_str_t                     header;
+    size_t                        mem_left;
 } ngx_ts_stream_t;
 
 
@@ -89,8 +96,15 @@ typedef struct {
 } ngx_ts_handler_data_t;
 
 
-typedef ngx_int_t (*ngx_ts_handler_pt)(ngx_ts_handler_data_t *hd);
+typedef ngx_int_t (*ngx_ts_init_handler_pt)(ngx_ts_stream_t *ts, void *data);
 
+typedef struct {
+    ngx_ts_init_handler_pt        handler;
+    void                         *data;
+} ngx_ts_init_handler_t;
+
+
+typedef ngx_int_t (*ngx_ts_handler_pt)(ngx_ts_handler_data_t *hd);
 
 struct ngx_ts_handler_s {
     ngx_ts_handler_pt             handler;
@@ -99,6 +113,7 @@ struct ngx_ts_handler_s {
 };
 
 
+ngx_ts_stream_t *ngx_ts_stream_create(ngx_connection_t *c, size_t mem_limit);
 ngx_int_t ngx_ts_add_handler(ngx_ts_stream_t *ts, ngx_ts_handler_pt handler,
     void *data);
 ngx_int_t ngx_ts_read(ngx_ts_stream_t *ts, ngx_chain_t *in);
@@ -106,8 +121,10 @@ ngx_chain_t *ngx_ts_write_pat(ngx_ts_stream_t *ts, ngx_ts_program_t *prog);
 ngx_chain_t *ngx_ts_write_pmt(ngx_ts_stream_t *ts, ngx_ts_program_t *prog);
 ngx_chain_t *ngx_ts_write_pes(ngx_ts_stream_t *ts, ngx_ts_program_t *prog,
     ngx_ts_es_t *es, ngx_chain_t *bufs);
-void ngx_ts_free_chain(ngx_ts_stream_t *ts, ngx_chain_t **ll);
 ngx_uint_t ngx_ts_dash_get_oti(u_char type);
 
+ngx_int_t ngx_ts_add_init_handler(ngx_conf_t *cf, ngx_array_t **a,
+    ngx_ts_init_handler_pt handler, void *data);
+ngx_int_t ngx_ts_init_handlers(ngx_array_t *handlers, ngx_ts_stream_t *ts);
 
 #endif /* _NGX_TS_STREAM_H_INCLUDED_ */
