@@ -194,6 +194,7 @@ ngx_ts_avc_decode_params(ngx_ts_avc_params_t *avc, ngx_ts_stream_t *ts,
 
     /* ignore PPS so far */
     ngx_memzero(avc, sizeof(ngx_ts_avc_params_t));
+
     ngx_ts_avc_init_reader(&br, sps, sps_len, ts->log);
 
     br.name = "nalu_type";
