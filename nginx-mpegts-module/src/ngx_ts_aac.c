@@ -28,6 +28,8 @@ ngx_ts_aac_decode_params(ngx_ts_aac_params_t *aac, ngx_ts_stream_t *ts,
         return NGX_ERROR;
     }
 
+    ngx_memzero(aac, sizeof(ngx_ts_aac_params_t));
+
     /* MPEG Version: 0 for MPEG-4, 1 for MPEG-2 */
     aac->version = (adts[1] & 0x08) ? 1 : 0;
 
