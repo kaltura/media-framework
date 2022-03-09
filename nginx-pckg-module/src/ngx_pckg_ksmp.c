@@ -658,13 +658,15 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
 
         case KMP_CODEC_AUDIO_AAC:
 
-            rc = codec_config_mp4a_config_parse(channel->log,
-                &dest->extra_data, &dest->u.audio.codec_config);
-            if (rc != VOD_OK) {
-                ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-                    "ngx_pckg_ksmp_parse_media_info: "
-                    "failed to parse mp4a config");
-                return NGX_BAD_DATA;
+            if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_EXTRA_DATA) {
+                rc = codec_config_mp4a_config_parse(channel->log,
+                    &dest->extra_data, &dest->u.audio.codec_config);
+                if (rc != VOD_OK) {
+                    ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
+                        "ngx_pckg_ksmp_parse_media_info: "
+                        "failed to parse mp4a config");
+                    return NGX_BAD_DATA;
+                }
             }
 
             dest->codec_id = VOD_CODEC_ID_AAC;
