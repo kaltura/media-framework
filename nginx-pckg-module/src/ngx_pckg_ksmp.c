@@ -607,7 +607,11 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
             return NGX_BAD_DATA;
         }
 
-        if (src->u.video.frame_rate.denom <= 0) {
+        if (src->u.video.frame_rate.num <= 0) {
+            src->u.video.frame_rate.num = node->header->stats.frame_rate_max;
+            src->u.video.frame_rate.denom = 100;
+
+        } else if (src->u.video.frame_rate.denom <= 0) {
             ngx_log_error(NGX_LOG_ERR, channel->log, 0,
                 "ngx_pckg_ksmp_parse_media_info: invalid video frame rate");
             return NGX_BAD_DATA;
@@ -709,6 +713,10 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
             "ngx_pckg_ksmp_parse_media_info: invalid media type %uD",
             src->media_type);
         return NGX_BAD_DATA;
+    }
+
+    if (src->bitrate <= 0) {
+        src->bitrate = node->header->stats.bitrate_max;
     }
 
     dest->bitrate = src->bitrate;
