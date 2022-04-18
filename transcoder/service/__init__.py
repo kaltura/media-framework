@@ -2,7 +2,7 @@ from aiohttp import web
 import asyncio
 from logger import create_logger
 import json
-from service_utils import random_sequence, deallocate_task_with_retries
+from service_utils import random_sequence, deallocate_task_with_retries, generate_metrics
 from config import config
 from TranscoderTask import TranscoderTask, TaskEventsHandler
 
@@ -34,6 +34,11 @@ class TranscoderService(TaskEventsHandler):
         self.logger.debug(f"get_healthz")
         return web.json_response(body=':)')
 
+    async def get_metrics(self, request):
+        self.logger.info(f"get_metrics")
+        state = list(map(lambda x: x.desc, self.tasks.values()))
+        return web.Response(body=generate_metrics(state))
+
     async def deallocate(self, request):
         id = random_sequence(8)
         logger = create_logger(f"{id} deallocate ", "")
@@ -63,6 +68,7 @@ ts = TranscoderService()
 app.add_routes([web.get('/status', ts.get_state),
                 web.post('/allocate/transcoder', ts.allocate),
                 web.post('/deallocate', ts.deallocate),
-                web.get('/healthz', ts.get_healthz)])
+                web.get('/healthz', ts.get_healthz),
+                web.get('/metrics', ts.get_metrics)])
 ts.logger.info(F"running with configuration {config}")
 web.run_app(app, host=config.bind_ip_address, port=config.listen_port)

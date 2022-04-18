@@ -5,7 +5,7 @@ from shutil import rmtree
 import json
 from config import config
 from health import run_health_check_async
-from service_utils import random_sequence, accept_connection, get_host_ip_address
+from service_utils import random_sequence, accept_connection, get_host_ip_address, pod_name
 import os
 from logger import create_logger
 import signal
@@ -13,8 +13,6 @@ import signal
 base_dir = os.getenv('BASE_DIR')
 
 node_name = os.getenv('MY_NODE_NAME')
-
-pod_name = os.getenv('MY_POD_NAME')
 
 pod_ip_addr = get_host_ip_address()
 

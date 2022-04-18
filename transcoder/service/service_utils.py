@@ -7,6 +7,13 @@ import asyncio
 
 pod_ip_addr = os.getenv('MY_POD_IP_ADDR')
 
+pod_name = os.getenv('MY_POD_NAME')
+
+prom_metric_prefix = os.getenv('PROM_METRIC_PREFIX')
+
+prom_component_label = os.getenv('PROM_METRIC_COMPONENT_LABEL')
+
+
 # get preferred ip address visible by others
 def get_host_ip_address():
     listen_address = pod_ip_addr
@@ -35,7 +42,7 @@ async def deallocate_task_with_retries(die_url: str,data: dict,wait_interval:flo
             except ServerTimeoutError as ex:
                 logger.error(f"deallocate_task_with_retries({id}): error: {ex} wait: {wait_interval}")
                 await asyncio.sleep(wait_interval)
-                wait_interval = min(max_wait_interval_sec,wait_interval * exp)
+                wait_interval = min(max_wait_interval_sec, wait_interval * exp)
             except Exception as ex:
                 logger.error(f"deallocate_task_with_retries({id}): error: {ex}")
                 break
@@ -51,3 +58,25 @@ async def accept_connection(kmp: socket,timeout):
         return await asyncio.wait_for(fut, timeout)
     finally:
         loop.remove_reader(kmp.fileno())
+
+def generate_metrics(state) -> str:
+    # TODO: replace hardcoded list of metrics with something configurable
+    metrics = {'kaltura.com/gpu_encoder_score': 0,
+               'kaltura.com/gpu_decoder_score': 0,
+               'kaltura.com/cpu': 0}
+    metric_prefix = 'kaltura.com/'
+    if state:
+        for transtate in state:
+            for k in filter(lambda k: k.startswith(metric_prefix), transtate):
+                if k not in metrics:
+                    metrics[k] = transtate[k]
+                else:
+                    metrics[k] += transtate[k]
+    offset = len(metric_prefix)
+    out = ''
+    for k, v in metrics.items():
+        metric_p = prom_metric_prefix + k[offset:]
+        # out += f"# HELP {metric_p} Metric read from /metrics-prometheus/.prom\n# TYPE {metric_p} UNTYPED\n"
+        out += metric_p + "{component=\"" + prom_component_label + "\",kubernetes_pod_name=\"" + pod_name + "\"} " + str(
+            v) + "\n"
+    return out
