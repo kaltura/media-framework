@@ -1,3 +1,4 @@
+import math
 import string
 import random
 import socket
@@ -64,6 +65,8 @@ def generate_metrics(state) -> str:
     metrics = {'kaltura.com/gpu_encoder_score': 0,
                'kaltura.com/gpu_decoder_score': 0,
                'kaltura.com/cpu': 0}
+    def format_num(n, m = 3) -> str:
+        return format(n, F".{m}f")
     metric_prefix = 'kaltura.com/'
     if state:
         for transtate in state:
@@ -77,6 +80,22 @@ def generate_metrics(state) -> str:
     for k, v in metrics.items():
         metric_p = prom_metric_prefix + k[offset:]
         # out += f"# HELP {metric_p} Metric read from /metrics-prometheus/.prom\n# TYPE {metric_p} UNTYPED\n"
-        out += metric_p + "{component=\"" + prom_component_label + "\",kubernetes_pod_name=\"" + pod_name + "\"} " + str(
-            v) + "\n"
+        out += "{0}{{component=\"{1}\",kubernetes_pod_name=\"{2}\"}} {3}\n".format(metric_p, prom_component_label,
+                                                                                 pod_name, format_num(v))
+    # convenience metrics
+    if len(metrics):
+        out += '{0}max{{component=\"{1}\",kubernetes_pod_name=\"{2}\"}} {3}\n'.format(prom_metric_prefix,
+                                                                                    prom_component_label, pod_name,
+                                                                                    format_num(max(metrics.values())))
+        out += '{0}avg{{component=\"{1}\",kubernetes_pod_name=\"{2}\"}} {3}\n'.format(prom_metric_prefix,
+                                                                                    prom_component_label, pod_name,
+                                                                                    format_num(
+                                                                                        sum(metrics.values()) / len(
+                                                                                            metrics)))
+        out += '{0}total{{component=\"{1}\",kubernetes_pod_name=\"{2}\"}} {3}\n'.format(prom_metric_prefix,
+                                                                                      prom_component_label, pod_name,
+                                                                                      format_num(sum(metrics.values())))
+        out += '{0}scalar{{component=\"{1}\",kubernetes_pod_name=\"{2}\"}} {3}\n'.format(prom_metric_prefix,
+                                                                                      prom_component_label, pod_name,
+                                                                                      format_num(math.sqrt(sum(map(lambda x: x*x, metrics.values())))))
     return out
