@@ -924,6 +924,16 @@ ngx_ts_kmp_track_get_codec(u_char type)
     }
 }
 
+static void
+ngx_ts_kmp_track_error(void *arg)
+{
+    ngx_ts_kmp_ctx_t  *ctx = arg;
+
+    ngx_log_error(NGX_LOG_NOTICE, ctx->connection->log, 0,
+        "ngx_ts_kmp_track_error: called");
+    ctx->error = 1;
+}
+
 ngx_int_t
 ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
 {
@@ -983,7 +993,9 @@ ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
             goto failed;
         }
 
-        track->ctx = ts_track;
+        track->ctx = ctx;
+        track->handler = ngx_ts_kmp_track_error;
+
         track->log.connection = ctx->connection->number;
         ctx->track_index[media_type]++;
 
