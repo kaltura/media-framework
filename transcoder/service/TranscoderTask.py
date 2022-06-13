@@ -104,7 +104,9 @@ class TranscoderTask:
             client.setblocking(True)
             try:
                 logFile = open(logPath, "w+") if logPath else None
-                session_config['kmp'] = {'fd': client.fileno()}
+                if not 'kmp' in session_config:
+                    session_config['kmp'] = {}
+                session_config['kmp']['fd'] = client.fileno()
                 exe_args = ["-c", json.dumps(session_config)]
                 self.logger.debug(
                     f"new client connected: {client.getsockname()} launching exe: {config.exe_path} {exe_args} \nlog: {logPath}")

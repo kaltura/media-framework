@@ -74,8 +74,11 @@ int KMP_connect( KMP_session_t *context,char* url)
     
     char host[256];
     char port[6];
-    int user_timeout_ms = 2 * 1000;  // user timeout in milliseconds
-    
+
+    int user_timeout_ms;  // user timeout in milliseconds
+    json_get_int(GetConfig(),"kmp.userTimeoutMs",2 * 1000,&user_timeout_ms);
+
+
     int n=sscanf(url,"kmp://%255[^:]:%5s",host,port);// this line isnt working properly
     if (n!=2) {
         LOGGER(CATEGORY_KMP,AV_LOG_FATAL,"Cannot parse url '%s'",url);
