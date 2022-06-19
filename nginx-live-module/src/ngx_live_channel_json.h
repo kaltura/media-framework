@@ -4,6 +4,41 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
+/* ngx_live_latency_stats writer */
+
+size_t
+ngx_live_latency_stats_get_size(ngx_live_latency_stats_t *obj)
+{
+    if (obj->count <= 0) {
+        return sizeof("null") - 1;
+    }
+    size_t  result =
+        sizeof("{\"min\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"max\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"avg\":") - 1 + NGX_INT64_LEN +
+        sizeof("}") - 1;
+
+    return result;
+}
+
+u_char *
+ngx_live_latency_stats_write(u_char *p, ngx_live_latency_stats_t *obj)
+{
+    if (obj->count <= 0) {
+        p = ngx_copy_fix(p, "null");
+        return p;
+    }
+    p = ngx_copy_fix(p, "{\"min\":");
+    p = ngx_sprintf(p, "%uL", (uint64_t) obj->min);
+    p = ngx_copy_fix(p, ",\"max\":");
+    p = ngx_sprintf(p, "%uL", (uint64_t) obj->max);
+    p = ngx_copy_fix(p, ",\"avg\":");
+    p = ngx_sprintf(p, "%uL", (uint64_t) obj->sum / obj->count);
+    *p++ = '}';
+
+    return p;
+}
+
 /* ngx_live_track_input_skip writer */
 
 static size_t
@@ -51,6 +86,8 @@ ngx_live_track_input_get_size(ngx_live_track_input_t *obj)
         sizeof(",\"received_bytes\":") - 1 + NGX_OFF_T_LEN +
         sizeof(",\"skipped_frames\":") - 1 +
             ngx_live_track_input_skip_get_size(&obj->skipped) +
+        sizeof(",\"latency\":") - 1 +
+            ngx_live_latency_stats_get_size(&obj->latency) +
         sizeof("}") - 1;
 
     return result;
@@ -73,6 +110,8 @@ ngx_live_track_input_write(u_char *p, ngx_live_track_input_t *obj)
     p = ngx_sprintf(p, "%O", (off_t) obj->received_bytes);
     p = ngx_copy_fix(p, ",\"skipped_frames\":");
     p = ngx_live_track_input_skip_write(p, &obj->skipped);
+    p = ngx_copy_fix(p, ",\"latency\":");
+    p = ngx_live_latency_stats_write(p, &obj->latency);
     *p++ = '}';
 
     return p;
@@ -432,6 +471,7 @@ ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
             ngx_block_pool_json_get_size(obj->block_pool) +
         sizeof(",\"last_segment_created\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"last_accessed\":") - 1 + NGX_TIME_T_LEN +
+        sizeof(",\"segment_duration\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"snapshots\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"tracks\":") - 1 + ngx_live_tracks_json_get_size(obj) +
         sizeof(",\"variants\":") - 1 + ngx_live_variants_json_get_size(obj) +
@@ -462,7 +502,7 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
     p = ngx_copy_fix(p, "\",\"opaque\":\"");
     p = ngx_block_str_copy(p, &obj->opaque);
     p = ngx_copy_fix(p, "\",\"initial_segment_index\":");
-    p = ngx_sprintf(p, "%uD", (uint32_t) obj->initial_segment_index);
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->conf.initial_segment_index);
     p = ngx_copy_fix(p, ",\"mem_left\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_left);
     p = ngx_copy_fix(p, ",\"mem_limit\":");
@@ -475,6 +515,8 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
     p = ngx_sprintf(p, "%T", (time_t) obj->last_segment_created);
     p = ngx_copy_fix(p, ",\"last_accessed\":");
     p = ngx_sprintf(p, "%T", (time_t) obj->last_accessed);
+    p = ngx_copy_fix(p, ",\"segment_duration\":");
+    p = ngx_sprintf(p, "%M", (ngx_msec_t) obj->conf.segment_duration);
     p = ngx_copy_fix(p, ",\"snapshots\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->snapshots);
     p = ngx_copy_fix(p, ",\"tracks\":");

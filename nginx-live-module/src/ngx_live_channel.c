@@ -308,14 +308,64 @@ ngx_live_channel_finalize(ngx_live_channel_t *channel,
     ngx_post_event(e, &ngx_posted_events);
 }
 
-void
-ngx_live_channel_update(ngx_live_channel_t *channel,
-    uint32_t initial_segment_index)
+static ngx_flag_t
+ngx_live_channel_has_pending_segments(ngx_live_channel_t *channel)
 {
-    if (channel->next_segment_index == 0) {
-        channel->initial_segment_index = initial_segment_index;
-        channel->next_segment_index = initial_segment_index;
+    ngx_queue_t       *q;
+    ngx_live_track_t  *cur_track;
+
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
+        q = ngx_queue_next(q))
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+
+        if (cur_track->pending_index > 0 || cur_track->has_pending_segment) {
+            return 1;
+        }
     }
+
+    return 0;
+}
+
+ngx_int_t
+ngx_live_channel_update(ngx_live_channel_t *channel,
+    ngx_live_channel_conf_t *conf)
+{
+    ngx_msec_t  old_segment_duration;
+
+    if (conf->segment_duration != channel->conf.segment_duration) {
+        old_segment_duration = channel->conf.segment_duration;
+
+        channel->conf.segment_duration = conf->segment_duration;
+        channel->segment_duration = ngx_live_rescale_time(
+            channel->conf.segment_duration, 1000, channel->timescale);
+
+        if (ngx_live_core_channel_event(channel,
+            NGX_LIVE_EVENT_CHANNEL_DURATION_CHANGED, NULL) != NGX_OK)
+        {
+            goto revert;
+        }
+    }
+
+    if (channel->next_segment_index == 0
+        && !ngx_live_channel_has_pending_segments(channel))
+    {
+        channel->conf.initial_segment_index = conf->initial_segment_index;
+        channel->next_segment_index = conf->initial_segment_index;
+    }
+
+    return NGX_OK;
+
+revert:
+
+    channel->conf.segment_duration = old_segment_duration;
+    channel->segment_duration = ngx_live_rescale_time(
+        channel->conf.segment_duration, 1000, channel->timescale);
+
+    (void) ngx_live_core_channel_event(channel,
+        NGX_LIVE_EVENT_CHANNEL_DURATION_CHANGED, NULL);
+    return NGX_ERROR;
 }
 
 void
@@ -380,6 +430,35 @@ ngx_live_channel_block_str_read(ngx_live_channel_t *channel,
 {
     return ngx_block_str_read(rs, dest, channel->block_pool,
         channel->bp_idx[NGX_LIVE_CORE_BP_STR]);
+}
+
+void
+ngx_live_channel_update_latency_stats(ngx_live_channel_t *channel,
+    ngx_live_latency_stats_t *stats, int64_t from)
+{
+    int64_t      now;
+    uint64_t     latency;
+    ngx_time_t  *tp;
+
+    tp = ngx_timeofday();
+    now = (int64_t) tp->sec * channel->timescale +
+        (int64_t) tp->msec * channel->timescale / 1000;
+
+    if (now >= from) {
+
+        latency = now - from;
+
+        if (stats->min > latency || stats->count <= 0) {
+            stats->min = latency;
+        }
+
+        if (stats->max < latency) {
+            stats->max = latency;
+        }
+
+        stats->count++;
+        stats->sum += latency;
+    }
 }
 
 /* variant */
@@ -593,9 +672,8 @@ ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
 }
 
 
-static ngx_flag_t
-ngx_live_variant_is_active_channel_last(ngx_live_variant_t *variant,
-    uint32_t req_media_types)
+static void
+ngx_live_variant_update_active(ngx_live_variant_t *variant)
 {
     uint32_t             media_type_flag;
     ngx_uint_t           media_type;
@@ -606,32 +684,40 @@ ngx_live_variant_is_active_channel_last(ngx_live_variant_t *variant,
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
-        media_type_flag = 1 << media_type;
-        if (!(req_media_types & media_type_flag)) {
-            continue;
-        }
-
         cur_track = variant->tracks[media_type];
         if (cur_track == NULL) {
             continue;
         }
 
-        if (cur_track->has_last_segment) {
-            return 1;
+        if (cur_track->has_last_segment || cur_track->pending_index > 0
+            || cur_track->has_pending_segment)
+        {
+            goto active;
         }
 
+        media_type_flag = 1 << media_type;
         if (channel->last_segment_media_types & media_type_flag) {
-            return 0;
+            break;
         }
 
         if ((channel->filler_media_types & media_type_flag) &&
             ngx_live_media_info_queue_get_last(cur_track))
         {
-            return 1;
+            goto active;
         }
     }
 
-    return 0;
+    variant->active = 0;
+
+    return;
+
+active:
+
+    variant->active = 1;
+
+    if (variant->initial_segment_index == NGX_LIVE_INVALID_SEGMENT_INDEX) {
+        variant->initial_segment_index = cur_track->initial_segment_index;
+    }
 }
 
 void
@@ -646,20 +732,13 @@ ngx_live_variants_update_active(ngx_live_channel_t *channel)
     {
         cur_variant = ngx_queue_data(q, ngx_live_variant_t, queue);
 
-        cur_variant->active = ngx_live_variant_is_active_channel_last(
-            cur_variant, KMP_MEDIA_TYPE_MASK);
-
-        if (cur_variant->initial_segment_index ==
-                NGX_LIVE_INVALID_SEGMENT_INDEX && cur_variant->active)
-        {
-            cur_variant->initial_segment_index = channel->next_segment_index;
-        }
+        ngx_live_variant_update_active(cur_variant);
     }
 }
 
 ngx_flag_t
 ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
-    ngx_live_timeline_t *timeline, uint32_t req_media_types)
+    ngx_live_timeline_t *timeline)
 {
     uint32_t             track_id;
     uint32_t             segment_index;
@@ -680,16 +759,12 @@ ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
 
     channel = variant->channel;
 
-    if (segment_index + 1 == channel->next_segment_index) {
+    if (segment_index + 1 >= channel->next_segment_index) {
         /* more optimized impl. when the timeline has the last segment */
         return variant->active;
     }
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
-
-        if (!(req_media_types & (1 << media_type))) {
-            continue;
-        }
 
         cur_track = variant->tracks[media_type];
         if (cur_track == NULL) {

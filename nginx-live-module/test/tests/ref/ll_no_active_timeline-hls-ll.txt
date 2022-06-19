@@ -1,0 +1,4 @@
+URL: /master.m3u8
+HEADERS: 400 text/html
+BODY: SIZE: 167, MD5: bcd89db31717614d0e04df38c0cd49df
+

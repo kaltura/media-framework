@@ -37,7 +37,7 @@ function setupPackager($controlUrl, $channelId, $variantId, $trackId, $mediaType
 {
     // create the channel
     postJson("$controlUrl/channels",
-        array('id' => $channelId, 'preset' => 'main'));
+        array('id' => $channelId, 'preset' => 'main', 'initial_segment_index' => time()));
 
     // create the main timeline
     postJson("$controlUrl/channels/$channelId/timelines",
@@ -56,7 +56,7 @@ function setupPackager($controlUrl, $channelId, $variantId, $trackId, $mediaType
         array('id' => $trackId));
 }
 
-#error_log(json_encode($_REQUEST));
+//error_log(json_encode($_REQUEST));
 
 // get input params (support json post)
 $params = $_REQUEST;

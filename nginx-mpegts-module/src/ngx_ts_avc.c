@@ -527,7 +527,7 @@ ngx_ts_avc_sei_detect_cea(ngx_log_t *log, ngx_chain_t *in, u_char *pos,
 
         if (ngx_memcmp(buf, ngx_ts_avc_cea_header, sizeof(buf)) == 0) {
             ngx_log_error(NGX_LOG_INFO, log, 0,
-                "ngx_ts_avc_detect_cea: cea captions detected");
+                "ngx_ts_avc_sei_detect_cea: cea captions detected");
             return 1;
         }
     }

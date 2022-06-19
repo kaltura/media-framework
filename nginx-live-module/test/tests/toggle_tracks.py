@@ -8,10 +8,10 @@ def setup(channelId=CHANNEL_ID):
 
     nl = setupChannelTimeline(channelId)
 
+    ra = KmpMediaFileReader(TEST_VIDEO1, 1)
+
     sv1, sa1 = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
     sv2, sa2 = createVariant(nl, 'var2', [('v2', 'video'), ('a2', 'audio')])
-
-    ra = KmpMediaFileReader(TEST_VIDEO1, 1)
 
     kmpSendStreams([
         (ra, sa1),

@@ -356,7 +356,7 @@ ngx_live_media_info_queue_push(ngx_live_track_t *track,
 }
 
 void
-ngx_live_media_info_update_stats(ngx_live_segment_t *segment)
+ngx_live_media_info_update_stats(ngx_live_segment_t *segment, uint32_t bitrate)
 {
     int64_t                           duration;
     uint32_t                          frame_rate;
@@ -374,12 +374,12 @@ ngx_live_media_info_update_stats(ngx_live_segment_t *segment)
     stats = &node->stats;
 
     /* bitrate */
-    if (track->last_segment_bitrate != NGX_LIVE_SEGMENT_NO_BITRATE) {
-        stats->bitrate_sum += track->last_segment_bitrate;
+    if (bitrate != NGX_LIVE_SEGMENT_NO_BITRATE) {
+        stats->bitrate_sum += bitrate;
         stats->bitrate_count++;
 
-        if (stats->bitrate_max < track->last_segment_bitrate) {
-            stats->bitrate_max = track->last_segment_bitrate;
+        if (stats->bitrate_max < bitrate) {
+            stats->bitrate_max = bitrate;
         }
     }
 
@@ -1117,10 +1117,6 @@ ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
-    if (ctx->source != NULL) {
-        ngx_live_media_info_source_clear(ctx);
-    }
-
     node = NULL;
 
     /* Note: it is possible to have multiple media info nodes with zero delta
@@ -1151,7 +1147,7 @@ ngx_live_media_info_pending_create_segment(ngx_live_track_t *track,
     }
 
     if (ngx_queue_empty(&ctx->active)) {
-        track->initial_segment_index = track->channel->next_segment_index;
+        track->initial_segment_index = segment_index;
 
         rc = ngx_live_media_info_queue_copy(track, &node->media_info.info,
             segment_index);
@@ -1215,7 +1211,7 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track,
     ngx_live_media_info_track_ctx_t  *source_ctx;
 
     channel = track->channel;
-    if (channel->next_segment_index == channel->initial_segment_index) {
+    if (channel->next_segment_index == channel->conf.initial_segment_index) {
         return NGX_OK;
     }
 
@@ -1288,9 +1284,18 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
-        if (cur_track->has_last_segment ||
-            cur_track->type == ngx_live_track_type_filler)
-        {
+        if (cur_track->type == ngx_live_track_type_filler) {
+            continue;
+        }
+
+        cur_ctx = ngx_live_get_module_ctx(cur_track,
+            ngx_live_media_info_module);
+
+        if (cur_track->has_last_segment) {
+            if (cur_ctx->source != NULL) {
+                ngx_live_media_info_source_clear(cur_ctx);
+            }
+
             continue;
         }
 
@@ -1697,7 +1702,8 @@ ngx_live_media_info_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
     ngx_live_persist_snap_index_t    *snap = ectx;
     ngx_live_media_info_track_ctx_t  *cur_ctx;
 
-    ms = ngx_palloc(snap->pool, sizeof(*ms) * (channel->tracks.count + 1));
+    ms = ngx_palloc(snap->base.pool,
+        sizeof(*ms) * (channel->tracks.count + 1));
     if (ms == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_media_info_channel_index_snap: alloc failed");
@@ -1819,6 +1825,10 @@ ngx_live_media_info_read_index_source(ngx_persist_block_header_t *header,
 
     ctx->source = source;
     source_ctx->source_refs++;
+
+    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+        "ngx_live_media_info_read_index_source: "
+        "setting source to \"%V\"", &source->sn.str);
 
     return NGX_OK;
 }
@@ -2141,6 +2151,7 @@ ngx_live_media_info_write_serve_queue(ngx_persist_write_ctx_t *write_ctx,
     }
 
     track = obj;
+    scope->ctx = &header;
 
     if (ngx_persist_write_block_open(write_ctx,
             NGX_KSMP_BLOCK_MEDIA_INFO_QUEUE) != NGX_OK ||
@@ -2154,10 +2165,11 @@ ngx_live_media_info_write_serve_queue(ngx_persist_write_ctx_t *write_ctx,
         return NGX_ERROR;
     }
 
+    ngx_persist_write_marker_write(&marker, &header, sizeof(header));
+
     ngx_persist_write_block_close(write_ctx);
 
-    header.count = scope->media_info_count;
-    ngx_persist_write_marker_write(&marker, &header, sizeof(header));
+    scope->ctx = NULL;
 
     return NGX_OK;
 }
@@ -2166,17 +2178,19 @@ static ngx_int_t
 ngx_live_media_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
-    ngx_uint_t                        count;
-    ngx_queue_t                      *q;
-    ngx_live_track_t                 *track = obj;
-    ngx_live_media_info_node_t       *node;
-    ngx_live_persist_serve_scope_t   *scope;
-    ngx_live_media_info_track_ctx_t  *ctx;
+    ngx_uint_t                           count;
+    ngx_queue_t                         *q;
+    ngx_live_track_t                    *track = obj;
+    ngx_live_media_info_node_t          *node;
+    ngx_live_persist_serve_scope_t      *scope;
+    ngx_live_media_info_track_ctx_t     *ctx;
+    ngx_ksmp_media_info_queue_header_t  *header;
 
     scope = ngx_persist_write_ctx(write_ctx);
+    header = scope->ctx;
 
     if (scope->si.index != NGX_LIVE_INVALID_SEGMENT_INDEX) {
-        scope->media_info_count = 1;
+        header->count = 1;
         return ngx_live_media_info_node_write(write_ctx,
             track->media_info_node);
     }
@@ -2231,7 +2245,7 @@ ngx_live_media_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
         }
     }
 
-    scope->media_info_count = count;
+    header->count = count;
 
     return NGX_OK;
 }
@@ -2332,12 +2346,13 @@ static ngx_live_channel_event_t    ngx_live_media_info_channel_events[] = {
     { ngx_live_media_info_channel_index_snap,
         NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP },
 
-    ngx_live_null_event
+      ngx_live_null_event
 };
 
 static ngx_live_track_event_t      ngx_live_media_info_track_events[] = {
     { ngx_live_media_info_track_init, NGX_LIVE_EVENT_TRACK_INIT },
     { ngx_live_media_info_track_free, NGX_LIVE_EVENT_TRACK_FREE },
+
       ngx_live_null_event
 };
 

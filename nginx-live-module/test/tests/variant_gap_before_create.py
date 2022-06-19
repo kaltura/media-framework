@@ -17,7 +17,7 @@ def test(channelId=CHANNEL_ID):
     kmpSendStreams([
         (KmpMediaFileReader(TEST_VIDEO1, 0), sv1),
         (KmpMediaFileReader(TEST_VIDEO1, 1), sa1),
-    ], st, 30)
+    ], st, 30, realtime=1)
 
     sv2, sa2 = createVariant(nl, 'var2', [('v2', 'video'), ('a2', 'audio')])
 
@@ -26,19 +26,19 @@ def test(channelId=CHANNEL_ID):
         (KmpMediaFileReader(TEST_VIDEO1, 1), sa1),
         (KmpMediaFileReader(TEST_VIDEO2, 0), sv2),
         (KmpMediaFileReader(TEST_VIDEO2, 1), sa2),
-    ], st, 30)
+    ], st, 30, realtime=1)
 
     kmpSendStreams([
         (KmpMediaFileReader(TEST_VIDEO1, 0), sv1),
         (KmpMediaFileReader(TEST_VIDEO1, 1), sa1),
-    ], st, 30)
+    ], st, 30, realtime=1)
 
     kmpSendStreams([
         (KmpMediaFileReader(TEST_VIDEO1, 0), sv1),
         (KmpMediaFileReader(TEST_VIDEO1, 1), sa1),
         (KmpMediaFileReader(TEST_VIDEO2, 0), KmpTypeFilteredSender(sv2, [KMP_PACKET_FRAME])),
         (KmpMediaFileReader(TEST_VIDEO2, 1), KmpTypeFilteredSender(sa2, [KMP_PACKET_FRAME])),
-    ], st, 30)
+    ], st, 30, realtime=1)
 
     # wait for inactivity flush
     time.sleep(11)

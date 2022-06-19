@@ -241,35 +241,3 @@ URL: /seg-8-smain.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 36660, MD5: bf7a61ccdc621c670e4417c3a03b19e8
 
-URL: /seg-1-smain.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 57716, MD5: f28031c4e2dbf5f1c1ba414520dac034
-
-URL: /seg-2-smain.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 72756, MD5: cf1c37a554f8681075862650a2a6750a
-
-URL: /seg-3-smain.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 69748, MD5: 7a2e808d7d4c1c0af392f597d625f7c3
-
-URL: /seg-4-smain.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 66740, MD5: 2ae9f8a5565401900c14c4bbfc349ddc
-
-URL: /seg-5-smain.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 69748, MD5: 07f7690b961e503b96f3685ad0af96e0
-
-URL: /seg-6-smain.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 60724, MD5: a17e316f68c25bea3b4e7423f8aa8f01
-
-URL: /seg-7-smain.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 54708, MD5: 6bfa6bfb4a3570c01b48623e11f3d7b7
-
-URL: /seg-8-smain.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 36660, MD5: bf7a61ccdc621c670e4417c3a03b19e8
-

@@ -118,7 +118,7 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
 
     /* required params */
 
-    if ((flags & NGX_HTTP_PCKG_PARSE_REQUIRE_INDEX) != 0) {
+    if (flags & NGX_HTTP_PCKG_PARSE_REQUIRE_INDEX) {
         expect_char(start_pos, end_pos, '-');
 
         start_pos = ngx_http_pckg_parse_uint32(start_pos, end_pos,
@@ -132,7 +132,21 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
         result->segment_index--;
     }
 
-    if ((flags & NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT) != 0) {
+    if (flags & NGX_HTTP_PCKG_PARSE_REQUIRE_PART_INDEX) {
+        expect_char(start_pos, end_pos, '-');
+
+        start_pos = ngx_http_pckg_parse_uint32(start_pos, end_pos,
+            &result->part_index);
+        if (result->part_index <= 0) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_pckg_parse_uri_file_name: "
+                "failed to parse part index");
+            return NGX_HTTP_BAD_REQUEST;
+        }
+        result->part_index--;
+    }
+
+    if (flags & NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT) {
         expect_char(start_pos, end_pos, '-');
         expect_char(start_pos, end_pos, 's');
 
@@ -162,7 +176,7 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
     start_pos++;    /* skip the - */
 
     if (*start_pos == 's' &&
-        (flags & NGX_HTTP_PCKG_PARSE_OPTIONAL_VARIANTS) != 0)
+        (flags & NGX_HTTP_PCKG_PARSE_OPTIONAL_VARIANTS))
     {
         p = ngx_pnalloc(r->pool, end_pos - start_pos);
         if (p == NULL) {
@@ -206,9 +220,10 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
     }
 
     if ((*start_pos == 'v' || *start_pos == 'a') &&
-        (flags & NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE) != 0)
+        (flags & NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE))
     {
         result->media_type_mask = 0;
+        result->media_type_count = 0;
 
         while (*start_pos != '-') {
 
@@ -237,6 +252,7 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
             }
 
             result->media_type_mask |= (1 << media_type);
+            result->media_type_count++;
 
             start_pos++;
 
@@ -532,19 +548,19 @@ ngx_http_pckg_write_media_type_mask(u_char *p, uint32_t media_type_mask)
 
 
 size_t
-ngx_http_pckg_selector_get_size(ngx_pckg_variant_t *variant)
+ngx_http_pckg_selector_get_size(ngx_str_t *variant_id)
 {
-    return sizeof("-s-") - 1 + variant->id.len + KMP_MEDIA_COUNT;
+    return sizeof("-s-") - 1 + variant_id->len + KMP_MEDIA_COUNT;
 }
 
 
 u_char *
-ngx_http_pckg_selector_write(u_char *p, ngx_pckg_variant_t *variant,
+ngx_http_pckg_selector_write(u_char *p, ngx_str_t *variant_id,
     uint32_t media_type_mask)
 {
     *p++ = '-';
     *p++ = 's';
-    p = ngx_copy_str(p, variant->id);
+    p = ngx_copy_str(p, *variant_id);
 
     p = ngx_http_pckg_write_media_type_mask(p, media_type_mask);
 

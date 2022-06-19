@@ -388,7 +388,8 @@ ngx_live_persist_media_serve_clip_write(
         return NGX_BAD_DATA;
     }
 
-    ngx_live_segment_write_init_ctx(&sctx, segment, ctx->flags, ctx->time);
+    ngx_live_segment_write_init_ctx(&sctx, segment,
+        NGX_LIVE_INVALID_PART_INDEX, ctx->flags, ctx->time);
 
     if (ngx_live_segment_cache_write(ctx->write_ctx, &sctx, ctx->pmcf, NULL,
         &ignore) != NGX_OK)
@@ -771,6 +772,13 @@ ngx_live_persist_media_serve(ngx_live_segment_serve_req_t *req)
     ngx_live_persist_media_channel_ctx_t  *cctx;
 
     pool = req->pool;
+
+    if (req->part_index != NGX_LIVE_INVALID_PART_INDEX) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_persist_media_serve: parts not supported");
+        return NGX_OK;
+    }
+
     channel = req->channel;
 
     pcpcf = ngx_live_get_module_preset_conf(channel,
@@ -925,7 +933,8 @@ ngx_live_persist_media_write_segment(ngx_persist_write_ctx_t *write_idx,
     channel = track->channel;
     pmcf = ngx_live_get_module_main_conf(channel, ngx_live_persist_module);
 
-    ngx_live_segment_write_init_ctx(&sctx, segment, 0, 0);
+    ngx_live_segment_write_init_ctx(&sctx, segment,
+        NGX_LIVE_INVALID_PART_INDEX, 0, 0);
 
     start = ngx_persist_write_get_size(ctx->write_data);
 
@@ -1170,6 +1179,11 @@ ngx_live_persist_media_write_file(ngx_live_channel_t *channel,
 
     ctx.cln->handler = ngx_live_persist_media_write_cancel;
     ctx.cln->data = write_ctx;
+
+    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+        "ngx_live_persist_media_write_file: "
+        "write started, min: %uD, max: %uD",
+        ctx.scope.min_index, ctx.scope.max_index);
 
     /* Note: if the channel is freed, the segment index module will call
         ngx_live_persist_media_write_cancel, which will free the pool */
@@ -1665,7 +1679,7 @@ ngx_live_persist_media_preconfiguration(ngx_conf_t *cf)
 }
 
 
-static ngx_live_channel_event_t    ngx_live_persist_media_channel_events[] = {
+static ngx_live_channel_event_t  ngx_live_persist_media_channel_events[] = {
     { ngx_live_persist_media_channel_init,     NGX_LIVE_EVENT_CHANNEL_INIT },
     { ngx_live_persist_media_channel_free,     NGX_LIVE_EVENT_CHANNEL_FREE },
     { ngx_live_persist_media_channel_read,     NGX_LIVE_EVENT_CHANNEL_READ },

@@ -26,12 +26,12 @@ def parseHttpHeaders(headers):
         result[headerName].append(headerValue)
     return result
 
-def getUrl(url, extraHeaders={}):
+def getUrl(url, extraHeaders={}, timeout=None):
     headers = getG2OHeaderFullUrl(url)
     headers.update(extraHeaders)
     request = urllib2.Request(url, headers=headers)
     try:
-        f = urllib2.urlopen(request)
+        f = urllib2.urlopen(request, timeout=timeout)
         body = f.read()
     except urllib2.HTTPError, e:
         return e.getcode(), parseHttpHeaders(e.info().headers), e.read()

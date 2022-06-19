@@ -1,4 +1,4 @@
-# docker run   --name live-packager --rm   --cap-add=SYS_PTRACE --security-opt seccomp=unconfined   -v /Users/guyjacubovski/dev/live/nginx-packager.conf:/usr/local/nginx/conf/nginx.conf -v /Users/guyjacubovski/dev/live/s3/:/s3/ -p 6543:6543 -p 8003:8003 -p 20000:80 kaltura/live-packager 
+# docker run   --name live-packager --rm   --cap-add=SYS_PTRACE --security-opt seccomp=unconfined   -v /Users/guyjacubovski/dev/live/nginx-packager.conf:/usr/local/nginx/conf/nginx.conf -v /Users/guyjacubovski/dev/live/s3/:/s3/ -p 6543:6543 -p 8003:8003 -p 20000:80 kaltura/live-packager
 # add  for debug:   gdb ../sbin/nginx
 ARG ALPINE_VER=3.11.3
 FROM alpine:$ALPINE_VER as builder

@@ -27,7 +27,7 @@ def test(channelId=CHANNEL_ID):
         kmpSendStreams([
             (rv, sv),
             (ra, sa),
-        ], st, 8, realtime=True)
+        ], st, 8)
 
         kmpSendEndOfStream([sv, sa])
         sv = sa = None

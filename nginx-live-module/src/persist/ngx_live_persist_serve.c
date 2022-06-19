@@ -1,7 +1,16 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "../ngx_live.h"
+#include "../ngx_live_timeline.h"
+#include "../ngx_live_segment_cache.h"
 #include "ngx_live_persist_core.h"
+
+
+typedef struct {
+    ngx_live_variant_t           *variant;
+    ngx_ksmp_rendition_report_t   elts[KMP_MEDIA_COUNT];
+    ngx_uint_t                    nelts;
+} ngx_live_persist_variant_rr_t;
 
 
 static ngx_int_t ngx_live_persist_serve_preconfiguration(ngx_conf_t *cf);
@@ -165,6 +174,217 @@ ngx_live_persist_serve_write_segment_index(
 }
 
 
+/* rendition reports */
+
+static ngx_flag_t
+ngx_live_persist_serve_get_track_rr(ngx_live_timeline_t *timeline,
+    ngx_live_track_t *track, ngx_ksmp_rendition_report_t *rr)
+{
+    uint32_t             sequence;
+    uint32_t             last_index;
+    uint32_t             segment_index;
+    ngx_queue_t         *q;
+    ngx_live_period_t   *period;
+    ngx_live_channel_t  *channel;
+
+    channel = timeline->channel;
+
+    segment_index = channel->next_segment_index + track->pending_index;
+    if (track->next_part_index == 0) {
+        segment_index--;
+    }
+
+    sequence = timeline->manifest.sequence;
+
+    /* assuming the timeline has at least one period */
+
+    q = ngx_queue_last(&timeline->periods);
+
+    for ( ;; ) {
+
+        period = ngx_queue_data(q, ngx_live_period_t, queue);
+
+        last_index = period->node.key + period->segment_count;
+        if (segment_index >= last_index) {
+            rr->last_sequence = sequence - 1;
+            segment_index = last_index - 1;
+            break;
+        }
+
+        if (segment_index >= period->node.key) {
+            rr->last_sequence = sequence - (last_index - segment_index);
+            break;
+        }
+
+        sequence -= period->segment_count;
+
+        q = ngx_queue_prev(q);
+        if (q == ngx_queue_sentinel(&timeline->periods)) {
+            return 0;
+        }
+    }
+
+    rr->last_part_index = ngx_live_segment_cache_get_last_part(track,
+        segment_index);
+
+    if (rr->last_part_index == NGX_LIVE_INVALID_PART_INDEX) {
+        return 0;
+    }
+
+    return 1;
+}
+
+static void
+ngx_live_persist_serve_get_variant_rrs(ngx_live_persist_variant_rr_t *var_rr,
+    ngx_live_timeline_t *timeline, ngx_ksmp_rendition_report_t *skip_rr)
+{
+    ngx_uint_t                    media_type;
+    ngx_live_track_t             *cur_track;
+    ngx_live_variant_t           *variant;
+    ngx_ksmp_rendition_report_t  *rr;
+
+    variant = var_rr->variant;
+
+    var_rr->nelts = 0;
+    rr = var_rr->elts;
+
+    for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+
+        cur_track = variant->tracks[media_type];
+        if (cur_track == NULL) {
+            continue;
+        }
+
+        if (!ngx_live_persist_serve_get_track_rr(timeline, cur_track, rr)) {
+            continue;
+        }
+
+        if (rr->last_sequence == skip_rr->last_sequence
+            && rr->last_part_index == skip_rr->last_part_index)
+        {
+            continue;
+        }
+
+        rr->media_type = media_type;
+
+        var_rr->nelts++;
+        rr++;
+    }
+}
+
+static ngx_int_t
+ngx_live_persist_serve_write_variant_rrs(ngx_persist_write_ctx_t *write_ctx,
+    void *obj)
+{
+    ngx_wstream_t                  *ws;
+    ngx_live_variant_t             *variant;
+    ngx_live_persist_variant_rr_t  *rr = obj;
+
+    variant = rr->variant;
+
+    ws = ngx_persist_write_stream(write_ctx);
+
+    if (ngx_wstream_str(ws, &variant->sn.str) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &variant->channel->log, 0,
+            "ngx_live_persist_serve_write_variant_rrs: "
+            "write failed (1), variant: %V", &variant->sn.str);
+        return NGX_ERROR;
+    }
+
+    ngx_persist_write_block_set_header(write_ctx, 0);
+
+    if (ngx_persist_write(write_ctx, rr->elts,
+        sizeof(rr->elts[0]) * rr->nelts) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &variant->channel->log, 0,
+            "ngx_live_persist_serve_write_variant_rrs: "
+            "write failed (2), variant: %V", &variant->sn.str);
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_live_persist_serve_write_rrs(ngx_persist_write_ctx_t *write_ctx, void *obj)
+{
+    ngx_queue_t                          *q;
+    ngx_live_channel_t                   *channel = obj;
+    ngx_live_timeline_t                  *timeline;
+    ngx_persist_write_marker_t            marker;
+    ngx_ksmp_rendition_report_t           skip_rr;
+    ngx_live_persist_variant_rr_t         rr;
+    ngx_live_persist_serve_scope_t       *scope;
+    ngx_ksmp_rendition_reports_header_t   header;
+
+    scope = ngx_persist_write_ctx(write_ctx);
+    if (!(scope->flags & NGX_KSMP_FLAG_RENDITION_REPORTS)) {
+        return NGX_OK;
+    }
+
+    timeline = scope->timeline;
+    if (scope->track != NULL) {
+        if (!ngx_live_persist_serve_get_track_rr(scope->timeline, scope->track,
+            &skip_rr))
+        {
+            return NGX_OK;
+        }
+
+    } else {
+        ngx_memset(&skip_rr, 0xff, sizeof(skip_rr));
+    }
+
+    header.count = 0;
+
+    for (q = ngx_queue_head(&channel->variants.queue);
+        q != ngx_queue_sentinel(&channel->variants.queue);
+        q = ngx_queue_next(q))
+    {
+        rr.variant = ngx_queue_data(q, ngx_live_variant_t, queue);
+        if (!rr.variant->active) {
+            continue;
+        }
+
+        ngx_live_persist_serve_get_variant_rrs(&rr, timeline, &skip_rr);
+        if (rr.nelts <= 0) {
+            continue;
+        }
+
+        if (header.count <= 0) {
+            if (ngx_persist_write_block_open(write_ctx,
+                    NGX_KSMP_BLOCK_RENDITION_REPORT) != NGX_OK ||
+                ngx_persist_write_reserve(write_ctx, sizeof(header), &marker)
+                    != NGX_OK)
+            {
+                ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                    "ngx_live_persist_serve_write_rrs: write failed");
+                return NGX_ERROR;
+            }
+        }
+
+        if (ngx_live_persist_write_blocks(channel, write_ctx,
+            NGX_LIVE_PERSIST_CTX_SERVE_VARIANT_RR, &rr) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                "ngx_live_persist_serve_write_rrs: write blocks failed");
+            return NGX_ERROR;
+        }
+
+        header.count++;
+    }
+
+    if (header.count <= 0) {
+        return NGX_OK;
+    }
+
+    ngx_persist_write_marker_write(&marker, &header, sizeof(header));
+
+    ngx_persist_write_block_close(write_ctx);
+
+    return NGX_OK;
+}
+
+
 static ngx_persist_block_t  ngx_live_persist_serve_blocks[] = {
     /*
      * persist header:
@@ -198,6 +418,24 @@ static ngx_persist_block_t  ngx_live_persist_serve_blocks[] = {
      */
     { NGX_KSMP_BLOCK_SEGMENT_INDEX, NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL, 0,
       ngx_live_persist_serve_write_segment_index, NULL },
+
+    /*
+     * persist header:
+     *   ngx_str_t  variant_id;
+     *
+     * persist data:
+     *   ngx_ksmp_rendition_report_t  elts[];
+     */
+    { NGX_KSMP_BLOCK_VARIANT_RR, NGX_LIVE_PERSIST_CTX_SERVE_VARIANT_RR,
+      NGX_PERSIST_FLAG_SINGLE,
+      ngx_live_persist_serve_write_variant_rrs, NULL },
+
+    /*
+     * persist header:
+     *   ngx_ksmp_rendition_reports_header_t  header;
+     */
+    { NGX_KSMP_BLOCK_RENDITION_REPORT, NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL, 0,
+      ngx_live_persist_serve_write_rrs, NULL },
 
     /*
      * persist data:

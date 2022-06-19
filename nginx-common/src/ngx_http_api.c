@@ -888,3 +888,109 @@ ngx_http_api_parse_options(ngx_conf_t *cf, ngx_http_api_options_t *options)
 
     return NGX_CONF_OK;
 }
+
+
+ngx_int_t
+ngx_http_api_parse_args(ngx_http_request_t *r,
+    ngx_http_api_args_handler_pt handler, void *data)
+{
+    u_char      *buf;
+    u_char      *p, *start;
+    u_char      *src, *dst;
+    ngx_int_t    rc;
+    ngx_str_t    key;
+    ngx_str_t    value;
+    ngx_flag_t   unescape;
+
+    buf = ngx_pnalloc(r->pool, r->args.len + 2);
+    if (buf == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_api_parse_args: alloc failed");
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    p = ngx_copy(buf, r->args.data, r->args.len);
+    *p++ = '&';
+    *p = '\0';
+
+    p = buf;
+
+    unescape = 0;
+    key.len = 0;
+    start = p;
+
+    for ( ;; ) {
+
+        switch (*p) {
+
+        case '\0':
+            return NGX_OK;
+
+        case '=':
+            if (key.len != 0) {
+                p++;
+                break;
+            }
+
+            if (unescape) {
+                src = dst = start;
+                ngx_unescape_uri(&dst, &src, p - start, 0);
+                unescape = 0;
+
+            } else {
+                dst = p;
+            }
+
+            key.data = start;
+            key.len = dst - start;
+
+            p++;    /* skip '=' */
+
+            start = p;
+            break;
+
+        case '&':
+            if (unescape) {
+                src = dst = start;
+                ngx_unescape_uri(&dst, &src, p - start, 0);
+                unescape = 0;
+
+            } else {
+                dst = p;
+            }
+
+            if (key.len) {
+                value.data = start;
+                value.len = dst - start;
+
+            } else {
+                key.data = start;
+                key.len = dst - start;
+                value.len = 0;
+            }
+
+            rc = handler(r, data, &key, &value);
+            if (rc != NGX_OK) {
+                return rc;
+            }
+
+            key.len = 0;
+
+            p++;    /* skip '&' */
+
+            start = p;
+            break;
+
+        case '+':
+            *p++ = ' ';
+            break;
+
+        case '%':
+            unescape = 1;
+            /* fall through */
+
+        default:
+            p++;
+        }
+    }
+}

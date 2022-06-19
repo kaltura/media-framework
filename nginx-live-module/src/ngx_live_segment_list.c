@@ -55,15 +55,14 @@ ngx_live_segment_list_add(ngx_live_segment_list_t *segment_list,
     uint32_t segment_index, int64_t time, uint32_t duration)
 {
     uint32_t                       period_index;
+    ngx_queue_t                   *q;
     ngx_live_segment_repeat_t     *last_elt;
     ngx_live_segment_list_node_t  *last;
 
-    if (!ngx_queue_empty(&segment_list->queue)) {
+    q = ngx_queue_last(&segment_list->queue);
+    if (q != ngx_queue_sentinel(&segment_list->queue)) {
 
-        last = ngx_queue_data(ngx_queue_last(&segment_list->queue),
-            ngx_live_segment_list_node_t, queue);
-
-        period_index = last->period_index;
+        last = ngx_queue_data(q, ngx_live_segment_list_node_t, queue);
 
         if (time == segment_list->last_time &&
             segment_index == last->last_segment_index + 1)
@@ -84,8 +83,10 @@ ngx_live_segment_list_add(ngx_live_segment_list_t *segment_list,
                 goto add;
             }
 
+            period_index = last->period_index;
+
         } else {
-            period_index++;
+            period_index = last->period_index + 1;
         }
 
     } else {
@@ -115,6 +116,88 @@ add:
     last->last_segment_index = segment_index;
     segment_list->last_time = time + duration;
 
+    return NGX_OK;
+}
+
+ngx_int_t
+ngx_live_segment_list_update_last(ngx_live_segment_list_t *segment_list,
+    uint32_t duration)
+{
+    ngx_queue_t                   *q;
+    ngx_live_segment_repeat_t     *last_elt;
+    ngx_live_segment_list_node_t  *last, *prev;
+
+    q = ngx_queue_last(&segment_list->queue);
+    if (q == ngx_queue_sentinel(&segment_list->queue)) {
+        ngx_log_error(NGX_LOG_ALERT, segment_list->log, 0,
+            "ngx_live_segment_list_update_last: empty list");
+        return NGX_ERROR;
+    }
+
+    last = ngx_queue_data(q, ngx_live_segment_list_node_t, queue);
+
+    last_elt = &last->elts[last->nelts - 1];
+    if (last_elt->count != 1) {
+        ngx_log_error(NGX_LOG_ALERT, segment_list->log, 0,
+            "ngx_live_segment_list_update_last: "
+            "unexpected last count %uD", last_elt->count);
+        return NGX_ERROR;
+    }
+
+    if (last_elt->duration != NGX_LIVE_PENDING_SEGMENT_DURATION) {
+        ngx_log_error(NGX_LOG_ALERT, segment_list->log, 0,
+            "ngx_live_segment_list_update_last: "
+            "unexpected last duration %uD", last_elt->duration);
+        return NGX_ERROR;
+    }
+
+    segment_list->last_time += duration;
+
+    if (last->nelts >= 2) {
+        if (last_elt[-1].duration != duration) {
+            goto use_new;
+        }
+
+        ngx_log_debug0(NGX_LOG_DEBUG_LIVE, segment_list->log, 0,
+            "ngx_live_segment_list_update_last: incrementing previous count");
+
+        last_elt[-1].count++;
+        last->nelts--;
+        return NGX_OK;
+    }
+
+    q = ngx_queue_prev(q);
+    if (q == ngx_queue_sentinel(&segment_list->queue)) {
+        goto use_new;
+    }
+
+    prev = ngx_queue_data(q, ngx_live_segment_list_node_t, queue);
+    if (prev->period_index != last->period_index
+        || prev->elts[prev->nelts - 1].duration != duration)
+    {
+        goto use_new;
+    }
+
+    ngx_log_debug0(NGX_LOG_DEBUG_LIVE, segment_list->log, 0,
+        "ngx_live_segment_list_update_last: "
+        "reverting new node and incrementing previous count");
+
+    prev->elts[prev->nelts - 1].count++;
+    prev->last_segment_index = last->last_segment_index;
+
+    ngx_queue_remove(&last->queue);
+    ngx_rbtree_delete(&segment_list->rbtree, &last->node);
+
+    ngx_block_pool_free(segment_list->block_pool, segment_list->bp_idx, last);
+
+    return NGX_OK;
+
+use_new:
+
+    ngx_log_debug0(NGX_LOG_DEBUG_LIVE, segment_list->log, 0,
+        "ngx_live_segment_list_update_last: using new element");
+
+    last_elt->duration = duration;
     return NGX_OK;
 }
 

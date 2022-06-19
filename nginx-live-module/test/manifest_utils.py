@@ -56,7 +56,7 @@ def getM3u8Urls(baseUrl, urlContent):
 def getHlsMasterPlaylistUrls(baseUrl, urlContent, headers):
     result = getM3u8Urls(baseUrl, urlContent)
     for curUrl in result:
-        code, resHeaders, curContent = http_utils.getUrl(curUrl, headers)
+        code, resHeaders, curContent = http_utils.getUrl(curUrl, headers, timeout=.5)
         if code != 200 or len(curContent) == 0:
             continue
 
@@ -65,7 +65,12 @@ def getHlsMasterPlaylistUrls(baseUrl, urlContent, headers):
             continue
 
         curBaseUrl = curUrl.rsplit('/', 1)[0]
-        result += getM3u8Urls(curBaseUrl, curContent)
+
+        # Note: adding only new urls, otherwise rendition reports can cause an infinite loop
+        for url in getM3u8Urls(curBaseUrl, curContent):
+            if url not in result:
+                result.append(url)
+
     return result
 
 def parseDashInterval(ts):
@@ -356,8 +361,9 @@ def getStreamInfo(url, headers={}):
 
     result = ''
     for curUrl in urls:
-        code, resHeaders, urlContent = http_utils.getUrl(curUrl, headers)
-        mimeType = resHeaders['content-type'][0]
+        # Note: using a timeout to avoid waiting too long on preload hint
+        code, resHeaders, urlContent = http_utils.getUrl(curUrl, headers, timeout=.5)
+        mimeType = resHeaders['content-type'][0] if 'content-type' in resHeaders else 'N/A'
 
         if curUrl.startswith(baseUrl):
             curUrl = curUrl[len(baseUrl):]

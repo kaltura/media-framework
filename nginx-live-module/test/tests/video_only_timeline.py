@@ -11,8 +11,6 @@ def test(channelId=CHANNEL_ID):
 
     nl = setupChannelTimeline(channelId)
 
-    nl.variant.create(NginxLiveVariant(id=VARIANT_ID))
-
     rv = KmpMediaFileReader(TEST_VIDEO1, 0)
     ra = KmpMediaFileReader(TEST_VIDEO1, 1)
 

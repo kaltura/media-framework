@@ -38,6 +38,7 @@ static ngx_conf_num_bounds_t  ngx_live_core_percent_bounds = {
 
 
 static ngx_command_t  ngx_live_core_commands[] = {
+
     { ngx_string("variables_hash_max_size"),
       NGX_LIVE_MAIN_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
@@ -106,6 +107,20 @@ static ngx_command_t  ngx_live_core_commands[] = {
       ngx_conf_set_num_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_core_preset_conf_t, timescale),
+      NULL },
+
+    { ngx_string("segment_duration"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_core_preset_conf_t, segment_duration),
+      NULL },
+
+    { ngx_string("part_duration"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_core_preset_conf_t, part_duration),
       NULL },
 
       ngx_null_command
@@ -234,8 +249,8 @@ ngx_live_core_preset(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 
     /* the preset{}'s preset_conf */
 
-    ctx->preset_conf = ngx_pcalloc(cf->pool, sizeof(void *) *
-        ngx_live_max_module);
+    ctx->preset_conf = ngx_pcalloc(cf->pool,
+                                   sizeof(void *) * ngx_live_max_module);
     if (ctx->preset_conf == NULL) {
         return NGX_CONF_ERROR;
     }
@@ -498,6 +513,8 @@ ngx_live_core_create_preset_conf(ngx_conf_t *cf)
     conf->mem_high_watermark = NGX_CONF_UNSET_UINT;
     conf->mem_low_watermark = NGX_CONF_UNSET_UINT;
     conf->timescale = NGX_CONF_UNSET_UINT;
+    conf->segment_duration = NGX_CONF_UNSET_MSEC;
+    conf->part_duration = NGX_CONF_UNSET_MSEC;
 
     conf->mem_temp_blocks = ngx_array_create(cf->temp_pool, 10,
         sizeof(ngx_live_core_block_size_t));
@@ -525,6 +542,10 @@ ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_live_core_preset_conf_t  *prev = parent;
     ngx_live_core_preset_conf_t  *conf = child;
 
+    if (!conf->segmenter.id) {
+        conf->segmenter = prev->segmenter;
+    }
+
     ngx_conf_merge_size_value(conf->mem_limit,
                               prev->mem_limit, 64 * 1024 * 1024);
 
@@ -536,6 +557,12 @@ ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_uint_value(conf->timescale,
                               prev->timescale, 90000);
+
+    ngx_conf_merge_msec_value(conf->segment_duration,
+                              prev->segment_duration, 6000);
+
+    ngx_conf_merge_msec_value(conf->part_duration,
+                              prev->part_duration, 1000);
 
     if (conf->mem_conf_blocks == NULL) {
         conf->mem_conf_blocks = prev->mem_conf_blocks;
@@ -691,6 +718,15 @@ ngx_live_core_channel_init(ngx_live_channel_t *channel)
         cpcf->mem_limit / 100;
 
     channel->timescale = cpcf->timescale;
+
+    channel->conf.segment_duration = cpcf->segment_duration;
+    channel->segment_duration = ngx_live_rescale_time(
+        channel->conf.segment_duration, 1000, channel->timescale);
+
+    if (cpcf->segmenter.flags & NGX_LIVE_SEGMENTER_FLAG_PARTS_CAP) {
+        channel->part_duration = ngx_live_rescale_time(cpcf->part_duration,
+            1000, channel->timescale);
+    }
 }
 
 ngx_int_t

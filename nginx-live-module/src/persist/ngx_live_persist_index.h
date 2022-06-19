@@ -8,7 +8,7 @@
 
 
 ngx_live_persist_snap_t *ngx_live_persist_index_snap_create(
-    ngx_live_channel_t *channel);
+    ngx_live_channel_t *channel, uint32_t segment_index);
 
 
 void ngx_live_persist_index_write_complete(

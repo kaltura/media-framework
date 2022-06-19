@@ -277,6 +277,7 @@ ngx_http_live_api_channel_update(ngx_http_request_t *r)
     int64_t                           val;
     ngx_int_t                         rc;
     ngx_live_channel_t               *channel;
+    ngx_live_channel_conf_t           conf;
     ngx_live_channel_json_t          *json;
     ngx_live_json_cmds_ctx_t          jctx;
     ngx_http_live_api_channel_ctx_t  *ctx;
@@ -295,8 +296,10 @@ ngx_http_live_api_channel_update(ngx_http_request_t *r)
         }
     }
 
-    if (json->initial_segment_index != NGX_JSON_UNSET) {
-        val = json->initial_segment_index;
+    conf = channel->conf;
+
+    val = json->initial_segment_index;
+    if (val != NGX_JSON_UNSET) {
         if (val < 0 || val >= NGX_LIVE_INVALID_SEGMENT_INDEX) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "ngx_http_live_api_channel_update: "
@@ -304,7 +307,26 @@ ngx_http_live_api_channel_update(ngx_http_request_t *r)
             return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
         }
 
-        ngx_live_channel_update(channel, val);
+        conf.initial_segment_index = val;
+    }
+
+    val = json->segment_duration;
+    if (val != NGX_JSON_UNSET) {
+        if (val <= 0 || val >= NGX_LIVE_SEGMENTER_MAX_SEGMENT_DURATION) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_live_api_channel_update: "
+                "invalid segment duration %L", val);
+            return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
+        }
+
+        conf.segment_duration = val;
+    }
+
+    rc = ngx_live_channel_update(channel, &conf);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_live_api_channel_update: update failed %i", rc);
+        return NGX_HTTP_BAD_REQUEST;
     }
 
     jctx.ctx = NGX_LIVE_JSON_CTX_CHANNEL;

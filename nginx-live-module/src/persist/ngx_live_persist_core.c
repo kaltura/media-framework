@@ -414,7 +414,8 @@ ngx_live_persist_core_read(ngx_live_channel_t *channel,
 
 
 ngx_live_persist_snap_t *
-ngx_live_persist_snap_create(ngx_live_channel_t *channel)
+ngx_live_persist_snap_create(ngx_live_channel_t *channel,
+    uint32_t segment_index)
 {
     ngx_live_persist_snap_t              *snap;
     ngx_live_persist_preset_conf_t       *ppcf;
@@ -428,10 +429,10 @@ ngx_live_persist_snap_create(ngx_live_channel_t *channel)
     pcpcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_persist_core_module);
     if (pcpcf->files[NGX_LIVE_PERSIST_FILE_INDEX].path != NULL) {
-        snap = ngx_live_persist_index_snap_create(channel);
+        snap = ngx_live_persist_index_snap_create(channel, segment_index);
 
     } else if (pcpcf->files[NGX_LIVE_PERSIST_FILE_MEDIA].path != NULL) {
-        snap = ngx_live_persist_snap_frames_create(channel);
+        snap = ngx_live_persist_snap_frames_create(channel, segment_index);
 
     } else {
         snap = NULL;

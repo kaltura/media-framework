@@ -246,39 +246,3 @@ URL: /seg-8-smain.m4s
 HEADERS: 200 video/mp4
 BODY: SIZE: 29879, MD5: 5ab9781c5806196ebd030cf30c97d9a2
 
-URL: /init-1-smain.mp4
-HEADERS: 200 video/mp4
-BODY: SIZE: 1106, MD5: d6a77e713d61b398bb6353a86d9fbbfe
-
-URL: /seg-1-smain.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 45924, MD5: 742598c3c538ac26fdc0c52a8d7ab848
-
-URL: /seg-2-smain.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 61787, MD5: 4de6c1c21f492dd78bf04aa246109fb6
-
-URL: /seg-3-smain.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 59094, MD5: c222265138aa2e9a659d56a891793664
-
-URL: /seg-4-smain.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 56433, MD5: f672083f101098e014f313506b3fb890
-
-URL: /seg-5-smain.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 56196, MD5: 603a0f846a2194b86cb8b120dc276aca
-
-URL: /seg-6-smain.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 49138, MD5: 693331842ddf9f38e4a403a1ad3ec3cc
-
-URL: /seg-7-smain.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 44104, MD5: ffd3cf265d9510e08c0a3a8f9b01ce21
-
-URL: /seg-8-smain.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 29879, MD5: 5ab9781c5806196ebd030cf30c97d9a2
-

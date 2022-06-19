@@ -32,16 +32,16 @@ typedef ngx_ksmp_frame_t  ngx_live_frame_t;
 #define NGX_LOG_DEBUG_LIVE    NGX_LOG_DEBUG_CORE
 
 
-#define ngx_array_entries(x)                    (sizeof(x) / sizeof(x[0]))
+#define ngx_array_entries(x)            (sizeof(x) / sizeof(x[0]))
 
-#define ngx_round_to_multiple(num, mult)                                    \
-    ((((num) + (mult) / 2) / (mult)) * (mult))
+#define ngx_round_div(n, d)             (((n) + (d) / 2) / (d))
+#define ngx_ceil_div(n, d)              (((n) + (d) - 1) / (d))
 
-#define ngx_round_up_to_multiple(num, mult)                                 \
-    ((((num) + (mult) - 1) / (mult)) * (mult))
+#define ngx_round_to_multiple(n, m)     (ngx_round_div(n, m) * (m))
+#define ngx_round_up_to_multiple(n, m)  (ngx_ceil_div(n, m) * (m))
 
-#define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
-#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
+#define ngx_copy_fix(dst, src)          ngx_copy(dst, (src), sizeof(src) - 1)
+#define ngx_copy_str(dst, src)          ngx_copy(dst, (src).data, (src).len)
 
 #define ngx_abs_diff(val1, val2)                                            \
     ((val2) > (val1) ? (val2) - (val1) : (val1) - (val2))

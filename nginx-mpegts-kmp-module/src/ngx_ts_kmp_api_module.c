@@ -93,14 +93,15 @@ ngx_ts_kmp_api_get_stream_core_main_conf(ngx_log_t *log)
         ngx_stream_module);
     if (stream_ctx == NULL) {
         ngx_log_error(NGX_LOG_CRIT, log, 0,
-            "ngx_ts_kmp_api_get: no stream conf");
+            "ngx_ts_kmp_api_get_stream_core_main_conf: no stream conf");
         return NULL;
     }
 
     cmcf = ngx_stream_get_module_main_conf(stream_ctx, ngx_stream_core_module);
     if (cmcf == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_ts_kmp_api_get: no stream core main conf");
+            "ngx_ts_kmp_api_get_stream_core_main_conf: "
+            "no stream core main conf");
         return NULL;
     }
 

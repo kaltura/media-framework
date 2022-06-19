@@ -42,7 +42,7 @@ typedef struct {
     ngx_queue_t                     done;
     ngx_rbtree_t                    rbtree;
     ngx_rbtree_node_t               sentinel;
-    uint32_t                        last_segment_index;
+    uint32_t                        last_ready_index;
     unsigned                        no_free:1;
 } ngx_live_segment_index_channel_ctx_t;
 
@@ -150,10 +150,12 @@ ngx_live_segment_index_free_non_forced(ngx_live_channel_t *channel)
     spcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_segment_index_module);
 
-    if (cctx->last_segment_index < spcf->force_memory_segments) {
+    if (cctx->last_ready_index < spcf->force_memory_segments
+        || cctx->last_ready_index == NGX_LIVE_INVALID_SEGMENT_INDEX)
+    {
         return;
     }
-    limit = cctx->last_segment_index - spcf->force_memory_segments;
+    limit = cctx->last_ready_index - spcf->force_memory_segments;
 
     truncate = 0;
 
@@ -180,23 +182,15 @@ ngx_live_segment_index_free_non_forced(ngx_live_channel_t *channel)
 }
 
 ngx_int_t
-ngx_live_segment_index_create(ngx_live_channel_t *channel, ngx_flag_t exists)
+ngx_live_segment_index_create(ngx_live_channel_t *channel,
+    uint32_t segment_index)
 {
     ngx_live_segment_index_t              *index;
     ngx_live_segment_index_channel_ctx_t  *cctx;
     ngx_live_segment_index_preset_conf_t  *spcf;
 
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
-
-    if (!exists) {
-        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-            "ngx_live_segment_index_create: "
-            "no active timeline, freeing segment");
-
-        ngx_live_segment_cache_free_by_index(channel,
-            channel->next_segment_index);
-        goto done;
-    }
+    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
+        "ngx_live_segment_index_create: index: %uD", segment_index);
 
     spcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_segment_index_module);
@@ -209,28 +203,128 @@ ngx_live_segment_index_create(ngx_live_channel_t *channel, ngx_flag_t exists)
         return NGX_ERROR;
     }
 
-    index->snap = ngx_live_persist_snap_create(channel);
-    if (index->snap == NGX_LIVE_PERSIST_INVALID_SNAP) {
-        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_segment_index_create: create snap failed");
-        return NGX_ERROR;
-    }
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
 
-    index->node.key = channel->next_segment_index;
+    index->node.key = segment_index;
     ngx_queue_init(&index->cleanup);
 
     ngx_rbtree_insert(&cctx->rbtree, &index->node);
     ngx_queue_insert_tail(&cctx->all, &index->queue);
     ngx_queue_insert_tail(&cctx->pending, &index->pqueue);
 
-done:
+    return NGX_OK;
+}
 
-    cctx->last_segment_index = channel->next_segment_index;
+ngx_int_t
+ngx_live_segment_index_create_snap(ngx_live_channel_t *channel)
+{
+    ngx_queue_t                           *q;
+    ngx_live_segment_index_t              *index;
+    ngx_live_segment_index_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
+
+    q = ngx_queue_last(&cctx->all);
+    index = ngx_queue_data(q, ngx_live_segment_index_t, queue);
+
+    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
+        "ngx_live_segment_index_create_snap: index: %ui", index->node.key);
+
+    if (index->snap != NULL) {
+        ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
+            "ngx_live_segment_index_create_snap: already exists");
+        return NGX_ERROR;
+    }
+
+    index->snap = ngx_live_persist_snap_create(channel, index->node.key);
+    if (index->snap == NGX_LIVE_PERSIST_INVALID_SNAP) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_segment_index_create_snap: create snap failed");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+ngx_int_t
+ngx_live_segment_index_ready(ngx_live_channel_t *channel, ngx_flag_t exists)
+{
+    uint32_t                               ignore;
+    ngx_int_t                              rc;
+    ngx_live_segment_index_t              *index;
+    ngx_live_segment_index_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_index_module);
+
+    index = ngx_live_segment_index_get(channel, channel->next_segment_index);
+    if (index == NULL) {
+        ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
+            "ngx_live_segment_index_ready: index not found");
+        return NGX_ERROR;
+    }
+
+    ngx_log_debug2(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
+        "ngx_live_segment_index_ready: index: %ui, exists: %i",
+        index->node.key, exists);
+
+    if (cctx->last_ready_index != NGX_LIVE_INVALID_SEGMENT_INDEX
+        && cctx->last_ready_index >= index->node.key)
+    {
+        ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
+            "ngx_live_segment_index_ready: "
+            "index %ui is before last ready index %uD",
+            index->node.key, cctx->last_ready_index);
+        return NGX_ERROR;
+    }
+
+    cctx->last_ready_index = index->node.key;
+
+    if (!exists) {
+        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+            "ngx_live_segment_index_ready: "
+            "no active timeline, freeing segment");
+
+        ngx_live_segment_index_free(channel, index, &ignore);
+
+    } else if (index->snap != NULL) {
+        rc = index->snap->update(index->snap);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                "ngx_live_segment_index_ready: update failed");
+            return NGX_ERROR;
+        }
+    }
 
     ngx_live_segment_index_free_non_forced(channel);
 
     if (channel->snapshots <= 0) {
         ngx_live_channel_ack_frames(channel);
+    }
+
+    rc = ngx_live_core_channel_event(channel,
+        NGX_LIVE_EVENT_CHANNEL_SEGMENT_CREATED, (void *) exists);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_segment_index_ready: event failed");
+        return rc;
+    }
+
+    return NGX_OK;
+}
+
+ngx_int_t
+ngx_live_segment_index_create_ready(ngx_live_channel_t *channel,
+    ngx_flag_t exists)
+{
+    uint32_t  segment_index;
+
+    segment_index = channel->next_segment_index;
+
+    if (ngx_live_segment_index_create(channel, segment_index) != NGX_OK
+        || ngx_live_segment_index_create_snap(channel) != NGX_OK
+        || ngx_live_segment_index_ready(channel, exists) != NGX_OK)
+    {
+        return NGX_ERROR;
     }
 
     return NGX_OK;
@@ -361,6 +455,10 @@ ngx_live_segment_index_persisted(ngx_live_channel_t *channel,
 
     /* Note: may not find the first index when a dvr bucket is saved,
         and some segment indexes contained in it did not exist */
+
+    ngx_log_debug3(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
+        "ngx_live_segment_index_persisted: min: %uD, max: %uD, rc: %i",
+        min_segment_index, max_segment_index, rc);
 
     index = ngx_live_segment_index_get_first(channel, min_segment_index);
     if (index == NULL) {
@@ -506,7 +604,16 @@ ngx_live_segment_index_watermark(ngx_live_channel_t *channel, void *ectx)
 
         index = ngx_queue_data(q, ngx_live_segment_index_t, queue);
 
+        /* must not free pending indexes, they're used by the segmenter */
+        if (index->node.key >= channel->next_segment_index) {
+            break;
+        }
+
         q = ngx_queue_next(q);      /* move to next before freeing */
+
+        ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+            "ngx_live_segment_index_watermark: cleaning up %ui",
+            index->node.key);
 
         /* Note: need to disable free, since cleanup handlers call 'persisted'
             which in turn calls 'free', and may release index/q */
@@ -646,6 +753,7 @@ ngx_live_segment_index_channel_init(ngx_live_channel_t *channel, void *ectx)
     ngx_queue_init(&cctx->all);
     ngx_queue_init(&cctx->pending);
     ngx_queue_init(&cctx->done);
+    cctx->last_ready_index = NGX_LIVE_INVALID_SEGMENT_INDEX;
 
     ngx_live_set_ctx(channel, cctx, ngx_live_segment_index_module);
 
@@ -733,6 +841,7 @@ static ngx_live_channel_event_t  ngx_live_segment_index_channel_events[] = {
     { ngx_live_segment_index_segment_free,
         NGX_LIVE_EVENT_CHANNEL_SEGMENT_FREE },
     { ngx_live_segment_index_watermark, NGX_LIVE_EVENT_CHANNEL_WATERMARK },
+
       ngx_live_null_event
 };
 

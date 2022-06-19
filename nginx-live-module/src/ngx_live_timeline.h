@@ -127,11 +127,24 @@ ngx_int_t ngx_live_timeline_copy(ngx_live_timeline_t *dest,
 uint32_t ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
     uint32_t segment_index, uint32_t flags, int64_t *correction);
 
+uint32_t ngx_live_timeline_index_to_sequence(ngx_live_timeline_t *timeline,
+    uint32_t segment_index, ngx_flag_t *exists);
+
+uint32_t ngx_live_timeline_sequence_to_index(ngx_live_timeline_t *timeline,
+    uint32_t sequence);
+
 ngx_flag_t ngx_live_timeline_is_expired(ngx_live_timeline_t *timeline);
 
-
+/*
+ * NGX_OK - segment added
+ * NGX_DONE - no active timelines
+ */
 ngx_int_t ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
-    int64_t time, uint32_t duration, ngx_flag_t force_new_period);
+    int64_t time, uint32_t segment_index, uint32_t duration,
+    ngx_flag_t force_new_period);
+
+ngx_int_t ngx_live_timelines_update_last_segment(ngx_live_channel_t *channel,
+    uint32_t duration);
 
 ngx_flag_t ngx_live_timelines_cleanup(ngx_live_channel_t *channel);
 
@@ -145,6 +158,9 @@ ngx_int_t ngx_live_timelines_get_segment_time(ngx_live_channel_t *channel,
     uint32_t segment_index, int64_t *start, int64_t *end);
 
 int64_t ngx_live_timelines_get_last_time(ngx_live_channel_t *channel);
+
+ngx_flag_t ngx_live_timeline_serve_end_list(ngx_live_timeline_t *timeline,
+    ngx_live_track_t *track, uint32_t max_index);
 
 
 size_t ngx_live_timeline_json_get_size(ngx_live_timeline_t *timeline);

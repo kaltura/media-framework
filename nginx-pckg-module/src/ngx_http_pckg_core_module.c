@@ -40,16 +40,16 @@ static ngx_int_t ngx_http_pckg_core_ctx_variable(ngx_http_request_t *r,
 static ngx_int_t ngx_http_pckg_core_variant_id_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
-static ngx_int_t ngx_http_pckg_core_media_type_variable(ngx_http_request_t* r,
-    ngx_http_variable_value_t* v, uintptr_t data);
-
-static ngx_int_t ngx_http_pckg_core_subrequest_variable(ngx_http_request_t *r,
+static ngx_int_t ngx_http_pckg_core_media_type_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
 static ngx_int_t ngx_http_pckg_core_channel_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
 static ngx_int_t ngx_http_pckg_core_err_code_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
+
+static ngx_int_t ngx_http_pckg_core_last_part_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
 static ngx_int_t ngx_http_pckg_core_segment_dts_variable(ngx_http_request_t *r,
@@ -191,6 +191,14 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
         expires[NGX_HTTP_PCKG_EXPIRES_INDEX_GONE]),
       NULL },
 
+    { ngx_string("pckg_expires_index_blocking"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_sec_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t,
+        expires[NGX_HTTP_PCKG_EXPIRES_INDEX_BLOCKING]),
+      NULL },
+
     { ngx_string("pckg_expires_master"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_sec_slot,
@@ -309,37 +317,15 @@ static ngx_http_variable_t  ngx_http_pckg_core_vars[] = {
       ngx_http_pckg_core_media_type_variable, 0, 0, 0 },
 
 
-    { ngx_string("pckg_upstream_addr"), NULL,
-      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
-
-    { ngx_string("pckg_upstream_status"), NULL,
-      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
-
-    { ngx_string("pckg_upstream_connect_time"), NULL,
-      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
-
-    { ngx_string("pckg_upstream_header_time"), NULL,
-      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
-
-    { ngx_string("pckg_upstream_response_time"), NULL,
-      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
-
-    { ngx_string("pckg_upstream_response_length"), NULL,
-      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
-
-    { ngx_string("pckg_upstream_bytes_received"), NULL,
-      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
-
-    { ngx_string("pckg_upstream_bytes_sent"), NULL,
-      ngx_http_pckg_core_subrequest_variable, 0, 0, 0 },
-
-
     { ngx_string("pckg_err_code"), NULL, ngx_http_pckg_core_err_code_variable,
       0, 0, 0 },
 
     { ngx_string("pckg_err_msg"), NULL,
       ngx_http_pckg_core_channel_variable,
       offsetof(ngx_pckg_channel_t, err_msg), 0, 0 },
+
+    { ngx_string("pckg_last_part"), NULL,
+      ngx_http_pckg_core_last_part_variable, 0, 0, 0 },
 
     { ngx_string("pckg_segment_dts"), NULL,
       ngx_http_pckg_core_segment_dts_variable, 0, 0, 0 },
@@ -361,6 +347,7 @@ static time_t  ngx_http_pckg_default_expires[NGX_HTTP_PCKG_EXPIRES_COUNT] = {
     8640000,        /* static - 100 days */
     3,              /* index - 3 sec */
     5,              /* index gone - 5 sec */
+    30,             /* index blocking - 30 sec */
     30,             /* master - 30 sec */
 };
 
@@ -370,6 +357,7 @@ ngx_str_t  ngx_http_pckg_prefix_master = ngx_string("master");
 ngx_str_t  ngx_http_pckg_prefix_index = ngx_string("index");
 ngx_str_t  ngx_http_pckg_prefix_init_seg = ngx_string("init");
 ngx_str_t  ngx_http_pckg_prefix_seg = ngx_string("seg");
+ngx_str_t  ngx_http_pckg_prefix_part = ngx_string("part");
 ngx_str_t  ngx_http_pckg_prefix_frame = ngx_string("frame");
 
 
@@ -414,7 +402,7 @@ ngx_http_pckg_core_map_upstream_code(ngx_http_request_t *r, ngx_int_t rc)
 
 
 static ngx_int_t
-ngx_http_pckg_core_run_handlers(ngx_http_request_t* r)
+ngx_http_pckg_core_run_handlers(ngx_http_request_t *r)
 {
     ngx_int_t                        rc;
     ngx_uint_t                       i, n;
@@ -592,6 +580,10 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         case NGX_KSMP_ERR_VARIANT_INACTIVE:
         case NGX_KSMP_ERR_SEGMENT_REMOVED:
             rc = ngx_http_pckg_gone(r);
+            break;
+
+        case NGX_KSMP_ERR_WAIT_TIMED_OUT:
+            rc = NGX_HTTP_SERVICE_UNAVAILABLE;
             break;
 
         default:
@@ -852,7 +844,9 @@ ngx_http_pckg_core_parse(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
 
     ngx_memzero(params, sizeof(*params));
     params->media_type_mask = KMP_MEDIA_TYPE_MASK;
+    params->media_type_count = KMP_MEDIA_COUNT;
     params->segment_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
+    params->part_index = NGX_KSMP_INVALID_PART_INDEX;
     params->time = NGX_KSMP_INVALID_TIMESTAMP;
 
     cur = parsers->elts;
@@ -882,6 +876,14 @@ ngx_http_pckg_core_parse(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
     plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
 
     params->flags |= plcf->base_flags;
+
+    if (params->part_index != NGX_KSMP_INVALID_PART_INDEX
+        && params->media_type_count != 1)
+    {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_pckg_core_parse: part request on multiple tracks");
+        return NGX_HTTP_BAD_REQUEST;
+    }
 
     return NGX_OK;
 }
@@ -1256,6 +1258,11 @@ ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
             continue;
         }
 
+        if (ctx->params.part_index != NGX_KSMP_INVALID_PART_INDEX) {
+            /* use part_sequence for parts instead of segment index */
+            dst->segment_index = src->header->part_sequence;
+        }
+
         dst_track->frame_count = src->header->frame_count;
         dst_track->start_dts = src->header->start_dts +
             channel->segment_index->correction;
@@ -1282,9 +1289,18 @@ ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
         plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
 
         if (!plcf->empty_segments) {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "ngx_http_pckg_media_segment: "
-                "segment %uD not found", dst->segment_index);
+            if (ctx->params.part_index != NGX_KSMP_INVALID_PART_INDEX) {
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                    "ngx_http_pckg_media_segment: "
+                    "segment %uD part %uD not found",
+                    dst->segment_index, ctx->params.part_index);
+
+            } else {
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                    "ngx_http_pckg_media_segment: "
+                    "segment %uD not found", dst->segment_index);
+            }
+
             return NGX_HTTP_NOT_FOUND;
         }
     }
@@ -1532,23 +1548,9 @@ ngx_http_pckg_core_buffer_pool_slot(ngx_conf_t *cf, ngx_command_t *cmd,
 static ngx_int_t
 ngx_http_pckg_core_add_variables(ngx_conf_t *cf)
 {
-    ngx_str_t             name;
-    ngx_int_t             index;
     ngx_http_variable_t  *var, *v;
 
     for (v = ngx_http_pckg_core_vars; v->name.len; v++) {
-
-        if (v->get_handler == ngx_http_pckg_core_subrequest_variable) {
-            name.data = v->name.data + sizeof("pckg_") - 1;
-            name.len = v->name.len - (sizeof("pckg_") - 1);
-
-            index = ngx_http_get_variable_index(cf, &name);
-            if (index == NGX_ERROR) {
-                return NGX_ERROR;
-            }
-
-            v->data = index;
-        }
 
         var = ngx_http_add_variable(cf, &v->name, v->flags);
         if (var == NULL) {
@@ -1616,8 +1618,8 @@ ngx_http_pckg_core_variant_id_variable(ngx_http_request_t *r,
 }
 
 static ngx_int_t
-ngx_http_pckg_core_media_type_variable(ngx_http_request_t* r,
-    ngx_http_variable_value_t* v, uintptr_t data)
+ngx_http_pckg_core_media_type_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
 {
     ngx_str_t                 *s;
     ngx_http_pckg_core_ctx_t  *ctx;
@@ -1750,6 +1752,52 @@ ngx_http_pckg_core_err_code_variable(ngx_http_request_t *r,
 }
 
 static ngx_int_t
+ngx_http_pckg_core_last_part_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_pckg_track_t          *track;
+    ngx_pckg_channel_t        *channel;
+    ngx_pckg_segment_parts_t  *parts;
+    ngx_http_pckg_core_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    if (ctx == NULL) {
+        goto not_found;
+    }
+
+    channel = ctx->channel;
+    if (channel == NULL || channel->tracks.nelts != 1) {
+        goto not_found;
+    }
+
+    track = channel->tracks.elts;
+    if (track->parts.nelts <= 0) {
+        goto not_found;
+    }
+
+    parts = track->parts_end - 1;
+
+    v->data = ngx_pnalloc(r->pool, NGX_INT32_LEN * 2 + 1);
+    if (v->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->len = ngx_sprintf(v->data, "%uD:%uD",
+        parts->segment_index, parts->count - 1) - v->data;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    return NGX_OK;
+
+not_found:
+
+    v->not_found = 1;
+
+    return NGX_OK;
+}
+
+static ngx_int_t
 ngx_http_pckg_core_segment_dts_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
 {
@@ -1784,7 +1832,7 @@ ngx_http_pckg_core_segment_dts_variable(ngx_http_request_t *r,
         break;
     }
 
-    v->data = ngx_palloc(r->pool, NGX_INT64_LEN);
+    v->data = ngx_pnalloc(r->pool, NGX_INT64_LEN);
     if (v->data == NULL) {
         return NGX_ERROR;
     }
@@ -2075,6 +2123,64 @@ ngx_http_pckg_core_create_main_conf(ngx_conf_t *cf)
 
 
 static ngx_int_t
+ngx_http_pckg_core_add_upstream_vars(ngx_conf_t *cf)
+{
+    ngx_str_t                   name;
+    ngx_int_t                   index;
+    ngx_uint_t                  i;
+    ngx_hash_key_t             *key;
+    ngx_http_variable_t        *v;
+    ngx_http_variable_t        *var;
+    ngx_http_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+
+    v = cmcf->variables.elts;
+
+    for (i = 0; i < cmcf->variables.nelts; i++) {
+
+        if (v[i].name.len < sizeof("pckg_upstream_") - 1
+            || ngx_strncmp(v[i].name.data, "pckg_upstream_",
+                sizeof("pckg_upstream_") - 1) != 0)
+        {
+            continue;
+        }
+
+        var = ngx_http_add_variable(cf, &v[i].name, NGX_HTTP_VAR_NOCACHEABLE);
+        if (var == NULL) {
+            return NGX_ERROR;
+        }
+
+        var->get_handler = ngx_http_pckg_core_subrequest_variable;
+    }
+
+    /* Note: resolving the underlying var index in a separate phase since
+        ngx_http_get_variable_index may reallocate cmcf->variables */
+
+    key = cmcf->variables_keys->keys.elts;
+    for (i = 0; i < cmcf->variables_keys->keys.nelts; i++) {
+
+        var = key[i].value;
+        if (var->get_handler != ngx_http_pckg_core_subrequest_variable) {
+            continue;
+        }
+
+        name.data = var->name.data + sizeof("pckg_") - 1;
+        name.len = var->name.len - (sizeof("pckg_") - 1);
+
+        index = ngx_http_get_variable_index(cf, &name);
+        if (index == NGX_ERROR) {
+            return NGX_ERROR;
+        }
+
+        var->data = index;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_http_pckg_core_postconfiguration(ngx_conf_t *cf)
 {
     ngx_hash_init_t                  hash;
@@ -2103,5 +2209,5 @@ ngx_http_pckg_core_postconfiguration(ngx_conf_t *cf)
 
     pmcf->handlers_keys = NULL;
 
-    return NGX_OK;
+    return ngx_http_pckg_core_add_upstream_vars(cf);
 }

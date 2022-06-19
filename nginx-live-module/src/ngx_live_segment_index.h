@@ -21,7 +21,16 @@ struct ngx_live_segment_cleanup_s {
 
 
 ngx_int_t ngx_live_segment_index_create(ngx_live_channel_t *channel,
+    uint32_t segment_index);
+
+ngx_int_t ngx_live_segment_index_create_snap(ngx_live_channel_t *channel);
+
+ngx_int_t ngx_live_segment_index_ready(ngx_live_channel_t *channel,
     ngx_flag_t exists);
+
+ngx_int_t ngx_live_segment_index_create_ready(ngx_live_channel_t *channel,
+    ngx_flag_t exists);
+
 
 void ngx_live_segment_index_persisted(ngx_live_channel_t *channel,
     uint32_t min_segment_index, uint32_t max_segment_index, ngx_int_t rc);

@@ -32,7 +32,7 @@ def test(channelId=CHANNEL_ID):
     nl = nginxLiveClient()
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main', filler=getFiller()))
     nl.setChannelId(channelId)
-    nl.timeline.create(NginxLiveTimeline(id=TIMELINE_ID, active=True))
+    nl.timeline.create(NginxLiveTimeline(id=TIMELINE_ID, active=True, manifest_target_duration_segments=3))
 
     sv1, sa1 = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
 
@@ -41,18 +41,18 @@ def test(channelId=CHANNEL_ID):
     kmpSendStreams([
         (KmpMediaFileReader(TEST_VIDEO, 0), sv1),
         (KmpMediaFileReader(TEST_VIDEO, 1), sa1),
-    ], st, 30)
+    ], st, 30, realtime=1)
 
     kmpSendStreams([
         (KmpMediaFileReader(TEST_VIDEO, 1), sa1),
-    ], st, 30)
+    ], st, 30, realtime=1)
 
     sv2, sa2 = createVariant(nl, 'var2', [('v2', 'video'), ('a2', 'audio')])
 
     kmpSendStreams([
         (KmpMediaFileReader(TEST_VIDEO, 0), sv2),
         (KmpMediaFileReader(TEST_VIDEO, 1), sa2),
-    ], st, 30)
+    ], st, 30, realtime=1)
 
     kmpSendEndOfStream([sv1, sa1, sv2, sa2])
 

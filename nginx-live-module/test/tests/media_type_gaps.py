@@ -15,35 +15,35 @@ def test(channelId=CHANNEL_ID):
 
     nl = setupChannelTimeline(channelId)
 
-    sv, sa = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
-
     rv = KmpMediaFileReader(TEST_VIDEO1, 0)
     ra = KmpMediaFileReader(TEST_VIDEO1, 1)
+
+    sv, sa = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
 
     kmpSendStreams([
         (rv, sv),
         (ra, sa),
-    ], st, 25)
+    ], st, 25, realtime=1)
 
     kmpSendStreams([
         (rv, sv),
         (ra, KmpNullSender()),
-    ], st, 25)
+    ], st, 25, realtime=1)
 
     kmpSendStreams([
         (rv, sv),
         (ra, sa),
-    ], st, 25)
+    ], st, 25, realtime=1)
 
     kmpSendStreams([
         (rv, KmpNullSender()),
         (ra, sa),
-    ], st, 25)
+    ], st, 25, realtime=1)
 
     kmpSendStreams([
         (rv, sv),
         (ra, sa),
-    ], st, 25)
+    ], st, 25, realtime=1)
 
     kmpSendEndOfStream([sv, sa])
 

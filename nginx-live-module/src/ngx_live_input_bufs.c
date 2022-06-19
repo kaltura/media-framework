@@ -665,6 +665,7 @@ ngx_live_input_bufs_track_json_write(u_char *p, void *obj)
 static ngx_live_channel_event_t    ngx_live_input_bufs_channel_events[] = {
     { ngx_live_input_bufs_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
     { ngx_live_input_bufs_channel_free, NGX_LIVE_EVENT_CHANNEL_FREE },
+
       ngx_live_null_event
 };
 
@@ -672,6 +673,7 @@ static ngx_live_track_event_t      ngx_live_input_bufs_track_events[] = {
     { ngx_live_input_bufs_track_init, NGX_LIVE_EVENT_TRACK_INIT },
     { ngx_live_input_bufs_track_free, NGX_LIVE_EVENT_TRACK_FREE },
     { ngx_live_input_bufs_track_free, NGX_LIVE_EVENT_TRACK_CHANNEL_FREE },
+
       ngx_live_null_event
 };
 

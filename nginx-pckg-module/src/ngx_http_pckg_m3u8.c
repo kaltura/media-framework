@@ -2,6 +2,8 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
+#include <ngx_http_api.h>
+
 #include "ngx_http_pckg_utils.h"
 #include "ngx_http_pckg_enc.h"
 #include "ngx_http_pckg_fmp4.h"
@@ -16,11 +18,21 @@
 #endif
 
 
+static char *ngx_http_pckg_m3u8_low_latency(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+static char *ngx_http_pckg_m3u8_control(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+
 static ngx_int_t ngx_http_pckg_m3u8_preconfiguration(ngx_conf_t *cf);
 
 static void *ngx_http_pckg_m3u8_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
     void *child);
+
+
+#define M3U8_CTL_FLAG_CAN_SKIP_UNTIL  (0x01)
+#define M3U8_CTL_FLAG_BLOCK_RELOAD    (0x02)
+#define M3U8_CTL_FLAG_PART_HOLD_BACK  (0x04)
 
 
 /* master playlist */
@@ -49,6 +61,7 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
     "#EXT-X-VERSION:%uD\n#EXT-X-MEDIA-SEQUENCE:%uD\n"                       \
     "#EXT-X-DISCONTINUITY-SEQUENCE:%uD\n#EXT-X-INDEPENDENT-SEGMENTS\n"      \
     "#EXT-X-ALLOW-CACHE:YES\n"
+
 #define M3U8_EXTINF                  "#EXTINF:"
 #define M3U8_GAP                     "#EXT-X-GAP\n"
 #define M3U8_BITRATE                 "#EXT-X-BITRATE:"
@@ -73,6 +86,30 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 
 #define M3U8_URI_BASE64_DATA         "data:text/plain;base64,"
 
+#define M3U8_SERVER_CONTROL          "#EXT-X-SERVER-CONTROL:"
+#define M3U8_CTL_BLOCK_RELOAD        "CAN-BLOCK-RELOAD=YES"
+#define M3U8_CTL_CAN_SKIP_UNTIL      "CAN-SKIP-UNTIL=%uD.%03uD"
+#define M3U8_CTL_PART_HOLD_BACK      "PART-HOLD-BACK=%uD.%03uD"
+
+#define M3U8_PART_INF                "#EXT-X-PART-INF:PART-TARGET=%uD.%03uD\n"
+#define M3U8_PART_PRELOAD_HINT       "#EXT-X-PRELOAD-HINT:TYPE=PART"
+#define M3U8_PART_DURATION           "#EXT-X-PART:DURATION=%uD.%03uD"
+#define M3U8_PART_INDEPENDENT        ",INDEPENDENT=YES"
+#define M3U8_PART_GAP                ",GAP=YES"
+#define M3U8_PART_URI                ",URI=\"%V-%uD-%uD"
+
+#define M3U8_SKIPPED_SEGMENTS        "#EXT-X-SKIP:SKIPPED-SEGMENTS=%uD\n"
+
+#define M3U8_RENDITION_REPORT_URI    "#EXT-X-RENDITION-REPORT:URI=\""
+#define M3U8_RENDITION_REPORT_ATTRS  "\",LAST-MSN=%uD,LAST-PART=%uD\n"
+
+
+#define M3U8_ARG_PREFIX              "_HLS_"
+#define M3U8_ARG_SKIP                "skip"
+#define M3U8_ARG_MSN                 "msn"
+#define M3U8_ARG_PART                "part"
+
+
 enum {
     NGX_HTTP_PCKG_M3U8_CONTAINER_AUTO,
     NGX_HTTP_PCKG_M3U8_CONTAINER_MPEGTS,
@@ -85,14 +122,23 @@ typedef struct {
     ngx_http_complex_value_t       *key_uri;
     ngx_str_t                       key_format;
     ngx_str_t                       key_format_versions;
-}  ngx_http_pckg_m3u8_enc_conf_t;
+} ngx_http_pckg_m3u8_enc_conf_t;
+
+typedef struct {
+    ngx_flag_t                      block_reload;
+    ngx_uint_t                      part_hold_back_percent;
+    ngx_uint_t                      skip_boundary_percent;
+} ngx_http_pckg_m3u8_ctl_conf_t;
 
 typedef struct {
     ngx_uint_t                      version;
     ngx_uint_t                      container;
     ngx_flag_t                      mux_segments;
+    ngx_flag_t                      parts;
+    ngx_flag_t                      rendition_reports;
+    ngx_http_pckg_m3u8_ctl_conf_t   ctl;
     ngx_http_pckg_m3u8_enc_conf_t   enc;
-}  ngx_http_pckg_m3u8_loc_conf_t;
+} ngx_http_pckg_m3u8_loc_conf_t;
 
 
 typedef struct {
@@ -112,6 +158,13 @@ static ngx_conf_enum_t  ngx_http_pckg_m3u8_containers[] = {
 
 static ngx_command_t  ngx_http_pckg_m3u8_commands[] = {
 
+    { ngx_string("pckg_m3u8_low_latency"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_NOARGS,
+      ngx_http_pckg_m3u8_low_latency,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      0,
+      NULL },
+
     { ngx_string("pckg_m3u8_container"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_enum_slot,
@@ -124,6 +177,27 @@ static ngx_command_t  ngx_http_pckg_m3u8_commands[] = {
       ngx_conf_set_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_m3u8_loc_conf_t, mux_segments),
+      NULL },
+
+    { ngx_string("pckg_m3u8_parts"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_m3u8_loc_conf_t, parts),
+      NULL },
+
+    { ngx_string("pckg_m3u8_rendition_reports"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_m3u8_loc_conf_t, rendition_reports),
+      NULL },
+
+    { ngx_string("pckg_m3u8_control"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
+      ngx_http_pckg_m3u8_control,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_m3u8_loc_conf_t, ctl),
       NULL },
 
 #if (NGX_HAVE_OPENSSL_EVP)
@@ -214,9 +288,10 @@ static ngx_str_t  ngx_http_pckg_m3u8_default_label = ngx_string("default");
 
 static ngx_http_pckg_container_t *
 ngx_http_pckg_m3u8_get_container(ngx_http_request_t *r,
-    ngx_pckg_track_t **tracks)
+    ngx_pckg_variant_t *variant)
 {
     media_info_t                      *media_info;
+    ngx_pckg_track_t                  *video;
     ngx_http_pckg_container_t         *container;
     ngx_http_pckg_m3u8_loc_conf_t     *mlcf;
 #if (NGX_HAVE_OPENSSL_EVP)
@@ -237,6 +312,12 @@ ngx_http_pckg_m3u8_get_container(ngx_http_request_t *r,
         return container;
     }
 
+    if (variant->channel->header->part_duration) {
+        /* prefer fmp4 when parts are used - mpegts can add significant
+            overhead due to null packets added for consistent cc */
+        return &ngx_http_pckg_fmp4_container;
+    }
+
 #if (NGX_HAVE_OPENSSL_EVP)
     elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
 
@@ -245,11 +326,12 @@ ngx_http_pckg_m3u8_get_container(ngx_http_request_t *r,
     }
 #endif
 
-    if (tracks[KMP_MEDIA_VIDEO] == NULL) {
+    video = variant->tracks[KMP_MEDIA_VIDEO];
+    if (video == NULL) {
         return &ngx_http_pckg_mpegts_container;
     }
 
-    media_info = &tracks[KMP_MEDIA_VIDEO]->last_media_info->media_info;
+    media_info = &video->last_media_info->media_info;
     if (media_info != NULL && media_info->codec_id == VOD_CODEC_ID_HEVC) {
         return &ngx_http_pckg_fmp4_container;
     }
@@ -397,7 +479,7 @@ ngx_http_pckg_m3u8_streams_get_size(ngx_array_t *streams)
 
     cur = streams->elts;
     for (last = cur + streams->nelts; cur < last; cur++) {
-        result += ngx_http_pckg_selector_get_size(cur->variant);
+        result += ngx_http_pckg_selector_get_size(&cur->variant->id);
 
         if (cur->groups[KMP_MEDIA_AUDIO] != NULL) {
             base_size += sizeof(M3U8_STREAM_TAG_AUDIO) - 1 +
@@ -434,7 +516,7 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
         variant = cur->variant;
         tracks = variant->tracks;
 
-        container = ngx_http_pckg_m3u8_get_container(r, tracks);
+        container = ngx_http_pckg_m3u8_get_container(r, variant);
 
         audio_group = cur->groups[KMP_MEDIA_AUDIO];
         if (audio_group != NULL) {
@@ -511,7 +593,7 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
         *p++ = '\n';
 
         p = ngx_copy_str(p, ngx_http_pckg_prefix_index);
-        p = ngx_http_pckg_selector_write(p, variant, cur->media_types);
+        p = ngx_http_pckg_selector_write(p, &variant->id, cur->media_types);
         p = ngx_copy_str(p, ngx_http_pckg_m3u8_ext);
         *p++ = '\n';
     }
@@ -987,12 +1069,117 @@ static ngx_inline u_char *
 ngx_http_pckg_m3u8_append_extinf_tag(u_char *p, uint32_t duration)
 {
     p = ngx_copy_fix(p, M3U8_EXTINF);
-    p = ngx_sprintf(p, "%uD.%03uD",
-        (uint32_t) (duration / 1000),
-        (uint32_t) (duration % 1000));
+    p = ngx_sprintf(p, "%uD.%03uD", duration / 1000, duration % 1000);
     *p++ = ',';
     *p++ = '\n';
     return p;
+}
+
+
+static size_t
+ngx_http_pckg_m3u8_parts_get_size(ngx_pckg_segment_parts_t *parts,
+    ngx_str_t *seg_suffix)
+{
+    size_t    size;
+    uint32_t  i;
+    uint32_t  part;
+
+    /* Note: not handling M3U8_PART_PRELOAD_HINT since its length is less
+        than M3U8_PART_DURATION + M3U8_PART_INDEPENDENT + M3U8_PART_GAP */
+
+    size = (sizeof(M3U8_PART_DURATION) - 1 + NGX_INT32_LEN + sizeof(".000") - 1
+        + sizeof(M3U8_PART_URI) - 1 + ngx_http_pckg_prefix_part.len
+        + 2 * NGX_INT32_LEN + seg_suffix->len - 1 + sizeof("\"\n") - 1)
+        * parts->count;
+
+    for (i = 0; i < parts->count; i++) {
+        part = parts->duration[i];
+
+        if (part & NGX_KSMP_PART_INDEPENDENT) {
+            size += sizeof(M3U8_PART_INDEPENDENT) - 1;
+
+        } else if (part & NGX_KSMP_PART_GAP) {
+            size += sizeof(M3U8_PART_GAP) - 1;
+        }
+    }
+
+    return size;
+}
+
+static u_char *
+ngx_http_pckg_m3u8_parts_write(u_char *p, ngx_pckg_segment_parts_t *parts,
+    ngx_str_t *seg_suffix, int64_t time, uint32_t milliscale)
+{
+    int64_t   start, end;
+    uint32_t  i;
+    uint32_t  segment_index;
+    uint32_t  part, duration;
+
+    start = time / milliscale;
+    segment_index = parts->segment_index + 1;
+
+    i = 0;
+    while (i < parts->count) {
+
+        part = parts->duration[i];
+        i++;
+
+        if (part == NGX_KSMP_PART_PRELOAD_HINT) {
+
+            p = ngx_copy_fix(p, M3U8_PART_PRELOAD_HINT);
+
+        } else {
+
+            duration = part & NGX_KSMP_PART_DURATION_MASK;
+
+            time += duration;
+            end = time / milliscale;
+            duration = end - start;
+            start = end;
+
+            p = ngx_sprintf(p, M3U8_PART_DURATION,
+                duration / 1000, duration % 1000);
+
+            if (part & NGX_KSMP_PART_INDEPENDENT) {
+                p = ngx_copy_fix(p, M3U8_PART_INDEPENDENT);
+
+            } else if (part & NGX_KSMP_PART_GAP) {
+                p = ngx_copy_fix(p, M3U8_PART_GAP);
+            }
+        }
+
+        p = ngx_sprintf(p, M3U8_PART_URI, &ngx_http_pckg_prefix_part,
+            segment_index, i);
+        p = ngx_copy(p, seg_suffix->data, seg_suffix->len - 1);
+        *p++ = '"';
+
+        *p++ = '\n';
+    }
+
+    return p;
+}
+
+
+static size_t
+ngx_http_pckg_m3u8_track_parts_get_size(ngx_pckg_channel_t *channel,
+    ngx_str_t *seg_suffix)
+{
+    size_t                     size;
+    ngx_pckg_track_t          *track;
+    ngx_pckg_segment_parts_t  *cur;
+
+    if (channel->tracks.nelts != 1) {
+        return 0;
+    }
+
+    track = channel->tracks.elts;
+
+    size = 0;
+    for (cur = track->parts_cur; cur < track->parts_end; cur++) {
+        size += ngx_http_pckg_m3u8_parts_get_size(cur, seg_suffix);
+    }
+
+    return size;
 }
 
 
@@ -1008,10 +1195,40 @@ ngx_http_pckg_m3u8_write_period_segments(u_char *p, ngx_pckg_period_t *period,
     uint32_t                    last_bitrate;
     uint32_t                    last_segment;
     uint32_t                    segment_index;
+    uint32_t                    part_segment_index;
     ngx_uint_t                  i, n;
+    ngx_flag_t                  pending_segment;
+    ngx_pckg_track_t           *track;
+    ngx_pckg_channel_t         *channel;
     ngx_ksmp_segment_repeat_t  *elt;
 
     segment_index = period->header->segment_index;
+
+    /* get the segment index of the first part */
+
+    channel = period->timeline->channel;
+    if (channel->tracks.nelts == 1) {
+        track = channel->tracks.elts;
+
+        for ( ;; ) {
+
+            if (track->parts_cur >= track->parts_end) {
+                part_segment_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
+                break;
+            }
+
+            part_segment_index = track->parts_cur->segment_index;
+            if (part_segment_index >= segment_index) {
+                break;
+            }
+
+            track->parts_cur++;
+        }
+
+    } else {
+        track = NULL;
+        part_segment_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
+    }
 
     time = period->header->time;
     start = time / milliscale;
@@ -1019,18 +1236,43 @@ ngx_http_pckg_m3u8_write_period_segments(u_char *p, ngx_pckg_period_t *period,
     last_bitrate = 0;
 
     n = period->nelts;
+    if (period->elts[n - 1].duration == NGX_KSMP_PENDING_SEGMENT_DURATION) {
+        n--;
+        pending_segment = 1;
+
+    } else {
+        pending_segment = 0;
+    }
+
     for (i = 0; i < n; i++) {
         elt = &period->elts[i];
 
         last_segment = segment_index + elt->count;
 
-        for (; segment_index < last_segment; )
-        {
+        while (segment_index < last_segment) {
+
+            /* write parts */
+
+            if (segment_index == part_segment_index) {
+                p = ngx_http_pckg_m3u8_parts_write(p, track->parts_cur,
+                    seg_suffix, time, milliscale);
+
+                track->parts_cur++;
+                part_segment_index = track->parts_cur < track->parts_end
+                    ? track->parts_cur->segment_index
+                    : NGX_KSMP_INVALID_SEGMENT_INDEX;
+            }
+
+            /* write extinf */
+
             time += elt->duration;
             end = time / milliscale;
             duration = end - start;
+            start = end;
 
             p = ngx_http_pckg_m3u8_append_extinf_tag(p, duration);
+
+            /* write gap / bitrate */
 
             bitrate = ngx_pckg_segment_info_get(bi, segment_index, duration);
 
@@ -1052,13 +1294,22 @@ ngx_http_pckg_m3u8_write_period_segments(u_char *p, ngx_pckg_period_t *period,
                 }
             }
 
+            /* write uri */
+
             segment_index++;
             p = ngx_copy_str(p, ngx_http_pckg_prefix_seg);
             p = ngx_sprintf(p, "-%uD", segment_index);
             p = ngx_copy_str(p, *seg_suffix);
-
-            start = end;
         }
+    }
+
+    /* write pending segment parts */
+
+    if (pending_segment && segment_index == part_segment_index) {
+        p = ngx_http_pckg_m3u8_parts_write(p, track->parts_cur,
+            seg_suffix, time, milliscale);
+
+        track->parts_cur++;
     }
 
     return p;
@@ -1075,7 +1326,7 @@ ngx_http_pckg_m3u8_get_selector(ngx_http_request_t *r,
 
     variant = channel->variants.elts;
 
-    size = ngx_http_pckg_selector_get_size(variant);
+    size = ngx_http_pckg_selector_get_size(&variant->id);
 
     p = ngx_pnalloc(r->pool, size);
     if (p == NULL) {
@@ -1085,22 +1336,172 @@ ngx_http_pckg_m3u8_get_selector(ngx_http_request_t *r,
     }
 
     result->data = p;
-    p = ngx_http_pckg_selector_write(p, variant, channel->media_types);
+    p = ngx_http_pckg_selector_write(p, &variant->id, channel->media_types);
     result->len = p - result->data;
 
     return NGX_OK;
 }
 
 
+static size_t
+ngx_http_pckg_m3u8_server_control_get_size()
+{
+    return sizeof(M3U8_SERVER_CONTROL) - 1
+        + sizeof(M3U8_CTL_BLOCK_RELOAD) - 1
+        + sizeof(M3U8_CTL_CAN_SKIP_UNTIL) - 1 + 2 * NGX_INT32_LEN
+        + sizeof(M3U8_CTL_PART_HOLD_BACK) - 1 + 2 * NGX_INT32_LEN
+        + sizeof(",,\n") - 1;
+}
+
+static u_char *
+ngx_http_pckg_m3u8_server_control_write(u_char *p, ngx_http_request_t *r,
+    ngx_pckg_channel_t *channel, uint32_t target_duration)
+{
+    uint32_t                        flags;
+    ngx_flag_t                      comma;
+    ngx_uint_t                      value;
+    ngx_pckg_timeline_t            *timeline;
+    ngx_http_pckg_core_ctx_t       *ctx;
+    ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
+    timeline = &channel->timeline;
+
+    flags = 0;
+
+    if (mlcf->ctl.skip_boundary_percent) {
+        flags |= M3U8_CTL_FLAG_CAN_SKIP_UNTIL;
+    }
+
+    if (ctx->params.media_type_count == 1) {
+        if (mlcf->ctl.block_reload && !timeline->header->end_list) {
+            flags |= M3U8_CTL_FLAG_BLOCK_RELOAD;
+        }
+
+        if (mlcf->ctl.part_hold_back_percent && mlcf->parts
+            && channel->header->part_duration)
+        {
+            flags |= M3U8_CTL_FLAG_PART_HOLD_BACK;
+        }
+    }
+
+    if (!flags) {
+        return p;
+    }
+
+    p = ngx_copy_fix(p, M3U8_SERVER_CONTROL);
+
+    if (flags & M3U8_CTL_FLAG_BLOCK_RELOAD) {
+        comma = 1;
+        p = ngx_copy_fix(p, M3U8_CTL_BLOCK_RELOAD);
+
+    } else {
+        comma = 0;
+    }
+
+    if (flags & M3U8_CTL_FLAG_CAN_SKIP_UNTIL) {
+        if (comma) {
+            *p++ = ',';
+
+        } else {
+            comma = 1;
+        }
+
+        value = target_duration * mlcf->ctl.skip_boundary_percent * 10;
+
+        p = ngx_sprintf(p, M3U8_CTL_CAN_SKIP_UNTIL,
+            value / 1000, value % 1000);
+    }
+
+    if (flags & M3U8_CTL_FLAG_PART_HOLD_BACK) {
+        if (comma) {
+            *p++ = ',';
+
+        } else {
+            comma = 1;
+        }
+
+        value = channel->header->part_duration
+            * mlcf->ctl.part_hold_back_percent * 10
+            / channel->header->timescale;
+
+        p = ngx_sprintf(p, M3U8_CTL_PART_HOLD_BACK,
+            value / 1000, value % 1000);
+    }
+
+    *p++ = '\n';
+
+    return p;
+}
+
+
+static size_t
+ngx_http_pckg_m3u8_redition_reports_get_size(ngx_pckg_channel_t *channel)
+{
+    size_t                        size;
+    ngx_uint_t                    i, n;
+    ngx_pckg_rendition_report_t  *rrs, *variant_rr;
+
+    size = 0;
+
+    rrs = channel->rrs.elts;
+    n = channel->rrs.nelts;
+    for (i = 0; i < n; i++) {
+
+        variant_rr = &rrs[i];
+
+        size += (sizeof(M3U8_RENDITION_REPORT_URI) - 1
+            + ngx_http_pckg_prefix_index.len
+            + ngx_http_pckg_selector_get_size(&variant_rr->variant_id)
+            + ngx_http_pckg_m3u8_ext.len
+            + sizeof(M3U8_RENDITION_REPORT_ATTRS) - 1 + 2 * NGX_INT32_LEN)
+            * variant_rr->nelts;
+    }
+
+    return size;
+}
+
+static u_char *
+ngx_http_pckg_m3u8_redition_reports_write(u_char *p,
+    ngx_pckg_channel_t *channel)
+{
+    ngx_uint_t                    i, j, n;
+    ngx_ksmp_rendition_report_t  *track_rr;
+    ngx_pckg_rendition_report_t  *rrs, *variant_rr;
+
+    rrs = channel->rrs.elts;
+    n = channel->rrs.nelts;
+    for (i = 0; i < n; i++) {
+
+        variant_rr = &rrs[i];
+        for (j = 0; j < variant_rr->nelts; j++) {
+            track_rr = &variant_rr->elts[j];
+
+            p = ngx_copy_fix(p, M3U8_RENDITION_REPORT_URI);
+            p = ngx_copy_str(p, ngx_http_pckg_prefix_index);
+            p = ngx_http_pckg_selector_write(p, &variant_rr->variant_id,
+                1 << track_rr->media_type);
+            p = ngx_copy_str(p, ngx_http_pckg_m3u8_ext);
+            p = ngx_sprintf(p, M3U8_RENDITION_REPORT_ATTRS,
+                track_rr->last_sequence, track_rr->last_part_index);
+        }
+    }
+
+    return p;
+}
+
+
 static ngx_int_t
 ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
-    ngx_pckg_channel_t *channel,
-    ngx_http_pckg_m3u8_enc_params_t *enc_params, ngx_str_t *result)
+    ngx_pckg_channel_t *channel, ngx_http_pckg_m3u8_enc_params_t *enc_params,
+    ngx_str_t *result)
 {
     u_char                         *p;
     size_t                          size, period_size, segment_size;
     ngx_tm_t                        gmt;
     uint32_t                        version;
+    uint32_t                        part_target;
     uint32_t                        target_duration;
     uint32_t                        segment_index_size;
     uint32_t                        timescale, milliscale;
@@ -1111,26 +1512,33 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     ngx_pckg_period_t              *periods, *period;
     ngx_pckg_variant_t             *variant;
     ngx_pckg_timeline_t            *timeline;
+    ngx_http_pckg_core_ctx_t       *ctx;
+    ngx_ksmp_period_header_t       *ph;
     ngx_http_pckg_container_t      *container;
     media_bitrate_estimator_t      *estimators;
     ngx_pckg_media_info_ctx_t      *mi;
+    ngx_ksmp_timeline_header_t     *th;
     ngx_pckg_segment_info_ctx_t    *bi;
     ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
 
-    /* get the container format */
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
     mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
+
+    /* get the container format */
 
     variant = channel->variants.elts;
 
-    container = ngx_http_pckg_m3u8_get_container(r, variant->tracks);
+    container = ngx_http_pckg_m3u8_get_container(r, variant);
 
     /* build the segment track selector */
+
     rc = ngx_http_pckg_m3u8_get_selector(r, channel, &selector);
     if (rc != NGX_OK) {
         return rc;
     }
 
     /* build the segment url suffix */
+
     p = ngx_pnalloc(r->pool, selector.len + container->seg_file_ext->len + 1);
     if (p == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
@@ -1145,6 +1553,7 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     seg_suffix.len = p - seg_suffix.data;
 
     /* get response size limit */
+
     estimators = ngx_palloc(r->pool,
         channel->tracks.nelts * sizeof(estimators[0]));
     if (estimators == NULL) {
@@ -1164,6 +1573,7 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     }
 
     timeline = &channel->timeline;
+    th = timeline->header;
 
     periods = timeline->periods.elts;
     period = &periods[timeline->periods.nelts - 1];
@@ -1185,8 +1595,13 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     }
 
     size = sizeof(M3U8_INDEX_HEADER) + 4 * NGX_INT32_LEN +
+        ngx_http_pckg_m3u8_server_control_get_size() +
+        sizeof(M3U8_PART_INF) - 1 + 2 * NGX_INT32_LEN +
+        sizeof(M3U8_SKIPPED_SEGMENTS) - 1 + NGX_INT32_LEN +
         period_size * timeline->periods.nelts +
         segment_size * timeline->segment_count +
+        ngx_http_pckg_m3u8_track_parts_get_size(channel, &seg_suffix) +
+        ngx_http_pckg_m3u8_redition_reports_get_size(channel) +
         sizeof(M3U8_END_LIST) - 1;
 
 #if (NGX_HAVE_OPENSSL_EVP)
@@ -1209,6 +1624,7 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     ngx_pckg_segment_info_reset(bi, channel);
 
     /* allocate the buffer */
+
     p = ngx_pnalloc(r->pool, size);
     if (p == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
@@ -1223,11 +1639,14 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     timescale = channel->header->timescale;
     milliscale = timescale / 1000;
 
-    /* header */
-    target_duration = (timeline->header->target_duration + timescale / 2)
-        / timescale;
+    /* write the header */
 
-    if (container->init_file_ext) {
+    target_duration = (th->target_duration + timescale / 2) / timescale;
+
+    if (th->skipped_segments > 0) {
+        version = 9;    /* EXT-X-SKIP requires version 9 */
+
+    } else if (container->init_file_ext) {
         version = 6;    /* EXT-X-MAP requires version 6 */
 
     } else if (enc_params->type == NGX_HTTP_PCKG_ENC_CBCS ||
@@ -1242,7 +1661,28 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     }
 
     p = ngx_sprintf(p, M3U8_INDEX_HEADER, target_duration, version,
-        timeline->header->sequence, timeline->header->first_period_index);
+        th->sequence, th->first_period_index - th->skipped_periods);
+
+    p = ngx_http_pckg_m3u8_server_control_write(p, r, channel,
+        target_duration);
+
+    if (channel->header->part_duration > 0 && mlcf->parts
+        && ctx->params.media_type_count == 1)
+    {
+        part_target = rescale_time(channel->header->part_duration, timescale,
+            1000);
+        p = ngx_sprintf(p, M3U8_PART_INF,
+            part_target / 1000, part_target % 1000);
+    }
+
+    if (th->skipped_segments > 0) {
+        p = ngx_sprintf(p, M3U8_SKIPPED_SEGMENTS, th->skipped_segments);
+
+        ngx_pckg_media_info_get(mi, th->last_skipped_index, &last_map_index);
+
+    } else {
+        last_map_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
+    }
 
 #if (NGX_HAVE_OPENSSL_EVP)
     if (enc_params->type != NGX_HTTP_PCKG_ENC_NONE) {
@@ -1250,48 +1690,59 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     }
 #endif
 
-    last_map_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
+    /* write the periods */
 
     n = timeline->periods.nelts;
 
     for (i = 0; i < n; i++) {
 
         period = &periods[i];
-        if (i > 0) {
+        ph = period->header;
+
+        ngx_pckg_media_info_get(mi, ph->segment_index, &map_index);
+
+        ngx_http_pckg_get_bitrate_estimator(r, container,
+            mi->media_infos, channel->tracks.nelts, estimators);
+
+        if (i > 0 || (th->skipped_segments > 0
+            && ph->segment_index == th->first_period_initial_segment_index))
+        {
             p = ngx_copy_fix(p, M3U8_DISCONTINUITY);
         }
 
-        ngx_gmtime(period->header->time / timescale, &gmt);
+        ngx_gmtime(ph->time / timescale, &gmt);
 
         p = ngx_sprintf(p, M3U8_PROGRAM_DATE_TIME,
             gmt.ngx_tm_year, gmt.ngx_tm_mon, gmt.ngx_tm_mday,
             gmt.ngx_tm_hour, gmt.ngx_tm_min, gmt.ngx_tm_sec,
-            (int) ((period->header->time / milliscale) % 1000));
-
-        ngx_pckg_media_info_get(mi, period->header->segment_index,
-            &map_index);
+            (int) ((ph->time / milliscale) % 1000));
 
         if (container->init_file_ext && map_index != last_map_index) {
-            p = ngx_copy_fix(p, M3U8_MAP_BASE);
-            p = ngx_copy_str(p, ngx_http_pckg_prefix_init_seg);
-            p = ngx_sprintf(p, "-%uD", map_index + 1);
-            p = ngx_copy_str(p, selector);
-            p = ngx_copy_str(p, *container->init_file_ext);
-            *p++ = '"';
-            *p++ = '\n';
+
+            if (i > 0 || th->skipped_segments <= 0
+                || ph->segment_index == th->first_period_initial_segment_index)
+            {
+                p = ngx_copy_fix(p, M3U8_MAP_BASE);
+                p = ngx_copy_str(p, ngx_http_pckg_prefix_init_seg);
+                p = ngx_sprintf(p, "-%uD", map_index + 1);
+                p = ngx_copy_str(p, selector);
+                p = ngx_copy_str(p, *container->init_file_ext);
+                *p++ = '"';
+                *p++ = '\n';
+            }
 
             last_map_index = map_index;
         }
-
-        ngx_http_pckg_get_bitrate_estimator(r, container,
-            mi->media_infos, channel->tracks.nelts, estimators);
 
         p = ngx_http_pckg_m3u8_write_period_segments(p, period,
             &seg_suffix, milliscale, bi);
     }
 
     /* write the footer */
-    if (timeline->header->end_list) {
+
+    p = ngx_http_pckg_m3u8_redition_reports_write(p, channel);
+
+    if (th->end_list) {
         p = ngx_copy_fix(p, M3U8_END_LIST);
     }
 
@@ -1314,6 +1765,7 @@ ngx_http_pckg_m3u8_index_handle(ngx_http_request_t *r)
 {
     ngx_int_t                         rc;
     ngx_str_t                         response;
+    ngx_uint_t                        expires_type;
     ngx_pckg_channel_t               *channel;
     ngx_http_pckg_core_ctx_t         *ctx;
     ngx_http_pckg_m3u8_enc_params_t   enc_params;
@@ -1335,10 +1787,16 @@ ngx_http_pckg_m3u8_index_handle(ngx_http_request_t *r)
         return rc;
     }
 
+    if (ctx->params.flags & NGX_KSMP_FLAG_WAIT) {
+        expires_type = NGX_HTTP_PCKG_EXPIRES_INDEX_BLOCKING;
+
+    } else {
+        expires_type = NGX_HTTP_PCKG_EXPIRES_INDEX;
+    }
+
     rc = ngx_http_pckg_send_header(r, response.len,
         &ngx_http_pckg_m3u8_content_type,
-        channel->timeline.header->last_modified,
-        NGX_HTTP_PCKG_EXPIRES_INDEX);
+        channel->timeline.header->last_modified, expires_type);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -1356,18 +1814,109 @@ static ngx_http_pckg_request_handler_t  ngx_http_pckg_m3u8_index_handler = {
 /* init */
 
 static ngx_int_t
+ngx_http_pckg_m3u8_args_handler(ngx_http_request_t *r, void *data,
+    ngx_str_t *key, ngx_str_t *value)
+{
+    ngx_int_t                       int_val;
+    ngx_pckg_ksmp_req_t            *params = data;
+    ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
+
+    if (key->len <= sizeof(M3U8_ARG_PREFIX) - 1
+        || ngx_memcmp(key->data, M3U8_ARG_PREFIX, sizeof(M3U8_ARG_PREFIX) - 1)
+            != 0)
+    {
+        return NGX_OK;
+    }
+
+    key->data += sizeof(M3U8_ARG_PREFIX) - 1;
+    key->len -= sizeof(M3U8_ARG_PREFIX) - 1;
+
+    if (key->len == sizeof(M3U8_ARG_SKIP) - 1
+        && ngx_memcmp(key->data, M3U8_ARG_SKIP, sizeof(M3U8_ARG_SKIP) - 1)
+            == 0)
+    {
+        mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
+        if (!mlcf->ctl.skip_boundary_percent) {
+            return NGX_OK;
+        }
+
+        if ((value->len == sizeof("YES") - 1
+            && ngx_memcmp(value->data, "YES", sizeof("YES") - 1) == 0)
+            || (value->len == sizeof("v2") - 1
+                && ngx_memcmp(value->data, "v2", sizeof("v2") - 1) == 0))
+        {
+            params->flags |= NGX_KSMP_FLAG_SKIP_SEGMENTS;
+            params->skip_boundary_percent = mlcf->ctl.skip_boundary_percent;
+
+        } else {
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                "ngx_http_pckg_m3u8_args_handler: "
+                "unknown _HLS_skip value \"%V\"", value);
+        }
+
+    } else if (key->len == sizeof(M3U8_ARG_MSN) - 1
+        && ngx_memcmp(key->data, M3U8_ARG_MSN, sizeof(M3U8_ARG_MSN) - 1) == 0)
+    {
+        int_val = ngx_atoi(value->data, value->len);
+        if (int_val == NGX_ERROR) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_pckg_m3u8_args_handler: "
+                "invalid _HLS_msn \"%V\"", value);
+            return NGX_HTTP_BAD_REQUEST;
+        }
+
+        params->flags |= NGX_KSMP_FLAG_WAIT;
+        params->segment_index = int_val;
+
+    } else if (key->len == sizeof(M3U8_ARG_PART) - 1
+        && ngx_memcmp(key->data, M3U8_ARG_PART, sizeof(M3U8_ARG_PART) - 1)
+            == 0)
+    {
+        int_val = ngx_atoi(value->data, value->len);
+        if (int_val == NGX_ERROR) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_pckg_m3u8_args_handler: "
+                "invalid _HLS_part \"%V\"", value);
+            return NGX_HTTP_BAD_REQUEST;
+        }
+
+        params->flags |= NGX_KSMP_FLAG_WAIT;
+        params->part_index = int_val;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
 ngx_http_pckg_m3u8_parse_request(ngx_http_request_t *r, u_char *start_pos,
     u_char *end_pos, ngx_pckg_ksmp_req_t *result,
     ngx_http_pckg_request_handler_t **handler)
 {
     uint32_t                        flags;
+    ngx_int_t                       rc;
     ngx_http_pckg_core_loc_conf_t  *plcf;
+    ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
 
     plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
 
     if (ngx_http_pckg_match_prefix(start_pos, end_pos,
         ngx_http_pckg_prefix_index))
     {
+        rc = ngx_http_api_parse_args(r, ngx_http_pckg_m3u8_args_handler,
+            result);
+        if (rc != NGX_OK) {
+            return rc;
+        }
+
+        if (result->part_index != NGX_KSMP_INVALID_PART_INDEX
+            && result->segment_index == NGX_KSMP_INVALID_SEGMENT_INDEX)
+        {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_pckg_m3u8_parse_request: "
+                "request for _HLS_part without _HLS_msn");
+            return NGX_HTTP_BAD_REQUEST;
+        }
+
         start_pos += ngx_http_pckg_prefix_index.len;
 
         *handler = &ngx_http_pckg_m3u8_index_handler;
@@ -1375,9 +1924,37 @@ ngx_http_pckg_m3u8_parse_request(ngx_http_request_t *r, u_char *start_pos,
         flags = NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT |
             NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
-        result->flags = plcf->active_policy | NGX_KSMP_FLAG_CHECK_EXPIRY
-            | NGX_KSMP_FLAG_MEDIA_INFO | NGX_KSMP_FLAG_TIMELINE
-            | NGX_KSMP_FLAG_PERIODS | NGX_KSMP_FLAG_SEGMENT_INFO;
+        result->flags |= plcf->active_policy | NGX_KSMP_FLAG_CHECK_EXPIRY
+            | NGX_KSMP_FLAG_TIMELINE | NGX_KSMP_FLAG_PERIODS
+            | NGX_KSMP_FLAG_MEDIA_INFO | NGX_KSMP_FLAG_SEGMENT_INFO;
+
+        rc = ngx_http_pckg_parse_uri_file_name(r, start_pos, end_pos, flags,
+            result);
+        if (rc != NGX_OK) {
+            return rc;
+        }
+
+        if (result->media_type_count == 1) {
+            mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
+
+            if (mlcf->parts) {
+                result->flags |= NGX_KSMP_FLAG_SEGMENT_PARTS;
+            }
+
+            if (mlcf->rendition_reports) {
+                result->flags |= NGX_KSMP_FLAG_RENDITION_REPORTS;
+            }
+
+        } else {
+            if (result->flags & NGX_KSMP_FLAG_WAIT) {
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                    "ngx_http_pckg_m3u8_parse_request: "
+                    "wait request on multiple tracks");
+                return NGX_HTTP_BAD_REQUEST;
+            }
+        }
+
+        return NGX_OK;
 
     } else if (ngx_http_pckg_match_prefix(start_pos, end_pos,
         ngx_http_pckg_prefix_master))
@@ -1389,8 +1966,8 @@ ngx_http_pckg_m3u8_parse_request(ngx_http_request_t *r, u_char *start_pos,
             NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
         result->flags = plcf->active_policy
-            | NGX_KSMP_FLAG_MEDIA_INFO | NGX_KSMP_FLAG_TIMELINE
-            | NGX_KSMP_FLAG_LAST_SEGMENT_ONLY;
+            | NGX_KSMP_FLAG_TIMELINE | NGX_KSMP_FLAG_MEDIA_INFO
+            | NGX_KSMP_FLAG_LAST_SEGMENT_ONLY | NGX_KSMP_FLAG_MAX_PENDING;
 
         result->parse_flags = NGX_PCKG_KSMP_PARSE_FLAG_TRANSFER_CHAR
             | NGX_PCKG_KSMP_PARSE_FLAG_CODEC_NAME;
@@ -1401,6 +1978,104 @@ ngx_http_pckg_m3u8_parse_request(ngx_http_request_t *r, u_char *start_pos,
 
     return ngx_http_pckg_parse_uri_file_name(r, start_pos, end_pos,
         flags, result);
+}
+
+
+static char *
+ngx_http_pckg_m3u8_low_latency(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_pckg_m3u8_loc_conf_t  *mlcf = conf;
+
+    ngx_conf_init_value(mlcf->mux_segments, 0);
+    ngx_conf_init_value(mlcf->parts, 1);
+    ngx_conf_init_value(mlcf->rendition_reports, 1);
+
+    ngx_conf_init_value(mlcf->ctl.block_reload, 1);
+    ngx_conf_init_uint_value(mlcf->ctl.skip_boundary_percent, 600);
+    ngx_conf_init_uint_value(mlcf->ctl.part_hold_back_percent, 300);
+
+    return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_http_pckg_m3u8_control(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    char  *p = conf;
+
+    ngx_str_t                      *value;
+    ngx_int_t                       n;
+    ngx_uint_t                      i;
+    ngx_http_pckg_m3u8_ctl_conf_t  *ctl;
+
+    ctl = (ngx_http_pckg_m3u8_ctl_conf_t *) (p + cmd->offset);
+
+    value = cf->args->elts;
+
+    ngx_memzero(ctl, sizeof(*ctl));
+
+    if (cf->args->nelts == 2 && ngx_strcmp(value[1].data, "all") == 0) {
+        ctl->block_reload = 1;
+        ctl->skip_boundary_percent = 600;
+        ctl->part_hold_back_percent = 300;
+        return NGX_CONF_OK;
+    }
+
+    for (i = 1; i < cf->args->nelts; i++) {
+
+        if (ngx_strncmp(value[i].data, "block_reload=", 13) == 0) {
+
+            if (ngx_strcmp(&value[i].data[13], "on") == 0) {
+                ctl->block_reload = 1;
+
+            } else if (ngx_strcmp(&value[i].data[13], "off") == 0) {
+                ctl->block_reload = 0;
+
+            } else {
+                goto invalid;
+            }
+
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "skip_boundary=", 14) == 0) {
+            if (ngx_strcmp(&value[i].data[14], "default") == 0) {
+                n = 600;
+
+            } else {
+                n = ngx_atofp(value[i].data + 14, value[i].len - 14, 2);
+                if (n == NGX_ERROR || n == 0) {
+                    goto invalid;
+                }
+            }
+
+            ctl->skip_boundary_percent = n;
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "part_hold_back=", 15) == 0) {
+            if (ngx_strcmp(&value[i].data[15], "default") == 0) {
+                n = 300;
+
+            } else {
+                n = ngx_atofp(value[i].data + 15, value[i].len - 15, 2);
+                if (n == NGX_ERROR || n == 0) {
+                    goto invalid;
+                }
+            }
+
+            ctl->part_hold_back_percent = n;
+            continue;
+        }
+
+    invalid:
+
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "invalid parameter \"%V\"", &value[i]);
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
 }
 
 
@@ -1430,6 +2105,13 @@ ngx_http_pckg_m3u8_create_loc_conf(ngx_conf_t *cf)
 
     conf->container = NGX_CONF_UNSET_UINT;
     conf->mux_segments = NGX_CONF_UNSET;
+    conf->parts = NGX_CONF_UNSET;
+    conf->rendition_reports = NGX_CONF_UNSET;
+
+    conf->ctl.block_reload = NGX_CONF_UNSET;
+    conf->ctl.part_hold_back_percent = NGX_CONF_UNSET_UINT;
+    conf->ctl.skip_boundary_percent = NGX_CONF_UNSET_UINT;
+
     conf->enc.output_iv = NGX_CONF_UNSET;
 
     return conf;
@@ -1447,6 +2129,25 @@ ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_value(conf->mux_segments,
                          prev->mux_segments, 1);
+
+    ngx_conf_merge_value(conf->parts,
+                         prev->parts, 0);
+
+    ngx_conf_merge_value(conf->rendition_reports,
+                         prev->rendition_reports, 0);
+
+
+    ngx_conf_merge_value(conf->ctl.block_reload,
+                         prev->ctl.block_reload, 0);
+
+    /* PART-HOLD-BACK is REQUIRED if the Playlist contains the EXT-X-
+      PART-INF tag */
+    ngx_conf_merge_uint_value(conf->ctl.part_hold_back_percent,
+                              prev->ctl.part_hold_back_percent, 300);
+
+    ngx_conf_merge_uint_value(conf->ctl.skip_boundary_percent,
+                              prev->ctl.skip_boundary_percent, 0);
+
 
     ngx_conf_merge_value(conf->enc.output_iv,
                          prev->enc.output_iv, 1);

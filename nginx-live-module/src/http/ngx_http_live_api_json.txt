@@ -5,6 +5,7 @@ in ngx_live_channel_json
     opaque %rV
     read %b
     initial_segment_index %L
+    segment_duration %L
 
 in ngx_live_variant_json
     id %V

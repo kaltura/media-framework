@@ -32,8 +32,11 @@ typedef struct {
     ngx_str_t                      timeline_id;
     ngx_str_t                      variant_ids;
     uint32_t                       media_type_mask;
+    uint32_t                       media_type_count;
     uint32_t                       segment_index;
     uint32_t                       max_segment_index;
+    uint32_t                       part_index;
+    uint32_t                       skip_boundary_percent;
     int64_t                        time;
     size_t                         padding;
     uint32_t                       flags;
@@ -60,6 +63,7 @@ struct ngx_pckg_timeline_s {
     uint64_t                       duration;
     int64_t                        last_time;
     uint32_t                       last_segment;
+    unsigned                       pending_segment:1;
 };
 
 
@@ -85,10 +89,20 @@ struct ngx_pckg_media_info_s {
 };
 
 
+typedef struct {
+    uint32_t                       segment_index;
+    uint32_t                       count;
+    uint32_t                      *duration;
+} ngx_pckg_segment_parts_t;
+
+
 struct ngx_pckg_track_s {
     ngx_pckg_channel_t            *channel;
     ngx_ksmp_track_header_t       *header;
     ngx_array_t                    media_info;  /* ngx_pckg_media_info_t */
+    ngx_array_t                    parts;       /* ngx_pckg_segment_parts_t */
+    ngx_pckg_segment_parts_t      *parts_cur;
+    ngx_pckg_segment_parts_t      *parts_end;
     ngx_pckg_media_info_t         *last_media_info;
     ngx_pckg_media_info_iter_t     media_info_iter;
     ngx_pckg_segment_info_t        segment_info;
@@ -120,6 +134,13 @@ typedef struct {
 } ngx_pckg_dynamic_vars_t;
 
 
+typedef struct {
+    ngx_str_t                      variant_id;
+    ngx_ksmp_rendition_report_t   *elts;
+    ngx_uint_t                     nelts;
+} ngx_pckg_rendition_report_t;
+
+
 struct ngx_pckg_channel_s {
     ngx_pool_t                    *pool;
     ngx_log_t                     *log;
@@ -128,13 +149,14 @@ struct ngx_pckg_channel_s {
 
     uint32_t                       flags;
     uint32_t                       parse_flags;
-    uint32_t                       track_id;    /* sgts only */
+    uint32_t                       track_id;  /* sgts only */
 
     ngx_str_t                      id;
     ngx_ksmp_channel_header_t     *header;
     ngx_pckg_timeline_t            timeline;
-    ngx_array_t                    variants;    /* ngx_pckg_variant_t */
-    ngx_array_t                    tracks;      /* ngx_pckg_track_t */
+    ngx_array_t                    variants;  /* ngx_pckg_variant_t */
+    ngx_array_t                    tracks;    /* ngx_pckg_track_t */
+    ngx_array_t                    rrs;       /* ngx_pckg_rendition_report_t */
     ngx_ksmp_segment_index_t      *segment_index;
     ngx_pckg_dynamic_vars_t        vars;
     uint32_t                       media_types;

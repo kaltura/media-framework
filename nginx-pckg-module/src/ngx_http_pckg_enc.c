@@ -537,7 +537,7 @@ ngx_http_pckg_handle_enc_key(ngx_http_request_t *r)
     ngx_str_t  response;
 
     response.len = AES_BLOCK_SIZE;
-    response.data = ngx_palloc(r->pool, response.len);
+    response.data = ngx_pnalloc(r->pool, response.len);
     if (response.data == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
             "ngx_http_pckg_handle_enc_key: alloc failed");

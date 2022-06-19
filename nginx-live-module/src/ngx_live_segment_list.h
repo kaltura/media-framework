@@ -51,6 +51,9 @@ ngx_int_t ngx_live_segment_list_init(ngx_live_channel_t *channel,
 ngx_int_t ngx_live_segment_list_add(ngx_live_segment_list_t *segment_list,
     uint32_t segment_index, int64_t time, uint32_t duration);
 
+ngx_int_t ngx_live_segment_list_update_last(
+    ngx_live_segment_list_t *segment_list, uint32_t duration);
+
 ngx_int_t ngx_live_segment_list_get_segment_time(
     ngx_live_segment_list_t *segment_list, uint32_t segment_index,
     int64_t *start, int64_t *end);

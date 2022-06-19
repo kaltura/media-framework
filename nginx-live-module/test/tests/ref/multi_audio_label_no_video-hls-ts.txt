@@ -163,35 +163,3 @@ URL: /seg-8-salt2-a.ts
 HEADERS: 200 video/mp2t
 BODY: SIZE: 18612, MD5: 5813418c4529a8aa665ada1014caa8ac
 
-URL: /seg-1-salt1-a.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 12596, MD5: 2a5a35b4beba9f38ce6b7a8d8fa232e0
-
-URL: /seg-2-salt1-a.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 12596, MD5: 3753cd74b67393a633ba392663f7556a
-
-URL: /seg-3-salt1-a.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 12596, MD5: 10f674c877d0dff95581ba745ed1e290
-
-URL: /seg-4-salt1-a.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 12596, MD5: 2dec4364fdd585e9ae3a53b8a43ce3dc
-
-URL: /seg-5-salt1-a.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 12596, MD5: a2578d67f73680f13fb22062f4eae926
-
-URL: /seg-6-salt1-a.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 12596, MD5: 05cad26a66239c61d8f78ad123a013d3
-
-URL: /seg-7-salt1-a.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 12596, MD5: 29bb63b4f5ba78bc6059b1ef81234958
-
-URL: /seg-8-salt1-a.ts
-HEADERS: 200 video/mp2t
-BODY: SIZE: 6580, MD5: e713210d857a1160aceedd8bab942ac5
-

@@ -33,7 +33,7 @@ typedef struct {
     uint64_t                            uid;
     uint32_t                            min_index;
     uint32_t                            max_index;
-    uint32_t                            reserved;
+    uint32_t                            next_part_sequence;
     uint32_t                            last_segment_media_types;
     int64_t                             last_segment_created;
     int64_t                             last_modified;
@@ -114,7 +114,7 @@ ngx_live_persist_index_channel_snap(ngx_live_channel_t *channel, void *ectx)
     ngx_live_persist_index_track_t    *tp;
     ngx_live_persist_index_channel_t  *cp;
 
-    cp = ngx_palloc(snap->pool, sizeof(*cp) +
+    cp = ngx_palloc(snap->base.pool, sizeof(*cp) +
         sizeof(*tp) * (channel->tracks.count + 1));
     if (cp == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
@@ -127,6 +127,7 @@ ngx_live_persist_index_channel_snap(ngx_live_channel_t *channel, void *ectx)
     ngx_live_set_ctx(snap, cp, ngx_live_persist_index_module);
 
     cp->last_modified = channel->last_modified;
+    cp->next_part_sequence = channel->next_part_sequence;
     cp->last_segment_media_types = channel->last_segment_media_types;
 
     /* when called from segment_created, this field wasn't updated yet */
@@ -158,7 +159,7 @@ ngx_live_persist_index_snap_free(ngx_live_persist_snap_index_t *snap)
 {
     snap->frames_snap->close(snap->frames_snap,
         ngx_live_persist_snap_close_free);
-    ngx_destroy_pool(snap->pool);
+    ngx_destroy_pool(snap->base.pool);
 }
 
 static void
@@ -201,7 +202,7 @@ ngx_live_persist_index_snap_close(void *data,
             snap->frames_snap->close(snap->frames_snap, action);
         }
 
-        ngx_destroy_pool(snap->pool);
+        ngx_destroy_pool(snap->base.pool);
         return;
 
     case ngx_live_persist_snap_close_write:
@@ -266,17 +267,45 @@ ngx_live_persist_index_snap_close(void *data,
         "write started, file: %ui, scope: %uD..%uD",
         scope->base.file, scope->min_index, scope->max_index);
 
-    ngx_destroy_pool(snap->pool);
+    ngx_destroy_pool(snap->base.pool);
     return;
 
 close:
 
     snap->frames_snap->close(snap->frames_snap, action);
-    ngx_destroy_pool(snap->pool);
+    ngx_destroy_pool(snap->base.pool);
+}
+
+static ngx_int_t
+ngx_live_persist_index_snap_update(void *data)
+{
+    ngx_live_channel_t             *channel;
+    ngx_live_persist_snap_index_t  *snap = data;
+
+    channel = snap->base.channel;
+
+    if (snap->frames_snap->update(snap->frames_snap) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_index_snap_update: update failed");
+        return NGX_ERROR;
+    }
+
+    snap->base.max_track_id = channel->tracks.last_id;
+
+    if (ngx_live_core_channel_event(channel, NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP,
+        snap) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_index_snap_update: event failed");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
 }
 
 ngx_live_persist_snap_t *
-ngx_live_persist_index_snap_create(ngx_live_channel_t *channel)
+ngx_live_persist_index_snap_create(ngx_live_channel_t *channel,
+    uint32_t segment_index)
 {
     ngx_pool_t                     *pool;
     ngx_live_persist_snap_index_t  *snap;
@@ -302,7 +331,8 @@ ngx_live_persist_index_snap_create(ngx_live_channel_t *channel)
         goto failed;
     }
 
-    snap->frames_snap = ngx_live_persist_snap_frames_create(channel);
+    snap->frames_snap = ngx_live_persist_snap_frames_create(channel,
+        segment_index);
     if (snap->frames_snap == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_index_snap_create: create frames snap failed");
@@ -310,14 +340,14 @@ ngx_live_persist_index_snap_create(ngx_live_channel_t *channel)
     }
 
     snap->base.channel = channel;
-    snap->base.max_track_id = channel->tracks.last_id;
-    snap->base.scope.max_index = channel->next_segment_index;
+    snap->base.pool = pool;
+    snap->base.scope.max_index = segment_index;
+
+    snap->base.update = ngx_live_persist_index_snap_update;
     snap->base.close = ngx_live_persist_index_snap_close;
 
-    snap->pool = pool;
-
-    if (ngx_live_core_channel_event(channel, NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP,
-        snap) != NGX_OK)
+    if (ngx_live_core_channel_event(channel,
+        NGX_LIVE_EVENT_CHANNEL_INDEX_PRE_SNAP, snap) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_persist_index_snap_create: event failed");
@@ -353,7 +383,6 @@ ngx_live_persist_index_write_channel(ngx_persist_write_ctx_t *write_ctx,
     cp->uid = channel->uid;
     cp->min_index = snap->base.scope.min_index;
     cp->max_index = snap->base.scope.max_index;
-    cp->reserved = 0;
 
     if (ngx_live_persist_write_channel_header(write_ctx, channel) != NGX_OK ||
         ngx_persist_write(write_ctx, cp, sizeof(*cp)) != NGX_OK ||
@@ -408,7 +437,7 @@ ngx_live_persist_index_read_channel(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    if (channel->next_segment_index != channel->initial_segment_index &&
+    if (channel->next_segment_index != channel->conf.initial_segment_index &&
         cp->min_index != channel->next_segment_index)
     {
         ngx_log_error(NGX_LOG_WARN, rs->log, 0,
@@ -423,6 +452,7 @@ ngx_live_persist_index_read_channel(ngx_persist_block_header_t *header,
     scope->max_index = cp->max_index;
 
     channel->last_modified = cp->last_modified;
+    channel->next_part_sequence = cp->next_part_sequence;
     channel->last_segment_media_types = cp->last_segment_media_types;
     channel->last_segment_created = cp->last_segment_created;
 

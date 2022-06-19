@@ -18,8 +18,10 @@ KMP_PACKET_END_OF_STREAM        = 0x74736f65   # eost
 
 KMP_PACKET_ACK_FRAMES           = 0x666b6361   # ackf
 
-KMP_MAX_CHANNEL_ID_LEN  = (32)
-KMP_MAX_TRACK_ID_LEN    = (32)
+KMP_MAX_CHANNEL_ID_LEN  = 32
+KMP_MAX_TRACK_ID_LEN    = 32
+
+KMP_CONNECT_FLAG_CONSISTENT = 0x01
 
 KMP_PACKET_HEADER_SIZE  = 16
 
@@ -41,7 +43,7 @@ class KmpReaderBase(object):
         return self.packetData
 
     def next(self):
-        res = self.packetData
+        res = self.getPacketData()
         self.readPacket()
         return res
 
@@ -161,10 +163,10 @@ class KmpNullSender(object):
         return ''
 
 class KmpTcpSender(object):
-    def __init__(self, addr, channelId, trackId, mediaType, initialFrameId = 0, initialOffset = 0):
+    def __init__(self, addr, channelId, trackId, mediaType, initialFrameId = 0, initialOffset = 0, flags = 0):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect(addr)
-        s.send(kmpConnectPacket(channelId, trackId, initialFrameId, initialOffset))
+        s.send(kmpConnectPacket(channelId, trackId, initialFrameId, initialOffset, flags))
         # reduce send buffer size for audio
         if mediaType == 'audio':
             s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024)
@@ -205,10 +207,10 @@ def kmpGetHeader(data):
 def kmpCreatePacket(type, header, data, reserved = 0):
     return struct.pack('<LLLL', type, KMP_PACKET_HEADER_SIZE + len(header), len(data), reserved) + header + data
 
-def kmpConnectPacket(channelId, trackId, initialFrameId = 0, initialOffset = 0):
+def kmpConnectPacket(channelId, trackId, initialFrameId = 0, initialOffset = 0, flags = 0):
     header = (channelId + '\0' * (KMP_MAX_CHANNEL_ID_LEN - len(channelId)) +
         trackId + '\0' * (KMP_MAX_TRACK_ID_LEN - len(trackId)) +
-        struct.pack('<QQLL', initialFrameId, 0, initialOffset, 0))
+        struct.pack('<QQLL', initialFrameId, 0, initialOffset, flags))
     return kmpCreatePacket(KMP_PACKET_CONNECT, header, '')
 
 def kmpEndOfStreamPacket():
@@ -265,12 +267,13 @@ def kmpGetMinDtsPipe(pipes):
 
     return minPipe
 
-def kmpSendStreams(pipes, base = KmpSendTimestamps(), maxDuration = 0, maxDts = 0, realtime = True, waitForVideoKey = False):
+def kmpSendStreams(pipes, base = KmpSendTimestamps(), maxDuration = 0, maxDts = 0, realtime = 4, waitForVideoKey = False):
     startTime = time.time()
     startDts = None
     dtsOffset = None
+    lastProgress = None
 
-    if VERBOSITY > 0:
+    if VERBOSITY >= 2:
         print 'sendStream started, streams=%s, duration=%s, realtime=%s, waitForVideoKey=%s' % (len(pipes), maxDuration, realtime, waitForVideoKey)
 
     while True:
@@ -289,6 +292,13 @@ def kmpSendStreams(pipes, base = KmpSendTimestamps(), maxDuration = 0, maxDts = 
         dtsOffset = dts - startDts
         dtsOffsetSec = dtsOffset / float(reader.timescale)
 
+        if VERBOSITY == 1:
+            if lastProgress is not None:
+                sys.stdout.write('\b' * len(lastProgress))
+            lastProgress = '%.2f' % dtsOffsetSec
+            sys.stdout.write(lastProgress)
+            sys.stdout.flush()
+
         mediaType = struct.unpack('<L', reader.mediaInfo[16:20])[0]
         if not waitForVideoKey or (mediaType == KMP_MEDIA_VIDEO and flags & KMP_FRAME_FLAG_KEY):
             if maxDuration > 0 and dtsOffsetSec > maxDuration:
@@ -300,13 +310,13 @@ def kmpSendStreams(pipes, base = KmpSendTimestamps(), maxDuration = 0, maxDts = 
         dts = base.dts + dtsOffset
 
         if realtime:
-            sleepTime = startTime + dtsOffsetSec - time.time()
+            sleepTime = dtsOffsetSec - (time.time() - startTime) * realtime
             if sleepTime > 0:
                 time.sleep(sleepTime)
 
         data = kmpSetFrameHeader(data, (created, dts, flags, ptsDelay))
 
-        if VERBOSITY > 1 and sender.name is not None:
+        if VERBOSITY >= 3 and sender.name is not None:
             print '%s --> %s, created=%d, dts=%d, flags=0x%x, ptsDelay=%d' % (reader.name, sender.name, created, dts, flags, ptsDelay)
 
         sender.send(data)
@@ -315,6 +325,10 @@ def kmpSendStreams(pipes, base = KmpSendTimestamps(), maxDuration = 0, maxDts = 
     if dtsOffset is not None:
         base.dts += dtsOffset
         base.created += dtsOffset
+
+    if VERBOSITY == 1:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
 
 def kmpSendEndOfStream(sockets):
     for s in sockets:

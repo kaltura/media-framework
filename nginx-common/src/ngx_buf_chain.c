@@ -119,3 +119,26 @@ ngx_buf_chain_compare(ngx_buf_chain_t *head, void *buf, size_t size)
 
     return 1;
 }
+
+ngx_buf_chain_t *
+ngx_buf_chain_terminate(ngx_buf_chain_t *data, uint32_t size)
+{
+    for ( ;; ) {
+
+#if (NGX_DEBUG)
+        if (size < data->size) {
+            ngx_debug_point();
+        }
+#endif
+
+        size -= data->size;
+        if (size <= 0) {
+            break;
+        }
+
+        data = data->next;
+    }
+
+    data->next = NULL;
+    return data;
+}

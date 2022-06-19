@@ -21,6 +21,7 @@ enum {
     NGX_HTTP_PCKG_EXPIRES_STATIC,
     NGX_HTTP_PCKG_EXPIRES_INDEX,
     NGX_HTTP_PCKG_EXPIRES_INDEX_GONE,
+    NGX_HTTP_PCKG_EXPIRES_INDEX_BLOCKING,
     NGX_HTTP_PCKG_EXPIRES_MASTER,
 
     NGX_HTTP_PCKG_EXPIRES_COUNT
@@ -141,6 +142,7 @@ extern ngx_str_t  ngx_http_pckg_prefix_master;
 extern ngx_str_t  ngx_http_pckg_prefix_index;
 extern ngx_str_t  ngx_http_pckg_prefix_init_seg;
 extern ngx_str_t  ngx_http_pckg_prefix_seg;
+extern ngx_str_t  ngx_http_pckg_prefix_part;
 extern ngx_str_t  ngx_http_pckg_prefix_frame;
 
 #endif /* _NGX_HTTP_PCKG_CORE_MODULE_H_INCLUDED_ */

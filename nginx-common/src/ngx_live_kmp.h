@@ -3,16 +3,18 @@
 
 
 /* constants */
-#define KMP_MAX_CHANNEL_ID_LEN  (32)
-#define KMP_MAX_TRACK_ID_LEN    (32)
+#define KMP_MAX_HEADER_SIZE          (64 * 1024)
+#define KMP_MAX_DATA_SIZE            (16 * 1024 * 1024)
 
-#define KMP_MAX_HEADER_SIZE     (64 * 1024)
-#define KMP_MAX_DATA_SIZE       (16 * 1024 * 1024)
+#define KMP_MAX_CHANNEL_ID_LEN       (32)
+#define KMP_MAX_TRACK_ID_LEN         (32)
 
-#define KMP_FRAME_FLAG_KEY      (0x01)
-#define KMP_FRAME_FLAG_MASK     (KMP_FRAME_FLAG_KEY)
+#define KMP_CONNECT_FLAG_CONSISTENT  (0x01)
 
-#define KMP_MEDIA_TYPE_MASK     ((1 << KMP_MEDIA_COUNT) - 1)
+#define KMP_FRAME_FLAG_KEY           (0x01)
+#define KMP_FRAME_FLAG_MASK          (KMP_FRAME_FLAG_KEY)
+
+#define KMP_MEDIA_TYPE_MASK          ((1 << KMP_MEDIA_COUNT) - 1)
 
 /* matches ffmpeg AV_CH_XXX */
 #define KMP_CH_FRONT_LEFT               0x00000001
@@ -142,7 +144,7 @@ typedef struct {
     uint64_t                initial_frame_id;
     uint64_t                initial_upstream_frame_id;
     uint32_t                initial_offset;
-    uint32_t                padding;
+    uint32_t                flags;
 } kmp_connect_packet_t;
 
 typedef struct {

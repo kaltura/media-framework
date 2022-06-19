@@ -12,10 +12,11 @@
 
 #define NGX_HTTP_GONE                      410
 
-#define NGX_HTTP_PCKG_PARSE_REQUIRE_INDEX           (0x1)
-#define NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT  (0x2)
-#define NGX_HTTP_PCKG_PARSE_OPTIONAL_VARIANTS       (0x4)
-#define NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE     (0x8)
+#define NGX_HTTP_PCKG_PARSE_REQUIRE_INDEX           (0x01)
+#define NGX_HTTP_PCKG_PARSE_REQUIRE_PART_INDEX      (0x02)
+#define NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT  (0x04)
+#define NGX_HTTP_PCKG_PARSE_OPTIONAL_VARIANTS       (0x08)
+#define NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE     (0x10)
 
 #define NGX_HTTP_PCKG_GUID_SIZE  (16)
 
@@ -63,9 +64,9 @@ ngx_int_t ngx_http_pckg_send_response(ngx_http_request_t *r,
     ngx_str_t *response);
 
 
-size_t ngx_http_pckg_selector_get_size(ngx_pckg_variant_t *variant);
+size_t ngx_http_pckg_selector_get_size(ngx_str_t *variant_id);
 
-u_char *ngx_http_pckg_selector_write(u_char *p, ngx_pckg_variant_t *variant,
+u_char *ngx_http_pckg_selector_write(u_char *p, ngx_str_t *variant_id,
     uint32_t media_type_mask);
 
 

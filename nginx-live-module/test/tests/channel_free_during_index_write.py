@@ -9,10 +9,10 @@ def test(channelId=CHANNEL_ID):
 
     nl = setupChannelTimeline(channelId)
 
-    sv, sa = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
-
     rv = KmpMediaFileReader(TEST_VIDEO1, 0)
     ra = KmpMediaFileReader(TEST_VIDEO1, 1)
+
+    sv, sa = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
 
     TcpServer(8002, lambda s: nl.channel.delete(channelId))
 

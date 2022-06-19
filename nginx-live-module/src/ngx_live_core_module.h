@@ -6,6 +6,7 @@
 #include <ngx_core.h>
 #include "ngx_live_config.h"
 #include "ngx_live_json_cmds.h"
+#include "ngx_live_segmenter.h"
 
 
 #define ngx_live_reserve_track_ctx_size(cf, module, size)                   \
@@ -22,9 +23,11 @@ enum {
     NGX_LIVE_EVENT_CHANNEL_WATERMARK,
     NGX_LIVE_EVENT_CHANNEL_INACTIVE,
     NGX_LIVE_EVENT_CHANNEL_SETUP_CHANGED,
+    NGX_LIVE_EVENT_CHANNEL_INDEX_PRE_SNAP,
     NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP,
     NGX_LIVE_EVENT_CHANNEL_READ,
     NGX_LIVE_EVENT_CHANNEL_HISTORY_CHANGED,
+    NGX_LIVE_EVENT_CHANNEL_DURATION_CHANGED,
 
     NGX_LIVE_EVENT_CHANNEL_SEGMENT_CREATED,
     NGX_LIVE_EVENT_CHANNEL_SEGMENT_FREE,
@@ -32,10 +35,10 @@ enum {
     NGX_LIVE_EVENT_TRACK_INIT,
     NGX_LIVE_EVENT_TRACK_FREE,
     NGX_LIVE_EVENT_TRACK_CHANNEL_FREE,
-    NGX_LIVE_EVENT_TRACK_CONNECT,
     NGX_LIVE_EVENT_TRACK_RECONNECT,
     NGX_LIVE_EVENT_TRACK_INACTIVE,
     NGX_LIVE_EVENT_TRACK_COPY,
+    NGX_LIVE_EVENT_TRACK_SEGMENT_CREATED,
 
     NGX_LIVE_EVENT_MAX
 };
@@ -90,6 +93,10 @@ typedef struct ngx_live_core_preset_conf_s {
     size_t                          track_ctx_size;
 
     ngx_uint_t                      timescale;
+
+    ngx_msec_t                      segment_duration;
+    ngx_msec_t                      part_duration;
+    ngx_live_segmenter_t            segmenter;
 } ngx_live_core_preset_conf_t;
 
 
@@ -120,6 +127,13 @@ typedef struct {
     ngx_array_t                     lba_array;
 
 } ngx_live_core_main_conf_t;
+
+
+/* NGX_LIVE_EVENT_TRACK_SEGMENT_CREATED event */
+typedef struct {
+    uint32_t                        segment_index;
+    uint32_t                        bitrate;
+} ngx_live_track_segment_info_t;
 
 
 typedef ngx_int_t (*ngx_live_channel_handler_pt)(ngx_live_channel_t *channel,

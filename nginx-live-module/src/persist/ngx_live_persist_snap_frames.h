@@ -8,6 +8,6 @@
 
 
 ngx_live_persist_snap_t *ngx_live_persist_snap_frames_create(
-    ngx_live_channel_t *channel);
+    ngx_live_channel_t *channel, uint32_t segment_index);
 
 #endif /* _NGX_LIVE_PERSIST_SNAP_FRAMES_H_INCLUDED_ */

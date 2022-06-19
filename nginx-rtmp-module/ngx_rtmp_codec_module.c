@@ -274,7 +274,7 @@ ngx_rtmp_codec_sei_detect_cea(ngx_rtmp_session_t *s,
 
         if (ngx_memcmp(buf, ngx_rtmp_codec_cea_header, sizeof(buf)) == 0) {
             ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                "ngx_rtmp_codec_detect_cea: cea captions detected");
+                "ngx_rtmp_codec_sei_detect_cea: cea captions detected");
             return 1;
         }
     }

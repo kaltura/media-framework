@@ -37,6 +37,10 @@ typedef struct {
 } ngx_http_api_options_t;
 
 
+typedef ngx_int_t (*ngx_http_api_args_handler_pt)(ngx_http_request_t *r,
+    void *data, ngx_str_t *key, ngx_str_t *value);
+
+
 ngx_int_t ngx_http_api_handler(ngx_http_request_t *r,
     ngx_http_api_route_node_t *root);
 
@@ -46,5 +50,8 @@ void ngx_http_api_done(ngx_http_request_t *r, ngx_int_t rc,
 char *ngx_http_api_parse_options(ngx_conf_t *cf,
     ngx_http_api_options_t *options);
 
+
+ngx_int_t ngx_http_api_parse_args(ngx_http_request_t *r,
+    ngx_http_api_args_handler_pt handler, void *data);
 
 #endif /* _NGX_HTTP_API_H_INCLUDED_ */

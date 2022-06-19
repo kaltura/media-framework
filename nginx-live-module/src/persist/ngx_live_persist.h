@@ -44,6 +44,8 @@ enum {
     NGX_LIVE_PERSIST_CTX_SERVE_TRACK,
     NGX_LIVE_PERSIST_CTX_SERVE_TIMELINE,
     NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO,
+    NGX_LIVE_PERSIST_CTX_SERVE_VARIANT_RR,
+    NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_PARTS,
     NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER,
     NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_DATA,
     NGX_LIVE_PERSIST_CTX_SERVE_FILLER_HEADER,
@@ -82,8 +84,10 @@ typedef struct {
 
 typedef struct {
     ngx_live_channel_t               *channel;
-    uint32_t                          max_track_id;
+    ngx_pool_t                       *pool;
     ngx_live_persist_index_scope_t    scope;
+    uint32_t                          max_track_id;
+    ngx_int_t                       (*update)(void *snap);
     void                            (*close)(void *snap,
                                 ngx_live_persist_snap_close_action_e action);
 } ngx_live_persist_snap_t;
@@ -91,7 +95,6 @@ typedef struct {
 
 typedef struct {
     ngx_live_persist_snap_t           base;     /* must be first */
-    ngx_pool_t                       *pool;
     void                            **ctx;
     ngx_live_persist_snap_t          *frames_snap;
 } ngx_live_persist_snap_index_t;
@@ -102,14 +105,14 @@ typedef struct {
     ngx_live_timeline_t              *timeline;
     ngx_ksmp_channel_header_t         header;
     ngx_live_variant_t              **variants;
+    ngx_live_track_t                 *track;        /* only if single track */
     ngx_array_t                      *track_refs;   /* ngx_live_track_ref_t */
     ngx_ksmp_segment_index_t          si;
     uint32_t                          flags;
     uint32_t                          min_index;
     uint32_t                          max_index;
-
-    ngx_uint_t                        media_info_count;
-    ngx_uint_t                        period_count;
+    uint32_t                          skip_boundary_percent;
+    void                             *ctx;
 } ngx_live_persist_serve_scope_t;
 
 
@@ -128,6 +131,6 @@ ngx_int_t ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
 
 
 ngx_live_persist_snap_t *ngx_live_persist_snap_create(
-    ngx_live_channel_t *channel);
+    ngx_live_channel_t *channel, uint32_t segment_index);
 
 #endif /* _NGX_LIVE_PERSIST_H_INCLUDED_ */

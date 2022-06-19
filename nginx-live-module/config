@@ -32,6 +32,7 @@ LIVE_CORE_MODULES="                                           \
     ngx_live_core_module                                      \
     ngx_live_map_module                                       \
     ngx_live_notif_module                                     \
+    ngx_live_notif_segment_module                             \
     ngx_live_segment_cache_module                             \
     ngx_live_segment_index_module                             \
     ngx_live_store_http_module                                \
@@ -43,6 +44,7 @@ LIVE_CORE_MODULES="                                           \
     ngx_live_persist_media_module                             \
     ngx_live_persist_serve_module                             \
     ngx_live_segmenter_module                                 \
+    ngx_live_lls_module                                       \
     ngx_live_media_info_module                                \
     ngx_live_timeline_module                                  \
     ngx_live_input_bufs_module                                \
@@ -74,12 +76,14 @@ LIVE_CORE_SRCS="                                              \
     $ngx_addon_dir/src/ngx_live_map.c                         \
     $ngx_addon_dir/src/ngx_live_media_info.c                  \
     $ngx_addon_dir/src/ngx_live_notif.c                       \
+    $ngx_addon_dir/src/ngx_live_notif_segment.c               \
     $ngx_addon_dir/src/ngx_live_script.c                      \
     $ngx_addon_dir/src/ngx_live_segment_cache.c               \
     $ngx_addon_dir/src/ngx_live_segment_index.c               \
     $ngx_addon_dir/src/ngx_live_segment_info.c                \
     $ngx_addon_dir/src/ngx_live_segment_list.c                \
     $ngx_addon_dir/src/ngx_live_segmenter.c                   \
+    $ngx_addon_dir/src/ngx_live_segmenter_ll.c                \
     $ngx_addon_dir/src/ngx_live_syncer.c                      \
     $ngx_addon_dir/src/ngx_live_timeline.c                    \
     $ngx_addon_dir/src/ngx_live_variables.c                   \
@@ -119,6 +123,7 @@ LIVE_DEPS="$LIVE_DEPS                                         \
     $ngx_addon_dir/src/ngx_live_media_info.h                  \
     $ngx_addon_dir/src/ngx_live_media_info_json.h             \
     $ngx_addon_dir/src/ngx_live_notif.h                       \
+    $ngx_addon_dir/src/ngx_live_notif_segment.h               \
     $ngx_addon_dir/src/ngx_live_script.h                      \
     $ngx_addon_dir/src/ngx_live_segmenter.h                   \
     $ngx_addon_dir/src/ngx_live_segment_cache.h               \

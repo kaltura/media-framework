@@ -804,15 +804,15 @@ ngx_live_filler_serve_segment(ngx_persist_write_ctx_t *write_ctx,
         return NGX_ERROR;
     }
 
-    ngx_persist_write_block_close(write_ctx);     /* segment */
-
     header.track_id = track->in.key;
     header.index = segment_index;
     header.frame_count = sctx.frame_count;
+    header.part_sequence = 0;
     header.start_dts = sctx.start_dts;
-    header.reserved = 0;
 
     ngx_persist_write_marker_write(&marker, &header, sizeof(header));
+
+    ngx_persist_write_block_close(write_ctx);     /* segment */
 
     return NGX_OK;
 }
@@ -1798,9 +1798,18 @@ ngx_live_filler_read_create_segments(ngx_live_channel_t *channel,
     for (i = 0; i < ctx->count; i++) {
         cur = ctx->durations[i];
 
-        if (ngx_live_timelines_add_segment(channel, time, cur, 0) != NGX_OK) {
+
+        if (ngx_live_timelines_add_segment(channel, time,
+            channel->next_segment_index, cur, 0) != NGX_OK)
+        {
             ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
                 "ngx_live_filler_read_create_segments: add segment failed");
+            return NGX_ERROR;
+        }
+
+        if (ngx_live_segment_index_create_ready(channel, 1) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                "ngx_live_filler_read_create_segments: create index failed");
             return NGX_ERROR;
         }
 
@@ -1815,8 +1824,7 @@ ngx_live_filler_read_create_segments(ngx_live_channel_t *channel,
 }
 
 static void
-ngx_live_filler_read_handler(void *data, ngx_int_t rc,
-    ngx_buf_t *response)
+ngx_live_filler_read_handler(void *data, ngx_int_t rc, ngx_buf_t *response)
 {
     ngx_str_t                          buf;
     ngx_pool_cleanup_t                *cln;
@@ -2302,8 +2310,8 @@ ngx_live_filler_write_segment(ngx_persist_write_ctx_t *write_ctx,
     sp.track_id = track->in.key;
     sp.index = segment->node.key;
     sp.frame_count = segment->frame_count;
+    sp.part_sequence = 0;
     sp.start_dts = segment->start_dts;
-    sp.reserved = 0;
 
     if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_PERSIST_BLOCK_SEGMENT) != NGX_OK ||
@@ -2525,7 +2533,7 @@ ngx_live_filler_read_segment(ngx_persist_block_header_t *header,
     segment->end_dts = segment->start_dts + duration;
 
     track->has_last_segment = 1;
-    ngx_live_segment_cache_finalize(segment);
+    ngx_live_segment_cache_finalize(segment, &track->last_segment_bitrate);
 
     ctx->index++;
 
@@ -3166,12 +3174,14 @@ static ngx_live_channel_event_t  ngx_live_filler_channel_events[] = {
     { ngx_live_filler_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
     { ngx_live_filler_channel_free, NGX_LIVE_EVENT_CHANNEL_FREE },
     { ngx_live_filler_channel_read, NGX_LIVE_EVENT_CHANNEL_READ },
+
       ngx_live_null_event
 };
 
 static ngx_live_track_event_t    ngx_live_filler_track_events[] = {
     { ngx_live_filler_track_free,         NGX_LIVE_EVENT_TRACK_FREE },
     { ngx_live_filler_track_channel_free, NGX_LIVE_EVENT_TRACK_CHANNEL_FREE },
+
       ngx_live_null_event
 };
 

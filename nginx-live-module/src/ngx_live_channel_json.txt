@@ -1,4 +1,10 @@
 
+out nostatic ngx_live_latency_stats ngx_live_latency_stats_t
+    - %return-null obj->count <= 0
+    min %uL
+    max %uL
+    avg %uL obj->sum / obj->count
+
 out ngx_live_track_input_skip ngx_live_track_input_skip_t
     duplicate %ui
     empty %ui
@@ -12,6 +18,7 @@ out ngx_live_track_input ngx_live_track_input_t
     uptime %T (ngx_time() - obj->start_sec)
     received_bytes %O
     skipped_frames %func-ngx_live_track_input_skip &obj->skipped
+    latency %func-ngx_live_latency_stats &obj->latency
 
 out ngx_live_track_json ngx_live_track_t
     media_type %enum-ngx_live_track_media_type_names
@@ -60,13 +67,14 @@ out nostatic ngx_live_channel_json ngx_live_channel_t
     read_time %T
     preset %jV cpcf->name
     opaque %bs
-    initial_segment_index %uD
+    initial_segment_index %uD obj->conf.
     mem_left %uz
     mem_limit %uz
     mem_watermark_events %ui
     mem_blocks %func-ngx_block_pool_json obj->block_pool
     last_segment_created %T
     last_accessed %T
+    segment_duration %M obj->conf.
     snapshots %uD
     tracks %func-ngx_live_tracks_json obj
     variants %func-ngx_live_variants_json obj

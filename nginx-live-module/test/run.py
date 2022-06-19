@@ -157,6 +157,8 @@ def run(tests):
         if not callable(testFunc):
             continue
 
+        startTime = time.time()
+
         if options.setup:
             updateConfFuncs = []
             updateConfFunc = getattr(curMod, 'updateConf', None)
@@ -206,6 +208,9 @@ def run(tests):
 
         if options.setup:
             stopNginx(nginxProc)
+
+        print '  took: %.3f sec' % (time.time() - startTime)
+        sys.stdout.flush()
 
 if __name__ == '__main__':
     parser = OptionParser()

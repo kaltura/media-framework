@@ -8,6 +8,11 @@
 #include "media/hevc_parser.h"
 
 
+#ifndef ngx_copy_fix
+#define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
+#endif
+
+
 enum {
     NGX_PCKG_KSMP_CTX_MAIN = 0,
     NGX_PCKG_KSMP_CTX_CHANNEL,
@@ -15,6 +20,8 @@ enum {
     NGX_PCKG_KSMP_CTX_VARIANT,
     NGX_PCKG_KSMP_CTX_TRACK,
     NGX_PCKG_KSMP_CTX_MEDIA_INFO,
+    NGX_PCKG_KSMP_CTX_TRACK_PARTS,
+    NGX_PCKG_KSMP_CTX_RENDITION_REPORTS,
     NGX_PCKG_KSMP_CTX_SEGMENT,
 
     NGX_PCKG_KSMP_CTX_SGTS_MAIN,
@@ -244,11 +251,17 @@ ngx_pckg_ksmp_read_period(ngx_persist_block_header_t *header,
     uint64_t                    count;
     uint64_t                    duration;
     ngx_str_t                   segments;
-    ngx_uint_t                  i;
+    ngx_uint_t                  i, n;
     ngx_pckg_period_t          *period;
     ngx_pckg_timeline_t        *timeline = obj;
     ngx_ksmp_period_header_t   *h;
     ngx_ksmp_segment_repeat_t  *elt;
+
+    if (timeline->pending_segment) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_period: got period after pending segment");
+        return NGX_BAD_DATA;
+    }
 
     h = ngx_mem_rstream_get_ptr(rs, sizeof(*h));
     if (h == NULL) {
@@ -276,8 +289,6 @@ ngx_pckg_ksmp_read_period(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    ngx_mem_rstream_get_left(rs, &segments);
-
     period = ngx_array_push(&timeline->periods);
     if (period == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -286,6 +297,8 @@ ngx_pckg_ksmp_read_period(ngx_persist_block_header_t *header,
     }
 
     period->timeline = timeline;
+
+    ngx_mem_rstream_get_left(rs, &segments);
 
     period->elts = (void *) segments.data;
     period->nelts = segments.len / sizeof(period->elts[0]);
@@ -298,9 +311,11 @@ ngx_pckg_ksmp_read_period(ngx_persist_block_header_t *header,
 
     count = 0;
     duration = 0;
-    for (i = 0; i < period->nelts; i++) {
-        elt = &period->elts[i];
 
+    n = period->nelts - 1;
+    for (i = 0; i < n; i++) {
+
+        elt = &period->elts[i];
         if (elt->count <= 0 || elt->duration <= 0) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_pckg_ksmp_read_period: zero repeat/duration");
@@ -310,6 +325,26 @@ ngx_pckg_ksmp_read_period(ngx_persist_block_header_t *header,
         count += elt->count;
         duration += (uint64_t) elt->count * elt->duration;
     }
+
+    elt = &period->elts[n];
+    if (elt->duration == NGX_KSMP_PENDING_SEGMENT_DURATION) {
+        if (elt->count != 1) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_pckg_ksmp_read_period: "
+                "invalid pending segment repeat %uD", elt->count);
+            return NGX_BAD_DATA;
+        }
+
+        timeline->pending_segment = 1;
+
+    } else if (elt->count <= 0) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_period: zero repeat");
+        return NGX_BAD_DATA;
+    }
+
+    count += elt->count;
+    duration += (uint64_t) elt->count * elt->duration;
 
     if (count > NGX_KSMP_INVALID_SEGMENT_INDEX - h->segment_index) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
@@ -504,10 +539,289 @@ ngx_pckg_ksmp_read_media_info_queue(ngx_persist_block_header_t *header,
 
     if (track->media_info.nelts != h->count) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_media_info_queue: media info count mismatch"
-            ", expected: %uD, actual: %ui",
+            "ngx_pckg_ksmp_read_media_info_queue: "
+            "media info count mismatch, expected: %uD, actual: %ui",
             h->count, track->media_info.nelts);
         return NGX_BAD_DATA;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_pckg_ksmp_read_track_parts(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_int_t                       rc;
+    ngx_pckg_track_t               *track = obj;
+    ngx_pckg_channel_t             *channel;
+    ngx_ksmp_track_parts_header_t  *h;
+
+    if (track->parts.elts) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_track_parts: duplicate block");
+        return NGX_BAD_DATA;
+    }
+
+    h = ngx_mem_rstream_get_ptr(rs, sizeof(*h));
+    if (h == NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_track_parts: read header failed");
+        return NGX_BAD_DATA;
+    }
+
+    if (h->count <= 0 || h->count > NGX_KSMP_MAX_SEGMENT_PARTS) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_track_parts: invalid count %uD", h->count);
+        return NGX_BAD_DATA;
+    }
+
+    channel = track->channel;
+    if (ngx_array_init(&track->parts, channel->pool, h->count,
+        sizeof(ngx_pckg_segment_parts_t)) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_pckg_ksmp_read_track_parts: array init failed");
+        return NGX_ERROR;
+    }
+
+
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+    rc = ngx_persist_conf_read_blocks(channel->persist,
+        NGX_PCKG_KSMP_CTX_TRACK_PARTS, rs, track);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_pckg_ksmp_read_track_parts: read blocks failed %i", rc);
+        return rc;
+    }
+
+
+    if (track->parts.nelts != h->count) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_track_parts: "
+            "segment part count mismatch, expected: %uD, actual: %ui",
+            h->count, track->parts.nelts);
+        return NGX_BAD_DATA;
+    }
+
+    track->parts_cur = track->parts.elts;
+    track->parts_end = track->parts_cur + track->parts.nelts;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_pckg_ksmp_read_segment_parts(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    uint32_t                          d;
+    ngx_str_t                         data;
+    ngx_uint_t                        i, n;
+    ngx_pckg_track_t                 *track = obj;
+    ngx_pckg_segment_parts_t         *parts, *last;
+    ngx_ksmp_segment_parts_header_t  *h;
+
+    h = ngx_mem_rstream_get_ptr(rs, sizeof(*h));
+    if (h == NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_segment_parts: read header failed");
+        return NGX_BAD_DATA;
+    }
+
+    if (h->segment_index == NGX_KSMP_INVALID_SEGMENT_INDEX) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_segment_parts: invalid segment index");
+        return NGX_BAD_DATA;
+    }
+
+    if (track->parts.nelts > 0) {
+        parts = track->parts.elts;
+        last = &parts[track->parts.nelts - 1];
+
+        if (h->segment_index <= last->segment_index) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_pckg_ksmp_read_segment_parts: "
+                "segment index %uD smaller than last %uD",
+                h->segment_index, last->segment_index);
+            return NGX_BAD_DATA;
+        }
+
+        if (last->duration[last->count - 1] == NGX_KSMP_PART_PRELOAD_HINT) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_pckg_ksmp_read_segment_parts: "
+                "got parts after preload hint");
+            return NGX_BAD_DATA;
+        }
+    }
+
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+    parts = ngx_array_push(&track->parts);
+    if (parts == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_pckg_ksmp_read_segment_parts: push failed");
+        return NGX_ERROR;
+    }
+
+    ngx_mem_rstream_get_left(rs, &data);
+
+    n = data.len / sizeof(parts->duration[0]);
+    if (n <= 0) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_segment_parts: no parts");
+        return NGX_BAD_DATA;
+    }
+
+    parts->segment_index = h->segment_index;
+    parts->count = n;
+    parts->duration = (void *) data.data;
+
+    n--;
+    for (i = 0; i < n; i++) {
+
+        d = parts->duration[i];
+        if (vod_all_flags_set(d, NGX_KSMP_PART_GAP
+            | NGX_KSMP_PART_INDEPENDENT))
+        {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_pckg_ksmp_read_segment_parts: "
+                "invalid part flags 0x%uxD", d);
+            return NGX_BAD_DATA;
+        }
+    }
+
+    d = parts->duration[n];
+    if (d != NGX_KSMP_PART_PRELOAD_HINT
+        && vod_all_flags_set(d, NGX_KSMP_PART_GAP | NGX_KSMP_PART_INDEPENDENT))
+    {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_segment_parts: "
+            "invalid last part flags 0x%uxD", d);
+        return NGX_BAD_DATA;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_pckg_ksmp_read_rendition_reports(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    ngx_int_t                             rc;
+    ngx_pckg_channel_t                   *channel = obj;
+    ngx_ksmp_rendition_reports_header_t  *h;
+
+    if (channel->rrs.elts) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_rendition_reports: duplicate block");
+        return NGX_BAD_DATA;
+    }
+
+    h = ngx_mem_rstream_get_ptr(rs, sizeof(*h));
+    if (h == NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_rendition_reports: read header failed");
+        return NGX_BAD_DATA;
+    }
+
+    if (h->count <= 0 || h->count > NGX_KSMP_MAX_VARIANTS) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_rendition_reports: invalid count %uD",
+            h->count);
+        return NGX_BAD_DATA;
+    }
+
+    if (ngx_array_init(&channel->rrs, channel->pool, h->count,
+        sizeof(ngx_pckg_rendition_report_t)) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_pckg_ksmp_read_rendition_reports: array init failed");
+        return NGX_ERROR;
+    }
+
+
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+    rc = ngx_persist_conf_read_blocks(channel->persist,
+        NGX_PCKG_KSMP_CTX_RENDITION_REPORTS, rs, channel);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_pckg_ksmp_read_rendition_reports: read blocks failed %i", rc);
+        return rc;
+    }
+
+
+    if (channel->rrs.nelts != h->count) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_rendition_reports: "
+            "rendition report count mismatch, expected: %uD, actual: %ui",
+            h->count, channel->rrs.nelts);
+        return NGX_BAD_DATA;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_pckg_ksmp_read_rendition_report(ngx_persist_block_header_t *header,
+    ngx_mem_rstream_t *rs, void *obj)
+{
+    uint32_t                      media_type;
+    ngx_str_t                     id;
+    ngx_str_t                     data;
+    ngx_uint_t                    i, n;
+    ngx_pckg_channel_t           *channel = obj;
+    ngx_pckg_rendition_report_t  *rr;
+
+    if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_rendition_report: read id failed");
+        return NGX_BAD_DATA;
+    }
+
+    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
+        return NGX_BAD_DATA;
+    }
+
+    rr = ngx_array_push(&channel->rrs);
+    if (rr == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_pckg_ksmp_read_rendition_report: push failed");
+        return NGX_ERROR;
+    }
+
+    ngx_mem_rstream_get_left(rs, &data);
+
+    n = data.len / sizeof(rr->elts[0]);
+    if (n <= 0 || n > KMP_MEDIA_COUNT) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_read_rendition_report: invalid count %ui", n);
+        return NGX_BAD_DATA;
+    }
+
+    rr->variant_id = id;
+    rr->elts = (void *) data.data;
+    rr->nelts = n;
+
+    for (i = 0; i < n; i++) {
+        media_type = rr->elts[i].media_type;
+        if (media_type >= KMP_MEDIA_COUNT) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_pckg_ksmp_read_rendition_report: "
+                "invalid media type %uD", media_type);
+            return NGX_BAD_DATA;
+        }
     }
 
     return NGX_OK;
@@ -1468,6 +1782,18 @@ static ngx_persist_block_t  ngx_pckg_ksmp_blocks[] = {
     { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_PCKG_KSMP_CTX_MEDIA_INFO, 0, NULL,
       ngx_pckg_ksmp_read_media_info },
 
+    { NGX_KSMP_BLOCK_TRACK_PARTS, NGX_PCKG_KSMP_CTX_TRACK, 0, NULL,
+      ngx_pckg_ksmp_read_track_parts },
+
+    { NGX_KSMP_BLOCK_SEGMENT_PARTS, NGX_PCKG_KSMP_CTX_TRACK_PARTS, 0, NULL,
+      ngx_pckg_ksmp_read_segment_parts },
+
+    { NGX_KSMP_BLOCK_RENDITION_REPORT, NGX_PCKG_KSMP_CTX_CHANNEL, 0, NULL,
+      ngx_pckg_ksmp_read_rendition_reports },
+
+    { NGX_KSMP_BLOCK_VARIANT_RR, NGX_PCKG_KSMP_CTX_RENDITION_REPORTS, 0, NULL,
+      ngx_pckg_ksmp_read_rendition_report },
+
     { NGX_KSMP_BLOCK_SEGMENT_INFO, NGX_PCKG_KSMP_CTX_TRACK, 0, NULL,
       ngx_pckg_ksmp_read_segment_info },
 
@@ -1566,6 +1892,15 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
         size += sizeof("&max_segment_index=") - 1 + NGX_INT32_LEN;
     }
 
+    if (req->part_index != NGX_KSMP_INVALID_PART_INDEX) {
+        size += sizeof("&part_index=") - 1 + NGX_INT32_LEN;
+    }
+
+    if (req->skip_boundary_percent > 0) {
+        size += sizeof("&skip_boundary_percent=") - 1 + NGX_INT32_LEN;
+    }
+
+
     req->media_type_mask &= KMP_MEDIA_TYPE_MASK;
     if ((req->media_type_mask & KMP_MEDIA_TYPE_MASK) ==
         KMP_MEDIA_TYPE_MASK)
@@ -1589,7 +1924,7 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
 
     result->data = p;
 
-    p = ngx_copy(p, "channel_id=", sizeof("channel_id=") - 1);
+    p = ngx_copy_fix(p, "channel_id=");
     if (channel_escape) {
         p = (u_char *) ngx_escape_uri(p, req->channel_id.data,
             req->channel_id.len, NGX_ESCAPE_ARGS);
@@ -1598,7 +1933,7 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
         p = ngx_copy(p, req->channel_id.data, req->channel_id.len);
     }
 
-    p = ngx_copy(p, "&timeline_id=", sizeof("&timeline_id=") - 1);
+    p = ngx_copy_fix(p, "&timeline_id=");
     if (timeline_escape) {
         p = (u_char *) ngx_escape_uri(p, req->timeline_id.data,
             req->timeline_id.len, NGX_ESCAPE_ARGS);
@@ -1607,11 +1942,11 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
         p = ngx_copy(p, req->timeline_id.data, req->timeline_id.len);
     }
 
-    p = ngx_copy(p, "&flags=", sizeof("&flags=") - 1);
+    p = ngx_copy_fix(p, "&flags=");
     p = ngx_sprintf(p, "%uxD", req->flags);
 
     if (req->variant_ids.data != NULL) {
-        p = ngx_copy(p, "&variant_ids=", sizeof("&variant_ids=") - 1);
+        p = ngx_copy_fix(p, "&variant_ids=");
         if (variants_escape) {
             p = (u_char *) ngx_escape_uri(p, req->variant_ids.data,
                 req->variant_ids.len, NGX_ESCAPE_ARGS);
@@ -1622,28 +1957,38 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
     }
 
     if (req->time != NGX_KSMP_INVALID_TIMESTAMP) {
-        p = ngx_copy(p, "&time=", sizeof("&time=") - 1);
+        p = ngx_copy_fix(p, "&time=");
         p = ngx_sprintf(p, "%L", req->time);
     }
 
     if (req->segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {
-        p = ngx_copy(p, "&segment_index=", sizeof("&segment_index=") - 1);
+        p = ngx_copy_fix(p, "&segment_index=");
         p = ngx_sprintf(p, "%uD", req->segment_index);
     }
 
     if (req->max_segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {
-        p = ngx_copy(p, "&max_segment_index=",
-            sizeof("&max_segment_index=") - 1);
+        p = ngx_copy_fix(p, "&max_segment_index=");
         p = ngx_sprintf(p, "%uD", req->max_segment_index);
     }
 
+    if (req->part_index != NGX_KSMP_INVALID_PART_INDEX) {
+        p = ngx_copy_fix(p, "&part_index=");
+        p = ngx_sprintf(p, "%uD", req->part_index);
+    }
+
+    if (req->skip_boundary_percent > 0) {
+        p = ngx_copy_fix(p, "&skip_boundary_percent=");
+        p = ngx_sprintf(p, "%uD", req->skip_boundary_percent);
+    }
+
+
     if (req->media_type_mask) {
-        p = ngx_copy(p, "&media_type_mask=", sizeof("&media_type_mask=") - 1);
+        p = ngx_copy_fix(p, "&media_type_mask=");
         p = ngx_sprintf(p, "%uxD", req->media_type_mask);
     }
 
     if (req->padding) {
-        p = ngx_copy(p, "&padding=", sizeof("&padding=") - 1);
+        p = ngx_copy_fix(p, "&padding=");
         p = ngx_sprintf(p, "%uz", req->padding);
     }
 

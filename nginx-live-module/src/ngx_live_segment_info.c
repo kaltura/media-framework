@@ -41,6 +41,7 @@ typedef struct {
     ngx_queue_t                    queue;
     uint64_t                       last_segment_bitrate;    /* bitrate * 100 */
     uint32_t                       initial_bitrate;
+    uint32_t                       last_segment_index;
 } ngx_live_segment_info_track_ctx_t;
 
 typedef struct {
@@ -117,16 +118,13 @@ ngx_module_t  ngx_live_segment_info_module = {
 
 
 static ngx_live_segment_info_elt_t *
-ngx_live_segment_info_push(ngx_live_channel_t *channel,
+ngx_live_segment_info_push(ngx_live_channel_t *channel, uint32_t segment_index,
     ngx_live_segment_info_track_ctx_t *ctx)
 {
-    uint32_t                              segment_index;
     ngx_queue_t                          *q;
     ngx_live_segment_info_elt_t          *elt;
     ngx_live_segment_info_node_t         *last;
     ngx_live_segment_info_preset_conf_t  *sipcf;
-
-    segment_index = channel->next_segment_index;
 
     q = ngx_queue_last(&ctx->queue);
     if (q != ngx_queue_sentinel(&ctx->queue)) {
@@ -164,23 +162,85 @@ ngx_live_segment_info_push(ngx_live_channel_t *channel,
     return elt;
 }
 
+
 static ngx_int_t
-ngx_live_segment_info_segment_created(ngx_live_channel_t *channel, void *ectx)
+ngx_live_segment_info_track_segment_created(ngx_live_track_t *track,
+    void *ectx)
 {
     uint64_t                              cur;
     uint64_t                              last;
-    ngx_queue_t                          *q;
-    ngx_live_track_t                     *cur_track;
+    ngx_live_channel_t                   *channel;
     ngx_live_segment_info_elt_t          *elt;
-    ngx_live_segment_info_track_ctx_t    *cur_ctx;
+    ngx_live_track_segment_info_t        *info;
+    ngx_live_segment_info_track_ctx_t    *ctx;
     ngx_live_segment_info_preset_conf_t  *sipcf;
+
+    channel = track->channel;
 
     sipcf = ngx_live_get_module_preset_conf(channel,
         ngx_live_segment_info_module);
-
     if (!sipcf->bitrate && !sipcf->gaps) {
         return NGX_OK;
     }
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_info_module);
+    info = ectx;
+
+    ngx_log_debug3(NGX_LOG_DEBUG_LIVE, &track->log, 0,
+        "ngx_live_segment_info_track_segment_created: "
+        "index: %uD, bitrate: %uD, track: %V",
+        info->segment_index, info->bitrate, &track->sn.str);
+
+    if (ctx->last_segment_index >= info->segment_index
+        && ctx->last_segment_index != NGX_LIVE_INVALID_SEGMENT_INDEX)
+    {
+        return NGX_OK;
+    }
+
+    ctx->last_segment_index = info->segment_index;
+
+    cur = info->bitrate;
+    if (cur) {
+        if (!sipcf->bitrate) {
+            cur = NGX_LIVE_SEGMENT_NO_BITRATE;
+        }
+
+    } else {
+        if (!sipcf->gaps) {
+            return NGX_OK;
+        }
+    }
+
+    last = ctx->last_segment_bitrate;
+    if (last >= cur * sipcf->bitrate_lower_bound &&
+        last <= cur * sipcf->bitrate_upper_bound)
+    {
+        return NGX_OK;
+    }
+
+    elt = ngx_live_segment_info_push(channel, info->segment_index, ctx);
+    if (elt == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_segment_info_track_segment_created: push failed");
+        return NGX_ERROR;
+    }
+
+    elt->bitrate = cur;
+
+    ctx->last_segment_bitrate = cur * 100;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_segment_info_segment_created(ngx_live_channel_t *channel, void *ectx)
+{
+    ngx_queue_t                    *q;
+    ngx_live_track_t               *cur_track;
+    ngx_live_track_segment_info_t   info;
+
+    info.segment_index = channel->next_segment_index;
 
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
@@ -188,38 +248,13 @@ ngx_live_segment_info_segment_created(ngx_live_channel_t *channel, void *ectx)
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
 
-        cur_ctx = ngx_live_get_module_ctx(cur_track,
-            ngx_live_segment_info_module);
+        info.bitrate = cur_track->last_segment_bitrate;
 
-        cur = cur_track->last_segment_bitrate;
-        if (cur) {
-            if (!sipcf->bitrate) {
-                cur = NGX_LIVE_SEGMENT_NO_BITRATE;
-            }
-
-        } else {
-            if (!sipcf->gaps) {
-                continue;
-            }
-        }
-
-        last = cur_ctx->last_segment_bitrate;
-        if (last >= cur * sipcf->bitrate_lower_bound &&
-            last <= cur * sipcf->bitrate_upper_bound)
+        if (ngx_live_segment_info_track_segment_created(cur_track, &info)
+            != NGX_OK)
         {
-            continue;
-        }
-
-        elt = ngx_live_segment_info_push(channel, cur_ctx);
-        if (elt == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, &cur_track->log, 0,
-                "ngx_live_segment_info_segment_created: push failed");
             return NGX_ERROR;
         }
-
-        elt->bitrate = cur;
-
-        cur_ctx->last_segment_bitrate = cur * 100;
     }
 
     return NGX_OK;
@@ -508,6 +543,8 @@ ngx_live_segment_info_track_init(ngx_live_track_t *track, void *ectx)
         ctx->initial_bitrate = NGX_LIVE_SEGMENT_NO_BITRATE;
         ctx->last_segment_bitrate = NGX_LIVE_SEGMENT_NO_BITRATE * 100;
     }
+
+    ctx->last_segment_index = NGX_LIVE_INVALID_SEGMENT_INDEX;
 
     return NGX_OK;
 }
@@ -889,6 +926,7 @@ static ngx_live_channel_event_t  ngx_live_segment_info_channel_events[] = {
         NGX_LIVE_EVENT_CHANNEL_SEGMENT_CREATED },
     { ngx_live_segment_info_segment_free,
         NGX_LIVE_EVENT_CHANNEL_SEGMENT_FREE },
+
       ngx_live_null_event
 };
 
@@ -896,6 +934,9 @@ static ngx_live_track_event_t    ngx_live_segment_info_track_events[] = {
     { ngx_live_segment_info_track_init, NGX_LIVE_EVENT_TRACK_INIT },
     { ngx_live_segment_info_track_free, NGX_LIVE_EVENT_TRACK_FREE },
     { ngx_live_segment_info_track_copy, NGX_LIVE_EVENT_TRACK_COPY },
+    { ngx_live_segment_info_track_segment_created,
+        NGX_LIVE_EVENT_TRACK_SEGMENT_CREATED },
+
       ngx_live_null_event
 };
 

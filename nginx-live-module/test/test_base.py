@@ -3,7 +3,9 @@ from cleanup_stack import *
 from kmp_utils import *
 from threading import Thread
 import manifest_utils
+import http_utils
 import errno
+import time
 import os
 import re
 
@@ -33,6 +35,7 @@ VARIANT_ID = 'var1'
 FILLER_CHANNEL_ID = '__filler'
 FILLER_PRESET = 'main'
 FILLER_TIMELINE_ID = 'main'
+LL_PRESET = 'll'
 
 def nginxLiveClient():
     return NginxLive(NGINX_LIVE_API_URL)
@@ -118,21 +121,21 @@ def setupChannelTimeline(channelId, timelineId=TIMELINE_ID, preset='main'):
     nl = nginxLiveClient()
     nl.channel.create(NginxLiveChannel(id=channelId, preset=preset))
     nl.setChannelId(channelId)
-    nl.timeline.create(NginxLiveTimeline(id=timelineId, active=True))
+    nl.timeline.create(NginxLiveTimeline(id=timelineId, active=True, manifest_target_duration_segments=3))
     return nl
 
-def createTrack(nl, trackName, mediaType, varName=None):
+def createTrack(nl, trackName, mediaType, varName=None, initialFrameId=0, flags=0):
     nl.track.create(NginxLiveTrack(id=trackName, media_type=mediaType))
     if varName is not None:
         nl.variant.addTrack(variantId=varName, trackId=trackName)
-    return KmpTcpSender(NGINX_LIVE_KMP_ADDR, nl.channelId, trackName, mediaType)
+    return KmpTcpSender(NGINX_LIVE_KMP_ADDR, nl.channelId, trackName, mediaType, initialFrameId, flags=flags)
 
-def createVariant(nl, varName, tracks):
+def createVariant(nl, varName, tracks, initialFrameId=0, flags=0):
     nl.variant.create(NginxLiveVariant(id=varName))
 
     result = []
     for trackName, mediaType in tracks:
-        result.append(createTrack(nl, trackName, mediaType, varName))
+        result.append(createTrack(nl, trackName, mediaType, varName, initialFrameId, flags))
     return result
 
 def setupChannelVideoAudio(channelId, duration=10, timelineId=TIMELINE_ID):
@@ -203,6 +206,27 @@ def testDefaultStreams(channelId, basePath, timelineId=TIMELINE_ID):
         url = getStreamUrl(channelId, prefix, timelineId=timelineId)
         testStream(url, basePath, prefix)
 
+def testLLDefaultStreams(channelId, basePath, timelineId=TIMELINE_ID):
+    for prefix in ['hls-ll']:
+        url = getStreamUrl(channelId, prefix, timelineId=timelineId)
+        testStream(url, basePath, prefix)
+
+
+class HttpRequestThread(Thread):
+    def __init__(self, url):
+        Thread.__init__(self)
+        self.url = url
+        self.result = None
+        self.start()
+
+    def run(self):
+        start = time.time()
+        self.result = http_utils.getUrl(self.url)
+        self.execTime = time.time() - start
+
+    def join(self):
+        Thread.join(self)
+        return self.result
 
 def assertHttpError(func, status):
     try:
@@ -212,6 +236,30 @@ def assertHttpError(func, status):
         if e.response.status_code != status:
             raise
 
+def assertEquals(v1, v2):
+    if v1 != v2:
+        print 'Assert failed: %s != %s' % (v1, v2)
+        assert(False)
+
+def assertLessThan(v1, v2):
+    if v1 >= v2:
+        print 'Assert failed: %s >= %s' % (v1, v2)
+        assert(False)
+
+def assertGreaterThan(v1, v2):
+    if v1 <= v2:
+        print 'Assert failed: %s <= %s' % (v1, v2)
+        assert(False)
+
+def assertBetween(v, mi, mx):
+    if v < mi or v > mx:
+        print 'Assert failed: %s not between %s and %s' % (v, mi, mx)
+        assert(False)
+
+def assertEndsWith(v1, v2):
+    if not v1.endswith(v2):
+        print 'Assert failed: %s does not end with %s' % (v1, v2)
+        assert(False)
 
 ### Log tracker - used to verify certain lines appear in nginx log
 class LogTracker:

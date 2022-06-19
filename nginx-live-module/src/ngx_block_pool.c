@@ -264,6 +264,12 @@ ngx_block_pool_free_list(ngx_block_pool_t *block_pool, ngx_uint_t index,
     slot = &block_pool->slots[index];
 
 #if (NGX_DEBUG)
+    if (ngx_block_pool_free_next(tail) != NULL) {
+        ngx_log_error(NGX_LOG_ALERT, block_pool->pool->log, 0,
+            "ngx_block_pool_free_list: tail does not point to null");
+        ngx_debug_point();
+    }
+
     for (cur = head; cur != NULL; cur = ngx_block_pool_free_next(cur)) {
         memset((void **) cur + 1, 0xBD, slot->size - sizeof(void *));
     }

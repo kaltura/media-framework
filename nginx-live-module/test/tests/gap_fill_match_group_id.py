@@ -30,7 +30,7 @@ def test(channelId=CHANNEL_ID):
         (KmpMediaFileReader(TEST_VIDEO2, 1), sa2),
         (KmpMediaFileReader(TEST_VIDEO1, 0), sv3),
         (KmpMediaFileReader(TEST_VIDEO1, 1), sa3),
-    ], st, 30)
+    ], st, 30, realtime=1)
 
     # var3 expected to choose either var1 or var2
     kmpSendStreams([
@@ -38,7 +38,7 @@ def test(channelId=CHANNEL_ID):
         (KmpMediaFileReader(TEST_VIDEO1, 1), sa1),
         (KmpMediaFileReader(TEST_VIDEO2, 0), sv2),
         (KmpMediaFileReader(TEST_VIDEO2, 1), sa2),
-    ], st, 30)
+    ], st, 30, realtime=1)
 
     nl.track.update(NginxLiveTrack(id='v3', group_id='1'))
     nl.track.update(NginxLiveTrack(id='a3', group_id='1'))
@@ -49,7 +49,7 @@ def test(channelId=CHANNEL_ID):
         (KmpMediaFileReader(TEST_VIDEO1, 1), sa1),
         (KmpMediaFileReader(TEST_VIDEO2, 0), sv2),
         (KmpMediaFileReader(TEST_VIDEO2, 1), sa2),
-    ], st, 30)
+    ], st, 30, realtime=1)
 
     nl.track.update(NginxLiveTrack(id='v3', group_id='2'))
     nl.track.update(NginxLiveTrack(id='a3', group_id='2'))
@@ -60,7 +60,7 @@ def test(channelId=CHANNEL_ID):
         (KmpMediaFileReader(TEST_VIDEO1, 1), sa1),
         (KmpMediaFileReader(TEST_VIDEO2, 0), sv2),
         (KmpMediaFileReader(TEST_VIDEO2, 1), sa2),
-    ], st, 30)
+    ], st, 30, realtime=1)
 
     kmpSendStreams([
         (KmpMediaFileReader(TEST_VIDEO1, 0), sv1),
@@ -69,7 +69,7 @@ def test(channelId=CHANNEL_ID):
         (KmpMediaFileReader(TEST_VIDEO2, 1), sa2),
         (KmpMediaFileReader(TEST_VIDEO1, 0), sv3),
         (KmpMediaFileReader(TEST_VIDEO1, 1), sa3),
-    ], st, 30)
+    ], st, 30, realtime=1)
 
     kmpSendEndOfStream([sv1, sa1, sv2, sa2, sv3, sa3])
 

@@ -516,6 +516,9 @@ if (d) {
                 elif format == 'O':
                     valueSize = 'NGX_OFF_T_LEN'
                     cast = 'off_t'
+                elif format == 'M':
+                    valueSize = 'NGX_INT64_LEN'
+                    cast = 'ngx_msec_t'
                 else:
                     writeErr('Error: unknown format %s' % format)
                     sys.exit(1)

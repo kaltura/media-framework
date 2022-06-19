@@ -388,6 +388,7 @@ ngx_http_pckg_capture_parse_request(ngx_http_request_t *r, u_char *cur,
 
     result->flags = 0;
     result->media_type_mask = 1 << KMP_MEDIA_VIDEO;
+    result->media_type_count = 1;
 
     rc = ngx_http_pckg_capture_parse_uri(r, cur, end, result);
     if (rc != NGX_OK) {
