@@ -135,7 +135,7 @@ typedef struct {
 } ngx_live_lls_track_pending_seg_t;
 
 typedef struct {
-    ngx_rbtree_node_t                  node;
+    ngx_rbtree_node_t                  node;        /* must be first */
     ngx_live_track_t                  *track;
 
     ngx_int_t                          fstate;
@@ -236,6 +236,10 @@ static ngx_conf_num_bounds_t  ngx_live_lls_max_pending_segments_bounds = {
     ngx_conf_check_num_bounds, 1, 128
 };
 
+static ngx_conf_num_bounds_t  ngx_live_lls_percent_bounds = {
+    ngx_conf_check_num_bounds, 0, 99
+};
+
 
 static ngx_command_t  ngx_live_lls_commands[] = {
 
@@ -328,21 +332,21 @@ static ngx_command_t  ngx_live_lls_commands[] = {
       ngx_conf_set_num_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_lls_preset_conf_t, segment_start_margin),
-      NULL },
+      &ngx_live_lls_percent_bounds },
 
     { ngx_string("ll_segmenter_video_end_segment_margin"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_lls_preset_conf_t, video_end_segment_margin),
-      NULL },
+      &ngx_live_lls_percent_bounds },
 
     { ngx_string("ll_segmenter_video_duration_margin"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_lls_preset_conf_t, video_duration_margin),
-      NULL },
+      &ngx_live_lls_percent_bounds },
 
     { ngx_string("ll_segmenter_max_skip_frames"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
@@ -390,9 +394,9 @@ ngx_live_lls_frame_list_init(ngx_live_lls_frame_list_t *list,
 {
     ngx_live_lls_frame_part_t  *part;
 
+    list->track = track;
     list->block_pool = block_pool;
     list->bp_idx = bp_idx;
-    list->track = track;
 
     part = ngx_block_pool_alloc(list->block_pool, list->bp_idx);
     if (part == NULL) {
@@ -595,9 +599,9 @@ ngx_live_lls_frame_list_reset(ngx_live_lls_frame_list_t *list)
     part->next = NULL;
 
     list->last = part;
+    list->last_data_part = NULL;
     list->offset = 0;
     list->count = 0;
-    list->last_data_part = NULL;
 }
 
 
@@ -742,7 +746,7 @@ ngx_live_lls_validate(ngx_live_channel_t *channel)
         if (cur_ctx->sstate != sstate) {
             ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
                 "ngx_live_lls_validate: "
-                "invalid segment state %ui expected %ui",
+                "invalid segment state %i expected %i",
                 cur_ctx->sstate, sstate);
             ngx_debug_point();
         }
@@ -830,8 +834,9 @@ ngx_live_lls_track_start_part(ngx_live_track_t *track,
     frames = last_part->elts;
 
     part->start_dts = frame->dts;
+
+    part->frame = &frames[last_part->nelts - 1];
     part->frame_part = last_part;
-    part->frame = frames + last_part->nelts - 1;
     part->frame_count = segment->frame_count;
 
     part->data_head = frame->data;
@@ -861,11 +866,10 @@ ngx_live_lls_track_stop_part(ngx_live_track_t *track, ngx_flag_t is_last)
     ngx_live_lls_pending_seg_t  *pending;
     ngx_live_lls_channel_ctx_t  *cctx;
 
-    channel = track->channel;
-
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
     segment = ctx->segment;
 
+    channel = track->channel;
     cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
     pending = &cctx->pending.elts[track->pending_index];
 
@@ -1107,7 +1111,7 @@ ngx_live_lls_check_dispose_frame(ngx_live_track_t *track,
         goto dispose;
     }
 
-    cctx = ngx_live_get_module_ctx(track->channel, ngx_live_lls_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
 
     if (track->pending_index > 0) {
         last_track_pts = cctx->pending.elts[track->pending_index - 1].end_pts;
@@ -1229,7 +1233,7 @@ ngx_live_lls_track_start_segment(ngx_live_track_t *track,
     {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_live_lls_track_start_segment: "
-            "invalid segment index, pending_index=%uD", pending_index);
+            "invalid segment index, pending_index: %uD", pending_index);
         return NGX_ERROR;
     }
 
@@ -1238,22 +1242,25 @@ ngx_live_lls_track_start_segment(ngx_live_track_t *track,
     segment_index = channel->next_segment_index + pending_index;
 
     rc = ngx_live_media_info_pending_create_segment(track, segment_index);
-    if (rc != NGX_DONE) {
-        if (rc != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_live_lls_track_start_segment: "
-                "create media info failed");
-            return NGX_ERROR;
-        }
+    switch (rc) {
 
+    case NGX_OK:
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
             "ngx_live_lls_track_start_segment: "
             "media info changed, forcing new period");
 
         force_new_period = 1;
+        break;
 
-    } else {
+    case NGX_DONE:
         force_new_period = 0;
+        break;
+
+    default:
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_lls_track_start_segment: "
+            "create media info failed");
+        return NGX_ERROR;
     }
 
     if (pending_index >= cctx->pending.nelts) {
@@ -1369,11 +1376,10 @@ ngx_live_lls_track_start_segment(ngx_live_track_t *track,
         ngx_live_variants_update_active(channel);
     }
 
-    ngx_log_debug5(NGX_LOG_DEBUG_LIVE, &track->log, 0,
-        "ngx_live_lls_track_start_segment: index: %ui, gap_parts: %ui, "
-        "pts: %L, frame_pts: %L, track: %V",
-        segment->node.key, segment->parts.nelts,
-        pending->start_pts, frame->pts, &track->sn.str);
+    ngx_log_debug4(NGX_LOG_DEBUG_LIVE, &track->log, 0,
+        "ngx_live_lls_track_start_segment: "
+        "index: %ui, pts: %L, frame_pts: %L, track: %V",
+        segment->node.key, pending->start_pts, frame->pts, &track->sn.str);
 
     ngx_live_lls_validate(channel);
 
@@ -1507,17 +1513,17 @@ ngx_live_lls_track_idle(ngx_live_track_t *track)
     ngx_live_lls_track_ctx_t    *ctx;
     ngx_live_lls_channel_ctx_t  *cctx;
 
-    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, &track->log, 0,
-        "ngx_live_lls_track_idle: track: %V", &track->sn.str);
-
-    (void) ngx_live_core_track_event(track,
-        NGX_LIVE_EVENT_TRACK_INACTIVE, NULL);
-
     channel = track->channel;
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
     cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
 
+    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, &track->log, 0,
+        "ngx_live_lls_track_idle: track: %V", &track->sn.str);
+
     ctx->fstate = ngx_live_lls_fs_idle;
+
+    (void) ngx_live_core_track_event(track,
+        NGX_LIVE_EVENT_TRACK_INACTIVE, NULL);
 
     cctx->non_idle_tracks--;
     if (cctx->non_idle_tracks <= 0 && cctx->pending.nelts <= 0) {
@@ -1534,7 +1540,7 @@ ngx_live_lls_track_flush_segment(ngx_live_track_t *track)
     ngx_live_segment_t        *segment;
     ngx_live_lls_track_ctx_t  *ctx;
 
-    /* Note: must be called when fstate = inactive and no active frames */
+    /* Note: must be called when fstate = inactive and no pending frames */
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
 
@@ -1559,7 +1565,7 @@ ngx_live_lls_track_flush_segment(ngx_live_track_t *track)
     last = segment->frames.last;
     frames = last->elts;
 
-    frame = frames + last->nelts - 1;
+    frame = &frames[last->nelts - 1];
 
     if (segment->frame_count > 1
         && ctx->last_frame_dts > segment->start_dts)
@@ -1624,7 +1630,7 @@ ngx_live_lls_set_end_pts(ngx_live_channel_t *channel, ngx_log_t *log)
         return NGX_ERROR;
     }
 
-    pts = LLONG_MIN;
+    pts = cctx->min_pending_end_pts;
 
     for (q = ngx_queue_head(&channel->tracks.queue);
         q != ngx_queue_sentinel(&channel->tracks.queue);
@@ -1664,10 +1670,6 @@ ngx_live_lls_set_end_pts(ngx_live_channel_t *channel, ngx_log_t *log)
         if (pts < cur_pts) {
             pts = cur_pts;
         }
-    }
-
-    if (pts < cctx->min_pending_end_pts) {
-        pts = cctx->min_pending_end_pts;
     }
 
     pending->end_pts = pts;
@@ -1850,7 +1852,6 @@ ngx_live_lls_track_close_segment(ngx_live_track_t *track)
             "ngx_live_lls_track_close_segment: track removed");
 
         track->has_last_segment = 0;
-        channel->last_modified = ngx_time();
 
     } else {
 
@@ -1862,8 +1863,9 @@ ngx_live_lls_track_close_segment(ngx_live_track_t *track)
             "ngx_live_lls_track_close_segment: track added");
 
         track->has_last_segment = 1;
-        channel->last_modified = ngx_time();
     }
+
+    channel->last_modified = ngx_time();
 }
 
 
@@ -2012,9 +2014,7 @@ ngx_live_lls_process_frame(ngx_live_track_t *track,
     ngx_live_lls_channel_ctx_t  *cctx;
     ngx_live_lls_pending_seg_t  *pending;
 
-    channel = track->channel;
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
 
     ngx_log_debug8(NGX_LOG_DEBUG_LIVE, &track->log, 0,
         "ngx_live_lls_process_frame: id: %uL, created: %M, size: %uD, "
@@ -2027,7 +2027,6 @@ ngx_live_lls_process_frame(ngx_live_track_t *track,
         /* update last frame duration */
 
         segment = ctx->segment;
-
         last = segment->frames.last;
 
         frames = last->elts;
@@ -2054,8 +2053,10 @@ ngx_live_lls_process_frame(ngx_live_track_t *track,
             start_part = 1;
 
         } else if (frame->pts >= ctx->part_end_pts) {
-            pending = &cctx->pending.elts[track->pending_index];
+            channel = track->channel;
+            cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
 
+            pending = &cctx->pending.elts[track->pending_index];
             if (!pending->end_set || ctx->part_end_pts < pending->end_pts) {
                 start_part = 1;
 
@@ -2092,7 +2093,7 @@ ngx_live_lls_process_frame(ngx_live_track_t *track,
                     return NGX_ERROR;
                 }
 
-                ngx_live_lls_validate(channel);
+                ngx_live_lls_validate(track->channel);
 
                 if (flags & NGX_LIVE_LLS_FLAG_FLUSH_ANY) {
                     return NGX_DONE;
@@ -2117,6 +2118,7 @@ ngx_live_lls_process_frame(ngx_live_track_t *track,
 
         /* end the segment */
 
+        channel = track->channel;
         if (ngx_live_lls_set_end_pts(channel, &track->log) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_live_lls_process_frame: set end pts failed");
@@ -2131,7 +2133,7 @@ ngx_live_lls_process_frame(ngx_live_track_t *track,
             return NGX_ERROR;
         }
 
-        /* fallthrough */
+        /* fall through */
 
     case ngx_live_lls_ss_idle:
 
@@ -2386,7 +2388,7 @@ ngx_live_lls_force_close_segment(ngx_live_channel_t *channel)
         if (cctx->pending.elts[0].total_started_tracks > 0) {
             ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
                 "ngx_live_lls_force_close_segment: "
-                "pending tracks after flush");
+                "nonzero started tracks after flush");
             return NGX_ERROR;
         }
     }
@@ -2541,9 +2543,11 @@ ngx_live_lls_add_frame(ngx_live_add_frame_req_t *req)
         }
     }
 
-    if (frame->flags & NGX_LIVE_FRAME_FLAG_SPLIT && cctx->pending.nelts > 0) {
-
+    if ((frame->flags & NGX_LIVE_FRAME_FLAG_SPLIT)
+        && cctx->pending.nelts > 0)
+    {
         pending = &cctx->pending.elts[cctx->pending.nelts - 1];
+
         if (!pending->end_set
             && ctx->last_added_pts >= cctx->min_pending_end_pts
             && ctx->last_added_pts < pending->end_pts)
@@ -2586,7 +2590,6 @@ ngx_live_lls_add_frame(ngx_live_add_frame_req_t *req)
     }
 
     ngx_rbtree_insert(&cctx->rbtree, node);
-
     cctx->pending_frames_tracks[track->media_type]++;
 
     if (ngx_live_lls_process(channel) != NGX_OK) {
@@ -2759,6 +2762,7 @@ ngx_live_lls_get_min_used(ngx_live_track_t *track, uint32_t *segment_index,
     /* ctx->segment must be null if this func is called */
 
     *segment_index = track->channel->next_segment_index + track->pending_index;
+
     if (ctx->frames.count > 0) {
         frame = ngx_live_lls_frame_list_head(&ctx->frames);
         *ptr = frame->data->data;
@@ -2853,6 +2857,11 @@ ngx_live_lls_track_free(ngx_live_track_t *track, void *ectx)
     channel = track->channel;
     cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
 
+    if (ctx->frames.count > 0) {
+        ngx_rbtree_delete(&cctx->rbtree, &ctx->node);
+        cctx->pending_frames_tracks[track->media_type]--;
+    }
+
     if (ctx->sstate == ngx_live_lls_ss_started) {
         pending = &cctx->pending.elts[track->pending_index];
 
@@ -2869,11 +2878,6 @@ ngx_live_lls_track_free(ngx_live_track_t *track, void *ectx)
         if (cctx->non_idle_tracks <= 0 && cctx->pending.nelts <= 0) {
             ngx_live_lls_channel_idle(channel);
         }
-    }
-
-    if (ctx->frames.count > 0) {
-        ngx_rbtree_delete(&cctx->rbtree, &ctx->node);
-        cctx->pending_frames_tracks[track->media_type]--;
     }
 
     ngx_live_lls_frame_list_free(&ctx->frames);
@@ -2973,7 +2977,6 @@ ngx_live_lls_channel_init(ngx_live_channel_t *channel, void *ectx)
 
     cctx->min_part_duration = ngx_live_rescale_time(
         spcf->min_part_duration, 1000, channel->timescale);
-
     cctx->forward_jump_threshold = ngx_live_rescale_time(
         spcf->forward_jump_threshold, 1000, channel->timescale);
     cctx->backward_jump_threshold = ngx_live_rescale_time(

@@ -15,8 +15,8 @@
 #define NGX_LIVE_SEGMENTER_FLAG_PARTS_CAP        (0x01)
 
 /* KMP_FRAME_FLAG_KEY = 0x01 */
-#define NGX_LIVE_FRAME_FLAG_SPLIT            (0x10)
-#define NGX_LIVE_FRAME_FLAG_RESET_DTS_SHIFT  (0x20)
+#define NGX_LIVE_FRAME_FLAG_SPLIT                (0x10)
+#define NGX_LIVE_FRAME_FLAG_RESET_DTS_SHIFT      (0x20)
 
 
 typedef struct {

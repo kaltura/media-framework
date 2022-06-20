@@ -4,9 +4,9 @@
 
 
 typedef struct {
-    uint32_t           track_id;
-    ngx_atomic_uint_t  connection;
-    uint64_t           next_frame_id;
+    uint32_t                               track_id;
+    ngx_atomic_uint_t                      connection;
+    uint64_t                               next_frame_id;
 } ngx_live_persist_snap_frames_track_t;
 
 typedef struct {

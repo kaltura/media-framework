@@ -141,8 +141,8 @@ ngx_live_segment_t *ngx_live_segment_cache_get(ngx_live_track_t *track,
 uint32_t ngx_live_segment_cache_get_last_part(ngx_live_track_t *track,
     uint32_t segment_index);
 
-uint32_t ngx_live_segment_cache_get_pending_part(ngx_live_track_t *track,
-    uint32_t segment_index);
+ngx_flag_t ngx_live_segment_cache_is_pending_part(ngx_live_track_t *track,
+    uint32_t segment_index, uint32_t part_index);
 
 void ngx_live_segment_write_init_ctx(ngx_live_segment_write_ctx_t *ctx,
     ngx_live_segment_t *segment, uint32_t part_index, uint32_t flags,

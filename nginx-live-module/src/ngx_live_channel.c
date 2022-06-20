@@ -444,21 +444,22 @@ ngx_live_channel_update_latency_stats(ngx_live_channel_t *channel,
     now = (int64_t) tp->sec * channel->timescale +
         (int64_t) tp->msec * channel->timescale / 1000;
 
-    if (now >= from) {
-
-        latency = now - from;
-
-        if (stats->min > latency || stats->count <= 0) {
-            stats->min = latency;
-        }
-
-        if (stats->max < latency) {
-            stats->max = latency;
-        }
-
-        stats->count++;
-        stats->sum += latency;
+    if (now < from) {
+        return;
     }
+
+    latency = now - from;
+
+    if (stats->min > latency || stats->count <= 0) {
+        stats->min = latency;
+    }
+
+    if (stats->max < latency) {
+        stats->max = latency;
+    }
+
+    stats->count++;
+    stats->sum += latency;
 }
 
 /* variant */

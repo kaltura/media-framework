@@ -422,6 +422,12 @@ ngx_live_core_prepare_preset(ngx_conf_t *cf, ngx_live_core_preset_conf_t *cpcf)
     ngx_uint_t                   i, n;
     ngx_live_core_block_size_t  *bs;
 
+    if (!cpcf->segmenter.id) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "no segmenter defined for preset \"%V\"", &cpcf->name.s);
+        return NGX_ERROR;
+    }
+
     /* add core blocks */
     bs = ngx_array_push_n(cpcf->mem_temp_blocks, NGX_LIVE_CORE_BP_COUNT);
     if (bs == NULL) {

@@ -12,7 +12,6 @@
 
 
 #define NGX_LIVE_SEGMENTER_ID                (0x72746773)    /* sgtr */
-#define NGX_LIVE_SEGMENTER_PERSIST_BLOCK     (0x72746773)    /* sgtr */
 
 
 #define NGX_LIVE_SEGMENTER_FRAME_PART_COUNT  (32)

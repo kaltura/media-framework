@@ -94,7 +94,7 @@ ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
     }
 
     channel = track->channel;
-    if (channel->part_duration != 0) {
+    if (channel->part_duration > 0) {
         n = ngx_ceil_div(channel->segment_duration, channel->part_duration);
 
     } else {
@@ -421,26 +421,27 @@ ngx_live_segment_cache_finalize(ngx_live_segment_t *segment, uint32_t *bitrate)
             (segment->data_size * 8 * channel->timescale) /
             (segment->end_dts - segment->start_dts);
 
-        if (segment_bitrate > 0 &&
-            segment_bitrate < NGX_LIVE_SEGMENT_CACHE_MAX_BITRATE)
+        if (segment_bitrate <= 0 ||
+            segment_bitrate >= NGX_LIVE_SEGMENT_CACHE_MAX_BITRATE)
         {
-            *bitrate = segment_bitrate;
-
-        } else {
-            *bitrate = NGX_LIVE_SEGMENT_NO_BITRATE;
+            segment_bitrate = NGX_LIVE_SEGMENT_NO_BITRATE;
         }
 
-        ngx_live_media_info_update_stats(segment, *bitrate);
+        ngx_live_media_info_update_stats(segment, segment_bitrate);
 
     } else {
-        *bitrate = NGX_LIVE_SEGMENT_NO_BITRATE;
+        segment_bitrate = NGX_LIVE_SEGMENT_NO_BITRATE;
     }
 
-    ngx_log_debug5(NGX_LOG_DEBUG_LIVE, &track->log, 0,
+    *bitrate = segment_bitrate;
+
+    ngx_log_debug6(NGX_LOG_DEBUG_LIVE, &track->log, 0,
         "ngx_live_segment_cache_finalize: "
-        "created segment %ui, frames: %ui, size: %uz, duration: %L, track: %V",
+        "created segment %ui, frames: %ui, size: %uz, "
+        "duration: %L, bitrate: %uL, track: %V",
         segment->node.key, segment->frame_count, segment->data_size,
-        segment->end_dts - segment->start_dts, &track->sn.str);
+        segment->end_dts - segment->start_dts,
+        segment_bitrate, &track->sn.str);
 
     ngx_live_segment_cache_validate(segment);
 }
@@ -546,27 +547,39 @@ ngx_live_segment_cache_get_last_part(ngx_live_track_t *track,
 }
 
 
-uint32_t
-ngx_live_segment_cache_get_pending_part(ngx_live_track_t *track,
-    uint32_t segment_index)
+ngx_flag_t
+ngx_live_segment_cache_is_pending_part(ngx_live_track_t *track,
+    uint32_t segment_index, uint32_t part_index)
 {
-    ngx_uint_t                n;
-    ngx_live_segment_t       *segment;
-    ngx_live_segment_part_t  *parts;
+    ngx_uint_t                           n;
+    ngx_queue_t                         *q;
+    ngx_live_segment_t                  *segment;
+    ngx_live_segment_part_t             *parts;
+    ngx_live_segment_cache_track_ctx_t  *ctx;
 
-    segment = ngx_live_segment_cache_get_internal(track, segment_index);
-    if (segment == NULL || segment->parts.nelts <= 0) {
-        return NGX_LIVE_INVALID_PART_INDEX;
+    ctx = ngx_live_get_module_ctx(track, ngx_live_segment_cache_module);
+
+    q = ngx_queue_last(&ctx->queue);
+    if (q == ngx_queue_sentinel(&ctx->queue)) {
+        return 0;
+    }
+
+    segment = ngx_queue_data(q, ngx_live_segment_t, queue);
+    if (segment->node.key != segment_index) {
+        return 0;
+    }
+
+    n = segment->parts.nelts;
+    if (n <= 0 || n - 1 != part_index) {
+        return 0;
     }
 
     parts = segment->parts.elts;
-    n = segment->parts.nelts;
-
-    if (parts[n - 1].duration > 0) {
-        return NGX_LIVE_INVALID_PART_INDEX;
+    if (parts[part_index].duration > 0) {
+        return 0;
     }
 
-    return n - 1;
+    return 1;
 }
 
 
@@ -709,8 +722,8 @@ ngx_live_segment_part_write_serve(ngx_persist_write_ctx_t *write_ctx,
         if (part->frame_count <= 0) {
             duration |= NGX_KSMP_PART_GAP;
 
-        } else if (track->media_type == KMP_MEDIA_VIDEO &&
-            part->frame->key_frame)
+        } else if (track->media_type == KMP_MEDIA_VIDEO
+            && part->frame->key_frame)
         {
             duration |= NGX_KSMP_PART_INDEPENDENT;
         }
@@ -819,7 +832,7 @@ ngx_live_segment_part_list_write_serve(ngx_persist_write_ctx_t *write_ctx,
         }
 
         if (segment->node.key > scope->max_index) {
-            break;
+            goto done;
         }
 
         if (segment->node.key >= period->node.key) {

@@ -209,7 +209,6 @@ typedef struct {
 } ngx_ksmp_track_parts_header_t;
 
 
-
 typedef struct {
     uint32_t                     media_type;
     uint32_t                     last_sequence;

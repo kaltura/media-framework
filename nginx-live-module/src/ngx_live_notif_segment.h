@@ -10,7 +10,6 @@
 
 typedef struct {
     ngx_rbtree_node_t           node;       /* must be first */
-    //ngx_rbtree_t               *rbtree;
     ngx_live_track_t           *track;
     ngx_queue_t                 queue;
 

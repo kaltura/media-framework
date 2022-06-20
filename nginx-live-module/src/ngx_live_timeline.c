@@ -871,8 +871,7 @@ ngx_live_timeline_index_to_sequence(ngx_live_timeline_t *timeline,
         period = ngx_queue_data(q, ngx_live_period_t, queue);
 
         if (segment_index >= period->node.key + period->segment_count) {
-            *exists = 0;
-            return sequence;
+            break;
         }
 
         sequence -= period->segment_count;
@@ -1803,13 +1802,13 @@ ngx_live_timeline_update_last_segment(ngx_live_timeline_t *timeline,
     ngx_live_channel_t               *channel;
     ngx_live_timeline_channel_ctx_t  *cctx;
 
-    channel = timeline->channel;
-    cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
-
     q = ngx_queue_last(&timeline->periods);
     if (q == ngx_queue_sentinel(&timeline->periods)) {
         return;
     }
+
+    channel = timeline->channel;
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
     period = ngx_queue_data(q, ngx_live_period_t, queue);
     if (period->node.key + period->segment_count - 1
@@ -3216,7 +3215,9 @@ ngx_live_timeline_serve_skip_segments(ngx_live_timeline_t *timeline,
     output_duration = scope->skip_boundary_percent * ngx_round_to_multiple(
         timeline->manifest.target_duration, timescale) / 100;
 
-    if (timeline->manifest.duration <= output_duration) {
+    if (timeline->manifest.duration <= output_duration
+        || output_duration <= 0)
+    {
         return 0;
     }
 
