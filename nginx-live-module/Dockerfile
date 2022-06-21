@@ -1,13 +1,13 @@
 # docker run   --name live-packager --rm   --cap-add=SYS_PTRACE --security-opt seccomp=unconfined   -v /Users/guyjacubovski/dev/live/nginx-packager.conf:/usr/local/nginx/conf/nginx.conf -v /Users/guyjacubovski/dev/live/s3/:/s3/ -p 6543:6543 -p 8003:8003 -p 20000:80 kaltura/live-packager
 # add  for debug:   gdb ../sbin/nginx
-ARG ALPINE_VER=3.11.3
+ARG ALPINE_VER=3.16
 FROM alpine:$ALPINE_VER as builder
 
 RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base libaio-dev linux-headers
 
 WORKDIR /tmp/build
 
-ARG NGINX_VERSION=1.17.8
+ARG NGINX_VERSION=1.21.0
 ARG NGX_DEVEL_KIT_VERSION=v0.3.1
 ARG SET_MISC_NGINX_MODULE_VERSION=v0.32
 
@@ -55,6 +55,7 @@ RUN apk add --update \
 
 COPY --from=builder /usr/local/nginx /usr/local/nginx
 
+RUN apk add cmd:pip3
 RUN pip3 install redis boto3
 
 EXPOSE 6543
