@@ -182,8 +182,8 @@ ngx_live_persist_media_read_frame_list(ngx_persist_block_header_t *header,
     frame_count = data.len / sizeof(ngx_live_frame_t);
     if (frame_count != segment->frame_count) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_persist_media_read_frame_list: frame count mismatch"
-            ", expected: %ui, actual: %ui",
+            "ngx_live_persist_media_read_frame_list: frame count mismatch, "
+            "expected: %ui, actual: %ui",
             segment->frame_count, frame_count);
         return NGX_BAD_DATA;
     }

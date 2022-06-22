@@ -240,8 +240,8 @@ ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
     track_correction = created - pts;
     if (track_correction < min_correction) {
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-            "ngx_live_syncer_sync_track: adjusting track correction to min"
-            ", correction: %L, min: %L", track_correction, min_correction);
+            "ngx_live_syncer_sync_track: adjusting track correction to min, "
+            "correction: %L, min: %L", track_correction, min_correction);
 
         track_correction = min_correction;
 
@@ -337,8 +337,8 @@ ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
                 }
 
                 ngx_log_error(NGX_LOG_WARN, &track->log, 0,
-                    "ngx_live_syncer_add_frame: large inter-frame pts jump"
-                    ", cur: %L, last: %L, min_correction: %L",
+                    "ngx_live_syncer_add_frame: large inter-frame pts jump, "
+                    "cur: %L, last: %L, min_correction: %L",
                     pts, ctx->last_pts, min_correction);
 
                 ngx_live_syncer_sync_track(track, pts, frame->created,
@@ -793,8 +793,8 @@ ngx_live_syncer_track_reconnect(ngx_live_track_t *track, void *ectx)
 
     ngx_log_error(NGX_LOG_INFO, &track->log, 0,
         "ngx_live_syncer_track_reconnect: "
-        "state was reset, next_frame_id: %uL, correction: %L"
-        ", last_pts: %L, last_output_dts: %L",
+        "state was reset, next_frame_id: %uL, correction: %L, "
+        "last_pts: %L, last_output_dts: %L",
         track->next_frame_id, ctx->correction,
         ctx->last_pts, ctx->last_output_dts);
 

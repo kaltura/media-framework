@@ -1454,10 +1454,10 @@ ngx_http_pckg_core_write_segment(ngx_http_request_t *r)
     }
 
     rc = ngx_http_pckg_writer_close(r);
-    if (rc != VOD_OK) {
+    if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_pckg_core_write_segment: close failed %i", rc);
-        return ngx_http_pckg_status_to_ngx_error(r, rc);
+        return rc;
     }
 
     return NGX_OK;

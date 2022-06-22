@@ -1652,17 +1652,17 @@ ngx_live_filler_source_set(ngx_live_channel_t *channel,
 
     cur->channel_id.s.data = p;
     cur->channel_id.s.len = new->channel_id.s.len;
-    p = ngx_copy(p, new->channel_id.s.data, new->channel_id.s.len);
+    p = ngx_copy_str(p, new->channel_id.s);
     ngx_json_str_set_escape(&cur->channel_id);
 
     cur->preset_name.s.data = p;
     cur->preset_name.s.len = new->preset_name.s.len;
-    p = ngx_copy(p, new->preset_name.s.data, new->preset_name.s.len);
+    p = ngx_copy_str(p, new->preset_name.s);
     ngx_json_str_set_escape(&cur->preset_name);
 
     cur->timeline_id.s.data = p;
     cur->timeline_id.s.len = new->timeline_id.s.len;
-    p = ngx_copy(p, new->timeline_id.s.data, new->timeline_id.s.len);
+    p = ngx_copy_str(p, new->timeline_id.s);
     ngx_json_str_set_escape(&cur->timeline_id);
 
     channel->filler_start_index = filler_start_index;
