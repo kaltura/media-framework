@@ -174,8 +174,8 @@ static size_t  ngx_live_core_block_sizes[NGX_LIVE_CORE_BP_COUNT] = {
 
 static size_t  ngx_live_core_default_block_sizes[] = {
     ngx_block_pool_auto(64),
-    ngx_block_pool_auto(128),
-    ngx_block_pool_auto(640),
+    ngx_block_pool_auto(124),
+    ngx_block_pool_auto(644),
     ngx_block_pool_auto(2240),
 };
 
