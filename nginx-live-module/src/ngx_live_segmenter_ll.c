@@ -28,7 +28,8 @@
 #define NGX_LIVE_LLS_FLAG_FLUSH_ANY         (NGX_LIVE_LLS_FLAG_FLUSH_PART   \
                                              | NGX_LIVE_LLS_FLAG_FLUSH_SEGMENT)
 
-#define NGX_LIVE_LLS_FRAME_PART_COUNT       (32)
+/* sizeof ngx_live_lls_frame_part_t = 1024 */
+#define NGX_LIVE_LLS_FRAME_PART_COUNT       (18)
 
 #define NGX_LIVE_LLS_DISPOSE_ACK_FREQUENCY  (16)
 

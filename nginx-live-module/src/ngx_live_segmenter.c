@@ -14,7 +14,8 @@
 #define NGX_LIVE_SEGMENTER_ID                (0x72746773)    /* sgtr */
 
 
-#define NGX_LIVE_SEGMENTER_FRAME_PART_COUNT  (32)
+/* sizeof ngx_live_segmenter_frame_part_t = 1024 */
+#define NGX_LIVE_SEGMENTER_FRAME_PART_COUNT  (25)
 #define NGX_LIVE_SEGMENTER_KF_PART_COUNT     (10)
 #define NGX_LIVE_SEGMENTER_CANDIDATE_COUNT   (10)
 
@@ -100,6 +101,7 @@ typedef struct ngx_live_segmenter_frame_part_s
 struct ngx_live_segmenter_frame_part_s {
     ngx_live_segmenter_frame_part_t  *next;
     ngx_uint_t                        nelts;
+    ngx_uint_t                        padding;
 
     ngx_live_segmenter_frame_t  elts[NGX_LIVE_SEGMENTER_FRAME_PART_COUNT];
 };

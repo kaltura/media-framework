@@ -524,7 +524,7 @@ ngx_live_dynamic_var_merge_preset_conf(ngx_conf_t *cf, void *parent,
     ngx_live_dynamic_var_preset_conf_t  *conf = child;
 
     ngx_conf_merge_size_value(conf->max_size,
-                              prev->max_size, 128);
+                              prev->max_size, 152);
 
     if (ngx_live_core_add_block_pool_index(cf, &conf->bp_idx[NGX_LIVE_BP_VAR],
         sizeof(ngx_live_dynamic_var_t) + conf->max_size) != NGX_OK)

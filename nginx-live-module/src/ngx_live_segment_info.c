@@ -7,8 +7,8 @@
 
 #define NGX_LIVE_SEGMENT_INFO_PERSIST_BLOCK  NGX_KSMP_BLOCK_SEGMENT_INFO
 
-/* sizeof ngx_live_segment_info_node_t = 512 */
-#define NGX_LIVE_SEGMENT_INFO_NODE_ELTS    (56)
+/* sizeof ngx_live_segment_info_node_t = 1024 */
+#define NGX_LIVE_SEGMENT_INFO_NODE_ELTS    (120)
 
 #define NGX_LIVE_SEGMENT_INFO_FREE_PERIOD  (32)
 
