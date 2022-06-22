@@ -1,9 +1,12 @@
 #include "mp4_muxer.h"
 #include "mp4_write_stream.h"
 #include "mp4_defs.h"
+#include "../id3_defs.h"
 
 // constants
 #define MDAT_HEADER_SIZE (ATOM_HEADER_SIZE)
+
+#define EMSG_ID3_SCHEME_URI "https://developer.apple.com/streaming/emsg-id3"
 
 #define TRUN_VIDEO_FLAGS (0xF01)        // = data offset, duration, size, key, delay
 #define TRUN_AUDIO_FLAGS (0x301)        // = data offset, duration, size
@@ -115,6 +118,18 @@ typedef struct {
     u_char sap_delta_time[3];
 } sidx64_atom_t;
 
+typedef struct {
+    u_char version[1];
+    u_char flags[3];
+    u_char timescale[4];
+    u_char pres_time[8];
+    u_char duration[4];
+    u_char id[4];
+    // string scheme_id_uri
+    // string value
+} emsg_atom_t;
+
+// constants
 static const u_char styp_atom[] = {
     0x00, 0x00, 0x00, 0x18,        // atom size
     0x73, 0x74, 0x79, 0x70,        // styp
@@ -654,6 +669,57 @@ dash_packager_write_sidx64_atom(
     return p;
 }
 
+static u_char*
+mp4_muxer_write_id3_text_frame(u_char* p, vod_str_t* text)
+{
+    id3_text_frame_t* header;
+    u_char* ps;
+    size_t size;
+
+    header = (void *)p;
+    p = vod_copy(p, id3_text_frame_template, sizeof(id3_text_frame_template));
+
+    size = text->len;
+
+    ps = header->frame_header.size;
+    size += sizeof(id3_text_frame_header_t);
+    write_be32_synchsafe(ps, size);
+
+    ps = header->file_header.size;
+    size += sizeof(id3_frame_header_t);
+    write_be32_synchsafe(ps, size);
+
+    p = vod_copy(p, text->data, text->len);
+
+    return p;
+}
+
+static u_char*
+mp4_muxer_write_emsg_atom(u_char* p, size_t atom_size, media_segment_t* segment)
+{
+    media_segment_track_t* track;
+    uint32_t timescale;
+    int64_t start_dts;
+
+    track = &segment->tracks[0];
+    start_dts = track->start_dts;
+    timescale = track->media_info->timescale;
+
+    write_atom_header(p, atom_size, 'e', 'm', 's', 'g');
+    write_be32(p, 0x01000000);                  // version + flags
+    write_be32(p, timescale);                   // timescale
+    write_be64(p, start_dts);                   // presentation time
+    write_be32(p, 1);                           // event_duration
+    write_be32(p, segment->segment_index);      // id
+    p = vod_copy(p, EMSG_ID3_SCHEME_URI,
+        sizeof(EMSG_ID3_SCHEME_URI));           // scheme_id_uri (incl null)
+    *p++ = '\0';
+
+    p = mp4_muxer_write_id3_text_frame(p, &segment->metadata);
+
+    return p;
+}
+
 vod_status_t
 mp4_muxer_build_fragment_header(
     request_context_t* request_context,
@@ -670,6 +736,7 @@ mp4_muxer_build_fragment_header(
     uint32_t trun_atom_count;
     int64_t earliest_pres_time;
     size_t styp_atom_size;
+    size_t emsg_atom_size;
     size_t tfhd_atom_size;
     size_t sidx_atom_size;
     size_t moof_atom_size;
@@ -731,8 +798,19 @@ mp4_muxer_build_fragment_header(
         sidx_atom_size = 0;
     }
 
+    if (segment->metadata.len != 0 && segment->tracks[0].frame_count > 0)
+    {
+        emsg_atom_size = ATOM_HEADER_SIZE + sizeof(emsg_atom_t) + sizeof(EMSG_ID3_SCHEME_URI) + sizeof("\0") - 1 +
+            sizeof(id3_text_frame_t) + segment->metadata.len;
+    }
+    else
+    {
+        emsg_atom_size = 0;
+    }
+
     *total_fragment_size =
         styp_atom_size +
+        emsg_atom_size +
         sidx_atom_size +
         moof_atom_size +
         mdat_atom_size;
@@ -746,6 +824,7 @@ mp4_muxer_build_fragment_header(
     // allocate the response
     result_size =
         styp_atom_size +
+        emsg_atom_size +
         sidx_atom_size +
         moof_atom_size +
         MDAT_HEADER_SIZE;
@@ -760,9 +839,16 @@ mp4_muxer_build_fragment_header(
 
     p = header->data;
 
+    // styp
     if (styp_atom_size > 0)
     {
         p = vod_copy(p, styp_atom, sizeof(styp_atom));
+    }
+
+    // emsg
+    if (emsg_atom_size > 0)
+    {
+        p = mp4_muxer_write_emsg_atom(p, emsg_atom_size, segment);
     }
 
     // sidx
