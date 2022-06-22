@@ -12,6 +12,10 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
+#ifndef ngx_copy_str
+#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
+#endif
+
 
 enum {
     NGX_PCKG_KSMP_CTX_MAIN = 0,
@@ -121,16 +125,16 @@ ngx_pckg_ksmp_read_channel(ngx_persist_block_header_t *header,
 
     if (channel->tracks.nelts != h->track_count) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_channel: track count mismatch"
-            ", expected: %uD, actual: %ui",
+            "ngx_pckg_ksmp_read_channel: track count mismatch, "
+            "expected: %uD, actual: %ui",
             h->track_count, channel->tracks.nelts);
         return NGX_BAD_DATA;
     }
 
     if (channel->variants.nelts != h->variant_count) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_channel: variant count mismatch"
-            ", expected: %uD, actual: %ui",
+            "ngx_pckg_ksmp_read_channel: variant count mismatch, "
+            "expected: %uD, actual: %ui",
             h->variant_count, channel->variants.nelts);
         return NGX_BAD_DATA;
     }
@@ -234,8 +238,8 @@ ngx_pckg_ksmp_read_timeline(ngx_persist_block_header_t *header,
 
     if (timeline->periods.nelts != period_count) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_timeline: period count mismatch"
-            ", expected: %uD, actual: %ui",
+            "ngx_pckg_ksmp_read_timeline: period count mismatch, "
+            "expected: %uD, actual: %ui",
             period_count, timeline->periods.nelts);
         return NGX_BAD_DATA;
     }
@@ -348,15 +352,15 @@ ngx_pckg_ksmp_read_period(ngx_persist_block_header_t *header,
 
     if (count > NGX_KSMP_INVALID_SEGMENT_INDEX - h->segment_index) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_period: segment index overflow"
-            ", index: %uD, count: %uL", h->segment_index, count);
+            "ngx_pckg_ksmp_read_period: segment index overflow, "
+            "index: %uD, count: %uL", h->segment_index, count);
         return NGX_BAD_DATA;
     }
 
     if (duration > (uint64_t) (LLONG_MAX - h->time)) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_period: segment time overflow"
-            ", time: %L, duration: %uL", h->time, duration);
+            "ngx_pckg_ksmp_read_period: segment time overflow, "
+            "time: %L, duration: %uL", h->time, duration);
         return NGX_BAD_DATA;
     }
 
@@ -1352,8 +1356,8 @@ ngx_pckg_ksmp_read_frame_list(ngx_persist_block_header_t *header,
     frame_count = frames.len / sizeof(segment->frames[0]);
     if (frame_count != segment->header->frame_count) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_frame_list: frame count mismatch"
-            ", expected: %uD, actual: %ui",
+            "ngx_pckg_ksmp_read_frame_list: frame count mismatch, "
+            "expected: %uD, actual: %ui",
             segment->header->frame_count, frame_count);
         return NGX_BAD_DATA;
     }
@@ -1930,7 +1934,7 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
             req->channel_id.len, NGX_ESCAPE_ARGS);
 
     } else {
-        p = ngx_copy(p, req->channel_id.data, req->channel_id.len);
+        p = ngx_copy_str(p, req->channel_id);
     }
 
     p = ngx_copy_fix(p, "&timeline_id=");
@@ -1939,7 +1943,7 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
             req->timeline_id.len, NGX_ESCAPE_ARGS);
 
     } else {
-        p = ngx_copy(p, req->timeline_id.data, req->timeline_id.len);
+        p = ngx_copy_str(p, req->timeline_id);
     }
 
     p = ngx_copy_fix(p, "&flags=");
@@ -1952,7 +1956,7 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
                 req->variant_ids.len, NGX_ESCAPE_ARGS);
 
         } else {
-            p = ngx_copy(p, req->variant_ids.data, req->variant_ids.len);
+            p = ngx_copy_str(p, req->variant_ids);
         }
     }
 

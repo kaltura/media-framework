@@ -198,7 +198,7 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
             start_pos = ngx_http_pckg_extract_string(start_pos, end_pos,
                 &cur);
 
-            p = ngx_copy(p, cur.data, cur.len);
+            p = ngx_copy_str(p, cur);
 
             if (start_pos >= end_pos) {
                 result->variant_ids.len = p - result->variant_ids.data;

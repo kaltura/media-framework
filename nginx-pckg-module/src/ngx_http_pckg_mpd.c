@@ -338,7 +338,7 @@ ngx_http_pckg_mpd_cont_prot_write(u_char *p, ngx_pckg_track_t *track)
             p = ngx_copy_fix(p, MPD_CONT_PROT_PLAYREADY_KEY_ID);
             p = mp4_cenc_encrypt_write_guid(p, enc->key_id);
             p = ngx_copy_fix(p, MPD_CONT_PROT_PLAYREADY_PSSH);
-            p = ngx_copy(p, sys->base64_data.data, sys->base64_data.len);
+            p = ngx_copy_str(p, sys->base64_data);
             p = ngx_copy_fix(p, MPD_CONT_PROT_PLAYREADY_FOOTER);
 
         } else {
@@ -535,8 +535,7 @@ ngx_http_pckg_seg_tmpl_write(u_char *p, ngx_pckg_period_t *period,
         }
     }
 
-    p = ngx_copy(p, MPD_SEGMENT_TEMPLATE_FOOTER,
-        sizeof(MPD_SEGMENT_TEMPLATE_FOOTER) - 1);
+    p = ngx_copy_fix(p, MPD_SEGMENT_TEMPLATE_FOOTER);
 
     return p;
 }
@@ -698,8 +697,7 @@ ngx_http_pckg_mpd_video_adapt_set_write(u_char *p, ngx_http_request_t *r,
         params.max_frame_rate_num, params.max_frame_rate_denom);
 
     if (params.cea_captions) {
-        p = ngx_copy(p, MPD_ACCESSIBILITY_CEA_608,
-            sizeof(MPD_ACCESSIBILITY_CEA_608) - 1);
+        p = ngx_copy_fix(p, MPD_ACCESSIBILITY_CEA_608);
     }
 
     p = ngx_http_pckg_seg_tmpl_write(p, period, container);
@@ -734,7 +732,7 @@ ngx_http_pckg_mpd_video_adapt_set_write(u_char *p, ngx_http_request_t *r,
     track = variants[0]->tracks[KMP_MEDIA_VIDEO];
     p = ngx_http_pckg_mpd_cont_prot_write(p, track);
 
-    p = ngx_copy(p, MPD_ADAPTATION_FOOTER, sizeof(MPD_ADAPTATION_FOOTER) - 1);
+    p = ngx_copy_fix(p, MPD_ADAPTATION_FOOTER);
 
     return p;
 }
@@ -856,7 +854,7 @@ ngx_http_pckg_mpd_audio_adapt_set_write(u_char *p, ngx_http_request_t *r,
     track = variants[0]->tracks[KMP_MEDIA_AUDIO];
     p = ngx_http_pckg_mpd_cont_prot_write(p, track);
 
-    p = ngx_copy(p, MPD_ADAPTATION_FOOTER, sizeof(MPD_ADAPTATION_FOOTER) - 1);
+    p = ngx_copy_fix(p, MPD_ADAPTATION_FOOTER);
 
     return p;
 }
@@ -1126,7 +1124,7 @@ ngx_http_pckg_mpd_build(ngx_http_request_t *r, ngx_pckg_channel_t *channel,
 
         p = ngx_http_pckg_mpd_adapt_sets_write(p, r, &sets, period);
 
-        p = ngx_copy(p, MPD_PERIOD_FOOTER, sizeof(MPD_PERIOD_FOOTER) - 1);
+        p = ngx_copy_fix(p, MPD_PERIOD_FOOTER);
     }
 
     ngx_gmtime(channel->header->now, &cur_time_gmt);
@@ -1134,7 +1132,7 @@ ngx_http_pckg_mpd_build(ngx_http_request_t *r, ngx_pckg_channel_t *channel,
     p = ngx_sprintf(p, MPD_UTC_TIMING,
         mpd_date_time_params(cur_time_gmt));
 
-    p = ngx_copy(p, MPD_FOOTER, sizeof(MPD_FOOTER) - 1);
+    p = ngx_copy_fix(p, MPD_FOOTER);
 
     /* validate */
     result->len = p - result->data;

@@ -965,15 +965,15 @@ ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
         if (ts_track != NULL) {
             if (codec_id == (int32_t) ts_track->track->media_info.codec_id) {
                 ngx_log_error(NGX_LOG_INFO, ts->log, 0,
-                    "ngx_ts_kmp_track_create: got existing track"
-                    ", pid: %uD, type: %uD",
+                    "ngx_ts_kmp_track_create: got existing track, "
+                    "pid: %uD, type: %uD",
                     (uint32_t) es->pid, (uint32_t) es->type);
                 continue;
             }
 
             ngx_log_error(NGX_LOG_ERR, ts->log, 0,
-                "ngx_ts_kmp_track_create: track already exists"
-                ", new_codec_id: %D, old_codec_id: %uD, pid: %uD",
+                "ngx_ts_kmp_track_create: track already exists, "
+                "new_codec_id: %D, old_codec_id: %uD, pid: %uD",
                 codec_id, ts_track->track->media_info.codec_id,
                 (uint32_t) es->pid);
             return NGX_ERROR;

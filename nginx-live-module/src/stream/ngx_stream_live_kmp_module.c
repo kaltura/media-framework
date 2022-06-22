@@ -369,16 +369,16 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         ngx_stream_live_kmp_chain_md5_hex(data_md5, data);
 
         ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
-            "ngx_stream_live_kmp_frame: id: %uL, created: %L, dts: %L"
-            ", flags: 0x%uxD, ptsDelay: %uD, size: %uD, md5: %*s",
+            "ngx_stream_live_kmp_frame: id: %uL, created: %L, dts: %L, "
+            "flags: 0x%uxD, ptsDelay: %uD, size: %uD, md5: %*s",
             frame_id, frame_ptr->created, frame_ptr->dts, frame_ptr->flags,
             frame_ptr->pts_delay, ctx->packet_header.data_size,
             (size_t) sizeof(data_md5), data_md5);
 
     } else {
         ngx_log_debug7(NGX_LOG_DEBUG_STREAM, ctx->log, 0,
-            "ngx_stream_live_kmp_frame: track: %V, id: %uL, created: %L"
-            ", size: %uD, dts: %L, flags: 0x%uxD, ptsDelay: %uD",
+            "ngx_stream_live_kmp_frame: track: %V, id: %uL, created: %L, "
+            "size: %uD, dts: %L, flags: 0x%uxD, ptsDelay: %uD",
             &track->sn.str, frame_id, frame_ptr->created,
             ctx->packet_header.data_size, frame_ptr->dts, frame_ptr->flags,
             frame_ptr->pts_delay);
