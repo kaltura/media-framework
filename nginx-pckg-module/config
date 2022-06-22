@@ -148,6 +148,7 @@ PCKG_MEDIA_SRCS="                                             \
     $ngx_addon_dir/src/media/codec_config.c                   \
     $ngx_addon_dir/src/media/dynamic_buffer.c                 \
     $ngx_addon_dir/src/media/hevc_parser.c                    \
+    $ngx_addon_dir/src/media/id3_defs.c                       \
     $ngx_addon_dir/src/media/write_buffer.c                   \
     $ngx_addon_dir/src/media/write_buffer_queue.c             \
     $ngx_addon_dir/src/media/mpegts/adts_encoder_filter.c     \
@@ -174,6 +175,7 @@ PCKG_MEDIA_DEPS="                                             \
     $ngx_addon_dir/src/media/common.h                         \
     $ngx_addon_dir/src/media/frames_source.h                  \
     $ngx_addon_dir/src/media/hevc_parser.h                    \
+    $ngx_addon_dir/src/media/id3_defs.h                       \
     $ngx_addon_dir/src/media/mpegts/adts_encoder_filter.h     \
     $ngx_addon_dir/src/media/mpegts/bit_fields.h              \
     $ngx_addon_dir/src/media/mpegts/buffer_filter.h           \

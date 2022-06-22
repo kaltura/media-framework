@@ -4,32 +4,6 @@
 #define THIS_FILTER (MEDIA_FILTER_ID3)
 #define get_context(ctx) ((id3_encoder_state_t*)ctx->context[THIS_FILTER])
 
-// macros
-#define write_be32_synchsafe(p, dw)    \
-    {                                \
-    *(p)++ = ((dw) >> 21) & 0x7F;    \
-    *(p)++ = ((dw) >> 14) & 0x7F;    \
-    *(p)++ = ((dw) >> 7) & 0x7F;    \
-    *(p)++ = (dw) & 0x7F;            \
-    }
-
-// constants
-static u_char header_template[] = {
-    // id3 header
-    0x49, 0x44, 0x33, 0x04,        // file identifier
-    0x00,                        // version
-    0x00,                        // flags
-    0x00, 0x00, 0x00, 0x00,        // size
-
-    // frame header
-    0x54, 0x45, 0x58, 0x54,        // frame id
-    0x00, 0x00, 0x00, 0x00,        // size
-    0x00, 0x00,                    // flags
-
-    // text frame
-    0x03,                        // encoding    (=utf8, null term)
-};
-
 static vod_status_t
 id3_encoder_start_frame(media_filter_context_t* context, output_frame_t* frame)
 {
@@ -76,7 +50,7 @@ id3_encoder_init(
     media_filter_t* filter,
     media_filter_context_t* context)
 {
-    vod_memcpy(&state->header, header_template, sizeof(state->header));
+    vod_memcpy(&state->header, id3_text_frame_template, sizeof(state->header));
 
     // save required functions
     state->start_frame = filter->start_frame;
