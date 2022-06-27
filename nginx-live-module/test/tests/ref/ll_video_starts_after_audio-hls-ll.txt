@@ -204,19 +204,15 @@ BODY: SIZE: 659, MD5: 2baf2fd317f909719eca26dc9b8f8526
 
 URL: /seg-1-svar1-v.m4s
 HEADERS: 400 text/html
-BODY: SIZE: 167, MD5: bcd89db31717614d0e04df38c0cd49df
 
 URL: /seg-2-svar1-v.m4s
 HEADERS: 400 text/html
-BODY: SIZE: 167, MD5: bcd89db31717614d0e04df38c0cd49df
 
 URL: /part-3-1-svar1-v.m4s
 HEADERS: 404 text/html
-BODY: SIZE: 163, MD5: 76a32a95b309705c3ca7cc461c533e01
 
 URL: /part-3-2-svar1-v.m4s
 HEADERS: 404 text/html
-BODY: SIZE: 163, MD5: 76a32a95b309705c3ca7cc461c533e01
 
 URL: /part-3-3-svar1-v.m4s
 HEADERS: 200 video/mp4
