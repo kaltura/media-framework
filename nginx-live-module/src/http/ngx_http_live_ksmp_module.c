@@ -79,7 +79,6 @@ typedef struct {
     ngx_chain_t                   *out;
     ngx_chain_t                  **last;
     size_t                         size;
-    size_t                         padding;
     ngx_str_t                      source;
     ngx_str_t                      err_msg;
     uint32_t                       err_code;
@@ -312,6 +311,19 @@ ngx_http_live_ksmp_args_handler(ngx_http_request_t *r, void *data,
             return NGX_HTTP_BAD_REQUEST;
         }
 
+        if (!int_val) {
+            return NGX_OK;
+        }
+
+        if (int_val < (ngx_int_t) NGX_KSMP_MIN_PADDING
+            || int_val > NGX_KSMP_MAX_PADDING)
+        {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_live_ksmp_args_handler: "
+                "invalid padding %i", int_val);
+            return NGX_HTTP_BAD_REQUEST;
+        }
+
         params->padding = int_val;
 
     } else if (key->len == sizeof("flags") - 1 &&
@@ -429,53 +441,6 @@ ngx_http_live_ksmp_parse(ngx_http_request_t *r)
 
 
 static ngx_int_t
-ngx_http_live_ksmp_output(ngx_http_request_t *r, ngx_uint_t flags)
-{
-    ngx_int_t                  rc;
-    ngx_http_live_ksmp_ctx_t  *ctx;
-
-    ctx = ngx_http_get_module_ctx(r, ngx_http_live_ksmp_module);
-
-    r->headers_out.content_type = ngx_http_live_ksmp_type;
-    r->headers_out.content_length_n = ctx->size;
-    r->headers_out.status = NGX_HTTP_OK;
-
-    rc = ngx_http_send_header(r);
-    if (rc == NGX_ERROR || rc > NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_live_ksmp_output: send header failed %i", rc);
-        return rc;
-    }
-
-    if (r->header_only) {
-        return NGX_HTTP_OK;     /* != NGX_OK to stop execution */
-    }
-
-    rc = ngx_http_output_filter(r, ctx->out);
-    ctx->out = NULL;
-
-    if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_live_ksmp_output: output filter failed %i", rc);
-        return rc;
-    }
-
-    if (!flags) {
-        return NGX_OK;
-    }
-
-    rc = ngx_http_send_special(r, flags);
-    if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_live_ksmp_output: send special failed %i", rc);
-        return rc;
-    }
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
 ngx_http_live_ksmp_write_padding(ngx_http_request_t *r)
 {
     ngx_int_t                    rc;
@@ -485,11 +450,11 @@ ngx_http_live_ksmp_write_padding(ngx_http_request_t *r)
     ngx_persist_block_header_t  *header;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_live_ksmp_module);
-    if (!ctx->padding) {
+    if (!ctx->params.padding) {
         return NGX_OK;
     }
 
-    b = ngx_create_temp_buf(r->pool, ctx->padding);
+    b = ngx_create_temp_buf(r->pool, ctx->params.padding);
     if (b == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
             "ngx_http_live_ksmp_write_padding: alloc buf failed");
@@ -523,6 +488,58 @@ ngx_http_live_ksmp_write_padding(ngx_http_request_t *r)
     }
 
     return rc;
+}
+
+
+static ngx_int_t
+ngx_http_live_ksmp_output(ngx_http_request_t *r, ngx_uint_t flags)
+{
+    ngx_int_t                  rc;
+    ngx_http_live_ksmp_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_live_ksmp_module);
+
+    r->headers_out.content_type = ngx_http_live_ksmp_type;
+    r->headers_out.content_length_n = ctx->size + ctx->params.padding;
+    r->headers_out.status = NGX_HTTP_OK;
+
+    rc = ngx_http_send_header(r);
+    if (rc == NGX_ERROR || rc > NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_live_ksmp_output: send header failed %i", rc);
+        return rc;
+    }
+
+    if (r->header_only) {
+        return NGX_HTTP_OK;     /* != NGX_OK to stop execution */
+    }
+
+    rc = ngx_http_output_filter(r, ctx->out);
+    ctx->out = NULL;
+
+    if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_live_ksmp_output: output filter failed %i", rc);
+        return rc;
+    }
+
+    if (!flags) {
+        return NGX_OK;
+    }
+
+    rc = ngx_http_live_ksmp_write_padding(r);
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    rc = ngx_http_send_special(r, flags);
+    if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_live_ksmp_output: send special failed %i", rc);
+        return rc;
+    }
+
+    return NGX_OK;
 }
 
 
@@ -1721,20 +1738,6 @@ ngx_http_live_ksmp_write(ngx_http_request_t *r,
 
     if (!(params->flags & NGX_KSMP_FLAG_MEDIA)) {
         return ngx_http_live_ksmp_output(r, NGX_HTTP_LAST);
-    }
-
-    if (params->padding) {
-        if (params->padding < NGX_KSMP_MIN_PADDING) {
-            ctx->padding = NGX_KSMP_MIN_PADDING;
-
-        } else if (params->padding > NGX_KSMP_MAX_PADDING) {
-            ctx->padding = NGX_KSMP_MAX_PADDING;
-
-        } else {
-            ctx->padding = params->padding;
-        }
-
-        ctx->size += ctx->padding;
     }
 
     if (params->part_index == NGX_KSMP_INVALID_PART_INDEX) {
