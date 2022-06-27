@@ -332,6 +332,9 @@ ngx_http_pckg_capture_redirect(ngx_http_request_t *r)
     r->headers_out.status = NGX_HTTP_MOVED_TEMPORARILY;
 
     location->hash = 1;
+#if (nginx_version >= 1023000)
+    location->next = NULL;
+#endif
     ngx_str_set(&location->key, "Location");
 
     location->value.data = p;
