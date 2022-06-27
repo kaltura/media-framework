@@ -17,7 +17,7 @@
     ((u_char *) (node) + (buf_queue)->alloc_size)
 
 
-typedef struct ngx_buf_queue_node_s ngx_buf_queue_node_t;
+typedef struct ngx_buf_queue_node_s  ngx_buf_queue_node_t;
 
 struct ngx_buf_queue_node_s {
     ngx_buf_queue_node_t   *next;

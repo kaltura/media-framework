@@ -15,7 +15,7 @@ enum {
 };
 
 
-typedef struct ngx_http_call_ctx_s ngx_http_call_ctx_t;
+typedef struct ngx_http_call_ctx_s  ngx_http_call_ctx_t;
 
 typedef ngx_chain_t *(*ngx_http_call_create_pt)(void *arg, ngx_pool_t *pool,
     ngx_chain_t **body);
