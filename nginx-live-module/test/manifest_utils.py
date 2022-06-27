@@ -373,8 +373,11 @@ def getStreamInfo(url, headers={}):
             result += 'BODY: %s\n' % urlContent
             if not urlContent.endswith('\n'):
                 result += '\n'
-        else:
+        elif code < 400:
             m = hashlib.md5()
             m.update(urlContent)
             result += 'BODY: SIZE: %s, MD5: %s\n\n' % (len(urlContent), m.hexdigest())
+        else:
+            result += '\n'
+
     return result
