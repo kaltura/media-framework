@@ -50,8 +50,10 @@ typedef ngx_ksmp_frame_t  ngx_live_frame_t;
     ngx_rbtree_sentinel_init((tree)->sentinel);                             \
     (tree)->root = (tree)->sentinel;
 
+#ifndef ngx_rbtree_data
 #define ngx_rbtree_data(n, type, node)                                      \
     (type *) ((u_char *) n - offsetof(type, node))
+#endif
 
 #define ngx_queue_insert_before   ngx_queue_insert_tail
 
