@@ -570,32 +570,44 @@ ngx_http_pckg_selector_write(u_char *p, ngx_str_t *variant_id,
 
 /* response headers */
 
-/* A run down version of ngx_http_set_expires */
-static ngx_int_t
-ngx_http_pckg_set_expires(ngx_http_request_t *r, time_t expires_time)
+#if (nginx_version >= 1023000)
+static ngx_table_elt_t *
+ngx_http_pckg_push_cache_control(ngx_http_request_t *r)
 {
-    size_t            len;
-    time_t            now, max_age;
-    ngx_uint_t        i;
-    ngx_table_elt_t  *e, *cc, **ccp;
+    ngx_table_elt_t  *cc;
 
-    e = r->headers_out.expires;
+    cc = r->headers_out.cache_control;
 
-    if (e == NULL) {
+    if (cc == NULL) {
 
-        e = ngx_list_push(&r->headers_out.headers);
-        if (e == NULL) {
-            return NGX_ERROR;
+        cc = ngx_list_push(&r->headers_out.headers);
+        if (cc == NULL) {
+            return NULL;
         }
 
-        r->headers_out.expires = e;
+        r->headers_out.cache_control = cc;
+        cc->next = NULL;
 
-        e->hash = 1;
-        ngx_str_set(&e->key, "Expires");
+        cc->hash = 1;
+        ngx_str_set(&cc->key, "Cache-Control");
+
+    } else {
+        for (cc = cc->next; cc; cc = cc->next) {
+            cc->hash = 0;
+        }
+
+        cc = r->headers_out.cache_control;
+        cc->next = NULL;
     }
 
-    len = sizeof("Mon, 28 Sep 1970 06:00:00 GMT");
-    e->value.len = len - 1;
+    return cc;
+}
+#else
+static ngx_table_elt_t *
+ngx_http_pckg_push_cache_control(ngx_http_request_t *r)
+{
+    ngx_uint_t        i;
+    ngx_table_elt_t  *cc, **ccp;
 
     ccp = r->headers_out.cache_control.elts;
 
@@ -605,17 +617,17 @@ ngx_http_pckg_set_expires(ngx_http_request_t *r, time_t expires_time)
                            1, sizeof(ngx_table_elt_t *))
             != NGX_OK)
         {
-            return NGX_ERROR;
+            return NULL;
         }
 
         ccp = ngx_array_push(&r->headers_out.cache_control);
         if (ccp == NULL) {
-            return NGX_ERROR;
+            return NULL;
         }
 
         cc = ngx_list_push(&r->headers_out.headers);
         if (cc == NULL) {
-            return NGX_ERROR;
+            return NULL;
         }
 
         cc->hash = 1;
@@ -630,8 +642,49 @@ ngx_http_pckg_set_expires(ngx_http_request_t *r, time_t expires_time)
         cc = ccp[0];
     }
 
+    return cc;
+}
+#endif
+
+/* A run down version of ngx_http_set_expires */
+static ngx_int_t
+ngx_http_pckg_set_expires(ngx_http_request_t *r, time_t expires_time)
+{
+    size_t            len;
+    time_t            now, max_age;
+    ngx_table_elt_t  *e, *cc;
+
+    e = r->headers_out.expires;
+
+    if (e == NULL) {
+
+        e = ngx_list_push(&r->headers_out.headers);
+        if (e == NULL) {
+            return NGX_ERROR;
+        }
+
+        r->headers_out.expires = e;
+#if (nginx_version >= 1023000)
+        e->next = NULL;
+#endif
+
+        e->hash = 1;
+        ngx_str_set(&e->key, "Expires");
+    }
+
+    len = sizeof("Mon, 28 Sep 1970 06:00:00 GMT");
+    e->value.len = len - 1;
+
+    cc = ngx_http_pckg_push_cache_control(r);
+    if (cc == NULL) {
+        e->hash = 0;
+        return NGX_ERROR;
+    }
+
     e->value.data = ngx_pnalloc(r->pool, len);
     if (e->value.data == NULL) {
+        e->hash = 0;
+        cc->hash = 0;
         return NGX_ERROR;
     }
 
@@ -657,6 +710,7 @@ ngx_http_pckg_set_expires(ngx_http_request_t *r, time_t expires_time)
     cc->value.data = ngx_pnalloc(r->pool,
         sizeof("max-age=") + NGX_TIME_T_LEN + 1);
     if (cc->value.data == NULL) {
+        cc->hash = 0;
         return NGX_ERROR;
     }
 
