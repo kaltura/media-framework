@@ -338,6 +338,20 @@ static ngx_http_variable_t  ngx_http_pckg_core_vars[] = {
 };
 
 
+static ngx_str_t  ngx_http_pckg_core_upstream_vars[] = {
+    ngx_string("pckg_upstream_addr"),
+    ngx_string("pckg_upstream_status"),
+    ngx_string("pckg_upstream_connect_time"),
+    ngx_string("pckg_upstream_header_time"),
+    ngx_string("pckg_upstream_response_time"),
+    ngx_string("pckg_upstream_response_length"),
+    ngx_string("pckg_upstream_bytes_received"),
+    ngx_string("pckg_upstream_bytes_sent"),
+
+    ngx_null_string
+};
+
+
 static ngx_str_t  ngx_http_pckg_content_type_options =
     ngx_string("text/plain");
 
@@ -2125,6 +2139,7 @@ ngx_http_pckg_core_create_main_conf(ngx_conf_t *cf)
 static ngx_int_t
 ngx_http_pckg_core_add_upstream_vars(ngx_conf_t *cf)
 {
+    ngx_str_t                  *cur;
     ngx_str_t                   name;
     ngx_int_t                   index;
     ngx_uint_t                  i;
@@ -2132,6 +2147,16 @@ ngx_http_pckg_core_add_upstream_vars(ngx_conf_t *cf)
     ngx_http_variable_t        *v;
     ngx_http_variable_t        *var;
     ngx_http_core_main_conf_t  *cmcf;
+
+    /* reference a closed list of pckg_upstream_xxx variables  */
+
+    for (cur = ngx_http_pckg_core_upstream_vars; cur->len; cur++) {
+        if (ngx_http_get_variable_index(cf, cur) == NGX_ERROR) {
+            return NGX_ERROR;
+        }
+    }
+
+    /* add all referenced pckg_upstream_xxx variables */
 
     cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 
@@ -2154,8 +2179,9 @@ ngx_http_pckg_core_add_upstream_vars(ngx_conf_t *cf)
         var->get_handler = ngx_http_pckg_core_subrequest_variable;
     }
 
-    /* Note: resolving the underlying var index in a separate phase since
-        ngx_http_get_variable_index may reallocate cmcf->variables */
+    /* set the underlying var index of pckg_upstream_xxx variables
+        Note: this is performed as a separate phase since
+        ngx_http_get_variable_index may reallocate cmcf->variables) */
 
     key = cmcf->variables_keys->keys.elts;
     for (i = 0; i < cmcf->variables_keys->keys.nelts; i++) {
