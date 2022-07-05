@@ -36,4 +36,4 @@ def test(channelId=CHANNEL_ID):
     testLLDefaultStreams(channelId, __file__)
 
     logTracker.assertContains('ngx_live_lls_add_frame: enabling split due to pts backward jump')
-    logTracker.assertContains('ngx_live_lls_check_dispose_frame: disposing frame with old pts')
+    logTracker.assertContains('ngx_live_lls_track_get_pending_index: disposing frame with old pts')
