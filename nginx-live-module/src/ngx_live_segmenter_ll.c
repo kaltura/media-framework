@@ -1080,15 +1080,19 @@ ngx_live_lls_should_start_segment(ngx_live_track_t *track,
 }
 
 
-static ngx_flag_t
-ngx_live_lls_check_dispose_frame(ngx_live_track_t *track,
-    ngx_live_lls_frame_t *frame)
+static ngx_int_t
+ngx_live_lls_track_get_pending_index(ngx_live_track_t *track,
+    ngx_live_lls_frame_t *frame, uint32_t *res)
 {
-    int64_t                      last_track_pts;
+    int64_t                      min_start_pts;
     uint32_t                     margin;
+    uint32_t                     duration;
+    uint32_t                     pending_index;
     ngx_live_channel_t          *channel;
     ngx_live_lls_track_ctx_t    *ctx;
     ngx_live_lls_channel_ctx_t  *cctx;
+    ngx_live_lls_pending_seg_t  *pending;
+    ngx_live_lls_preset_conf_t  *spcf;
 
     channel = track->channel;
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
@@ -1098,13 +1102,13 @@ ngx_live_lls_check_dispose_frame(ngx_live_track_t *track,
     {
         if (!ctx->last_dropped_frames) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_live_lls_check_dispose_frame: "
+                "ngx_live_lls_track_get_pending_index: "
                 "disposing non-key frame, id: %uL, pts: %L",
                 frame->id, frame->pts);
 
         } else {
             ngx_log_debug3(NGX_LOG_DEBUG_LIVE, &track->log, 0,
-                "ngx_live_lls_check_dispose_frame: "
+                "ngx_live_lls_track_get_pending_index: "
                 "disposing non-key frame, id: %uL, pts: %L, track: %V",
                 frame->id, frame->pts, &track->sn.str);
         }
@@ -1113,41 +1117,70 @@ ngx_live_lls_check_dispose_frame(ngx_live_track_t *track,
     }
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
+    spcf = ngx_live_get_module_preset_conf(channel, ngx_live_lls_module);
 
-    if (track->pending_index > 0) {
-        last_track_pts = cctx->pending.elts[track->pending_index - 1].end_pts;
+    for (pending_index = track->pending_index;
+        pending_index < cctx->pending.nelts;
+        pending_index++)
+    {
+        pending = &cctx->pending.elts[pending_index];
+
+        duration = pending->end_pts - pending->start_pts;
+        margin = duration * spcf->segment_start_margin / 100;
+        if (frame->pts < pending->end_pts - margin) {
+            break;
+        }
+    }
+
+    if (pending_index > 0
+        && !cctx->pending.elts[pending_index - 1].end_set)
+    {
+        if (ngx_live_lls_set_end_pts(channel, &track->log) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_lls_track_get_pending_index: set end pts failed");
+            return NGX_ERROR;
+        }
+    }
+
+    if (pending_index < cctx->pending.nelts) {
+        min_start_pts = cctx->pending.elts[pending_index].start_pts;
+
+    } else if (pending_index > 0) {
+        min_start_pts = cctx->pending.elts[pending_index - 1].end_pts;
 
     } else {
-        last_track_pts = cctx->last_segment_end_pts;
+        min_start_pts = cctx->last_segment_end_pts;
     }
 
     if (ctx->last_dropped_frames <= 0) {
-        if (frame->pts < last_track_pts - cctx->dispose_threshold) {
+        if (frame->pts < min_start_pts - cctx->dispose_threshold) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_live_lls_check_dispose_frame: "
+                "ngx_live_lls_track_get_pending_index: "
                 "disposing frame with old pts, "
-                "id: %uL, pts: %L, last_pts: %L",
-                frame->id, frame->pts, last_track_pts);
+                "id: %uL, pts: %L, min_start_pts: %L",
+                frame->id, frame->pts, min_start_pts);
             goto dispose;
         }
 
-        return 0;
+        *res = pending_index;
+
+        return NGX_OK;
     }
 
     margin = track->media_type == KMP_MEDIA_VIDEO
         ? cctx->dispose_threshold : 0;
 
-    if (frame->pts < last_track_pts - margin) {
+    if (frame->pts < min_start_pts - margin) {
         ngx_log_debug4(NGX_LOG_DEBUG_LIVE, &track->log, 0,
-            "ngx_live_lls_check_dispose_frame: "
+            "ngx_live_lls_track_get_pending_index: "
             "disposing frame with old pts, "
-            "id: %uL, pts: %L, last_pts: %L, track: %V",
-            frame->id, frame->pts, last_track_pts, &track->sn.str);
+            "id: %uL, pts: %L, min_start_pts: %L, track: %V",
+            frame->id, frame->pts, min_start_pts, &track->sn.str);
         goto dispose;
     }
 
     ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-        "ngx_live_lls_check_dispose_frame: "
+        "ngx_live_lls_track_get_pending_index: "
         "enabling split due to disposed frames, "
         "id: %uL, pts: %L, disposed: %uD",
         frame->id, frame->pts, ctx->last_dropped_frames);
@@ -1159,7 +1192,9 @@ ngx_live_lls_check_dispose_frame(ngx_live_track_t *track,
 
     ctx->last_dropped_frames = 0;
 
-    return 0;
+    *res = pending_index;
+
+    return NGX_OK;
 
 dispose:
 
@@ -1184,17 +1219,14 @@ dispose:
         }
     }
 
-    return 1;
+    return NGX_DONE;
 }
 
 
 static ngx_int_t
 ngx_live_lls_track_start_segment(ngx_live_track_t *track,
-    ngx_live_lls_frame_t *frame)
+    ngx_live_lls_frame_t *frame, uint32_t pending_index)
 {
-    uint32_t                        margin;
-    uint32_t                        duration;
-    uint32_t                        pending_index;
     uint32_t                        segment_index;
     ngx_int_t                       rc;
     ngx_flag_t                      track_existed;
@@ -1211,23 +1243,6 @@ ngx_live_lls_track_start_segment(ngx_live_track_t *track,
     channel = track->channel;
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
     cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
-
-    /* choose pending segment */
-
-    spcf = ngx_live_get_module_preset_conf(channel, ngx_live_lls_module);
-
-    for (pending_index = track->pending_index;
-        pending_index < cctx->pending.nelts;
-        pending_index++)
-    {
-        pending = &cctx->pending.elts[pending_index];
-
-        duration = pending->end_pts - pending->start_pts;
-        margin = duration * spcf->segment_start_margin / 100;
-        if (frame->pts < pending->end_pts - margin) {
-            break;
-        }
-    }
 
     if (channel->next_segment_index >= NGX_LIVE_INVALID_SEGMENT_INDEX
         - pending_index)
@@ -1266,15 +1281,7 @@ ngx_live_lls_track_start_segment(ngx_live_track_t *track,
 
     if (pending_index >= cctx->pending.nelts) {
 
-        if (pending_index > 0
-            && !cctx->pending.elts[pending_index - 1].end_set)
-        {
-            if (ngx_live_lls_set_end_pts(channel, &track->log) != NGX_OK) {
-                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                    "ngx_live_lls_track_start_segment: set end pts failed");
-                return NGX_ERROR;
-            }
-        }
+        spcf = ngx_live_get_module_preset_conf(channel, ngx_live_lls_module);
 
         if (pending_index >= spcf->max_pending_segments) {
             if (ngx_live_lls_force_close_segment(channel) != NGX_OK) {
@@ -2005,6 +2012,8 @@ static ngx_int_t
 ngx_live_lls_process_frame(ngx_live_track_t *track,
     ngx_live_lls_frame_t *frame, ngx_uint_t flags)
 {
+    uint32_t                     pending_index;
+    ngx_int_t                    rc;
     ngx_flag_t                   start_part;
     ngx_flag_t                   start_segment;
     ngx_list_part_t             *last;
@@ -2140,11 +2149,23 @@ ngx_live_lls_process_frame(ngx_live_track_t *track,
 
         /* start segment */
 
-        if (ngx_live_lls_check_dispose_frame(track, frame)) {
+        rc = ngx_live_lls_track_get_pending_index(track, frame,
+            &pending_index);
+        switch (rc) {
+
+        case NGX_OK:
+            break;
+
+        case NGX_DONE:
             return NGX_OK;
+
+        default:
+            return NGX_ERROR;
         }
 
-        if (ngx_live_lls_track_start_segment(track, frame) != NGX_OK) {
+        if (ngx_live_lls_track_start_segment(track, frame, pending_index)
+            != NGX_OK)
+        {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_live_lls_process_frame: start segment failed");
             return NGX_ERROR;
