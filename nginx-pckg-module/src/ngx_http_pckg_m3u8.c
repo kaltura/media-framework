@@ -1710,13 +1710,6 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
             p = ngx_copy_fix(p, M3U8_DISCONTINUITY);
         }
 
-        ngx_gmtime(ph->time / timescale, &gmt);
-
-        p = ngx_sprintf(p, M3U8_PROGRAM_DATE_TIME,
-            gmt.ngx_tm_year, gmt.ngx_tm_mon, gmt.ngx_tm_mday,
-            gmt.ngx_tm_hour, gmt.ngx_tm_min, gmt.ngx_tm_sec,
-            (int) ((ph->time / milliscale) % 1000));
-
         if (container->init_file_ext && map_index != last_map_index) {
 
             if (i > 0 || th->skipped_segments <= 0
@@ -1733,6 +1726,13 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
 
             last_map_index = map_index;
         }
+
+        ngx_gmtime(ph->time / timescale, &gmt);
+
+        p = ngx_sprintf(p, M3U8_PROGRAM_DATE_TIME,
+            gmt.ngx_tm_year, gmt.ngx_tm_mon, gmt.ngx_tm_mday,
+            gmt.ngx_tm_hour, gmt.ngx_tm_min, gmt.ngx_tm_sec,
+            (int) ((ph->time / milliscale) % 1000));
 
         p = ngx_http_pckg_m3u8_write_period_segments(p, period,
             &seg_suffix, milliscale, bi);
