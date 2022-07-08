@@ -1576,7 +1576,9 @@ ngx_pckg_ksmp_read_sgts_segment(ngx_persist_block_header_t *header,
     ngx_pckg_variant_t         *variant;
     ngx_pckg_channel_t         *channel = obj;
     ngx_pckg_segment_t         *segment;
+    ngx_pckg_channel_media_t   *media;
     ngx_ksmp_segment_header_t  *h;
+    ngx_ksmp_channel_header_t  *ch;
 
     h = ngx_mem_rstream_get_ptr(rs, sizeof(*h));
     if (h == NULL) {
@@ -1585,8 +1587,26 @@ ngx_pckg_ksmp_read_sgts_segment(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    if (h->track_id != channel->track_id ||
-        h->index != channel->segment_index->index)
+    media = channel->media;
+
+    if (media->min_segment_index > h->index) {
+        media->min_segment_index = h->index;
+    }
+
+    if (media->max_segment_index < h->index) {
+        media->max_segment_index = h->index;
+    }
+
+    if (media->min_track_id > h->track_id) {
+        media->min_track_id = h->track_id;
+    }
+
+    if (media->max_track_id < h->track_id) {
+        media->max_track_id = h->track_id;
+    }
+
+    if (h->track_id != media->track_id
+        || h->index != channel->segment_index->index)
     {
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, rs->log, 0,
             "ngx_pckg_ksmp_read_sgts_segment: "
@@ -1672,11 +1692,13 @@ ngx_pckg_ksmp_read_sgts_segment(ngx_persist_block_header_t *header,
     }
 
 
-    channel->header->track_count = 1;
-    channel->header->variant_count = 1;
-    channel->header->timescale = track->last_media_info->media_info.timescale;
-    channel->header->last_modified = ngx_time();
-    channel->header->now = ngx_time();
+    ch = channel->header;
+
+    ch->track_count = 1;
+    ch->variant_count = 1;
+    ch->timescale = track->last_media_info->media_info.timescale;
+    ch->last_modified = ngx_time();
+    ch->now = ngx_time();
 
     variant = channel->variants.elts;
     variant->tracks[track->header->media_type] = track;
@@ -1693,6 +1715,7 @@ ngx_pckg_ksmp_parse(ngx_pckg_channel_t *channel, ngx_str_t *buf,
     ngx_int_t                   rc;
     ngx_uint_t                  ctx;
     ngx_mem_rstream_t           rs;
+    ngx_pckg_channel_media_t   *media;
     ngx_persist_file_header_t  *h;
 
     rc = ngx_persist_read_file_header(buf, channel->format, channel->log,
@@ -1726,8 +1749,7 @@ ngx_pckg_ksmp_parse(ngx_pckg_channel_t *channel, ngx_str_t *buf,
         return NGX_ERROR;
     }
 
-    rc = ngx_persist_conf_read_blocks(channel->persist, ctx,
-        &rs, channel);
+    rc = ngx_persist_conf_read_blocks(channel->persist, ctx, &rs, channel);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
             "ngx_pckg_ksmp_parse: read blocks failed (1) %i", rc);
@@ -1739,8 +1761,21 @@ ngx_pckg_ksmp_parse(ngx_pckg_channel_t *channel, ngx_str_t *buf,
     }
 
     if (channel->header == NULL) {
-        ngx_log_error(NGX_LOG_ERR, channel->log, 0,
-            "ngx_pckg_ksmp_parse: missing channel block");
+        if (channel->format == NGX_PCKG_PERSIST_TYPE_MEDIA) {
+            media = channel->media;
+
+            ngx_log_error(NGX_LOG_ERR, channel->log, 0,
+                "ngx_pckg_ksmp_parse: segment not found, "
+                "index: %uD, range: %uD..%uD, track: %uD, range: %uD..%uD",
+                channel->segment_index->index, media->min_segment_index,
+                media->max_segment_index, media->track_id,
+                media->min_track_id, media->max_track_id);
+
+        } else {
+            ngx_log_error(NGX_LOG_ERR, channel->log, 0,
+                "ngx_pckg_ksmp_parse: missing channel block");
+        }
+
         return NGX_BAD_DATA;
     }
 
