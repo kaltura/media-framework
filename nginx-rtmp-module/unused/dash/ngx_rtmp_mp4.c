@@ -326,6 +326,7 @@ ngx_rtmp_mp4_write_tkhd(ngx_rtmp_session_t *s, ngx_buf_t *b,
     if (ttype == NGX_RTMP_MP4_VIDEO_TRACK) {
         ngx_rtmp_mp4_field_32(b, (uint32_t) codec_ctx->width << 16);
         ngx_rtmp_mp4_field_32(b, (uint32_t) codec_ctx->height << 16);
+
     } else {
         ngx_rtmp_mp4_field_32(b, 0);
         ngx_rtmp_mp4_field_32(b, 0);
@@ -386,6 +387,7 @@ ngx_rtmp_mp4_write_hdlr(ngx_buf_t *b, ngx_rtmp_mp4_track_type_t ttype)
 
     if (ttype == NGX_RTMP_MP4_VIDEO_TRACK) {
         ngx_rtmp_mp4_box(b, "vide");
+
     } else {
         ngx_rtmp_mp4_box(b, "soun");
     }
@@ -398,6 +400,7 @@ ngx_rtmp_mp4_write_hdlr(ngx_buf_t *b, ngx_rtmp_mp4_track_type_t ttype)
     if (ttype == NGX_RTMP_MP4_VIDEO_TRACK) {
         /* video handler string, NULL-terminated */
         ngx_rtmp_mp4_data(b, "VideoHandler", sizeof("VideoHandler"));
+
     } else {
         /* sound handler string, NULL-terminated */
         ngx_rtmp_mp4_data(b, "SoundHandler", sizeof("SoundHandler"));
@@ -524,6 +527,7 @@ ngx_rtmp_mp4_write_avcc(ngx_rtmp_session_t *s, ngx_buf_t *b)
 
     if (p < in->buf->last) {
         ngx_rtmp_mp4_data(b, p, (size_t) (in->buf->last - p));
+
     } else {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
                       "dash: invalid avcc received");
@@ -743,6 +747,7 @@ ngx_rtmp_mp4_write_stsd(ngx_rtmp_session_t *s, ngx_buf_t *b,
 
     if (ttype == NGX_RTMP_MP4_VIDEO_TRACK) {
         ngx_rtmp_mp4_write_video(s, b);
+
     } else {
         ngx_rtmp_mp4_write_audio(s, b);
     }
@@ -848,6 +853,7 @@ ngx_rtmp_mp4_write_minf(ngx_rtmp_session_t *s, ngx_buf_t *b,
 
     if (ttype == NGX_RTMP_MP4_VIDEO_TRACK) {
         ngx_rtmp_mp4_write_vmhd(b);
+
     } else {
         ngx_rtmp_mp4_write_smhd(b);
     }
@@ -877,6 +883,7 @@ ngx_rtmp_mp4_write_mdia(ngx_rtmp_session_t *s, ngx_buf_t *b,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_rtmp_mp4_write_trak(ngx_rtmp_session_t *s, ngx_buf_t *b,

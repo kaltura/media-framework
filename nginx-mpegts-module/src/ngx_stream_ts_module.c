@@ -145,7 +145,7 @@ ngx_stream_ts_open_dump_file(ngx_stream_session_t *s)
         &tscf->dump_folder, NGX_STREAM_TS_ISO8601_DATE_LEN,
         ngx_cached_http_log_iso8601.data, ngx_pid, c->number);
 
-    fd = ngx_open_file((char*) name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
+    fd = ngx_open_file((char *) name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
         NGX_FILE_DEFAULT_ACCESS);
     if (fd == NGX_INVALID_FILE) {
         ngx_log_error(NGX_LOG_ERR, c->log, ngx_errno,

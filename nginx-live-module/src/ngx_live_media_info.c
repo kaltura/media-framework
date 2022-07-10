@@ -7,7 +7,7 @@
 #include "ngx_live_timeline.h"
 
 
-#define NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_QUEUE                             \
+#define NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_QUEUE                              \
     NGX_KSMP_BLOCK_MEDIA_INFO_QUEUE
 
 #define NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_SETUP   (0x7073696d)    /* misp */
@@ -258,6 +258,7 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
     } else {
         node->media_info.extra.data = NULL;
     }
+
     node->media_info.extra.len = extra_data_size;
 
     node->track_id = track->in.key;
@@ -1687,6 +1688,7 @@ ngx_live_media_info_read_setup(ngx_persist_block_header_t *header,
             "ngx_live_media_info_read_setup: read failed");
         return NGX_BAD_DATA;
     }
+
     ngx_json_str_set_escape(&ctx->group_id);
 
     return NGX_OK;

@@ -34,7 +34,7 @@
 #define NGX_RTMP_AMF_TYPELESS           0x2000
 #define NGX_RTMP_AMF_CONTEXT            0x4000
 
-#define NGX_RTMP_AMF_VARIANT            (NGX_RTMP_AMF_VARIANT_\
+#define NGX_RTMP_AMF_VARIANT            (NGX_RTMP_AMF_VARIANT_               \
                                         |NGX_RTMP_AMF_TYPELESS)
 
 
@@ -46,7 +46,7 @@ typedef struct {
 } ngx_rtmp_amf_elt_t;
 
 
-typedef ngx_chain_t * (*ngx_rtmp_amf_alloc_pt)(void *arg);
+typedef ngx_chain_t *(*ngx_rtmp_amf_alloc_pt)(void *arg);
 
 
 typedef struct {

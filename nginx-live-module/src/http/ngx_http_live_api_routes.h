@@ -4,7 +4,8 @@
 #define _NGX_HTTP_LIVE_API_ROUTES_H_INCLUDED_
 
 static ngx_http_api_route_node_t
-    ngx_http_live_api_route_channels_param_variants_param_tracks = {
+    ngx_http_live_api_route_channels_param_variants_param_tracks =
+{
     NULL,
     NULL,
     NULL,
@@ -14,7 +15,8 @@ static ngx_http_api_route_node_t
 };
 
 static ngx_http_api_route_child_t
-    ngx_http_live_api_route_channels_param_variants_param_children[] = {
+    ngx_http_live_api_route_channels_param_variants_param_children[] =
+{
     { ngx_string("tracks"),
         &ngx_http_live_api_route_channels_param_variants_param_tracks },
     { ngx_null_string, NULL },
@@ -29,7 +31,8 @@ static ngx_int_t
 }
 
 static ngx_http_api_route_node_t
-    ngx_http_live_api_route_channels_param_variants_param = {
+    ngx_http_live_api_route_channels_param_variants_param =
+{
     ngx_http_live_api_route_channels_param_variants_param_children,
     NULL,
     &ngx_http_live_api_channels_param_variants_param_list,
@@ -39,14 +42,16 @@ static ngx_http_api_route_node_t
 };
 
 static ngx_http_api_route_child_t
-    ngx_http_live_api_route_channels_param_variants_children[] = {
+    ngx_http_live_api_route_channels_param_variants_children[] =
+{
     { ngx_string("%"), &ngx_http_live_api_route_channels_param_variants_param
         },
     { ngx_null_string, NULL },
 };
 
 static ngx_http_api_route_node_t
-    ngx_http_live_api_route_channels_param_variants = {
+    ngx_http_live_api_route_channels_param_variants =
+{
     ngx_http_live_api_route_channels_param_variants_children,
     &ngx_http_live_api_variants_get,
     &ngx_http_live_api_variants_list,
@@ -56,7 +61,8 @@ static ngx_http_api_route_node_t
 };
 
 static ngx_http_api_route_node_t
-    ngx_http_live_api_route_channels_param_tracks_param = {
+    ngx_http_live_api_route_channels_param_tracks_param =
+{
     NULL,
     NULL,
     NULL,
@@ -66,13 +72,15 @@ static ngx_http_api_route_node_t
 };
 
 static ngx_http_api_route_child_t
-    ngx_http_live_api_route_channels_param_tracks_children[] = {
+    ngx_http_live_api_route_channels_param_tracks_children[] =
+{
     { ngx_string("%"), &ngx_http_live_api_route_channels_param_tracks_param },
     { ngx_null_string, NULL },
 };
 
 static ngx_http_api_route_node_t
-    ngx_http_live_api_route_channels_param_tracks = {
+    ngx_http_live_api_route_channels_param_tracks =
+{
     ngx_http_live_api_route_channels_param_tracks_children,
     &ngx_http_live_api_tracks_get,
     &ngx_http_live_api_tracks_list,
@@ -82,7 +90,8 @@ static ngx_http_api_route_node_t
 };
 
 static ngx_http_api_route_node_t
-    ngx_http_live_api_route_channels_param_timelines_param = {
+    ngx_http_live_api_route_channels_param_timelines_param =
+{
     NULL,
     &ngx_http_live_api_timeline_get,
     NULL,
@@ -92,14 +101,16 @@ static ngx_http_api_route_node_t
 };
 
 static ngx_http_api_route_child_t
-    ngx_http_live_api_route_channels_param_timelines_children[] = {
+    ngx_http_live_api_route_channels_param_timelines_children[] =
+{
     { ngx_string("%"), &ngx_http_live_api_route_channels_param_timelines_param
         },
     { ngx_null_string, NULL },
 };
 
 static ngx_http_api_route_node_t
-    ngx_http_live_api_route_channels_param_timelines = {
+    ngx_http_live_api_route_channels_param_timelines =
+{
     ngx_http_live_api_route_channels_param_timelines_children,
     &ngx_http_live_api_timelines_get,
     &ngx_http_live_api_timelines_list,
@@ -109,7 +120,8 @@ static ngx_http_api_route_node_t
 };
 
 static ngx_http_api_route_child_t
-    ngx_http_live_api_route_channels_param_children[] = {
+    ngx_http_live_api_route_channels_param_children[] =
+{
     { ngx_string("variants"), &ngx_http_live_api_route_channels_param_variants
         },
     { ngx_string("tracks"), &ngx_http_live_api_route_channels_param_tracks },
@@ -135,7 +147,8 @@ static ngx_http_api_route_node_t  ngx_http_live_api_route_channels_param = {
 };
 
 static ngx_http_api_route_child_t  ngx_http_live_api_route_channels_children[]
-    = {
+    =
+{
     { ngx_string("%"), &ngx_http_live_api_route_channels_param },
     { ngx_null_string, NULL },
 };

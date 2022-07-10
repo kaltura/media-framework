@@ -12,7 +12,7 @@
 #define NGX_LIVE_SYNCER_PTS_JUMP_PERIOD      (5)
 
 
-#define ngx_live_syncer_wraparound_value(timescale)     \
+#define ngx_live_syncer_wraparound_value(timescale)                          \
     (0x100000000L * ((timescale) / 1000))
 
 
@@ -698,6 +698,7 @@ ngx_live_syncer_read_index_track(ngx_persist_block_header_t *header,
     } else {
         ctx->last_pts = NGX_LIVE_INVALID_TIMESTAMP;
     }
+
     ctx->last_output_dts = track->last_frame_dts;
 
     log = &ctx->log[0];
@@ -786,6 +787,7 @@ ngx_live_syncer_track_reconnect(ngx_live_track_t *track, void *ectx)
     } else {
         ctx->last_pts = NGX_LIVE_INVALID_TIMESTAMP;
     }
+
     ctx->last_output_dts = track->last_frame_dts;
     ctx->force_sync_count = 0;
 

@@ -158,6 +158,7 @@ ngx_http_pckg_enc_generate_key(ngx_http_request_t *r,
     if (salt != NULL) {
         ngx_md5_update(&md5, salt->data, salt->len);
     }
+
     ngx_md5_update(&md5, seed_str.data, seed_str.len);
     ngx_md5_final(result, &md5);
 

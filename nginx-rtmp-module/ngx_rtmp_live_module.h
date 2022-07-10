@@ -16,8 +16,8 @@
 #include "ngx_rtmp_streams.h"
 
 
-typedef struct ngx_rtmp_live_ctx_s ngx_rtmp_live_ctx_t;
-typedef struct ngx_rtmp_live_stream_s ngx_rtmp_live_stream_t;
+typedef struct ngx_rtmp_live_ctx_s     ngx_rtmp_live_ctx_t;
+typedef struct ngx_rtmp_live_stream_s  ngx_rtmp_live_stream_t;
 
 
 typedef struct {

@@ -43,15 +43,15 @@ typedef ngx_ksmp_frame_t  ngx_live_frame_t;
 #define ngx_copy_fix(dst, src)          ngx_copy(dst, (src), sizeof(src) - 1)
 #define ngx_copy_str(dst, src)          ngx_copy(dst, (src).data, (src).len)
 
-#define ngx_abs_diff(val1, val2)                                            \
+#define ngx_abs_diff(val1, val2)                                             \
     ((val2) > (val1) ? (val2) - (val1) : (val1) - (val2))
 
-#define ngx_rbtree_reset(tree)                                              \
-    ngx_rbtree_sentinel_init((tree)->sentinel);                             \
+#define ngx_rbtree_reset(tree)                                               \
+    ngx_rbtree_sentinel_init((tree)->sentinel);                              \
     (tree)->root = (tree)->sentinel;
 
 #ifndef ngx_rbtree_data
-#define ngx_rbtree_data(n, type, node)                                      \
+#define ngx_rbtree_data(n, type, node)                                       \
     (type *) ((u_char *) n - offsetof(type, node))
 #endif
 
@@ -61,7 +61,7 @@ typedef ngx_ksmp_frame_t  ngx_live_frame_t;
 #define ngx_live_get_module_ctx(ch, module)     (ch)->ctx[module.ctx_index]
 #define ngx_live_set_ctx(ch, c, module)         ch->ctx[module.ctx_index] = c;
 
-#define ngx_live_rescale_time(time, cur_scale, new_scale)                   \
+#define ngx_live_rescale_time(time, cur_scale, new_scale)                    \
     ((((uint64_t) (time)) * (new_scale) + (cur_scale) / 2) / (cur_scale))
 
 

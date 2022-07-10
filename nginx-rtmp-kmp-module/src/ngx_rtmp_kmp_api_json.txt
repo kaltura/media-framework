@@ -17,7 +17,8 @@ out ngx_rtmp_kmp_api_stream_json ngx_rtmp_kmp_stream_ctx_t ngx_rtmp_live_stream_
     tracks %objFunc-ngx_rtmp_kmp_api_tracks_json obj->tracks
 
 out ngx_rtmp_kmp_api_session_json ngx_rtmp_kmp_ctx_t
-    - %code ngx_rtmp_session_t  *s = obj->s;
+    - %var ngx_rtmp_session_t *s
+    - %code s = obj->s;
     flashver %V s->
     swf_url %V s->
     tc_url %V s->
@@ -29,7 +30,8 @@ out ngx_rtmp_kmp_api_session_json ngx_rtmp_kmp_ctx_t
     streams %arrFunc-ngx_rtmp_kmp_api_streams_json s
 
 out ngx_rtmp_kmp_api_application_json ngx_rtmp_core_app_conf_t
-    - %code ngx_rtmp_kmp_app_conf_t  *kacf = obj->app_conf[ngx_rtmp_kmp_module.ctx_index];
+    - %var ngx_rtmp_kmp_app_conf_t *kacf
+    - %code kacf = obj->app_conf[ngx_rtmp_kmp_module.ctx_index];
     - %return kacf == NULL
     name %V
     sessions %queue-ngx_rtmp_kmp_api_session_json,ngx_rtmp_kmp_ctx_t,queue kacf->
@@ -38,7 +40,8 @@ out ngx_rtmp_kmp_api_server_json ngx_rtmp_core_srv_conf_t
     applications %array-ngx_rtmp_kmp_api_application_json,ngx_rtmp_core_app_conf_t*
 
 out ngx_rtmp_kmp_api_json
-    - %code ngx_rtmp_core_main_conf_t  *cmcf = ngx_rtmp_core_main_conf;
+    - %var ngx_rtmp_core_main_conf_t *cmcf
+    - %code cmcf = ngx_rtmp_core_main_conf;
     version %V ngx_rtmp_kmp_version
     nginx_version %V ngx_rtmp_kmp_nginx_version
     rtmp_version %V ngx_rtmp_kmp_rtmp_version

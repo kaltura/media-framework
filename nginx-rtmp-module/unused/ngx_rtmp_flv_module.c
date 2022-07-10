@@ -14,15 +14,15 @@
 static ngx_int_t ngx_rtmp_flv_postconfiguration(ngx_conf_t *cf);
 static void ngx_rtmp_flv_read_meta(ngx_rtmp_session_t *s, ngx_file_t *f);
 static ngx_int_t ngx_rtmp_flv_timestamp_to_offset(ngx_rtmp_session_t *s,
-       ngx_file_t *f, ngx_int_t timestamp);
+    ngx_file_t *f, ngx_int_t timestamp);
 static ngx_int_t ngx_rtmp_flv_init(ngx_rtmp_session_t *s, ngx_file_t *f,
-       ngx_int_t aindex, ngx_int_t vindex);
+    ngx_int_t aindex, ngx_int_t vindex);
 static ngx_int_t ngx_rtmp_flv_start(ngx_rtmp_session_t *s, ngx_file_t *f);
 static ngx_int_t ngx_rtmp_flv_seek(ngx_rtmp_session_t *s, ngx_file_t *f,
-       ngx_uint_t offset);
+    ngx_uint_t offset);
 static ngx_int_t ngx_rtmp_flv_stop(ngx_rtmp_session_t *s, ngx_file_t *f);
 static ngx_int_t ngx_rtmp_flv_send(ngx_rtmp_session_t *s, ngx_file_t *f,
-                                   ngx_uint_t *ts);
+    ngx_uint_t *ts);
 
 
 typedef struct {
@@ -300,6 +300,7 @@ ngx_rtmp_flv_timestamp_to_offset(ngx_rtmp_session_t *s, ngx_file_t *f,
     return ret;
 
 rewind:
+
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                   "flv: lookup index timestamp=%i offset=begin",
                    timestamp);
@@ -472,7 +473,7 @@ ngx_rtmp_flv_send(ngx_rtmp_session_t *s, ngx_file_t *f, ngx_uint_t *ts)
     ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                   "flv: read tag type=%i size=%uD timestamp=%uD "
                   "last_timestamp=%uD",
-                  (ngx_int_t) h.type,size, h.timestamp, last_timestamp);
+                  (ngx_int_t) h.type, size, h.timestamp, last_timestamp);
 
     lh = h;
     lh.timestamp = last_timestamp;
@@ -521,6 +522,7 @@ ngx_rtmp_flv_send(ngx_rtmp_session_t *s, ngx_file_t *f, ngx_uint_t *ts)
     ctx->msg_mask |= (1 << h.type);
 
 next:
+
     if (ctx->start_timestamp == -1) {
         ctx->start_timestamp = h.timestamp;
         ctx->epoch = ngx_current_msec;
@@ -554,7 +556,7 @@ next:
 
 static ngx_int_t
 ngx_rtmp_flv_init(ngx_rtmp_session_t *s, ngx_file_t *f, ngx_int_t aindex,
-                  ngx_int_t vindex)
+    ngx_int_t vindex)
 {
     ngx_rtmp_flv_ctx_t             *ctx;
 

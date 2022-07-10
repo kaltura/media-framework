@@ -32,19 +32,19 @@
 #define NGX_LIVE_SEGMENT_NO_BITRATE        (NGX_KSMP_SEGMENT_NO_BITRATE)
 
 
-#define ngx_live_channel_auto_alloc(channel, size)                          \
+#define ngx_live_channel_auto_alloc(channel, size)                           \
     ngx_block_pool_auto_alloc((channel)->block_pool, (size))
 
-#define ngx_live_channel_auto_free(channel, ptr)                            \
+#define ngx_live_channel_auto_free(channel, ptr)                             \
     ngx_block_pool_auto_free((channel)->block_pool, (ptr))
 
 
-#define ngx_live_channel_buf_chain_alloc(ch)                                \
-    ngx_block_pool_alloc((ch)->block_pool,                                  \
+#define ngx_live_channel_buf_chain_alloc(ch)                                 \
+    ngx_block_pool_alloc((ch)->block_pool,                                   \
         (ch)->bp_idx[NGX_LIVE_CORE_BP_BUF_CHAIN])
 
-#define ngx_live_channel_buf_chain_free_list(ch, head, tail)                \
-    ngx_block_pool_free_list((ch)->block_pool,                              \
+#define ngx_live_channel_buf_chain_free_list(ch, head, tail)                 \
+    ngx_block_pool_free_list((ch)->block_pool,                               \
         (ch)->bp_idx[NGX_LIVE_CORE_BP_BUF_CHAIN], (head), (tail))
 
 

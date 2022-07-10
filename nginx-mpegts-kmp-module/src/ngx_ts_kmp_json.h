@@ -10,7 +10,9 @@ static size_t
 ngx_ts_kmp_connect_mpegts_json_get_size(ngx_ts_kmp_connect_t *obj,
     ngx_connection_t *c)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"stream_id\":\"") - 1 + obj->stream_id.len +
             ngx_escape_json(NULL, obj->stream_id.data, obj->stream_id.len) +
         sizeof("\",\"addr\":\"") - 1 + c->addr_text.len +
@@ -42,7 +44,9 @@ static size_t
 ngx_ts_kmp_connect_json_get_size(ngx_ts_kmp_connect_t *obj, ngx_connection_t
     *c)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"event_type\":\"connect\"" ",\"input_type\":\"mpegts\""
             ",\"mpegts\":") - 1 + ngx_ts_kmp_connect_mpegts_json_get_size(obj,
             c) +

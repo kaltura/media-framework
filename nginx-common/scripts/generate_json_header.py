@@ -23,6 +23,27 @@ def cEscapeString(fixed):
 def writeErr(msg):
     sys.stderr.write(msg + '\n')
 
+def addVarDef(varSet, varType, varName):
+    # move any *'s from varType to varName
+    varName = '*' * varType.count('*') + varName
+    varType = varType.replace('*', '')
+    varSet.add((varType, varName))
+
+def renderVarDefs(varDefs):
+    if len(varDefs) == 0:
+        return ''
+
+    varDefs = sorted(varDefs, key=lambda v: (len(v[0]), len(v[1])))
+    maxTypeLen = max(map(lambda x: len(x[0]), varDefs))
+    maxPtrLevel = max(map(lambda x: x[1].count('*'), varDefs))
+
+    result = ''
+    for varType, varName in varDefs:
+        spaceCount = maxTypeLen + 2 - len(varType)
+        spaceCount += maxPtrLevel - varName.count('*')
+        result += '    %s%s%s;\n' % (varType, ' ' * spaceCount, varName)
+    result += '\n'
+    return result
 
 # json reader
 
@@ -178,6 +199,8 @@ def getObjectWriter(objectInfo, properties):
     getSizeCode = ''
     writeCode = ''
     funcDefs = []
+    varDefs = set([])
+    writeVarDefs = set([])
     writeDefs = []
     returnConds = {}
     forwardConds = {}
@@ -191,6 +214,14 @@ def getObjectWriter(objectInfo, properties):
 
         if property[1] == '%writeCode':
             listAdd(writeDefs, ' '.join(property[2:]))
+            continue
+
+        if property[1] == '%var':
+            addVarDef(varDefs, property[2], property[3])
+            continue
+
+        if property[1] == '%writeVar':
+            addVarDef(writeVarDefs, property[2], property[3])
             continue
 
         if property[1].startswith('%return'):
@@ -238,7 +269,7 @@ def getObjectWriter(objectInfo, properties):
                     expr = ', %s' % expr
 
                 if fixed.endswith(','):
-                    listAdd(writeDefs, 'u_char  *next;')
+                    addVarDef(writeVarDefs, 'u_char', '*next')
                     valueWrite = 'next = %s_write(p%s);' % (baseFunc, expr)
                     valueWrite += '\n' + 'p = next == p ? p - 1 : next;'
                 else:
@@ -256,11 +287,11 @@ for (q = ngx_queue_head(&%s);
     q != ngx_queue_sentinel(&%s);
     q = ngx_queue_next(q))
 {
-    %s *cur = ngx_queue_data(q, %s, %s);
+    cur = ngx_queue_data(q, %s, %s);
     result += cur->%s.len + cur->%s;
     result += %s_get_size(cur) + sizeof(",\\"\\":") - 1;
 }
-''' % (expr, expr, objectType, objectType, queueNode, idField, escField,
+''' % (expr, expr, objectType, queueNode, idField, escField,
         baseFunc)
 
                 valueWrite = '''
@@ -268,22 +299,24 @@ for (q = ngx_queue_head(&%s);
     q != ngx_queue_sentinel(&%s);
     q = ngx_queue_next(q))
 {
-    %s *cur = ngx_queue_data(q, %s, %s);
+    cur = ngx_queue_data(q, %s, %s);
 
     if (q != ngx_queue_head(&%s))
     {
         *p++ = ',';
     }
+
     *p++ = '"';
     p = ngx_json_str_write_escape(p, &cur->%s, cur->%s);
     *p++ = '"';
     *p++ = ':';
     p = %s_write(p, cur);
 }
-''' % (expr, expr, objectType, objectType, queueNode, expr, idField,
+''' % (expr, expr, objectType, queueNode, expr, idField,
         escField, baseFunc)
 
-                listAdd(funcDefs, 'ngx_queue_t  *q;')
+                addVarDef(varDefs, 'ngx_queue_t', '*q')
+                addVarDef(varDefs, objectType, '*cur')
                 valueSize = ''
             elif format.startswith('objQueueIds-'):
                 params = format[len('objQueueIds-'):].split(',')
@@ -296,30 +329,32 @@ for (q = ngx_queue_head(&%s);
     q != ngx_queue_sentinel(&%s);
     q = ngx_queue_next(q))
 {
-    %s *cur = ngx_queue_data(q, %s, %s);
+    cur = ngx_queue_data(q, %s, %s);
     result += cur->%s.len + cur->%s + sizeof(",\\"\\"") - 1;
 }
-''' % (expr, expr, objectType, objectType, queueNode, idField, escField)
+''' % (expr, expr, objectType, queueNode, idField, escField)
 
                 valueWrite = '''
 for (q = ngx_queue_head(&%s);
     q != ngx_queue_sentinel(&%s);
     q = ngx_queue_next(q))
 {
-    %s *cur = ngx_queue_data(q, %s, %s);
+    cur = ngx_queue_data(q, %s, %s);
 
     if (q != ngx_queue_head(&%s))
     {
         *p++ = ',';
     }
+
     *p++ = '"';
     p = ngx_json_str_write_escape(p, &cur->%s, cur->%s);
     *p++ = '"';
 }
-''' % (expr, expr, objectType, objectType, queueNode, expr, idField,
+''' % (expr, expr, objectType, queueNode, expr, idField,
         escField)
 
-                listAdd(funcDefs, 'ngx_queue_t  *q;')
+                addVarDef(varDefs, 'ngx_queue_t', '*q')
+                addVarDef(varDefs, objectType, '*cur')
                 valueSize = ''
             elif format.startswith('slist-'):
                 params = format[len('slist-'):].split(',')
@@ -339,11 +374,12 @@ for (cur = %s; cur; cur = cur->next) {
     if (cur != %s) {
         *p++ = ',';
     }
+
     p = %s_write(p, cur);
 }
 ''' % (expr, expr, baseFunc)
 
-                listAdd(funcDefs, '%s  *cur;' % objectType)
+                addVarDef(varDefs, objectType, '*cur')
                 valueSize = ''
             elif format.startswith('queue-'):
                 params = format[len('queue-'):].split(',')
@@ -356,49 +392,55 @@ for (q = ngx_queue_head(&%s);
     q != ngx_queue_sentinel(&%s);
     q = ngx_queue_next(q))
 {
-    %s *cur = ngx_queue_data(q, %s, %s);
+    cur = ngx_queue_data(q, %s, %s);
     result += %s_get_size(cur) + sizeof(",") - 1;
 }
-''' % (expr, expr, objectType, objectType, queueNode, baseFunc)
+''' % (expr, expr, objectType, queueNode, baseFunc)
 
                 valueWrite = '''
 for (q = ngx_queue_head(&%s);
     q != ngx_queue_sentinel(&%s);
     q = ngx_queue_next(q))
 {
-    %s *cur = ngx_queue_data(q, %s, %s);
+    cur = ngx_queue_data(q, %s, %s);
 
     if (q != ngx_queue_head(&%s)) {
         *p++ = ',';
     }
+
     p = %s_write(p, cur);
 }
-''' % (expr, expr, objectType, objectType, queueNode, expr, baseFunc)
+''' % (expr, expr, objectType, queueNode, expr, baseFunc)
 
-                listAdd(funcDefs, 'ngx_queue_t  *q;')
+                addVarDef(varDefs, 'ngx_queue_t', '*q')
+                addVarDef(varDefs, objectType, '*cur')
                 valueSize = ''
             elif format.startswith('array-'):
                 params = format[len('array-'):].split(',')
                 baseFunc, objectType = params
                 fixed += '['
                 nextFixed = ']'
+                objectTypePtr = '*' * (objectType.count('*') + 1)
+                objectTypePtr = objectType.rstrip('*') + ' ' + objectTypePtr
                 getSizeCode += '''
 for (n = 0; n < %s.nelts; n++) {
-    %s cur = ((%s*) %s.elts)[n];
+    cur = ((%s) %s.elts)[n];
     result += %s_get_size(cur) + sizeof(",") - 1;
 }
-''' % (expr, objectType, objectType, expr, baseFunc)
+''' % (expr, objectTypePtr, expr, baseFunc)
                 valueWrite = '''
 for (n = 0; n < %s.nelts; n++) {
-    %s cur = ((%s*) %s.elts)[n];
+    cur = ((%s) %s.elts)[n];
 
     if (n > 0) {
         *p++ = ',';
     }
+
     p = %s_write(p, cur);
 }
-''' % (expr, objectType, objectType, expr, baseFunc)
-                listAdd(funcDefs, 'ngx_uint_t  n;')
+''' % (expr, objectTypePtr, expr, baseFunc)
+                addVarDef(varDefs, 'ngx_uint_t', 'n')
+                addVarDef(varDefs, objectType, 'cur')
                 valueSize = ''
             elif format == 'jV':
                 fixed += '"'
@@ -440,9 +482,11 @@ for (n = 0; n < %s.nelts; n++) {
                 valueSize = 'sizeof("false") - 1'
                 valueWrite = '''if (%s) {
     p = ngx_copy_fix(p, "true");
+
 } else {
     p = ngx_copy_fix(p, "false");
-}''' % expr
+}
+''' % expr
             elif format.startswith('enum-'):
                 fixed += '"'
                 nextFixed = '"'
@@ -458,7 +502,7 @@ for (n = 0; n < %s.nelts; n++) {
                 printParams = '(uint32_t) (n / d)'
                 printParams += (', (uint32_t) (n %% d * %d) / d''' %
                     (10 ** precision))
-                listAdd(writeDefs, 'uint32_t  n, d;')
+                addVarDef(writeVarDefs, 'uint32_t', 'n, d')
                 valueWrite = '''d = %s.denom;
 if (d) {
     n = %s.num;
@@ -466,7 +510,8 @@ if (d) {
 
 } else {
     *p++ = '0';
-}''' % (expr, expr, format, printParams)
+}
+''' % (expr, expr, format, printParams)
             else:
                 scale = None
                 match = re.match('^\.(\d+)(\w+)$', format)
@@ -569,26 +614,31 @@ if (d) {
         checks += '''    if (%s) {
         return %s;
     }
+
 ''' % (cond, size)
 
     for cond, baseFunc in forwardConds.items():
         checks += '''    if (%s) {
         return %s_get_size(obj);
     }
+
 ''' % (cond, baseFunc)
+
+    varDefsStr = renderVarDefs(varDefs.union(set([('size_t', 'result')])))
+    sizeArgs = args if len(args) > 0 else 'void'
 
     result = '/* %s writer */\n\n' % outputBaseFunc
 
     result += '''%ssize_t
 %s_get_size(%s)
 {
-%s    size_t  result =
+%s    result =
         %s;
 %s
     return result;
 }
 
-''' % (static, outputBaseFunc, args, funcDefs + checks,
+''' % (static, outputBaseFunc, sizeArgs, varDefsStr + funcDefs + checks,
     sizeCalc.replace('\n', '\n        '), getSizeCode.replace('\n', '\n    '))
 
     checks = ''
@@ -600,16 +650,20 @@ if (d) {
         checks += '''    if (%s) {
 %s        return p;
     }
+
 ''' % (cond, write)
 
     for cond, baseFunc in forwardConds.items():
         checks += '''    if (%s) {
         return %s_write(p, obj);
     }
+
 ''' % (cond, baseFunc)
 
     if len(args) > 0:
         args = ', %s' % args
+
+    varDefsStr = renderVarDefs(varDefs.union(writeVarDefs))
 
     result += '''%su_char *
 %s_write(u_char *p%s)
@@ -618,7 +672,7 @@ if (d) {
     return p;
 }
 
-''' % (static, outputBaseFunc, args, funcDefs + writeDefs + checks,
+''' % (static, outputBaseFunc, args, varDefsStr + funcDefs + writeDefs + checks,
     writeCode.replace('\n', '\n    '))
 
     return result
@@ -627,7 +681,8 @@ if (d) {
 # main
 
 if len(sys.argv) < 2:
-    print('Usage:\n\t%s <objects definition file>' % os.path.basename(__file__))
+    print('Usage:\n\t%s <objects definition file>' %
+        os.path.basename(__file__))
     sys.exit(1)
 
 inputFile = sys.argv[1]
@@ -675,7 +730,8 @@ for objectInfo, properties in objects:
     elif objectInfo[0] == 'out':
         result += getObjectWriter(objectInfo[1:], properties)
     else:
-        writeErr('Error: invalid object type %s, must be in/out' % objectInfo[0])
+        writeErr('Error: invalid object type %s, must be in/out' %
+            objectInfo[0])
         sys.exit(1)
 
 writeText(result.strip())

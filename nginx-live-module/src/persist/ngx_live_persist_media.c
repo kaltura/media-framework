@@ -1246,7 +1246,8 @@ ngx_live_persist_media_write_segment_created(ngx_live_channel_t *channel,
     }
 
     /* last segment in the bucket, write it */
-    if (!exists && cctx->last_bucket_id == NGX_LIVE_PERSIST_INVALID_BUCKET_ID)
+    if (!exists
+        && cctx->last_bucket_id == NGX_LIVE_PERSIST_INVALID_BUCKET_ID)
     {
         return NGX_OK;
     }

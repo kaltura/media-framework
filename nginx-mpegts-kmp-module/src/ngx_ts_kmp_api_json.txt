@@ -10,7 +10,8 @@ out ngx_ts_kmp_api_session_json ngx_ts_kmp_ctx_t
     tracks %queue-ngx_ts_kmp_api_track_json,ngx_ts_kmp_track_t,queue obj->
 
 out ngx_ts_kmp_api_server_json ngx_stream_core_srv_conf_t
-    - %code ngx_ts_kmp_conf_t  *tscf = ngx_stream_ts_get_ts_kmp_conf(obj->ctx);
+    - %var ngx_ts_kmp_conf_t *tscf
+    - %code tscf = ngx_stream_ts_get_ts_kmp_conf(obj->ctx);
     sessions %queue-ngx_ts_kmp_api_session_json,ngx_ts_kmp_ctx_t,queue tscf->
 
 out noobject ngx_ts_kmp_api_stream_json ngx_stream_core_main_conf_t

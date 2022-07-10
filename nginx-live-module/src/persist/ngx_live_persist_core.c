@@ -491,6 +491,7 @@ ngx_live_persist_core_create_preset_conf(ngx_conf_t *cf)
     for (i = 0; i < NGX_LIVE_PERSIST_FILE_COUNT; i++) {
         conf->files[i].max_size = NGX_CONF_UNSET_SIZE;
     }
+
     conf->cancel_read_if_empty = NGX_CONF_UNSET;
 
     return conf;

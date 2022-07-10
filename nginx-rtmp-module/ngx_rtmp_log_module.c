@@ -16,23 +16,23 @@ static ngx_rtmp_play_pt             next_play;
 
 static ngx_int_t ngx_rtmp_log_postconfiguration(ngx_conf_t *cf);
 static void *ngx_rtmp_log_create_main_conf(ngx_conf_t *cf);
-static void * ngx_rtmp_log_create_app_conf(ngx_conf_t *cf);
-static char * ngx_rtmp_log_merge_app_conf(ngx_conf_t *cf,
-       void *parent, void *child);
-static char * ngx_rtmp_log_set_log(ngx_conf_t *cf, ngx_command_t *cmd,
-       void *conf);
-static char * ngx_rtmp_log_set_format(ngx_conf_t *cf, ngx_command_t *cmd,
-       void *conf);
-static char * ngx_rtmp_log_compile_format(ngx_conf_t *cf, ngx_array_t *ops,
-       ngx_array_t *args, ngx_uint_t s);
+static void *ngx_rtmp_log_create_app_conf(ngx_conf_t *cf);
+static char *ngx_rtmp_log_merge_app_conf(ngx_conf_t *cf,
+    void *parent, void *child);
+static char *ngx_rtmp_log_set_log(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+static char *ngx_rtmp_log_set_format(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+static char *ngx_rtmp_log_compile_format(ngx_conf_t *cf, ngx_array_t *ops,
+    ngx_array_t *args, ngx_uint_t s);
 
 
-typedef struct ngx_rtmp_log_op_s ngx_rtmp_log_op_t;
+typedef struct ngx_rtmp_log_op_s  ngx_rtmp_log_op_t;
 
 
 typedef size_t (*ngx_rtmp_log_op_getlen_pt)(ngx_rtmp_session_t *s,
         ngx_rtmp_log_op_t *op);
-typedef u_char * (*ngx_rtmp_log_op_getdata_pt)(ngx_rtmp_session_t *s,
+typedef u_char *(*ngx_rtmp_log_op_getdata_pt)(ngx_rtmp_session_t *s,
         u_char *buf, ngx_rtmp_log_op_t *log);
 
 
@@ -164,6 +164,7 @@ ngx_rtmp_log_var_connection_getlen(ngx_rtmp_session_t *s, ngx_rtmp_log_op_t *op)
 {
     return NGX_INT_T_LEN;
 }
+
 
 static u_char *
 ngx_rtmp_log_var_connection_getdata(ngx_rtmp_session_t *s, u_char *buf,
@@ -785,8 +786,8 @@ ngx_rtmp_log_set_format(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
 
 static char *
-ngx_rtmp_log_compile_format(ngx_conf_t *cf, ngx_array_t *ops, ngx_array_t *args,
-                            ngx_uint_t s)
+ngx_rtmp_log_compile_format(ngx_conf_t *cf, ngx_array_t *ops,
+    ngx_array_t *args, ngx_uint_t s)
 {
     size_t              i, len;
     u_char             *data, *d, c;
@@ -824,6 +825,7 @@ ngx_rtmp_log_compile_format(ngx_conf_t *cf, ngx_array_t *ops, ngx_array_t *args,
                     if (++i == len) {
                         goto invalid;
                     }
+
                 } else {
                     bracket = 0;
                 }
@@ -956,6 +958,7 @@ ngx_rtmp_log_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     ctx->publish = 1;
 
 next:
+
     return next_publish(s, v);
 }
 
@@ -977,13 +980,14 @@ ngx_rtmp_log_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     ctx->play = 1;
 
 next:
+
     return next_play(s, v);
 }
 
 
 static void
 ngx_rtmp_log_write(ngx_rtmp_session_t *s, ngx_rtmp_log_t *log, u_char *buf,
-                   size_t len)
+    size_t len)
 {
     u_char *name;
     time_t  now;
@@ -1085,8 +1089,10 @@ ngx_rtmp_log_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
     ctx->publish = 0;
 
 next:
+
     return next_close_stream(s, v);
 }
+
 
 static ngx_int_t
 ngx_rtmp_log_postconfiguration(ngx_conf_t *cf)

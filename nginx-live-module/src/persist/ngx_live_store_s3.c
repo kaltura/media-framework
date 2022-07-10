@@ -15,7 +15,7 @@
 #define NGX_LIVE_STORE_S3_AMZ_DATE_LEN     (sizeof("YYYYmmdd"))
 
 
-#define NGX_LIVE_STORE_S3_EMPTY_SHA256    \
+#define NGX_LIVE_STORE_S3_EMPTY_SHA256                                       \
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 
@@ -347,6 +347,7 @@ ngx_live_store_s3_init_ctx(ngx_conf_t *cf, ngx_live_store_s3_ctx_t *ctx)
     if (ctx->secret_key_prefix.data == NULL) {
         return NGX_CONF_ERROR;
     }
+
     p = ctx->secret_key_prefix.data;
     p = ngx_copy_str(p, ngx_live_store_s3_aws4);
     p = ngx_copy_str(p, ctx->secret_key);
@@ -406,6 +407,7 @@ ngx_live_store_s3_generate_signing_key(ngx_live_store_s3_ctx_t *ctx,
             "ngx_live_store_s3_generate_signing_key: strftime failed");
         return NGX_ERROR;
     }
+
     date.data = date_buf;
 
     /* check whether date changed since last time */
@@ -505,6 +507,7 @@ ngx_live_store_s3_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     if (ctx == NULL) {
         return NGX_CONF_ERROR;
     }
+
     ctx->url = NGX_CONF_UNSET_PTR;
 
     /* parse the block */
@@ -537,6 +540,7 @@ ngx_live_store_s3_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     if (pctx == NULL) {
         return NGX_CONF_ERROR;
     }
+
     *pctx = ctx;
 
     return NGX_CONF_OK;
@@ -608,6 +612,7 @@ ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
             "ngx_live_store_s3_get_request: strftime failed");
         return NGX_ERROR;
     }
+
     date.data = date_buf;
 
     /* generate signing key */
@@ -793,6 +798,7 @@ ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
             "ngx_live_store_s3_put_request: strftime failed");
         return NGX_ERROR;
     }
+
     date.data = date_buf;
 
     /* generate signing key */

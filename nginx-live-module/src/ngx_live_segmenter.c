@@ -24,7 +24,7 @@
 #define NGX_LIVE_INVALID_PTS                 (LLONG_MAX)
 
 
-#define ngx_live_segmenter_track_is_ready(cctx, ctx)                        \
+#define ngx_live_segmenter_track_is_ready(cctx, ctx)                         \
     ((ctx)->pending_duration >= (cctx)->cur_ready_duration)
 
 
@@ -518,6 +518,7 @@ ngx_live_segmenter_frame_list_push(ngx_live_segmenter_frame_list_t *list,
     if (list->last_data_part != NULL) {
         list->last_data_part->next = data_head;
     }
+
     list->last_data_part = data_tail;
 
     return frame;
@@ -2371,6 +2372,7 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
                     target_pts, target_pts - cctx->last_segment_end_pts);
                 rc = NGX_ABORT;
             }
+
             continue;
         }
 
@@ -2736,7 +2738,8 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
             break;
         }
 
-        if (channel->next_segment_index >= NGX_LIVE_INVALID_SEGMENT_INDEX - 1)
+        if (channel->next_segment_index
+            >= NGX_LIVE_INVALID_SEGMENT_INDEX - 1)
         {
             ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
                 "ngx_live_segmenter_create_segments: invalid segment index");
@@ -2762,6 +2765,7 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
                 {
                     return NGX_ERROR;
                 }
+
                 continue;
             }
 
@@ -2800,6 +2804,7 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
             {
                 return NGX_ERROR;
             }
+
             continue;
         }
 

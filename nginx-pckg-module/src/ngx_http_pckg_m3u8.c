@@ -40,15 +40,15 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 
 #define M3U8_MASTER_HEADER           "#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n"
 
-#define M3U8_STREAM_VIDEO            "#EXT-X-STREAM-INF:PROGRAM-ID=1"       \
+#define M3U8_STREAM_VIDEO            "#EXT-X-STREAM-INF:PROGRAM-ID=1"        \
     ",BANDWIDTH=%uD,RESOLUTION=%uDx%uD,FRAME-RATE=%uD.%03uD,CODECS=\"%V"
-#define M3U8_STREAM_AUDIO            "#EXT-X-STREAM-INF:PROGRAM-ID=1"       \
+#define M3U8_STREAM_AUDIO            "#EXT-X-STREAM-INF:PROGRAM-ID=1"        \
     ",BANDWIDTH=%uD,CODECS=\"%V"
 #define M3U8_STREAM_VIDEO_RANGE_SDR  ",VIDEO-RANGE=SDR"
 #define M3U8_STREAM_VIDEO_RANGE_PQ   ",VIDEO-RANGE=PQ"
 #define M3U8_STREAM_TAG_AUDIO        ",AUDIO=\"%V%uD\""
 
-#define M3U8_MEDIA_BASE              "#EXT-X-MEDIA:TYPE=%V"                 \
+#define M3U8_MEDIA_BASE              "#EXT-X-MEDIA:TYPE=%V"                  \
     ",GROUP-ID=\"%V%uD\",NAME=\"%V\","
 #define M3U8_MEDIA_LANG              "LANGUAGE=\"%V\","
 #define M3U8_MEDIA_DEFAULT           "AUTOSELECT=YES,DEFAULT=YES,"
@@ -57,18 +57,18 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 #define M3U8_MEDIA_URI               "URI=\""
 
 /* index playlist */
-#define M3U8_INDEX_HEADER            "#EXTM3U\n#EXT-X-TARGETDURATION:%uD\n" \
-    "#EXT-X-VERSION:%uD\n#EXT-X-MEDIA-SEQUENCE:%uD\n"                       \
-    "#EXT-X-DISCONTINUITY-SEQUENCE:%uD\n#EXT-X-INDEPENDENT-SEGMENTS\n"      \
+#define M3U8_INDEX_HEADER            "#EXTM3U\n#EXT-X-TARGETDURATION:%uD\n"  \
+    "#EXT-X-VERSION:%uD\n#EXT-X-MEDIA-SEQUENCE:%uD\n"                        \
+    "#EXT-X-DISCONTINUITY-SEQUENCE:%uD\n#EXT-X-INDEPENDENT-SEGMENTS\n"       \
     "#EXT-X-ALLOW-CACHE:YES\n"
 
 #define M3U8_EXTINF                  "#EXTINF:"
 #define M3U8_GAP                     "#EXT-X-GAP\n"
 #define M3U8_BITRATE                 "#EXT-X-BITRATE:"
 #define M3U8_DISCONTINUITY           "#EXT-X-DISCONTINUITY\n"
-#define M3U8_PROGRAM_DATE_TIME                                              \
+#define M3U8_PROGRAM_DATE_TIME                                               \
     "#EXT-X-PROGRAM-DATE-TIME:%4d-%02d-%02dT%02d:%02d:%02d.%03d+00:00\n"
-#define M3U8_PROGRAM_DATE_TIME_LEN                                          \
+#define M3U8_PROGRAM_DATE_TIME_LEN                                           \
     (sizeof("#EXT-X-PROGRAM-DATE-TIME:2000-01-01T00:00:00.000+00:00\n") - 1)
 #define M3U8_MAP_BASE                "#EXT-X-MAP:URI=\""
 #define M3U8_END_LIST                "#EXT-X-ENDLIST\n"
@@ -81,7 +81,7 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 
 #define M3U8_ENC_METHOD_AES_128      "AES-128"
 #define M3U8_ENC_METHOD_SAMPLE_AES   "SAMPLE-AES"
-#define M3U8_ENC_METHOD_SAMPLE_AES_CTR                                      \
+#define M3U8_ENC_METHOD_SAMPLE_AES_CTR                                       \
     "SAMPLE-AES-CTR"
 
 #define M3U8_URI_BASE64_DATA         "data:text/plain;base64,"
@@ -887,6 +887,7 @@ ngx_http_pckg_m3u8_enc_key_write(u_char *p,
         p = ngx_sprintf(p, "-s%V", &variant->id);
         p = ngx_copy_str(p, ngx_http_pckg_enc_key_ext);
     }
+
     *p++ = '"';
 
     /* iv */
@@ -1344,7 +1345,7 @@ ngx_http_pckg_m3u8_get_selector(ngx_http_request_t *r,
 
 
 static size_t
-ngx_http_pckg_m3u8_server_control_get_size()
+ngx_http_pckg_m3u8_server_control_get_size(void)
 {
     return sizeof(M3U8_SERVER_CONTROL) - 1
         + sizeof(M3U8_CTL_BLOCK_RELOAD) - 1
@@ -2100,7 +2101,7 @@ ngx_http_pckg_m3u8_create_loc_conf(ngx_conf_t *cf)
     if (conf == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0,
             "ngx_http_pckg_m3u8_create_loc_conf: ngx_pcalloc failed");
-        return NGX_CONF_ERROR;
+        return NULL;
     }
 
     conf->container = NGX_CONF_UNSET_UINT;

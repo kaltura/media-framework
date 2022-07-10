@@ -314,6 +314,7 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         if (ctx->skip_left <= 0 && ctx->skip_wait_key) {
             ctx->wait_key = 0;
         }
+
         goto done;
     }
 
@@ -923,7 +924,8 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
     }
 
     if (header->header.header_size < sizeof(*header) ||
-        header->header.header_size > KMP_MAX_HEADER_SIZE) {
+        header->header.header_size > KMP_MAX_HEADER_SIZE)
+    {
         ngx_log_error(NGX_LOG_ERR, c->log, 0,
             "ngx_stream_live_kmp_read_header: invalid header size %uD",
             header->header.header_size);
@@ -1056,6 +1058,7 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
     if (track->input.remote_addr.s.len == 0) {
         track->input.remote_addr.s = c->addr_text;
     }
+
     ngx_json_str_set_escape(&track->input.remote_addr);
 
     ngx_stream_set_ctx(s, ctx, ngx_stream_live_kmp_module);
@@ -1141,6 +1144,7 @@ ngx_stream_live_kmp_read_handler(ngx_event_t *rev)
         ngx_log_error(NGX_LOG_NOTICE, c->log, 0,
             "ngx_stream_live_kmp_read_handler: read packets failed %i", rc);
     }
+
     ngx_stream_finalize_session(s, rc);
     return;
 

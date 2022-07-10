@@ -12,7 +12,7 @@ static void *ngx_stream_ts_kmp_create_main_conf(ngx_conf_t *cf);
 static void *ngx_stream_ts_kmp_create_srv_conf(ngx_conf_t *cf);
 static char *ngx_stream_ts_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent,
     void *child);
-static char *ngx_stream_ts_kmp(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
+static char *ngx_stream_ts_kmp(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 
 typedef struct {

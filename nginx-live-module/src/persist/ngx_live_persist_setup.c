@@ -452,8 +452,7 @@ ngx_live_persist_setup_read_variant(ngx_persist_block_header_t *header,
     conf.is_default = v->is_default;
 
     rc = ngx_live_variant_create(channel, &id, &conf, rs->log, &variant);
-    if (rc != NGX_OK)
-    {
+    if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_live_persist_setup_read_variant: "
             "create failed %i, variant: %V", rc, &id);

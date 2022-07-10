@@ -10,7 +10,9 @@ static size_t
 ngx_rtmp_kmp_connect_rtmp_json_get_size(ngx_rtmp_kmp_connect_t *obj,
     ngx_rtmp_session_t *s)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"app\":\"") - 1 + obj->app.len + ngx_escape_json(NULL,
             obj->app.data, obj->app.len) +
         sizeof("\",\"flashver\":\"") - 1 + obj->flashver.len +
@@ -60,7 +62,9 @@ static size_t
 ngx_rtmp_kmp_connect_json_get_size(ngx_rtmp_kmp_connect_t *obj,
     ngx_rtmp_session_t *s)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"event_type\":\"connect\"" ",\"input_type\":\"rtmp\""
             ",\"rtmp\":") - 1 + ngx_rtmp_kmp_connect_rtmp_json_get_size(obj,
             s) +

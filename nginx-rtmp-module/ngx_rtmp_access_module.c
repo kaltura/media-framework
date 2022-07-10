@@ -18,12 +18,12 @@ static ngx_rtmp_play_pt             next_play;
 #define NGX_RTMP_ACCESS_PLAY        0x02
 
 
-static char * ngx_rtmp_access_rule(ngx_conf_t *cf, ngx_command_t *cmd,
-       void *conf);
+static char *ngx_rtmp_access_rule(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
 static ngx_int_t ngx_rtmp_access_postconfiguration(ngx_conf_t *cf);
-static void * ngx_rtmp_access_create_app_conf(ngx_conf_t *cf);
-static char * ngx_rtmp_access_merge_app_conf(ngx_conf_t *cf,
-       void *parent, void *child);
+static void *ngx_rtmp_access_create_app_conf(ngx_conf_t *cf);
+static char *ngx_rtmp_access_merge_app_conf(ngx_conf_t *cf,
+    void *parent, void *child);
 
 
 typedef struct {
@@ -257,6 +257,7 @@ ngx_rtmp_access_inet6(ngx_rtmp_session_t *s, u_char *p, ngx_uint_t flag)
         }
 
     next:
+
         continue;
     }
 
@@ -347,7 +348,7 @@ ngx_rtmp_access_rule(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     } else {
 
-        for(; n < cf->args->nelts - 1; ++n) {
+        for (; n < cf->args->nelts - 1; ++n) {
 
             if (value[n].len == sizeof("publish") - 1 &&
                 ngx_strcmp(value[1].data, "publish") == 0)
@@ -442,6 +443,7 @@ ngx_rtmp_access_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     }
 
 next:
+
     return next_publish(s, v);
 }
 

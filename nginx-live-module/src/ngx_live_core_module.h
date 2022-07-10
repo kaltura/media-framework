@@ -9,7 +9,7 @@
 #include "ngx_live_segmenter.h"
 
 
-#define ngx_live_reserve_track_ctx_size(cf, module, size)                   \
+#define ngx_live_reserve_track_ctx_size(cf, module, size)                    \
     ngx_live_core_reserve_track_ctx_size(cf, module.ctx_index, size)
 
 
@@ -191,7 +191,7 @@ ngx_int_t ngx_live_core_json_writers_add(ngx_conf_t *cf,
 size_t ngx_live_core_json_get_size(void *obj, ngx_live_channel_t *channel,
     ngx_uint_t ctx);
 
-u_char * ngx_live_core_json_write(u_char *p, void *obj,
+u_char *ngx_live_core_json_write(u_char *p, void *obj,
     ngx_live_channel_t *channel, ngx_uint_t ctx);
 
 

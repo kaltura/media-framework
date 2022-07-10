@@ -44,6 +44,7 @@ ngx_buf_queue_reader_copy(ngx_buf_queue_reader_t *reader, void *buffer,
             if (node == NULL) {
                 return NULL;
             }
+
             reader->node = node;
 
             start = ngx_buf_queue_start(node);
@@ -77,6 +78,7 @@ ngx_buf_queue_reader_read(ngx_buf_queue_reader_t *reader, void *buffer,
         if (node == NULL) {
             return NULL;
         }
+
         reader->node = node;
         reader->start = ngx_buf_queue_start(node);
         return start;

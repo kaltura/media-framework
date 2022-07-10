@@ -22,12 +22,12 @@ static ngx_int_t ngx_rtmp_kmp_api_session_delete(ngx_http_request_t *r,
 
 /* json */
 static size_t ngx_rtmp_kmp_api_streams_json_get_size(ngx_rtmp_session_t *s);
-static u_char * ngx_rtmp_kmp_api_streams_json_write(u_char *p,
+static u_char *ngx_rtmp_kmp_api_streams_json_write(u_char *p,
     ngx_rtmp_session_t *s);
 
 static size_t ngx_rtmp_kmp_api_tracks_json_get_size(
     ngx_kmp_push_track_t **tracks);
-static u_char * ngx_rtmp_kmp_api_tracks_json_write(u_char *p,
+static u_char *ngx_rtmp_kmp_api_tracks_json_write(u_char *p,
     ngx_kmp_push_track_t **tracks);
 
 static ngx_str_t  ngx_rtmp_kmp_version = ngx_string(NGX_RTMP_KMP_VERSION);

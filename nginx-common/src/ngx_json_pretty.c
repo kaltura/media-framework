@@ -5,7 +5,7 @@
 
 #define NGX_JSON_PRETTY_INDENT       4
 #define NGX_JSON_PRETTY_MAX_DEPTH    16
-#define NGX_JSON_PRETTY_MAX_SEP_LEN  (1 +                                   \
+#define NGX_JSON_PRETTY_MAX_SEP_LEN  (1 +                                    \
     NGX_JSON_PRETTY_MAX_DEPTH * NGX_JSON_PRETTY_INDENT)
 
 #define NGX_JSON_PRETTY_BUF_SIZE     1024
@@ -186,6 +186,7 @@ ngx_json_pretty(ngx_pool_t *pool, ngx_str_t *json, ngx_uint_t level,
             if (ngx_json_pretty_write(&ctx, start, p) != NGX_OK) {
                 return NULL;
             }
+
             start = p;
 
             if (ngx_json_pretty_write(&ctx, sep, sep + sep_len) != NGX_OK) {
@@ -198,11 +199,13 @@ ngx_json_pretty(ngx_pool_t *pool, ngx_str_t *json, ngx_uint_t level,
             if (ngx_json_pretty_write(&ctx, start, p) != NGX_OK) {
                 return NULL;
             }
+
             start = p;
 
             if (ngx_json_pretty_write(&ctx, &space, &space + 1) != NGX_OK) {
                 return NULL;
             }
+
             continue;
 
         case ']':
@@ -210,6 +213,7 @@ ngx_json_pretty(ngx_pool_t *pool, ngx_str_t *json, ngx_uint_t level,
             if (ngx_json_pretty_write(&ctx, start, p) != NGX_OK) {
                 return NULL;
             }
+
             start = p;
             p++;
 

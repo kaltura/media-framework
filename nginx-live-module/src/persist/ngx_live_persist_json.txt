@@ -7,26 +7,34 @@ out nostatic noobject ngx_live_persist_core_json ngx_live_persist_file_stats_t
     success_size %uL
 
 out ngx_live_persist_setup_obj_json ngx_live_channel_t
-    - %code ngx_live_persist_core_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
-    - %code ngx_live_persist_file_stats_t *stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_SETUP];
+    - %var ngx_live_persist_core_channel_ctx_t *cctx
+    - %var ngx_live_persist_file_stats_t *stats
+    - %code cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
+    - %code stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_SETUP];
     - %func-ngx_live_persist_core_json stats
     - %func-ngx_live_persist_setup_json obj
 
 out ngx_live_persist_index_obj_json ngx_live_channel_t
-    - %code ngx_live_persist_core_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
-    - %code ngx_live_persist_file_stats_t *stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_INDEX];
+    - %var ngx_live_persist_core_channel_ctx_t *cctx
+    - %var ngx_live_persist_file_stats_t *stats
+    - %code cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
+    - %code stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_INDEX];
     - %func-ngx_live_persist_core_json stats
     - %func-ngx_live_persist_index_json obj
 
 out ngx_live_persist_delta_obj_json ngx_live_channel_t
-    - %code ngx_live_persist_core_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
-    - %code ngx_live_persist_file_stats_t *stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_DELTA];
+    - %var ngx_live_persist_core_channel_ctx_t *cctx
+    - %var ngx_live_persist_file_stats_t *stats
+    - %code cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
+    - %code stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_DELTA];
     - %func-ngx_live_persist_core_json stats
     - %func-ngx_live_persist_delta_json obj
 
 out ngx_live_persist_media_obj_json ngx_live_channel_t
-    - %code ngx_live_persist_core_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
-    - %code ngx_live_persist_file_stats_t *stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_MEDIA];
+    - %var ngx_live_persist_core_channel_ctx_t *cctx
+    - %var ngx_live_persist_file_stats_t *stats
+    - %code cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
+    - %code stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_MEDIA];
     - %func-ngx_live_persist_core_json stats
 
 out key(persist) ngx_live_persist_channel_json void

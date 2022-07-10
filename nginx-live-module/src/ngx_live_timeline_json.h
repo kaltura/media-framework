@@ -9,7 +9,9 @@
 static size_t
 ngx_live_period_json_get_size(ngx_live_period_t *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"time\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"duration\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"segment_index\":") - 1 + NGX_INT_T_LEN +
@@ -40,7 +42,9 @@ ngx_live_period_json_write(u_char *p, ngx_live_period_t *obj)
 static size_t
 ngx_live_timeline_conf_json_get_size(ngx_live_timeline_t *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"active\":") - 1 + sizeof("false") - 1 +
         sizeof(",\"no_truncate\":") - 1 + sizeof("false") - 1 +
         sizeof(",\"end_list\":") - 1 + sizeof("false") - 1 +
@@ -64,21 +68,27 @@ ngx_live_timeline_conf_json_write(u_char *p, ngx_live_timeline_t *obj)
     p = ngx_copy_fix(p, "{\"active\":");
     if (obj->conf.active) {
         p = ngx_copy_fix(p, "true");
+
     } else {
         p = ngx_copy_fix(p, "false");
     }
+
     p = ngx_copy_fix(p, ",\"no_truncate\":");
     if (obj->conf.no_truncate) {
         p = ngx_copy_fix(p, "true");
+
     } else {
         p = ngx_copy_fix(p, "false");
     }
+
     p = ngx_copy_fix(p, ",\"end_list\":");
     if (obj->manifest.conf.end_list) {
         p = ngx_copy_fix(p, "true");
+
     } else {
         p = ngx_copy_fix(p, "false");
     }
+
     p = ngx_copy_fix(p, ",\"period_gap\":");
     p = ngx_sprintf(p, "%L", (int64_t) obj->conf.period_gap);
     p = ngx_copy_fix(p, ",\"max_segments\":");
@@ -113,7 +123,9 @@ ngx_live_timeline_conf_json_write(u_char *p, ngx_live_timeline_t *obj)
 size_t
 ngx_live_timeline_json_get_size(ngx_live_timeline_t *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"conf\":") - 1 + ngx_live_timeline_conf_json_get_size(obj) +
         sizeof(",\"period_count\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"segment_count\":") - 1 + NGX_INT32_LEN +
@@ -158,8 +170,11 @@ ngx_live_timeline_json_write(u_char *p, ngx_live_timeline_t *obj)
 static size_t
 ngx_live_timelines_json_get_size(ngx_live_timeline_channel_ctx_t *obj)
 {
-    ngx_queue_t  *q;
-    size_t  result =
+    size_t                result;
+    ngx_queue_t          *q;
+    ngx_live_timeline_t  *cur;
+
+    result =
         sizeof("{") - 1 +
         sizeof("}") - 1;
 
@@ -167,8 +182,7 @@ ngx_live_timelines_json_get_size(ngx_live_timeline_channel_ctx_t *obj)
         q != ngx_queue_sentinel(&obj->queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_timeline_t *cur = ngx_queue_data(q, ngx_live_timeline_t,
-            queue);
+        cur = ngx_queue_data(q, ngx_live_timeline_t, queue);
         result += cur->sn.str.len + cur->id_escape;
         result += ngx_live_timeline_json_get_size(cur) + sizeof(",\"\":") - 1;
     }
@@ -179,20 +193,22 @@ ngx_live_timelines_json_get_size(ngx_live_timeline_channel_ctx_t *obj)
 static u_char *
 ngx_live_timelines_json_write(u_char *p, ngx_live_timeline_channel_ctx_t *obj)
 {
-    ngx_queue_t  *q;
+    ngx_queue_t          *q;
+    ngx_live_timeline_t  *cur;
+
     *p++ = '{';
 
     for (q = ngx_queue_head(&obj->queue);
         q != ngx_queue_sentinel(&obj->queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_timeline_t *cur = ngx_queue_data(q, ngx_live_timeline_t,
-            queue);
+        cur = ngx_queue_data(q, ngx_live_timeline_t, queue);
 
         if (q != ngx_queue_head(&obj->queue))
         {
             *p++ = ',';
         }
+
         *p++ = '"';
         p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
         *p++ = '"';
@@ -210,10 +226,13 @@ ngx_live_timelines_json_write(u_char *p, ngx_live_timeline_channel_ctx_t *obj)
 size_t
 ngx_live_timeline_ids_json_get_size(ngx_live_channel_t *obj)
 {
-    ngx_live_timeline_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
-        ngx_live_timeline_module);
-    ngx_queue_t  *q;
-    size_t  result =
+    size_t                            result;
+    ngx_queue_t                      *q;
+    ngx_live_timeline_t              *cur;
+    ngx_live_timeline_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(obj, ngx_live_timeline_module);
+    result =
         sizeof("[") - 1 +
         sizeof("]") - 1;
 
@@ -221,8 +240,7 @@ ngx_live_timeline_ids_json_get_size(ngx_live_channel_t *obj)
         q != ngx_queue_sentinel(&cctx->queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_timeline_t *cur = ngx_queue_data(q, ngx_live_timeline_t,
-            queue);
+        cur = ngx_queue_data(q, ngx_live_timeline_t, queue);
         result += cur->sn.str.len + cur->id_escape + sizeof(",\"\"") - 1;
     }
 
@@ -232,22 +250,24 @@ ngx_live_timeline_ids_json_get_size(ngx_live_channel_t *obj)
 u_char *
 ngx_live_timeline_ids_json_write(u_char *p, ngx_live_channel_t *obj)
 {
-    ngx_live_timeline_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
-        ngx_live_timeline_module);
-    ngx_queue_t  *q;
+    ngx_queue_t                      *q;
+    ngx_live_timeline_t              *cur;
+    ngx_live_timeline_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(obj, ngx_live_timeline_module);
     *p++ = '[';
 
     for (q = ngx_queue_head(&cctx->queue);
         q != ngx_queue_sentinel(&cctx->queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_timeline_t *cur = ngx_queue_data(q, ngx_live_timeline_t,
-            queue);
+        cur = ngx_queue_data(q, ngx_live_timeline_t, queue);
 
         if (q != ngx_queue_head(&cctx->queue))
         {
             *p++ = ',';
         }
+
         *p++ = '"';
         p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
         *p++ = '"';
@@ -263,7 +283,9 @@ ngx_live_timeline_ids_json_write(u_char *p, ngx_live_channel_t *obj)
 static size_t
 ngx_live_timelines_module_json_get_size(ngx_live_timeline_channel_ctx_t *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("\"timelines\":") - 1 + ngx_live_timelines_json_get_size(obj) +
         sizeof(",\"segment_list\":") - 1 +
             ngx_live_segment_list_json_get_size(&obj->segment_list) +

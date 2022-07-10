@@ -5,11 +5,11 @@
 #include "ngx_json_pretty.h"
 
 
-#define ngx_str_equals(s1, s2)                                              \
+#define ngx_str_equals(s1, s2)                                               \
     ((s1).len == (s2).len && ngx_strncmp((s1).data, (s2).data, (s1).len) == 0)
 
-#define ngx_str_equals_c(ns, s)                                             \
-    ((ns).len == sizeof(s) - 1 &&                                           \
+#define ngx_str_equals_c(ns, s)                                              \
+    ((ns).len == sizeof(s) - 1 &&                                            \
      ngx_strncmp((ns).data, (s), sizeof(s) - 1) == 0)
 
 
@@ -358,6 +358,7 @@ ngx_http_api_multi_parse(ngx_http_request_t *r, ngx_json_object_t *obj,
                         &elts[i].value.v.str);
                     return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
                 }
+
                 continue;
             }
         }
@@ -706,6 +707,7 @@ ngx_http_api_body_handler(ngx_http_request_t *r)
     rc = ngx_http_api_send_response(r, status, &response);
 
 done:
+
     ngx_http_finalize_request(r, rc);
 }
 

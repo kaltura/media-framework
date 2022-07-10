@@ -14,7 +14,7 @@
 
 
 static void ngx_rtmp_close_connection(ngx_connection_t *c);
-static u_char * ngx_rtmp_log_error(ngx_log_t *log, u_char *buf, size_t len);
+static u_char *ngx_rtmp_log_error(ngx_log_t *log, u_char *buf, size_t len);
 
 
 void
@@ -144,6 +144,7 @@ ngx_rtmp_init_connection(ngx_connection_t *c)
     }
 }
 
+
 static ngx_fd_t
 ngx_rtmp_open_dump_file(ngx_rtmp_session_t *s)
 {
@@ -168,7 +169,7 @@ ngx_rtmp_open_dump_file(ngx_rtmp_session_t *s)
         &cscf->dump_folder, NGX_RTMP_ISO8601_DATE_LEN,
         ngx_cached_http_log_iso8601.data, ngx_pid, s->connection->number);
 
-    fd = ngx_open_file((char*) name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
+    fd = ngx_open_file((char *) name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
         NGX_FILE_DEFAULT_ACCESS);
     if (fd == NGX_INVALID_FILE) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
@@ -180,6 +181,7 @@ ngx_rtmp_open_dump_file(ngx_rtmp_session_t *s)
     ngx_free(name.data);
     return fd;
 }
+
 
 ngx_rtmp_session_t *
 ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)

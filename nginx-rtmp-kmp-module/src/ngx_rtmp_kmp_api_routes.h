@@ -12,8 +12,8 @@ static ngx_http_api_route_node_t  ngx_rtmp_kmp_api_route_sessions_param = {
     NULL,
 };
 
-static ngx_http_api_route_child_t  ngx_rtmp_kmp_api_route_sessions_children[]
-    = {
+static ngx_http_api_route_child_t  ngx_rtmp_kmp_api_route_sessions_children[] =
+{
     { ngx_string("%"), &ngx_rtmp_kmp_api_route_sessions_param },
     { ngx_null_string, NULL },
 };

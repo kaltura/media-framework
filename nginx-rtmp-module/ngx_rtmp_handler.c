@@ -27,7 +27,7 @@ ngx_rtmp_bandwidth_t        ngx_rtmp_bw_in;
 char*
 ngx_rtmp_message_type(uint8_t type)
 {
-    static char*    types[] = {
+    static char  *types[] = {
         "?",
         "chunk_size",
         "abort",
@@ -62,7 +62,7 @@ ngx_rtmp_message_type(uint8_t type)
 char*
 ngx_rtmp_user_message_type(uint16_t evt)
 {
-    static char*    evts[] = {
+    static char  *evts[] = {
         "stream_begin",
         "stream_eof",
         "stream dry",
@@ -105,9 +105,13 @@ ngx_rtmp_alloc_in_buf(ngx_rtmp_session_t *s)
     ngx_buf_t          *b;
     size_t              size;
 
-    if ((cl = ngx_alloc_chain_link(s->in_pool)) == NULL
-       || (cl->buf = ngx_calloc_buf(s->in_pool)) == NULL)
-    {
+    cl = ngx_alloc_chain_link(s->in_pool);
+    if (cl == NULL) {
+        return NULL;
+    }
+
+    cl->buf = ngx_calloc_buf(s->in_pool);
+    if (cl->buf == NULL) {
         return NULL;
     }
 
@@ -115,10 +119,12 @@ ngx_rtmp_alloc_in_buf(ngx_rtmp_session_t *s)
     b = cl->buf;
     size = s->in_chunk_size + NGX_RTMP_MAX_CHUNK_HEADER;
 
-    b->start = b->last = b->pos = ngx_palloc(s->in_pool, size);
+    b->start = ngx_palloc(s->in_pool, size);
     if (b->start == NULL) {
         return NULL;
     }
+
+    b->last = b->pos = b->start;
     b->end = b->start + size;
 
     return cl;
@@ -216,7 +222,7 @@ ngx_rtmp_recv(ngx_event_t *rev)
         return;
     }
 
-    for( ;; ) {
+    for ( ;; ) {
 
         st = &s->in_chunk_streams[s->in_csid];
 
@@ -329,14 +335,18 @@ ngx_rtmp_recv(ngx_event_t *rev)
             csid = *p++ & 0x3f;
 
             if (csid == 0) {
-                if (b->last - p < 1)
+                if (b->last - p < 1) {
                     continue;
+                }
+
                 csid = 64;
                 csid += *(uint8_t *) p++;
 
             } else if (csid == 1) {
-                if (b->last - p < 2)
+                if (b->last - p < 2) {
                     continue;
+                }
+
                 csid = 64;
                 csid += *(uint8_t *) p++;
                 csid += (uint32_t) 256 * (*(uint8_t *) p++);
@@ -370,10 +380,12 @@ ngx_rtmp_recv(ngx_event_t *rev)
                 st = &s->in_chunk_streams[csid];
                 if (st->in == NULL) {
                     in->next = in;
+
                 } else {
                     in->next = st->in->next;
                     st->in->next = in;
                 }
+
                 st->in = in;
                 h = &st->hdr;
                 h->csid = csid;
@@ -382,8 +394,10 @@ ngx_rtmp_recv(ngx_event_t *rev)
             ext = st->ext;
             timestamp = st->dtime;
             if (fmt <= 2) {
-                if (b->last - p < 3)
+                if (b->last - p < 3) {
                     continue;
+                }
+
                 /* timestamp:
                  *  big-endian 3b -> little-endian 4b */
                 pp = (u_char *) &timestamp;
@@ -395,8 +409,10 @@ ngx_rtmp_recv(ngx_event_t *rev)
                 ext = (timestamp == 0x00ffffff);
 
                 if (fmt <= 1) {
-                    if (b->last - p < 4)
+                    if (b->last - p < 4) {
                         continue;
+                    }
+
                     /* size:
                      *  big-endian 3b -> little-endian 4b
                      * type:
@@ -409,8 +425,10 @@ ngx_rtmp_recv(ngx_event_t *rev)
                     h->type = *(uint8_t *) p++;
 
                     if (fmt == 0) {
-                        if (b->last - p < 4)
+                        if (b->last - p < 4) {
                             continue;
+                        }
+
                         /* stream:
                          *  little-endian 4b -> little-endian 4b */
                         pp = (u_char *) &h->msid;
@@ -424,8 +442,9 @@ ngx_rtmp_recv(ngx_event_t *rev)
 
             /* extended header */
             if (ext) {
-                if (b->last - p < 4)
+                if (b->last - p < 4) {
                     continue;
+                }
 
                 pp = (u_char *) &timestamp;
                 pp[3] = *p++;
@@ -474,6 +493,7 @@ ngx_rtmp_recv(ngx_event_t *rev)
 
                 if (fmt) {
                     st->dtime = timestamp;
+
                 } else {
                     h->timestamp = timestamp;
                     st->dtime = 0;
@@ -519,6 +539,7 @@ ngx_rtmp_recv(ngx_event_t *rev)
             } else {
                 old_pos = b->last;
             }
+
             old_size += size - s->in_chunk_size;
 
         } else {
@@ -532,6 +553,7 @@ ngx_rtmp_recv(ngx_event_t *rev)
             } else {
                 old_pos = b->last;
             }
+
             old_size += size - fsize;
 
             head = st->in->next;
@@ -626,8 +648,10 @@ ngx_rtmp_send(ngx_event_t *wev)
                 if (s->out_pos == s->out_last) {
                     break;
                 }
+
                 s->out_chain = s->out[s->out_pos];
             }
+
             s->out_bpos = s->out_chain->buf->pos;
         }
     }
@@ -642,7 +666,7 @@ ngx_rtmp_send(ngx_event_t *wev)
 
 void
 ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-        ngx_rtmp_header_t *lh, ngx_chain_t *out)
+    ngx_rtmp_header_t *lh, ngx_chain_t *out)
 {
     ngx_chain_t                *l;
     u_char                     *p, *pp;
@@ -668,7 +692,7 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     /* detect packet size */
     mlen = 0;
     nbufs = 0;
-    for(l = out; l; l = l->next) {
+    for (l = out; l; l = l->next) {
         mlen += (l->buf->last - l->buf->pos);
         ++nbufs;
     }
@@ -682,7 +706,9 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 ++fmt;
             }
         }
+
         timestamp = h->timestamp - lh->timestamp;
+
     } else {
         timestamp = h->timestamp;
     }
@@ -722,9 +748,11 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     *p = (fmt << 6);
     if (h->csid >= 2 && h->csid <= 63) {
         *p++ |= (((uint8_t) h->csid) & 0x3f);
+
     } else if (h->csid >= 64 && h->csid < 320) {
         ++p;
         *p++ = (uint8_t) (h->csid - 64);
+
     } else {
         *p++ |= 1;
         *p++ = (uint8_t) (h->csid - 64);
@@ -777,7 +805,7 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     }
 
     /* append headers to successive fragments */
-    for(out = out->next; out; out = out->next) {
+    for (out = out->next; out; out = out->next) {
         out->buf->pos -= thsize;
         ngx_memcpy(out->buf->pos, th, thsize);
     }
@@ -786,7 +814,7 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
 ngx_int_t
 ngx_rtmp_send_message(ngx_rtmp_session_t *s, ngx_chain_t *out,
-        ngx_uint_t priority)
+    ngx_uint_t priority)
 {
     ngx_uint_t                      nmsg;
 
@@ -820,7 +848,8 @@ ngx_rtmp_send_message(ngx_rtmp_session_t *s, ngx_chain_t *out,
 
     if (!s->connection->write->active) {
         ngx_rtmp_send(s->connection->write);
-        /*return ngx_add_event(s->connection->write, NGX_WRITE_EVENT, NGX_CLEAR_EVENT);*/
+        /*return ngx_add_event(s->connection->write, NGX_WRITE_EVENT,
+            NGX_CLEAR_EVENT);*/
     }
 
     return NGX_OK;
@@ -828,8 +857,8 @@ ngx_rtmp_send_message(ngx_rtmp_session_t *s, ngx_chain_t *out,
 
 
 ngx_int_t
-ngx_rtmp_receive_message(ngx_rtmp_session_t *s,
-        ngx_rtmp_header_t *h, ngx_chain_t *in)
+ngx_rtmp_receive_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
+    ngx_chain_t *in)
 {
     ngx_rtmp_core_main_conf_t  *cmcf;
     ngx_rtmp_core_srv_conf_t   *cscf;
@@ -886,7 +915,7 @@ ngx_rtmp_receive_message(ngx_rtmp_session_t *s,
             "nhandlers: %d", evhs->nelts);
 #endif
 
-    for(n = 0; n < evhs->nelts; ++n, ++evh) {
+    for (n = 0; n < evhs->nelts; ++n, ++evh) {
         if (!evh) {
             continue;
         }
@@ -908,6 +937,7 @@ ngx_rtmp_receive_message(ngx_rtmp_session_t *s,
     }
 
 done:
+
     s->in_msid = 0;
     s->in_stream = NULL;
     return rc;
@@ -957,7 +987,7 @@ ngx_rtmp_set_chunk_size(ngx_rtmp_session_t *s, ngx_uint_t size)
     s->in_chunk_size_changing = 1;
     s->in_chunk_streams[0].in = NULL;
 
-    for(n = 1; n < cscf->max_streams; ++n) {
+    for (n = 1; n < cscf->max_streams; ++n) {
 
         /* stream buffer is circular
             * for all streams except for the current one
@@ -976,6 +1006,7 @@ ngx_rtmp_set_chunk_size(ngx_rtmp_session_t *s, ngx_uint_t size)
         if (lo == NULL) {
             return NGX_ERROR;
         }
+
         flo = lo;
         for ( ;; ) {
             bi = li->buf;
@@ -990,6 +1021,7 @@ ngx_rtmp_set_chunk_size(ngx_rtmp_session_t *s, ngx_uint_t size)
                     s->in_chunk_streams[n].in = lo;
                     break;
                 }
+
                 continue;
             }
 

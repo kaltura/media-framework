@@ -13,7 +13,7 @@
 #include "ngx_rtmp.h"
 
 
-typedef ngx_chain_t * (*ngx_rtmp_netcall_create_pt)(ngx_rtmp_session_t *s,
+typedef ngx_chain_t *(*ngx_rtmp_netcall_create_pt)(ngx_rtmp_session_t *s,
         void *arg, ngx_pool_t *pool);
 typedef ngx_int_t (*ngx_rtmp_netcall_filter_pt)(ngx_chain_t *in);
 typedef ngx_int_t (*ngx_rtmp_netcall_sink_pt)(ngx_rtmp_session_t *s,
@@ -50,16 +50,16 @@ ngx_int_t ngx_rtmp_netcall_create(ngx_rtmp_session_t *s,
 
 
 /* HTTP handling */
-ngx_chain_t * ngx_rtmp_netcall_http_format_session(ngx_rtmp_session_t *s,
+ngx_chain_t *ngx_rtmp_netcall_http_format_session(ngx_rtmp_session_t *s,
         ngx_pool_t *pool);
-ngx_chain_t * ngx_rtmp_netcall_http_format_request(ngx_int_t method,
+ngx_chain_t *ngx_rtmp_netcall_http_format_request(ngx_int_t method,
         ngx_str_t *host, ngx_str_t *uri, ngx_chain_t *args, ngx_chain_t *body,
         ngx_pool_t *pool, ngx_str_t *content_type);
-ngx_chain_t * ngx_rtmp_netcall_http_skip_header(ngx_chain_t *in);
+ngx_chain_t *ngx_rtmp_netcall_http_skip_header(ngx_chain_t *in);
 
 
 /* Memcache handling */
-ngx_chain_t * ngx_rtmp_netcall_memcache_set(ngx_rtmp_session_t *s,
+ngx_chain_t *ngx_rtmp_netcall_memcache_set(ngx_rtmp_session_t *s,
         ngx_pool_t *pool, ngx_str_t *key, ngx_str_t *value,
         ngx_uint_t flags, ngx_uint_t sec);
 

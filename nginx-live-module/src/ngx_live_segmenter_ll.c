@@ -25,7 +25,7 @@
 
 #define NGX_LIVE_LLS_FLAG_FLUSH_PART        (0x01)
 #define NGX_LIVE_LLS_FLAG_FLUSH_SEGMENT     (0x02)
-#define NGX_LIVE_LLS_FLAG_FLUSH_ANY         (NGX_LIVE_LLS_FLAG_FLUSH_PART   \
+#define NGX_LIVE_LLS_FLAG_FLUSH_ANY         (NGX_LIVE_LLS_FLAG_FLUSH_PART    \
                                              | NGX_LIVE_LLS_FLAG_FLUSH_SEGMENT)
 
 /* sizeof ngx_live_lls_frame_part_t = 1024 */
@@ -34,8 +34,8 @@
 #define NGX_LIVE_LLS_DISPOSE_ACK_FREQUENCY  (16)
 
 
-#define ngx_live_lls_pending_next_part_sequence(ch, p)                      \
-    ((p)->part_sequence + ngx_ceil_div((p)->end_pts - (p)->start_pts,       \
+#define ngx_live_lls_pending_next_part_sequence(ch, p)                       \
+    ((p)->part_sequence + ngx_ceil_div((p)->end_pts - (p)->start_pts,        \
      (ch)->part_duration))
 
 
@@ -506,6 +506,7 @@ ngx_live_lls_frame_list_push(ngx_live_lls_frame_list_t *list,
     if (list->last_data_part != NULL) {
         list->last_data_part->next = data_head;
     }
+
     list->last_data_part = data_tail;
 
     ngx_live_lls_frame_list_validate(list);
@@ -1742,6 +1743,7 @@ ngx_live_lls_track_end_segment(ngx_live_track_t *track)
     if (part->duration > channel->part_duration) {
         part->duration = channel->part_duration;
     }
+
     ctx->part_start_pts += part->duration;
 
     ngx_live_channel_update_latency_stats(channel, &ctx->latency,
@@ -2592,6 +2594,7 @@ ngx_live_lls_add_frame(ngx_live_add_frame_req_t *req)
     if (ctx->fstate == ngx_live_lls_fs_idle) {
         cctx->non_idle_tracks++;
     }
+
     ctx->fstate = ngx_live_lls_fs_active;
 
     channel->active = 1;

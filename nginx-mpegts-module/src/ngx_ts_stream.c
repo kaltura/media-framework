@@ -261,6 +261,7 @@ ngx_ts_stream_create(ngx_connection_t *c, size_t mem_limit)
     return ts;
 }
 
+
 ngx_int_t
 ngx_ts_read(ngx_ts_stream_t *ts, ngx_chain_t *in)
 {
@@ -794,6 +795,7 @@ ngx_ts_read_pes(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_es_t *es,
                 "TS invalid continuity counter, cur: %uD, last: %uD, pid: %uD",
                 (uint32_t) es->cont, (uint32_t) h->cont, (uint32_t) h->pid);
         }
+
         es->cont = h->cont;
 
         if (ngx_ts_append_buf(ts, h, &es->bufs, b) != NGX_OK) {

@@ -13,12 +13,12 @@
 
 
 static char *ngx_rtmp_control(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-static void * ngx_rtmp_control_create_loc_conf(ngx_conf_t *cf);
-static char * ngx_rtmp_control_merge_loc_conf(ngx_conf_t *cf,
+static void *ngx_rtmp_control_create_loc_conf(ngx_conf_t *cf);
+static char *ngx_rtmp_control_merge_loc_conf(ngx_conf_t *cf,
     void *parent, void *child);
 
 
-typedef const char * (*ngx_rtmp_control_handler_t)(ngx_http_request_t *r,
+typedef const char *(*ngx_rtmp_control_handler_t)(ngx_http_request_t *r,
     ngx_rtmp_session_t *);
 
 
@@ -469,6 +469,7 @@ ngx_rtmp_control_record(ngx_http_request_t *r, ngx_str_t *method)
     return ngx_http_output_filter(r, &cl);
 
 error:
+
     return NGX_HTTP_INTERNAL_SERVER_ERROR;
 }
 
@@ -543,6 +544,7 @@ ngx_rtmp_control_drop(ngx_http_request_t *r, ngx_str_t *method)
     return ngx_http_output_filter(r, &cl);
 
 error:
+
     return NGX_HTTP_INTERNAL_SERVER_ERROR;
 }
 
@@ -617,6 +619,7 @@ ngx_rtmp_control_redirect(ngx_http_request_t *r, ngx_str_t *method)
     return ngx_http_output_filter(r, &cl);
 
 error:
+
     return NGX_HTTP_INTERNAL_SERVER_ERROR;
 }
 
@@ -674,12 +677,12 @@ ngx_rtmp_control_handler(ngx_http_request_t *r)
 
     ctx->method = method;
 
-#define NGX_RTMP_CONTROL_SECTION(flag, secname)                             \
-    if (llcf->control & NGX_RTMP_CONTROL_##flag &&                          \
-        section.len == sizeof(#secname) - 1 &&                              \
-        ngx_strncmp(section.data, #secname, sizeof(#secname) - 1) == 0)     \
-    {                                                                       \
-        return ngx_rtmp_control_##secname(r, &method);                      \
+#define NGX_RTMP_CONTROL_SECTION(flag, secname)                              \
+    if (llcf->control & NGX_RTMP_CONTROL_##flag &&                           \
+        section.len == sizeof(#secname) - 1 &&                               \
+        ngx_strncmp(section.data, #secname, sizeof(#secname) - 1) == 0)      \
+    {                                                                        \
+        return ngx_rtmp_control_##secname(r, &method);                       \
     }
 
     NGX_RTMP_CONTROL_SECTION(RECORD, record);

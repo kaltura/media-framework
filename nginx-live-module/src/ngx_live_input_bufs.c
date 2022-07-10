@@ -656,6 +656,7 @@ ngx_live_input_bufs_track_json_write(u_char *p, void *obj)
         p = ngx_copy_fix(p, ",\"min_lock_index\":");
         p = ngx_sprintf(p, "%uD", first_lock->segment_index);
     }
+
     *p++ = '}';
 
     return p;

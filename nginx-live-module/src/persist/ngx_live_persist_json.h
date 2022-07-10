@@ -9,7 +9,9 @@
 size_t
 ngx_live_persist_core_json_get_size(ngx_live_persist_file_stats_t *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("\"pending\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"error\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"success\":") - 1 + NGX_INT32_LEN +
@@ -42,11 +44,13 @@ ngx_live_persist_core_json_write(u_char *p, ngx_live_persist_file_stats_t *obj)
 static size_t
 ngx_live_persist_setup_obj_json_get_size(ngx_live_channel_t *obj)
 {
-    ngx_live_persist_core_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
-        ngx_live_persist_core_module);
-    ngx_live_persist_file_stats_t *stats =
-        &cctx->stats[NGX_LIVE_PERSIST_FILE_SETUP];
-    size_t  result =
+    size_t                                result;
+    ngx_live_persist_file_stats_t        *stats;
+    ngx_live_persist_core_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
+    stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_SETUP];
+    result =
         sizeof("{") - 1 + ngx_live_persist_core_json_get_size(stats) +
         sizeof(",") - 1 + ngx_live_persist_setup_json_get_size(obj) +
         sizeof("}") - 1;
@@ -57,11 +61,12 @@ ngx_live_persist_setup_obj_json_get_size(ngx_live_channel_t *obj)
 static u_char *
 ngx_live_persist_setup_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 {
-    ngx_live_persist_core_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
-        ngx_live_persist_core_module);
-    ngx_live_persist_file_stats_t *stats =
-        &cctx->stats[NGX_LIVE_PERSIST_FILE_SETUP];
-    u_char  *next;
+    u_char                               *next;
+    ngx_live_persist_file_stats_t        *stats;
+    ngx_live_persist_core_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
+    stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_SETUP];
     *p++ = '{';
     p = ngx_live_persist_core_json_write(p, stats);
     *p++ = ',';
@@ -77,11 +82,13 @@ ngx_live_persist_setup_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 static size_t
 ngx_live_persist_index_obj_json_get_size(ngx_live_channel_t *obj)
 {
-    ngx_live_persist_core_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
-        ngx_live_persist_core_module);
-    ngx_live_persist_file_stats_t *stats =
-        &cctx->stats[NGX_LIVE_PERSIST_FILE_INDEX];
-    size_t  result =
+    size_t                                result;
+    ngx_live_persist_file_stats_t        *stats;
+    ngx_live_persist_core_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
+    stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_INDEX];
+    result =
         sizeof("{") - 1 + ngx_live_persist_core_json_get_size(stats) +
         sizeof(",") - 1 + ngx_live_persist_index_json_get_size(obj) +
         sizeof("}") - 1;
@@ -92,11 +99,12 @@ ngx_live_persist_index_obj_json_get_size(ngx_live_channel_t *obj)
 static u_char *
 ngx_live_persist_index_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 {
-    ngx_live_persist_core_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
-        ngx_live_persist_core_module);
-    ngx_live_persist_file_stats_t *stats =
-        &cctx->stats[NGX_LIVE_PERSIST_FILE_INDEX];
-    u_char  *next;
+    u_char                               *next;
+    ngx_live_persist_file_stats_t        *stats;
+    ngx_live_persist_core_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
+    stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_INDEX];
     *p++ = '{';
     p = ngx_live_persist_core_json_write(p, stats);
     *p++ = ',';
@@ -112,11 +120,13 @@ ngx_live_persist_index_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 static size_t
 ngx_live_persist_delta_obj_json_get_size(ngx_live_channel_t *obj)
 {
-    ngx_live_persist_core_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
-        ngx_live_persist_core_module);
-    ngx_live_persist_file_stats_t *stats =
-        &cctx->stats[NGX_LIVE_PERSIST_FILE_DELTA];
-    size_t  result =
+    size_t                                result;
+    ngx_live_persist_file_stats_t        *stats;
+    ngx_live_persist_core_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
+    stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_DELTA];
+    result =
         sizeof("{") - 1 + ngx_live_persist_core_json_get_size(stats) +
         sizeof(",") - 1 + ngx_live_persist_delta_json_get_size(obj) +
         sizeof("}") - 1;
@@ -127,11 +137,12 @@ ngx_live_persist_delta_obj_json_get_size(ngx_live_channel_t *obj)
 static u_char *
 ngx_live_persist_delta_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 {
-    ngx_live_persist_core_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
-        ngx_live_persist_core_module);
-    ngx_live_persist_file_stats_t *stats =
-        &cctx->stats[NGX_LIVE_PERSIST_FILE_DELTA];
-    u_char  *next;
+    u_char                               *next;
+    ngx_live_persist_file_stats_t        *stats;
+    ngx_live_persist_core_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
+    stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_DELTA];
     *p++ = '{';
     p = ngx_live_persist_core_json_write(p, stats);
     *p++ = ',';
@@ -147,11 +158,13 @@ ngx_live_persist_delta_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 static size_t
 ngx_live_persist_media_obj_json_get_size(ngx_live_channel_t *obj)
 {
-    ngx_live_persist_core_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
-        ngx_live_persist_core_module);
-    ngx_live_persist_file_stats_t *stats =
-        &cctx->stats[NGX_LIVE_PERSIST_FILE_MEDIA];
-    size_t  result =
+    size_t                                result;
+    ngx_live_persist_file_stats_t        *stats;
+    ngx_live_persist_core_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
+    stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_MEDIA];
+    result =
         sizeof("{") - 1 + ngx_live_persist_core_json_get_size(stats) +
         sizeof("}") - 1;
 
@@ -161,10 +174,11 @@ ngx_live_persist_media_obj_json_get_size(ngx_live_channel_t *obj)
 static u_char *
 ngx_live_persist_media_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 {
-    ngx_live_persist_core_channel_ctx_t *cctx = ngx_live_get_module_ctx(obj,
-        ngx_live_persist_core_module);
-    ngx_live_persist_file_stats_t *stats =
-        &cctx->stats[NGX_LIVE_PERSIST_FILE_MEDIA];
+    ngx_live_persist_file_stats_t        *stats;
+    ngx_live_persist_core_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
+    stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_MEDIA];
     *p++ = '{';
     p = ngx_live_persist_core_json_write(p, stats);
     *p++ = '}';
@@ -177,7 +191,9 @@ ngx_live_persist_media_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 static size_t
 ngx_live_persist_channel_json_get_size(void *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("\"persist\":{\"setup\":") - 1 +
             ngx_live_persist_setup_obj_json_get_size(obj) +
         sizeof(",\"index\":") - 1 +

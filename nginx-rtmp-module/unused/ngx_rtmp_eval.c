@@ -117,11 +117,12 @@ ngx_rtmp_eval(void *ctx, ngx_str_t *in, ngx_rtmp_eval_t **e, ngx_str_t *out,
         SNAME
     } state = NORMAL;
 
-    b.pos = b.last = b.start = ngx_alloc(NGX_RTMP_EVAL_BUFLEN, log);
-    if (b.pos == NULL) {
+    b.start = ngx_alloc(NGX_RTMP_EVAL_BUFLEN, log);
+    if (b.start == NULL) {
         return NGX_ERROR;
     }
 
+    b.pos = b.last = b.start;
     b.end = b.pos + NGX_RTMP_EVAL_BUFLEN;
     name.data = NULL;
 
@@ -148,6 +149,7 @@ ngx_rtmp_eval(void *ctx, ngx_str_t *in, ngx_rtmp_eval_t **e, ngx_str_t *out,
                     state = SNAME;
                     continue;
                 }
+
                 if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
                     continue;
                 }
@@ -253,6 +255,7 @@ ngx_rtmp_eval_streams(ngx_str_t *in)
         if (v == NGX_ERROR) {
             return NGX_ERROR;
         }
+
         src = (ngx_fd_t) v;
         close_src = 0;
 
@@ -262,8 +265,8 @@ ngx_rtmp_eval_streams(ngx_str_t *in)
         if (src == NGX_INVALID_FILE) {
             return NGX_ERROR;
         }
-        close_src = 1;
 
+        close_src = 1;
     }
 
     if (src == dst) {

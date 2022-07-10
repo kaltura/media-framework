@@ -10,9 +10,9 @@
 
 
 static ngx_int_t ngx_rtmp_netcall_postconfiguration(ngx_conf_t *cf);
-static void * ngx_rtmp_netcall_create_srv_conf(ngx_conf_t *cf);
-static char * ngx_rtmp_netcall_merge_srv_conf(ngx_conf_t *cf,
-       void *parent, void *child);
+static void *ngx_rtmp_netcall_create_srv_conf(ngx_conf_t *cf);
+static char *ngx_rtmp_netcall_merge_srv_conf(ngx_conf_t *cf,
+    void *parent, void *child);
 
 static void ngx_rtmp_netcall_close(ngx_connection_t *cc);
 static void ngx_rtmp_netcall_detach(ngx_connection_t *cc);
@@ -133,7 +133,7 @@ ngx_rtmp_netcall_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
 static ngx_int_t
 ngx_rtmp_netcall_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-        ngx_chain_t *in)
+    ngx_chain_t *in)
 {
     ngx_rtmp_netcall_ctx_t         *ctx;
     ngx_rtmp_netcall_session_t     *cs;
@@ -165,7 +165,7 @@ ngx_rtmp_netcall_get_peer(ngx_peer_connection_t *pc, void *data)
 
 static void
 ngx_rtmp_netcall_free_peer(ngx_peer_connection_t *pc, void *data,
-            ngx_uint_t state)
+    ngx_uint_t state)
 {
 }
 
@@ -197,6 +197,7 @@ ngx_rtmp_netcall_create(ngx_rtmp_session_t *s, ngx_rtmp_netcall_init_t *ci)
         if (ctx == NULL) {
             return NGX_ERROR;
         }
+
         ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_netcall_module);
     }
 
@@ -225,6 +226,7 @@ ngx_rtmp_netcall_create(ngx_rtmp_session_t *s, ngx_rtmp_netcall_init_t *ci)
         if (cs->arg == NULL) {
             goto error;
         }
+
         ngx_memcpy(cs->arg, ci->arg, ci->argsize);
     }
 
@@ -246,7 +248,7 @@ ngx_rtmp_netcall_create(ngx_rtmp_session_t *s, ngx_rtmp_netcall_init_t *ci)
 
     /* connect */
     rc = ngx_event_connect_peer(pc);
-    if (rc != NGX_OK && rc != NGX_AGAIN ) {
+    if (rc != NGX_OK && rc != NGX_AGAIN) {
         ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "netcall: connection failed");
         goto error;
@@ -278,6 +280,7 @@ ngx_rtmp_netcall_create(ngx_rtmp_session_t *s, ngx_rtmp_netcall_init_t *ci)
     return c->destroyed ? NGX_ERROR : NGX_OK;
 
 error:
+
     if (pool) {
         ngx_destroy_pool(pool);
     }
@@ -315,7 +318,7 @@ ngx_rtmp_netcall_close(ngx_connection_t *cc)
 
         }
 
-        for(css = &ctx->cs; *css; css = &((*css)->next)) {
+        for (css = &ctx->cs; *css; css = &((*css)->next)) {
             if (*css == cs) {
                 *css = cs->next;
                 break;
@@ -402,6 +405,7 @@ ngx_rtmp_netcall_recv(ngx_event_t *rev)
 
                 if (cs->in == NULL) {
                     cs->in = cl;
+
                 } else {
                     cs->inlast->next = cl;
                 }
@@ -493,9 +497,8 @@ ngx_rtmp_netcall_send(ngx_event_t *wev)
 
 ngx_chain_t *
 ngx_rtmp_netcall_http_format_request(ngx_int_t method, ngx_str_t *host,
-                                     ngx_str_t *uri, ngx_chain_t *args,
-                                     ngx_chain_t *body, ngx_pool_t *pool,
-                                     ngx_str_t *content_type)
+    ngx_str_t *uri, ngx_chain_t *args, ngx_chain_t *body, ngx_pool_t *pool,
+    ngx_str_t *content_type)
 {
     ngx_chain_t                    *al, *bl, *ret;
     ngx_buf_t                      *b;
@@ -596,35 +599,35 @@ ngx_rtmp_netcall_http_format_session(ngx_rtmp_session_t *s, ngx_pool_t *pool)
     cl->buf = b;
     cl->next = NULL;
 
-    b->last = ngx_cpymem(b->last, (u_char*) "app=", sizeof("app=") - 1);
-    b->last = (u_char*) ngx_escape_uri(b->last, s->app.data, s->app.len,
+    b->last = ngx_cpymem(b->last, (u_char *) "app=", sizeof("app=") - 1);
+    b->last = (u_char *) ngx_escape_uri(b->last, s->app.data, s->app.len,
                                        NGX_ESCAPE_ARGS);
 
-    b->last = ngx_cpymem(b->last, (u_char*) "&flashver=",
+    b->last = ngx_cpymem(b->last, (u_char *) "&flashver=",
                          sizeof("&flashver=") - 1);
-    b->last = (u_char*) ngx_escape_uri(b->last, s->flashver.data,
+    b->last = (u_char *) ngx_escape_uri(b->last, s->flashver.data,
                                        s->flashver.len, NGX_ESCAPE_ARGS);
 
-    b->last = ngx_cpymem(b->last, (u_char*) "&swfurl=",
+    b->last = ngx_cpymem(b->last, (u_char *) "&swfurl=",
                          sizeof("&swfurl=") - 1);
-    b->last = (u_char*) ngx_escape_uri(b->last, s->swf_url.data,
+    b->last = (u_char *) ngx_escape_uri(b->last, s->swf_url.data,
                                        s->swf_url.len, NGX_ESCAPE_ARGS);
 
-    b->last = ngx_cpymem(b->last, (u_char*) "&tcurl=",
+    b->last = ngx_cpymem(b->last, (u_char *) "&tcurl=",
                          sizeof("&tcurl=") - 1);
-    b->last = (u_char*) ngx_escape_uri(b->last, s->tc_url.data,
+    b->last = (u_char *) ngx_escape_uri(b->last, s->tc_url.data,
                                        s->tc_url.len, NGX_ESCAPE_ARGS);
 
-    b->last = ngx_cpymem(b->last, (u_char*) "&pageurl=",
+    b->last = ngx_cpymem(b->last, (u_char *) "&pageurl=",
                          sizeof("&pageurl=") - 1);
-    b->last = (u_char*) ngx_escape_uri(b->last, s->page_url.data,
+    b->last = (u_char *) ngx_escape_uri(b->last, s->page_url.data,
                                        s->page_url.len, NGX_ESCAPE_ARGS);
 
-    b->last = ngx_cpymem(b->last, (u_char*) "&addr=", sizeof("&addr=") - 1);
-    b->last = (u_char*) ngx_escape_uri(b->last, addr_text->data,
+    b->last = ngx_cpymem(b->last, (u_char *) "&addr=", sizeof("&addr=") - 1);
+    b->last = (u_char *) ngx_escape_uri(b->last, addr_text->data,
                                        addr_text->len, NGX_ESCAPE_ARGS);
 
-    b->last = ngx_cpymem(b->last, (u_char*) "&clientid=",
+    b->last = ngx_cpymem(b->last, (u_char *) "&clientid=",
                          sizeof("&clientid=") - 1);
     b->last = ngx_sprintf(b->last, "%ui", (ngx_uint_t) s->connection->number);
 
@@ -657,6 +660,7 @@ ngx_rtmp_netcall_http_skip_header(ngx_chain_t *in)
             if (in == NULL) {
                 return NULL;
             }
+
             b = in->buf;
         }
 
@@ -669,6 +673,7 @@ ngx_rtmp_netcall_http_skip_header(ngx_chain_t *in)
                 if (state != normal) {
                     return in;
                 }
+
                 state = lf;
                 break;
 
@@ -681,7 +686,7 @@ ngx_rtmp_netcall_http_skip_header(ngx_chain_t *in)
 
 ngx_chain_t *
 ngx_rtmp_netcall_memcache_set(ngx_rtmp_session_t *s, ngx_pool_t *pool,
-        ngx_str_t *key, ngx_str_t *value, ngx_uint_t flags, ngx_uint_t sec)
+    ngx_str_t *key, ngx_str_t *value, ngx_uint_t flags, ngx_uint_t sec)
 {
     ngx_chain_t                    *cl;
     ngx_buf_t                      *b;
@@ -718,6 +723,10 @@ ngx_rtmp_netcall_postconfiguration(ngx_conf_t *cf)
     cmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_core_module);
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_DISCONNECT]);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
     *h = ngx_rtmp_netcall_disconnect;
 
     return NGX_OK;

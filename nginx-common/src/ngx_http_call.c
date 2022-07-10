@@ -94,6 +94,7 @@ ngx_http_call_create(ngx_http_call_init_t *ci)
                 "ngx_http_call_create: create pool failed");
             goto error;
         }
+
         destroy_pool = 1;
 
     } else {
@@ -115,6 +116,7 @@ ngx_http_call_create(ngx_http_call_init_t *ci)
                 ci->argsize);
             goto error;
         }
+
         ngx_memcpy(ctx->arg, ci->arg, ci->argsize);
         ci->arg = ctx->arg;
 
@@ -178,12 +180,14 @@ ngx_http_call_create(ngx_http_call_init_t *ci)
         if (ctx->handler_pool) {
             ctx->cln->handler = NULL;
         }
+
         goto error;
     }
 
     return ctx;
 
 error:
+
     if (destroy_pool) {
         ngx_destroy_pool(pool);
     }

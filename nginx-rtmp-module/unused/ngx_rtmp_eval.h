@@ -13,7 +13,7 @@
 #include "ngx_rtmp.h"
 
 
-typedef struct ngx_rtmp_eval_s ngx_rtmp_eval_t;
+typedef struct ngx_rtmp_eval_s  ngx_rtmp_eval_t;
 
 
 typedef void (* ngx_rtmp_eval_pt)(void *ctx, ngx_rtmp_eval_t *e,
