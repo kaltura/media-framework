@@ -500,7 +500,7 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_pckg_core_post_handler: "
             "upstream connection was closed with %O bytes left to read",
-            u->headers_in.content_length_n - (off_t)input.len);
+            u->headers_in.content_length_n - (off_t) input.len);
         rc = NGX_HTTP_BAD_GATEWAY;
         goto done;
     }
