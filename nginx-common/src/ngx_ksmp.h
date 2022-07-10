@@ -59,10 +59,10 @@
 
 
 #define NGX_KSMP_FLAG_MEDIA_CLIP            (NGX_KSMP_FLAG_MEDIA_CLOSEST_KEY \
-                                             | NGX_KSMP_FLAG_MEDIA_MIN_GOP)
+                                            |NGX_KSMP_FLAG_MEDIA_MIN_GOP)
 
-#define NGX_KSMP_FLAG_TIME_RELATIVE         (NGX_KSMP_FLAG_TIME_START_RELATIVE \
-                                            | NGX_KSMP_FLAG_TIME_END_RELATIVE)
+#define NGX_KSMP_FLAG_TIME_RELATIVE         (NGX_KSMP_FLAG_TIME_END_RELATIVE \
+                                            |NGX_KSMP_FLAG_TIME_START_RELATIVE)
 
 #define NGX_KSMP_INVALID_SEGMENT_INDEX      (NGX_MAX_UINT32_VALUE)
 #define NGX_KSMP_INVALID_PART_INDEX         (NGX_MAX_UINT32_VALUE)

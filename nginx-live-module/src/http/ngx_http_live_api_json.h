@@ -406,7 +406,8 @@ static ngx_json_prop_t ngx_live_timeline_json_manifest_expiry_threshold = {
 };
 
 static ngx_json_prop_t
-    ngx_live_timeline_json_manifest_target_duration_segments = {
+    ngx_live_timeline_json_manifest_target_duration_segments =
+{
     ngx_string("manifest_target_duration_segments"),
     7444509727656907469ULL,
     NGX_JSON_INT,
@@ -450,7 +451,9 @@ static ngx_json_prop_t *ngx_live_timeline_json[] = {
 static size_t
 ngx_http_live_api_json_get_size(void *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"version\":\"") - 1 +
             ngx_json_str_get_size(&ngx_http_live_version) +
         sizeof("\",\"nginx_version\":\"") - 1 +
@@ -474,6 +477,7 @@ static u_char *
 ngx_http_live_api_json_write(u_char *p, void *obj)
 {
     u_char  *next;
+
     p = ngx_copy_fix(p, "{\"version\":\"");
     p = ngx_json_str_write(p, &ngx_http_live_version);
     p = ngx_copy_fix(p, "\",\"nginx_version\":\"");

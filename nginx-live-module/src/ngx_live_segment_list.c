@@ -27,7 +27,7 @@ typedef struct {
 
 
 size_t
-ngx_live_segment_list_get_node_size()
+ngx_live_segment_list_get_node_size(void)
 {
     return sizeof(ngx_live_segment_list_node_t);
 }

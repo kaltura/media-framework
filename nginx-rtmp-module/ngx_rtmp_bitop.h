@@ -31,16 +31,16 @@ int64_t ngx_rtmp_bit_read_golomb_signed(ngx_rtmp_bit_reader_t *br);
 
 #define ngx_rtmp_bit_read_eof(br) ((br)->pos == (br)->last)
 
-#define ngx_rtmp_bit_read_8(br)                                               \
+#define ngx_rtmp_bit_read_8(br)                                              \
     ((uint8_t) ngx_rtmp_bit_read(br, 8))
 
-#define ngx_rtmp_bit_read_16(br)                                              \
+#define ngx_rtmp_bit_read_16(br)                                             \
     ((uint16_t) ngx_rtmp_bit_read(br, 16))
 
-#define ngx_rtmp_bit_read_32(br)                                              \
+#define ngx_rtmp_bit_read_32(br)                                             \
     ((uint32_t) ngx_rtmp_bit_read(br, 32))
 
-#define ngx_rtmp_bit_read_64(br)                                              \
+#define ngx_rtmp_bit_read_64(br)                                             \
     ((uint64_t) ngx_rtmp_read(br, 64))
 
 

@@ -9,7 +9,9 @@
 static size_t
 ngx_live_media_info_json_stats_get_size(ngx_live_media_info_node_t *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("\"bitrate_max\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"bitrate_avg\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"frame_rate_min\":") - 1 + NGX_INT32_LEN + 1 +
@@ -23,9 +25,12 @@ static u_char *
 ngx_live_media_info_json_stats_write(u_char *p, ngx_live_media_info_node_t
     *obj)
 {
-    ngx_ksmp_media_info_stats_t *stats = &obj->stats;
-    uint32_t frame_rate_avg = (stats->duration > 0 ? 100 * stats->frame_count
-        * obj->media_info.info.timescale / stats->duration : 0);
+    uint32_t                      frame_rate_avg;
+    ngx_ksmp_media_info_stats_t  *stats;
+
+    stats = &obj->stats;
+    frame_rate_avg = (stats->duration > 0 ? 100 * stats->frame_count *
+        obj->media_info.info.timescale / stats->duration : 0);
     p = ngx_copy_fix(p, "\"bitrate_max\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) stats->bitrate_max);
     p = ngx_copy_fix(p, ",\"bitrate_avg\":");
@@ -49,8 +54,11 @@ ngx_live_media_info_json_stats_write(u_char *p, ngx_live_media_info_node_t
 static size_t
 ngx_live_media_info_json_base_get_size(ngx_live_media_info_node_t *obj)
 {
-    ngx_live_media_info_t *mi = &obj->media_info;
-    size_t  result =
+    size_t                  result;
+    ngx_live_media_info_t  *mi;
+
+    mi = &obj->media_info;
+    result =
         sizeof("\"segment_index\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"codec_id\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"bitrate\":") - 1 + NGX_INT32_LEN +
@@ -63,7 +71,9 @@ ngx_live_media_info_json_base_get_size(ngx_live_media_info_node_t *obj)
 static u_char *
 ngx_live_media_info_json_base_write(u_char *p, ngx_live_media_info_node_t *obj)
 {
-    ngx_live_media_info_t *mi = &obj->media_info;
+    ngx_live_media_info_t  *mi;
+
+    mi = &obj->media_info;
     p = ngx_copy_fix(p, "\"segment_index\":");
     p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->node.key);
     p = ngx_copy_fix(p, ",\"codec_id\":");
@@ -82,7 +92,9 @@ ngx_live_media_info_json_base_write(u_char *p, ngx_live_media_info_node_t *obj)
 static size_t
 ngx_live_media_info_json_video_get_size(ngx_live_media_info_node_t *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{") - 1 + ngx_live_media_info_json_base_get_size(obj) +
         sizeof(",\"width\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"height\":") - 1 + NGX_INT32_LEN +
@@ -98,9 +110,11 @@ static u_char *
 ngx_live_media_info_json_video_write(u_char *p, ngx_live_media_info_node_t
     *obj)
 {
-    ngx_live_media_info_t *mi = &obj->media_info;
-    uint32_t  n, d;
-    u_char  *next;
+    u_char                 *next;
+    uint32_t                n, d;
+    ngx_live_media_info_t  *mi;
+
+    mi = &obj->media_info;
     *p++ = '{';
     p = ngx_live_media_info_json_base_write(p, obj);
     p = ngx_copy_fix(p, ",\"width\":");
@@ -117,12 +131,15 @@ ngx_live_media_info_json_video_write(u_char *p, ngx_live_media_info_node_t
     } else {
         *p++ = '0';
     }
+
     p = ngx_copy_fix(p, ",\"cea_captions\":");
     if (mi->info.u.video.cea_captions) {
         p = ngx_copy_fix(p, "true");
+
     } else {
         p = ngx_copy_fix(p, "false");
     }
+
     *p++ = ',';
     next = ngx_live_media_info_json_stats_write(p, obj);
     p = next == p ? p - 1 : next;
@@ -136,7 +153,9 @@ ngx_live_media_info_json_video_write(u_char *p, ngx_live_media_info_node_t
 static size_t
 ngx_live_media_info_json_audio_get_size(ngx_live_media_info_node_t *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{") - 1 + ngx_live_media_info_json_base_get_size(obj) +
         sizeof(",\"channels\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"channel_layout\":") - 1 + NGX_INT64_LEN +
@@ -152,8 +171,10 @@ static u_char *
 ngx_live_media_info_json_audio_write(u_char *p, ngx_live_media_info_node_t
     *obj)
 {
-    ngx_live_media_info_t *mi = &obj->media_info;
-    u_char  *next;
+    u_char                 *next;
+    ngx_live_media_info_t  *mi;
+
+    mi = &obj->media_info;
     *p++ = '{';
     p = ngx_live_media_info_json_base_write(p, obj);
     p = ngx_copy_fix(p, ",\"channels\":");

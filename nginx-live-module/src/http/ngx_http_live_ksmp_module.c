@@ -613,6 +613,7 @@ ngx_http_live_ksmp_segment_close(void *arg, ngx_int_t rc)
                 rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
             }
         }
+
         goto done;
     }
 
@@ -714,6 +715,7 @@ ngx_http_live_ksmp_output_error_str(ngx_http_request_t *r, uint32_t code,
         ngx_memcpy(ctx->err_msg.data, message->data, message->len);
         ctx->err_msg.len = message->len;
     }
+
     ctx->err_code = code;
 
     write_ctx = ngx_persist_write_init(r->pool, NGX_KSMP_PERSIST_TYPE, 0);

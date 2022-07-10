@@ -835,7 +835,8 @@ ngx_live_filler_serve_segments(ngx_pool_t *pool, ngx_array_t *track_refs,
     for (i = n; i > 0; i--) {
 
         cur_track = refs[i - 1].track;
-        if (cur_track == NULL || cur_track->type != ngx_live_track_type_filler)
+        if (cur_track == NULL
+            || cur_track->type != ngx_live_track_type_filler)
         {
             continue;
         }

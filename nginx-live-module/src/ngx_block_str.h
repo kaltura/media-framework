@@ -9,7 +9,7 @@
 #include "ngx_block_pool.h"
 
 
-#define ngx_block_str_free(str, pool, index)    \
+#define ngx_block_str_free(str, pool, index)                                 \
     ngx_block_str_free_data((str)->data, pool, index);
 
 

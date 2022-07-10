@@ -12,8 +12,8 @@
 #define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
 
 
-#define ngx_http_pckg_match_prefix(start_pos, end_pos, prefix)              \
-    ((end_pos) - (start_pos) >= (int) (prefix).len                          \
+#define ngx_http_pckg_match_prefix(start_pos, end_pos, prefix)               \
+    ((end_pos) - (start_pos) >= (int) (prefix).len                           \
      && ngx_memcmp((start_pos), (prefix).data, (prefix).len) == 0)
 
 

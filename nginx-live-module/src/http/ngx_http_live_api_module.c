@@ -233,6 +233,7 @@ ngx_http_live_api_channel_update_handler(void *arg, ngx_int_t rc)
         } else if (rc < 400 || rc > 599) {
             rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
         }
+
         goto failed;
 
     } else {
@@ -1835,7 +1836,7 @@ ngx_http_live_api_create_loc_conf(ngx_conf_t *cf)
     if (conf == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0,
             "ngx_http_live_api_create_loc_conf: ngx_pcalloc failed");
-        return NGX_CONF_ERROR;
+        return NULL;
     }
 
     conf->upsert = NGX_CONF_UNSET_UINT;

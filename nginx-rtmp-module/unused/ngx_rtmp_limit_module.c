@@ -183,9 +183,17 @@ ngx_rtmp_limit_postconfiguration(ngx_conf_t *cf)
     cmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_core_module);
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_CONNECT]);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
     *h = ngx_rtmp_limit_connect;
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_DISCONNECT]);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
     *h = ngx_rtmp_limit_disconnect;
 
     lmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_limit_module);

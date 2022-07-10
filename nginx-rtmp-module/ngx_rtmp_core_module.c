@@ -505,7 +505,7 @@ ngx_rtmp_core_application(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     rv = ngx_conf_parse(cf, NULL);
 
-    *cf= save;
+    *cf = save;
 
     return rv;
 }

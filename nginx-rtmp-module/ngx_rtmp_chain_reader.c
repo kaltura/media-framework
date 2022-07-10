@@ -11,6 +11,7 @@ ngx_rtmp_chain_reader_init(ngx_rtmp_chain_reader_t *reader, ngx_chain_t *in)
     reader->pos = reader->buf->pos;
 }
 
+
 ngx_int_t
 ngx_rtmp_chain_reader_read(ngx_rtmp_chain_reader_t *reader, void *dst,
     size_t size)
@@ -38,6 +39,7 @@ ngx_rtmp_chain_reader_read(ngx_rtmp_chain_reader_t *reader, void *dst,
         reader->pos = reader->buf->pos;
     }
 }
+
 
 ngx_int_t
 ngx_rtmp_chain_reader_skip(ngx_rtmp_chain_reader_t *reader, size_t size)
@@ -73,6 +75,7 @@ ngx_rtmp_chain_reader_ep_init(ngx_rtmp_chain_reader_ep_t *reader,
     reader->last_three = 1;
 }
 
+
 ngx_int_t
 ngx_rtmp_chain_reader_ep_read(ngx_rtmp_chain_reader_ep_t *reader,
     u_char *dst, size_t size)
@@ -83,6 +86,7 @@ ngx_rtmp_chain_reader_ep_read(ngx_rtmp_chain_reader_ep_t *reader,
     if (size > reader->left) {
         return NGX_ERROR;
     }
+
     reader->left -= size;
 
     dst_end = dst + size;
@@ -109,6 +113,7 @@ ngx_rtmp_chain_reader_ep_read(ngx_rtmp_chain_reader_ep_t *reader,
             if (reader->left <= 0) {
                 return NGX_ERROR;
             }
+
             reader->left--;
             continue;
         }
@@ -119,6 +124,7 @@ ngx_rtmp_chain_reader_ep_read(ngx_rtmp_chain_reader_ep_t *reader,
     return NGX_OK;
 }
 
+
 ngx_int_t
 ngx_rtmp_chain_reader_ep_skip(ngx_rtmp_chain_reader_ep_t *reader, size_t size)
 {
@@ -127,6 +133,7 @@ ngx_rtmp_chain_reader_ep_skip(ngx_rtmp_chain_reader_ep_t *reader, size_t size)
     if (size > reader->left) {
         return NGX_ERROR;
     }
+
     reader->left -= size;
 
     while (size > 0) {
@@ -153,6 +160,7 @@ ngx_rtmp_chain_reader_ep_skip(ngx_rtmp_chain_reader_ep_t *reader, size_t size)
             if (reader->left <= 0) {
                 return NGX_ERROR;
             }
+
             reader->left--;
             continue;
         }

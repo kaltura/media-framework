@@ -26,6 +26,7 @@ ngx_block_str_set(ngx_block_str_t *dest, ngx_block_pool_t *pool,
             "ngx_block_str_set: slot size smaller than node header");
         return NGX_ERROR;
     }
+
     block_len -= sizeof(ngx_block_str_node_t);
 
     last = &data;

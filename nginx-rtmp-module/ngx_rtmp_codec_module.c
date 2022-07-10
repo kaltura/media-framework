@@ -21,22 +21,22 @@
 #define NGX_RTMP_CODEC_CAPTION_TRIES  10
 
 
-static void * ngx_rtmp_codec_create_app_conf(ngx_conf_t *cf);
-static char * ngx_rtmp_codec_merge_app_conf(ngx_conf_t *cf,
-       void *parent, void *child);
+static void *ngx_rtmp_codec_create_app_conf(ngx_conf_t *cf);
+static char *ngx_rtmp_codec_merge_app_conf(ngx_conf_t *cf,
+    void *parent, void *child);
 static ngx_int_t ngx_rtmp_codec_postconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_rtmp_codec_copy_meta(ngx_rtmp_session_t *s,
-       ngx_rtmp_header_t *h, ngx_chain_t *in);
+    ngx_rtmp_header_t *h, ngx_chain_t *in);
 static ngx_int_t ngx_rtmp_codec_prepare_meta(ngx_rtmp_session_t *s,
-       uint32_t timestamp);
+    uint32_t timestamp);
 static void ngx_rtmp_codec_parse_aac_header(ngx_rtmp_session_t *s,
-       ngx_chain_t *in);
+    ngx_chain_t *in);
 static void ngx_rtmp_codec_parse_avc_header(ngx_rtmp_session_t *s,
-       ngx_chain_t *in);
+    ngx_chain_t *in);
 #if (NGX_DEBUG)
 static void ngx_rtmp_codec_dump_header(ngx_rtmp_session_t *s, const char *type,
-       ngx_chain_t *in);
+    ngx_chain_t *in);
 #endif
 
 
@@ -148,7 +148,7 @@ ngx_rtmp_get_video_codec_name(ngx_uint_t id)
 
 
 static ngx_uint_t
-ngx_rtmp_codec_get_next_version()
+ngx_rtmp_codec_get_next_version(void)
 {
     ngx_uint_t          v;
     static ngx_uint_t   version;
@@ -163,7 +163,7 @@ ngx_rtmp_codec_get_next_version()
 
 static ngx_int_t
 ngx_rtmp_codec_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-        ngx_chain_t *in)
+    ngx_chain_t *in)
 {
     ngx_rtmp_codec_ctx_t               *ctx;
     ngx_rtmp_core_srv_conf_t           *cscf;
@@ -282,6 +282,7 @@ ngx_rtmp_codec_sei_detect_cea(ngx_rtmp_session_t *s,
     return 0;
 }
 
+
 static ngx_flag_t
 ngx_rtmp_codec_detect_cea(ngx_rtmp_session_t *s, ngx_chain_t *in)
 {
@@ -364,8 +365,7 @@ ngx_rtmp_codec_detect_cea(ngx_rtmp_session_t *s, ngx_chain_t *in)
 
 
 static ngx_int_t
-ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-        ngx_chain_t *in)
+ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
 {
     ngx_rtmp_core_srv_conf_t           *cscf;
     ngx_rtmp_codec_ctx_t               *ctx;
@@ -387,6 +387,10 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
     if (ctx == NULL) {
         ctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_codec_ctx_t));
+        if (ctx == NULL) {
+            return NGX_ERROR;
+        }
+
         ngx_rtmp_stream_set_ctx(s, ctx, ngx_rtmp_codec_module);
 
         ctx->video_captions_tries = NGX_RTMP_CODEC_CAPTION_TRIES;
@@ -406,6 +410,7 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         if (ctx->sample_rate == 0) {
             ctx->sample_rate = sample_rates[(fmt & 0x0c) >> 2];
         }
+
     } else {
         ctx->video_codec_id = (fmt & 0x0f);
     }
@@ -441,6 +446,7 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             header = &ctx->aac_header;
             ngx_rtmp_codec_parse_aac_header(s, in);
         }
+
     } else {
         if (ctx->video_codec_id == NGX_RTMP_VIDEO_H264) {
             header = &ctx->avc_header;
@@ -493,6 +499,7 @@ ngx_rtmp_codec_parse_aac_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     idx = (ngx_uint_t) ngx_rtmp_bit_read(&br, 4);
     if (idx == 15) {
         ctx->sample_rate = (ngx_uint_t) ngx_rtmp_bit_read(&br, 24);
+
     } else {
         ctx->sample_rate = aac_sample_rates[idx];
     }
@@ -510,6 +517,7 @@ ngx_rtmp_codec_parse_aac_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
         idx = (ngx_uint_t) ngx_rtmp_bit_read(&br, 4);
         if (idx == 15) {
             ctx->sample_rate = (ngx_uint_t) ngx_rtmp_bit_read(&br, 24);
+
         } else {
             ctx->sample_rate = aac_sample_rates[idx];
         }
@@ -523,20 +531,28 @@ ngx_rtmp_codec_parse_aac_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     /* MPEG-4 Audio Specific Config
 
        5 bits: object type
-       if (object type == 31)
+       if (object type == 31) {
          6 bits + 32: object type
+       }
+
        4 bits: frequency index
-       if (frequency index == 15)
+       if (frequency index == 15) {
          24 bits: frequency
+       }
+
        4 bits: channel configuration
 
-       if (object_type == 5)
+       if (object_type == 5) {
            4 bits: frequency index
-           if (frequency index == 15)
+           if (frequency index == 15) {
              24 bits: frequency
+           }
+
            5 bits: object type
-           if (object type == 31)
+           if (object type == 31) {
              6 bits + 32: object type
+           }
+       }
 
        var bits: AOT Specific Config
      */
@@ -896,7 +912,7 @@ ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s)
 
 static ngx_int_t
 ngx_rtmp_codec_copy_meta(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-        ngx_chain_t *in)
+    ngx_chain_t *in)
 {
     ngx_rtmp_codec_ctx_t      *ctx;
     ngx_rtmp_core_srv_conf_t  *cscf;
@@ -942,7 +958,7 @@ ngx_rtmp_codec_prepare_meta(ngx_rtmp_session_t *s, uint32_t timestamp)
 
 static ngx_int_t
 ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-        ngx_chain_t *in)
+    ngx_chain_t *in)
 {
     ngx_rtmp_codec_app_conf_t      *cacf;
     ngx_rtmp_codec_ctx_t           *ctx;
@@ -1054,6 +1070,10 @@ ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
     if (ctx == NULL) {
         ctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_codec_ctx_t));
+        if (ctx == NULL) {
+            return NGX_ERROR;
+        }
+
         ngx_rtmp_stream_set_ctx(s, ctx, ngx_rtmp_codec_module);
 
         ctx->video_captions_tries = NGX_RTMP_CODEC_CAPTION_TRIES;
@@ -1093,7 +1113,8 @@ ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             "codec: data frame: "
             "width=%ui height=%ui duration=%ui frame_rate=%ui "
             "video=%s (%ui) audio=%s (%ui)",
-            ctx->width, ctx->height, ctx->duration, (ngx_uint_t) ctx->frame_rate,
+            ctx->width, ctx->height, ctx->duration,
+            (ngx_uint_t) ctx->frame_rate,
             ngx_rtmp_get_video_codec_name(ctx->video_codec_id),
             ctx->video_codec_id,
             ngx_rtmp_get_audio_codec_name(ctx->audio_codec_id),
@@ -1150,12 +1171,24 @@ ngx_rtmp_codec_postconfiguration(ngx_conf_t *cf)
     cmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_core_module);
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_MSG_AUDIO]);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
     *h = ngx_rtmp_codec_av;
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_MSG_VIDEO]);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
     *h = ngx_rtmp_codec_av;
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_DISCONNECT]);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
     *h = ngx_rtmp_codec_disconnect;
 
     /* register metadata handler */
@@ -1163,6 +1196,7 @@ ngx_rtmp_codec_postconfiguration(ngx_conf_t *cf)
     if (ch == NULL) {
         return NGX_ERROR;
     }
+
     ngx_str_set(&ch->name, "@setDataFrame");
     ch->handler = ngx_rtmp_codec_meta_data;
 
@@ -1170,6 +1204,7 @@ ngx_rtmp_codec_postconfiguration(ngx_conf_t *cf)
     if (ch == NULL) {
         return NGX_ERROR;
     }
+
     ngx_str_set(&ch->name, "onMetaData");
     ch->handler = ngx_rtmp_codec_meta_data;
 

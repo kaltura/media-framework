@@ -24,14 +24,14 @@
 #define NGX_TS_AAC_FRAME_SAMPLES   1024
 
 
-#define ngx_ts_aac_adts_frame_len(h)                                        \
+#define ngx_ts_aac_adts_frame_len(h)                                         \
      (((h)[3] & 0b11) << 11) | ((h)[4] << 3) | ((h)[5] >> 5)
 
-#define ngx_ts_kmp_write_be32(p, dw) {                                      \
-        (p)[0] = ((dw) >> 24) & 0xff;                                       \
-        (p)[1] = ((dw) >> 16) & 0xff;                                       \
-        (p)[2] = ((dw) >> 8) & 0xff;                                        \
-        (p)[3] = (dw) & 0xff;                                               \
+#define ngx_ts_kmp_write_be32(p, dw) {                                       \
+        (p)[0] = ((dw) >> 24) & 0xff;                                        \
+        (p)[1] = ((dw) >> 16) & 0xff;                                        \
+        (p)[2] = ((dw) >> 8) & 0xff;                                         \
+        (p)[3] = (dw) & 0xff;                                                \
     }
 
 
@@ -176,6 +176,7 @@ ngx_ts_kmp_track_write_chain(ngx_kmp_push_track_t *track,
                 "ngx_ts_kmp_track_write_chain: write failed (2)");
             return NGX_ERROR;
         }
+
         size -= left;
 
         cl = cl->next;
@@ -777,6 +778,7 @@ ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
                     "invalid adts frame size %uD", left);
                 return NGX_ERROR;
             }
+
             left -= header_len;
 
             break;
@@ -795,6 +797,7 @@ ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
                         "write data failed (1)");
                     return NGX_ERROR;
                 }
+
                 left -= buf_left;
 
                 cl = cl->next;
@@ -817,6 +820,7 @@ ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
                     "ngx_ts_kmp_track_aac_pes_handler: write data failed (2)");
                 return NGX_ERROR;
             }
+
             pos += left;
 
             dts = hd->es->pts + NGX_TS_TIMESCALE * NGX_TS_AAC_FRAME_SAMPLES
@@ -869,7 +873,7 @@ ngx_ts_kmp_track_init_input_id(ngx_kmp_push_track_t *track,
 
     p = ngx_pnalloc(track->pool, publish->stream_id.len + 1 + NGX_INT32_LEN);
     if (p == NULL) {
-       return NGX_ERROR;
+        return NGX_ERROR;
     }
 
     track->input_id.data = p;
@@ -1024,6 +1028,7 @@ ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
     return NGX_OK;
 
 failed:
+
     ngx_kmp_push_track_detach(track, "");
 
     return NGX_ERROR;

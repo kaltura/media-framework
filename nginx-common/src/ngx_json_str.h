@@ -8,10 +8,10 @@
 
 #define ngx_json_str_get_size(js)     ((js)->s.len + (js)->escape)
 
-#define ngx_json_str_set_escape(js)                                         \
+#define ngx_json_str_set_escape(js)                                          \
     (js)->escape = ngx_escape_json(NULL, (js)->s.data, (js)->s.len);
 
-#define ngx_json_str_get_escape(s)                                          \
+#define ngx_json_str_get_escape(s)                                           \
     ngx_escape_json(NULL, (s)->data, (s)->len);
 
 

@@ -16,17 +16,17 @@ static ngx_rtmp_delete_stream_pt    next_delete_stream;
 
 static ngx_int_t ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle);
 static void ngx_rtmp_auto_push_exit_process(ngx_cycle_t *cycle);
-static void * ngx_rtmp_auto_push_create_conf(ngx_cycle_t *cf);
-static char * ngx_rtmp_auto_push_init_conf(ngx_cycle_t *cycle, void *conf);
+static void *ngx_rtmp_auto_push_create_conf(ngx_cycle_t *cf);
+static char *ngx_rtmp_auto_push_init_conf(ngx_cycle_t *cycle, void *conf);
 #if (NGX_HAVE_UNIX_DOMAIN)
 static ngx_int_t ngx_rtmp_auto_push_publish(ngx_rtmp_session_t *s,
-       ngx_rtmp_publish_t *v);
+    ngx_rtmp_publish_t *v);
 static ngx_int_t ngx_rtmp_auto_push_delete_stream(ngx_rtmp_session_t *s,
-       ngx_rtmp_delete_stream_t *v);
+    ngx_rtmp_delete_stream_t *v);
 #endif
 
 
-typedef struct ngx_rtmp_auto_push_ctx_s ngx_rtmp_auto_push_ctx_t;
+typedef struct ngx_rtmp_auto_push_ctx_s  ngx_rtmp_auto_push_ctx_t;
 
 struct ngx_rtmp_auto_push_ctx_s {
     ngx_int_t                      *slots; /* NGX_MAX_PROCESSES */
@@ -186,10 +186,12 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
 
     ls->socklen = sizeof(struct sockaddr_un);
     saun = ngx_pcalloc(cycle->pool, ls->socklen);
-    ls->sockaddr = (struct sockaddr *) saun;
-    if (ls->sockaddr == NULL) {
+    if (saun == NULL) {
         return NGX_ERROR;
     }
+
+    ls->sockaddr = (struct sockaddr *) saun;
+
     saun->sun_family = AF_UNIX;
     *ngx_snprintf((u_char *) saun->sun_path, sizeof(saun->sun_path),
                   "%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%i",
@@ -252,10 +254,12 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
     return NGX_OK;
 
 sock_error:
+
     if (s != (ngx_socket_t) -1 && ngx_close_socket(s) == -1) {
         ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_socket_errno,
                 ngx_close_socket_n " worker_socket failed");
     }
+
     ngx_delete_file(saun->sun_path);
 
     return NGX_ERROR;
@@ -280,6 +284,7 @@ ngx_rtmp_auto_push_exit_process(ngx_cycle_t *cycle)
     if (apcf->auto_push == 0) {
         return;
     }
+
     *ngx_snprintf(path, sizeof(path),
                   "%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%i",
                   &apcf->socket_dir, ngx_process_slot)
@@ -422,7 +427,8 @@ ngx_rtmp_auto_push_reconnect(ngx_event_t *ev)
         at.flash_ver.len = p - flash_ver;
 
         ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                       "auto_push: connect slot=%i pid=%P socket='%s' name='%s'",
+                       "auto_push: connect slot=%i pid=%P "
+                       "socket='%s' name='%s'",
                        n, pid, path, ctx->name);
 
         if (ngx_rtmp_relay_push(s, &name, &at) == NGX_OK) {
@@ -496,9 +502,11 @@ ngx_rtmp_auto_push_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
         if (ctx == NULL) {
             goto next;
         }
+
         ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_auto_push_index_module);
 
     }
+
     ngx_memzero(ctx, sizeof(*ctx));
 
     ctx->push_evt.data = s;
@@ -517,6 +525,7 @@ ngx_rtmp_auto_push_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     ngx_rtmp_auto_push_reconnect(&ctx->push_evt);
 
 next:
+
     return next_publish(s, v);
 }
 
@@ -541,6 +550,7 @@ ngx_rtmp_auto_push_delete_stream(ngx_rtmp_session_t *s,
         if (ctx->push_evt.timer_set) {
             ngx_del_timer(&ctx->push_evt);
         }
+
         goto next;
     }
 
@@ -573,6 +583,7 @@ ngx_rtmp_auto_push_delete_stream(ngx_rtmp_session_t *s,
     }
 
 next:
+
     return next_delete_stream(s, v);
 }
 #endif /* NGX_HAVE_UNIX_DOMAIN */

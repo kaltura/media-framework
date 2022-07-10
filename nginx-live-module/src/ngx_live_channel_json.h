@@ -9,10 +9,13 @@
 size_t
 ngx_live_latency_stats_get_size(ngx_live_latency_stats_t *obj)
 {
+    size_t  result;
+
     if (obj->count <= 0) {
         return sizeof("null") - 1;
     }
-    size_t  result =
+
+    result =
         sizeof("{\"min\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"max\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"avg\":") - 1 + NGX_INT64_LEN +
@@ -28,6 +31,7 @@ ngx_live_latency_stats_write(u_char *p, ngx_live_latency_stats_t *obj)
         p = ngx_copy_fix(p, "null");
         return p;
     }
+
     p = ngx_copy_fix(p, "{\"min\":");
     p = ngx_sprintf(p, "%uL", (uint64_t) obj->min);
     p = ngx_copy_fix(p, ",\"max\":");
@@ -44,7 +48,9 @@ ngx_live_latency_stats_write(u_char *p, ngx_live_latency_stats_t *obj)
 static size_t
 ngx_live_track_input_skip_get_size(ngx_live_track_input_skip_t *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"duplicate\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"empty\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"no_media_info\":") - 1 + NGX_INT_T_LEN +
@@ -75,10 +81,13 @@ ngx_live_track_input_skip_write(u_char *p, ngx_live_track_input_skip_t *obj)
 static size_t
 ngx_live_track_input_get_size(ngx_live_track_input_t *obj)
 {
+    size_t  result;
+
     if (!obj->connection) {
         return sizeof("null") - 1;
     }
-    size_t  result =
+
+    result =
         sizeof("{\"connection\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"remote_addr\":\"") - 1 +
             ngx_json_str_get_size(&obj->remote_addr) +
@@ -100,6 +109,7 @@ ngx_live_track_input_write(u_char *p, ngx_live_track_input_t *obj)
         p = ngx_copy_fix(p, "null");
         return p;
     }
+
     p = ngx_copy_fix(p, "{\"connection\":");
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->connection);
     p = ngx_copy_fix(p, ",\"remote_addr\":\"");
@@ -122,7 +132,9 @@ ngx_live_track_input_write(u_char *p, ngx_live_track_input_t *obj)
 static size_t
 ngx_live_track_json_get_size(ngx_live_track_t *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"media_type\":\"") - 1 +
             ngx_live_track_media_type_names[obj->media_type].len +
         sizeof("\",\"type\":\"") - 1 +
@@ -143,6 +155,7 @@ static u_char *
 ngx_live_track_json_write(u_char *p, ngx_live_track_t *obj)
 {
     u_char  *next;
+
     p = ngx_copy_fix(p, "{\"media_type\":\"");
     p = ngx_sprintf(p, "%V",
         &ngx_live_track_media_type_names[obj->media_type]);
@@ -170,8 +183,11 @@ ngx_live_track_json_write(u_char *p, ngx_live_track_t *obj)
 size_t
 ngx_live_tracks_json_get_size(ngx_live_channel_t *obj)
 {
-    ngx_queue_t  *q;
-    size_t  result =
+    size_t             result;
+    ngx_queue_t       *q;
+    ngx_live_track_t  *cur;
+
+    result =
         sizeof("{") - 1 +
         sizeof("}") - 1;
 
@@ -179,7 +195,7 @@ ngx_live_tracks_json_get_size(ngx_live_channel_t *obj)
         q != ngx_queue_sentinel(&obj->tracks.queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_track_t *cur = ngx_queue_data(q, ngx_live_track_t, queue);
+        cur = ngx_queue_data(q, ngx_live_track_t, queue);
         result += cur->sn.str.len + cur->id_escape;
         result += ngx_live_track_json_get_size(cur) + sizeof(",\"\":") - 1;
     }
@@ -190,19 +206,22 @@ ngx_live_tracks_json_get_size(ngx_live_channel_t *obj)
 u_char *
 ngx_live_tracks_json_write(u_char *p, ngx_live_channel_t *obj)
 {
-    ngx_queue_t  *q;
+    ngx_queue_t       *q;
+    ngx_live_track_t  *cur;
+
     *p++ = '{';
 
     for (q = ngx_queue_head(&obj->tracks.queue);
         q != ngx_queue_sentinel(&obj->tracks.queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_track_t *cur = ngx_queue_data(q, ngx_live_track_t, queue);
+        cur = ngx_queue_data(q, ngx_live_track_t, queue);
 
         if (q != ngx_queue_head(&obj->tracks.queue))
         {
             *p++ = ',';
         }
+
         *p++ = '"';
         p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
         *p++ = '"';
@@ -220,8 +239,11 @@ ngx_live_tracks_json_write(u_char *p, ngx_live_channel_t *obj)
 size_t
 ngx_live_track_ids_json_get_size(ngx_live_channel_t *obj)
 {
-    ngx_queue_t  *q;
-    size_t  result =
+    size_t             result;
+    ngx_queue_t       *q;
+    ngx_live_track_t  *cur;
+
+    result =
         sizeof("[") - 1 +
         sizeof("]") - 1;
 
@@ -229,7 +251,7 @@ ngx_live_track_ids_json_get_size(ngx_live_channel_t *obj)
         q != ngx_queue_sentinel(&obj->tracks.queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_track_t *cur = ngx_queue_data(q, ngx_live_track_t, queue);
+        cur = ngx_queue_data(q, ngx_live_track_t, queue);
         result += cur->sn.str.len + cur->id_escape + sizeof(",\"\"") - 1;
     }
 
@@ -239,19 +261,22 @@ ngx_live_track_ids_json_get_size(ngx_live_channel_t *obj)
 u_char *
 ngx_live_track_ids_json_write(u_char *p, ngx_live_channel_t *obj)
 {
-    ngx_queue_t  *q;
+    ngx_queue_t       *q;
+    ngx_live_track_t  *cur;
+
     *p++ = '[';
 
     for (q = ngx_queue_head(&obj->tracks.queue);
         q != ngx_queue_sentinel(&obj->tracks.queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_track_t *cur = ngx_queue_data(q, ngx_live_track_t, queue);
+        cur = ngx_queue_data(q, ngx_live_track_t, queue);
 
         if (q != ngx_queue_head(&obj->tracks.queue))
         {
             *p++ = ',';
         }
+
         *p++ = '"';
         p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
         *p++ = '"';
@@ -267,7 +292,9 @@ ngx_live_track_ids_json_write(u_char *p, ngx_live_channel_t *obj)
 static size_t
 ngx_live_variant_json_get_size(ngx_live_variant_t *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"track_ids\":{") - 1 +
             ngx_live_variant_json_track_ids_get_size(obj) +
         sizeof("},\"opaque\":\"") - 1 + obj->opaque.len +
@@ -299,15 +326,19 @@ ngx_live_variant_json_write(u_char *p, ngx_live_variant_t *obj)
     p = ngx_copy_fix(p, "\",\"is_default\":");
     if (obj->conf.is_default) {
         p = ngx_copy_fix(p, "true");
+
     } else {
         p = ngx_copy_fix(p, "false");
     }
+
     p = ngx_copy_fix(p, ",\"active\":");
     if (obj->active) {
         p = ngx_copy_fix(p, "true");
+
     } else {
         p = ngx_copy_fix(p, "false");
     }
+
     *p++ = '}';
 
     return p;
@@ -318,8 +349,11 @@ ngx_live_variant_json_write(u_char *p, ngx_live_variant_t *obj)
 size_t
 ngx_live_variants_json_get_size(ngx_live_channel_t *obj)
 {
-    ngx_queue_t  *q;
-    size_t  result =
+    size_t               result;
+    ngx_queue_t         *q;
+    ngx_live_variant_t  *cur;
+
+    result =
         sizeof("{") - 1 +
         sizeof("}") - 1;
 
@@ -327,7 +361,7 @@ ngx_live_variants_json_get_size(ngx_live_channel_t *obj)
         q != ngx_queue_sentinel(&obj->variants.queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_variant_t *cur = ngx_queue_data(q, ngx_live_variant_t, queue);
+        cur = ngx_queue_data(q, ngx_live_variant_t, queue);
         result += cur->sn.str.len + cur->id_escape;
         result += ngx_live_variant_json_get_size(cur) + sizeof(",\"\":") - 1;
     }
@@ -338,19 +372,22 @@ ngx_live_variants_json_get_size(ngx_live_channel_t *obj)
 u_char *
 ngx_live_variants_json_write(u_char *p, ngx_live_channel_t *obj)
 {
-    ngx_queue_t  *q;
+    ngx_queue_t         *q;
+    ngx_live_variant_t  *cur;
+
     *p++ = '{';
 
     for (q = ngx_queue_head(&obj->variants.queue);
         q != ngx_queue_sentinel(&obj->variants.queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_variant_t *cur = ngx_queue_data(q, ngx_live_variant_t, queue);
+        cur = ngx_queue_data(q, ngx_live_variant_t, queue);
 
         if (q != ngx_queue_head(&obj->variants.queue))
         {
             *p++ = ',';
         }
+
         *p++ = '"';
         p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
         *p++ = '"';
@@ -368,8 +405,11 @@ ngx_live_variants_json_write(u_char *p, ngx_live_channel_t *obj)
 size_t
 ngx_live_variant_ids_json_get_size(ngx_live_channel_t *obj)
 {
-    ngx_queue_t  *q;
-    size_t  result =
+    size_t               result;
+    ngx_queue_t         *q;
+    ngx_live_variant_t  *cur;
+
+    result =
         sizeof("[") - 1 +
         sizeof("]") - 1;
 
@@ -377,7 +417,7 @@ ngx_live_variant_ids_json_get_size(ngx_live_channel_t *obj)
         q != ngx_queue_sentinel(&obj->variants.queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_variant_t *cur = ngx_queue_data(q, ngx_live_variant_t, queue);
+        cur = ngx_queue_data(q, ngx_live_variant_t, queue);
         result += cur->sn.str.len + cur->id_escape + sizeof(",\"\"") - 1;
     }
 
@@ -387,19 +427,22 @@ ngx_live_variant_ids_json_get_size(ngx_live_channel_t *obj)
 u_char *
 ngx_live_variant_ids_json_write(u_char *p, ngx_live_channel_t *obj)
 {
-    ngx_queue_t  *q;
+    ngx_queue_t         *q;
+    ngx_live_variant_t  *cur;
+
     *p++ = '[';
 
     for (q = ngx_queue_head(&obj->variants.queue);
         q != ngx_queue_sentinel(&obj->variants.queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_variant_t *cur = ngx_queue_data(q, ngx_live_variant_t, queue);
+        cur = ngx_queue_data(q, ngx_live_variant_t, queue);
 
         if (q != ngx_queue_head(&obj->variants.queue))
         {
             *p++ = ',';
         }
+
         *p++ = '"';
         p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
         *p++ = '"';
@@ -415,9 +458,11 @@ ngx_live_variant_ids_json_write(u_char *p, ngx_live_channel_t *obj)
 static size_t
 ngx_live_channel_blocked_json_get_size(ngx_live_channel_t *obj)
 {
-    ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj,
-        ngx_live_core_module);
-    size_t  result =
+    size_t                        result;
+    ngx_live_core_preset_conf_t  *cpcf;
+
+    cpcf = ngx_live_get_module_preset_conf(obj, ngx_live_core_module);
+    result =
         sizeof("{\"blocked\":true,\"preset\":\"") - 1 +
             ngx_json_str_get_size(&cpcf->name) +
         sizeof("\",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
@@ -432,8 +477,9 @@ ngx_live_channel_blocked_json_get_size(ngx_live_channel_t *obj)
 static u_char *
 ngx_live_channel_blocked_json_write(u_char *p, ngx_live_channel_t *obj)
 {
-    ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj,
-        ngx_live_core_module);
+    ngx_live_core_preset_conf_t  *cpcf;
+
+    cpcf = ngx_live_get_module_preset_conf(obj, ngx_live_core_module);
     p = ngx_copy_fix(p, "{\"blocked\":true,\"preset\":\"");
     p = ngx_json_str_write(p, &cpcf->name);
     p = ngx_copy_fix(p, "\",\"mem_left\":");
@@ -452,12 +498,15 @@ ngx_live_channel_blocked_json_write(u_char *p, ngx_live_channel_t *obj)
 size_t
 ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
 {
-    ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj,
-        ngx_live_core_module);
+    size_t                        result;
+    ngx_live_core_preset_conf_t  *cpcf;
+
+    cpcf = ngx_live_get_module_preset_conf(obj, ngx_live_core_module);
     if (obj->blocked) {
         return ngx_live_channel_blocked_json_get_size(obj);
     }
-    size_t  result =
+
+    result =
         sizeof("{\"blocked\":false,\"uid\":\"") - 1 + 16 +
         sizeof("\",\"uptime\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"read_time\":") - 1 + NGX_TIME_T_LEN +
@@ -485,12 +534,14 @@ ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
 u_char *
 ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
 {
-    ngx_live_core_preset_conf_t *cpcf = ngx_live_get_module_preset_conf(obj,
-        ngx_live_core_module);
-    u_char  *next;
+    u_char                       *next;
+    ngx_live_core_preset_conf_t  *cpcf;
+
+    cpcf = ngx_live_get_module_preset_conf(obj, ngx_live_core_module);
     if (obj->blocked) {
         return ngx_live_channel_blocked_json_write(p, obj);
     }
+
     p = ngx_copy_fix(p, "{\"blocked\":false,\"uid\":\"");
     p = ngx_sprintf(p, "%016uxL", (uint64_t) obj->uid);
     p = ngx_copy_fix(p, "\",\"uptime\":");
@@ -536,8 +587,11 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
 size_t
 ngx_live_channels_json_get_size(void *obj)
 {
-    ngx_queue_t  *q;
-    size_t  result =
+    size_t               result;
+    ngx_queue_t         *q;
+    ngx_live_channel_t  *cur;
+
+    result =
         sizeof("{") - 1 +
         sizeof("}") - 1;
 
@@ -545,7 +599,7 @@ ngx_live_channels_json_get_size(void *obj)
         q != ngx_queue_sentinel(&ngx_live_channels.queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_channel_t *cur = ngx_queue_data(q, ngx_live_channel_t, queue);
+        cur = ngx_queue_data(q, ngx_live_channel_t, queue);
         result += cur->sn.str.len + cur->id_escape;
         result += ngx_live_channel_json_get_size(cur) + sizeof(",\"\":") - 1;
     }
@@ -556,19 +610,22 @@ ngx_live_channels_json_get_size(void *obj)
 u_char *
 ngx_live_channels_json_write(u_char *p, void *obj)
 {
-    ngx_queue_t  *q;
+    ngx_queue_t         *q;
+    ngx_live_channel_t  *cur;
+
     *p++ = '{';
 
     for (q = ngx_queue_head(&ngx_live_channels.queue);
         q != ngx_queue_sentinel(&ngx_live_channels.queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_channel_t *cur = ngx_queue_data(q, ngx_live_channel_t, queue);
+        cur = ngx_queue_data(q, ngx_live_channel_t, queue);
 
         if (q != ngx_queue_head(&ngx_live_channels.queue))
         {
             *p++ = ',';
         }
+
         *p++ = '"';
         p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
         *p++ = '"';
@@ -586,8 +643,11 @@ ngx_live_channels_json_write(u_char *p, void *obj)
 size_t
 ngx_live_channel_ids_json_get_size(void *obj)
 {
-    ngx_queue_t  *q;
-    size_t  result =
+    size_t               result;
+    ngx_queue_t         *q;
+    ngx_live_channel_t  *cur;
+
+    result =
         sizeof("[") - 1 +
         sizeof("]") - 1;
 
@@ -595,7 +655,7 @@ ngx_live_channel_ids_json_get_size(void *obj)
         q != ngx_queue_sentinel(&ngx_live_channels.queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_channel_t *cur = ngx_queue_data(q, ngx_live_channel_t, queue);
+        cur = ngx_queue_data(q, ngx_live_channel_t, queue);
         result += cur->sn.str.len + cur->id_escape + sizeof(",\"\"") - 1;
     }
 
@@ -605,19 +665,22 @@ ngx_live_channel_ids_json_get_size(void *obj)
 u_char *
 ngx_live_channel_ids_json_write(u_char *p, void *obj)
 {
-    ngx_queue_t  *q;
+    ngx_queue_t         *q;
+    ngx_live_channel_t  *cur;
+
     *p++ = '[';
 
     for (q = ngx_queue_head(&ngx_live_channels.queue);
         q != ngx_queue_sentinel(&ngx_live_channels.queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_channel_t *cur = ngx_queue_data(q, ngx_live_channel_t, queue);
+        cur = ngx_queue_data(q, ngx_live_channel_t, queue);
 
         if (q != ngx_queue_head(&ngx_live_channels.queue))
         {
             *p++ = ',';
         }
+
         *p++ = '"';
         p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
         *p++ = '"';

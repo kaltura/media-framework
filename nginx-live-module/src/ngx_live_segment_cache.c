@@ -1335,6 +1335,7 @@ ngx_live_segment_cache_track_json_write(u_char *p, void *obj)
         p = ngx_copy_fix(p, ",\"max_index\":");
         p = ngx_sprintf(p, "%uD", (uint32_t) segment->node.key);
     }
+
     *p++ = '}';
 
     return p;

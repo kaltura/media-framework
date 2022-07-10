@@ -141,18 +141,18 @@ ngx_http_pckg_capture_init_frame_processor(ngx_http_request_t *r,
 
 #if (NGX_HAVE_LIB_SW_SCALE)
 
-#define skip_dash(cur, end)                                                 \
-    if (cur >= end) {                                                       \
-        return cur;                                                         \
-    }                                                                       \
-                                                                            \
-    if (*cur != '-' || end - cur < 2) {                                     \
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,                   \
-            "ngx_http_pckg_capture_parse_dims: "                            \
-            "expected \"-\" followed by a specifier");                      \
-        return NULL;                                                        \
-    }                                                                       \
-                                                                            \
+#define skip_dash(cur, end)                                                  \
+    if (cur >= end) {                                                        \
+        return cur;                                                          \
+    }                                                                        \
+                                                                             \
+    if (*cur != '-' || end - cur < 2) {                                      \
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,                    \
+            "ngx_http_pckg_capture_parse_dims: "                             \
+            "expected \"-\" followed by a specifier");                       \
+        return NULL;                                                         \
+    }                                                                        \
+                                                                             \
     cur++;    /* skip the - */
 
 
@@ -434,7 +434,7 @@ ngx_http_pckg_capture_create_loc_conf(ngx_conf_t *cf)
     if (conf == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0,
             "ngx_http_pckg_capture_create_loc_conf: ngx_pcalloc failed");
-        return NGX_CONF_ERROR;
+        return NULL;
     }
 
     conf->enable = NGX_CONF_UNSET;

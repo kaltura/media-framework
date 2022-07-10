@@ -42,7 +42,7 @@ typedef struct {
 } ngx_rtmp_play_fmt_t;
 
 
-typedef struct ngx_rtmp_play_ctx_s ngx_rtmp_play_ctx_t;
+typedef struct ngx_rtmp_play_ctx_s  ngx_rtmp_play_ctx_t;
 
 
 struct ngx_rtmp_play_ctx_s {

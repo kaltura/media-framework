@@ -9,7 +9,9 @@
 static size_t
 ngx_live_dynamic_var_json_get_size(ngx_live_dynamic_var_t *obj)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("\"") - 1 + ngx_json_str_get_size(&obj->value) +
         sizeof("\"") - 1;
 
@@ -31,8 +33,11 @@ ngx_live_dynamic_var_json_write(u_char *p, ngx_live_dynamic_var_t *obj)
 static size_t
 ngx_live_dynamic_vars_json_get_size(ngx_live_dynamic_var_channel_ctx_t *obj)
 {
-    ngx_queue_t  *q;
-    size_t  result =
+    size_t                   result;
+    ngx_queue_t             *q;
+    ngx_live_dynamic_var_t  *cur;
+
+    result =
         sizeof("\"vars\":{") - 1 +
         sizeof("}") - 1;
 
@@ -40,8 +45,7 @@ ngx_live_dynamic_vars_json_get_size(ngx_live_dynamic_var_channel_ctx_t *obj)
         q != ngx_queue_sentinel(&obj->queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_dynamic_var_t *cur = ngx_queue_data(q,
-            ngx_live_dynamic_var_t, queue);
+        cur = ngx_queue_data(q, ngx_live_dynamic_var_t, queue);
         result += cur->sn.str.len + cur->id_escape;
         result += ngx_live_dynamic_var_json_get_size(cur) + sizeof(",\"\":") -
             1;
@@ -54,20 +58,22 @@ static u_char *
 ngx_live_dynamic_vars_json_write(u_char *p, ngx_live_dynamic_var_channel_ctx_t
     *obj)
 {
-    ngx_queue_t  *q;
+    ngx_queue_t             *q;
+    ngx_live_dynamic_var_t  *cur;
+
     p = ngx_copy_fix(p, "\"vars\":{");
 
     for (q = ngx_queue_head(&obj->queue);
         q != ngx_queue_sentinel(&obj->queue);
         q = ngx_queue_next(q))
     {
-        ngx_live_dynamic_var_t *cur = ngx_queue_data(q,
-            ngx_live_dynamic_var_t, queue);
+        cur = ngx_queue_data(q, ngx_live_dynamic_var_t, queue);
 
         if (q != ngx_queue_head(&obj->queue))
         {
             *p++ = ',';
         }
+
         *p++ = '"';
         p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
         *p++ = '"';

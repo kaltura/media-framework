@@ -45,8 +45,8 @@ enum {
 };
 
 
-u_char * ngx_rtmp_get_audio_codec_name(ngx_uint_t id);
-u_char * ngx_rtmp_get_video_codec_name(ngx_uint_t id);
+u_char *ngx_rtmp_get_audio_codec_name(ngx_uint_t id);
+u_char *ngx_rtmp_get_video_codec_name(ngx_uint_t id);
 
 
 typedef struct {

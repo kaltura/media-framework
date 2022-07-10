@@ -1092,6 +1092,7 @@ ngx_http_pckg_writer_tail(void *arg, u_char *buffer, uint32_t size)
             ctx->last->next = chain;
             ctx->last = chain;
         }
+
         ctx->last->buf = b;
     }
 
@@ -2022,6 +2023,7 @@ ngx_http_pckg_core_create_loc_conf(ngx_conf_t *cf)
     for (type = 0; type < NGX_HTTP_PCKG_EXPIRES_COUNT; type++) {
         conf->expires[type] = NGX_CONF_UNSET;
     }
+
     conf->last_modified_static = NGX_CONF_UNSET;
 
     conf->active_policy = NGX_CONF_UNSET_UINT;

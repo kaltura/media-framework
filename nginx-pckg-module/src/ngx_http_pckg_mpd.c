@@ -23,174 +23,174 @@ static char *ngx_http_pckg_mpd_merge_loc_conf(ngx_conf_t *cf, void *parent,
 
 #define MPD_DATE_TIME_LEN     (sizeof("2010-01-01T00:00:00Z") - 1)
 
-#define mpd_date_time_params(tm)                                            \
-    (tm).ngx_tm_year, (tm).ngx_tm_mon, (tm).ngx_tm_mday,                    \
+#define mpd_date_time_params(tm)                                             \
+    (tm).ngx_tm_year, (tm).ngx_tm_mon, (tm).ngx_tm_mday,                     \
     (tm).ngx_tm_hour, (tm).ngx_tm_min, (tm).ngx_tm_sec
 
 
-#define MPD_HEADER1                                                         \
-    "<?xml version=\"1.0\"?>\n"                                             \
-    "<MPD\n"                                                                \
-    "    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"         \
-    "    xmlns=\"urn:mpeg:dash:schema:mpd:2011\"\n"                         \
-    "    xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 "               \
-        "http://standards.iso.org/ittf/PubliclyAvailableStandards"          \
-        "/MPEG-DASH_schema_files/DASH-MPD.xsd\"\n"                          \
-    "    profiles=\"%V\"\n"                                                 \
-    "    type=\"dynamic\"\n"                                                \
-    "    availabilityStartTime=\"" MPD_DATE_TIME_FORMAT "\"\n"              \
+#define MPD_HEADER1                                                          \
+    "<?xml version=\"1.0\"?>\n"                                              \
+    "<MPD\n"                                                                 \
+    "    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"          \
+    "    xmlns=\"urn:mpeg:dash:schema:mpd:2011\"\n"                          \
+    "    xsi:schemaLocation=\"urn:mpeg:dash:schema:mpd:2011 "                \
+        "http://standards.iso.org/ittf/PubliclyAvailableStandards"           \
+        "/MPEG-DASH_schema_files/DASH-MPD.xsd\"\n"                           \
+    "    profiles=\"%V\"\n"                                                  \
+    "    type=\"dynamic\"\n"                                                 \
+    "    availabilityStartTime=\"" MPD_DATE_TIME_FORMAT "\"\n"               \
     "    publishTime=\"" MPD_DATE_TIME_FORMAT "\"\n"
 
-#define MPD_MIN_UPDATE_PERIOD                                               \
+#define MPD_MIN_UPDATE_PERIOD                                                \
     "    minimumUpdatePeriod=\"PT%uD.%03uDS\"\n"
 
-#define MPD_MEDIA_PRES_DURATION                                             \
+#define MPD_MEDIA_PRES_DURATION                                              \
     "    mediaPresentationDuration=\"PT%uD.%03uDS\"\n"
 
-#define MPD_HEADER2                                                         \
-    "    minBufferTime=\"PT%uD.%03uDS\"\n"                                  \
-    "    timeShiftBufferDepth=\"PT%uD.%03uDS\"\n"                           \
+#define MPD_HEADER2                                                          \
+    "    minBufferTime=\"PT%uD.%03uDS\"\n"                                   \
+    "    timeShiftBufferDepth=\"PT%uD.%03uDS\"\n"                            \
     "    suggestedPresentationDelay=\"PT%uD.%03uDS\">\n"
 
-#define MPD_PERIOD_HEADER_START                                             \
+#define MPD_PERIOD_HEADER_START                                              \
     "  <Period id=\"%uD\" start=\"PT%uD.%03uDS\">\n"
 
-#define MPD_PERIOD_HEADER_START_DURATION                                    \
+#define MPD_PERIOD_HEADER_START_DURATION                                     \
     "  <Period id=\"%uD\" start=\"PT%uD.%03uDS\" duration=\"PT%uD.%03uDS\">\n"
 
-#define MPD_ADAPTATION_HEADER_VIDEO                                         \
-    "    <AdaptationSet\n"                                                  \
-    "        id=\"%uD\"\n"                                                  \
-    "        maxWidth=\"%uD\"\n"                                            \
-    "        maxHeight=\"%uD\"\n"                                           \
-    "        maxFrameRate=\"%uD/%uD\"\n"                                    \
+#define MPD_ADAPTATION_HEADER_VIDEO                                          \
+    "    <AdaptationSet\n"                                                   \
+    "        id=\"%uD\"\n"                                                   \
+    "        maxWidth=\"%uD\"\n"                                             \
+    "        maxHeight=\"%uD\"\n"                                            \
+    "        maxFrameRate=\"%uD/%uD\"\n"                                     \
     "        segmentAlignment=\"true\">\n"
 
-#define MPD_ACCESSIBILITY_CEA_608                                           \
+#define MPD_ACCESSIBILITY_CEA_608                                            \
     "      <Accessibility schemeIdUri=\"urn:scte:dash:cc:cea-608:2015\"/>\n"
 
-#define MPD_REPRESENTATION_VIDEO                                            \
-    "      <Representation\n"                                               \
-    "          id=\"s%V-v\"\n"                                              \
-    "          bandwidth=\"%uD\"\n"                                         \
-    "          width=\"%uD\"\n"                                             \
-    "          height=\"%uD\"\n"                                            \
-    "          sar=\"1:1\"\n"                                               \
-    "          frameRate=\"%uD/%uD\"\n"                                     \
-    "          mimeType=\"%V\"\n"                                           \
-    "          codecs=\"%V\"\n"                                             \
+#define MPD_REPRESENTATION_VIDEO                                             \
+    "      <Representation\n"                                                \
+    "          id=\"s%V-v\"\n"                                               \
+    "          bandwidth=\"%uD\"\n"                                          \
+    "          width=\"%uD\"\n"                                              \
+    "          height=\"%uD\"\n"                                             \
+    "          sar=\"1:1\"\n"                                                \
+    "          frameRate=\"%uD/%uD\"\n"                                      \
+    "          mimeType=\"%V\"\n"                                            \
+    "          codecs=\"%V\"\n"                                              \
     "          startWithSAP=\"1\"/>\n"
 
-#define MPD_ADAPTATION_HEADER_AUDIO                                         \
-    "    <AdaptationSet\n"                                                  \
-    "        id=\"%uD\"\n"                                                  \
+#define MPD_ADAPTATION_HEADER_AUDIO                                          \
+    "    <AdaptationSet\n"                                                   \
+    "        id=\"%uD\"\n"                                                   \
     "        segmentAlignment=\"true\">\n"
 
-#define MPD_ADAPTATION_HEADER_AUDIO_LANG                                    \
-    "    <AdaptationSet\n"                                                  \
-    "        id=\"%uD\"\n"                                                  \
-    "        lang=\"%V\"\n"                                                 \
+#define MPD_ADAPTATION_HEADER_AUDIO_LANG                                     \
+    "    <AdaptationSet\n"                                                   \
+    "        id=\"%uD\"\n"                                                   \
+    "        lang=\"%V\"\n"                                                  \
     "        segmentAlignment=\"true\">\n"
 
-#define MPD_ADAPTATION_LABEL                                                \
+#define MPD_ADAPTATION_LABEL                                                 \
     "      <Label>%V</Label>\n"
 
-#define MPD_AUDIO_CHANNEL_CONFIG                                            \
-    "      <AudioChannelConfiguration\n"                                    \
-    "          schemeIdUri=\"urn:mpeg:dash:23003:3:"                        \
-                                "audio_channel_configuration:2011\"\n"      \
+#define MPD_AUDIO_CHANNEL_CONFIG                                             \
+    "      <AudioChannelConfiguration\n"                                     \
+    "          schemeIdUri=\"urn:mpeg:dash:23003:3:"                         \
+                                "audio_channel_configuration:2011\"\n"       \
     "          value=\"%uD\"/>\n"
 
-#define MPD_AUDIO_CHANNEL_CONFIG_EAC3                                       \
-    "      <AudioChannelConfiguration\n"                                    \
-    "          schemeIdUri=\"tag:dolby.com,2014:dash:"                      \
-                                "audio_channel_configuration:2011\"\n"      \
+#define MPD_AUDIO_CHANNEL_CONFIG_EAC3                                        \
+    "      <AudioChannelConfiguration\n"                                     \
+    "          schemeIdUri=\"tag:dolby.com,2014:dash:"                       \
+                                "audio_channel_configuration:2011\"\n"       \
     "          value=\"%uxD\"/>\n"
 
-#define MPD_REPRESENTATION_AUDIO                                            \
-    "      <Representation\n"                                               \
-    "          id=\"s%V-a\"\n"                                              \
-    "          bandwidth=\"%uD\"\n"                                         \
-    "          audioSamplingRate=\"%uD\"\n"                                 \
-    "          mimeType=\"%V\"\n"                                           \
-    "          codecs=\"%V\"\n"                                             \
+#define MPD_REPRESENTATION_AUDIO                                             \
+    "      <Representation\n"                                                \
+    "          id=\"s%V-a\"\n"                                               \
+    "          bandwidth=\"%uD\"\n"                                          \
+    "          audioSamplingRate=\"%uD\"\n"                                  \
+    "          mimeType=\"%V\"\n"                                            \
+    "          codecs=\"%V\"\n"                                              \
     "          startWithSAP=\"1\"/>\n"
 
-#define MPD_SEGMENT_TEMPLATE_HEADER                                         \
-    "      <SegmentTemplate\n"                                              \
-    "          timescale=\"%uD\"\n"                                         \
-    "          media=\"%V-$Number$-$RepresentationID$%V\"\n"                \
-    "          initialization=\"%V-%uD-$RepresentationID$%V\"\n"            \
-    "          startNumber=\"%uD\">\n"                                      \
+#define MPD_SEGMENT_TEMPLATE_HEADER                                          \
+    "      <SegmentTemplate\n"                                               \
+    "          timescale=\"%uD\"\n"                                          \
+    "          media=\"%V-$Number$-$RepresentationID$%V\"\n"                 \
+    "          initialization=\"%V-%uD-$RepresentationID$%V\"\n"             \
+    "          startNumber=\"%uD\">\n"                                       \
     "        <SegmentTimeline>\n"
 
-#define MPD_SEGMENT_REPEAT_TIME                                             \
+#define MPD_SEGMENT_REPEAT_TIME                                              \
     "          <S t=\"%uL\" d=\"%uD\" r=\"%uD\"/>\n"
 
-#define MPD_SEGMENT_TIME                                                    \
+#define MPD_SEGMENT_TIME                                                     \
     "          <S t=\"%uL\" d=\"%uD\"/>\n"
 
-#define MPD_SEGMENT_REPEAT                                                  \
+#define MPD_SEGMENT_REPEAT                                                   \
     "          <S d=\"%uD\" r=\"%uD\"/>\n"
 
-#define MPD_SEGMENT                                                         \
+#define MPD_SEGMENT                                                          \
     "          <S d=\"%uD\"/>\n"
 
-#define MPD_SEGMENT_TEMPLATE_FOOTER                                         \
-    "        </SegmentTimeline>\n"                                          \
+#define MPD_SEGMENT_TEMPLATE_FOOTER                                          \
+    "        </SegmentTimeline>\n"                                           \
     "      </SegmentTemplate>\n"
 
-#define MPD_ADAPTATION_FOOTER                                               \
+#define MPD_ADAPTATION_FOOTER                                                \
     "    </AdaptationSet>\n"
 
-#define MPD_PERIOD_FOOTER                                                   \
+#define MPD_PERIOD_FOOTER                                                    \
     "  </Period>\n"
 
-#define MPD_UTC_TIMING                                                      \
-    "  <UTCTiming\n"                                                        \
-    "      schemeIdUri=\"urn:mpeg:dash:utc:direct:2014\"\n"                 \
+#define MPD_UTC_TIMING                                                       \
+    "  <UTCTiming\n"                                                         \
+    "      schemeIdUri=\"urn:mpeg:dash:utc:direct:2014\"\n"                  \
     "      value=\"" MPD_DATE_TIME_FORMAT "\"/>\n"
 
-#define MPD_FOOTER                                                          \
+#define MPD_FOOTER                                                           \
     "</MPD>\n"
 
 
-#define MPD_CONT_PROT_CENC                                                  \
-    "      <ContentProtection "                                             \
+#define MPD_CONT_PROT_CENC                                                   \
+    "      <ContentProtection "                                              \
     "schemeIdUri=\"urn:mpeg:dash:mp4protection:2011\" value=\"cenc\"/>\n"
 
-#define MPD_CONT_PROT_CENC_SYS_ID                                           \
-    "      <ContentProtection xmlns:cenc=\"urn:mpeg:cenc:2013\" "           \
+#define MPD_CONT_PROT_CENC_SYS_ID                                            \
+    "      <ContentProtection xmlns:cenc=\"urn:mpeg:cenc:2013\" "            \
     "schemeIdUri=\"urn:uuid:"
 
-#define MPD_CONT_PROT_CENC_KEY_ID                                           \
+#define MPD_CONT_PROT_CENC_KEY_ID                                            \
     "\" cenc:default_KID=\""
 
-#define MPD_CONT_PROT_CENC_PSSH                                             \
-    "\">\n"                                                                 \
+#define MPD_CONT_PROT_CENC_PSSH                                              \
+    "\">\n"                                                                  \
     "        <cenc:pssh>"
 
-#define MPD_CONT_PROT_CENC_FOOTER                                           \
-    "</cenc:pssh>\n"                                                        \
+#define MPD_CONT_PROT_CENC_FOOTER                                            \
+    "</cenc:pssh>\n"                                                         \
     "      </ContentProtection>\n"
 
-#define MPD_CONT_PROT_PLAYREADY_SYS_ID                                      \
-    "      <ContentProtection xmlns:cenc=\"urn:mpeg:cenc:2013\" "           \
+#define MPD_CONT_PROT_PLAYREADY_SYS_ID                                       \
+    "      <ContentProtection xmlns:cenc=\"urn:mpeg:cenc:2013\" "            \
     "xmlns:mspr=\"urn:microsoft:playready\" schemeIdUri=\"urn:uuid:"
 
-#define MPD_CONT_PROT_PLAYREADY_KEY_ID                                      \
+#define MPD_CONT_PROT_PLAYREADY_KEY_ID                                       \
     "\" value=\"2.0\" cenc:default_KID=\""
 
-#define MPD_CONT_PROT_PLAYREADY_PSSH                                        \
-    "\">\n"                                                                 \
+#define MPD_CONT_PROT_PLAYREADY_PSSH                                         \
+    "\">\n"                                                                  \
     "        <mspr:pro>"
 
-#define MPD_CONT_PROT_PLAYREADY_FOOTER                                      \
-    "</mspr:pro>\n"                                                         \
+#define MPD_CONT_PROT_PLAYREADY_FOOTER                                       \
+    "</mspr:pro>\n"                                                          \
     "      </ContentProtection>\n"
 
-#define mpd_is_playready_sys_id(id)                                         \
-    (ngx_memcmp(id, ngx_http_pckg_mpd_playready_sys_id,                     \
+#define mpd_is_playready_sys_id(id)                                          \
+    (ngx_memcmp(id, ngx_http_pckg_mpd_playready_sys_id,                      \
         sizeof(ngx_http_pckg_mpd_playready_sys_id)) == 0)
 
 
@@ -1242,7 +1242,7 @@ ngx_http_pckg_mpd_create_loc_conf(ngx_conf_t *cf)
     if (conf == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0,
             "ngx_http_pckg_mpd_create_loc_conf: ngx_pcalloc failed");
-        return NGX_CONF_ERROR;
+        return NULL;
     }
 
     conf->pres_delay_segments = NGX_CONF_UNSET_UINT;

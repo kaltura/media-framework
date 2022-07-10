@@ -358,7 +358,7 @@ ngx_live_manifest_timeline_remove_segments(
     ngx_live_manifest_timeline_t *timeline, uint32_t base_count,
     uint64_t base_duration)
 {
-    uint32_t                            duration;
+    uint32_t                            min_duration, last_duration;
     ngx_live_timeline_manifest_conf_t  *conf = &timeline->conf;
 
     while (timeline->segment_count > 0) {
@@ -370,11 +370,11 @@ ngx_live_manifest_timeline_remove_segments(
         }
 
         if (!timeline->conf.end_list) {
-            duration = ngx_live_segment_iter_peek(
+            min_duration = timeline->target_duration * 3;
+            last_duration = ngx_live_segment_iter_peek(
                 &timeline->first_period.segment_iter);
 
-            if (timeline->duration < timeline->target_duration * 3 + duration)
-            {
+            if (timeline->duration < min_duration + last_duration) {
                 break;
             }
         }
@@ -403,6 +403,7 @@ ngx_live_manifest_timeline_add_first_period(
     if (timeline->availability_start_time == 0) {
         timeline->availability_start_time = time;
     }
+
     timeline->first_period_initial_time = time;
     timeline->first_period_initial_segment_index = segment_index;
 
@@ -1414,6 +1415,7 @@ ngx_live_timeline_get_period_by_time(ngx_live_timeline_t *timeline,
             if (node->left == sentinel) {
                 return period;
             }
+
             node = node->left;
 
         } else if (time >= (int64_t) (period->time + period->duration)) {
@@ -1425,6 +1427,7 @@ ngx_live_timeline_get_period_by_time(ngx_live_timeline_t *timeline,
 
                 return ngx_queue_data(q, ngx_live_period_t, queue);
             }
+
             node = node->right;
 
         } else {
@@ -1501,6 +1504,7 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
                 ngx_live_period_free(channel, dest_period);
                 return NGX_ERROR;
             }
+
             dest_period->node.key = segment_index;
         }
 
@@ -1674,6 +1678,7 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
     if (duration == NGX_LIVE_PENDING_SEGMENT_DURATION) {
         cctx->last_pending = 1;
     }
+
     cctx->last_segment_middle = time + duration / 2;
 
     min_segment_index = channel->next_segment_index;

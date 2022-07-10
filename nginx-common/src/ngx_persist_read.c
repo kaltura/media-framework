@@ -118,15 +118,19 @@ ngx_persist_read_inflate(ngx_str_t *buf, size_t max_size,
 
     if (pool != NULL) {
         p = ngx_palloc(pool, size);
+        if (p == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+                "ngx_persist_read_inflate: palloc failed");
+            return NGX_ERROR;
+        }
 
     } else {
         p = ngx_alloc(size, rs->log);
-    }
-
-    if (p == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-            "ngx_persist_read_inflate: alloc failed");
-        return NGX_ERROR;
+        if (p == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+                "ngx_persist_read_inflate: alloc failed");
+            return NGX_ERROR;
+        }
     }
 
     ngx_mem_rstream_get_left(rs, &comp);

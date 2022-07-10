@@ -3,11 +3,11 @@
 #include "ngx_persist.h"
 
 
-#define ngx_persist_block_id_key(id)                                        \
-    ngx_hash(ngx_hash(ngx_hash(                                             \
-        ( (id)        & 0xff) ,                                             \
-        (((id) >> 8)  & 0xff)),                                             \
-        (((id) >> 16) & 0xff)),                                             \
+#define ngx_persist_block_id_key(id)                                         \
+    ngx_hash(ngx_hash(ngx_hash(                                              \
+        ( (id)        & 0xff) ,                                              \
+        (((id) >> 8)  & 0xff)),                                              \
+        (((id) >> 16) & 0xff)),                                              \
         (((id) >> 24) & 0xff))
 
 
@@ -182,6 +182,7 @@ ngx_persist_conf_write_blocks(ngx_persist_conf_t *conf,
                     (size_t) sizeof(cur->id), &cur->id);
                 return NGX_ERROR;
             }
+
             continue;
         }
 

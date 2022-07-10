@@ -10,7 +10,9 @@ static size_t
 ngx_rtmp_kmp_api_stream_json_get_size(ngx_rtmp_kmp_stream_ctx_t *obj,
     ngx_rtmp_live_stream_t *stream)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"name\":\"") - 1 + obj->publish.name.len +
             ngx_escape_json(NULL, obj->publish.name.data,
             obj->publish.name.len) +
@@ -80,8 +82,11 @@ ngx_rtmp_kmp_api_stream_json_write(u_char *p, ngx_rtmp_kmp_stream_ctx_t *obj,
 static size_t
 ngx_rtmp_kmp_api_session_json_get_size(ngx_rtmp_kmp_ctx_t *obj)
 {
-    ngx_rtmp_session_t *s = obj->s;
-    size_t  result =
+    size_t               result;
+    ngx_rtmp_session_t  *s;
+
+    s = obj->s;
+    result =
         sizeof("{\"flashver\":\"") - 1 + s->flashver.len +
             ngx_escape_json(NULL, s->flashver.data, s->flashver.len) +
         sizeof("\",\"swf_url\":\"") - 1 + s->swf_url.len +
@@ -107,7 +112,9 @@ ngx_rtmp_kmp_api_session_json_get_size(ngx_rtmp_kmp_ctx_t *obj)
 static u_char *
 ngx_rtmp_kmp_api_session_json_write(u_char *p, ngx_rtmp_kmp_ctx_t *obj)
 {
-    ngx_rtmp_session_t *s = obj->s;
+    ngx_rtmp_session_t  *s;
+
+    s = obj->s;
     p = ngx_copy_fix(p, "{\"flashver\":\"");
     p = (u_char *) ngx_escape_json(p, s->flashver.data, s->flashver.len);
     p = ngx_copy_fix(p, "\",\"swf_url\":\"");
@@ -137,13 +144,17 @@ ngx_rtmp_kmp_api_session_json_write(u_char *p, ngx_rtmp_kmp_ctx_t *obj)
 static size_t
 ngx_rtmp_kmp_api_application_json_get_size(ngx_rtmp_core_app_conf_t *obj)
 {
-    ngx_rtmp_kmp_app_conf_t *kacf =
-        obj->app_conf[ngx_rtmp_kmp_module.ctx_index];
-    ngx_queue_t  *q;
+    size_t                    result;
+    ngx_queue_t              *q;
+    ngx_rtmp_kmp_ctx_t       *cur;
+    ngx_rtmp_kmp_app_conf_t  *kacf;
+
+    kacf = obj->app_conf[ngx_rtmp_kmp_module.ctx_index];
     if (kacf == NULL) {
         return 0;
     }
-    size_t  result =
+
+    result =
         sizeof("{\"name\":\"") - 1 + obj->name.len + ngx_escape_json(NULL,
             obj->name.data, obj->name.len) +
         sizeof("\",\"sessions\":[") - 1 +
@@ -153,7 +164,7 @@ ngx_rtmp_kmp_api_application_json_get_size(ngx_rtmp_core_app_conf_t *obj)
         q != ngx_queue_sentinel(&kacf->sessions);
         q = ngx_queue_next(q))
     {
-        ngx_rtmp_kmp_ctx_t *cur = ngx_queue_data(q, ngx_rtmp_kmp_ctx_t, queue);
+        cur = ngx_queue_data(q, ngx_rtmp_kmp_ctx_t, queue);
         result += ngx_rtmp_kmp_api_session_json_get_size(cur) + sizeof(",") -
             1;
     }
@@ -165,12 +176,15 @@ static u_char *
 ngx_rtmp_kmp_api_application_json_write(u_char *p, ngx_rtmp_core_app_conf_t
     *obj)
 {
-    ngx_rtmp_kmp_app_conf_t *kacf =
-        obj->app_conf[ngx_rtmp_kmp_module.ctx_index];
-    ngx_queue_t  *q;
+    ngx_queue_t              *q;
+    ngx_rtmp_kmp_ctx_t       *cur;
+    ngx_rtmp_kmp_app_conf_t  *kacf;
+
+    kacf = obj->app_conf[ngx_rtmp_kmp_module.ctx_index];
     if (kacf == NULL) {
         return p;
     }
+
     p = ngx_copy_fix(p, "{\"name\":\"");
     p = (u_char *) ngx_escape_json(p, obj->name.data, obj->name.len);
     p = ngx_copy_fix(p, "\",\"sessions\":[");
@@ -179,11 +193,12 @@ ngx_rtmp_kmp_api_application_json_write(u_char *p, ngx_rtmp_core_app_conf_t
         q != ngx_queue_sentinel(&kacf->sessions);
         q = ngx_queue_next(q))
     {
-        ngx_rtmp_kmp_ctx_t *cur = ngx_queue_data(q, ngx_rtmp_kmp_ctx_t, queue);
+        cur = ngx_queue_data(q, ngx_rtmp_kmp_ctx_t, queue);
 
         if (q != ngx_queue_head(&kacf->sessions)) {
             *p++ = ',';
         }
+
         p = ngx_rtmp_kmp_api_session_json_write(p, cur);
     }
 
@@ -197,14 +212,16 @@ ngx_rtmp_kmp_api_application_json_write(u_char *p, ngx_rtmp_core_app_conf_t
 static size_t
 ngx_rtmp_kmp_api_server_json_get_size(ngx_rtmp_core_srv_conf_t *obj)
 {
-    ngx_uint_t  n;
-    size_t  result =
+    size_t                     result;
+    ngx_uint_t                 n;
+    ngx_rtmp_core_app_conf_t  *cur;
+
+    result =
         sizeof("{\"applications\":[") - 1 +
         sizeof("]}") - 1;
 
     for (n = 0; n < obj->applications.nelts; n++) {
-        ngx_rtmp_core_app_conf_t* cur = ((ngx_rtmp_core_app_conf_t**)
-            obj->applications.elts)[n];
+        cur = ((ngx_rtmp_core_app_conf_t **) obj->applications.elts)[n];
         result += ngx_rtmp_kmp_api_application_json_get_size(cur) +
             sizeof(",") - 1;
     }
@@ -215,16 +232,18 @@ ngx_rtmp_kmp_api_server_json_get_size(ngx_rtmp_core_srv_conf_t *obj)
 static u_char *
 ngx_rtmp_kmp_api_server_json_write(u_char *p, ngx_rtmp_core_srv_conf_t *obj)
 {
-    ngx_uint_t  n;
+    ngx_uint_t                 n;
+    ngx_rtmp_core_app_conf_t  *cur;
+
     p = ngx_copy_fix(p, "{\"applications\":[");
 
     for (n = 0; n < obj->applications.nelts; n++) {
-        ngx_rtmp_core_app_conf_t* cur = ((ngx_rtmp_core_app_conf_t**)
-            obj->applications.elts)[n];
+        cur = ((ngx_rtmp_core_app_conf_t **) obj->applications.elts)[n];
 
         if (n > 0) {
             *p++ = ',';
         }
+
         p = ngx_rtmp_kmp_api_application_json_write(p, cur);
     }
 
@@ -236,11 +255,15 @@ ngx_rtmp_kmp_api_server_json_write(u_char *p, ngx_rtmp_core_srv_conf_t *obj)
 /* ngx_rtmp_kmp_api_json writer */
 
 static size_t
-ngx_rtmp_kmp_api_json_get_size()
+ngx_rtmp_kmp_api_json_get_size(void)
 {
-    ngx_rtmp_core_main_conf_t *cmcf = ngx_rtmp_core_main_conf;
-    ngx_uint_t  n;
-    size_t  result =
+    size_t                      result;
+    ngx_uint_t                  n;
+    ngx_rtmp_core_srv_conf_t   *cur;
+    ngx_rtmp_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_rtmp_core_main_conf;
+    result =
         sizeof("{\"version\":\"") - 1 + ngx_rtmp_kmp_version.len +
             ngx_escape_json(NULL, ngx_rtmp_kmp_version.data,
             ngx_rtmp_kmp_version.len) +
@@ -267,8 +290,7 @@ ngx_rtmp_kmp_api_json_get_size()
         sizeof("]}") - 1;
 
     for (n = 0; n < cmcf->servers.nelts; n++) {
-        ngx_rtmp_core_srv_conf_t* cur = ((ngx_rtmp_core_srv_conf_t**)
-            cmcf->servers.elts)[n];
+        cur = ((ngx_rtmp_core_srv_conf_t **) cmcf->servers.elts)[n];
         result += ngx_rtmp_kmp_api_server_json_get_size(cur) + sizeof(",") - 1;
     }
 
@@ -278,8 +300,11 @@ ngx_rtmp_kmp_api_json_get_size()
 static u_char *
 ngx_rtmp_kmp_api_json_write(u_char *p)
 {
-    ngx_rtmp_core_main_conf_t *cmcf = ngx_rtmp_core_main_conf;
-    ngx_uint_t  n;
+    ngx_uint_t                  n;
+    ngx_rtmp_core_srv_conf_t   *cur;
+    ngx_rtmp_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_rtmp_core_main_conf;
     p = ngx_copy_fix(p, "{\"version\":\"");
     p = (u_char *) ngx_escape_json(p, ngx_rtmp_kmp_version.data,
         ngx_rtmp_kmp_version.len);
@@ -313,12 +338,12 @@ ngx_rtmp_kmp_api_json_write(u_char *p)
     p = ngx_copy_fix(p, ",\"servers\":[");
 
     for (n = 0; n < cmcf->servers.nelts; n++) {
-        ngx_rtmp_core_srv_conf_t* cur = ((ngx_rtmp_core_srv_conf_t**)
-            cmcf->servers.elts)[n];
+        cur = ((ngx_rtmp_core_srv_conf_t **) cmcf->servers.elts)[n];
 
         if (n > 0) {
             *p++ = ',';
         }
+
         p = ngx_rtmp_kmp_api_server_json_write(p, cur);
     }
 

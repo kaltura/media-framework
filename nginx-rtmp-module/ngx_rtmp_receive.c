@@ -13,8 +13,8 @@
 
 
 ngx_int_t
-ngx_rtmp_protocol_message_handler(ngx_rtmp_session_t *s,
-        ngx_rtmp_header_t *h, ngx_chain_t *in)
+ngx_rtmp_protocol_message_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
+    ngx_chain_t *in)
 {
     ngx_buf_t              *b;
     u_char                 *p;
@@ -36,7 +36,7 @@ ngx_rtmp_protocol_message_handler(ngx_rtmp_session_t *s,
     p[2] = b->pos[1];
     p[3] = b->pos[0];
 
-    switch(h->type) {
+    switch (h->type) {
         case NGX_RTMP_MSG_CHUNK_SIZE:
             /* set chunk size =val */
             ngx_rtmp_set_chunk_size(s, val);
@@ -85,7 +85,7 @@ ngx_rtmp_protocol_message_handler(ngx_rtmp_session_t *s,
 
 ngx_int_t
 ngx_rtmp_user_message_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-                              ngx_chain_t *in)
+    ngx_chain_t *in)
 {
     ngx_buf_t              *b;
     u_char                 *p;
@@ -117,7 +117,7 @@ ngx_rtmp_user_message_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     p[2] = b->pos[3];
     p[3] = b->pos[2];
 
-    switch(evt) {
+    switch (evt) {
         case NGX_RTMP_USER_STREAM_BEGIN:
             {
                 ngx_rtmp_stream_begin_t     v;
@@ -258,7 +258,7 @@ ngx_rtmp_fetch_uint32(ngx_chain_t **in, uint32_t *ret, ngx_int_t n)
 
 ngx_int_t
 ngx_rtmp_aggregate_message_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-                                   ngx_chain_t *in)
+    ngx_chain_t *in)
 {
     uint32_t            base_time, timestamp, prev_size;
     size_t              len;
@@ -318,6 +318,7 @@ ngx_rtmp_aggregate_message_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             if (len > ch.mlen) {
                 break;
             }
+
             cl = cl->next;
         }
 
@@ -365,8 +366,8 @@ ngx_rtmp_aggregate_message_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
 
 ngx_int_t
-ngx_rtmp_amf_message_handler(ngx_rtmp_session_t *s,
-        ngx_rtmp_header_t *h, ngx_chain_t *in)
+ngx_rtmp_amf_message_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
+    ngx_chain_t *in)
 {
     ngx_rtmp_amf_ctx_t          act;
     ngx_rtmp_core_main_conf_t  *cmcf;
@@ -389,6 +390,7 @@ ngx_rtmp_amf_message_handler(ngx_rtmp_session_t *s,
         h->type == NGX_RTMP_MSG_AMF3_SHARED)
     {
         elts[0].type |= NGX_RTMP_AMF_TYPELESS;
+
     } else {
         elts[0].type &= ~NGX_RTMP_AMF_TYPELESS;
     }
@@ -441,6 +443,7 @@ ngx_rtmp_amf_message_handler(ngx_rtmp_session_t *s,
                     return NGX_OK;
             }
         }
+
     } else {
         ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "AMF cmd '%s' no handler", func);
@@ -452,7 +455,7 @@ ngx_rtmp_amf_message_handler(ngx_rtmp_session_t *s,
 
 ngx_int_t
 ngx_rtmp_receive_amf(ngx_rtmp_session_t *s, ngx_chain_t *in,
-        ngx_rtmp_amf_elt_t *elts, size_t nelts)
+    ngx_rtmp_amf_elt_t *elts, size_t nelts)
 {
     ngx_rtmp_amf_ctx_t     act;
 

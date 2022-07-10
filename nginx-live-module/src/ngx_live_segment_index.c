@@ -155,6 +155,7 @@ ngx_live_segment_index_free_non_forced(ngx_live_channel_t *channel)
     {
         return;
     }
+
     limit = cctx->last_ready_index - spcf->force_memory_segments;
 
     truncate = 0;
@@ -514,6 +515,7 @@ ngx_live_segment_index_persisted(ngx_live_channel_t *channel,
             if (snap != NULL) {
                 snap->close(snap, ngx_live_persist_snap_close_free);
             }
+
             snap = index->snap;
             index->snap = NULL;
         }
@@ -553,6 +555,7 @@ ngx_live_segment_index_persisted(ngx_live_channel_t *channel,
             pending->snap->close(pending->snap,
                 ngx_live_persist_snap_close_free);
         }
+
         pending->snap = snap;
         return;
     }

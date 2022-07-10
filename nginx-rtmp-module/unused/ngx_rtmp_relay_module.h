@@ -32,7 +32,7 @@ typedef struct {
 } ngx_rtmp_relay_target_t;
 
 
-typedef struct ngx_rtmp_relay_ctx_s ngx_rtmp_relay_ctx_t;
+typedef struct ngx_rtmp_relay_ctx_s  ngx_rtmp_relay_ctx_t;
 
 struct ngx_rtmp_relay_ctx_s {
     ngx_str_t                       name;

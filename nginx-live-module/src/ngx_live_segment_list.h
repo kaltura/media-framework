@@ -43,7 +43,7 @@ typedef struct {
 } ngx_live_segment_iter_t;
 
 
-size_t ngx_live_segment_list_get_node_size();
+size_t ngx_live_segment_list_get_node_size(void);
 
 ngx_int_t ngx_live_segment_list_init(ngx_live_channel_t *channel,
     ngx_uint_t bp_idx, ngx_live_segment_list_t *segment_list);

@@ -15,9 +15,9 @@
 #include "ngx_rtmp_kmp_module.h"
 
 
-#define ngx_str_from_c(dst, src) {       \
-        dst.data = src;                  \
-        dst.len = ngx_strlen(dst.data);  \
+#define ngx_str_from_c(dst, src) {                                           \
+        dst.data = src;                                                      \
+        dst.len = ngx_strlen(dst.data);                                      \
     }
 
 
@@ -776,6 +776,7 @@ ngx_rtmp_kmp_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     return NGX_OK;
 
 next:
+
     return next_connect(s, v);
 }
 
@@ -861,6 +862,7 @@ ngx_rtmp_kmp_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
         &sctx->publish.name, &sctx->publish.args, &sctx->publish.type);
 
 next:
+
     return next_publish(s, v);
 }
 
@@ -916,6 +918,7 @@ ngx_rtmp_kmp_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
     ngx_rtmp_kmp_detach_tracks(sctx, reason);
 
 next:
+
     return next_close_stream(s, v);
 }
 
@@ -1013,12 +1016,24 @@ ngx_rtmp_kmp_postconfiguration(ngx_conf_t *cf)
     ngx_rtmp_close_stream = ngx_rtmp_kmp_close_stream;
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_CONNECT]);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
     *h = ngx_rtmp_kmp_socket_connect;
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_MSG_VIDEO]);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
     *h = ngx_rtmp_kmp_av;
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_MSG_AUDIO]);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
     *h = ngx_rtmp_kmp_av;
 
     return NGX_OK;

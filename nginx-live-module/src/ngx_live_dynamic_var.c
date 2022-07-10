@@ -166,6 +166,7 @@ ngx_live_dynamic_var_set_vars(ngx_live_json_cmds_ctx_t *jctx,
                 "failed to decode key \"%V\"", &cur->key);
             goto failed;
         }
+
         var->id_escape = ngx_json_str_get_escape(&var->sn.str);
 
         var->value.s.data = var->sn.str.data + var->sn.str.len;
@@ -186,6 +187,7 @@ ngx_live_dynamic_var_set_vars(ngx_live_json_cmds_ctx_t *jctx,
             ngx_memcpy(var->value.s.data, cur->value.v.str.s.data,
                 var->value.s.len);
         }
+
         ngx_json_str_set_escape(&var->value);
     }
 
@@ -380,6 +382,7 @@ ngx_live_dynamic_var_read_setup(ngx_persist_block_header_t *header,
             "ngx_live_dynamic_var_read_setup: read key failed");
         return NGX_BAD_DATA;
     }
+
     var->id_escape = ngx_json_str_get_escape(&var->sn.str);
 
     var->value.s.data = var->sn.str.data + var->sn.str.len;
@@ -390,6 +393,7 @@ ngx_live_dynamic_var_read_setup(ngx_persist_block_header_t *header,
             "ngx_live_dynamic_var_read_setup: read value failed");
         return NGX_BAD_DATA;
     }
+
     ngx_json_str_set_escape(&var->value);
 
     ngx_queue_insert_tail(&cctx->queue, &var->queue);

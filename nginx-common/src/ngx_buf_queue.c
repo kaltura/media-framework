@@ -47,18 +47,21 @@ ngx_buf_queue_delete(ngx_buf_queue_t *buf_queue)
         ngx_lba_free(buf_queue->lba, node);
         buf_queue->free_left++;
     }
+
     buf_queue->free = NULL;
 
     for (node = ngx_buf_queue_head(buf_queue); node != NULL; node = next) {
         next = ngx_buf_queue_next(node);
         ngx_lba_free(buf_queue->lba, node);
     }
+
     buf_queue->used_head = NULL;
     buf_queue->used_tail = &buf_queue->used_head;
 
     if (buf_queue->mem_left != NULL) {
         *buf_queue->mem_left += buf_queue->alloc_size * buf_queue->nbuffers;
     }
+
     buf_queue->nbuffers = 0;
 }
 
@@ -187,7 +190,8 @@ ngx_buf_queue_free(ngx_buf_queue_t *buf_queue, u_char *limit)
         }
 
         if (limit >= ngx_buf_queue_start(cur) &&
-            limit < ngx_buf_queue_end(buf_queue, cur)) {
+            limit < ngx_buf_queue_end(buf_queue, cur))
+        {
             break;
         }
     }
@@ -204,7 +208,8 @@ ngx_buf_queue_free(ngx_buf_queue_t *buf_queue, u_char *limit)
     for ( ;; ) {
 
         if (limit >= ngx_buf_queue_start(cur) &&
-            limit < ngx_buf_queue_end(buf_queue, cur)) {
+            limit < ngx_buf_queue_end(buf_queue, cur))
+        {
             break;  /* the buffer contains the given ptr, stop */
         }
 
@@ -224,6 +229,7 @@ ngx_buf_queue_free(ngx_buf_queue_t *buf_queue, u_char *limit)
             if (buf_queue->mem_left != NULL) {
                 *buf_queue->mem_left += buf_queue->alloc_size;
             }
+
             buf_queue->nbuffers--;
 
         } else {

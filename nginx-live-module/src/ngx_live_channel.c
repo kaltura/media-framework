@@ -601,12 +601,14 @@ ngx_live_variant_update(ngx_live_variant_t *variant,
     if (conf->label.s.data != variant->label_buf) {
         ngx_memcpy(variant->label_buf, conf->label.s.data, conf->label.s.len);
     }
+
     ngx_json_str_set_escape(&variant->conf.label);
 
     variant->conf.lang.s.len = conf->lang.s.len;
     if (conf->lang.s.data != variant->lang_buf) {
         ngx_memcpy(variant->lang_buf, conf->lang.s.data, conf->lang.s.len);
     }
+
     ngx_json_str_set_escape(&variant->conf.lang);
 
     variant->conf.role = conf->role;
@@ -921,6 +923,7 @@ ngx_live_variant_json_track_ids_write(u_char *p, ngx_live_variant_t *obj)
             p = ngx_copy_fix(p, "\"audio\":\"");
             break;
         }
+
         p = ngx_json_str_write_escape(p, &cur_track->sn.str,
             cur_track->id_escape);
         *p++ = '"';

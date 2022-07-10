@@ -34,21 +34,21 @@ typedef struct {
 #define NGX_LIVE_PRESET_CONF_OFFSET  offsetof(ngx_live_conf_ctx_t, preset_conf)
 
 
-#define ngx_live_get_module_main_conf(channel, module)                        \
+#define ngx_live_get_module_main_conf(channel, module)                       \
     (channel)->main_conf[module.ctx_index]
-#define ngx_live_get_module_preset_conf(channel, module)                      \
+#define ngx_live_get_module_preset_conf(channel, module)                     \
     (channel)->preset_conf[module.ctx_index]
 
 
-#define ngx_live_conf_get_module_main_conf(cf, module)                        \
+#define ngx_live_conf_get_module_main_conf(cf, module)                       \
     ((ngx_live_conf_ctx_t *) cf->ctx)->main_conf[module.ctx_index]
-#define ngx_live_conf_get_module_preset_conf(cf, module)                      \
+#define ngx_live_conf_get_module_preset_conf(cf, module)                     \
     ((ngx_live_conf_ctx_t *) cf->ctx)->preset_conf[module.ctx_index]
 
-#define ngx_live_cycle_get_module_main_conf(cycle, module)                    \
-    (cycle->conf_ctx[ngx_live_module.index] ?                                 \
-        ((ngx_live_conf_ctx_t *) cycle->conf_ctx[ngx_live_module.index])      \
-            ->main_conf[module.ctx_index]:                                    \
+#define ngx_live_cycle_get_module_main_conf(cycle, module)                   \
+    (cycle->conf_ctx[ngx_live_module.index] ?                                \
+        ((ngx_live_conf_ctx_t *) cycle->conf_ctx[ngx_live_module.index])     \
+            ->main_conf[module.ctx_index]:                                   \
         NULL)
 
 

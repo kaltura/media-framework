@@ -10,7 +10,9 @@ static size_t
 ngx_ts_kmp_track_mpegts_json_get_size(ngx_ts_kmp_publish_t *obj,
     ngx_connection_t *c)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("{\"stream_id\":\"") - 1 + obj->stream_id.len +
             ngx_escape_json(NULL, obj->stream_id.data, obj->stream_id.len) +
         sizeof("\",\"pid\":") - 1 + NGX_INT32_LEN +
@@ -50,7 +52,9 @@ ngx_ts_kmp_track_mpegts_json_write(u_char *p, ngx_ts_kmp_publish_t *obj,
 static size_t
 ngx_ts_kmp_track_json_get_size(ngx_ts_kmp_publish_t *obj, ngx_connection_t *c)
 {
-    size_t  result =
+    size_t  result;
+
+    result =
         sizeof("\"input_type\":\"mpegts\",\"mpegts\":") - 1 +
             ngx_ts_kmp_track_mpegts_json_get_size(obj, c);
 

@@ -101,11 +101,11 @@ default:
 // parse the input params
 if (isset($params['rtmp']))
 {
-	$streamName = $params['rtmp']['name'];
+    $streamName = $params['rtmp']['name'];
 }
 else if (isset($params['mpegts']))
 {
-	$streamName = $params['mpegts']['stream_id'];
+    $streamName = $params['mpegts']['stream_id'];
 }
 $undPos = strrpos($streamName, '_');
 $channelId = substr($streamName, 0, $undPos);

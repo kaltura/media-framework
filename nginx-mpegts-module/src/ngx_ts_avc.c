@@ -26,6 +26,7 @@ typedef struct {
     u_char                     *pos;
 } ngx_ts_avc_chain_reader_t;
 
+
 typedef struct {
     ngx_ts_avc_chain_reader_t   base;
     uint32_t                    last_three;
@@ -372,6 +373,7 @@ ngx_ts_avc_chain_reader_ep_read(ngx_ts_avc_chain_reader_ep_t *reader,
     if (size > reader->left) {
         return NGX_ERROR;
     }
+
     reader->left -= size;
 
     dst_end = dst + size;
@@ -398,6 +400,7 @@ ngx_ts_avc_chain_reader_ep_read(ngx_ts_avc_chain_reader_ep_t *reader,
             if (reader->left <= 0) {
                 return NGX_ERROR;
             }
+
             reader->left--;
             continue;
         }
@@ -408,6 +411,7 @@ ngx_ts_avc_chain_reader_ep_read(ngx_ts_avc_chain_reader_ep_t *reader,
     return NGX_OK;
 }
 
+
 ngx_int_t
 ngx_ts_avc_chain_reader_ep_skip(ngx_ts_avc_chain_reader_ep_t *reader,
     size_t size)
@@ -417,6 +421,7 @@ ngx_ts_avc_chain_reader_ep_skip(ngx_ts_avc_chain_reader_ep_t *reader,
     if (size > reader->left) {
         return NGX_ERROR;
     }
+
     reader->left -= size;
 
     while (size > 0) {
@@ -443,6 +448,7 @@ ngx_ts_avc_chain_reader_ep_skip(ngx_ts_avc_chain_reader_ep_t *reader,
             if (reader->left <= 0) {
                 return NGX_ERROR;
             }
+
             reader->left--;
             continue;
         }

@@ -216,6 +216,7 @@ ngx_live_persist_index_snap_close(void *data,
         if (cctx->pending != NULL) {
             ngx_live_persist_index_snap_free(cctx->pending);
         }
+
         cctx->pending = snap;
         return;
     }
