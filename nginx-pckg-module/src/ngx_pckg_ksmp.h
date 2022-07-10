@@ -141,6 +141,15 @@ typedef struct {
 } ngx_pckg_rendition_report_t;
 
 
+typedef struct {
+    uint32_t                       track_id;
+    uint32_t                       min_segment_index;
+    uint32_t                       max_segment_index;
+    uint32_t                       min_track_id;
+    uint32_t                       max_track_id;
+} ngx_pckg_channel_media_t;
+
+
 struct ngx_pckg_channel_s {
     ngx_pool_t                    *pool;
     ngx_log_t                     *log;
@@ -149,7 +158,7 @@ struct ngx_pckg_channel_s {
 
     uint32_t                       flags;
     uint32_t                       parse_flags;
-    uint32_t                       track_id;  /* sgts only */
+    ngx_pckg_channel_media_t      *media;     /* sgts only */
 
     ngx_str_t                      id;
     ngx_ksmp_channel_header_t     *header;

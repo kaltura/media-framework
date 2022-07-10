@@ -233,6 +233,11 @@ ngx_persist_conf_read_blocks(ngx_persist_conf_t *conf, ngx_uint_t ctx,
             continue;
         }
 
+        ngx_log_debug3(NGX_LOG_DEBUG_CORE, rs->log, 0,
+            "ngx_persist_conf_read_blocks: "
+            "reading block, ctx: %ui, id: %*s",
+            ctx, (size_t) sizeof(header->id), &header->id);
+
         rc = block->read(header, &block_rs, obj);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
