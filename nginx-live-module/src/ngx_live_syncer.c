@@ -27,11 +27,13 @@ typedef struct {
     time_t                 correction_reuse_threshold;
 } ngx_live_syncer_preset_conf_t;
 
+
 typedef struct {
     uint64_t               frame_id;
     int64_t                correction;
     uint32_t               sequence;
 } ngx_live_syncer_log_t;
+
 
 typedef struct {
     int64_t                last_pts;
@@ -44,6 +46,7 @@ typedef struct {
     uint32_t               log_index;
 } ngx_live_syncer_track_ctx_t;
 
+
 typedef struct {
     int64_t                correction;
     uint32_t               count;
@@ -55,6 +58,7 @@ typedef struct {
     int64_t                correction;
 } ngx_live_syncer_persist_track_t;
 
+
 typedef struct {
     int64_t                correction;
 } ngx_live_syncer_persist_channel_t;
@@ -65,6 +69,7 @@ typedef struct {
     ngx_live_syncer_persist_track_t     tp;
     unsigned                            valid:1;
 } ngx_live_syncer_snap_track_t;
+
 
 typedef struct {
     ngx_live_syncer_persist_channel_t   cp;
@@ -127,6 +132,7 @@ static ngx_command_t  ngx_live_syncer_commands[] = {
       ngx_null_command
 };
 
+
 static ngx_live_module_t  ngx_live_syncer_module_ctx = {
     ngx_live_syncer_preconfiguration,         /* preconfiguration */
     ngx_live_syncer_postconfiguration,        /* postconfiguration */
@@ -137,6 +143,7 @@ static ngx_live_module_t  ngx_live_syncer_module_ctx = {
     ngx_live_syncer_create_preset_conf,       /* create preset configuration */
     ngx_live_syncer_merge_preset_conf,        /* merge preset configuration */
 };
+
 
 ngx_module_t  ngx_live_syncer_module = {
     NGX_MODULE_V1,
@@ -173,6 +180,7 @@ ngx_live_syncer_track_reset(ngx_live_track_t *track, void *ectx)
     return NGX_OK;
 }
 
+
 static void
 ngx_live_syncer_log_add(ngx_live_channel_t *channel,
     ngx_live_syncer_track_ctx_t *ctx, uint64_t frame_id)
@@ -195,6 +203,7 @@ ngx_live_syncer_log_add(ngx_live_channel_t *channel,
     }
 }
 
+
 static void
 ngx_live_syncer_enable_sync_flag(ngx_live_channel_t *channel,
     ngx_live_track_t *skip, uint32_t force_sync_count)
@@ -216,6 +225,7 @@ ngx_live_syncer_enable_sync_flag(ngx_live_channel_t *channel,
         cur_ctx->force_sync_count = force_sync_count;
     }
 }
+
 
 static void
 ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
@@ -291,6 +301,7 @@ ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
 
     ngx_live_syncer_log_add(channel, ctx, frame_id);
 }
+
 
 static ngx_int_t
 ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
@@ -432,6 +443,7 @@ ngx_live_syncer_channel_json_get_size(void *obj)
         sizeof("}") - 1;
 }
 
+
 static u_char *
 ngx_live_syncer_channel_json_write(u_char *p, void *obj)
 {
@@ -467,6 +479,7 @@ ngx_live_syncer_track_json_get_size(void *obj)
         sizeof(",\"count\":") - 1 + NGX_INT32_LEN +
         sizeof("}") - 1;
 }
+
 
 static u_char *
 ngx_live_syncer_track_json_write(u_char *p, void *obj)
@@ -542,6 +555,7 @@ ngx_live_syncer_get_log(ngx_live_track_t *track)
     return best;
 }
 
+
 static void
 ngx_live_syncer_remove_future_logs(ngx_live_track_t *track)
 {
@@ -559,6 +573,7 @@ ngx_live_syncer_remove_future_logs(ngx_live_track_t *track)
         }
     }
 }
+
 
 static ngx_int_t
 ngx_live_syncer_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
@@ -624,6 +639,7 @@ ngx_live_syncer_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_syncer_write_index_track(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
@@ -666,6 +682,7 @@ ngx_live_syncer_write_index_track(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_syncer_read_index_track(ngx_persist_block_header_t *header,
@@ -711,6 +728,7 @@ ngx_live_syncer_read_index_track(ngx_persist_block_header_t *header,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_syncer_write_index(ngx_persist_write_ctx_t *write_ctx, void *obj)
 {
@@ -733,6 +751,7 @@ ngx_live_syncer_write_index(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_syncer_read_index(ngx_persist_block_header_t *header,
@@ -824,6 +843,7 @@ ngx_live_syncer_create_preset_conf(ngx_conf_t *cf)
     return conf;
 }
 
+
 static char *
 ngx_live_syncer_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 {
@@ -888,6 +908,7 @@ static ngx_persist_block_t  ngx_live_syncer_blocks[] = {
     ngx_null_persist_block
 };
 
+
 static ngx_int_t
 ngx_live_syncer_preconfiguration(ngx_conf_t *cf)
 {
@@ -900,12 +921,14 @@ ngx_live_syncer_preconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 static ngx_live_channel_event_t    ngx_live_syncer_channel_events[] = {
     { ngx_live_syncer_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
     { ngx_live_syncer_channel_index_snap, NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP },
 
       ngx_live_null_event
 };
+
 
 static ngx_live_track_event_t      ngx_live_syncer_track_events[] = {
     { ngx_live_syncer_track_reset, NGX_LIVE_EVENT_TRACK_INIT },
@@ -914,6 +937,7 @@ static ngx_live_track_event_t      ngx_live_syncer_track_events[] = {
 
       ngx_live_null_event
 };
+
 
 static ngx_live_json_writer_def_t  ngx_live_syncer_json_writers[] = {
     { { ngx_live_syncer_channel_json_get_size,
@@ -926,6 +950,7 @@ static ngx_live_json_writer_def_t  ngx_live_syncer_json_writers[] = {
 
       ngx_live_null_json_writer
 };
+
 
 static ngx_int_t
 ngx_live_syncer_postconfiguration(ngx_conf_t *cf)

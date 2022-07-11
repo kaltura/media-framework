@@ -119,6 +119,7 @@ failed:
     return NGX_ERROR;
 }
 
+
 static char *
 ngx_live_merge_presets(ngx_conf_t *cf, ngx_live_core_main_conf_t *cmcf,
     ngx_live_module_t *module, ngx_uint_t ctx_index)
@@ -154,6 +155,7 @@ failed:
 
     return rv;
 }
+
 
 static ngx_int_t
 ngx_live_init_events(ngx_conf_t *cf, ngx_live_core_main_conf_t *cmcf)
@@ -377,6 +379,7 @@ failed:
 
     return rv;
 }
+
 
 /* copied from ngx_conf_handler, removed support for modules */
 char *

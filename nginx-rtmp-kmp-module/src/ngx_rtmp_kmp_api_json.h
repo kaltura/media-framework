@@ -38,6 +38,7 @@ ngx_rtmp_kmp_api_stream_json_get_size(ngx_rtmp_kmp_stream_ctx_t *obj,
     return result;
 }
 
+
 static u_char *
 ngx_rtmp_kmp_api_stream_json_write(u_char *p, ngx_rtmp_kmp_stream_ctx_t *obj,
     ngx_rtmp_live_stream_t *stream)
@@ -77,6 +78,7 @@ ngx_rtmp_kmp_api_stream_json_write(u_char *p, ngx_rtmp_kmp_stream_ctx_t *obj,
     return p;
 }
 
+
 /* ngx_rtmp_kmp_api_session_json writer */
 
 static size_t
@@ -109,6 +111,7 @@ ngx_rtmp_kmp_api_session_json_get_size(ngx_rtmp_kmp_ctx_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_rtmp_kmp_api_session_json_write(u_char *p, ngx_rtmp_kmp_ctx_t *obj)
 {
@@ -138,6 +141,7 @@ ngx_rtmp_kmp_api_session_json_write(u_char *p, ngx_rtmp_kmp_ctx_t *obj)
 
     return p;
 }
+
 
 /* ngx_rtmp_kmp_api_application_json writer */
 
@@ -171,6 +175,7 @@ ngx_rtmp_kmp_api_application_json_get_size(ngx_rtmp_core_app_conf_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_rtmp_kmp_api_application_json_write(u_char *p, ngx_rtmp_core_app_conf_t
@@ -207,6 +212,7 @@ ngx_rtmp_kmp_api_application_json_write(u_char *p, ngx_rtmp_core_app_conf_t
     return p;
 }
 
+
 /* ngx_rtmp_kmp_api_server_json writer */
 
 static size_t
@@ -228,6 +234,7 @@ ngx_rtmp_kmp_api_server_json_get_size(ngx_rtmp_core_srv_conf_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_rtmp_kmp_api_server_json_write(u_char *p, ngx_rtmp_core_srv_conf_t *obj)
@@ -251,6 +258,7 @@ ngx_rtmp_kmp_api_server_json_write(u_char *p, ngx_rtmp_core_srv_conf_t *obj)
 
     return p;
 }
+
 
 /* ngx_rtmp_kmp_api_json writer */
 
@@ -296,6 +304,7 @@ ngx_rtmp_kmp_api_json_get_size(void)
 
     return result;
 }
+
 
 static u_char *
 ngx_rtmp_kmp_api_json_write(u_char *p)

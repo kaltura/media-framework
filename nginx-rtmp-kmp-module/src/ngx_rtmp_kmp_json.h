@@ -32,6 +32,7 @@ ngx_rtmp_kmp_connect_rtmp_json_get_size(ngx_rtmp_kmp_connect_t *obj,
     return result;
 }
 
+
 static u_char *
 ngx_rtmp_kmp_connect_rtmp_json_write(u_char *p, ngx_rtmp_kmp_connect_t *obj,
     ngx_rtmp_session_t *s)
@@ -56,6 +57,7 @@ ngx_rtmp_kmp_connect_rtmp_json_write(u_char *p, ngx_rtmp_kmp_connect_t *obj,
     return p;
 }
 
+
 /* ngx_rtmp_kmp_connect_json writer */
 
 static size_t
@@ -72,6 +74,7 @@ ngx_rtmp_kmp_connect_json_get_size(ngx_rtmp_kmp_connect_t *obj,
 
     return result;
 }
+
 
 static u_char *
 ngx_rtmp_kmp_connect_json_write(u_char *p, ngx_rtmp_kmp_connect_t *obj,

@@ -30,6 +30,7 @@ typedef struct {
 #endif
 } ngx_block_pool_slot_t;
 
+
 typedef struct {
     ngx_pool_t             *pool;
     size_t                 *mem_limit;

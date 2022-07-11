@@ -137,6 +137,7 @@ static ngx_live_module_t  ngx_live_timeline_module_ctx = {
     ngx_live_timeline_merge_preset_conf,      /* merge preset configuration */
 };
 
+
 ngx_module_t  ngx_live_timeline_module = {
     NGX_MODULE_V1,
     &ngx_live_timeline_module_ctx,            /* module context */
@@ -184,6 +185,7 @@ ngx_live_period_create(ngx_live_channel_t *channel)
     return period;
 }
 
+
 static void
 ngx_live_period_free(ngx_live_channel_t *channel, ngx_live_period_t *period)
 {
@@ -195,12 +197,14 @@ ngx_live_period_free(ngx_live_channel_t *channel, ngx_live_period_t *period)
         period);
 }
 
+
 static void
 ngx_live_period_add_segment(ngx_live_period_t *period, uint32_t duration)
 {
     period->segment_count++;
     period->duration += duration;
 }
+
 
 static void
 ngx_live_period_pop_segment(ngx_live_period_t *period, uint32_t *duration)
@@ -219,6 +223,7 @@ ngx_live_period_pop_segment(ngx_live_period_t *period, uint32_t *duration)
     /* won't break tree structure since there is no overlap between periods */
     period->node.key++;
 }
+
 
 static void
 ngx_live_period_get_max_duration(ngx_live_period_t *period,
@@ -243,6 +248,7 @@ ngx_live_period_get_max_duration(ngx_live_period_t *period,
         }
     }
 }
+
 
 static ngx_int_t
 ngx_live_period_reset_duration(ngx_live_channel_t *channel,
@@ -353,6 +359,7 @@ ngx_live_manifest_timeline_remove_segment(
     timeline->first_period_initial_segment_index = period->node.key;
 }
 
+
 static void
 ngx_live_manifest_timeline_remove_segments(
     ngx_live_manifest_timeline_t *timeline, uint32_t base_count,
@@ -383,6 +390,7 @@ ngx_live_manifest_timeline_remove_segments(
     }
 }
 
+
 static void
 ngx_live_manifest_timeline_add_first_period(
     ngx_live_timeline_channel_ctx_t *cctx,
@@ -410,6 +418,7 @@ ngx_live_manifest_timeline_add_first_period(
     timeline->period_count = 1;
 }
 
+
 static void
 ngx_live_manifest_timeline_add_period(ngx_live_timeline_channel_ctx_t *cctx,
     ngx_live_manifest_timeline_t *timeline, ngx_live_period_t *period)
@@ -429,6 +438,7 @@ ngx_live_manifest_timeline_add_period(ngx_live_timeline_channel_ctx_t *cctx,
     timeline->period_count++;
 }
 
+
 static void
 ngx_live_manifest_timeline_add_segment(ngx_live_manifest_timeline_t *timeline,
     uint32_t duration)
@@ -442,6 +452,7 @@ ngx_live_manifest_timeline_add_segment(ngx_live_manifest_timeline_t *timeline,
 
     timeline->last_modified = ngx_time();
 }
+
 
 static void
 ngx_live_manifest_timeline_post_add_segment(
@@ -462,6 +473,7 @@ ngx_live_manifest_timeline_post_add_segment(
         ngx_array_entries(timeline->last_durations)] = duration;
 }
 
+
 static void
 ngx_live_manifest_timeline_truncate(
     ngx_live_manifest_timeline_t *timeline, uint32_t segment_index)
@@ -472,6 +484,7 @@ ngx_live_manifest_timeline_truncate(
         ngx_live_manifest_timeline_remove_segment(timeline);
     }
 }
+
 
 static void
 ngx_live_timeline_manifest_copy(ngx_live_timeline_t *dest,
@@ -519,6 +532,7 @@ ngx_live_timeline_conf_default(ngx_live_timeline_conf_t *conf,
     conf->active = 1;    /* active by default */
     conf->period_gap = -1;
 }
+
 
 static ngx_int_t
 ngx_live_timeline_conf_validate(ngx_live_timeline_conf_t *conf,
@@ -569,6 +583,7 @@ ngx_live_timeline_conf_validate(ngx_live_timeline_conf_t *conf,
     return NGX_OK;
 }
 
+
 static u_char *
 ngx_live_timeline_log_error(ngx_log_t *log, u_char *buf, size_t len)
 {
@@ -590,6 +605,7 @@ ngx_live_timeline_log_error(ngx_log_t *log, u_char *buf, size_t len)
 
     return p;
 }
+
 
 ngx_int_t
 ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
@@ -674,6 +690,7 @@ ngx_live_timeline_create(ngx_live_channel_t *channel, ngx_str_t *id,
     return NGX_OK;
 }
 
+
 void
 ngx_live_timeline_free(ngx_live_timeline_t *timeline)
 {
@@ -717,6 +734,7 @@ ngx_live_timeline_free(ngx_live_timeline_t *timeline)
     ngx_live_channel_setup_changed(channel);
 }
 
+
 ngx_live_timeline_t *
 ngx_live_timeline_get(ngx_live_channel_t *channel, ngx_str_t *id)
 {
@@ -740,6 +758,7 @@ ngx_live_timeline_get(ngx_live_channel_t *channel, ngx_str_t *id)
 
     return timeline;
 }
+
 
 uint32_t
 ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
@@ -804,6 +823,7 @@ ngx_live_timeline_get_segment_info(ngx_live_timeline_t *timeline,
     return NGX_KSMP_ERR_SUCCESS;
 }
 
+
 uint32_t
 ngx_live_timeline_sequence_to_index(ngx_live_timeline_t *timeline,
     uint32_t sequence)
@@ -855,6 +875,7 @@ ngx_live_timeline_sequence_to_index(ngx_live_timeline_t *timeline,
     return period->node.key + sequence - cur_sequence;
 }
 
+
 uint32_t
 ngx_live_timeline_index_to_sequence(ngx_live_timeline_t *timeline,
     uint32_t segment_index, ngx_flag_t *exists)
@@ -887,6 +908,7 @@ ngx_live_timeline_index_to_sequence(ngx_live_timeline_t *timeline,
     return sequence;
 }
 
+
 ngx_flag_t
 ngx_live_timeline_is_expired(ngx_live_timeline_t *timeline)
 {
@@ -915,6 +937,7 @@ ngx_live_timeline_is_expired(ngx_live_timeline_t *timeline)
     return ngx_time() > (time_t) (timeline->last_segment_created + expiry);
 }
 
+
 static ngx_flag_t
 ngx_live_timeline_is_last_pending(ngx_live_timeline_t *timeline)
 {
@@ -941,6 +964,7 @@ ngx_live_timeline_is_last_pending(ngx_live_timeline_t *timeline)
 
     return last_index == cctx->last_segment_index;
 }
+
 
 ngx_int_t
 ngx_live_timeline_update(ngx_live_timeline_t *timeline,
@@ -982,6 +1006,7 @@ ngx_live_timeline_update(ngx_live_timeline_t *timeline,
 
     return NGX_OK;
 }
+
 
 #if (NGX_LIVE_VALIDATIONS)
 static void
@@ -1092,6 +1117,7 @@ ngx_live_timeline_validate(ngx_live_timeline_t *timeline)
 #define ngx_live_timeline_validate(timeline)
 #endif
 
+
 static void
 ngx_live_timeline_remove_segment(ngx_live_timeline_t *timeline)
 {
@@ -1125,6 +1151,7 @@ ngx_live_timeline_remove_segment(ngx_live_timeline_t *timeline)
         timeline->first_period_initial_time = period->time;
     }
 }
+
 
 static void
 ngx_live_timeline_remove_segments(ngx_live_timeline_t *timeline,
@@ -1170,6 +1197,7 @@ done:
     ngx_live_timeline_validate(timeline);
 }
 
+
 static void
 ngx_live_timeline_inactive_remove_segments(ngx_live_timeline_t *timeline,
     uint32_t *min_segment_index)
@@ -1206,6 +1234,7 @@ ngx_live_timeline_inactive_remove_segments(ngx_live_timeline_t *timeline,
     ngx_live_timeline_validate(timeline);
 }
 
+
 static void
 ngx_live_timeline_add_segment(ngx_live_timeline_t *timeline, uint32_t duration)
 {
@@ -1223,6 +1252,7 @@ ngx_live_timeline_add_segment(ngx_live_timeline_t *timeline, uint32_t duration)
     ngx_live_manifest_timeline_add_segment(&timeline->manifest, duration);
 }
 
+
 static uint32_t
 ngx_live_timeline_get_first_index(ngx_live_timeline_t *timeline)
 {
@@ -1238,6 +1268,7 @@ ngx_live_timeline_get_first_index(ngx_live_timeline_t *timeline)
 
     return period->node.key;
 }
+
 
 static void
 ngx_live_timeline_get_start_relative_time(ngx_live_timeline_t *timeline,
@@ -1267,6 +1298,7 @@ ngx_live_timeline_get_start_relative_time(ngx_live_timeline_t *timeline,
     *time = period->time + offset;
 }
 
+
 static void
 ngx_live_timeline_get_end_relative_time(ngx_live_timeline_t *timeline,
     int64_t period_gap, int64_t *time)
@@ -1294,6 +1326,7 @@ ngx_live_timeline_get_end_relative_time(ngx_live_timeline_t *timeline,
 
     *time = period->time + duration - offset;
 }
+
 
 ngx_int_t
 ngx_live_timeline_get_time(ngx_live_timeline_t *timeline, uint32_t flags,
@@ -1330,6 +1363,7 @@ ngx_live_timeline_get_time(ngx_live_timeline_t *timeline, uint32_t flags,
 
     return NGX_OK;
 }
+
 
 static ngx_live_period_t *
 ngx_live_timeline_get_period_by_index(ngx_live_timeline_t *timeline,
@@ -1386,6 +1420,7 @@ ngx_live_timeline_get_period_by_index(ngx_live_timeline_t *timeline,
     }
 }
 
+
 static ngx_live_period_t *
 ngx_live_timeline_get_period_by_time(ngx_live_timeline_t *timeline,
     int64_t time)
@@ -1435,6 +1470,7 @@ ngx_live_timeline_get_period_by_time(ngx_live_timeline_t *timeline,
         }
     }
 }
+
 
 ngx_int_t
 ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
@@ -1588,6 +1624,7 @@ ngx_live_timeline_copy(ngx_live_timeline_t *dest, ngx_live_timeline_t *source,
         NGX_LIVE_EVENT_CHANNEL_HISTORY_CHANGED, NULL);
 }
 
+
 static void
 ngx_live_timeline_truncate(ngx_live_timeline_t *timeline,
     uint32_t segment_index)
@@ -1640,6 +1677,7 @@ ngx_live_timelines_free_old_segments(ngx_live_channel_t *channel,
         NGX_LIVE_EVENT_CHANNEL_SEGMENT_FREE,
         (void *) (uintptr_t) min_segment_index);
 }
+
 
 ngx_int_t
 ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
@@ -1798,6 +1836,7 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
     return exists ? NGX_OK : NGX_DONE;
 }
 
+
 static void
 ngx_live_timeline_update_last_segment(ngx_live_timeline_t *timeline,
     uint32_t duration)
@@ -1863,6 +1902,7 @@ ngx_live_timeline_update_last_segment(ngx_live_timeline_t *timeline,
     ngx_live_timeline_validate(timeline);
 }
 
+
 ngx_int_t
 ngx_live_timelines_update_last_segment(ngx_live_channel_t *channel,
     uint32_t duration)
@@ -1906,6 +1946,7 @@ ngx_live_timelines_update_last_segment(ngx_live_channel_t *channel,
     return NGX_OK;
 }
 
+
 void
 ngx_live_timelines_truncate(ngx_live_channel_t *channel,
     uint32_t segment_index)
@@ -1931,6 +1972,7 @@ ngx_live_timelines_truncate(ngx_live_channel_t *channel,
     }
 }
 
+
 ngx_int_t
 ngx_live_timelines_get_segment_index(ngx_live_channel_t *channel, int64_t time,
     uint32_t *segment_index)
@@ -1946,6 +1988,7 @@ ngx_live_timelines_get_segment_index(ngx_live_channel_t *channel, int64_t time,
         &ignore, &iter);
 }
 
+
 ngx_int_t
 ngx_live_timelines_get_segment_time(ngx_live_channel_t *channel,
     uint32_t segment_index, int64_t *start, int64_t *end)
@@ -1957,6 +2000,7 @@ ngx_live_timelines_get_segment_time(ngx_live_channel_t *channel,
     return ngx_live_segment_list_get_segment_time(&cctx->segment_list,
         segment_index, start, end);
 }
+
 
 int64_t
 ngx_live_timelines_get_last_time(ngx_live_channel_t *channel)
@@ -2016,6 +2060,7 @@ ngx_live_timelines_cleanup(ngx_live_channel_t *channel)
     return min_segment_index != channel->next_segment_index;
 }
 
+
 static void
 ngx_live_timelines_cleanup_handler(ngx_event_t *ev)
 {
@@ -2023,6 +2068,7 @@ ngx_live_timelines_cleanup_handler(ngx_event_t *ev)
 
     ngx_live_timelines_cleanup(channel);
 }
+
 
 static ngx_int_t
 ngx_live_timeline_channel_init(ngx_live_channel_t *channel, void *ectx)
@@ -2063,6 +2109,7 @@ ngx_live_timeline_channel_init(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_timeline_channel_free(ngx_live_channel_t *channel, void *ectx)
 {
@@ -2076,6 +2123,7 @@ ngx_live_timeline_channel_free(ngx_live_channel_t *channel, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_timeline_channel_read(ngx_live_channel_t *channel, void *ectx)
@@ -2123,6 +2171,7 @@ ngx_live_timeline_channel_read(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_timeline_channel_inactive(ngx_live_channel_t *channel, void *ectx)
 {
@@ -2135,6 +2184,7 @@ ngx_live_timeline_channel_inactive(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static size_t
 ngx_live_timeline_last_periods_json_get_size(ngx_live_timeline_t *obj)
 {
@@ -2145,6 +2195,7 @@ ngx_live_timeline_last_periods_json_get_size(ngx_live_timeline_t *obj)
     return sizeof("[]") - 1 +
         (ngx_live_period_json_get_size(NULL) + sizeof(",") - 1) * count;
 }
+
 
 static u_char *
 ngx_live_timeline_last_periods_json_write(u_char *p, ngx_live_timeline_t *obj)
@@ -2186,6 +2237,7 @@ ngx_live_timeline_last_periods_json_write(u_char *p, ngx_live_timeline_t *obj)
     return p;
 }
 
+
 size_t
 ngx_live_timeline_channel_json_get_size(ngx_live_channel_t *channel)
 {
@@ -2195,6 +2247,7 @@ ngx_live_timeline_channel_json_get_size(ngx_live_channel_t *channel)
 
     return ngx_live_timelines_json_get_size(cctx);
 }
+
 
 u_char *
 ngx_live_timeline_channel_json_write(u_char *p, ngx_live_channel_t *channel)
@@ -2206,6 +2259,7 @@ ngx_live_timeline_channel_json_write(u_char *p, ngx_live_channel_t *channel)
     return ngx_live_timelines_json_write(p, cctx);
 }
 
+
 static size_t
 ngx_live_timeline_json_writer_get_size(void *obj)
 {
@@ -2216,6 +2270,7 @@ ngx_live_timeline_json_writer_get_size(void *obj)
 
     return ngx_live_timelines_module_json_get_size(cctx);
 }
+
 
 static u_char *
 ngx_live_timeline_json_writer_write(u_char *p, void *obj)
@@ -2256,6 +2311,7 @@ ngx_live_timeline_write_setup(ngx_persist_write_ctx_t *write_ctx,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_timelines_write_setup(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
@@ -2280,6 +2336,7 @@ ngx_live_timelines_write_setup(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_timeline_read_setup(ngx_persist_block_header_t *header,
@@ -2440,6 +2497,7 @@ ngx_live_timeline_channel_index_snap(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_timeline_write_periods(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
@@ -2596,6 +2654,7 @@ ngx_live_timeline_write_index(ngx_persist_write_ctx_t *write_ctx,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_timelines_write_index(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
@@ -2640,6 +2699,7 @@ ngx_live_timelines_write_index(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_timeline_read_alloc_period(ngx_live_timeline_t *timeline,
@@ -2691,6 +2751,7 @@ ngx_live_timeline_read_alloc_period(ngx_live_timeline_t *timeline,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_timeline_read_periods(ngx_persist_block_header_t *header,
@@ -2820,6 +2881,7 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *header,
     return NGX_OK;
 }
 
+
 static void
 ngx_live_manifest_timeline_reset(ngx_live_manifest_timeline_t *timeline)
 {
@@ -2847,6 +2909,7 @@ ngx_live_manifest_timeline_reset(ngx_live_manifest_timeline_t *timeline)
         cur = ngx_queue_data(q, ngx_live_period_t, queue);
     }
 }
+
 
 static ngx_int_t
 ngx_live_manifest_timeline_read(ngx_live_timeline_t *timeline,
@@ -2917,6 +2980,7 @@ ngx_live_manifest_timeline_read(ngx_live_timeline_t *timeline,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_timeline_read_index(ngx_persist_block_header_t *header,
@@ -3014,6 +3078,7 @@ ngx_live_timelines_channel_write_index(ngx_persist_write_ctx_t *write_ctx,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_timelines_channel_read_index(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
@@ -3054,6 +3119,7 @@ ngx_live_timeline_write_segment_list(ngx_persist_write_ctx_t *write_ctx,
     return ngx_live_persist_write_blocks(channel, write_ctx,
         NGX_LIVE_PERSIST_CTX_INDEX_SEGMENT_LIST, &cctx->segment_list);
 }
+
 
 static ngx_int_t
 ngx_live_timeline_read_segment_list(ngx_persist_block_header_t *header,
@@ -3119,6 +3185,7 @@ ngx_live_timeline_serve_end_list(ngx_live_timeline_t *timeline,
 
     return 1;
 }
+
 
 static ngx_int_t
 ngx_live_timeline_serve_write(ngx_persist_write_ctx_t *write_ctx,
@@ -3189,6 +3256,7 @@ ngx_live_timeline_serve_write(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_flag_t
 ngx_live_timeline_serve_skip_segments(ngx_live_timeline_t *timeline,
@@ -3348,6 +3416,7 @@ ngx_live_timeline_serve_skip_segments(ngx_live_timeline_t *timeline,
 
     return 1;
 }
+
 
 static ngx_int_t
 ngx_live_timeline_serve_write_periods(ngx_persist_write_ctx_t *write_ctx,
@@ -3580,6 +3649,7 @@ static ngx_persist_block_t  ngx_live_timeline_blocks[] = {
     ngx_null_persist_block
 };
 
+
 static ngx_int_t
 ngx_live_timeline_preconfiguration(ngx_conf_t *cf)
 {
@@ -3604,6 +3674,7 @@ static ngx_live_channel_event_t    ngx_live_timeline_channel_events[] = {
       ngx_live_null_event
 };
 
+
 static ngx_live_json_writer_def_t  ngx_live_timeline_json_writers[] = {
     { { ngx_live_timeline_json_writer_get_size,
         ngx_live_timeline_json_writer_write },
@@ -3611,6 +3682,7 @@ static ngx_live_json_writer_def_t  ngx_live_timeline_json_writers[] = {
 
       ngx_live_null_json_writer
 };
+
 
 static ngx_int_t
 ngx_live_timeline_postconfiguration(ngx_conf_t *cf)
@@ -3643,6 +3715,7 @@ ngx_live_timeline_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_timeline_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)

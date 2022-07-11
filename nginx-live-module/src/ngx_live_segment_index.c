@@ -24,6 +24,7 @@ typedef enum {
     ngx_live_segment_persist_error,
 } ngx_live_segment_persist_e;
 
+
 struct ngx_live_segment_index_s {
     ngx_rbtree_node_t               node;       /* key = segment_index */
     ngx_queue_t                     queue;      /* all queue */
@@ -76,6 +77,7 @@ static ngx_command_t  ngx_live_segment_index_commands[] = {
 
       ngx_null_command
 };
+
 
 ngx_module_t  ngx_live_segment_index_module = {
     NGX_MODULE_V1,
@@ -135,6 +137,7 @@ ngx_live_segment_index_free(ngx_live_channel_t *channel,
         spcf->bp_idx[NGX_LIVE_BP_SEGMENT_INDEX], index);
 }
 
+
 static void
 ngx_live_segment_index_free_non_forced(ngx_live_channel_t *channel)
 {
@@ -182,6 +185,7 @@ ngx_live_segment_index_free_non_forced(ngx_live_channel_t *channel)
     }
 }
 
+
 ngx_int_t
 ngx_live_segment_index_create(ngx_live_channel_t *channel,
     uint32_t segment_index)
@@ -216,6 +220,7 @@ ngx_live_segment_index_create(ngx_live_channel_t *channel,
     return NGX_OK;
 }
 
+
 ngx_int_t
 ngx_live_segment_index_create_snap(ngx_live_channel_t *channel)
 {
@@ -246,6 +251,7 @@ ngx_live_segment_index_create_snap(ngx_live_channel_t *channel)
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_live_segment_index_ready(ngx_live_channel_t *channel, ngx_flag_t exists)
@@ -313,6 +319,7 @@ ngx_live_segment_index_ready(ngx_live_channel_t *channel, ngx_flag_t exists)
     return NGX_OK;
 }
 
+
 ngx_int_t
 ngx_live_segment_index_create_ready(ngx_live_channel_t *channel,
     ngx_flag_t exists)
@@ -330,6 +337,7 @@ ngx_live_segment_index_create_ready(ngx_live_channel_t *channel,
 
     return NGX_OK;
 }
+
 
 ngx_live_segment_index_t *
 ngx_live_segment_index_get(ngx_live_channel_t *channel, uint32_t segment_index)
@@ -365,6 +373,7 @@ ngx_live_segment_index_get(ngx_live_channel_t *channel, uint32_t segment_index)
 
     return NULL;
 }
+
 
 static ngx_live_segment_index_t *
 ngx_live_segment_index_get_first(ngx_live_channel_t *channel,
@@ -421,6 +430,7 @@ ngx_live_segment_index_get_first(ngx_live_channel_t *channel,
     }
 }
 
+
 static ngx_queue_t *
 ngx_live_segment_index_get_insert_pos(ngx_queue_t *queue,
     uint32_t segment_index)
@@ -440,6 +450,7 @@ ngx_live_segment_index_get_insert_pos(ngx_queue_t *queue,
 
     return ngx_queue_next(q);
 }
+
 
 void
 ngx_live_segment_index_persisted(ngx_live_channel_t *channel,
@@ -563,6 +574,7 @@ ngx_live_segment_index_persisted(ngx_live_channel_t *channel,
     snap->close(snap, ngx_live_persist_snap_close_write);
 }
 
+
 static void
 ngx_live_segment_index_cleanup(ngx_live_segment_index_t *index)
 {
@@ -581,6 +593,7 @@ ngx_live_segment_index_cleanup(ngx_live_segment_index_t *index)
         }
     }
 }
+
 
 static ngx_int_t
 ngx_live_segment_index_watermark(ngx_live_channel_t *channel, void *ectx)
@@ -648,6 +661,7 @@ ngx_live_segment_index_watermark(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_segment_index_segment_free(ngx_live_channel_t *channel, void *ectx)
 {
@@ -678,6 +692,7 @@ ngx_live_segment_index_segment_free(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 ngx_int_t
 ngx_live_segment_index_lock(ngx_live_segment_cleanup_t *cln,
     ngx_live_segment_t *segment)
@@ -695,6 +710,7 @@ ngx_live_segment_index_lock(ngx_live_segment_cleanup_t *cln,
     return NGX_OK;
 }
 
+
 static void
 ngx_live_segment_index_unlock(void *data)
 {
@@ -707,6 +723,7 @@ ngx_live_segment_index_unlock(void *data)
 
     ngx_queue_remove(&cln->queue);
 }
+
 
 ngx_live_segment_cleanup_t *
 ngx_live_segment_index_cleanup_add(ngx_pool_t *pool,
@@ -740,6 +757,7 @@ ngx_live_segment_index_cleanup_add(ngx_pool_t *pool,
     return result;
 }
 
+
 static ngx_int_t
 ngx_live_segment_index_channel_init(ngx_live_channel_t *channel, void *ectx)
 {
@@ -762,6 +780,7 @@ ngx_live_segment_index_channel_init(ngx_live_channel_t *channel, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_segment_index_channel_free(ngx_live_channel_t *channel, void *ectx)
@@ -802,6 +821,7 @@ ngx_live_segment_index_channel_free(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static void *
 ngx_live_segment_index_create_preset_conf(ngx_conf_t *cf)
 {
@@ -816,6 +836,7 @@ ngx_live_segment_index_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_segment_index_merge_preset_conf(ngx_conf_t *cf, void *parent,
@@ -847,6 +868,7 @@ static ngx_live_channel_event_t  ngx_live_segment_index_channel_events[] = {
 
       ngx_live_null_event
 };
+
 
 static ngx_int_t
 ngx_live_segment_index_postconfiguration(ngx_conf_t *cf)

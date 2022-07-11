@@ -124,11 +124,13 @@ typedef struct {
     ngx_str_t                       key_format_versions;
 } ngx_http_pckg_m3u8_enc_conf_t;
 
+
 typedef struct {
     ngx_flag_t                      block_reload;
     ngx_uint_t                      part_hold_back_percent;
     ngx_uint_t                      skip_boundary_percent;
 } ngx_http_pckg_m3u8_ctl_conf_t;
+
 
 typedef struct {
     ngx_uint_t                      version;
@@ -276,10 +278,12 @@ static ngx_str_t  ngx_http_pckg_m3u8_media_group_id[KMP_MEDIA_COUNT] = {
     ngx_string("aud"),
 };
 
+
 static ngx_str_t  ngx_http_pckg_m3u8_media_type_name[KMP_MEDIA_COUNT] = {
     ngx_string("VIDEO"),
     ngx_string("AUDIO"),
 };
+
 
 static ngx_str_t  ngx_http_pckg_m3u8_default_label = ngx_string("default");
 
@@ -382,6 +386,7 @@ ngx_http_pckg_m3u8_media_group_get_size(ngx_pckg_media_group_t *group,
 
     return result;
 }
+
 
 static u_char *
 ngx_http_pckg_m3u8_media_group_write(u_char *p, ngx_pckg_media_group_t *group,
@@ -1107,6 +1112,7 @@ ngx_http_pckg_m3u8_parts_get_size(ngx_pckg_segment_parts_t *parts,
     return size;
 }
 
+
 static u_char *
 ngx_http_pckg_m3u8_parts_write(u_char *p, ngx_pckg_segment_parts_t *parts,
     ngx_str_t *seg_suffix, int64_t time, uint32_t milliscale)
@@ -1354,6 +1360,7 @@ ngx_http_pckg_m3u8_server_control_get_size(void)
         + sizeof(",,\n") - 1;
 }
 
+
 static u_char *
 ngx_http_pckg_m3u8_server_control_write(u_char *p, ngx_http_request_t *r,
     ngx_pckg_channel_t *channel, uint32_t target_duration)
@@ -1462,6 +1469,7 @@ ngx_http_pckg_m3u8_redition_reports_get_size(ngx_pckg_channel_t *channel)
 
     return size;
 }
+
 
 static u_char *
 ngx_http_pckg_m3u8_redition_reports_write(u_char *p,
@@ -1888,6 +1896,7 @@ ngx_http_pckg_m3u8_args_handler(ngx_http_request_t *r, void *data,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_pckg_m3u8_parse_request(ngx_http_request_t *r, u_char *start_pos,
     u_char *end_pos, ngx_pckg_ksmp_req_t *result,
@@ -2092,6 +2101,7 @@ ngx_http_pckg_m3u8_preconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 static void *
 ngx_http_pckg_m3u8_create_loc_conf(ngx_conf_t *cf)
 {
@@ -2117,6 +2127,7 @@ ngx_http_pckg_m3u8_create_loc_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)

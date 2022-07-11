@@ -29,6 +29,7 @@ ngx_str_t  ngx_live_track_type_names[] = {
     ngx_null_string
 };
 
+
 /* must match ngx_ksmp_variant_role_e */
 ngx_str_t  ngx_live_variant_role_names[] = {
     ngx_string("main"),
@@ -74,6 +75,7 @@ ngx_live_channel_get(ngx_str_t *id)
         &ngx_live_channels.rbtree, id, hash);
 }
 
+
 static u_char *
 ngx_live_channel_log_error(ngx_log_t *log, u_char *buf, size_t len)
 {
@@ -91,6 +93,7 @@ ngx_live_channel_log_error(ngx_log_t *log, u_char *buf, size_t len)
 
     return p;
 }
+
 
 static void
 ngx_live_random_bytes(ngx_log_t *log, void *dst, size_t len)
@@ -111,6 +114,7 @@ ngx_live_random_bytes(ngx_log_t *log, void *dst, size_t len)
         *p++ = ngx_random() & 0xff;
     }
 }
+
 
 ngx_int_t
 ngx_live_channel_create(ngx_str_t *id, ngx_live_conf_ctx_t *conf_ctx,
@@ -236,6 +240,7 @@ error:
     return NGX_ERROR;
 }
 
+
 static void
 ngx_live_channel_free_internal(ngx_live_channel_t *channel)
 {
@@ -265,6 +270,7 @@ ngx_live_channel_free_internal(ngx_live_channel_t *channel)
     ngx_destroy_pool(channel->pool);
 }
 
+
 void
 ngx_live_channel_free(ngx_live_channel_t *channel,
     ngx_live_free_reason_e reason)
@@ -278,6 +284,7 @@ ngx_live_channel_free(ngx_live_channel_t *channel,
     ngx_live_channel_free_internal(channel);
 }
 
+
 static void
 ngx_live_channel_close_handler(ngx_event_t *ev)
 {
@@ -287,6 +294,7 @@ ngx_live_channel_close_handler(ngx_event_t *ev)
 
     ngx_live_channel_free_internal(channel);
 }
+
 
 void
 ngx_live_channel_finalize(ngx_live_channel_t *channel,
@@ -308,6 +316,7 @@ ngx_live_channel_finalize(ngx_live_channel_t *channel,
     ngx_post_event(e, &ngx_posted_events);
 }
 
+
 static ngx_flag_t
 ngx_live_channel_has_pending_segments(ngx_live_channel_t *channel)
 {
@@ -327,6 +336,7 @@ ngx_live_channel_has_pending_segments(ngx_live_channel_t *channel)
 
     return 0;
 }
+
 
 ngx_int_t
 ngx_live_channel_update(ngx_live_channel_t *channel,
@@ -368,6 +378,7 @@ revert:
     return NGX_ERROR;
 }
 
+
 void
 ngx_live_channel_setup_changed(ngx_live_channel_t *channel)
 {
@@ -376,6 +387,7 @@ ngx_live_channel_setup_changed(ngx_live_channel_t *channel)
     (void) ngx_live_core_channel_event(channel,
         NGX_LIVE_EVENT_CHANNEL_SETUP_CHANGED, NULL);
 }
+
 
 void
 ngx_live_channel_ack_frames(ngx_live_channel_t *channel)
@@ -416,6 +428,7 @@ ngx_live_channel_block_str_set(ngx_live_channel_t *channel,
     return NGX_OK;
 }
 
+
 static void
 ngx_live_channel_block_str_free(ngx_live_channel_t *channel,
     ngx_block_str_t *str)
@@ -424,6 +437,7 @@ ngx_live_channel_block_str_free(ngx_live_channel_t *channel,
         channel->bp_idx[NGX_LIVE_CORE_BP_STR]);
 }
 
+
 ngx_int_t
 ngx_live_channel_block_str_read(ngx_live_channel_t *channel,
     ngx_block_str_t *dest, ngx_mem_rstream_t *rs)
@@ -431,6 +445,7 @@ ngx_live_channel_block_str_read(ngx_live_channel_t *channel,
     return ngx_block_str_read(rs, dest, channel->block_pool,
         channel->bp_idx[NGX_LIVE_CORE_BP_STR]);
 }
+
 
 void
 ngx_live_channel_update_latency_stats(ngx_live_channel_t *channel,
@@ -462,6 +477,7 @@ ngx_live_channel_update_latency_stats(ngx_live_channel_t *channel,
     stats->sum += latency;
 }
 
+
 /* variant */
 
 static ngx_int_t
@@ -484,6 +500,7 @@ ngx_live_variant_validate_conf(ngx_live_variant_conf_t *conf, ngx_log_t *log)
     return NGX_OK;
 }
 
+
 ngx_live_variant_t *
 ngx_live_variant_get(ngx_live_channel_t *channel, ngx_str_t *id)
 {
@@ -493,6 +510,7 @@ ngx_live_variant_get(ngx_live_channel_t *channel, ngx_str_t *id)
     return (ngx_live_variant_t *) ngx_str_rbtree_lookup(
         &channel->variants.rbtree, id, hash);
 }
+
 
 ngx_int_t
 ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
@@ -568,6 +586,7 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
     return NGX_OK;
 }
 
+
 void
 ngx_live_variant_free(ngx_live_variant_t *variant)
 {
@@ -588,6 +607,7 @@ ngx_live_variant_free(ngx_live_variant_t *variant)
 
     ngx_live_channel_setup_changed(channel);
 }
+
 
 ngx_int_t
 ngx_live_variant_update(ngx_live_variant_t *variant,
@@ -619,6 +639,7 @@ ngx_live_variant_update(ngx_live_variant_t *variant,
     return NGX_OK;
 }
 
+
 ngx_int_t
 ngx_live_variant_set_track(ngx_live_variant_t *variant,
     ngx_live_track_t *track, ngx_log_t *log)
@@ -641,6 +662,7 @@ ngx_live_variant_set_track(ngx_live_variant_t *variant,
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_live_variant_set_tracks(ngx_live_variant_t *variant,
@@ -723,6 +745,7 @@ active:
     }
 }
 
+
 void
 ngx_live_variants_update_active(ngx_live_channel_t *channel)
 {
@@ -738,6 +761,7 @@ ngx_live_variants_update_active(ngx_live_channel_t *channel)
         ngx_live_variant_update_active(cur_variant);
     }
 }
+
 
 ngx_flag_t
 ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
@@ -805,6 +829,7 @@ ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
 
     return 0;
 }
+
 
 uint32_t
 ngx_live_variant_is_active_any(ngx_live_variant_t *variant,
@@ -891,6 +916,7 @@ ngx_live_variant_json_track_ids_get_size(ngx_live_variant_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_live_variant_json_track_ids_write(u_char *p, ngx_live_variant_t *obj)
 {
@@ -945,6 +971,7 @@ ngx_live_track_get(ngx_live_channel_t *channel, ngx_str_t *id)
         id, hash);
 }
 
+
 ngx_live_track_t *
 ngx_live_track_get_by_int(ngx_live_channel_t *channel, uint32_t id)
 {
@@ -974,6 +1001,7 @@ ngx_live_track_get_by_int(ngx_live_channel_t *channel, uint32_t id)
     return NULL;
 }
 
+
 static u_char *
 ngx_live_track_log_error(ngx_log_t *log, u_char *buf, size_t len)
 {
@@ -995,6 +1023,7 @@ ngx_live_track_log_error(ngx_log_t *log, u_char *buf, size_t len)
 
     return p;
 }
+
 
 ngx_int_t
 ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
@@ -1141,6 +1170,7 @@ ngx_live_track_create(ngx_live_channel_t *channel, ngx_str_t *id,
     return NGX_OK;
 }
 
+
 static void
 ngx_live_track_channel_free(ngx_live_track_t *track, ngx_uint_t event)
 {
@@ -1150,6 +1180,7 @@ ngx_live_track_channel_free(ngx_live_track_t *track, ngx_uint_t event)
         track->input.disconnect(track, NGX_OK);
     }
 }
+
 
 void
 ngx_live_track_free(ngx_live_track_t *track)

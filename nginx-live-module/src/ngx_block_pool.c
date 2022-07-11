@@ -63,6 +63,7 @@ ngx_block_pool_init_slot(ngx_block_pool_slot_t *slot)
     slot->end = NULL;
 }
 
+
 static void *
 ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
     ngx_block_pool_slot_t *slot)
@@ -104,6 +105,7 @@ ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
     return ptr;
 }
 
+
 static void
 ngx_block_pool_free_list_internal(ngx_block_pool_t *block_pool,
     ngx_block_pool_slot_t *slot, void *head, void *tail)
@@ -127,6 +129,7 @@ ngx_block_pool_init_slot(ngx_block_pool_slot_t *slot)
 {
 }
 
+
 static void *
 ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
     ngx_block_pool_slot_t *slot)
@@ -144,6 +147,7 @@ ngx_block_pool_alloc_internal(ngx_block_pool_t *block_pool,
     *ptr = slot;
     return ptr + 1;
 }
+
 
 static void
 ngx_block_pool_free_list_internal(ngx_block_pool_t *block_pool,
@@ -209,6 +213,7 @@ ngx_block_pool_create(ngx_pool_t *pool, size_t *sizes, ngx_uint_t count,
     return block_pool;
 }
 
+
 void *
 ngx_block_pool_alloc(ngx_block_pool_t *block_pool, ngx_uint_t index)
 {
@@ -224,6 +229,7 @@ ngx_block_pool_alloc(ngx_block_pool_t *block_pool, ngx_uint_t index)
     return ngx_block_pool_alloc_internal(block_pool, slot);
 }
 
+
 void *
 ngx_block_pool_calloc(ngx_block_pool_t *block_pool, ngx_uint_t index)
 {
@@ -238,6 +244,7 @@ ngx_block_pool_calloc(ngx_block_pool_t *block_pool, ngx_uint_t index)
     return ptr;
 }
 
+
 void
 ngx_block_pool_free(ngx_block_pool_t *block_pool, ngx_uint_t index, void *ptr)
 {
@@ -245,6 +252,7 @@ ngx_block_pool_free(ngx_block_pool_t *block_pool, ngx_uint_t index, void *ptr)
 
     ngx_block_pool_free_list(block_pool, index, ptr, ptr);
 }
+
 
 void
 ngx_block_pool_free_list(ngx_block_pool_t *block_pool, ngx_uint_t index,
@@ -277,6 +285,7 @@ ngx_block_pool_free_list(ngx_block_pool_t *block_pool, ngx_uint_t index,
 
     ngx_block_pool_free_list_internal(block_pool, slot, head, tail);
 }
+
 
 size_t
 ngx_block_pool_get_size(ngx_block_pool_t *block_pool, ngx_uint_t index)
@@ -363,6 +372,7 @@ ngx_block_pool_auto_alloc(ngx_block_pool_t *block_pool, size_t size)
     return ptr + 1;
 }
 
+
 void
 ngx_block_pool_auto_free(ngx_block_pool_t *block_pool, void *ptr)
 {
@@ -389,6 +399,7 @@ ngx_block_pool_json_get_size(ngx_block_pool_t *block_pool)
     return sizeof("[]") - 1 +
         block_pool->count * (slot_size + sizeof(",") - 1);
 }
+
 
 u_char *
 ngx_block_pool_json_write(u_char *p, ngx_block_pool_t *block_pool)

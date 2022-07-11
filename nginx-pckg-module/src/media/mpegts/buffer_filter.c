@@ -180,6 +180,7 @@ buffer_filter_force_flush(media_filter_context_t* context, bool_t last_stream_fr
     return VOD_OK;
 }
 
+
 static vod_status_t
 buffer_filter_write(media_filter_context_t* context, const u_char* buffer, uint32_t size)
 {
@@ -245,6 +246,7 @@ buffer_filter_write(media_filter_context_t* context, const u_char* buffer, uint3
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 buffer_filter_flush_frame(media_filter_context_t* context, bool_t last_stream_frame)
@@ -347,6 +349,7 @@ buffer_filter_simulated_force_flush(media_filter_context_t* context, bool_t last
     }
 }
 
+
 static void
 buffer_filter_simulated_start_frame(media_filter_context_t* context, output_frame_t* frame)
 {
@@ -365,6 +368,7 @@ buffer_filter_simulated_start_frame(media_filter_context_t* context, output_fram
     state->last_frame = *frame;
     state->cur_state = STATE_FRAME_STARTED;
 }
+
 
 static void
 buffer_filter_simulated_write(media_filter_context_t* context, uint32_t size)
@@ -401,6 +405,7 @@ buffer_filter_simulated_write(media_filter_context_t* context, uint32_t size)
     state->used_size = 0;
 }
 
+
 static void
 buffer_filter_simulated_flush_frame(media_filter_context_t* context, bool_t last_stream_frame)
 {
@@ -426,6 +431,7 @@ buffer_filter_simulated_flush_frame(media_filter_context_t* context, bool_t last
         break;
     }
 }
+
 
 static const media_filter_t buffer_filter = {
     buffer_filter_start_frame,

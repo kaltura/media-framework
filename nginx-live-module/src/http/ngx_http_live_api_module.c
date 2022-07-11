@@ -26,20 +26,24 @@ static ngx_json_str_t  ngx_http_live_version = {
     0
 };
 
+
 static ngx_json_str_t  ngx_http_live_nginx_version = {
     ngx_string(NGINX_VERSION),
     0
 };
+
 
 static ngx_json_str_t  ngx_http_live_compiler = {
     ngx_string(NGX_COMPILER),
     0
 };
 
+
 static ngx_json_str_t  ngx_http_live_built = {
     ngx_string(__DATE__ " " __TIME__),
     0
 };
+
 
 static time_t          ngx_http_live_start_time = 0;
 
@@ -79,6 +83,7 @@ static ngx_command_t  ngx_http_live_api_commands[] = {
       ngx_null_command
 };
 
+
 static ngx_http_module_t  ngx_http_live_api_module_ctx = {
     NULL,                                   /* preconfiguration */
     ngx_http_live_api_postconfiguration,    /* postconfiguration */
@@ -92,6 +97,7 @@ static ngx_http_module_t  ngx_http_live_api_module_ctx = {
     ngx_http_live_api_create_loc_conf,      /* create location configuration */
     ngx_http_live_api_merge_loc_conf        /* merge location configuration */
 };
+
 
 ngx_module_t  ngx_http_live_api_module = {
     NGX_MODULE_V1,
@@ -119,6 +125,7 @@ ngx_http_live_api_init_process(ngx_cycle_t *cycle)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_http_live_api_build_json(ngx_http_request_t *r,
@@ -168,6 +175,7 @@ ngx_http_live_api_get(ngx_http_request_t *r, ngx_str_t *params,
     return ngx_http_live_api_build_json(r, &writer, NULL, response);
 }
 
+
 static ngx_int_t
 ngx_http_live_api_channels_get(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -180,6 +188,7 @@ ngx_http_live_api_channels_get(ngx_http_request_t *r, ngx_str_t *params,
     return ngx_http_live_api_build_json(r, &writer, NULL, response);
 }
 
+
 static ngx_int_t
 ngx_http_live_api_channels_list(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -191,6 +200,7 @@ ngx_http_live_api_channels_list(ngx_http_request_t *r, ngx_str_t *params,
 
     return ngx_http_live_api_build_json(r, &writer, NULL, response);
 }
+
 
 static ngx_http_live_api_channel_ctx_t *
 ngx_http_live_api_alloc_ctx(ngx_http_request_t *r)
@@ -213,6 +223,7 @@ ngx_http_live_api_alloc_ctx(ngx_http_request_t *r)
 
     return ctx;
 }
+
 
 static void
 ngx_http_live_api_channel_update_handler(void *arg, ngx_int_t rc)
@@ -271,6 +282,7 @@ failed:
     response.len = 0;
     ngx_http_api_done(r, rc, &response);
 }
+
 
 static ngx_int_t
 ngx_http_live_api_channel_update(ngx_http_request_t *r)
@@ -353,6 +365,7 @@ ngx_http_live_api_channel_update(ngx_http_request_t *r)
 
     return NGX_OK;
 }
+
 
 static void
 ngx_http_live_api_channel_read_handler(void *arg, ngx_int_t rc)
@@ -470,6 +483,7 @@ failed:
     response.len = 0;
     ngx_http_api_done(r, rc, &response);
 }
+
 
 static ngx_int_t
 ngx_http_live_api_channels_post(ngx_http_request_t *r, ngx_str_t *params,
@@ -616,6 +630,7 @@ free:
     return rc;
 }
 
+
 static ngx_int_t
 ngx_http_live_api_channel_get(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -639,6 +654,7 @@ ngx_http_live_api_channel_get(ngx_http_request_t *r, ngx_str_t *params,
 
     return ngx_http_live_api_build_json(r, &writer, channel, response);
 }
+
 
 static ngx_int_t
 ngx_http_live_api_channel_get_unblocked(ngx_http_request_t *r, ngx_str_t *id,
@@ -665,6 +681,7 @@ ngx_http_live_api_channel_get_unblocked(ngx_http_request_t *r, ngx_str_t *id,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_http_live_api_channel_put(ngx_http_request_t *r, ngx_str_t *params,
@@ -718,6 +735,7 @@ ngx_http_live_api_channel_put(ngx_http_request_t *r, ngx_str_t *params,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_live_api_channel_delete(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -764,6 +782,7 @@ ngx_http_live_api_variants_get(ngx_http_request_t *r, ngx_str_t *params,
     return ngx_http_live_api_build_json(r, &writer, channel, response);
 }
 
+
 static ngx_int_t
 ngx_http_live_api_variants_list(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -788,6 +807,7 @@ ngx_http_live_api_variants_list(ngx_http_request_t *r, ngx_str_t *params,
     return ngx_http_live_api_build_json(r, &writer, channel, response);
 }
 
+
 static void
 ngx_http_live_api_variant_init_conf(ngx_live_variant_json_t *json,
     ngx_live_variant_conf_t *conf, ngx_log_t *log)
@@ -797,6 +817,7 @@ ngx_http_live_api_variant_init_conf(ngx_live_variant_json_t *json,
     ngx_json_set_str_value(conf->lang.s, json->lang);
     ngx_json_set_value(conf->is_default, json->is_default);
 }
+
 
 static ngx_int_t
 ngx_http_live_api_variant_init_tracks(ngx_live_channel_t *channel,
@@ -851,6 +872,7 @@ ngx_http_live_api_variant_init_tracks(ngx_live_channel_t *channel,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
@@ -969,6 +991,7 @@ ngx_http_live_api_variants_post(ngx_http_request_t *r, ngx_str_t *params,
     return created ? NGX_HTTP_CREATED : NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_live_api_variant_put(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
@@ -1051,6 +1074,7 @@ ngx_http_live_api_variant_put(ngx_http_request_t *r, ngx_str_t *params,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_live_api_variant_delete(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -1107,6 +1131,7 @@ ngx_http_live_api_tracks_get(ngx_http_request_t *r, ngx_str_t *params,
     return ngx_http_live_api_build_json(r, &writer, channel, response);
 }
 
+
 static ngx_int_t
 ngx_http_live_api_tracks_list(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -1130,6 +1155,7 @@ ngx_http_live_api_tracks_list(ngx_http_request_t *r, ngx_str_t *params,
 
     return ngx_http_live_api_build_json(r, &writer, channel, response);
 }
+
 
 static ngx_int_t
 ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
@@ -1237,6 +1263,7 @@ ngx_http_live_api_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     return created ? NGX_HTTP_CREATED : NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_live_api_track_put(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
@@ -1306,6 +1333,7 @@ ngx_http_live_api_track_put(ngx_http_request_t *r, ngx_str_t *params,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_http_live_api_track_delete(ngx_http_request_t *r, ngx_str_t *params,
@@ -1424,6 +1452,7 @@ ngx_http_live_api_variant_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     return NGX_HTTP_CREATED;
 }
 
+
 static ngx_int_t
 ngx_http_live_api_timelines_get(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -1450,6 +1479,7 @@ ngx_http_live_api_timelines_get(ngx_http_request_t *r, ngx_str_t *params,
     return ngx_http_live_api_build_json(r, &writer, channel, response);
 }
 
+
 static ngx_int_t
 ngx_http_live_api_timelines_list(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -1474,6 +1504,7 @@ ngx_http_live_api_timelines_list(ngx_http_request_t *r, ngx_str_t *params,
     return ngx_http_live_api_build_json(r, &writer, channel, response);
 }
 
+
 static void
 ngx_http_live_api_timeline_init_conf(ngx_live_timeline_json_t *json,
     ngx_live_timeline_conf_t *conf,
@@ -1497,6 +1528,7 @@ ngx_http_live_api_timeline_init_conf(ngx_live_timeline_json_t *json,
     ngx_json_set_value(manifest_conf->target_duration_segments,
         json->manifest_target_duration_segments);
 }
+
 
 static ngx_int_t
 ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
@@ -1645,6 +1677,7 @@ ngx_http_live_api_timelines_post(ngx_http_request_t *r, ngx_str_t *params,
     return NGX_HTTP_CREATED;
 }
 
+
 static ngx_int_t
 ngx_http_live_api_timeline_get(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -1679,6 +1712,7 @@ ngx_http_live_api_timeline_get(ngx_http_request_t *r, ngx_str_t *params,
     return ngx_http_live_api_build_json(r, &writer, timeline, response);
 
 }
+
 
 static ngx_int_t
 ngx_http_live_api_timeline_put(ngx_http_request_t *r, ngx_str_t *params,
@@ -1742,6 +1776,7 @@ ngx_http_live_api_timeline_put(ngx_http_request_t *r, ngx_str_t *params,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_live_api_timeline_delete(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -1782,6 +1817,7 @@ ngx_http_live_api_handler(ngx_http_request_t *r)
     return ngx_http_api_handler(r, &ngx_http_live_api_route);
 }
 
+
 static ngx_int_t
 ngx_http_live_api_ro_handler(ngx_http_request_t *r)
 {
@@ -1794,6 +1830,7 @@ ngx_http_live_api_ro_handler(ngx_http_request_t *r)
 
     return ngx_http_live_api_handler(r);
 }
+
 
 static char *
 ngx_http_live_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
@@ -1819,6 +1856,7 @@ ngx_http_live_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
+
 static ngx_int_t
 ngx_http_live_api_postconfiguration(ngx_conf_t *cf)
 {
@@ -1826,6 +1864,7 @@ ngx_http_live_api_postconfiguration(ngx_conf_t *cf)
 
     return NGX_OK;
 }
+
 
 static void *
 ngx_http_live_api_create_loc_conf(ngx_conf_t *cf)
@@ -1843,6 +1882,7 @@ ngx_http_live_api_create_loc_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_http_live_api_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)

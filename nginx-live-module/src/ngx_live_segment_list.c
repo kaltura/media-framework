@@ -32,6 +32,7 @@ ngx_live_segment_list_get_node_size(void)
     return sizeof(ngx_live_segment_list_node_t);
 }
 
+
 ngx_int_t
 ngx_live_segment_list_init(ngx_live_channel_t *channel, ngx_uint_t bp_idx,
     ngx_live_segment_list_t *segment_list)
@@ -49,6 +50,7 @@ ngx_live_segment_list_init(ngx_live_channel_t *channel, ngx_uint_t bp_idx,
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_live_segment_list_add(ngx_live_segment_list_t *segment_list,
@@ -118,6 +120,7 @@ add:
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_live_segment_list_update_last(ngx_live_segment_list_t *segment_list,
@@ -201,6 +204,7 @@ use_new:
     return NGX_OK;
 }
 
+
 void
 ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
     uint32_t min_segment_index)
@@ -237,6 +241,7 @@ ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
         q = next;
     }
 }
+
 
 ngx_int_t
 ngx_live_segment_list_get_segment_time(ngx_live_segment_list_t *segment_list,
@@ -348,6 +353,7 @@ ngx_live_segment_list_get_segment_index(
     return NGX_ERROR;
 }
 
+
 ngx_int_t
 ngx_live_segment_list_get_period_end_time(
     ngx_live_segment_list_t *segment_list, ngx_live_segment_iter_t *start_iter,
@@ -425,6 +431,7 @@ ngx_live_segment_list_write_node_part(ngx_live_segment_iter_t *iter,
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_live_segment_list_write_periods(ngx_persist_write_ctx_t *write_ctx,
@@ -555,6 +562,7 @@ ngx_live_segment_list_write_periods(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_live_segment_list_read_period(ngx_persist_block_header_t *header,
@@ -761,6 +769,7 @@ ngx_live_segment_list_read_period(ngx_persist_block_header_t *header,
     return NGX_OK;
 }
 
+
 size_t
 ngx_live_segment_list_json_get_size(ngx_live_segment_list_t *segment_list)
 {
@@ -775,6 +784,7 @@ ngx_live_segment_list_json_get_size(ngx_live_segment_list_t *segment_list)
 
     return result;
 }
+
 
 u_char *
 ngx_live_segment_list_json_write(u_char *p,
@@ -906,6 +916,7 @@ ngx_live_segment_iter_init(ngx_live_segment_list_t *segment_list,
     return NGX_OK;
 }
 
+
 void
 ngx_live_segment_iter_last(ngx_live_segment_list_t *segment_list,
     ngx_live_segment_iter_t *iter)
@@ -920,6 +931,7 @@ ngx_live_segment_iter_last(ngx_live_segment_list_t *segment_list,
     iter->elt = &last->elts[last->nelts - 1];
     iter->offset = iter->elt->count - 1;
 }
+
 
 static void
 ngx_live_segment_iter_move_next(ngx_live_segment_iter_t *iter)
@@ -942,6 +954,7 @@ ngx_live_segment_iter_move_next(ngx_live_segment_iter_t *iter)
     iter->elt = iter->node->elts;
 }
 
+
 uint32_t
 ngx_live_segment_iter_peek(ngx_live_segment_iter_t *iter)
 {
@@ -949,6 +962,7 @@ ngx_live_segment_iter_peek(ngx_live_segment_iter_t *iter)
 
     return iter->elt->duration;
 }
+
 
 uint32_t
 ngx_live_segment_iter_get_one(ngx_live_segment_iter_t *iter)
@@ -959,6 +973,7 @@ ngx_live_segment_iter_get_one(ngx_live_segment_iter_t *iter)
 
     return iter->elt->duration;
 }
+
 
 void
 ngx_live_segment_iter_get_element(ngx_live_segment_iter_t *iter,

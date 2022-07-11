@@ -113,14 +113,14 @@ def getObjectReader(objectInfo, properties):
 
         structDef.append((cTypeName, fieldName))
 
-        propDefs += '''static ngx_json_prop_t %s_%s = {
+        propDefs += '''static ngx_json_prop_t  %s_%s = {
     ngx_string(%s),
     %sULL,
     %s,
     ngx_json_set_%s_slot,
     offsetof(%s_t, %s),
     %s
-};\n\n''' % (objectInfo[0], fieldName, cEscapeString(fieldName),
+};\n\n\n''' % (objectInfo[0], fieldName, cEscapeString(fieldName),
              ngx_hash(fieldName), jsonTypeName, setterName, objectInfo[0],
              fieldName, post)
 
@@ -136,17 +136,17 @@ def getObjectReader(objectInfo, properties):
         alignment = ' ' * (maxTypeLen - len(cTypeName))
         struct += '    %s%s  %s%s;\n' % (cTypeBaseName, alignment, cTypePtrs,
                                          fieldName)
-    struct += '} %s_t;\n\n' % objectInfo[0]
+    struct += '} %s_t;\n\n\n' % objectInfo[0]
 
     # hash
     size, hash = getHash([x[1] for x in structDef])
-    hashText = 'static ngx_json_prop_t *%s[] = {\n' % objectInfo[0]
+    hashText = 'static ngx_json_prop_t  *%s[] = {\n' % objectInfo[0]
     for index in range(size):
         if index in hash:
             hashText += '    &%s_%s,\n' % (objectInfo[0], hash[index])
         else:
             hashText += '    NULL,\n'
-    hashText += '};\n\n'
+    hashText += '};\n\n\n'
 
     return header + struct + propDefs + hashText
 
@@ -665,12 +665,13 @@ if (d) {
 
     varDefsStr = renderVarDefs(varDefs.union(writeVarDefs))
 
-    result += '''%su_char *
+    result += '''\n%su_char *
 %s_write(u_char *p%s)
 {
 %s    %s
     return p;
 }
+
 
 ''' % (static, outputBaseFunc, args, varDefsStr + funcDefs + writeDefs + checks,
     writeCode.replace('\n', '\n    '))

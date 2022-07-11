@@ -287,6 +287,7 @@ ngx_stream_ts_kmp_get_lba(ngx_conf_t *cf, size_t buffer_size,
     return lba;
 }
 
+
 static char *
 ngx_stream_ts_kmp(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -321,6 +322,7 @@ ngx_stream_ts_kmp_create_srv_conf(ngx_conf_t *cf)
     return conf;
 }
 
+
 static char *
 ngx_stream_ts_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 {
@@ -346,6 +348,7 @@ ngx_stream_ts_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
     return NGX_CONF_OK;
 }
+
 
 ngx_ts_kmp_conf_t *
 ngx_stream_ts_get_ts_kmp_conf(ngx_stream_conf_ctx_t *ctx)

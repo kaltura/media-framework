@@ -18,6 +18,7 @@ ngx_buf_queue_reader_init(ngx_buf_queue_reader_t *reader,
     reader->start = ngx_buf_queue_start(reader->node);
 }
 
+
 void *
 ngx_buf_queue_reader_copy(ngx_buf_queue_reader_t *reader, void *buffer,
     size_t size)
@@ -57,6 +58,7 @@ ngx_buf_queue_reader_copy(ngx_buf_queue_reader_t *reader, void *buffer,
     return buffer;
 }
 
+
 void *
 ngx_buf_queue_reader_read(ngx_buf_queue_reader_t *reader, void *buffer,
     size_t size)
@@ -86,6 +88,7 @@ ngx_buf_queue_reader_read(ngx_buf_queue_reader_t *reader, void *buffer,
 
     return ngx_buf_queue_reader_copy(reader, buffer, size);
 }
+
 
 ngx_int_t
 ngx_buf_queue_reader_skip(ngx_buf_queue_reader_t *reader, size_t size)

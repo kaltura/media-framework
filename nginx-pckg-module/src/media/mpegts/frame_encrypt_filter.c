@@ -56,6 +56,7 @@ frame_encrypt_start_sub_frame(media_filter_context_t* context, uint32_t size)
     state->max_encrypt_offset = size - size % AES_BLOCK_SIZE;
 }
 
+
 static vod_status_t
 frame_encrypt_write(media_filter_context_t* context, const u_char* buffer, uint32_t size)
 {
@@ -121,6 +122,7 @@ frame_encrypt_write(media_filter_context_t* context, const u_char* buffer, uint3
 
     return VOD_OK;
 }
+
 
 static void
 frame_encrypt_cleanup(frame_encrypt_filter_state_t* state)

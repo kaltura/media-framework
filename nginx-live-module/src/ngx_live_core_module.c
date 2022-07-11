@@ -226,6 +226,7 @@ ngx_live_block_sizes_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
+
 static char *
 ngx_live_core_preset(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 {
@@ -306,6 +307,7 @@ ngx_live_core_preset(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     return rv;
 }
 
+
 static void *
 ngx_live_core_create_main_conf(ngx_conf_t *cf)
 {
@@ -331,6 +333,7 @@ ngx_live_core_create_main_conf(ngx_conf_t *cf)
 
     return cmcf;
 }
+
 
 static char *
 ngx_live_core_init_main_conf(ngx_conf_t *cf, void *conf)
@@ -505,6 +508,7 @@ ngx_live_core_channel_read(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static void *
 ngx_live_core_create_preset_conf(ngx_conf_t *cf)
 {
@@ -577,6 +581,7 @@ ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
     return NGX_CONF_OK;
 }
 
+
 static ngx_int_t
 ngx_live_core_preconfiguration(ngx_conf_t *cf)
 {
@@ -619,11 +624,13 @@ ngx_live_core_preconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 static ngx_live_channel_event_t  ngx_live_core_channel_events[] = {
     { ngx_live_core_channel_read, NGX_LIVE_EVENT_CHANNEL_READ },
 
       ngx_live_null_event
 };
+
 
 static ngx_int_t
 ngx_live_core_postconfiguration(ngx_conf_t *cf)
@@ -636,6 +643,7 @@ ngx_live_core_postconfiguration(ngx_conf_t *cf)
 
     return NGX_OK;
 }
+
 
 static ngx_live_core_main_conf_t *
 ngx_live_core_get_main_conf(ngx_cycle_t *cycle)
@@ -652,6 +660,7 @@ ngx_live_core_get_main_conf(ngx_cycle_t *cycle)
 
     return ngx_live_get_module_main_conf(live_conf, ngx_live_core_module);
 }
+
 
 ngx_live_conf_ctx_t *
 ngx_live_core_get_preset_conf(ngx_cycle_t *cycle, ngx_str_t *preset_name)
@@ -735,6 +744,7 @@ ngx_live_core_channel_init(ngx_live_channel_t *channel)
     }
 }
 
+
 ngx_int_t
 ngx_live_core_channel_event(ngx_live_channel_t *channel, ngx_uint_t event,
     void *ectx)
@@ -768,6 +778,7 @@ ngx_live_core_channel_event(ngx_live_channel_t *channel, ngx_uint_t event,
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_live_core_track_event(ngx_live_track_t *track, ngx_uint_t event,
@@ -803,6 +814,7 @@ ngx_live_core_track_event(ngx_live_track_t *track, ngx_uint_t event,
     return NGX_OK;
 }
 
+
 ngx_lba_t *
 ngx_live_core_get_lba(ngx_conf_t *cf, size_t buffer_size, ngx_uint_t bin_count)
 {
@@ -835,6 +847,7 @@ ngx_live_core_get_lba(ngx_conf_t *cf, size_t buffer_size, ngx_uint_t bin_count)
     return lba;
 }
 
+
 ngx_int_t
 ngx_live_core_channel_events_add(ngx_conf_t *cf,
     ngx_live_channel_event_t *events)
@@ -857,6 +870,7 @@ ngx_live_core_channel_events_add(ngx_conf_t *cf,
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_live_core_track_events_add(ngx_conf_t *cf,
@@ -881,6 +895,7 @@ ngx_live_core_track_events_add(ngx_conf_t *cf,
     return NGX_OK;
 }
 
+
 ngx_int_t
 ngx_live_core_json_writers_add(ngx_conf_t *cf,
     ngx_live_json_writer_def_t *writers)
@@ -903,6 +918,7 @@ ngx_live_core_json_writers_add(ngx_conf_t *cf,
 
     return NGX_OK;
 }
+
 
 size_t
 ngx_live_core_json_get_size(void *obj, ngx_live_channel_t *channel,
@@ -929,6 +945,7 @@ ngx_live_core_json_get_size(void *obj, ngx_live_channel_t *channel,
 
     return result;
 }
+
 
 u_char *
 ngx_live_core_json_write(u_char *p, void *obj, ngx_live_channel_t *channel,

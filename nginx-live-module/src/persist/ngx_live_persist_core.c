@@ -32,6 +32,7 @@ typedef struct {
         ngx_live_channel_t *channel, ngx_uint_t file, ngx_str_t *buf);
 } ngx_live_persist_core_file_t;
 
+
 typedef struct {
     ngx_live_persist_file_stats_t      stats[NGX_LIVE_PERSIST_FILE_COUNT];
     ngx_live_persist_read_file_ctx_t  *read_ctx;
@@ -179,6 +180,7 @@ ngx_live_persist_core_write_file_complete(void *arg, ngx_int_t rc)
     ngx_live_persist_files[scope->file].write_handler(ctx, rc);
 }
 
+
 ngx_live_persist_write_file_ctx_t *
 ngx_live_persist_core_write_file(ngx_live_channel_t *channel,
     void *data, ngx_live_persist_scope_t *scope, size_t scope_size)
@@ -206,6 +208,7 @@ ngx_live_persist_core_write_file(ngx_live_channel_t *channel,
     return ctx;
 }
 
+
 void
 ngx_live_persist_core_write_error(ngx_live_channel_t *channel, ngx_uint_t file)
 {
@@ -232,6 +235,7 @@ ngx_live_persist_core_read_parse(ngx_live_channel_t *channel, ngx_str_t *buf,
         scope);
 }
 
+
 static ngx_int_t
 ngx_live_persist_core_read_file(ngx_live_channel_t *channel,
     ngx_pool_cleanup_t *cln, ngx_live_persist_file_conf_t *file,
@@ -252,6 +256,7 @@ ngx_live_persist_core_read_file(ngx_live_channel_t *channel,
 
     return NGX_DONE;
 }
+
 
 static void
 ngx_live_persist_core_read_handler(void *data, ngx_int_t rc,
@@ -374,6 +379,7 @@ failed:
     }
 }
 
+
 ngx_int_t
 ngx_live_persist_core_read(ngx_live_channel_t *channel,
     ngx_pool_t *handler_pool, ngx_live_persist_read_handler_pt handler,
@@ -459,6 +465,7 @@ ngx_live_persist_core_channel_init(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_persist_core_channel_free(ngx_live_channel_t *channel, void *ectx)
 {
@@ -476,6 +483,7 @@ ngx_live_persist_core_channel_free(ngx_live_channel_t *channel, void *ectx)
 
     return NGX_OK;
 }
+
 
 static void *
 ngx_live_persist_core_create_preset_conf(ngx_conf_t *cf)
@@ -496,6 +504,7 @@ ngx_live_persist_core_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_persist_core_merge_preset_conf(ngx_conf_t *cf, void *parent,

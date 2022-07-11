@@ -89,6 +89,7 @@ hevc_parser_sub_layer_hrd_parameters(
     }
 }
 
+
 static void
 hevc_parser_hrd_parameters(
     bit_reader_state_t* reader,
@@ -164,6 +165,7 @@ hevc_parser_hrd_parameters(
         }
     }
 }
+
 
 static void
 hevc_parser_skip_vui_parameters(
@@ -257,6 +259,7 @@ hevc_parser_skip_vui_parameters(
     }
 }
 
+
 static void
 hevc_parser_skip_sps_range_extension(
     bit_reader_state_t* reader)
@@ -271,6 +274,7 @@ hevc_parser_skip_sps_range_extension(
     bit_read_stream_get_one(reader);                    // persistent_rice_adaptation_enabled_flag
     bit_read_stream_get_one(reader);                    // cabac_bypass_alignment_enabled_flag
 }
+
 
 static void
 hevc_parser_parse_sps_scc_extension(
@@ -308,12 +312,14 @@ hevc_parser_parse_sps_scc_extension(
     bit_read_stream_get_one(reader);                    // intra_boundary_filtering_disabled_flag
 }
 
+
 static void
 hevc_parser_skip_sps_multilayer_extension(
     bit_reader_state_t* reader)
 {
     bit_read_stream_get_one(reader);                    // inter_view_mv_vert_constraint_flag
 }
+
 
 static void
 hevc_parser_skip_sps_3d_extension(
@@ -345,6 +351,7 @@ hevc_parser_skip_sps_3d_extension(
         }
     }
 }
+
 
 static void
 hevc_parser_skip_profile_tier_level(
@@ -407,6 +414,7 @@ hevc_parser_skip_profile_tier_level(
         }
     }
 }
+
 
 static void
 hevc_parser_skip_scaling_list_data(bit_reader_state_t* reader)
@@ -605,6 +613,7 @@ hevc_parser_skip_st_ref_pic_set(
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 hevc_parser_seq_parameter_set_rbsp(
@@ -831,6 +840,7 @@ hevc_parser_skip_pps_range_extension(
     bit_read_stream_skip_unsigned_exp(reader);            // log2_sao_offset_scale_chroma
 }
 
+
 static void
 hevc_parser_skip_delta_dlt(
     bit_reader_state_t* reader,
@@ -866,6 +876,7 @@ hevc_parser_skip_delta_dlt(
         }
     }
 }
+
 
 static void
 hevc_parser_skip_pps_3d_extension(
@@ -917,6 +928,7 @@ hevc_parser_skip_pps_3d_extension(
         }
     }
 }
+
 
 static void
 hevc_parser_skip_colour_mapping_octants(
@@ -993,6 +1005,7 @@ hevc_parser_skip_colour_mapping_octants(
     }
 }
 
+
 static void
 hevc_parser_skip_colour_mapping_table(
     bit_reader_state_t* reader)
@@ -1046,6 +1059,7 @@ hevc_parser_skip_colour_mapping_table(
         0, 0, 0, 0,
         1 << cm_octant_depth);
 }
+
 
 static void
 hevc_parser_skip_pps_multilayer_extension(
@@ -1101,6 +1115,7 @@ hevc_parser_skip_pps_multilayer_extension(
     }
 }
 
+
 static void
 hevc_parser_skip_pps_scc_extension(
     bit_reader_state_t* reader,
@@ -1149,6 +1164,7 @@ hevc_parser_skip_pps_scc_extension(
         }
     }
 }
+
 
 static vod_status_t
 hevc_parser_pic_parameter_set_rbsp(
@@ -1469,6 +1485,7 @@ hevc_parser_skip_ref_pic_lists_modification(
     }
 }
 
+
 static void
 hevc_parser_skip_pred_weight_table(
     bit_reader_state_t* reader,
@@ -1557,6 +1574,7 @@ hevc_parser_skip_pred_weight_table(
         }
     }
 }
+
 
 static unsigned
 hevc_parser_st_rps_frame_nb_refs(hevc_short_term_rps_t* rps)

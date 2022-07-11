@@ -22,6 +22,7 @@ typedef struct {
     ngx_live_persist_snap_index_t      *pending;
 } ngx_live_persist_index_channel_ctx_t;
 
+
 typedef struct {
     ngx_uint_t                          max_delta_segments;
 } ngx_live_persist_index_preset_conf_t;
@@ -39,9 +40,11 @@ typedef struct {
     int64_t                             last_modified;
 } ngx_live_persist_index_channel_t;
 
+
 typedef struct {
     uint32_t                            initial_segment_index;
 } ngx_live_persist_index_variant_t;
+
 
 typedef struct {
     uint32_t                            track_id;
@@ -51,6 +54,7 @@ typedef struct {
     int64_t                             last_frame_pts;
     uint64_t                            next_frame_id;
 } ngx_live_persist_index_track_v1_t;
+
 
 typedef struct {
     uint32_t                            track_id;
@@ -154,6 +158,7 @@ ngx_live_persist_index_channel_snap(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static void
 ngx_live_persist_index_snap_free(ngx_live_persist_snap_index_t *snap)
 {
@@ -161,6 +166,7 @@ ngx_live_persist_index_snap_free(ngx_live_persist_snap_index_t *snap)
         ngx_live_persist_snap_close_free);
     ngx_destroy_pool(snap->base.pool);
 }
+
 
 static void
 ngx_live_persist_index_snap_close(void *data,
@@ -277,6 +283,7 @@ close:
     ngx_destroy_pool(snap->base.pool);
 }
 
+
 static ngx_int_t
 ngx_live_persist_index_snap_update(void *data)
 {
@@ -303,6 +310,7 @@ ngx_live_persist_index_snap_update(void *data)
 
     return NGX_OK;
 }
+
 
 ngx_live_persist_snap_t *
 ngx_live_persist_index_snap_create(ngx_live_channel_t *channel,
@@ -397,6 +405,7 @@ ngx_live_persist_index_write_channel(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_persist_index_read_channel(ngx_persist_block_header_t *header,
@@ -517,6 +526,7 @@ ngx_live_persist_index_write_variant(ngx_persist_write_ctx_t *write_ctx,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_persist_index_read_variant(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
@@ -610,6 +620,7 @@ ngx_live_persist_index_write_track(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_persist_index_read_track(ngx_persist_block_header_t *header,
@@ -769,6 +780,7 @@ ngx_live_persist_index_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
     ngx_live_persist_write_file_destroy(ctx);
 }
 
+
 ngx_int_t
 ngx_live_persist_index_read_handler(ngx_live_channel_t *channel,
     ngx_uint_t file, ngx_str_t *buf)
@@ -809,6 +821,7 @@ ngx_live_persist_index_json_get_size(ngx_live_channel_t *channel)
     return result;
 }
 
+
 u_char *
 ngx_live_persist_index_json_write(u_char *p, ngx_live_channel_t *channel)
 {
@@ -831,6 +844,7 @@ ngx_live_persist_delta_json_get_size(ngx_live_channel_t *channel)
 
     return result;
 }
+
 
 u_char *
 ngx_live_persist_delta_json_write(u_char *p, ngx_live_channel_t *channel)
@@ -862,6 +876,7 @@ ngx_live_persist_index_channel_init(ngx_live_channel_t *channel, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_persist_index_channel_free(ngx_live_channel_t *channel, void *ectx)
@@ -898,6 +913,7 @@ ngx_live_persist_index_channel_free(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_persist_index_channel_history_changed(ngx_live_channel_t *channel,
     void *ectx)
@@ -929,6 +945,7 @@ ngx_live_persist_index_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_persist_index_merge_preset_conf(ngx_conf_t *cf, void *parent,
@@ -977,6 +994,7 @@ static ngx_persist_block_t  ngx_live_persist_index_blocks[] = {
     ngx_null_persist_block
 };
 
+
 static ngx_int_t
 ngx_live_persist_index_preconfiguration(ngx_conf_t *cf)
 {
@@ -999,6 +1017,7 @@ static ngx_live_channel_event_t  ngx_live_persist_index_channel_events[] = {
 
       ngx_live_null_event
 };
+
 
 static ngx_int_t
 ngx_live_persist_index_postconfiguration(ngx_conf_t *cf)

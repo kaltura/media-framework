@@ -76,6 +76,7 @@ ngx_persist_read_file_header(ngx_str_t *buf, uint32_t type, ngx_log_t *log,
     return NGX_OK;
 }
 
+
 ngx_int_t
 ngx_persist_read_inflate(ngx_str_t *buf, size_t max_size,
     ngx_mem_rstream_t *rs, ngx_pool_t *pool, void **ptr)
@@ -153,6 +154,7 @@ ngx_persist_read_inflate(ngx_str_t *buf, size_t max_size,
     return NGX_OK;
 }
 
+
 ngx_persist_block_header_t *
 ngx_persist_read_block(ngx_mem_rstream_t *rs, ngx_mem_rstream_t *block_rs)
 {
@@ -184,6 +186,7 @@ ngx_persist_read_block(ngx_mem_rstream_t *rs, ngx_mem_rstream_t *block_rs)
 
     return header;
 }
+
 
 ngx_int_t
 ngx_persist_read_skip_block_header(ngx_mem_rstream_t *rs,

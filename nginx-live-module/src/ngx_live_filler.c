@@ -47,6 +47,7 @@ typedef struct {
     ngx_json_str_t                     timeline_id;
 } ngx_live_filler_source_t;
 
+
 typedef struct {
     ngx_pool_t                        *pool;
     ngx_live_filler_source_t           source;
@@ -60,6 +61,7 @@ typedef struct {
 
     uint32_t                           last_media_type_mask;
 } ngx_live_filler_channel_ctx_t;
+
 
 typedef struct {
     ngx_queue_t                        queue;
@@ -76,10 +78,12 @@ typedef struct {
     ngx_live_frame_t                  *last;
 } ngx_live_filler_frame_iter_t;
 
+
 typedef struct {
     ngx_buf_chain_t                   *chain;
     size_t                             offset;
 } ngx_live_filler_data_iter_t;
+
 
 typedef struct {
     ngx_live_track_t                  *track;
@@ -148,6 +152,7 @@ static ngx_live_module_t  ngx_live_filler_module_ctx = {
     ngx_live_filler_merge_preset_conf,      /* merge preset configuration */
 };
 
+
 ngx_module_t  ngx_live_filler_module = {
     NGX_MODULE_V1,
     &ngx_live_filler_module_ctx,            /* module context */
@@ -175,6 +180,7 @@ static ngx_live_json_cmd_t  ngx_live_filler_dyn_cmds[] = {
       ngx_live_null_json_cmd
 };
 
+
 static ngx_live_json_writer_def_t  ngx_live_filler_json_writers[] = {
     { { ngx_live_filler_channel_json_get_size,
         ngx_live_filler_channel_json_write },
@@ -182,6 +188,7 @@ static ngx_live_json_writer_def_t  ngx_live_filler_json_writers[] = {
 
       ngx_live_null_json_writer
 };
+
 
 static ngx_live_persist_file_type_t  ngx_live_filler_file_type = {
     NGX_LIVE_PERSIST_TYPE_FILLER, NGX_LIVE_PERSIST_CTX_FILLER_MAIN, 0
@@ -198,6 +205,7 @@ ngx_live_filler_frame_iter_init(ngx_live_filler_frame_iter_t *iter,
     iter->cur = iter->part->elts;
     iter->last = iter->cur + iter->part->nelts;
 }
+
 
 static ngx_inline ngx_live_frame_t *
 ngx_live_filler_frame_iter_get(ngx_live_filler_frame_iter_t *iter)
@@ -220,6 +228,7 @@ ngx_live_filler_frame_iter_get(ngx_live_filler_frame_iter_t *iter)
 
     return frame;
 }
+
 
 static ngx_int_t
 ngx_live_filler_frame_iter_skip(ngx_live_filler_frame_iter_t *iter,
@@ -253,6 +262,7 @@ ngx_live_filler_data_iter_init(ngx_live_filler_data_iter_t *iter,
     iter->offset = 0;
 }
 
+
 static void
 ngx_live_filler_data_iter_skip(ngx_live_filler_data_iter_t *iter, size_t left)
 {
@@ -283,6 +293,7 @@ ngx_live_filler_data_iter_skip(ngx_live_filler_data_iter_t *iter, size_t left)
     iter->chain = chain;
     iter->offset = offset;
 }
+
 
 static ngx_int_t
 ngx_live_filler_data_iter_write(ngx_live_filler_data_iter_t *iter,
@@ -372,6 +383,7 @@ ngx_live_filler_video_get_segment_index(ngx_live_filler_channel_ctx_t *cctx,
 
     return index < cctx->count ? index : 0;
 }
+
 
 ngx_int_t
 ngx_live_filler_fill(ngx_live_channel_t *channel, uint32_t media_type_mask,
@@ -487,6 +499,7 @@ ngx_live_filler_serve_write_frames(ngx_persist_write_ctx_t *write_ctx,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_filler_serve_video(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_filler_serve_ctx_t *sctx)
@@ -592,6 +605,7 @@ ngx_live_filler_audio_get_segment_index(ngx_live_track_t *track,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_filler_serve_audio_write_frames(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_filler_serve_ctx_t *sctx, ngx_live_filler_frame_iter_t *iter,
@@ -632,6 +646,7 @@ ngx_live_filler_serve_audio_write_frames(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_filler_serve_audio(ngx_persist_write_ctx_t *write_ctx,
@@ -760,6 +775,7 @@ ngx_live_filler_serve_write_frame_data(ngx_persist_write_ctx_t *write_ctx,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_filler_serve_segment(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_track_t *track, uint32_t segment_index)
@@ -816,6 +832,7 @@ ngx_live_filler_serve_segment(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_live_filler_serve_segments(ngx_pool_t *pool, ngx_array_t *track_refs,
@@ -957,6 +974,7 @@ ngx_live_filler_setup_copy_frames(ngx_live_filler_segment_t *dst_segment,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_filler_setup_copy_chains(ngx_live_filler_track_ctx_t *ctx,
     ngx_live_filler_segment_t *dst_segment, ngx_live_segment_t *src_segment,
@@ -997,6 +1015,7 @@ ngx_live_filler_setup_copy_chains(ngx_live_filler_track_ctx_t *ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
@@ -1123,6 +1142,7 @@ ngx_live_filler_setup_track_segments(ngx_live_track_t *dst_track,
     return NGX_OK;
 }
 
+
 static void
 ngx_live_filler_setup_free_tracks(ngx_live_channel_t *channel)
 {
@@ -1142,6 +1162,7 @@ ngx_live_filler_setup_free_tracks(ngx_live_channel_t *channel)
         ngx_live_track_free(cur_track);
     }
 }
+
 
 static ngx_int_t
 ngx_live_filler_setup_track(ngx_live_channel_t *dst,
@@ -1230,6 +1251,7 @@ ngx_live_filler_setup_track(ngx_live_channel_t *dst,
     return NGX_OK;
 }
 
+
 static uint64_t
 ngx_live_filler_setup_get_cycle_duration(ngx_live_channel_t *src,
     uint32_t segment_index, uint32_t count, ngx_log_t *log)
@@ -1297,6 +1319,7 @@ ngx_live_filler_setup_get_cycle_duration(ngx_live_channel_t *src,
         "failed to get cycle duration");
     return 0;
 }
+
 
 static void
 ngx_live_filler_setup_get_durations(ngx_live_filler_channel_ctx_t *cctx,
@@ -1406,6 +1429,7 @@ ngx_live_filler_setup_validate_segment(ngx_live_filler_segment_t *segment,
         ngx_debug_point();
     }
 }
+
 
 static void
 ngx_live_filler_setup_validate(ngx_live_channel_t *channel)
@@ -1517,6 +1541,7 @@ ngx_live_filler_setup_free_unused_tracks(ngx_live_channel_t *channel)
         ngx_live_track_free(cur_track);
     }
 }
+
 
 static ngx_int_t
 ngx_live_filler_setup(ngx_live_channel_t *dst, ngx_live_channel_t *src,
@@ -1671,6 +1696,7 @@ ngx_live_filler_source_set(ngx_live_channel_t *channel,
     return NGX_OK;
 }
 
+
 static void
 ngx_live_filler_source_unset(ngx_live_channel_t *channel)
 {
@@ -1686,6 +1712,7 @@ ngx_live_filler_source_unset(ngx_live_channel_t *channel)
 
     ngx_memzero(&cctx->source, sizeof(cctx->source));
 }
+
 
 static void
 ngx_live_filler_write_handler(void *arg, ngx_int_t rc)
@@ -1714,6 +1741,7 @@ ngx_live_filler_write_handler(void *arg, ngx_int_t rc)
     handler(data, rc);
 }
 
+
 static void
 ngx_live_filler_write_cancel(void *arg)
 {
@@ -1727,6 +1755,7 @@ ngx_live_filler_write_cancel(void *arg)
 
     ngx_live_filler_write_handler(write_ctx, NGX_HTTP_CONFLICT);
 }
+
 
 static ngx_int_t
 ngx_live_filler_write_file(ngx_live_json_cmds_ctx_t *jctx,
@@ -1786,6 +1815,7 @@ ngx_live_filler_write_file(ngx_live_json_cmds_ctx_t *jctx,
     return NGX_AGAIN;
 }
 
+
 static ngx_int_t
 ngx_live_filler_read_create_segments(ngx_live_channel_t *channel,
     ngx_live_filler_read_ctx_t *ctx)
@@ -1823,6 +1853,7 @@ ngx_live_filler_read_create_segments(ngx_live_channel_t *channel,
 
     return NGX_OK;
 }
+
 
 static void
 ngx_live_filler_read_handler(void *data, ngx_int_t rc, ngx_buf_t *response)
@@ -1906,6 +1937,7 @@ failed:
     ngx_live_channel_free(channel, ngx_live_free_read_failed);
 }
 
+
 static ngx_live_channel_t *
 ngx_live_filler_read_file(ngx_live_json_cmds_ctx_t *jctx,
     ngx_str_t *channel_id, ngx_str_t *preset)
@@ -1963,6 +1995,7 @@ ngx_live_filler_read_file(ngx_live_json_cmds_ctx_t *jctx,
     return channel;
 }
 
+
 static void
 ngx_live_filler_ready_handler(void *arg, ngx_int_t rc)
 {
@@ -1988,6 +2021,7 @@ ngx_live_filler_ready_handler(void *arg, ngx_int_t rc)
 
     jctx->handler(jctx->data, rc);
 }
+
 
 static ngx_int_t
 ngx_live_filler_wait_ready(ngx_live_json_cmds_ctx_t *jctx,
@@ -2080,6 +2114,7 @@ ngx_live_filler_set_channel(ngx_live_json_cmds_ctx_t *jctx,
     return ngx_live_filler_source_set(dst, &source, dst->next_segment_index,
         log);
 }
+
 
 static ngx_int_t
 ngx_live_filler_post_json(ngx_live_json_cmds_ctx_t *jctx,
@@ -2183,6 +2218,7 @@ ngx_live_filler_write_setup(ngx_persist_write_ctx_t *write_ctx, void *obj)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_filler_read_setup(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
@@ -2224,6 +2260,7 @@ ngx_live_filler_write_frame_list(ngx_persist_write_ctx_t *write_ctx, void *obj)
     return ngx_persist_write_list_data(write_ctx, &segment->frames);
 }
 
+
 static ngx_int_t
 ngx_live_filler_read_frame_list(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
@@ -2260,6 +2297,7 @@ ngx_live_filler_write_frame_data(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
     return ngx_persist_write_append_buf_chain(write_ctx, segment->data_head);
 }
+
 
 static ngx_int_t
 ngx_live_filler_read_frame_data(ngx_persist_block_header_t *header,
@@ -2329,6 +2367,7 @@ ngx_live_filler_write_segment(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_filler_write_segments(ngx_persist_write_ctx_t *write_ctx, void *obj)
@@ -2433,6 +2472,7 @@ ngx_live_filler_read_get_frames_info(ngx_live_segment_t *segment,
         *duration += cur->duration;
     }
 }
+
 
 static ngx_int_t
 ngx_live_filler_read_segment(ngx_persist_block_header_t *header,
@@ -2563,6 +2603,7 @@ ngx_live_filler_write_media_info(ngx_persist_write_ctx_t *write_ctx, void *obj)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_filler_read_media_info(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
@@ -2650,6 +2691,7 @@ ngx_live_filler_write_tracks(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_filler_read_track(ngx_persist_block_header_t *header,
@@ -2771,6 +2813,7 @@ ngx_live_filler_write_timeline(ngx_persist_write_ctx_t *write_ctx, void *obj)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_filler_read_timeline(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
@@ -2865,6 +2908,7 @@ ngx_live_filler_write_channel(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_filler_read_channel(ngx_persist_block_header_t *header,
@@ -3008,6 +3052,7 @@ ngx_live_filler_channel_init(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_filler_channel_free(ngx_live_channel_t *channel, void *ectx)
 {
@@ -3029,6 +3074,7 @@ ngx_live_filler_channel_free(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_filler_channel_read(ngx_live_channel_t *channel, void *ectx)
 {
@@ -3044,6 +3090,7 @@ ngx_live_filler_channel_read(ngx_live_channel_t *channel, void *ectx)
 
     return NGX_OK;
 }
+
 
 static void
 ngx_live_filler_recalc_media_type_mask(ngx_live_channel_t *channel)
@@ -3066,6 +3113,7 @@ ngx_live_filler_recalc_media_type_mask(ngx_live_channel_t *channel)
     }
 }
 
+
 static ngx_int_t
 ngx_live_filler_track_free(ngx_live_track_t *track, void *ectx)
 {
@@ -3086,6 +3134,7 @@ ngx_live_filler_track_free(ngx_live_track_t *track, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_filler_track_channel_free(ngx_live_track_t *track, void *ectx)
 {
@@ -3099,6 +3148,7 @@ ngx_live_filler_track_channel_free(ngx_live_track_t *track, void *ectx)
 
     return NGX_OK;
 }
+
 
 static size_t
 ngx_live_filler_channel_json_get_size(void *obj)
@@ -3122,6 +3172,7 @@ ngx_live_filler_channel_json_get_size(void *obj)
         NGX_INT32_LEN +
         sizeof("}") - 1;
 }
+
 
 static u_char *
 ngx_live_filler_channel_json_write(u_char *p, void *obj)
@@ -3147,6 +3198,7 @@ ngx_live_filler_channel_json_write(u_char *p, void *obj)
 
     return p;
 }
+
 
 static ngx_int_t
 ngx_live_filler_preconfiguration(ngx_conf_t *cf)
@@ -3179,12 +3231,14 @@ static ngx_live_channel_event_t  ngx_live_filler_channel_events[] = {
       ngx_live_null_event
 };
 
+
 static ngx_live_track_event_t    ngx_live_filler_track_events[] = {
     { ngx_live_filler_track_free,         NGX_LIVE_EVENT_TRACK_FREE },
     { ngx_live_filler_track_channel_free, NGX_LIVE_EVENT_TRACK_CHANNEL_FREE },
 
       ngx_live_null_event
 };
+
 
 static ngx_int_t
 ngx_live_filler_postconfiguration(ngx_conf_t *cf)
@@ -3204,6 +3258,7 @@ ngx_live_filler_postconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 static void *
 ngx_live_filler_create_preset_conf(ngx_conf_t *cf)
 {
@@ -3218,6 +3273,7 @@ ngx_live_filler_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_filler_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)

@@ -18,6 +18,7 @@ ngx_live_dynamic_var_json_get_size(ngx_live_dynamic_var_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_live_dynamic_var_json_write(u_char *p, ngx_live_dynamic_var_t *obj)
 {
@@ -27,6 +28,7 @@ ngx_live_dynamic_var_json_write(u_char *p, ngx_live_dynamic_var_t *obj)
 
     return p;
 }
+
 
 /* ngx_live_dynamic_vars_json writer */
 
@@ -53,6 +55,7 @@ ngx_live_dynamic_vars_json_get_size(ngx_live_dynamic_var_channel_ctx_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_live_dynamic_vars_json_write(u_char *p, ngx_live_dynamic_var_channel_ctx_t

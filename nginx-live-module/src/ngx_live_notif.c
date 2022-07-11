@@ -29,6 +29,7 @@ static ngx_live_module_t  ngx_live_notif_module_ctx = {
     NULL,                                   /* merge preset configuration */
 };
 
+
 ngx_module_t  ngx_live_notif_module = {
     NGX_MODULE_V1,
     &ngx_live_notif_module_ctx,             /* module context */

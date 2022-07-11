@@ -107,6 +107,7 @@ static ngx_command_t  ngx_live_store_http_commands[] = {
       ngx_null_command
 };
 
+
 static ngx_live_module_t  ngx_live_store_http_module_ctx = {
     NULL,                                     /* preconfiguration */
     NULL,                                     /* postconfiguration */
@@ -117,6 +118,7 @@ static ngx_live_module_t  ngx_live_store_http_module_ctx = {
     ngx_live_store_http_create_preset_conf,   /* create preset configuration */
     ngx_live_store_http_merge_preset_conf     /* merge preset configuration */
 };
+
 
 ngx_module_t  ngx_live_store_http_module = {
     NGX_MODULE_V1,
@@ -154,6 +156,7 @@ typedef struct {
     size_t                               size;
 } ngx_live_store_http_read_ctx_t;
 
+
 void *
 ngx_live_store_http_read_init(ngx_live_store_read_request_t *request,
     ngx_url_t *url, ngx_live_store_http_create_read_pt create,
@@ -187,6 +190,7 @@ ngx_live_store_http_read_init(ngx_live_store_read_request_t *request,
     return ctx;
 }
 
+
 static ngx_chain_t *
 ngx_live_store_http_read_create(void *arg, ngx_pool_t *pool,
     ngx_chain_t **body)
@@ -215,6 +219,7 @@ ngx_live_store_http_read_create(void *arg, ngx_pool_t *pool,
 
     return cl;
 }
+
 
 static ngx_int_t
 ngx_live_store_http_read_finished(ngx_pool_t *temp_pool, void *arg,
@@ -266,6 +271,7 @@ ngx_live_store_http_read_finished(ngx_pool_t *temp_pool, void *arg,
     ctx->handler(ctx->data, rc, response);
     return rc;
 }
+
 
 ngx_int_t
 ngx_live_store_http_read(void *arg, off_t offset, size_t size)
@@ -327,6 +333,7 @@ typedef struct {
     ngx_uint_t                        retries_left;
 } ngx_live_store_http_write_ctx_t;
 
+
 static ngx_chain_t *
 ngx_live_store_http_write_create(void *arg, ngx_pool_t *pool,
     ngx_chain_t **body)
@@ -337,6 +344,7 @@ ngx_live_store_http_write_create(void *arg, ngx_pool_t *pool,
 
     return ctx->headers;
 }
+
 
 static ngx_int_t
 ngx_live_store_http_write_complete(ngx_pool_t *temp_pool, void *arg,
@@ -370,6 +378,7 @@ ngx_live_store_http_write_complete(ngx_pool_t *temp_pool, void *arg,
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_live_store_http_write(ngx_live_store_write_request_t *request,
@@ -450,6 +459,7 @@ ngx_live_store_http_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_store_http_merge_preset_conf(ngx_conf_t *cf, void *parent,

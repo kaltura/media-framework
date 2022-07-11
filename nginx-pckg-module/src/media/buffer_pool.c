@@ -57,6 +57,7 @@ buffer_pool_create(vod_pool_t* pool, vod_log_t* log, size_t buffer_size, size_t 
     return buffer_pool;
 }
 
+
 static void
 buffer_pool_buffer_cleanup(void *data)
 {

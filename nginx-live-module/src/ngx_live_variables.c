@@ -202,6 +202,7 @@ ngx_live_add_prefix_variable(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t flags)
     return v;
 }
 
+
 ngx_int_t
 ngx_live_variable_add_multi(ngx_conf_t *cf, ngx_live_variable_t *vars)
 {
@@ -507,6 +508,7 @@ ngx_live_variable_msec(ngx_live_variables_ctx_t *ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_variable_channel(ngx_live_variables_ctx_t *ctx,

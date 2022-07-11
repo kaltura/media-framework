@@ -117,6 +117,7 @@ mp4_cbcs_encrypt_free_cipher(mp4_cbcs_encrypt_state_t* state)
     EVP_CIPHER_CTX_free(state->cipher);
 }
 
+
 static vod_status_t
 mp4_cbcs_encrypt_init_cipher(mp4_cbcs_encrypt_state_t* state)
 {
@@ -146,6 +147,7 @@ mp4_cbcs_encrypt_init_cipher(mp4_cbcs_encrypt_state_t* state)
     return VOD_OK;
 }
 
+
 static vod_status_t
 mp4_cbcs_encrypt_reset_cipher(mp4_cbcs_encrypt_state_t* state)
 {
@@ -158,6 +160,7 @@ mp4_cbcs_encrypt_reset_cipher(mp4_cbcs_encrypt_state_t* state)
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 mp4_cbcs_encrypt_write_encrypted(
@@ -197,6 +200,7 @@ mp4_cbcs_encrypt_write_encrypted(
     return VOD_OK;
 }
 
+
 static vod_status_t
 mp4_cbcs_encrypt_flush(mp4_cbcs_encrypt_state_t* state)
 {
@@ -223,6 +227,7 @@ mp4_cbcs_encrypt_init_track(mp4_cbcs_encrypt_stream_state_t* stream_state)
     stream_state->frame_size_left = 0;
 }
 
+
 static void
 mp4_cbcs_encrypt_init_stream_state(
     mp4_cbcs_encrypt_stream_state_t* stream_state,
@@ -235,6 +240,7 @@ mp4_cbcs_encrypt_init_stream_state(
     stream_state->track = track;
     mp4_cbcs_encrypt_init_track(stream_state);
 }
+
 
 static bool_t
 mp4_cbcs_encrypt_move_to_next_frame(mp4_cbcs_encrypt_stream_state_t* stream_state)
@@ -263,6 +269,7 @@ mp4_cbcs_encrypt_move_to_next_frame(mp4_cbcs_encrypt_stream_state_t* stream_stat
         return FALSE;
     }
 }
+
 
 static vod_status_t
 mp4_cbcs_encrypt_start_frame(mp4_cbcs_encrypt_stream_state_t* stream_state)
@@ -316,6 +323,7 @@ mp4_cbcs_encrypt_video_init_track(mp4_cbcs_encrypt_video_stream_state_t* stream_
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 mp4_cbcs_encrypt_video_write_buffer(void* context, u_char* buffer, uint32_t size)
@@ -625,6 +633,7 @@ mp4_cbcs_encrypt_video_write_buffer(void* context, u_char* buffer, uint32_t size
     return VOD_OK;
 }
 
+
 static vod_status_t
 mp4_cbcs_encrypt_video_get_fragment_writer(
     mp4_cbcs_encrypt_state_t* state,
@@ -774,6 +783,7 @@ mp4_cbcs_encrypt_audio_write_buffer(void* context, u_char* buffer, uint32_t size
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 mp4_cbcs_encrypt_audio_get_fragment_writer(

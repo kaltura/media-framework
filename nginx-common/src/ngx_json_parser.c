@@ -68,21 +68,26 @@ static ngx_json_type_t  ngx_json_string = {
     NGX_JSON_STRING, sizeof(ngx_json_esc_str_t), ngx_json_parser_string
 };
 
+
 static ngx_json_type_t  ngx_json_array = {
     NGX_JSON_ARRAY, sizeof(ngx_json_array_t), ngx_json_parser_array
 };
+
 
 static ngx_json_type_t  ngx_json_object = {
     NGX_JSON_OBJECT, sizeof(ngx_json_object_t), ngx_json_parser_object
 };
 
+
 static ngx_json_type_t  ngx_json_bool = {
     NGX_JSON_BOOL, sizeof(ngx_flag_t), ngx_json_parser_bool
 };
 
+
 static ngx_json_type_t  ngx_json_frac = {
     NGX_JSON_FRAC, sizeof(ngx_json_fraction_t), ngx_json_parser_frac
 };
+
 
 static ngx_json_type_t  ngx_json_int = {
     NGX_JSON_INT, sizeof(int64_t), ngx_json_parser_int
@@ -142,11 +147,13 @@ ngx_json_get_value_type(ngx_json_parser_state_t *state,
     return NGX_JSON_OK;
 }
 
+
 static void
 ngx_json_skip_spaces(ngx_json_parser_state_t *state)
 {
     for (; *state->cur_pos && isspace(*state->cur_pos); state->cur_pos++);
 }
+
 
 static ngx_json_status_t
 ngx_json_parse_string(ngx_json_parser_state_t *state,
@@ -192,6 +199,7 @@ ngx_json_parse_string(ngx_json_parser_state_t *state,
         "end of data while parsing string (2)%Z");
     return NGX_JSON_BAD_DATA;
 }
+
 
 static ngx_json_status_t
 ngx_json_parse_object_key(ngx_json_parser_state_t *state,
@@ -244,6 +252,7 @@ ngx_json_parse_object_key(ngx_json_parser_state_t *state,
     return NGX_JSON_BAD_DATA;
 }
 
+
 static ngx_json_status_t
 ngx_json_parse_int(ngx_json_parser_state_t *state, int64_t *result,
     ngx_flag_t *negative)
@@ -281,6 +290,7 @@ ngx_json_parse_int(ngx_json_parser_state_t *state, int64_t *result,
 
     return NGX_JSON_OK;
 }
+
 
 static ngx_json_status_t
 ngx_json_parse_fraction(ngx_json_parser_state_t *state,
@@ -327,6 +337,7 @@ ngx_json_parse_fraction(ngx_json_parser_state_t *state,
 
     return NGX_JSON_OK;
 }
+
 
 static ngx_json_status_t
 ngx_json_parse_array(ngx_json_parser_state_t *state, ngx_json_array_t *result)
@@ -448,6 +459,7 @@ done:
     return NGX_JSON_OK;
 }
 
+
 static ngx_json_status_t
 ngx_json_parse_object(ngx_json_parser_state_t *state,
     ngx_json_object_t *result)
@@ -529,12 +541,14 @@ ngx_json_parse_object(ngx_json_parser_state_t *state,
     }
 }
 
+
 static ngx_json_status_t
 ngx_json_parser_string(ngx_json_parser_state_t *state, void *result)
 {
     ASSERT_CHAR(state, '"');
     return ngx_json_parse_string(state, (ngx_json_esc_str_t *) result);
 }
+
 
 static ngx_json_status_t
 ngx_json_parser_array(ngx_json_parser_state_t *state, void *result)
@@ -543,12 +557,14 @@ ngx_json_parser_array(ngx_json_parser_state_t *state, void *result)
     return ngx_json_parse_array(state, (ngx_json_array_t *) result);
 }
 
+
 static ngx_json_status_t
 ngx_json_parser_object(ngx_json_parser_state_t *state, void *result)
 {
     ASSERT_CHAR(state, '{');
     return ngx_json_parse_object(state, (ngx_json_object_t *) result);
 }
+
 
 static ngx_json_status_t
 ngx_json_parser_bool(ngx_json_parser_state_t *state, void *result)
@@ -570,11 +586,13 @@ ngx_json_parser_bool(ngx_json_parser_state_t *state, void *result)
     return NGX_JSON_BAD_DATA;
 }
 
+
 static ngx_json_status_t
 ngx_json_parser_frac(ngx_json_parser_state_t *state, void *result)
 {
     return ngx_json_parse_fraction(state, (ngx_json_fraction_t *) result);
 }
+
 
 static ngx_json_status_t
 ngx_json_parser_int(ngx_json_parser_state_t *state, void *result)
@@ -590,6 +608,7 @@ ngx_json_parser_int(ngx_json_parser_state_t *state, void *result)
 
     return rc;
 }
+
 
 static ngx_json_status_t
 ngx_json_parse_value(ngx_json_parser_state_t *state, ngx_json_value_t *result)
@@ -638,6 +657,7 @@ ngx_json_parse_value(ngx_json_parser_state_t *state, ngx_json_value_t *result)
     }
 }
 
+
 ngx_json_status_t
 ngx_json_parse(ngx_pool_t *pool, u_char *string, ngx_json_value_t *result,
     u_char *error, size_t error_size)
@@ -673,6 +693,7 @@ error:
     return rc;
 }
 
+
 static u_char *
 ngx_json_unicode_hex_to_utf8(u_char *dest, u_char *src)
 {
@@ -707,6 +728,7 @@ ngx_json_unicode_hex_to_utf8(u_char *dest, u_char *src)
 
     return dest;
 }
+
 
 ngx_json_status_t
 ngx_json_decode_string(ngx_str_t *dest, ngx_str_t *src)
@@ -822,6 +844,7 @@ ngx_json_object_parse(ngx_pool_t *pool, ngx_json_object_t *object,
     return NGX_JSON_OK;
 }
 
+
 ngx_json_status_t
 ngx_json_set_num_slot(ngx_pool_t *pool, ngx_json_value_t *value,
     ngx_json_prop_t *prop, void *dest)
@@ -842,6 +865,7 @@ ngx_json_set_num_slot(ngx_pool_t *pool, ngx_json_value_t *value,
     return NGX_JSON_OK;
 }
 
+
 ngx_json_status_t
 ngx_json_set_flag_slot(ngx_pool_t *pool, ngx_json_value_t *value,
     ngx_json_prop_t *prop, void *dest)
@@ -861,6 +885,7 @@ ngx_json_set_flag_slot(ngx_pool_t *pool, ngx_json_value_t *value,
 
     return NGX_JSON_OK;
 }
+
 
 ngx_json_status_t
 ngx_json_set_str_slot(ngx_pool_t *pool, ngx_json_value_t *value,
@@ -895,6 +920,7 @@ ngx_json_set_str_slot(ngx_pool_t *pool, ngx_json_value_t *value,
     return NGX_JSON_OK;
 }
 
+
 ngx_json_status_t
 ngx_json_set_raw_str_slot(ngx_pool_t *pool, ngx_json_value_t *value,
     ngx_json_prop_t *prop, void *dest)
@@ -914,6 +940,7 @@ ngx_json_set_raw_str_slot(ngx_pool_t *pool, ngx_json_value_t *value,
 
     return NGX_JSON_OK;
 }
+
 
 ngx_json_status_t
 ngx_json_set_obj_slot(ngx_pool_t *pool, ngx_json_value_t *value,
@@ -935,6 +962,7 @@ ngx_json_set_obj_slot(ngx_pool_t *pool, ngx_json_value_t *value,
     return NGX_JSON_OK;
 }
 
+
 ngx_json_status_t
 ngx_json_set_arr_slot(ngx_pool_t *pool, ngx_json_value_t *value,
     ngx_json_prop_t *prop, void *dest)
@@ -954,6 +982,7 @@ ngx_json_set_arr_slot(ngx_pool_t *pool, ngx_json_value_t *value,
 
     return NGX_JSON_OK;
 }
+
 
 ngx_json_status_t
 ngx_json_set_enum_slot(ngx_pool_t *pool, ngx_json_value_t *value,

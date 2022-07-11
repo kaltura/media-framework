@@ -38,6 +38,7 @@ mp4_cenc_encrypt_write_guid(u_char* p, u_char* guid)
     return p;
 }
 
+
 static void
 mp4_cenc_encrypt_init_track(mp4_cenc_encrypt_state_t* state, media_segment_track_t* track)
 {
@@ -47,6 +48,7 @@ mp4_cenc_encrypt_init_track(mp4_cenc_encrypt_state_t* state, media_segment_track
     state->last_frame = state->cur_frame + track->frames.part.nelts;
     state->frame_size_left = 0;
 }
+
 
 static vod_status_t
 mp4_cenc_encrypt_init_state(
@@ -99,6 +101,7 @@ mp4_cenc_encrypt_init_state(
     return VOD_OK;
 }
 
+
 static bool_t
 mp4_cenc_encrypt_move_to_next_frame(mp4_cenc_encrypt_state_t* state)
 {
@@ -116,6 +119,7 @@ mp4_cenc_encrypt_move_to_next_frame(mp4_cenc_encrypt_state_t* state)
 
     return TRUE;
 }
+
 
 static vod_status_t
 mp4_cenc_encrypt_start_frame(mp4_cenc_encrypt_state_t* state)
@@ -160,6 +164,7 @@ mp4_cenc_encrypt_video_init_track(mp4_cenc_encrypt_video_state_t* state, media_s
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 mp4_cenc_encrypt_video_snpf_build_auxiliary_data(mp4_cenc_encrypt_video_state_t* state)
@@ -220,6 +225,7 @@ mp4_cenc_encrypt_video_snpf_build_auxiliary_data(mp4_cenc_encrypt_video_state_t*
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 mp4_cenc_encrypt_video_snpf_write_buffer(void* context, u_char* buffer, uint32_t size)
@@ -351,6 +357,7 @@ mp4_cenc_encrypt_video_snpf_write_buffer(void* context, u_char* buffer, uint32_t
     return VOD_OK;
 }
 
+
 static vod_status_t
 mp4_cenc_encrypt_video_start_frame(mp4_cenc_encrypt_video_state_t* state)
 {
@@ -381,6 +388,7 @@ mp4_cenc_encrypt_video_start_frame(mp4_cenc_encrypt_video_state_t* state)
     return VOD_OK;
 }
 
+
 static vod_status_t
 mp4_cenc_encrypt_video_add_subsample(mp4_cenc_encrypt_video_state_t* state, uint16_t bytes_of_clear_data, uint32_t bytes_of_encrypted_data)
 {
@@ -400,6 +408,7 @@ mp4_cenc_encrypt_video_add_subsample(mp4_cenc_encrypt_video_state_t* state, uint
     return VOD_OK;
 }
 
+
 static vod_status_t
 mp4_cenc_encrypt_video_end_frame(mp4_cenc_encrypt_video_state_t* state)
 {
@@ -417,6 +426,7 @@ mp4_cenc_encrypt_video_end_frame(mp4_cenc_encrypt_video_state_t* state)
 
     return VOD_OK;
 }
+
 
 static u_char
 mp4_cenc_encrypt_video_calc_default_auxiliary_sample_size(mp4_cenc_encrypt_video_state_t* state)
@@ -440,6 +450,7 @@ mp4_cenc_encrypt_video_calc_default_auxiliary_sample_size(mp4_cenc_encrypt_video
 
     return default_auxiliary_sample_size;
 }
+
 
 static void
 mp4_cenc_encrypt_video_prepare_saiz_saio(mp4_cenc_encrypt_video_state_t* state)
@@ -473,6 +484,7 @@ mp4_cenc_encrypt_video_write_saiz_saio(mp4_cenc_encrypt_video_state_t* state, u_
 
     return p;
 }
+
 
 static vod_status_t
 mp4_cenc_encrypt_video_write_buffer(void* context, u_char* buffer, uint32_t size)
@@ -864,6 +876,7 @@ mp4_cenc_encrypt_audio_write_saiz_saio(mp4_cenc_encrypt_state_t* state, u_char* 
 
     return p;
 }
+
 
 static vod_status_t
 mp4_cenc_encrypt_audio_write_buffer(void* context, u_char* buffer, uint32_t size)

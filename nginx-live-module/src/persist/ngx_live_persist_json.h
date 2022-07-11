@@ -21,6 +21,7 @@ ngx_live_persist_core_json_get_size(ngx_live_persist_file_stats_t *obj)
     return result;
 }
 
+
 u_char *
 ngx_live_persist_core_json_write(u_char *p, ngx_live_persist_file_stats_t *obj)
 {
@@ -38,6 +39,7 @@ ngx_live_persist_core_json_write(u_char *p, ngx_live_persist_file_stats_t *obj)
 
     return p;
 }
+
 
 /* ngx_live_persist_setup_obj_json writer */
 
@@ -58,6 +60,7 @@ ngx_live_persist_setup_obj_json_get_size(ngx_live_channel_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_live_persist_setup_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 {
@@ -76,6 +79,7 @@ ngx_live_persist_setup_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 
     return p;
 }
+
 
 /* ngx_live_persist_index_obj_json writer */
 
@@ -96,6 +100,7 @@ ngx_live_persist_index_obj_json_get_size(ngx_live_channel_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_live_persist_index_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 {
@@ -114,6 +119,7 @@ ngx_live_persist_index_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 
     return p;
 }
+
 
 /* ngx_live_persist_delta_obj_json writer */
 
@@ -134,6 +140,7 @@ ngx_live_persist_delta_obj_json_get_size(ngx_live_channel_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_live_persist_delta_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 {
@@ -153,6 +160,7 @@ ngx_live_persist_delta_obj_json_write(u_char *p, ngx_live_channel_t *obj)
     return p;
 }
 
+
 /* ngx_live_persist_media_obj_json writer */
 
 static size_t
@@ -171,6 +179,7 @@ ngx_live_persist_media_obj_json_get_size(ngx_live_channel_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_live_persist_media_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 {
@@ -185,6 +194,7 @@ ngx_live_persist_media_obj_json_write(u_char *p, ngx_live_channel_t *obj)
 
     return p;
 }
+
 
 /* ngx_live_persist_channel_json writer */
 
@@ -208,6 +218,7 @@ ngx_live_persist_channel_json_get_size(void *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_live_persist_channel_json_write(u_char *p, void *obj)

@@ -35,6 +35,7 @@ enum {
     NGX_LIVE_BP_COUNT
 };
 
+
 typedef enum {
     ngx_live_track_inactive,
     ngx_live_track_pending,
@@ -74,6 +75,7 @@ typedef struct {
     uint32_t                          count;
 } ngx_live_segmenter_candidate_t;
 
+
 typedef struct {
     ngx_live_channel_t               *channel;
     int64_t                           boundary_pts;
@@ -95,6 +97,7 @@ typedef struct {
     ngx_buf_chain_t                  *data;
 } ngx_live_segmenter_frame_t;
 
+
 typedef struct ngx_live_segmenter_frame_part_s
     ngx_live_segmenter_frame_part_t;
 
@@ -106,6 +109,7 @@ struct ngx_live_segmenter_frame_part_s {
     ngx_live_segmenter_frame_t  elts[NGX_LIVE_SEGMENTER_FRAME_PART_COUNT];
 };
 
+
 typedef struct {
     ngx_live_track_t                 *track;
     ngx_block_pool_t                 *block_pool;
@@ -116,6 +120,7 @@ typedef struct {
     ngx_buf_chain_t                  *last_data_part;
     uint32_t                          dts_shift;
 } ngx_live_segmenter_frame_list_t;
+
 
 typedef struct {
     int64_t                           split_duration;
@@ -133,6 +138,7 @@ typedef struct {
     uint32_t                          index_delta;
 } ngx_live_segmenter_kf_t;
 
+
 typedef struct ngx_live_segmenter_kf_part_s  ngx_live_segmenter_kf_part_t;
 
 struct ngx_live_segmenter_kf_part_s {
@@ -141,6 +147,7 @@ struct ngx_live_segmenter_kf_part_s {
 
     ngx_live_segmenter_kf_t           elts[NGX_LIVE_SEGMENTER_KF_PART_COUNT];
 };
+
 
 typedef struct {
     ngx_live_track_t                 *track;
@@ -185,6 +192,7 @@ typedef struct {
 
     ngx_event_t                       inactive;
 } ngx_live_segmenter_track_ctx_t;
+
 
 typedef struct {
     uint32_t                          min_segment_duration;
@@ -335,6 +343,7 @@ static ngx_live_module_t  ngx_live_segmenter_module_ctx = {
     ngx_live_segmenter_merge_preset_conf,     /* merge preset configuration */
 };
 
+
 ngx_module_t  ngx_live_segmenter_module = {
     NGX_MODULE_V1,
     &ngx_live_segmenter_module_ctx,           /* module context */
@@ -433,6 +442,7 @@ ngx_live_segmenter_candidate_list_add(
     cur->count = 1;
 }
 
+
 static void
 ngx_live_segmenter_candidate_list_truncate(
     ngx_live_segmenter_candidate_list_t *list, int64_t pts)
@@ -460,6 +470,7 @@ ngx_live_segmenter_frame_list_init(ngx_live_segmenter_frame_list_t *list,
     list->last = &list->part;
 }
 
+
 static void
 ngx_live_segmenter_frame_list_reset(ngx_live_segmenter_frame_list_t *list)
 {
@@ -469,6 +480,7 @@ ngx_live_segmenter_frame_list_reset(ngx_live_segmenter_frame_list_t *list)
 
     list->last_data_part = NULL;
 }
+
 
 static void
 ngx_live_segmenter_frame_list_free(ngx_live_segmenter_frame_list_t *list)
@@ -486,6 +498,7 @@ ngx_live_segmenter_frame_list_free(ngx_live_segmenter_frame_list_t *list)
         ngx_block_pool_free(list->block_pool, list->bp_idx, part);
     }
 }
+
 
 static ngx_live_segmenter_frame_t *
 ngx_live_segmenter_frame_list_push(ngx_live_segmenter_frame_list_t *list,
@@ -524,6 +537,7 @@ ngx_live_segmenter_frame_list_push(ngx_live_segmenter_frame_list_t *list,
     return frame;
 }
 
+
 static ngx_live_segmenter_frame_t *
 ngx_live_segmenter_frame_list_get(ngx_live_segmenter_frame_list_t *list,
     uint32_t index)
@@ -544,6 +558,7 @@ ngx_live_segmenter_frame_list_get(ngx_live_segmenter_frame_list_t *list,
 
     return part->elts + index;
 }
+
 
 static void
 ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
@@ -696,6 +711,7 @@ ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
     }
 }
 
+
 static int64_t
 ngx_live_segmenter_frame_list_get_min_split_pts(
     ngx_live_segmenter_frame_list_t *list)
@@ -739,6 +755,7 @@ ngx_live_segmenter_frame_list_get_min_split_pts(
     ngx_debug_point();
     return NGX_LIVE_INVALID_PTS;
 }
+
 
 static ngx_uint_t
 ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
@@ -791,6 +808,7 @@ ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
     return index;
 }
 
+
 static ngx_uint_t
 ngx_live_segmenter_frame_list_get_truncate_index(
     ngx_live_segmenter_frame_list_t *list, int64_t target_pts)
@@ -829,6 +847,7 @@ ngx_live_segmenter_frame_list_get_truncate_index(
 
     return index;
 }
+
 
 static ngx_int_t
 ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
@@ -966,6 +985,7 @@ ngx_live_segmenter_kf_list_init(ngx_live_segmenter_kf_list_t *list,
     list->last = &list->part;
 }
 
+
 static void
 ngx_live_segmenter_kf_list_reset(ngx_live_segmenter_kf_list_t *list)
 {
@@ -974,6 +994,7 @@ ngx_live_segmenter_kf_list_reset(ngx_live_segmenter_kf_list_t *list)
     list->last = &list->part;
     list->last_key_index = 0;
 }
+
 
 static void
 ngx_live_segmenter_kf_list_free(ngx_live_segmenter_kf_list_t *list)
@@ -986,6 +1007,7 @@ ngx_live_segmenter_kf_list_free(ngx_live_segmenter_kf_list_t *list)
         ngx_block_pool_free(list->block_pool, list->bp_idx, part);
     }
 }
+
 
 static ngx_live_segmenter_kf_t *
 ngx_live_segmenter_kf_list_push(ngx_live_segmenter_kf_list_t *list,
@@ -1018,6 +1040,7 @@ ngx_live_segmenter_kf_list_push(ngx_live_segmenter_kf_list_t *list,
 
     return elt;
 }
+
 
 static void
 ngx_live_segmenter_kf_list_remove(ngx_live_segmenter_kf_list_t *list,
@@ -1081,6 +1104,7 @@ ngx_live_segmenter_kf_list_remove(ngx_live_segmenter_kf_list_t *list,
     }
 }
 
+
 static void
 ngx_live_segmenter_kf_list_add_candidates(ngx_live_segmenter_kf_list_t *list,
     ngx_live_segmenter_candidate_list_t *candidates, int64_t max_pts)
@@ -1119,6 +1143,7 @@ ngx_live_segmenter_kf_list_add_candidates(ngx_live_segmenter_kf_list_t *list,
         }
     }
 }
+
 
 static void
 ngx_live_segmenter_kf_list_find_nearest_pts(ngx_live_segmenter_kf_list_t *list,
@@ -1182,6 +1207,7 @@ ngx_live_segmenter_kf_list_find_nearest_pts(ngx_live_segmenter_kf_list_t *list,
     }
 }
 
+
 static ngx_uint_t
 ngx_live_segmenter_kf_list_get_index(ngx_live_segmenter_kf_list_t *list,
     int64_t target_pts)
@@ -1233,6 +1259,7 @@ ngx_live_segmenter_kf_list_get_index(ngx_live_segmenter_kf_list_t *list,
     return index;
 }
 
+
 static ngx_uint_t
 ngx_live_segmenter_kf_list_get_truncate_index(
     ngx_live_segmenter_kf_list_t *list, int64_t target_pts)
@@ -1274,6 +1301,7 @@ ngx_live_segmenter_kf_list_get_truncate_index(
 
     return index;
 }
+
 
 static void
 ngx_live_segmenter_kf_list_dump(ngx_live_segmenter_kf_list_t *list,
@@ -1341,6 +1369,7 @@ ngx_live_segmenter_set_state(ngx_live_track_t *track,
 
     ctx->state = new_state;
 }
+
 
 static void
 ngx_live_segmenter_channel_inactive(ngx_live_channel_t *channel)
@@ -1417,6 +1446,7 @@ ngx_live_segmenter_validate_empty_track_ctx(ngx_live_track_t *track)
         ngx_debug_point();
     }
 }
+
 
 static void
 ngx_live_segmenter_validate_track_ctx(ngx_live_track_t *track)
@@ -1651,6 +1681,7 @@ ngx_live_segmenter_validate_track_ctx(ngx_live_track_t *track)
     }
 }
 
+
 static void
 ngx_live_segmenter_validate_channel_ctx(ngx_live_channel_t *channel)
 {
@@ -1714,6 +1745,7 @@ ngx_live_segmenter_dump_track(ngx_live_track_t *track, int64_t base_pts)
     ngx_live_segmenter_kf_list_dump(&ctx->key_frames, base_pts);
 }
 
+
 static void
 ngx_live_segmenter_dump(ngx_live_channel_t *channel, int64_t base_pts,
     int64_t end_pts)
@@ -1739,6 +1771,7 @@ ngx_live_segmenter_dump(ngx_live_channel_t *channel, int64_t base_pts,
         ngx_live_segmenter_dump_track(cur_track, base_pts);
     }
 }
+
 
 static void
 ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
@@ -1856,6 +1889,7 @@ done:
     ngx_live_segmenter_validate_track_ctx(track);
 }
 
+
 static void
 ngx_live_segmenter_remove_all_frames(ngx_live_track_t *track)
 {
@@ -1891,6 +1925,7 @@ ngx_live_segmenter_remove_all_frames(ngx_live_track_t *track)
 
     ngx_live_segmenter_validate_track_ctx(track);
 }
+
 
 static void
 ngx_live_segmenter_prepare_create_segment(ngx_live_channel_t *channel,
@@ -1957,6 +1992,7 @@ ngx_live_segmenter_prepare_create_segment(ngx_live_channel_t *channel,
     }
 }
 
+
 static void
 ngx_live_segmenter_find_nearest_keyframe_pts(
     ngx_live_segmenter_track_ctx_t *ctx,
@@ -2001,6 +2037,7 @@ ngx_live_segmenter_find_nearest_keyframe_pts(
         }
     }
 }
+
 
 static void
 ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
@@ -2112,6 +2149,7 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
     }
 }
 
+
 static void
 ngx_live_segmenter_candidates_get_span(ngx_live_channel_t *channel,
     ngx_live_segmenter_candidate_list_t *candidates,
@@ -2171,6 +2209,7 @@ ngx_live_segmenter_candidates_get_span(ngx_live_channel_t *channel,
         }
     }
 }
+
 
 static int64_t
 ngx_live_segmenter_get_segment_end_pts(ngx_live_channel_t *channel,
@@ -2283,6 +2322,7 @@ done:
     return target_pts;
 }
 
+
 static ngx_int_t
 ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
     int64_t target_pts, uint32_t *media_types_mask)
@@ -2392,6 +2432,7 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
     return rc;
 }
 
+
 static ngx_int_t
 ngx_live_segmenter_fill(ngx_live_channel_t *channel, uint32_t media_types_mask,
     int64_t min_split_pts, int64_t *target_pts)
@@ -2447,6 +2488,7 @@ ngx_live_segmenter_fill(ngx_live_channel_t *channel, uint32_t media_types_mask,
         return rc;
     }
 }
+
 
 static ngx_int_t
 ngx_live_segmenter_dispose_segment(ngx_live_channel_t *channel,
@@ -2510,6 +2552,7 @@ ngx_live_segmenter_dispose_segment(ngx_live_channel_t *channel,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
@@ -2581,6 +2624,7 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_segmenter_create_segment(ngx_live_channel_t *channel)
@@ -2703,6 +2747,7 @@ ngx_live_segmenter_create_segment(ngx_live_channel_t *channel)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
@@ -2899,6 +2944,7 @@ ngx_live_segmenter_add_media_info(ngx_live_track_t *track,
     }
 }
 
+
 static ngx_int_t
 ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
 {
@@ -3074,6 +3120,7 @@ ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_segmenter_start_stream(ngx_live_stream_stream_req_t *req)
 {
@@ -3105,6 +3152,7 @@ ngx_live_segmenter_start_stream(ngx_live_stream_stream_req_t *req)
 
     return NGX_OK;
 }
+
 
 static void
 ngx_live_segmenter_end_stream(ngx_live_track_t *track)
@@ -3193,6 +3241,7 @@ ngx_live_segmenter_inactive_handler(ngx_event_t *ev)
     }
 }
 
+
 static void
 ngx_live_segmenter_create_handler(ngx_event_t *ev)
 {
@@ -3205,6 +3254,7 @@ ngx_live_segmenter_create_handler(ngx_event_t *ev)
         return;
     }
 }
+
 
 static ngx_int_t
 ngx_live_segmenter_track_init(ngx_live_track_t *track, void *ectx)
@@ -3241,6 +3291,7 @@ ngx_live_segmenter_track_init(ngx_live_track_t *track, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_segmenter_track_free(ngx_live_track_t *track, void *ectx)
 {
@@ -3276,6 +3327,7 @@ ngx_live_segmenter_track_free(ngx_live_track_t *track, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_segmenter_track_channel_free(ngx_live_track_t *track, void *ectx)
 {
@@ -3292,6 +3344,7 @@ ngx_live_segmenter_track_channel_free(ngx_live_track_t *track, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_segmenter_channel_duration_changed(ngx_live_channel_t *channel,
@@ -3332,6 +3385,7 @@ ngx_live_segmenter_channel_duration_changed(ngx_live_channel_t *channel,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_segmenter_channel_init(ngx_live_channel_t *channel, void *ectx)
@@ -3394,6 +3448,7 @@ ngx_live_segmenter_channel_init(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_segmenter_channel_free(ngx_live_channel_t *channel, void *ectx)
 {
@@ -3422,6 +3477,7 @@ ngx_live_segmenter_channel_free(ngx_live_channel_t *channel, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_segmenter_channel_read(ngx_live_channel_t *channel, void *ectx)
@@ -3472,6 +3528,7 @@ ngx_live_segmenter_track_json_get_size(void *obj)
         sizeof(",\"dropped_frames\":") - 1 + NGX_INT_T_LEN;
 }
 
+
 static u_char *
 ngx_live_segmenter_track_json_write(u_char *p, void *obj)
 {
@@ -3517,6 +3574,7 @@ static ngx_live_channel_event_t    ngx_live_segmenter_channel_events[] = {
       ngx_live_null_event
 };
 
+
 static ngx_live_track_event_t      ngx_live_segmenter_track_events[] = {
     { ngx_live_segmenter_track_init, NGX_LIVE_EVENT_TRACK_INIT },
     { ngx_live_segmenter_track_free, NGX_LIVE_EVENT_TRACK_FREE },
@@ -3526,6 +3584,7 @@ static ngx_live_track_event_t      ngx_live_segmenter_track_events[] = {
       ngx_live_null_event
 };
 
+
 static ngx_live_json_writer_def_t  ngx_live_segmenter_json_writers[] = {
     { { ngx_live_segmenter_track_json_get_size,
         ngx_live_segmenter_track_json_write },
@@ -3533,6 +3592,7 @@ static ngx_live_json_writer_def_t  ngx_live_segmenter_json_writers[] = {
 
       ngx_live_null_json_writer
 };
+
 
 static ngx_live_segmenter_t  ngx_live_segmenter = {
     NGX_LIVE_SEGMENTER_ID,
@@ -3543,6 +3603,7 @@ static ngx_live_segmenter_t  ngx_live_segmenter = {
     ngx_live_segmenter_add_frame,
     ngx_live_segmenter_get_min_used,
 };
+
 
 static ngx_int_t
 ngx_live_segmenter_postconfiguration(ngx_conf_t *cf)
@@ -3567,6 +3628,7 @@ ngx_live_segmenter_postconfiguration(ngx_conf_t *cf)
 
     return NGX_OK;
 }
+
 
 static void *
 ngx_live_segmenter_create_preset_conf(ngx_conf_t *cf)
@@ -3599,6 +3661,7 @@ ngx_live_segmenter_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_segmenter_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)

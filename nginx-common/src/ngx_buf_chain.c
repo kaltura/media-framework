@@ -17,6 +17,7 @@ ngx_buf_chain_seek(ngx_buf_chain_t *head, size_t *offset)
     }
 }
 
+
 ngx_int_t
 ngx_buf_chain_skip(ngx_buf_chain_t **head_ptr, size_t size)
 {
@@ -41,6 +42,7 @@ ngx_buf_chain_skip(ngx_buf_chain_t **head_ptr, size_t size)
 
     return NGX_OK;
 }
+
 
 void *
 ngx_buf_chain_copy(ngx_buf_chain_t **head_ptr, void *buf, size_t size)
@@ -71,6 +73,7 @@ ngx_buf_chain_copy(ngx_buf_chain_t **head_ptr, void *buf, size_t size)
     return buf;
 }
 
+
 void *
 ngx_buf_chain_read(ngx_buf_chain_t **head_ptr, void *buf, size_t size)
 {
@@ -90,6 +93,7 @@ ngx_buf_chain_read(ngx_buf_chain_t **head_ptr, void *buf, size_t size)
 
     return ngx_buf_chain_copy(head_ptr, buf, size);
 }
+
 
 ngx_int_t
 ngx_buf_chain_compare(ngx_buf_chain_t *head, void *buf, size_t size)
@@ -119,6 +123,7 @@ ngx_buf_chain_compare(ngx_buf_chain_t *head, void *buf, size_t size)
 
     return 1;
 }
+
 
 ngx_buf_chain_t *
 ngx_buf_chain_terminate(ngx_buf_chain_t *data, uint32_t size)

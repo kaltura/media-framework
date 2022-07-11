@@ -50,11 +50,13 @@ typedef struct {
     u_char                   type;
 } ngx_ts_kmp_avc_nalu_t;
 
+
 typedef struct {
     ngx_ts_kmp_avc_nalu_t    elts[NGX_TS_KMP_MAX_FRAME_NALS];
     ngx_uint_t               nelts;
     uint32_t                 types;
 } ngx_ts_kmp_avc_nalu_arr_t;
+
 
 typedef struct {
     u_char                   version;
@@ -101,6 +103,7 @@ ngx_ts_kmp_compare_chain(u_char *ref, ngx_chain_t *cl, u_char *src_pos,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_ts_kmp_copy_chain(ngx_pool_t *pool, ngx_buf_t *dst, ngx_chain_t *cl,
     u_char *src_pos, size_t size)
@@ -145,6 +148,7 @@ ngx_ts_kmp_copy_chain(ngx_pool_t *pool, ngx_buf_t *dst, ngx_chain_t *cl,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_ts_kmp_track_write_chain(ngx_kmp_push_track_t *track,
     ngx_chain_t *cl, u_char *pos, size_t size)
@@ -186,6 +190,7 @@ ngx_ts_kmp_track_write_chain(ngx_kmp_push_track_t *track,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_ts_kmp_track_alloc_extra_data(ngx_ts_kmp_track_t *ts_track,
@@ -343,6 +348,7 @@ ngx_ts_kmp_track_avc_handle_nalu(ngx_ts_kmp_track_t *ts_track,
         nalu->cl, nalu->pos, nalu->size);
 }
 
+
 static ngx_int_t
 ngx_ts_kmp_track_avc_init_nalu_array(ngx_ts_kmp_track_t *ts_track,
     ngx_chain_t *chain, ngx_ts_kmp_avc_nalu_arr_t *out)
@@ -431,6 +437,7 @@ ngx_ts_kmp_track_avc_init_nalu_array(ngx_ts_kmp_track_t *ts_track,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_ts_kmp_track_avc_update_media_info(ngx_ts_kmp_track_t *ts_track,
     ngx_ts_stream_t *ts)
@@ -505,6 +512,7 @@ ngx_ts_kmp_track_avc_update_media_info(ngx_ts_kmp_track_t *ts_track,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_ts_kmp_track_avc_write_frame(ngx_ts_kmp_track_t *ts_track,
     kmp_frame_packet_t *frame, ngx_ts_kmp_avc_nalu_arr_t *nalus)
@@ -559,6 +567,7 @@ ngx_ts_kmp_track_avc_write_frame(ngx_ts_kmp_track_t *ts_track,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_ts_kmp_track_avc_pes_handler(ngx_ts_kmp_track_t *ts_track,
@@ -672,6 +681,7 @@ ngx_ts_kmp_track_aac_update_media_info(ngx_ts_kmp_track_t *ts_track,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
@@ -865,6 +875,7 @@ ngx_ts_kmp_track_init_json_info(ngx_kmp_push_track_t *track,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_ts_kmp_track_init_input_id(ngx_kmp_push_track_t *track,
     ngx_ts_kmp_publish_t *publish)
@@ -883,6 +894,7 @@ ngx_ts_kmp_track_init_input_id(ngx_kmp_push_track_t *track,
 
     return NGX_OK;
 }
+
 
 ngx_ts_kmp_track_t *
 ngx_ts_kmp_track_get(ngx_ts_kmp_ctx_t *ctx, uint16_t pid)
@@ -912,6 +924,7 @@ ngx_ts_kmp_track_get(ngx_ts_kmp_ctx_t *ctx, uint16_t pid)
     return NULL;
 }
 
+
 static int32_t
 ngx_ts_kmp_track_get_codec(u_char type)
 {
@@ -928,6 +941,7 @@ ngx_ts_kmp_track_get_codec(u_char type)
     }
 }
 
+
 static void
 ngx_ts_kmp_track_error(void *arg)
 {
@@ -937,6 +951,7 @@ ngx_ts_kmp_track_error(void *arg)
         "ngx_ts_kmp_track_error: called");
     ctx->error = 1;
 }
+
 
 ngx_int_t
 ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
@@ -1033,6 +1048,7 @@ failed:
 
     return NGX_ERROR;
 }
+
 
 ngx_int_t
 ngx_ts_kmp_track_pes_handler(ngx_ts_kmp_track_t *ts_track,

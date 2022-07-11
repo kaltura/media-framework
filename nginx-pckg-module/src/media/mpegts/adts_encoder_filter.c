@@ -45,6 +45,7 @@ adts_encoder_set_media_info(
     return VOD_OK;
 }
 
+
 static vod_status_t
 adts_encoder_start_frame(media_filter_context_t* context, output_frame_t* frame)
 {

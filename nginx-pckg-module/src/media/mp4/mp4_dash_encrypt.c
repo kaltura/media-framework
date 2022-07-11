@@ -31,6 +31,7 @@ mp4_dash_encrypt_video_write_encryption_atoms(void* context, u_char* p, size_t m
     return p;
 }
 
+
 static vod_status_t
 mp4_dash_encrypt_video_build_fragment_header(
     mp4_cenc_encrypt_video_state_t* state,
@@ -83,6 +84,7 @@ mp4_dash_encrypt_audio_write_encryption_atoms(void* context, u_char* p, size_t m
 
     return p;
 }
+
 
 static vod_status_t
 mp4_dash_encrypt_audio_build_fragment_header(
@@ -209,6 +211,7 @@ mp4_dash_encrypt_get_fragment_writer(
 
     return mp4_muxer_start(state, &enc_writer, FALSE, processor_state);
 }
+
 
 static u_char*
 mp4_dash_encrypt_write_pssh_header(u_char* p, u_char* id, size_t data_len)

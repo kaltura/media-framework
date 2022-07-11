@@ -64,6 +64,7 @@ static ngx_command_t  ngx_rtmp_kmp_api_commands[] = {
     ngx_null_command
 };
 
+
 static ngx_http_module_t  ngx_rtmp_kmp_api_module_ctx = {
     NULL,                               /* preconfiguration */
     ngx_rtmp_kmp_api_postconfiguration, /* postconfiguration */
@@ -77,6 +78,7 @@ static ngx_http_module_t  ngx_rtmp_kmp_api_module_ctx = {
     NULL,                               /* create location configuration */
     NULL                                /* merge location configuration */
 };
+
 
 ngx_module_t ngx_rtmp_kmp_api_module = {
     NGX_MODULE_V1,
@@ -130,6 +132,7 @@ ngx_rtmp_kmp_api_streams_json_get_size(ngx_rtmp_session_t *s)
     return result;
 }
 
+
 static u_char *
 ngx_rtmp_kmp_api_streams_json_write(u_char *p, ngx_rtmp_session_t *s)
 {
@@ -169,6 +172,7 @@ ngx_rtmp_kmp_api_streams_json_write(u_char *p, ngx_rtmp_session_t *s)
     return p;
 }
 
+
 static size_t
 ngx_rtmp_kmp_api_tracks_json_get_size(ngx_kmp_push_track_t **tracks)
 {
@@ -191,6 +195,7 @@ ngx_rtmp_kmp_api_tracks_json_get_size(ngx_kmp_push_track_t **tracks)
 
     return result;
 }
+
 
 static u_char *
 ngx_rtmp_kmp_api_tracks_json_write(u_char *p, ngx_kmp_push_track_t **tracks)
@@ -255,6 +260,7 @@ ngx_rtmp_kmp_api_get(ngx_http_request_t *r, ngx_str_t *params,
     return NGX_OK;
 }
 
+
 static ngx_rtmp_session_t *
 ngx_rtmp_kmp_api_application_get_session(ngx_uint_t connection,
     ngx_rtmp_core_app_conf_t *app_conf)
@@ -283,6 +289,7 @@ ngx_rtmp_kmp_api_application_get_session(ngx_uint_t connection,
 
 }
 
+
 static ngx_rtmp_session_t *
 ngx_rtmp_kmp_api_server_get_session(ngx_uint_t connection,
     ngx_rtmp_core_srv_conf_t *srv_conf)
@@ -301,6 +308,7 @@ ngx_rtmp_kmp_api_server_get_session(ngx_uint_t connection,
 
     return NULL;
 }
+
 
 static ngx_rtmp_session_t *
 ngx_rtmp_kmp_api_get_session(ngx_uint_t connection)
@@ -324,6 +332,7 @@ ngx_rtmp_kmp_api_get_session(ngx_uint_t connection)
 
     return NULL;
 }
+
 
 static ngx_int_t
 ngx_rtmp_kmp_api_session_delete(ngx_http_request_t *r, ngx_str_t *params,

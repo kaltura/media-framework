@@ -234,6 +234,7 @@ ngx_live_persist_serve_get_track_rr(ngx_live_timeline_t *timeline,
     return 1;
 }
 
+
 static void
 ngx_live_persist_serve_get_variant_rrs(ngx_live_persist_variant_rr_t *var_rr,
     ngx_live_timeline_t *timeline, ngx_ksmp_rendition_report_t *skip_rr)
@@ -272,6 +273,7 @@ ngx_live_persist_serve_get_variant_rrs(ngx_live_persist_variant_rr_t *var_rr,
     }
 }
 
+
 static ngx_int_t
 ngx_live_persist_serve_write_variant_rrs(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
@@ -304,6 +306,7 @@ ngx_live_persist_serve_write_variant_rrs(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_persist_serve_write_rrs(ngx_persist_write_ctx_t *write_ctx, void *obj)
@@ -447,6 +450,7 @@ static ngx_persist_block_t  ngx_live_persist_serve_blocks[] = {
 
       ngx_null_persist_block
 };
+
 
 static ngx_int_t
 ngx_live_persist_serve_preconfiguration(ngx_conf_t *cf)

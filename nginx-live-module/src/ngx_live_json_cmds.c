@@ -39,6 +39,7 @@ ngx_live_json_cmds_prepare(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 ngx_live_json_cmd_t *
 ngx_live_json_cmds_add(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t ctx)
 {
@@ -90,6 +91,7 @@ ngx_live_json_cmds_add(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t ctx)
     return v;
 }
 
+
 ngx_int_t
 ngx_live_json_cmds_add_multi(ngx_conf_t *cf, ngx_live_json_cmd_t *cmds,
     ngx_uint_t ctx)
@@ -108,6 +110,7 @@ ngx_live_json_cmds_add_multi(ngx_conf_t *cf, ngx_live_json_cmd_t *cmds,
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_live_json_cmds_init(ngx_conf_t *cf)
@@ -142,6 +145,7 @@ ngx_live_json_cmds_init(ngx_conf_t *cf)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_json_cmds_post(ngx_live_channel_t *channel,
@@ -180,6 +184,7 @@ ngx_live_json_cmds_post(ngx_live_channel_t *channel,
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_live_json_cmds_exec(ngx_live_channel_t *channel,

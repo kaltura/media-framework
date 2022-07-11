@@ -65,12 +65,14 @@ ngx_buf_queue_delete(ngx_buf_queue_t *buf_queue)
     buf_queue->nbuffers = 0;
 }
 
+
 void
 ngx_buf_queue_detach(ngx_buf_queue_t *buf_queue)
 {
     buf_queue->log = ngx_cycle->log;
     buf_queue->mem_left = NULL;
 }
+
 
 #if (NGX_DEBUG)
 static void
@@ -128,6 +130,7 @@ ngx_buf_queue_validate(ngx_buf_queue_t *buf_queue)
 #define ngx_buf_queue_validate(buf_queue)
 #endif
 
+
 u_char *
 ngx_buf_queue_get(ngx_buf_queue_t *buf_queue)
 {
@@ -169,6 +172,7 @@ ngx_buf_queue_get(ngx_buf_queue_t *buf_queue)
 
     return ngx_buf_queue_start(result);
 }
+
 
 void
 ngx_buf_queue_free(ngx_buf_queue_t *buf_queue, u_char *limit)

@@ -203,6 +203,7 @@ mpegts_write_pcr(u_char *p, uint64_t pcr)
     return p;
 }
 
+
 static u_char *
 mpegts_write_pts(u_char *p, unsigned fb, uint64_t pts)
 {
@@ -222,6 +223,7 @@ mpegts_write_pts(u_char *p, unsigned fb, uint64_t pts)
     return p;
 }
 
+
 static vod_inline u_char *
 mpegts_write_packet_header(u_char *p, unsigned pid, unsigned cc)
 {
@@ -232,6 +234,7 @@ mpegts_write_packet_header(u_char *p, unsigned pid, unsigned cc)
 
     return p;
 }
+
 
 static size_t
 mpegts_get_pes_header_size(mpegts_stream_info_t* stream_info)
@@ -252,6 +255,7 @@ mpegts_get_pes_header_size(mpegts_stream_info_t* stream_info)
 
     return result;
 }
+
 
 static u_char *
 mpegts_write_pes_header(
@@ -310,6 +314,7 @@ mpegts_write_pes_header(
     return p;
 }
 
+
 static void
 mpegts_add_stuffing(u_char* packet, u_char* p, unsigned stuff_size)
 {
@@ -337,6 +342,7 @@ mpegts_add_stuffing(u_char* packet, u_char* p, unsigned stuff_size)
         }
     }
 }
+
 
 static void
 mpegts_copy_and_stuff(u_char* dest_packet, u_char* src_packet, u_char* src_pos, unsigned stuff_size)
@@ -429,6 +435,7 @@ mpegts_encoder_init_streams(
     return VOD_OK;
 }
 
+
 static void
 mpegts_encoder_write_sample_aes_audio_pmt_entry(
     request_context_t* request_context,
@@ -510,6 +517,7 @@ mpegts_encoder_write_sample_aes_audio_pmt_entry(
     *p++ = extra_data.len;
     vod_memcpy(p, extra_data.data, extra_data.len);
 }
+
 
 static vod_status_t
 mpegts_encoder_add_stream(
@@ -725,6 +733,7 @@ mpegts_encoder_init_packet(mpegts_encoder_state_t* state, bool_t write_direct)
     return VOD_OK;
 }
 
+
 static vod_status_t
 mpegts_encoder_stuff_cur_packet(mpegts_encoder_state_t* state)
 {
@@ -788,6 +797,7 @@ mpegts_encoder_stuff_cur_packet(mpegts_encoder_state_t* state)
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 mpegts_encoder_start_frame(media_filter_context_t* context, output_frame_t* frame)
@@ -941,6 +951,7 @@ mpegts_encoder_start_frame(media_filter_context_t* context, output_frame_t* fram
     return VOD_OK;
 }
 
+
 static vod_status_t
 mpegts_encoder_write(media_filter_context_t* context, const u_char* buffer, uint32_t size)
 {
@@ -1051,6 +1062,7 @@ mpegts_encoder_write(media_filter_context_t* context, const u_char* buffer, uint
     return VOD_OK;
 }
 
+
 static vod_status_t
 mpegts_append_null_packet(mpegts_encoder_state_t* state)
 {
@@ -1070,6 +1082,7 @@ mpegts_append_null_packet(mpegts_encoder_state_t* state)
     vod_memset(&packet[6], 0xff, MPEGTS_PACKET_USABLE_SIZE - 2);
     return VOD_OK;
 }
+
 
 static vod_status_t
 mpegts_encoder_flush_frame(media_filter_context_t* context, bool_t last_stream_frame)
@@ -1184,6 +1197,7 @@ mpegts_encoder_simulated_start_segment(write_buffer_queue_t* queue)
     queue->last_writer_context = NULL;
 }
 
+
 static void
 mpegts_encoder_simulated_stuff_cur_packet(mpegts_encoder_state_t* state)
 {
@@ -1208,6 +1222,7 @@ mpegts_encoder_simulated_stuff_cur_packet(mpegts_encoder_state_t* state)
     }
     state->cur_frame_end_pos = queue->cur_offset;
 }
+
 
 static void
 mpegts_encoder_simulated_start_frame(media_filter_context_t* context, output_frame_t* frame)
@@ -1252,6 +1267,7 @@ mpegts_encoder_simulated_start_frame(media_filter_context_t* context, output_fra
     state->packet_bytes_left = MPEGTS_PACKET_USABLE_SIZE - state->temp_packet_size;
 }
 
+
 static void
 mpegts_encoder_simulated_write(media_filter_context_t* context, uint32_t size)
 {
@@ -1288,6 +1304,7 @@ mpegts_encoder_simulated_write(media_filter_context_t* context, uint32_t size)
     queue->last_writer_context = state;
     state->cc += packet_count;
 }
+
 
 static void
 mpegts_encoder_simulated_flush_frame(media_filter_context_t* context, bool_t last_stream_frame)

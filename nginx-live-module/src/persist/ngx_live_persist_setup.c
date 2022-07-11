@@ -41,6 +41,7 @@ typedef struct {
     uint64_t                            start_sec;
 } ngx_live_persist_setup_channel_v1_t;
 
+
 typedef struct {
     uint64_t                            uid;
     uint32_t                            version;
@@ -50,6 +51,7 @@ typedef struct {
     uint64_t                            start_sec;
 } ngx_live_persist_setup_channel_t;
 
+
 typedef struct {
     uint32_t                            track_id;
     uint32_t                            media_type;
@@ -57,6 +59,7 @@ typedef struct {
     uint32_t                            reserved;
     uint64_t                            start_sec;
 } ngx_live_persist_setup_track_t;
+
 
 typedef struct {
     uint32_t                            role;
@@ -137,6 +140,7 @@ ngx_live_persist_setup_write_channel(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_persist_setup_read_channel(ngx_persist_block_header_t *header,
@@ -271,6 +275,7 @@ ngx_live_persist_setup_write_track(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_persist_setup_read_track(ngx_persist_block_header_t *header,
@@ -411,6 +416,7 @@ ngx_live_persist_setup_write_variant(ngx_persist_write_ctx_t *write_ctx,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_persist_setup_read_variant(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)
@@ -544,6 +550,7 @@ ngx_live_persist_setup_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
     ngx_live_persist_write_file_destroy(ctx);
 }
 
+
 static void
 ngx_live_persist_setup_write_handler(ngx_event_t *ev)
 {
@@ -569,6 +576,7 @@ ngx_live_persist_setup_write_handler(ngx_event_t *ev)
         "ngx_live_persist_setup_write_handler: "
         "write started, version: %uD", scope.version);
 }
+
 
 static ngx_int_t
 ngx_live_persist_setup_channel_changed(ngx_live_channel_t *channel, void *ectx)
@@ -639,6 +647,7 @@ ngx_live_persist_setup_json_get_size(ngx_live_channel_t *channel)
     return result;
 }
 
+
 u_char *
 ngx_live_persist_setup_json_write(u_char *p, ngx_live_channel_t *channel)
 {
@@ -688,6 +697,7 @@ ngx_live_persist_setup_channel_init(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_persist_setup_channel_free(ngx_live_channel_t *channel, void *ectx)
 {
@@ -732,6 +742,7 @@ ngx_live_persist_setup_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_persist_setup_merge_preset_conf(ngx_conf_t *cf, void *parent,
@@ -786,6 +797,7 @@ static ngx_persist_block_t  ngx_live_persist_setup_blocks[] = {
       ngx_null_persist_block
 };
 
+
 static ngx_int_t
 ngx_live_persist_setup_preconfiguration(ngx_conf_t *cf)
 {
@@ -807,6 +819,7 @@ static ngx_live_channel_event_t  ngx_live_persist_setup_channel_events[] = {
 
       ngx_live_null_event
 };
+
 
 static ngx_int_t
 ngx_live_persist_setup_postconfiguration(ngx_conf_t *cf)

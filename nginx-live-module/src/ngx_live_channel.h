@@ -75,12 +75,14 @@ typedef enum {
     ngx_live_free_close_segment_failed,
 } ngx_live_free_reason_e;
 
+
 typedef struct {
     ngx_rbtree_t                   rbtree;
     ngx_rbtree_node_t              sentinel;
     uint32_t                       count;
     ngx_queue_t                    queue;
 } ngx_live_channel_variants_t;
+
 
 typedef struct {
     ngx_rbtree_t                   rbtree;        /* by string id */
@@ -92,10 +94,12 @@ typedef struct {
     uint32_t                       last_id;
 } ngx_live_channel_tracks_t;
 
+
 typedef struct {
     ngx_msec_t                     segment_duration;
     uint32_t                       initial_segment_index;
 } ngx_live_channel_conf_t;
+
 
 struct ngx_live_channel_s {
     ngx_str_node_t                 sn;        /* must be first */
@@ -165,12 +169,14 @@ typedef struct {
     ngx_uint_t                     no_key;
 } ngx_live_track_input_skip_t;
 
+
 typedef struct {
     uint64_t                       min;
     uint64_t                       max;
     uint64_t                       sum;
     ngx_uint_t                     count;
 } ngx_live_latency_stats_t;
+
 
 typedef struct {
     void                          *data;
@@ -233,6 +239,7 @@ typedef struct {
     ngx_ksmp_variant_role_e        role;
     unsigned                       is_default:1;
 } ngx_live_variant_conf_t;
+
 
 typedef struct {
     ngx_str_node_t                 sn;        /* must be first */

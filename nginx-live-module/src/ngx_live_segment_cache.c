@@ -128,6 +128,7 @@ error:
     return NULL;
 }
 
+
 static void
 ngx_live_segment_cache_destroy(ngx_live_segment_t *segment)
 {
@@ -150,6 +151,7 @@ ngx_live_segment_cache_destroy(ngx_live_segment_t *segment)
 
     ngx_destroy_pool(segment->pool);
 }
+
 
 void
 ngx_live_segment_cache_free(ngx_live_segment_t *segment)
@@ -273,6 +275,7 @@ ngx_live_segment_cache_validate_parts(ngx_live_segment_t *segment)
         ngx_debug_point();
     }
 }
+
 
 static void
 ngx_live_segment_cache_validate(ngx_live_segment_t *segment)
@@ -399,6 +402,7 @@ ngx_live_segment_cache_shift_dts(ngx_live_segment_t *segment, uint32_t shift)
     segment->start_dts -= shift;
     segment->end_dts -= shift;
 }
+
 
 void
 ngx_live_segment_cache_finalize(ngx_live_segment_t *segment, uint32_t *bitrate)
@@ -611,6 +615,7 @@ ngx_live_segment_cache_free_input_bufs(ngx_live_track_t *track)
 
     ngx_live_input_bufs_set_min_used(track, segment_index, ptr);
 }
+
 
 void
 ngx_live_segment_cache_free_by_index(ngx_live_channel_t *channel,
@@ -960,6 +965,7 @@ ngx_live_segment_write_init_ctx_closest_key(ngx_live_segment_write_ctx_t *ctx,
     }
 }
 
+
 static void
 ngx_live_segment_write_init_ctx_min_gop(ngx_live_segment_write_ctx_t *ctx,
     int64_t time)
@@ -1307,6 +1313,7 @@ ngx_live_segment_cache_track_json_get_size(void *obj)
         sizeof("}") - 1;
 }
 
+
 static u_char *
 ngx_live_segment_cache_track_json_write(u_char *p, void *obj)
 {
@@ -1355,6 +1362,7 @@ ngx_live_segment_cache_track_init(ngx_live_track_t *track, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_segment_cache_track_free(ngx_live_track_t *track, void *ectx)
 {
@@ -1381,6 +1389,7 @@ ngx_live_segment_cache_track_free(ngx_live_track_t *track, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_segment_cache_track_channel_free(ngx_live_track_t *track, void *ectx)
@@ -1445,6 +1454,7 @@ static ngx_persist_block_t  ngx_live_segment_cache_blocks[] = {
       ngx_null_persist_block
 };
 
+
 static ngx_int_t
 ngx_live_segment_cache_preconfiguration(ngx_conf_t *cf)
 {
@@ -1467,6 +1477,7 @@ static ngx_live_track_event_t      ngx_live_segment_cache_track_events[] = {
       ngx_live_null_event
 };
 
+
 static ngx_live_json_writer_def_t  ngx_live_segment_cache_json_writers[] = {
     { { ngx_live_segment_cache_track_json_get_size,
         ngx_live_segment_cache_track_json_write },
@@ -1474,6 +1485,7 @@ static ngx_live_json_writer_def_t  ngx_live_segment_cache_json_writers[] = {
 
       ngx_live_null_json_writer
 };
+
 
 static ngx_int_t
 ngx_live_segment_cache_postconfiguration(ngx_conf_t *cf)
@@ -1495,6 +1507,7 @@ ngx_live_segment_cache_postconfiguration(ngx_conf_t *cf)
 
     return NGX_OK;
 }
+
 
 static char *
 ngx_live_segment_cache_merge_preset_conf(ngx_conf_t *cf, void *parent,

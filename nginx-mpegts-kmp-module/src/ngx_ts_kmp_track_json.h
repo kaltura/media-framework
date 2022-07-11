@@ -26,6 +26,7 @@ ngx_ts_kmp_track_mpegts_json_get_size(ngx_ts_kmp_publish_t *obj,
     return result;
 }
 
+
 static u_char *
 ngx_ts_kmp_track_mpegts_json_write(u_char *p, ngx_ts_kmp_publish_t *obj,
     ngx_connection_t *c)
@@ -47,6 +48,7 @@ ngx_ts_kmp_track_mpegts_json_write(u_char *p, ngx_ts_kmp_publish_t *obj,
     return p;
 }
 
+
 /* ngx_ts_kmp_track_json writer */
 
 static size_t
@@ -60,6 +62,7 @@ ngx_ts_kmp_track_json_get_size(ngx_ts_kmp_publish_t *obj, ngx_connection_t *c)
 
     return result;
 }
+
 
 static u_char *
 ngx_ts_kmp_track_json_write(u_char *p, ngx_ts_kmp_publish_t *obj,

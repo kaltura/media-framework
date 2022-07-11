@@ -16,6 +16,7 @@ typedef struct {
     ngx_uint_t         retries_left;
 } ngx_ts_kmp_connect_call_ctx_t;
 
+
 typedef struct {
     ngx_str_t          stream_id;
 } ngx_ts_kmp_connect_t;
@@ -64,6 +65,7 @@ ngx_ts_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
         conf->t.ctrl_headers, cl);
 }
 
+
 static ngx_int_t
 ngx_ts_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg,
     ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *body)
@@ -105,6 +107,7 @@ error:
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_ts_kmp_connect(ngx_ts_handler_data_t *hd)
@@ -175,6 +178,7 @@ ngx_ts_kmp_pes_handler(ngx_ts_handler_data_t *hd)
     return ngx_ts_kmp_track_pes_handler(ts_track, hd);
 }
 
+
 static ngx_int_t
 ngx_ts_kmp_handler(ngx_ts_handler_data_t *hd)
 {
@@ -200,6 +204,7 @@ ngx_ts_kmp_handler(ngx_ts_handler_data_t *hd)
     }
 }
 
+
 static void
 ngx_ts_kmp_detach_tracks(ngx_ts_kmp_ctx_t *ctx, char *reason)
 {
@@ -217,6 +222,7 @@ ngx_ts_kmp_detach_tracks(ngx_ts_kmp_ctx_t *ctx, char *reason)
     }
 }
 
+
 static void
 ngx_ts_kmp_cleanup(void *data)
 {
@@ -227,6 +233,7 @@ ngx_ts_kmp_cleanup(void *data)
 
     ngx_ts_kmp_detach_tracks(ctx, "");
 }
+
 
 ngx_int_t
 ngx_ts_kmp_init_handler(ngx_ts_stream_t *ts, void *data)

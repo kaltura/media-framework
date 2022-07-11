@@ -85,6 +85,7 @@ ngx_live_persist_write_blocks_internal(ngx_live_persist_main_conf_t *pmcf,
         obj);
 }
 
+
 ngx_int_t
 ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
     ngx_persist_write_ctx_t *write_ctx, ngx_uint_t block_ctx, void *obj)
@@ -97,12 +98,14 @@ ngx_live_persist_write_blocks(ngx_live_channel_t *channel,
         obj);
 }
 
+
 ngx_int_t
 ngx_live_persist_read_blocks_internal(ngx_live_persist_main_conf_t *pmcf,
     ngx_uint_t ctx, ngx_mem_rstream_t *rs, void *obj)
 {
     return ngx_persist_conf_read_blocks(pmcf->conf, ctx, rs, obj);
 }
+
 
 ngx_int_t
 ngx_live_persist_read_blocks(ngx_live_channel_t *channel, ngx_uint_t ctx,
@@ -156,6 +159,7 @@ ngx_live_persist_write_channel_header(ngx_persist_write_ctx_t *write_ctx,
     return NGX_OK;
 }
 
+
 ngx_int_t
 ngx_live_persist_read_channel_header(ngx_live_channel_t *channel,
     ngx_mem_rstream_t *rs)
@@ -196,6 +200,7 @@ ngx_live_persist_write_file_destroy(ngx_live_persist_write_file_ctx_t *ctx)
 {
     ngx_destroy_pool(ctx->pool);
 }
+
 
 ngx_live_persist_write_file_ctx_t *
 ngx_live_persist_write_file(ngx_live_channel_t *channel,
@@ -363,6 +368,7 @@ ngx_live_persist_read_detach(void *data)
     ctx->cln = NULL;
 }
 
+
 ngx_live_persist_read_file_ctx_t *
 ngx_live_persist_read_file(ngx_live_channel_t *channel,
     ngx_pool_cleanup_t *cln, ngx_live_persist_file_conf_t *file,
@@ -521,6 +527,7 @@ ngx_live_persist_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_persist_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
