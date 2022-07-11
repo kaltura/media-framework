@@ -22,7 +22,7 @@ void* thread_stream_from_file(void *vargp)
     if (ret < 0) {
         LOGGER(CATEGORY_DEFAULT,AV_LOG_FATAL,"Unable to open input %s %d (%s)",args->source_file_name,ret,av_err2str(ret));
         return NULL;
-        
+
     }
     ret = avformat_find_stream_info(ifmt_ctx, NULL);
     if (ret < 0) {
@@ -30,35 +30,35 @@ void* thread_stream_from_file(void *vargp)
         return NULL;
     }
     log_init(oldLevel);
-    
-    
+
+
     int64_t duration=0;
     json_get_int64(GetConfig(),"input.duration",-1,&duration);
-    
+
     bool realTime;
     json_get_bool(GetConfig(),"input.realTime",false,&realTime);
-    
+
     int activeStream=0;
     json_get_int(GetConfig(),"input.activeStream",0,&activeStream);
-    
+
     int randomDataPercentage;
     json_get_int(GetConfig(),"input.randomDataPercentage",0,&randomDataPercentage);
-    
-    
+
+
     char channelId[KMP_MAX_CHANNEL_ID];
     json_get_string(GetConfig(),"input.channelId","1_abcdefgh",channelId,sizeof(channelId));
-    
+
     AVPacket packet;
     av_init_packet(&packet);
-    
+
     KMP_session_t kmp;
-    
+
     KMP_init(&kmp);
     if (KMP_connect(&kmp,args->kmp_url)<0) {
         return NULL;
     }
-    
-    
+
+
     int64_t createTime=av_rescale_q( getClock64(), clockScale, standard_timebase);
     uint64_t frame_id=createTime;
     if (KMP_send_handshake(&kmp,channelId,"1",frame_id)<0) {
@@ -66,9 +66,9 @@ void* thread_stream_from_file(void *vargp)
         return NULL;
     }
     uint64_t  cumulativeDuration=0;
-    
+
     AVStream *in_stream=ifmt_ctx->streams[activeStream];
-    
+
     transcode_mediaInfo_t extra;
     extra.frameRate=in_stream->avg_frame_rate;
     extra.timeScale=standard_timebase;
@@ -78,32 +78,32 @@ void* thread_stream_from_file(void *vargp)
         LOGGER0(CATEGORY_RECEIVER,AV_LOG_FATAL,"couldn't send mediainfo!");
         return NULL;
     }
-    
+
     LOGGER("SENDER",AV_LOG_INFO,"Realtime = %s",realTime ? "true" : "false");
     srand((int)time(NULL));
     uint64_t lastDts=0;
     int64_t start_time=av_gettime_relative();
-    
-    
+
+
     samples_stats_t stats;
     sample_stats_init(&stats,standard_timebase);
-    
+
     while (!args->stop ) {
-        
+
         if ((ret = av_read_frame(ifmt_ctx, &packet)) < 0 )
         {
             av_seek_frame(ifmt_ctx,activeStream,0,AVSEEK_FLAG_FRAME);
             cumulativeDuration=lastDts+1;
             continue;
         }
-        
+
         if (activeStream!=packet.stream_index) {
             av_packet_unref(&packet);
             continue;
         }
-                
+
         AVStream *in_stream=ifmt_ctx->streams[packet.stream_index];
-        
+
         av_packet_rescale_ts(&packet,in_stream->time_base, standard_timebase);
         packet.pts+=cumulativeDuration;
         packet.dts+=cumulativeDuration;
@@ -114,30 +114,30 @@ void* thread_stream_from_file(void *vargp)
                 break;
             }
         }
-        
-        
+
+
         if (randomDataPercentage>0 && ((rand() % 100) < randomDataPercentage)) {
             LOGGER0(CATEGORY_DEFAULT,AV_LOG_FATAL,"random!");
             for (int i=0;i<packet.size;i++) {
                 packet.data[i]=rand();
             }
         }
-        
+
         if (realTime) {
-            
+
             int64_t timePassed=av_rescale_q(packet.dts-cumulativeDuration,standard_timebase,AV_TIME_BASE_Q);
             //LOGGER("SENDER",AV_LOG_DEBUG,"XXXX dt=%ld dd=%ld", (av_gettime_relative() - start_time),timePassed);
             while ((av_gettime_relative() - start_time) < timePassed) {
-                
+
                 // LOGGER0("SENDER",AV_LOG_DEBUG,"XXXX Sleep 10ms");
                 av_usleep(10*1000);//10ms
             }
         }
-        
+
         lastDts=packet.dts;
-        
+
         samples_stats_add(&stats,packet.dts,packet.pos,packet.size);
-        
+
         /*
         int avgBitrate;
         double fps,rate;
@@ -147,8 +147,8 @@ void* thread_stream_from_file(void *vargp)
                ((double)avgBitrate)/(1000.0),
                fps,
                rate)*/
-        
-        
+
+
         uint64_t frame_id_ack;
         if (KMP_send_packet(&kmp,&packet)<0) {
             LOGGER0(CATEGORY_RECEIVER,AV_LOG_FATAL,"couldn't send packet!");
@@ -157,17 +157,17 @@ void* thread_stream_from_file(void *vargp)
         if (KMP_read_ack(&kmp,&frame_id_ack)) {
             LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"received ack for packet id  %lld",frame_id_ack);
         }
-        
-        
+
+
         /*
          LOGGER("SENDER",AV_LOG_DEBUG,"sent packet pts=%s dts=%s  size=%d",
          ts2str(packet.pts,true),
          ts2str(packet.dts,true),
          packet.dts,packet.size);*/
-        
-        
+
+
         av_packet_unref(&packet);
-        
+
     }
     KMP_send_eof(&kmp);
 

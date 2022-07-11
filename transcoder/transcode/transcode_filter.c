@@ -18,8 +18,8 @@ int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,
     int ret = 0;
     const AVFilter *buffersrc=NULL;
     const AVFilter *buffersink=NULL;
-    
-    
+
+
     if (dec_ctx->codec_type==AVMEDIA_TYPE_VIDEO) {
         buffersrc  = avfilter_get_by_name("buffer");
         buffersink = avfilter_get_by_name("buffersink");
@@ -43,30 +43,30 @@ int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,
                  dec_ctx->sample_rate, dec_ctx->sample_fmt, channelLayout,
                  dec_ctx->channels, standard_timebase.num, standard_timebase.den);
     }
-    
+
     AVFilterInOut *outputs = avfilter_inout_alloc();
     AVFilterInOut *inputs  = avfilter_inout_alloc();
-           
+
     LOGGER(CATEGORY_FILTER,AV_LOG_INFO, "Create filter: config: \"%s\"  args: \"%s\"",filters_descr,args);
 
     pFilter->config=strdup(filters_descr);
-    
+
     pFilter->filter_graph = avfilter_graph_alloc();
     if (!outputs || !inputs || !pFilter->filter_graph) {
         ret = AVERROR(ENOMEM);
         goto end;
     }
-    
-    
+
+
     ret = avfilter_graph_create_filter(&pFilter->src_ctx, buffersrc, "in",
                                        args, NULL, pFilter->filter_graph);
     if (ret < 0) {
         LOGGER(CATEGORY_FILTER,AV_LOG_ERROR, "Cannot create buffer source %d (%s)",ret,av_err2str(ret))
         goto end;
     }
-    
-    
-    
+
+
+
     if (dec_ctx->hw_frames_ctx!=NULL) {
         LOGGER0(CATEGORY_FILTER, AV_LOG_INFO, "Setting hardware device context")
         AVBufferSrcParameters *par = av_buffersrc_parameters_alloc();
@@ -80,9 +80,9 @@ int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,
         }
         av_freep(&par);
     }
-    
-    
-    
+
+
+
     ret = avfilter_graph_create_filter(&pFilter->sink_ctx, buffersink, "out",
                                        NULL, NULL, pFilter->filter_graph);
     if (ret < 0) {
@@ -100,41 +100,41 @@ int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,
             goto end;
         }
     }
-        
+
     outputs->name       = av_strdup("in");
     outputs->filter_ctx = pFilter->src_ctx;
     outputs->pad_idx    = 0;
     outputs->next       = NULL;
-    
+
     inputs->name       = av_strdup("out");
     inputs->filter_ctx = pFilter->sink_ctx;
     inputs->pad_idx    = 0;
     inputs->next       = NULL;
-    
+
     if ((ret = avfilter_graph_parse_ptr(pFilter->filter_graph, filters_descr,
                                         &inputs, &outputs, NULL)) < 0)  {
         LOGGER(CATEGORY_FILTER, AV_LOG_ERROR, "Cannot parse graph filters_descr: \"%s\" %d (%s)",filters_descr,ret,av_err2str(ret))
         goto end;
     }
-    
+
     if (dec_ctx->hw_frames_ctx!=NULL) {
         for (int i = 0; i < pFilter->filter_graph->nb_filters; i++) {
             pFilter->filter_graph->filters[i]->hw_device_ctx = av_buffer_ref(dec_ctx->hw_frames_ctx);
         }
     }
-        
+
     if ((ret = avfilter_graph_config(pFilter->filter_graph, NULL)) < 0) {
-        
+
         LOGGER(CATEGORY_FILTER, AV_LOG_ERROR, "Cannot config graph filters_descr: \"%s\" %d (%s)",filters_descr,ret,av_err2str(ret))
         goto end;
     }
 
     pFilter->totalInErrors = pFilter->totalOutErrors = 0;
-    
+
 end:
     avfilter_inout_free(&inputs);
     avfilter_inout_free(&outputs);
-    
+
     pFilter->outputTimeScale=av_buffersink_get_time_base(pFilter->sink_ctx);
     return ret;
 }

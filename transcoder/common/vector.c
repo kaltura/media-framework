@@ -28,7 +28,7 @@ static void vector_resize(vector_t *v, int capacity)
 #ifdef DEBUG_ON
     printf("vector_resize: %d to %d\n", v->capacity, capacity);
 #endif
-    
+
     void **items = realloc(v->items, sizeof(void *) * capacity);
     if (items) {
         v->items = items;
@@ -60,16 +60,16 @@ void vector_delete(vector_t *v, int index)
 {
     if (index < 0 || index >= v->total)
         return;
-    
+
     v->items[index] = NULL;
-    
+
     for (int i = index; i < v->total - 1; i++) {
         v->items[i] = v->items[i + 1];
         v->items[i + 1] = NULL;
     }
-    
+
     v->total--;
-    
+
     if (v->total > 0 && v->total == v->capacity / 4)
         vector_resize(v, v->capacity / 2);
 }

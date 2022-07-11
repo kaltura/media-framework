@@ -42,7 +42,7 @@ typedef struct
     {
         int width,height;
     } actualVideoParams;
-    
+
     struct AudioParams
     {
         int samplingRate, channels;
@@ -51,16 +51,16 @@ typedef struct
     {
         int samplingRate,channels;
     } actualAudioParams;
-    
+
     int filterId;
     int encoderId;
-    
+
     samples_stats_t stats;
-    
+
     uint64_t fileDuration;
     uint64_t lastFileDts;
     AVFormatContext *oc;
-    
+
     uint64_t lastAck;
     uint64_t lastMappedAck;
     uint32_t lastOffset;

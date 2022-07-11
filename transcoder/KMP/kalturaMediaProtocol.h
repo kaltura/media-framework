@@ -10,7 +10,7 @@ typedef enum {
     KMP_CODEC_VIDEO_ON2_VP6_ALPHA = 5,
     KMP_CODEC_VIDEO_SCREEN2 = 6,
     KMP_CODEC_VIDEO_H264 = 7,
-    
+
     KMP_CODEC_AUDIO_UNCOMPRESSED = 1016,
     KMP_CODEC_AUDIO_ADPCM = 1001,
     KMP_CODEC_AUDIO_MP3 = 1002,
@@ -70,7 +70,7 @@ enum {
     KMP_PACKET_MEDIA_INFO = 0x666e696d, // minf
     KMP_PACKET_FRAME = 0x6d617266,      // fram
     KMP_PACKET_EOS = 0x74736f65,         // eost
-    
+
     // server -> client
     KMP_PACKET_ACK_FRAMES = 0x666b6361   // ackf
 };

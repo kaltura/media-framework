@@ -14,7 +14,7 @@ hash_frames = False
 class TSParser():
     def __init__(self):
         logging.debug("ctor")
-        
+
     def convertDataStringToByteArray(self, data, pkt_size):
         m = hashlib.md5()
 

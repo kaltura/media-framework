@@ -43,18 +43,18 @@ int processedFrameCB(receiver_server_session_t *session,bool completed)
         JSON_SERIALIZE_OBJECT_END()
         JSON_SERIALIZE_INT64("time",(uint64_t)time(NULL));
         JSON_SERIALIZE_END()
-        
+
         char* oldDiag=server->lastDiagnsotics;
         pthread_mutex_lock(&server->diagnostics_locker);  // lock the critical section
         server->lastDiagnsotics=tmpBuf;
         atomFileWrite("lastState.json",tmpBuf,strlen(tmpBuf));
         pthread_mutex_unlock(&server->diagnostics_locker); // unlock once you are done
         av_free(oldDiag);
-        
+
         LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"calculated diagnostics %s",server->lastDiagnsotics);
         session->lastStatsUpdated=now;
     }
-    
+
     return 0;
 }
 
@@ -153,14 +153,14 @@ void* processClient(void *vargp)
     session->lastStatsUpdated=0;
     int retval = clientLoop(server,session,transcode_session);
     LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] Destorying receive thread. exit code is %d",session->stream_name,retval);
-    
+
     if (transcode_session!=NULL)
     {
         transcode_session_close(transcode_session,retval);
     }
-    
+
     KMP_close(&session->kmpClient);
-    
+
     LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] Completed receive thread",session->stream_name);
     return (void*)retval;
 }
@@ -168,16 +168,16 @@ void* processClient(void *vargp)
 void* listenerThread(void *vargp)
 {
     LOGGER0(CATEGORY_RECEIVER,AV_LOG_INFO,"listenerThread");
-    
+
     receiver_server_t *server=(receiver_server_t *)vargp;
     transcode_session_t *transcodeContext = server->transcode_session;
 
     while (true)
     {
         receiver_server_session_t* session = (receiver_server_session_t*)av_malloc(sizeof(receiver_server_session_t));
-        
+
         sample_stats_init(&server->receiverStats,standard_timebase);
-        
+
         vector_add(&server->sessions,session);
         session->thread_id=0;
         session->server=server;
@@ -186,7 +186,7 @@ void* listenerThread(void *vargp)
         } else {
             session->stream_name[0]=0;
         }
-        
+
         LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"Waiting for accept on %s",socketAddress(&server->kmpServer.address));
         KMP_init(&session->kmpClient);
         _S(KMP_accept(&server->kmpServer,&session->kmpClient));
@@ -200,7 +200,7 @@ void* listenerThread(void *vargp)
             return processClient(session);
         }
     }
-    
+
     return NULL;
 }
 
@@ -255,9 +255,9 @@ void receiver_server_close(receiver_server_t *server)
     if (server->thread_id!=0)
     {
         pthread_join(server->thread_id,NULL);
-        
+
         for (int i=0;i<vector_total(&server->sessions);i++) {
-            
+
             receiver_server_session_t* session=(receiver_server_session_t*)vector_get(&server->sessions,i);
             if (session->thread_id>0) {
                 pthread_join(session->thread_id,NULL);
@@ -266,7 +266,7 @@ void receiver_server_close(receiver_server_t *server)
         }
         server->thread_id=0;
     }
-    
+
     pthread_mutex_destroy(&server->diagnostics_locker);
 }
 

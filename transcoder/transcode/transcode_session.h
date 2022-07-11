@@ -26,33 +26,33 @@
 typedef int transcode_session_processedFrameCB(void *pContext,bool completed);
 
 typedef struct  {
-    
+
     char name[KMP_MAX_CHANNEL_ID+KMP_MAX_TRACK_ID+2];
     char channelId[KMP_MAX_CHANNEL_ID];
     char trackId[KMP_MAX_TRACK_ID];
     transcode_mediaInfo_t* currentMediaInfo;
-    
+
     int decoders;
     transcode_codec_t decoder[MAX_INPUTS];
-    
-    
+
+
     int outputs;
     transcode_session_output_t output[MAX_OUTPUTS];
-    
+
     int encoders;
     transcode_codec_t encoder[MAX_OUTPUTS];
 
-    
+
     int filters;
     transcode_filter_t filter[10];
-    
+
     clock_estimator_t clock_estimator;
-    
+
     uint64_t lastInputDts,lastQueuedDts;
-    
+
     PacketQueueContext_t packetQueue;
     samples_stats_t processedStats;
-    
+
     int64_t queueDuration;
     void* onProcessedFrameContext;
     transcode_session_processedFrameCB* onProcessedFrame;

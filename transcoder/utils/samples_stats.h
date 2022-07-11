@@ -29,15 +29,15 @@ typedef struct
     uint64_t totalErrors;
     uint64_t head,tail;
     samples_stats_history_t history[HISTORY_SIZE];
-    
+
     int64_t totalWindowSizeInBytes;
     AVRational basetime;
-    
+
     int currentBitRate;
     double currentFrameRate;
     double currentRate;
     int64_t dtsPassed;
-    
+
     uint64_t firstTimeStamp,lastTimeStamp;
     int64_t timeStampPassed;
     int64_t clockDrift;

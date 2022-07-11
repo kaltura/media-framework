@@ -12,7 +12,7 @@
 
 void clock_estimator_init(clock_estimator_t *fifo) {
     fifo->framesFifoHead= fifo->framesFifoTail=-1;
-    
+
 }
 void clock_estimator_push_frame(clock_estimator_t *fifo,int64_t dts,int64_t clock)
 {

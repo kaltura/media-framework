@@ -30,7 +30,7 @@ json_value_t* GetConfig()
 }
 
 int parseArgs(int argc, char **argv) {
-    
+
     if (argc!=3) {
         printf("syntax: transcoder -f [JSONFILE] -c [JSON]\n");
         exit(-1);
@@ -57,14 +57,14 @@ int parseArgs(int argc, char **argv) {
 int LoadConfig(int argc, char **argv)
 {
     parseArgs(argc,argv);
-    
+
     if (configFile!=NULL) {
         load_file_to_memory(configFile, &configString);
     }
     if (configString==NULL) {
         exit(-1);
     }
-    
+
     char error[128];
     json_status_t status = json_parse(pool, configString, &config, error, sizeof(error));
     if (status!=JSON_OK) {
