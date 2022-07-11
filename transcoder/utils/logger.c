@@ -37,7 +37,7 @@ int parseLoglevel(const char* loglevel)
         { "debug"  , AV_LOG_DEBUG   },
         { "trace"  , AV_LOG_TRACE   },
     };
-    
+
     for (int i=0;i<sizeof(log_levels)/sizeof(log_levels[0]);i++) {
         if (0==strcasecmp(loglevel, log_levels[i].name)) {
             return log_levels[i].level;
@@ -51,21 +51,21 @@ pthread_mutex_t logger_locker;
 char logger_id[256] = {0};
 
 void logger2(const char* category,const char* subcategory,int level,const char *fmt, bool newLine, va_list args)
-{    
+{
     const char* levelStr=getLevelStr(level);
-    
+
     int64_t now=getClock64();
     time_t epoch=now/1000000;
     struct tm *gm = localtime(&epoch);
-    
-    
+
+
     char buf[25];
     strftime(buf, 25, "%Y-%m-%dT%H:%M:%S",gm);
-    
+
     pthread_mutex_lock(&logger_locker);  // lock the critical section
 
     FILE* out=stdout;
-    
+
     fprintf( out, "%s.%03lld %s:%s %s |%s| [%p] ",buf,( (now % 1000000)/1000 ),category,subcategory!=NULL ? subcategory : "", levelStr,logger_id,pthread_self());
     if (args!=NULL) {
         vfprintf( out, fmt, args );
@@ -94,7 +94,7 @@ void logger1(const char* category,int level,const char *fmt, ...)
 static void log_packet(const AVFormatContext *fmt_ctx, const AVPacket *pkt, const char *tag)
 {
     AVRational *time_base = &fmt_ctx->streams[pkt->stream_index]->time_base;
-    
+
     LOGGER(AV_LOG_DEBUG,"%s:  stream_index:%d  pts:%s pts_time:%s dts:%s dts_time:%s duration:%s duration_time:%s flags:%d\n",
            tag,
            pkt->stream_index,
@@ -121,7 +121,7 @@ void ffmpeg_log_callback(void *ptr, int level, const char *fmt, va_list vargs)
 {
     if (level>logLevel)
         return;
-    
+
     char tmp[1024];
     int prefix=1;
     av_log_format_line(ptr,level,fmt,vargs,tmp,sizeof(tmp), &prefix);
@@ -150,7 +150,7 @@ int get_log_level(const char* category)
 {
     return logLevel;
 }
-void loggerFlush() 
+void loggerFlush()
 {
     fflush(stderr);
     fflush(stdout);

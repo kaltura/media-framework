@@ -99,13 +99,13 @@ json_array_init(json_array_t *array, pool_t* pool, unsigned n, size_t size)
     array->nelts = 0;
     array->size = size;
     array->nalloc = n;
-    
+
     array->elts = json_alloc(pool, n * size);
     if (array->elts == NULL)
     {
         return JSON_ALLOC_FAILED;
     }
-    
+
     return JSON_OK;
 }
 
@@ -113,7 +113,7 @@ static void*
 json_array_push(json_array_t *a)
 {
     void *elt, *new_elts;
-    
+
     if (a->nelts >= a->nalloc)
     {
         new_elts = realloc(a->elts, a->size * a->nalloc * 2);
@@ -124,10 +124,10 @@ json_array_push(json_array_t *a)
         a->elts = new_elts;
         a->nalloc *= 2;
     }
-    
+
     elt = (char *) a->elts + a->size * a->nelts;
     a->nelts++;
-    
+
     return elt;
 }
 
@@ -135,46 +135,46 @@ static json_status_t
 json_get_value_type(json_parser_state_t* state, json_type_t** result)
 {
     char* cur_pos = state->cur_pos;
-    
+
     switch (*cur_pos)
     {
         case '"':
             *result = &json_string;
             return JSON_OK;
-            
+
         case '[':
             *result = &json_array;
             return JSON_OK;
-            
+
         case '{':
             *result = &json_object;
             return JSON_OK;
-            
+
         case 'f':
         case 't':
             *result = &json_bool;
             return JSON_OK;
-            
+
         default:
             break;        // handled outside the switch
     }
-    
+
     if (*cur_pos == '-')
     {
         cur_pos++;
     }
-    
+
     if (!isdigit(*cur_pos))
     {
         snprintf(state->error, state->error_size, "expected digit got 0x%xd", (int)*cur_pos);
         return JSON_BAD_DATA;
     }
-    
+
     while (isdigit(*cur_pos))
     {
         cur_pos++;
     }
-    
+
     if (*cur_pos == '.')
     {
         *result = &json_frac;
@@ -196,11 +196,11 @@ static json_status_t
 json_parse_string(json_parser_state_t* state, str_t* result)
 {
     char c;
-    
+
     state->cur_pos++;        // skip the "
-    
+
     result->data = state->cur_pos;
-    
+
     for (;;)
     {
         c = *state->cur_pos;
@@ -208,7 +208,7 @@ json_parse_string(json_parser_state_t* state, str_t* result)
         {
             break;
         }
-        
+
         switch (c)
         {
             case '\\':
@@ -219,13 +219,13 @@ json_parse_string(json_parser_state_t* state, str_t* result)
                     return JSON_BAD_DATA;
                 }
                 break;
-                
+
             case '"':
                 result->len = state->cur_pos - result->data;
                 state->cur_pos++;
                 return JSON_OK;
         }
-        
+
         state->cur_pos++;
     }
     snprintf(state->error, state->error_size, "end of data while parsing string (2)");
@@ -237,11 +237,11 @@ json_parse_object_key(json_parser_state_t* state, json_key_value_t* result)
 {
     uintptr_t hash = 0;
     char c;
-    
+
     EXPECT_CHAR(state, '\"');
-    
+
     result->key.data = state->cur_pos;
-    
+
     for (;;)
     {
         c = *state->cur_pos;
@@ -249,13 +249,13 @@ json_parse_object_key(json_parser_state_t* state, json_key_value_t* result)
         {
             break;
         }
-        
+
         if (c >= 'A' && c <= 'Z')
         {
             c |= 0x20;            // tolower
             *state->cur_pos = c;
         }
-        
+
         switch (c)
         {
             case '\\':
@@ -266,19 +266,19 @@ json_parse_object_key(json_parser_state_t* state, json_key_value_t* result)
                     return JSON_BAD_DATA;
                 }
                 break;
-                
+
             case '"':
                 result->key.len = state->cur_pos - result->key.data;
                 result->key_hash = hash;
                 state->cur_pos++;
                 return JSON_OK;
         }
-        
+
         hash = json_hash(hash, c);
-        
+
         state->cur_pos++;
     }
-    
+
     snprintf(state->error, state->error_size, "end of data while parsing string (2)");
     return JSON_BAD_DATA;
 }
@@ -287,7 +287,7 @@ static json_status_t
 json_parse_int(json_parser_state_t* state, int64_t* result, bool_t* negative)
 {
     int64_t value;
-    
+
     if (*state->cur_pos == '-')
     {
         *negative = TRUE;
@@ -297,15 +297,15 @@ json_parse_int(json_parser_state_t* state, int64_t* result, bool_t* negative)
     {
         *negative = FALSE;
     }
-    
+
     if (!isdigit(*state->cur_pos))
     {
         snprintf(state->error, state->error_size, "expected digit got 0x%xd", (int)*state->cur_pos);
         return JSON_BAD_DATA;
     }
-    
+
     value = 0;
-    
+
     do
     {
         if (value > LLONG_MAX / 10 - 1)
@@ -313,13 +313,13 @@ json_parse_int(json_parser_state_t* state, int64_t* result, bool_t* negative)
             snprintf(state->error, state->error_size, "number value overflow (1)");
             return JSON_BAD_DATA;
         }
-        
+
         value = value * 10 + (*state->cur_pos - '0');
         state->cur_pos++;
     } while (isdigit(*state->cur_pos));
-    
+
     *result = value;
-    
+
     return JSON_OK;
 }
 
@@ -330,23 +330,23 @@ json_parse_fraction(json_parser_state_t* state, json_fraction_t* result)
     int64_t value;
     uint64_t denom = 1;
     bool_t negative;
-    
+
     rc = json_parse_int(state, &value, &negative);
     if (rc != JSON_OK)
     {
         return rc;
     }
-    
+
     if (*state->cur_pos == '.')
     {
         state->cur_pos++;
-        
+
         if (!isdigit(*state->cur_pos))
         {
             snprintf(state->error, state->error_size, "expected digit got 0x%xd", (int)*state->cur_pos);
             return JSON_BAD_DATA;
         }
-        
+
         do
         {
             if (value > LLONG_MAX / 10 - 1 || denom > ULLONG_MAX / 10)
@@ -354,21 +354,21 @@ json_parse_fraction(json_parser_state_t* state, json_fraction_t* result)
                 snprintf(state->error, state->error_size, "number value overflow (2)");
                 return JSON_BAD_DATA;
             }
-            
+
             value = value * 10 + (*state->cur_pos - '0');
             denom *= 10;
             state->cur_pos++;
         } while (isdigit(*state->cur_pos));
     }
-    
+
     if (negative)
     {
         value = -value;
     }
-    
+
     result->num = value;
     result->denom = denom;
-    
+
     return JSON_OK;
 }
 
@@ -378,7 +378,7 @@ json_parse_array(json_parser_state_t* state, json_array_value_t* result)
     json_type_t* type;
     void* cur_item;
     json_status_t rc;
-    
+
     state->cur_pos++;        // skip the [
     json_skip_spaces(state);
     if (*state->cur_pos == ']')
@@ -392,29 +392,29 @@ json_parse_array(json_parser_state_t* state, json_array_value_t* result)
         state->cur_pos++;
         return JSON_OK;
     }
-    
+
     if (state->depth >= MAX_RECURSION_DEPTH)
     {
         snprintf(state->error, state->error_size, "max recursion depth exceeded");
         return JSON_BAD_DATA;
     }
     state->depth++;
-    
+
     rc = json_get_value_type(state, &type);
     if (rc != JSON_OK)
     {
         return rc;
     }
-    
+
     // initialize the result
     result->type = type->type;
-    
+
     rc = json_array_init(&result->items, state->pool, 5, type->size);
     if (rc != JSON_OK)
     {
         return rc;
     }
-    
+
     for (;;)
     {
         if (result->items.nelts >= MAX_JSON_ELEMENTS)
@@ -422,38 +422,38 @@ json_parse_array(json_parser_state_t* state, json_array_value_t* result)
             snprintf(state->error, state->error_size, "array elements count exceeds the limit");
             return JSON_BAD_DATA;
         }
-        
+
         cur_item = json_array_push(&result->items);
         if (cur_item == NULL)
         {
             return JSON_ALLOC_FAILED;
         }
-        
+
         rc = type->parser(state, cur_item);
         if (rc != JSON_OK)
         {
             return rc;
         }
-        
+
         json_skip_spaces(state);
         switch (*state->cur_pos)
         {
             case ']':
                 state->cur_pos++;
                 goto done;
-                
+
             case ',':
                 state->cur_pos++;
                 json_skip_spaces(state);
                 continue;
         }
-        
+
         snprintf(state->error, state->error_size, "expected , or ] while parsing array, got 0x%xd", (int)*state->cur_pos);
         return JSON_BAD_DATA;
     }
-    
+
 done:
-    
+
     state->depth--;
     return JSON_OK;
 }
@@ -463,7 +463,7 @@ json_parse_object(json_parser_state_t* state, json_object_t* result)
 {
     json_key_value_t* cur_item;
     json_status_t rc;
-    
+
     state->cur_pos++;        // skip the {
     json_skip_spaces(state);
     if (*state->cur_pos == '}')
@@ -473,24 +473,24 @@ json_parse_object(json_parser_state_t* state, json_object_t* result)
         result->nalloc = 0;
         result->pool = state->pool;
         result->elts = NULL;
-        
+
         state->cur_pos++;
         return JSON_OK;
     }
-    
+
     if (state->depth >= MAX_RECURSION_DEPTH)
     {
         snprintf(state->error, state->error_size, "max recursion depth exceeded");
         return JSON_BAD_DATA;
     }
     state->depth++;
-    
+
     rc = json_array_init(result, state->pool, 5, sizeof(*cur_item));
     if (rc != JSON_OK)
     {
         return rc;
     }
-    
+
     for (;;)
     {
         if (result->nelts >= MAX_JSON_ELEMENTS)
@@ -498,29 +498,29 @@ json_parse_object(json_parser_state_t* state, json_object_t* result)
             snprintf(state->error, state->error_size, "object elements count exceeds the limit");
             return JSON_BAD_DATA;
         }
-        
+
         cur_item = (json_key_value_t*)json_array_push(result);
         if (cur_item == NULL)
         {
             return JSON_ALLOC_FAILED;
         }
-        
+
         rc = json_parse_object_key(state, cur_item);
         if (rc != JSON_OK)
         {
             return rc;
         }
-        
+
         json_skip_spaces(state);
         EXPECT_CHAR(state, ':');
         json_skip_spaces(state);
-        
+
         rc = json_parse_value(state, &cur_item->value);
         if (rc != JSON_OK)
         {
             return rc;
         }
-        
+
         json_skip_spaces(state);
         switch (*state->cur_pos)
         {
@@ -528,13 +528,13 @@ json_parse_object(json_parser_state_t* state, json_object_t* result)
                 state->cur_pos++;
                 state->depth--;
                 return JSON_OK;
-                
+
             case ',':
                 state->cur_pos++;
                 json_skip_spaces(state);
                 continue;
         }
-        
+
         snprintf(state->error, state->error_size, "expected , or } while parsing object, got 0x%xd (%s)", (int)*state->cur_pos,state->cur_pos);
         return JSON_BAD_DATA;
     }
@@ -570,13 +570,13 @@ json_parser_bool(json_parser_state_t* state, void* result)
             EXPECT_STRING(state, "true");
             *(bool_t*)result = TRUE;
             return JSON_OK;
-            
+
         case 'f':
             EXPECT_STRING(state, "false");
             *(bool_t*)result = FALSE;
             return JSON_OK;
     }
-    
+
     snprintf(state->error, state->error_size, "expected true or false");
     return JSON_BAD_DATA;
 }
@@ -592,14 +592,14 @@ json_parser_int(json_parser_state_t* state, void* result)
 {
     json_status_t rc;
     bool_t negative;
-    
+
     rc = json_parse_int(state, (int64_t*)result, &negative);
-    
+
     if (negative)
     {
         *(int64_t*)result = -(*(int64_t*)result);
     }
-    
+
     return rc;
 }
 
@@ -607,45 +607,45 @@ static json_status_t
 json_parse_value(json_parser_state_t* state, json_value_t* result)
 {
     json_status_t rc;
-    
+
     switch (*state->cur_pos)
     {
         case '"':
             result->type = JSON_STRING;
             return json_parse_string(state, &result->v.str);
-            
+
         case '[':
             result->type = JSON_ARRAY;
             return json_parse_array(state, &result->v.arr);
-            
+
         case '{':
             result->type = JSON_OBJECT;
             return json_parse_object(state, &result->v.obj);
-            
+
         case 'n':
             EXPECT_STRING(state, "null");
             result->type = JSON_NULL;
             return JSON_OK;
-            
+
         case 't':
             EXPECT_STRING(state, "true");
             result->type = JSON_BOOL;
             result->v.boolean = TRUE;
             return JSON_OK;
-            
+
         case 'f':
             EXPECT_STRING(state, "false");
             result->type = JSON_BOOL;
             result->v.boolean = FALSE;
             return JSON_OK;
-            
+
         default:
             rc = json_parse_fraction(state, &result->v.num);
             if (rc != JSON_OK)
             {
                 return rc;
             }
-            
+
             result->type = result->v.num.denom == 1 ? JSON_INT : JSON_FRAC;
             return JSON_OK;
     }
@@ -656,14 +656,14 @@ json_parse(pool_t* pool, char* string, json_value_t* result, char* error, size_t
 {
     json_parser_state_t state;
     json_status_t rc;
-    
+
     state.pool = pool;
     state.cur_pos = string;
     state.depth = 0;
     state.error = error;
     state.error_size = error_size;
     error[0] = '\0';
-    
+
     json_skip_spaces(&state);
     rc = json_parse_value(&state, result);
     if (rc != JSON_OK)
@@ -677,11 +677,11 @@ json_parse(pool_t* pool, char* string, json_value_t* result, char* error, size_t
         rc = JSON_BAD_DATA;
         goto error;
     }
-    
+
     return JSON_OK;
-    
+
 error:
-    
+
     error[error_size - 1] = '\0';            // make sure it's null terminated
     return rc;
 }
@@ -691,40 +691,40 @@ json_hextoi(char *line, size_t n)
 {
     char c, ch;
     intptr_t value, cutoff;
-    
+
     if (n == 0)
     {
         return -1;
     }
-    
+
     cutoff = LONG_MAX / 16;
-    
+
     for (value = 0; n--; line++)
     {
         if (value > cutoff)
         {
             return -1;
         }
-        
+
         ch = *line;
-        
+
         if (ch >= '0' && ch <= '9')
         {
             value = value * 16 + (ch - '0');
             continue;
         }
-        
+
         c = (u_char) (ch | 0x20);
-        
+
         if (c >= 'a' && c <= 'f')
         {
             value = value * 16 + (c - 'a' + 10);
             continue;
         }
-        
+
         return -1;
     }
-    
+
     return value;
 }
 
@@ -732,13 +732,13 @@ static char*
 json_unicode_hex_to_utf8(char* dest, char* src)
 {
     intptr_t ch;
-    
+
     ch = json_hextoi(src, 4);
     if (ch < 0)
     {
         return NULL;
     }
-    
+
     if (ch < 0x80)
     {
         *dest++ = (char)ch;
@@ -765,7 +765,7 @@ json_unicode_hex_to_utf8(char* dest, char* src)
     {
         return NULL;
     }
-    
+
     return dest;
 }
 
@@ -775,7 +775,7 @@ json_decode_string(str_t* dest, str_t* src)
     char* end_pos;
     char* cur_pos;
     char* p = dest->data + dest->len;
-    
+
     cur_pos = src->data;
     end_pos = cur_pos + src->len;
     for (; cur_pos < end_pos; cur_pos++)
@@ -785,13 +785,13 @@ json_decode_string(str_t* dest, str_t* src)
             *p++ = *cur_pos;
             continue;
         }
-        
+
         cur_pos++;
         if (cur_pos >= end_pos)
         {
             return JSON_BAD_DATA;
         }
-        
+
         switch (*cur_pos)
         {
             case '"':
@@ -823,7 +823,7 @@ json_decode_string(str_t* dest, str_t* src)
                 {
                     return JSON_BAD_DATA;
                 }
-                
+
                 p = json_unicode_hex_to_utf8(p, cur_pos + 1);
                 if (p == NULL)
                 {
@@ -835,9 +835,9 @@ json_decode_string(str_t* dest, str_t* src)
                 return JSON_BAD_DATA;
         }
     }
-    
+
     dest->len = p - dest->data;
-    
+
     return JSON_OK;
 }
 
@@ -857,7 +857,7 @@ json_status_t json_get(const json_value_t* obj,char* path,const json_value_t** r
         return JSON_OK;
     }
     char* key=path;
-    
+
     for (;;)
     {
         if (*path== '.' || *path==0)
@@ -884,13 +884,13 @@ json_status_t json_get(const json_value_t* obj,char* path,const json_value_t** r
             return JSON_BAD_DATA;
         }
         path++;
-    } 
+    }
     return JSON_OK;
 }
 size_t json_get_array_count(const json_value_t* obj) {
     if (obj->type!=JSON_ARRAY)
         return 0;
-    
+
     return (size_t)obj->v.arr.items.nelts;
 }
 
@@ -898,7 +898,7 @@ json_status_t json_get_array_index(const json_value_t* obj,int index,  json_valu
 {
     if (obj->type!=JSON_ARRAY)
         return JSON_BAD_DATA;
-    
+
     result->type = obj->v.arr.type;
 
 
@@ -915,7 +915,7 @@ json_status_t json_get_array_index(const json_value_t* obj,int index,  json_valu
         result->v.str.data=str->data;
         result->v.str.len=str->len;
         return JSON_OK;
-        
+
     }
     return JSON_OK;
 
@@ -928,7 +928,7 @@ json_status_t json_get_string(const json_value_t* obj,char* path,const char* def
         strcpy(result,defaultValue);
         return ret;
     }
-    
+
     if (jresult->type!=JSON_STRING) {
         return JSON_BAD_DATA;
     }
@@ -949,7 +949,7 @@ json_status_t json_get_int(const json_value_t* obj,char* path,int defaultValue,i
         *result=defaultValue;
         return ret;
     }
-    
+
     *result=(int)t;
     return JSON_OK;
 }
@@ -962,7 +962,7 @@ json_status_t json_get_int64(const json_value_t* obj,char* path,int64_t defaultV
         *result=defaultValue;
         return ret;
     }
-    
+
     if (jresult->type!=JSON_INT) {
         return JSON_BAD_DATA;
     }
@@ -980,7 +980,7 @@ json_status_t json_get_bool(const json_value_t* obj,char* path,bool defaultValue
         *result=defaultValue;
         return ret;
     }
-    
+
     if (jresult->type!=JSON_BOOL) {
         return JSON_BAD_DATA;
     }
@@ -996,7 +996,7 @@ json_status_t json_get_double(const json_value_t* obj,char* path,double defaultV
         *result=defaultValue;
         return ret;
     }
-    
+
     if (jresult->type!=JSON_FRAC) {
         return JSON_BAD_DATA;
     }

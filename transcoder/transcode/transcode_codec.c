@@ -34,34 +34,34 @@ static int hw_decoder_init( transcode_codec_t * pContext,AVCodec* decoder,AVCode
             break;
         }
     }
-    
-    
+
+
     int ret = 0;
-    
+
     if ((ret = av_hwdevice_ctx_create(&pContext->hw_device_ctx, type, NULL, NULL, 0)) < 0) {
         LOGGER(CATEGORY_CODEC, AV_LOG_ERROR, "Failed to create specified HW device %d (%s)",ret,av_err2str(ret));
         return ret;
     }
-    
+
     pContext->hw_frames_ctx = av_hwframe_ctx_alloc(pContext->hw_device_ctx);
     if (!pContext->hw_frames_ctx) {
         LOGGER0(CATEGORY_CODEC, AV_LOG_ERROR, "Error creating a CUDA frames context");
         return AVERROR(ENOMEM);
     }
-    
+
     AVHWFramesContext * frames_ctx = (AVHWFramesContext*)pContext->hw_frames_ctx->data;
-    
+
     frames_ctx->format = AV_PIX_FMT_CUDA;
     frames_ctx->sw_format = AV_PIX_FMT_NV12;
     frames_ctx->width = ctx->width;
     frames_ctx->height = ctx->height;
-    
-    
+
+
     ret = av_hwframe_ctx_init(pContext->hw_frames_ctx);
     LOGGER(CATEGORY_CODEC, AV_LOG_INFO, "Initializing CUDA frames context: sw_format = %s, width = %d, height = %d",
            av_get_pix_fmt_name(frames_ctx->sw_format), frames_ctx->width, frames_ctx->height);
 
-    
+
 
     return ret;
 }
@@ -71,15 +71,15 @@ static int hw_decoder_init( transcode_codec_t * pContext,AVCodec* decoder,AVCode
 static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,const enum AVPixelFormat *pix_fmts)
 {
     const enum AVPixelFormat *p;
-    
-    
+
+
     for (p = pix_fmts; *p != -1; p++) {
         if (*p == ctx->pix_fmt) {
             LOGGER(CATEGORY_CODEC, AV_LOG_INFO, "get_hw_format returned %s",av_get_pix_fmt_name (*p));
             return *p;
         }
     }
-    
+
     LOGGER0(CATEGORY_CODEC, AV_LOG_ERROR, "Failed to get HW surface format");
     return AV_PIX_FMT_NONE;
 }
@@ -88,7 +88,7 @@ static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,const enum AVPixelFo
 static int get_decoder_buffer(AVCodecContext *s, AVFrame *frame, int flags)
 {
     //transcode_codec_t *context = s->opaque;
-    
+
     return avcodec_default_get_buffer2(s, frame, flags);
 }
 
@@ -99,7 +99,7 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
     transcode_codec_init(pContext);
 
     AVCodecParameters *pCodecParams=extraParams->codecParams;
-    
+
     enum AVHWDeviceType hardWareAcceleration=AV_HWDEVICE_TYPE_NONE;
 
    AVCodec *dec;
@@ -164,7 +164,7 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
         codec_ctx->hw_device_ctx = av_buffer_ref(pContext->hw_device_ctx);
     }
     av_opt_set_int(codec_ctx, "refcounted_frames", 1, 0);
-    
+
     ret = avcodec_open2(codec_ctx, dec, NULL);
     if (ret < 0) {
         LOGGER( CATEGORY_CODEC, AV_LOG_ERROR, "Failed to open decoder for stream %d (%s)",ret,av_err2str(ret));
@@ -279,7 +279,7 @@ init_video_encoder(transcode_codec_t * pContext,
     }
     return ret;
 }
-    
+
 int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
                        AVRational inputAspectRatio,
                        enum AVPixelFormat inputPixelFormat,
@@ -289,9 +289,9 @@ int transcode_codec_init_video_encoder( transcode_codec_t * pContext,
                        const transcode_session_output_t* pOutput,
                        int width,int height)
 {
-    
+
     transcode_codec_init(pContext);
-    
+
 
     int ret = -1;
 
@@ -344,19 +344,19 @@ int transcode_codec_init_audio_encoder( transcode_codec_t * pContext,transcode_f
 {
     transcode_codec_init(pContext);
 
-    
+
     AVCodec *codec      = NULL;
     AVCodecContext *enc_ctx  = NULL;
     int ret = 0;
-    
-    
+
+
     codec = avcodec_find_encoder_by_name("aac");
     if (!codec) {
         LOGGER0(CATEGORY_CODEC,AV_LOG_ERROR,"Unable to find aac");
         return -1;
     }
     enc_ctx = avcodec_alloc_context3(codec);
-    
+
     enc_ctx->sample_fmt = av_buffersink_get_format(pFilter->sink_ctx);
     enc_ctx->channel_layout = av_buffersink_get_channel_layout(pFilter->sink_ctx);
     enc_ctx->channels = av_buffersink_get_channels(pFilter->sink_ctx);
@@ -387,7 +387,7 @@ int transcode_codec_close( transcode_codec_t * pContext)
    // avcodec_close(pContext->ctx);
     //av_free(pContext->ctx);
     pContext->ctx=NULL;
-    
+
     return 0;
 }
 int transcode_encoder_send_frame( transcode_codec_t *encoder, const AVFrame* pFrame)
@@ -430,16 +430,16 @@ int transcode_encoder_receive_packet( transcode_codec_t *encoder,AVPacket* pkt)
     samples_stats_add(&encoder->outStats,pkt->dts,pkt->pos,pkt->size);
 
     return ret;
-    
+
 }
 
 
 int transcode_decoder_send_packet( transcode_codec_t *decoder, const AVPacket* pkt) {
-    
+
     int ret;
-    
+
     //LOGGER0(CATEGORY_CODEC, AV_LOG_DEBUG,"Sending packet to decoder");
-    
+
     if (pkt!=NULL) {
         decoder->inDts=pkt->dts;
         samples_stats_add(&decoder->inStats,pkt->dts,pkt->pos,pkt->size);
@@ -456,7 +456,7 @@ int transcode_decoder_send_packet( transcode_codec_t *decoder, const AVPacket* p
     }
 
     return 0;
-    
+
 }
 
 
@@ -473,10 +473,10 @@ int transcode_decoder_receive_frame( transcode_codec_t *decoder,AVFrame *pFrame)
         decoder->outStats.totalErrors++;
         return ret;
     }
-    
+
     //pFrame->pts = pFrame->best_effort_timestamp;
     log_frame_side_data(CATEGORY_CODEC,pFrame);
-    
+
     pFrame->pts = FFMAX(decoder->outDts+1,pFrame->pts);
     decoder->outDts=pFrame->pts;
     samples_stats_add(&decoder->outStats,pFrame->pts,pFrame->pkt_pos,0);

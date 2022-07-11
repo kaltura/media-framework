@@ -49,15 +49,15 @@ void calculate_stats(samples_stats_t* pStats)
     if (pStats->head!=-1 && pStats->head!=pStats->tail) {
         samples_stats_history_t  *pHead=sample_stats_get_history(pStats,pStats->head);
         samples_stats_history_t  *pTail=sample_stats_get_history(pStats,pStats->tail);
-        
+
         double clockPassedInSec= (pHead->clock - pTail->clock )  / 1000000.0;
         double dtsPassedInSec= (pHead->dts - pTail->dts )  / 90000.0;
-        
+
         pStats->dtsPassed=(pHead->dts - pStats->firstDts);
         pStats->timeStampPassed=(pHead->timeStamp - pStats->firstTimeStamp);
 
         int64_t frames=(pStats->head - pStats->tail + 1);
-        
+
         if (dtsPassedInSec>0 && clockPassedInSec>0) {
             double dbitRate= (double)(pStats->totalWindowSizeInBytes*8)/dtsPassedInSec;
             pStats->currentBitRate=(int)dbitRate;
@@ -82,10 +82,10 @@ void samples_stats_add(samples_stats_t* pStats,uint64_t dts,uint64_t ts,int fram
     pStats->lastDts=pHead->dts=dts;
     pHead->clock=getTime64();
     pStats->lastTimeStamp=pHead->timeStamp=ts;
-    
+
     pStats->totalFrames++;
     pStats->totalWindowSizeInBytes+=frameSize;
-    
+
     drain(pStats,pHead->dts);
     calculate_stats(pStats);
 }

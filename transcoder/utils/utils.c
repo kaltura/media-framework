@@ -44,7 +44,7 @@ int kbhit(void)
 {
     static bool initflag = false;
     static const int STDIN = 0;
-    
+
     if (!initflag) {
         // Use termios to turn off line buffering
         struct termios term;
@@ -54,7 +54,7 @@ int kbhit(void)
         setbuf(stdin, NULL);
         initflag = true;
     }
-    
+
     int nbbytes;
     ioctl(STDIN, FIONREAD, &nbbytes);  // 0 is STDIN
     return nbbytes;
@@ -65,12 +65,12 @@ uint64_t getTime64()
 {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    
-    
+
+
     uint64_t usecondsSinceEpoch =
     (uint64_t)(ts.tv_sec) * 1000000 +
     (uint64_t)(ts.tv_nsec) / 1000;
-    
+
     return usecondsSinceEpoch;
 }
 
@@ -78,12 +78,12 @@ uint64_t getClock64()
 {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    
-    
+
+
     uint64_t usecondsSinceEpoch =
     (uint64_t)(ts.tv_sec) * 1000000 +
     (uint64_t)(ts.tv_nsec) / 1000;
-    
+
     return usecondsSinceEpoch;
 }
 
@@ -95,17 +95,17 @@ uint64_t getClock90Khz()
 
 char *av_ts_make_time_stringEx(char *buf, int64_t ts,bool shortFormat)
 {
-    
+
     if (ts == AV_NOPTS_VALUE) {
         snprintf(buf, K_TS_MAX_STRING_SIZE, "NOPTS");
         return buf;
     }
-    
+
     time_t epoch=ts/standard_timebase.den;
-    
+
     struct tm *gm = gmtime(&epoch);
-    
-    
+
+
     size_t written = (size_t)strftime(buf, K_TS_MAX_STRING_SIZE, shortFormat ? "%H:%M:%S" : "%Y-%m-%dT%H:%M:%S", gm);
     if ((written > 0) && ((size_t)written < K_TS_MAX_STRING_SIZE))
     {
@@ -119,7 +119,7 @@ char *av_ts_make_time_stringEx(char *buf, int64_t ts,bool shortFormat)
 }
 
 const char* pict_type_to_string(int pt) {
-    
+
     const char *pict_type;
     switch (pt)
     {
@@ -210,7 +210,7 @@ char *av_pts_to_string(char *buf, int64_t pts)
     int minutes = (totalSeconds % 3600) / 60;
     int hours = (totalSeconds % 86400) / 3600;
     int days = (int)(totalSeconds / 86400);
-    
+
     if (days==0) {
         sprintf(buf,"%s%.2d:%.2d:%.2d.%.3d",pts>=0 ? "" : "-",hours,minutes,seconds,milliseconds);
     } else {
@@ -227,7 +227,7 @@ void log_frame_side_data(const char* category,const AVFrame *pFrame)
 
     if (pFrame->nb_side_data==0)
         return;
-    
+
     for (int i = 0; i < pFrame->nb_side_data; i++) {
         const AVFrameSideData *sd = pFrame->side_data[i];
         switch(sd->type)

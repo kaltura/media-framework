@@ -23,7 +23,7 @@ int transcode_session_output_init(transcode_session_output_t* pOutput)  {
     pOutput->videoParams.frameRate=-1;
     memset(&pOutput->actualVideoParams, 0, sizeof(pOutput->actualVideoParams));
     memset(&pOutput->actualAudioParams, 0, sizeof(pOutput->actualAudioParams));
-    
+
     pOutput->lastAck=pOutput->lastMappedAck=0;
     strcpy(pOutput->videoParams.level,"");
     strcpy(pOutput->videoParams.profile,"");
@@ -37,7 +37,7 @@ int transcode_session_output_init(transcode_session_output_t* pOutput)  {
 }
 
 int print_output(transcode_session_output_t* pOutput) {
-    
+
     if ( pOutput->passthrough) {
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"[%s] output configuration: mode: passthrough",pOutput->track_id);
         return 0;
@@ -60,7 +60,7 @@ int print_output(transcode_session_output_t* pOutput) {
                pOutput->audioParams.samplingRate
                )
     }
-    
+
     return 0;
 }
 
@@ -68,7 +68,7 @@ int transcode_session_output_from_json(transcode_session_output_t* pOutput,const
 {
     transcode_session_output_init(pOutput);
 
-    
+
     json_get_string(json,"trackId","",pOutput->track_id,sizeof(pOutput->track_id));
     json_get_int(json,"bitrate",-1,&(pOutput->bitrate));
     json_get_bool(json,"passthrough",true,&(pOutput->passthrough));
@@ -81,7 +81,7 @@ int transcode_session_output_from_json(transcode_session_output_t* pOutput,const
         json_get_string(pVideoParams,"profile","",pOutput->videoParams.profile,sizeof(pOutput->videoParams.profile));
         json_get_string(pVideoParams,"preset","",pOutput->videoParams.preset,sizeof(pOutput->videoParams.preset));
         json_get_int(pVideoParams,"skipFrame",1,&pOutput->videoParams.skipFrame);
-        
+
     }
     if (JSON_OK==json_get(json,"audioParams",&pAudioParams)) {
         pOutput->codec_type=AVMEDIA_TYPE_AUDIO;
@@ -101,38 +101,38 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
         return 0;
     }
     samples_stats_add(&pOutput->stats,packet->dts,packet->pos, packet->size);
-    
+
     LOGGER(CATEGORY_OUTPUT,AV_LOG_VERBOSE,"[%s] got data: %s", pOutput->track_id,getPacketDesc(packet))
     samples_stats_log(CATEGORY_OUTPUT,AV_LOG_VERBOSE,&pOutput->stats,pOutput->track_id);
 
     if (pOutput->oc) {
-        
+
         AVPacket* cpPacket=av_packet_clone(packet);
-        
+
         if (cpPacket->dts<0) {
             cpPacket->dts=0;
         }
-        
+
         if (cpPacket->dts<pOutput->lastFileDts) {
             pOutput->fileDuration+=pOutput->lastFileDts;
         }
-            
+
         pOutput->lastFileDts=cpPacket->dts;
         cpPacket->pts+=pOutput->fileDuration;
         cpPacket->dts+=pOutput->fileDuration;
-        
-        av_packet_rescale_ts(cpPacket,standard_timebase, pOutput->oc->streams[0]->time_base); 
+
+        av_packet_rescale_ts(cpPacket,standard_timebase, pOutput->oc->streams[0]->time_base);
         int ret=av_write_frame(pOutput->oc, cpPacket);
-    
+
         if (ret<0) {
             LOGGER(CATEGORY_OUTPUT,AV_LOG_FATAL,"[%s] cannot save frame %d (%s)",pOutput->track_id,ret,av_err2str(ret))
         }
         av_write_frame(pOutput->oc, NULL);
-        
+
         av_packet_free(&cpPacket);
-        
+
     }
-    
+
     if (pOutput->sender!=NULL)
     {
         _S(KMP_send_packet(pOutput->sender,packet));
@@ -147,7 +147,7 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
              pOutput->lastOffset=desc.offset;
         }
     }
-    
+
     return 0;
 }
 
@@ -202,15 +202,15 @@ int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,
             LOGGER(CATEGORY_OUTPUT,AV_LOG_FATAL,"(%s) cannot create filename %s",pOutput->track_id,filename)
             return -1;
         }
-        
+
         AVStream *st = avformat_new_stream(pOutput->oc, NULL);
         st->id=0;
-        
+
         avcodec_parameters_copy(st->codecpar,extra->codecParams);
-        
+
         int ret = avio_open(&pOutput->oc->pb, filename, AVIO_FLAG_WRITE);
         if (ret<0) {
-            
+
             LOGGER(CATEGORY_OUTPUT,AV_LOG_FATAL,"(%s) cannot create filename %s",pOutput->track_id,filename)
             return ret;
         }
@@ -220,7 +220,7 @@ int transcode_session_output_set_media_info(transcode_session_output_t *pOutput,
 
         ret = avformat_write_header(pOutput->oc, &opts);
         if (ret<0) {
-            
+
             LOGGER(CATEGORY_OUTPUT,AV_LOG_FATAL,"(%s) cannot create filename %s - %d (%s)",pOutput->track_id,filename,ret,av_err2str(ret))
         }
         pOutput->fileDuration=0;
@@ -239,7 +239,7 @@ int transcode_session_output_close(transcode_session_output_t* pOutput)
     if (pOutput->oc!=NULL) {
         LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"(%s) closing file",pOutput->track_id);
         av_write_trailer(pOutput->oc);
-    
+
         avio_closep(&pOutput->oc->pb);
         /* free the stream */
         avformat_free_context(pOutput->oc);
@@ -262,7 +262,7 @@ void transcode_session_output_get_diagnostics(transcode_session_output_t *pOutpu
         sprintf(codecData,"%dx%d",pOutput->actualVideoParams.width,pOutput->actualVideoParams.height);
     if (pOutput->codec_type==AVMEDIA_TYPE_AUDIO)
         sprintf(codecData,"%d",pOutput->actualAudioParams.samplingRate);
-    
+
     JSON_SERIALIZE_SCOPE_BEGIN()
     JSON_SERIALIZE_STRING("track_id",pOutput->track_id)
     JSON_SERIALIZE_INT64("totalFrames",pOutput->stats.totalFrames)

@@ -40,7 +40,7 @@ int transcode_session_init(transcode_session_t *ctx,char* channelId,char* trackI
     ctx->queueDuration=av_rescale_q(ctx->queueDuration,seconds,standard_timebase);
 
     packet_queue_init(&ctx->packetQueue);
-    
+
     json_get_bool(GetConfig(),"frameDropper.enabled",false,&ctx->dropper.enabled);
     if (!ctx->dropper.enabled) {
         ctx->packetQueue.queueSize=0;
@@ -60,12 +60,12 @@ int init_outputs_from_config(transcode_session_t *ctx)
 {
     const json_value_t* outputsJson;
     json_get(GetConfig(),"outputTracks",&outputsJson);
-    
+
     for (int i=0;i<json_get_array_count(outputsJson);i++)
     {
         json_value_t outputJson;
         json_get_array_index(outputsJson,i,&outputJson);
-        
+
         bool enabled=true;
         json_get_bool(&outputJson,"enabled",true,&enabled);
         if (!enabled) {
@@ -118,23 +118,23 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
         bool changed=newCodecParams->width!=currentCodecParams->width ||
             newCodecParams->height!=currentCodecParams->height ||
             newCodecParams->extradata_size!=currentCodecParams->extradata_size;
-        
+
         if (currentCodecParams->extradata_size>0 &&
             newCodecParams->extradata!=NULL &&
             currentCodecParams->extradata!=NULL &&
             0!=memcmp(newCodecParams->extradata,currentCodecParams->extradata,currentCodecParams->extradata_size))
             changed=true;
-        
+
         if (!changed) {
-            
+
             avcodec_parameters_free(&newMediaInfo->codecParams);
             av_free(newMediaInfo);
             return 0;
         }
     }
-   
+
     ctx->currentMediaInfo=newMediaInfo;
-    
+
     transcode_codec_t *pDecoderContext=&ctx->decoder[0];
     transcode_codec_init_decoder(pDecoderContext,newMediaInfo);
     sprintf(pDecoderContext->name,"Decoder for input %s",ctx->name);
@@ -171,12 +171,12 @@ void get_filter_config(transcode_session_t *pSession,char *filterConfig,  transc
     {
         int n=sprintf(filterConfig,"framestep=step=%d,",pOutput->videoParams.skipFrame);
         if (pDecoderContext->nvidiaAccelerated) {
-            
+
             n+=sprintf(filterConfig+n,"scale_npp=w=%d:h=%d:interp_algo=%s",
                     pOutput->videoParams.width,
                     pOutput->videoParams.height,
                     "super");
-                    
+
             //in case of use software encoder we need to copy to CPU memory
             if (strcmp(pOutput->codec,"libx264")==0) {
                 n+=sprintf(filterConfig+n,",hwdownload");
@@ -187,7 +187,7 @@ void get_filter_config(transcode_session_t *pSession,char *filterConfig,  transc
                     pOutput->videoParams.height,
                     "lanczos");
         }
-       
+
     }
     if (pOutput->codec_type==AVMEDIA_TYPE_AUDIO)
     {
@@ -206,7 +206,7 @@ transcode_filter_t* GetFilter(transcode_session_t* pContext,transcode_session_ou
 {
     char filterConfig[MAX_URL_LENGTH]={0};
     get_filter_config(pContext,filterConfig, pDecoderContext, pOutput);
-    
+
     transcode_filter_t* pFilter=NULL;
     pOutput->filterId=-1;
     for (int selectedFilter=0; selectedFilter<pContext->filters;selectedFilter++) {
@@ -224,7 +224,7 @@ transcode_filter_t* GetFilter(transcode_session_t* pContext,transcode_session_ou
             LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"Output %s - Cannot create filter %s",pOutput->track_id,filterConfig);
             return NULL;
         }
-        
+
         pOutput->filterId=pContext->filters++;
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Output %s - Created new  filter %s",pOutput->track_id,filterConfig);
     }
@@ -235,7 +235,7 @@ transcode_filter_t* GetFilter(transcode_session_t* pContext,transcode_session_ou
 
 int config_encoder(transcode_session_output_t *pOutput,  transcode_codec_t *pDecoderContext, transcode_filter_t *pFilter, transcode_codec_t *pEncoderContext)
 {
-    
+
     int ret=-1;
     if (pOutput->codec_type==AVMEDIA_TYPE_VIDEO)
     {
@@ -267,10 +267,10 @@ int config_encoder(transcode_session_output_t *pOutput,  transcode_codec_t *pDec
                                pOutput,
                                width,
                                height);
-        
+
         pOutput->actualVideoParams.width=pEncoderContext->ctx->width;
         pOutput->actualVideoParams.height=pEncoderContext->ctx->height;
-        
+
     }
     if (pOutput->codec_type==AVMEDIA_TYPE_AUDIO)
     {
@@ -278,7 +278,7 @@ int config_encoder(transcode_session_output_t *pOutput,  transcode_codec_t *pDec
         pOutput->actualAudioParams.samplingRate=pEncoderContext->ctx->sample_rate;
         pOutput->actualAudioParams.channels=pEncoderContext->ctx->channels;
     }
-    
+
     sprintf(pEncoderContext->name,"Encoder for output %s",pOutput->track_id);
     return ret;
 }
@@ -335,7 +335,7 @@ int transcode_session_add_output(transcode_session_t* pContext, const json_value
 
 /* processing */
 int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame *pFrame) {
- 
+
     transcode_codec_t* pEncoder=&pContext->encoder[encoderId];
     transcode_session_output_t* pOutput=&pContext->output[outputId];
     frame_id_t output_frame_id;
@@ -344,10 +344,10 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
            pOutput->track_id,
            getFrameDesc(pFrame),
            encoderId);
-    
-    
+
+
     int ret=0;
-    
+
     if (pFrame) {
         //key frame aligment
         if (pFrame->key_frame==1 || (pFrame->flags & AV_PKT_FLAG_KEY)==AV_PKT_FLAG_KEY)
@@ -356,7 +356,7 @@ int encodeFrame(transcode_session_t *pContext,int encoderId,int outputId,AVFrame
             pFrame->pict_type=AV_PICTURE_TYPE_NONE;
 
     }
-    
+
     ret=transcode_encoder_send_frame(pEncoder,pFrame);
 encoder_error:
     if (ret < 0)
@@ -368,10 +368,10 @@ encoder_error:
     }
     while (ret >= 0) {
         AVPacket *pOutPacket = av_packet_alloc();
-        
+
         ret = transcode_encoder_receive_packet(pEncoder,pOutPacket);
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-            
+
             if (ret == AVERROR_EOF) {
                 LOGGER0(CATEGORY_TRANSCODING_SESSION, AV_LOG_INFO,"encoding completed!")
             }
@@ -390,7 +390,7 @@ encoder_error:
                pOutput->track_id,
                getPacketDesc(pOutPacket),
                encoderId);
-        
+
         pOutPacket->pos=clock_estimator_get_clock(&pContext->clock_estimator,pOutPacket->dts);
 
         if(pContext->ack_handler == pOutput){
@@ -510,10 +510,10 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
            filterId,
            pContext->filter[filterId].config,
            getFrameDesc(pFrame));
-    
+
     ret=transcode_filter_send_frame(pFilter,pFrame);
     if (ret<0) {
-        
+
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"[%s] failed sending frame to filterId %d (%s): %s %d (%s)",
                pContext->name,
                filterId,
@@ -522,7 +522,7 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
                ret,
                av_err2str(ret));
     }
-    
+
     while (ret >= 0) {
         AVFrame *pOutFrame = av_frame_alloc();
         ret = transcode_filter_receive_frame(pFilter,pOutFrame);
@@ -541,7 +541,7 @@ int sendFrameToFilter(transcode_session_t *pContext,int filterId, AVCodecContext
                pContext->name,
                filterId,
                pContext->filter[filterId].config,getFrameDesc(pOutFrame))
-        
+
         if(pContext->ack_handler && pContext->ack_handler->filterId == filterId ) {
              ackFilter(&pContext->ack_handler->acker,pOutFrame);
         }
@@ -580,7 +580,7 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
     }
 
     if (frame==NULL) {
-        
+
         for (int outputId=0;outputId<ctx->outputs;outputId++) {
             transcode_session_output_t *pOutput=&ctx->output[outputId];
             if (pOutput->encoderId!=-1){
@@ -632,11 +632,11 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
 
 
     for (int filterId=0;filterId<ctx->filters;filterId++) {
-        
+
         _S(sendFrameToFilter(ctx,filterId,decoderCtx,frame));
-       
+
     }
-    
+
     for (int outputId=0;outputId<ctx->outputs;outputId++) {
         transcode_session_output_t *pOutput=&ctx->output[outputId];
         if (pOutput->filterId==-1 && pOutput->encoderId!=-1){
@@ -644,15 +644,15 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
             _S(encodeFrame(ctx,pOutput->encoderId,outputId,frame));
         }
     }
-    
+
     return 0;
 }
 
 int decodePacket(transcode_session_t *transcodingContext,const AVPacket* pkt) {
-    
+
     int ret;
-    
-    
+
+
     if (pkt!=NULL) {
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG, "[%s] Sending packet %s to decoder",
                transcodingContext->name,
@@ -664,7 +664,7 @@ int decodePacket(transcode_session_t *transcodingContext,const AVPacket* pkt) {
 
     while (ret >= 0) {
         AVFrame *pFrame = av_frame_alloc();
-        
+
         ret = transcode_decoder_receive_frame(pDecoder, pFrame);
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
             av_frame_free(&pFrame);
@@ -717,7 +717,7 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
         }
     }
     if (shouldDecode) {
-        
+
         if (packet==NULL || !ctx->dropper.enabled || !transcode_dropper_should_drop_packet(&ctx->dropper,ctx->lastQueuedDts,packet))
         {
             _S(decodePacket(ctx,packet));
@@ -733,7 +733,7 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
 /* shutting down */
 
 int transcode_session_close(transcode_session_t *session,int exitErrorCode) {
-    
+
     if (session->packetQueue.queueSize>0) {
         packet_queue_destroy(&session->packetQueue);
     }
@@ -743,7 +743,7 @@ int transcode_session_close(transcode_session_t *session,int exitErrorCode) {
         transcode_session_send_packet(session,NULL);
         LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO, "Flushing completed");
     }
-    
+
     for (int i=0;i<session->decoders;i++) {
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Closing decoder %d",i);
         transcode_codec_close(&session->decoder[i]);
@@ -756,12 +756,12 @@ int transcode_session_close(transcode_session_t *session,int exitErrorCode) {
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Closing encoder %d",i);
         transcode_codec_close(&session->encoder[i]);
     }
-    
-    
+
+
     if (session->onProcessedFrame) {
         session->onProcessedFrame(session->onProcessedFrameContext,true);
     }
-    
+
     for (int i=0;i<session->outputs;i++){
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"Closing output %s",session->output[i].channel_id);
         transcode_session_output_close(&session->output[i]);
@@ -837,7 +837,7 @@ void transcode_session_get_diagnostics(transcode_session_t *ctx,json_writer_ctx_
     JSON_SERIALIZE_ARRAY_END()
      */
     JSON_SERIALIZE_ARRAY_START("outputs")
-    
+
     uint64_t lastDts=UINT64_MAX;
     uint64_t lastTimeStamp=UINT64_MAX;
 
@@ -852,7 +852,7 @@ void transcode_session_get_diagnostics(transcode_session_t *ctx,json_writer_ctx_
        JSON_SERIALIZE_ARRAY_ITEM();
     }
     JSON_SERIALIZE_ARRAY_END()
-    
+
     JSON_SERIALIZE_INT64("lastIncommingDts",ctx->lastQueuedDts);
     JSON_SERIALIZE_INT64("lastProcessedDts",ctx->processedStats.lastDts);
     JSON_SERIALIZE_INT64("minDts",lastDts);

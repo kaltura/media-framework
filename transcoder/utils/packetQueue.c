@@ -35,7 +35,7 @@ void* fifo_consumer_thread(void* params) {
     FifoMessage msg = {FIFO_WRITE_NOPS, NULL,NULL};
     int ret=0;
     while(1) {
-        
+
         ret = av_thread_message_queue_recv(ctx->queue, &msg, 0);
         if (ret < 0) {
             av_thread_message_queue_set_err_send(ctx->queue, ret);
@@ -60,7 +60,7 @@ int packet_queue_init(PacketQueueContext_t *ctx)
 {
      int ret;
      av_thread_message_queue_alloc(&ctx->queue,ctx->queueSize,sizeof(FifoMessage));
-    
+
      ret = pthread_create(&ctx->thread, NULL, fifo_consumer_thread, ctx);
      if (ret) {
           LOGGER(CATEGORY_PACKET_QUEUE, AV_LOG_ERROR, "Failed to start thread: %s", av_err2str(AVERROR(ret)));
@@ -74,7 +74,7 @@ void packet_queue_destroy(PacketQueueContext_t *ctx)
 {
     LOGGER0(CATEGORY_PACKET_QUEUE, AV_LOG_INFO, "Destroying packet queue");
     packet_queue_write_stop(ctx);
-    
+
     pthread_join(ctx->thread,NULL);
     av_thread_message_queue_free(&ctx->queue);
 }
