@@ -59,6 +59,7 @@ ngx_rtmp_kmp_track_error(void *arg)
     ngx_rtmp_finalize_session(s);
 }
 
+
 static ngx_int_t
 ngx_rtmp_kmp_copy(ngx_log_t *log, void *dst, u_char **src, size_t n,
     ngx_chain_t **in)
@@ -108,6 +109,7 @@ ngx_rtmp_kmp_copy(ngx_log_t *log, void *dst, u_char **src, size_t n,
     }
 }
 
+
 static ngx_int_t
 ngx_rtmp_kmp_track_set_extra_data(ngx_kmp_push_track_t *track,
     ngx_rtmp_session_t *s, ngx_chain_t *in, u_char *p, uint32_t size)
@@ -155,6 +157,7 @@ ngx_rtmp_kmp_track_set_extra_data(ngx_kmp_push_track_t *track,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_rtmp_kmp_track_send_media_info(ngx_kmp_push_track_t *track,
@@ -218,6 +221,7 @@ ngx_rtmp_kmp_track_send_media_info(ngx_kmp_push_track_t *track,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_rtmp_kmp_track_init_frame(ngx_kmp_push_track_t *track,
@@ -444,6 +448,7 @@ ngx_rtmp_kmp_track_av(ngx_kmp_push_track_t *track, ngx_rtmp_header_t *h,
 
     return NGX_OK;
 }
+
 
 ngx_kmp_push_track_t *
 ngx_rtmp_kmp_track_create(ngx_kmp_push_track_conf_t *conf,

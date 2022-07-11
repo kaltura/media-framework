@@ -84,6 +84,7 @@ static ngx_command_t  ngx_live_store_s3_commands[] = {
       ngx_null_command
 };
 
+
 static ngx_command_t  ngx_live_store_s3_block_commands[] = {
     { ngx_string("url"),
       NGX_CONF_TAKE1,
@@ -130,6 +131,7 @@ static ngx_command_t  ngx_live_store_s3_block_commands[] = {
       ngx_null_command
 };
 
+
 static ngx_live_module_t  ngx_live_store_s3_module_ctx = {
     NULL,                                     /* preconfiguration */
     NULL,                                     /* postconfiguration */
@@ -140,6 +142,7 @@ static ngx_live_module_t  ngx_live_store_s3_module_ctx = {
     ngx_live_store_s3_create_preset_conf,     /* create preset configuration */
     ngx_live_store_s3_merge_preset_conf       /* merge preset configuration */
 };
+
 
 ngx_module_t  ngx_live_store_s3_module = {
     NGX_MODULE_V1,
@@ -195,6 +198,7 @@ ngx_live_store_s3_parse_url(ngx_conf_t *cf, ngx_str_t *url)
     return u;
 }
 
+
 static char *
 ngx_live_store_s3_set_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -232,6 +236,7 @@ ngx_live_store_s3_sha256_hex_buf(ngx_str_t *message, u_char *digest)
     ngx_hex_dump(digest, hash, sizeof(hash));
 }
 
+
 static void
 ngx_live_store_s3_sha256_hex_chain(ngx_chain_t *cl, u_char *digest)
 {
@@ -250,6 +255,7 @@ ngx_live_store_s3_sha256_hex_chain(ngx_chain_t *cl, u_char *digest)
 
     ngx_hex_dump(digest, hash, sizeof(hash));
 }
+
 
 static ngx_int_t
 ngx_live_store_s3_hmac_sha256(ngx_log_t *log, ngx_str_t *key,
@@ -286,6 +292,7 @@ ngx_live_store_s3_hmac_sha256(ngx_log_t *log, ngx_str_t *key,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_store_s3_hmac_sha256_hex(ngx_log_t *log, ngx_str_t *key,
@@ -388,6 +395,7 @@ ngx_live_store_s3_init_ctx(ngx_conf_t *cf, ngx_live_store_s3_ctx_t *ctx)
     return NGX_CONF_OK;
 }
 
+
 static ngx_int_t
 ngx_live_store_s3_generate_signing_key(ngx_live_store_s3_ctx_t *ctx,
     ngx_log_t *log)
@@ -480,6 +488,7 @@ ngx_live_store_s3_get_ctx(ngx_array_t *blocks, ngx_str_t *name)
 
     return NULL;
 }
+
 
 static char *
 ngx_live_store_s3_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
@@ -730,6 +739,7 @@ ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     ngx_str_t *uri, ngx_chain_t *body, size_t content_length,
@@ -924,6 +934,7 @@ ngx_live_store_s3_get_info(ngx_live_channel_t *channel, ngx_str_t *name)
     *name = ctx->name;
 }
 
+
 static void *
 ngx_live_store_s3_read_init(ngx_live_store_read_request_t *request)
 {
@@ -938,6 +949,7 @@ ngx_live_store_s3_read_init(ngx_live_store_read_request_t *request)
     return ngx_live_store_http_read_init(request, ctx->url,
         ngx_live_store_s3_get_request, ctx);
 }
+
 
 static ngx_int_t
 ngx_live_store_s3_write(ngx_live_store_write_request_t *request)
@@ -984,6 +996,7 @@ static ngx_live_store_t  ngx_live_store_s3 = {
     ngx_live_store_http_read,
     ngx_live_store_s3_write,
 };
+
 
 static char *
 ngx_live_store_s3_set(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
@@ -1042,6 +1055,7 @@ ngx_live_store_s3_create_main_conf(ngx_conf_t *cf)
     return smcf;
 }
 
+
 static void *
 ngx_live_store_s3_create_preset_conf(ngx_conf_t *cf)
 {
@@ -1056,6 +1070,7 @@ ngx_live_store_s3_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_store_s3_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)

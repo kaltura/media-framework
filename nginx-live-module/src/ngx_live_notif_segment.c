@@ -10,6 +10,7 @@ typedef struct {
     ngx_rbtree_node_t  sentinel;
 } ngx_live_notif_segment_track_ctx_t;
 
+
 typedef struct {
     ngx_queue_t        queue;
 } ngx_live_notif_segment_channel_ctx_t;
@@ -30,6 +31,7 @@ static ngx_live_module_t  ngx_live_notif_segment_module_ctx = {
     NULL,                                     /* create preset configuration */
     ngx_live_notif_segment_merge_preset_conf, /* merge preset configuration */
 };
+
 
 ngx_module_t  ngx_live_notif_segment_module = {
     NGX_MODULE_V1,
@@ -275,6 +277,7 @@ static ngx_live_channel_event_t  ngx_live_notif_segment_channel_events[] = {
       ngx_live_null_event
 };
 
+
 static ngx_live_track_event_t    ngx_live_notif_segment_track_events[] = {
     { ngx_live_notif_segment_track_init,   NGX_LIVE_EVENT_TRACK_INIT },
     { ngx_live_notif_segment_track_free,   NGX_LIVE_EVENT_TRACK_FREE },
@@ -282,6 +285,7 @@ static ngx_live_track_event_t    ngx_live_notif_segment_track_events[] = {
 
       ngx_live_null_event
 };
+
 
 static ngx_int_t
 ngx_live_notif_segment_postconfiguration(ngx_conf_t *cf)

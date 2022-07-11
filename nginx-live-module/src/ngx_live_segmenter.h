@@ -27,6 +27,7 @@ typedef struct {
     unsigned               skip_wait_key:1;
 } ngx_live_stream_stream_req_t;
 
+
 typedef struct {
     ngx_live_track_t      *track;
 

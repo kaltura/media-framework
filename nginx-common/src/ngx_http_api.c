@@ -600,6 +600,7 @@ done:
     ngx_http_finalize_request(r, rc);
 }
 
+
 static void
 ngx_http_api_body_handler(ngx_http_request_t *r)
 {
@@ -835,6 +836,7 @@ ngx_http_api_handler(ngx_http_request_t *r, ngx_http_api_route_node_t *root)
 
     return NGX_DONE;
 }
+
 
 char *
 ngx_http_api_parse_options(ngx_conf_t *cf, ngx_http_api_options_t *options)

@@ -165,6 +165,7 @@ ngx_http_pckg_enc_generate_key(ngx_http_request_t *r,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_pckg_enc_get_key(ngx_http_request_t *r, u_char *result)
 {
@@ -174,6 +175,7 @@ ngx_http_pckg_enc_get_key(ngx_http_request_t *r, u_char *result)
 
     return ngx_http_pckg_enc_generate_key(r, elcf->key_seed, NULL, result);
 }
+
 
 static ngx_int_t
 ngx_http_pckg_enc_get_iv(ngx_http_request_t *r, u_char *result)
@@ -267,6 +269,7 @@ ngx_http_pckg_enc_json_parse_systems(ngx_http_request_t *r,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_http_pckg_enc_json_parse(ngx_http_request_t *r, ngx_json_value_t *value,

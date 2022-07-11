@@ -300,6 +300,7 @@ ngx_rtmp_kmp_create_main_conf(ngx_conf_t *cf)
     return kmcf;
 }
 
+
 static ngx_lba_t *
 ngx_rtmp_kmp_get_lba(ngx_conf_t *cf, size_t buffer_size, ngx_uint_t bin_count)
 {
@@ -348,6 +349,7 @@ ngx_rtmp_kmp_create_srv_conf(ngx_conf_t *cf)
     return kscf;
 }
 
+
 static char *
 ngx_rtmp_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 {
@@ -378,6 +380,7 @@ ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf)
 
     return kacf;
 }
+
 
 static char *
 ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
@@ -421,6 +424,7 @@ ngx_rtmp_kmp_get_publish_info(ngx_rtmp_kmp_publish_t *kp,
     ngx_str_from_c(kp->type, v->type);
 }
 
+
 static void
 ngx_rtmp_kmp_get_connect_info(ngx_rtmp_kmp_connect_t *kc,
     ngx_rtmp_connect_t *v)
@@ -448,6 +452,7 @@ ngx_rtmp_kmp_idle(ngx_event_t *ev)
 
     ngx_rtmp_finalize_session(s);
 }
+
 
 static ngx_int_t
 ngx_rtmp_kmp_socket_connect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
@@ -501,6 +506,7 @@ ngx_rtmp_kmp_socket_connect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_rtmp_kmp_send_error(ngx_rtmp_session_t *s, double in_trans)
 {
@@ -551,6 +557,7 @@ ngx_rtmp_kmp_send_error(ngx_rtmp_session_t *s, double in_trans)
     return ngx_rtmp_send_amf(s, &h, out_elts,
         sizeof(out_elts) / sizeof(out_elts[0]));
 }
+
 
 static ngx_int_t
 ngx_rtmp_kmp_connect_error(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v,
@@ -636,6 +643,7 @@ ngx_rtmp_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
         kacf->t.ctrl_headers, cl);
 }
 
+
 static ngx_int_t
 ngx_rtmp_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
     ngx_str_t *content_type, ngx_buf_t *body)
@@ -689,6 +697,7 @@ error:
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_rtmp_kmp_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
@@ -780,6 +789,7 @@ next:
     return next_connect(s, v);
 }
 
+
 static ngx_int_t
 ngx_rtmp_kmp_disconnect(ngx_rtmp_session_t *s)
 {
@@ -800,6 +810,7 @@ ngx_rtmp_kmp_disconnect(ngx_rtmp_session_t *s)
 
     return next_disconnect(s);
 }
+
 
 static ngx_int_t
 ngx_rtmp_kmp_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
@@ -866,6 +877,7 @@ next:
     return next_publish(s, v);
 }
 
+
 static void
 ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_stream_ctx_t *sctx, char *reason)
 {
@@ -884,6 +896,7 @@ ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_stream_ctx_t *sctx, char *reason)
         ngx_kmp_push_track_detach(track, reason);
     }
 }
+
 
 static ngx_int_t
 ngx_rtmp_kmp_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
@@ -921,6 +934,7 @@ next:
 
     return next_close_stream(s, v);
 }
+
 
 static ngx_int_t
 ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
@@ -994,6 +1008,7 @@ ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_rtmp_kmp_postconfiguration(ngx_conf_t *cf)

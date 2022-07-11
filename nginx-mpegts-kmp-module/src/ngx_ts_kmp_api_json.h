@@ -17,6 +17,7 @@ ngx_ts_kmp_api_track_json_get_size(ngx_ts_kmp_track_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_ts_kmp_api_track_json_write(u_char *p, ngx_ts_kmp_track_t *obj)
 {
@@ -24,6 +25,7 @@ ngx_ts_kmp_api_track_json_write(u_char *p, ngx_ts_kmp_track_t *obj)
 
     return p;
 }
+
 
 /* ngx_ts_kmp_api_session_json writer */
 
@@ -55,6 +57,7 @@ ngx_ts_kmp_api_session_json_get_size(ngx_ts_kmp_ctx_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_ts_kmp_api_session_json_write(u_char *p, ngx_ts_kmp_ctx_t *obj)
@@ -92,6 +95,7 @@ ngx_ts_kmp_api_session_json_write(u_char *p, ngx_ts_kmp_ctx_t *obj)
     return p;
 }
 
+
 /* ngx_ts_kmp_api_server_json writer */
 
 static size_t
@@ -117,6 +121,7 @@ ngx_ts_kmp_api_server_json_get_size(ngx_stream_core_srv_conf_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_ts_kmp_api_server_json_write(u_char *p, ngx_stream_core_srv_conf_t *obj)
@@ -146,6 +151,7 @@ ngx_ts_kmp_api_server_json_write(u_char *p, ngx_stream_core_srv_conf_t *obj)
     return p;
 }
 
+
 /* ngx_ts_kmp_api_stream_json writer */
 
 static size_t
@@ -166,6 +172,7 @@ ngx_ts_kmp_api_stream_json_get_size(ngx_stream_core_main_conf_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_ts_kmp_api_stream_json_write(u_char *p, ngx_stream_core_main_conf_t *obj)
@@ -189,6 +196,7 @@ ngx_ts_kmp_api_stream_json_write(u_char *p, ngx_stream_core_main_conf_t *obj)
 
     return p;
 }
+
 
 /* ngx_ts_kmp_api_json writer */
 
@@ -218,6 +226,7 @@ ngx_ts_kmp_api_json_get_size(ngx_stream_core_main_conf_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_ts_kmp_api_json_write(u_char *p, ngx_stream_core_main_conf_t *obj)

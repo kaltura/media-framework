@@ -185,6 +185,7 @@ mp4_init_segment_get_track_sizes(
     result->trak_size = ATOM_HEADER_SIZE + tkhd_atom_size + result->mdia_size;
 }
 
+
 static u_char*
 mp4_init_segment_write_trex_atom(u_char* p, uint32_t track_id)
 {
@@ -199,6 +200,7 @@ mp4_init_segment_write_trex_atom(u_char* p, uint32_t track_id)
     write_be32(p, 0);            // default sample size
     return p;
 }
+
 
 static u_char*
 mp4_init_segment_write_matrix(u_char* p, int16_t a, int16_t b, int16_t c,
@@ -215,6 +217,7 @@ mp4_init_segment_write_matrix(u_char* p, int16_t a, int16_t b, int16_t c,
     write_be32(p, 1 << 30);  // w in 2.30 format
     return p;
 }
+
 
 static u_char*
 mp4_init_segment_write_mvhd_constants(u_char* p)
@@ -234,6 +237,7 @@ mp4_init_segment_write_mvhd_constants(u_char* p)
     return p;
 }
 
+
 static u_char*
 mp4_init_segment_write_mvhd_atom(u_char* p, uint32_t timescale, uint32_t duration)
 {
@@ -250,6 +254,7 @@ mp4_init_segment_write_mvhd_atom(u_char* p, uint32_t timescale, uint32_t duratio
     return p;
 }
 
+
 static u_char*
 mp4_init_segment_write_mvhd64_atom(u_char* p, uint32_t timescale, uint64_t duration)
 {
@@ -265,6 +270,7 @@ mp4_init_segment_write_mvhd64_atom(u_char* p, uint32_t timescale, uint64_t durat
     write_be32(p, 0xffffffff);    // next track id
     return p;
 }
+
 
 static u_char*
 mp4_init_segment_write_tkhd_trailer(
@@ -292,6 +298,7 @@ mp4_init_segment_write_tkhd_trailer(
     return p;
 }
 
+
 static u_char*
 mp4_init_segment_write_tkhd_atom(
     u_char* p,
@@ -312,6 +319,7 @@ mp4_init_segment_write_tkhd_atom(
     write_be32(p, duration);        // duration
     return mp4_init_segment_write_tkhd_trailer(p, media_type, width, height);
 }
+
 
 static u_char*
 mp4_init_segment_write_tkhd64_atom(
@@ -334,6 +342,7 @@ mp4_init_segment_write_tkhd64_atom(
     return mp4_init_segment_write_tkhd_trailer(p, media_type, width, height);
 }
 
+
 static u_char*
 mp4_init_segment_write_mdhd_atom(u_char* p, uint32_t timescale, uint32_t duration)
 {
@@ -349,6 +358,7 @@ mp4_init_segment_write_mdhd_atom(u_char* p, uint32_t timescale, uint32_t duratio
     write_be16(p, 0);                // reserved
     return p;
 }
+
 
 static u_char*
 mp4_init_segment_write_mdhd64_atom(u_char* p, uint32_t timescale, uint64_t duration)
@@ -366,6 +376,7 @@ mp4_init_segment_write_mdhd64_atom(u_char* p, uint32_t timescale, uint64_t durat
     return p;
 }
 
+
 static u_char*
 mp4_init_segment_write_avcc_atom(u_char* p, media_info_t* media_info)
 {
@@ -375,6 +386,7 @@ mp4_init_segment_write_avcc_atom(u_char* p, media_info_t* media_info)
     p = vod_copy(p, media_info->extra_data.data, media_info->extra_data.len);
     return p;
 }
+
 
 static u_char*
 mp4_init_segment_write_stsd_video_entry(u_char* p, media_info_t* media_info)
@@ -411,6 +423,7 @@ mp4_init_segment_write_stsd_video_entry(u_char* p, media_info_t* media_info)
     return p;
 }
 
+
 static u_char*
 mp4_init_segment_write_esds_atom(u_char* p, media_info_t* media_info)
 {
@@ -446,6 +459,7 @@ mp4_init_segment_write_esds_atom(u_char* p, media_info_t* media_info)
     return p;
 }
 
+
 static u_char*
 mp4_init_segment_write_stsd_audio_entry(u_char* p, media_info_t* media_info)
 {
@@ -474,6 +488,7 @@ mp4_init_segment_write_stsd_audio_entry(u_char* p, media_info_t* media_info)
     return p;
 }
 
+
 static size_t
 mp4_init_segment_get_stsd_atom_size(media_info_t* media_info)
 {
@@ -495,6 +510,7 @@ mp4_init_segment_get_stsd_atom_size(media_info_t* media_info)
     return atom_size;
 }
 
+
 static u_char*
 mp4_init_segment_write_stsd_atom(u_char* p, size_t atom_size, media_info_t* media_info)
 {
@@ -513,6 +529,7 @@ mp4_init_segment_write_stsd_atom(u_char* p, size_t atom_size, media_info_t* medi
     }
     return p;
 }
+
 
 static void
 mp4_init_segment_calc_size(
@@ -550,6 +567,7 @@ mp4_init_segment_calc_size(
 
     result->total_size = sizeof(ftyp_atom) + result->moov_atom_size;
 }
+
 
 static u_char*
 mp4_init_segment_write(
@@ -681,6 +699,7 @@ mp4_init_segment_write(
 
     return p;
 }
+
 
 static vod_status_t
 mp4_init_segment_build_stsd_atom(
@@ -867,6 +886,7 @@ mp4_init_segment_init_encrypted_stsd_writer(
 
     return VOD_OK;
 }
+
 
 static u_char*
 mp4_init_segment_write_encrypted_stsd(void* ctx, u_char* p)

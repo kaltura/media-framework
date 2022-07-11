@@ -35,6 +35,7 @@ struct ngx_live_segment_info_node_s {
     ngx_live_segment_info_elt_t    elts[NGX_LIVE_SEGMENT_INFO_NODE_ELTS];
 };
 
+
 typedef struct {
     ngx_rbtree_t                   rbtree;
     ngx_rbtree_node_t              sentinel;
@@ -43,6 +44,7 @@ typedef struct {
     uint32_t                       initial_bitrate;
     uint32_t                       last_segment_index;
 } ngx_live_segment_info_track_ctx_t;
+
 
 typedef struct {
     uint32_t                       min_free_index;
@@ -90,6 +92,7 @@ static ngx_command_t  ngx_live_segment_info_commands[] = {
       ngx_null_command
 };
 
+
 static ngx_live_module_t  ngx_live_segment_info_module_ctx = {
     ngx_live_segment_info_preconfiguration,   /* preconfiguration */
     ngx_live_segment_info_postconfiguration,  /* postconfiguration */
@@ -100,6 +103,7 @@ static ngx_live_module_t  ngx_live_segment_info_module_ctx = {
     ngx_live_segment_info_create_preset_conf, /* create preset configuration */
     ngx_live_segment_info_merge_preset_conf,  /* merge preset configuration */
 };
+
 
 ngx_module_t  ngx_live_segment_info_module = {
     NGX_MODULE_V1,
@@ -260,6 +264,7 @@ ngx_live_segment_info_segment_created(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_segment_info_track_copy(ngx_live_track_t *dst, void *ectx)
 {
@@ -305,6 +310,7 @@ ngx_live_segment_info_track_copy(ngx_live_track_t *dst, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_segment_info_track_segment_free(ngx_live_track_t *track,
     uint32_t min_segment_index)
@@ -347,6 +353,7 @@ ngx_live_segment_info_track_segment_free(ngx_live_track_t *track,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_segment_info_segment_free(ngx_live_channel_t *channel, void *ectx)
 {
@@ -378,6 +385,7 @@ ngx_live_segment_info_segment_free(ngx_live_channel_t *channel, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_live_segment_info_node_t *
 ngx_live_segment_info_lookup(ngx_live_segment_info_track_ctx_t *ctx,
@@ -425,6 +433,7 @@ ngx_live_segment_info_lookup(ngx_live_segment_info_track_ctx_t *ctx,
 
     return node;
 }
+
 
 ngx_flag_t
 ngx_live_segment_info_segment_exists(ngx_live_track_t *track, uint32_t start,
@@ -482,6 +491,7 @@ ngx_live_segment_info_segment_exists(ngx_live_track_t *track, uint32_t start,
     }
 }
 
+
 ngx_flag_t
 ngx_live_segment_info_timeline_exists(ngx_live_track_t *track,
     ngx_live_timeline_t *timeline)
@@ -525,6 +535,7 @@ ngx_live_segment_info_channel_init(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_segment_info_track_init(ngx_live_track_t *track, void *ectx)
 {
@@ -548,6 +559,7 @@ ngx_live_segment_info_track_init(ngx_live_track_t *track, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_segment_info_track_free(ngx_live_track_t *track, void *ectx)
@@ -582,6 +594,7 @@ ngx_live_segment_info_track_free(ngx_live_track_t *track, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_segment_info_write_index(ngx_persist_write_ctx_t *write_ctx,
@@ -660,6 +673,7 @@ done:
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_segment_info_read_index(ngx_persist_block_header_t *header,
@@ -908,6 +922,7 @@ static ngx_persist_block_t  ngx_live_segment_info_blocks[] = {
     ngx_null_persist_block
 };
 
+
 static ngx_int_t
 ngx_live_segment_info_preconfiguration(ngx_conf_t *cf)
 {
@@ -920,6 +935,7 @@ ngx_live_segment_info_preconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 static ngx_live_channel_event_t  ngx_live_segment_info_channel_events[] = {
     { ngx_live_segment_info_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
     { ngx_live_segment_info_segment_created,
@@ -930,6 +946,7 @@ static ngx_live_channel_event_t  ngx_live_segment_info_channel_events[] = {
       ngx_live_null_event
 };
 
+
 static ngx_live_track_event_t    ngx_live_segment_info_track_events[] = {
     { ngx_live_segment_info_track_init, NGX_LIVE_EVENT_TRACK_INIT },
     { ngx_live_segment_info_track_free, NGX_LIVE_EVENT_TRACK_FREE },
@@ -939,6 +956,7 @@ static ngx_live_track_event_t    ngx_live_segment_info_track_events[] = {
 
       ngx_live_null_event
 };
+
 
 static ngx_int_t
 ngx_live_segment_info_postconfiguration(ngx_conf_t *cf)
@@ -958,6 +976,7 @@ ngx_live_segment_info_postconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 static void *
 ngx_live_segment_info_create_preset_conf(ngx_conf_t *cf)
 {
@@ -975,6 +994,7 @@ ngx_live_segment_info_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_segment_info_merge_preset_conf(ngx_conf_t *cf, void *parent,

@@ -353,6 +353,7 @@ static ngx_http_pckg_request_handler_t  ngx_http_pckg_redirect_handler = {
     NULL,
 };
 
+
 static ngx_http_pckg_request_handler_t  ngx_http_pckg_capture_handler = {
     ngx_http_pckg_core_write_segment,
     ngx_http_pckg_capture_init_frame_processor,
@@ -425,6 +426,7 @@ ngx_http_pckg_capture_preconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 static void *
 ngx_http_pckg_capture_create_loc_conf(ngx_conf_t *cf)
 {
@@ -443,6 +445,7 @@ ngx_http_pckg_capture_create_loc_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_http_pckg_capture_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)

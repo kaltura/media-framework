@@ -58,6 +58,7 @@ typedef struct {
     uint64_t                  denom;
 } ngx_json_fraction_t;
 
+
 struct ngx_array_part_s {
     void                     *first;
     void                     *last;
@@ -65,17 +66,20 @@ struct ngx_array_part_s {
     ngx_array_part_t         *next;
 };
 
+
 typedef struct {
     int                       type;
     size_t                    count;
     ngx_array_part_t          part;
 } ngx_json_array_t;
 
+
 /* Note: when 'escape' is set, the string needs to be decoded */
 typedef struct {
     ngx_str_t                 s;
     unsigned                  escape:1;
 } ngx_json_esc_str_t;
+
 
 typedef struct {
     int                       type;
@@ -87,6 +91,7 @@ typedef struct {
         ngx_json_object_t     obj;  /* ngx_json_key_value_t */
     } v;
 } ngx_json_value_t;
+
 
 typedef struct {
     ngx_uint_t                key_hash;

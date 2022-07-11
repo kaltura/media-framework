@@ -36,6 +36,7 @@ typedef struct {
     unsigned                       is_first:1;      /* temp during read */
 } ngx_live_segment_list_t;
 
+
 typedef struct {
     ngx_live_segment_list_node_t  *node;
     ngx_live_segment_repeat_t     *elt;

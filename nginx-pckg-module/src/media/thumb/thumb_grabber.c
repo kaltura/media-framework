@@ -98,6 +98,7 @@ thumb_grabber_process_init(vod_log_t* log)
     }
 }
 
+
 static void
 thumb_grabber_free_state(void* context)
 {
@@ -114,6 +115,7 @@ thumb_grabber_free_state(void* context)
     avcodec_close(state->decoder);
     av_free(state->decoder);
 }
+
 
 static vod_status_t
 thumb_grabber_init_decoder(
@@ -154,6 +156,7 @@ thumb_grabber_init_decoder(
     return VOD_OK;
 }
 
+
 static vod_status_t
 thumb_grabber_init_encoder(
     request_context_t* request_context,
@@ -189,6 +192,7 @@ thumb_grabber_init_encoder(
 
     return VOD_OK;
 }
+
 
 static uint32_t
 thumb_grabber_get_max_frame_size(media_segment_track_t* track)
@@ -361,6 +365,7 @@ thumb_grabber_init_state(
     return VOD_OK;
 }
 
+
 static vod_status_t
 thumb_grabber_decode_frames(thumb_grabber_state_t* state)
 {
@@ -404,6 +409,7 @@ thumb_grabber_decode_frames(thumb_grabber_state_t* state)
     return VOD_OK;
 }
 
+
 static vod_status_t
 thumb_grabber_decode_flush(thumb_grabber_state_t* state)
 {
@@ -419,6 +425,7 @@ thumb_grabber_decode_flush(thumb_grabber_state_t* state)
 
     return thumb_grabber_decode_frames(state);
 }
+
 
 static vod_status_t
 thumb_grabber_decode_frame(thumb_grabber_state_t* state, u_char* buffer)

@@ -21,6 +21,7 @@ ngx_live_media_info_json_stats_get_size(ngx_live_media_info_node_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_live_media_info_json_stats_write(u_char *p, ngx_live_media_info_node_t
     *obj)
@@ -49,6 +50,7 @@ ngx_live_media_info_json_stats_write(u_char *p, ngx_live_media_info_node_t
     return p;
 }
 
+
 /* ngx_live_media_info_json_base writer */
 
 static size_t
@@ -67,6 +69,7 @@ ngx_live_media_info_json_base_get_size(ngx_live_media_info_node_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_live_media_info_json_base_write(u_char *p, ngx_live_media_info_node_t *obj)
@@ -87,6 +90,7 @@ ngx_live_media_info_json_base_write(u_char *p, ngx_live_media_info_node_t *obj)
     return p;
 }
 
+
 /* ngx_live_media_info_json_video writer */
 
 static size_t
@@ -105,6 +109,7 @@ ngx_live_media_info_json_video_get_size(ngx_live_media_info_node_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_live_media_info_json_video_write(u_char *p, ngx_live_media_info_node_t
@@ -148,6 +153,7 @@ ngx_live_media_info_json_video_write(u_char *p, ngx_live_media_info_node_t
     return p;
 }
 
+
 /* ngx_live_media_info_json_audio writer */
 
 static size_t
@@ -166,6 +172,7 @@ ngx_live_media_info_json_audio_get_size(ngx_live_media_info_node_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_live_media_info_json_audio_write(u_char *p, ngx_live_media_info_node_t

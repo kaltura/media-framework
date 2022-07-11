@@ -40,6 +40,7 @@ eac3_encrypt_start_frame(media_filter_context_t* context, output_frame_t* frame)
     return state->start_frame(context, frame);
 }
 
+
 static vod_status_t
 eac3_encrypt_write(media_filter_context_t* context, const u_char* buffer, uint32_t size)
 {

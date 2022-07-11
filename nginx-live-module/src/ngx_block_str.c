@@ -63,6 +63,7 @@ ngx_block_str_set(ngx_block_str_t *dest, ngx_block_pool_t *pool,
     return NGX_OK;
 }
 
+
 void
 ngx_block_str_free_data(ngx_block_str_node_t *data, ngx_block_pool_t *pool,
     ngx_uint_t index)
@@ -73,6 +74,7 @@ ngx_block_str_free_data(ngx_block_str_node_t *data, ngx_block_pool_t *pool,
         ngx_block_pool_free(pool, index, cur);
     }
 }
+
 
 u_char *
 ngx_block_str_copy(u_char *p, ngx_block_str_t *str)
@@ -119,6 +121,7 @@ ngx_block_str_write(ngx_wstream_t *ws, ngx_block_str_t *str)
 
     return ws->write(ws->ctx, cur + 1, left);
 }
+
 
 ngx_int_t
 ngx_block_str_read(ngx_mem_rstream_t *rs, ngx_block_str_t *str,

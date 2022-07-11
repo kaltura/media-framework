@@ -60,6 +60,7 @@ frame_joiner_start_frame(media_filter_context_t* context, output_frame_t* frame)
     return VOD_OK;
 }
 
+
 static vod_status_t
 frame_joiner_flush_frame(media_filter_context_t* context, bool_t last_stream_frame)
 {
@@ -95,6 +96,7 @@ frame_joiner_simulated_start_frame(media_filter_context_t* context, output_frame
         state->frame_dts = frame->dts;
     }
 }
+
 
 static void
 frame_joiner_simulated_flush_frame(media_filter_context_t* context, bool_t last_stream_frame)

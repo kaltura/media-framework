@@ -62,6 +62,7 @@ ngx_pckg_media_info_create(ngx_pckg_channel_t *channel)
     return ctx;
 }
 
+
 void
 ngx_pckg_media_info_reset(ngx_pckg_media_info_ctx_t *ctx,
     ngx_pckg_channel_t *channel)

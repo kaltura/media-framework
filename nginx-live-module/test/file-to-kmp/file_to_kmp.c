@@ -56,6 +56,7 @@ verror(int errnum, const char *message, va_list args)
     fflush(stderr);
 }
 
+
 static void
 error(int errnum, const char *message, ...)
 {
@@ -113,6 +114,7 @@ ff_avc_find_startcode_internal(const uint8_t *p, const uint8_t *end)
     return end + 3;
 }
 
+
 static const uint8_t *
 ff_avc_find_startcode(const uint8_t *p, const uint8_t *end) {
     const uint8_t *out = ff_avc_find_startcode_internal(p, end);
@@ -159,6 +161,7 @@ ff_avc_parse_nal_units_buf(const uint8_t *buf_in, uint8_t **buf, int *size)
     *size = avio_close_dyn_buf(pb, buf);
     return 0;
 }
+
 
 static int
 ff_isom_write_avcc(AVIOContext *pb, const uint8_t *data, int len)
@@ -290,6 +293,7 @@ kmp_get_audio_codec(int codec_id)
     }
 }
 
+
 static uint32_t
 kmp_get_video_codec(int codec_id)
 {
@@ -310,6 +314,7 @@ kmp_get_video_codec(int codec_id)
         return 0;
     }
 }
+
 
 static int
 kmp_get_mediainfo(AVStream *stream, kmp_media_info_t *media_info,
@@ -400,6 +405,7 @@ kmp_get_mediainfo(AVStream *stream, kmp_media_info_t *media_info,
     return 0;
 }
 
+
 static int
 kmp_write_media_info(AVIOContext *pb, AVStream *stream, int *annex_b)
 {
@@ -425,6 +431,7 @@ kmp_write_media_info(AVIOContext *pb, AVStream *stream, int *annex_b)
 
     return 0;
 }
+
 
 static int
 kmp_write_frame(AVIOContext *pb, AVPacket *packet, kmp_write_frame_ctx_t *ctx)
@@ -464,6 +471,7 @@ kmp_write_frame(AVIOContext *pb, AVPacket *packet, kmp_write_frame_ctx_t *ctx)
     return 0;
 }
 
+
 static int64_t
 kmp_get_time()
 {
@@ -474,6 +482,7 @@ kmp_get_time()
     return (int64_t) spec.tv_sec * OUTPUT_TIMESCALE +
         (int64_t) spec.tv_nsec * OUTPUT_TIMESCALE / 1000000000;
 }
+
 
 static void
 usage(int status)

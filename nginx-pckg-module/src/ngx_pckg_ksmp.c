@@ -1210,6 +1210,7 @@ ngx_pckg_ksmp_read_segment_index(ngx_persist_block_header_t *header,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_pckg_ksmp_read_dynamic_var(ngx_persist_block_header_t *header,
     ngx_mem_rstream_t *rs, void *obj)

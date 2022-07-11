@@ -47,6 +47,7 @@ ngx_json_pretty_write_alloc(ngx_json_pretty_writer_t *ctx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_json_pretty_write(ngx_json_pretty_writer_t *ctx, u_char *p, u_char *end)
 {
@@ -79,6 +80,7 @@ ngx_json_pretty_write(ngx_json_pretty_writer_t *ctx, u_char *p, u_char *end)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_json_pretty_write_init(ngx_json_pretty_writer_t *ctx, ngx_pool_t *pool,
     ngx_chain_t **last)
@@ -89,6 +91,7 @@ ngx_json_pretty_write_init(ngx_json_pretty_writer_t *ctx, ngx_pool_t *pool,
 
     return ngx_json_pretty_write_alloc(ctx);
 }
+
 
 static ngx_chain_t *
 ngx_json_pretty_write_close(ngx_json_pretty_writer_t *ctx, size_t *size)

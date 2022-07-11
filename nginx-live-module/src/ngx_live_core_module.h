@@ -62,6 +62,7 @@ typedef struct {
     ngx_live_json_writer_write_pt     write;
 } ngx_live_json_writer_t;
 
+
 typedef struct {
     ngx_live_json_writer_t          writer;
     ngx_uint_t                      ctx;
@@ -145,6 +146,7 @@ typedef struct {
     ngx_live_channel_handler_pt     handler;
     ngx_uint_t                      event;
 } ngx_live_channel_event_t;
+
 
 typedef struct {
     ngx_live_track_handler_pt       handler;

@@ -29,6 +29,7 @@ bit_read_stream_skip_unsigned_exp(bit_reader_state_t* reader)
     bit_read_stream_skip(reader, zero_count);
 }
 
+
 static vod_inline uint32_t
 bit_read_stream_get_unsigned_exp(bit_reader_state_t* reader)
 {
@@ -38,6 +39,7 @@ bit_read_stream_get_unsigned_exp(bit_reader_state_t* reader)
 
     return (1 << zero_count) - 1 + bit_read_stream_get(reader, zero_count);
 }
+
 
 static vod_inline int32_t
 bit_read_stream_get_signed_exp(bit_reader_state_t* reader)

@@ -34,10 +34,12 @@ typedef struct {
     uint64_t        created;
 } ngx_persist_file_header_t;
 
+
 typedef struct {
     uint32_t        id;
     uint32_t        size;
     uint32_t        header_size;
 } ngx_persist_block_header_t;
+
 
 #endif /* _NGX_PERSIST_FORMAT_H_INCLUDED_ */

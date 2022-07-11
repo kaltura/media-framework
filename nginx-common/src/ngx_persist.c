@@ -17,6 +17,7 @@ typedef struct {
     ngx_hash_keys_arrays_t   *keys;
 } ngx_persist_block_ctx_t;
 
+
 struct ngx_persist_conf_s {
     ngx_uint_t                ctx_count;
     ngx_persist_block_ctx_t   blocks[1];        /* must be last */

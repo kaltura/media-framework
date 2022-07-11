@@ -94,6 +94,7 @@ static ngx_conf_enum_t  ngx_http_pckg_format[] = {
     { ngx_null_string, 0 }
 };
 
+
 static ngx_conf_bitmask_t  ngx_http_pckg_pass_codes_mask[] = {
     { ngx_string("off"), NGX_HTTP_PCKG_PASS_OFF },
     { ngx_string("400"), NGX_HTTP_PCKG_PASS_400 },
@@ -103,11 +104,13 @@ static ngx_conf_bitmask_t  ngx_http_pckg_pass_codes_mask[] = {
     { ngx_null_string, 0 }
 };
 
+
 static ngx_conf_enum_t  ngx_http_pckg_active_policy[] = {
     { ngx_string("last"), NGX_KSMP_FLAG_ACTIVE_LAST },
     { ngx_string("any"),  NGX_KSMP_FLAG_ACTIVE_ANY },
     { ngx_null_string, 0 }
 };
+
 
 static ngx_conf_enum_t  ngx_http_pckg_media_type_selector[] = {
     { ngx_string("request"), NGX_HTTP_PCKG_MTS_REQUEST },
@@ -445,6 +448,7 @@ ngx_http_pckg_core_run_handlers(ngx_http_request_t *r)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
@@ -993,6 +997,7 @@ ngx_http_pckg_source_init(ngx_pool_t *pool, ngx_str_t *buffer)
     return state;
 }
 
+
 static vod_status_t
 ngx_http_pckg_source_start_frame(void *ctx, input_frame_t *frame)
 {
@@ -1002,6 +1007,7 @@ ngx_http_pckg_source_start_frame(void *ctx, input_frame_t *frame)
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 ngx_http_pckg_source_read(void *ctx, u_char **buffer, uint32_t *size,
@@ -1025,6 +1031,7 @@ ngx_http_pckg_source_read(void *ctx, u_char **buffer, uint32_t *size,
 
     return VOD_OK;
 }
+
 
 static frames_source_t  ngx_http_pckg_source = {
     ngx_http_pckg_source_start_frame,
@@ -1623,6 +1630,7 @@ ngx_http_pckg_core_ctx_variable(ngx_http_request_t *r,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_pckg_core_variant_id_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
@@ -1645,6 +1653,7 @@ ngx_http_pckg_core_variant_id_variable(ngx_http_request_t *r,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_http_pckg_core_media_type_variable(ngx_http_request_t *r,
@@ -1673,6 +1682,7 @@ ngx_http_pckg_core_media_type_variable(ngx_http_request_t *r,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_http_pckg_core_subrequest_variable(ngx_http_request_t *r,
@@ -1780,6 +1790,7 @@ ngx_http_pckg_core_err_code_variable(ngx_http_request_t *r,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_pckg_core_last_part_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
@@ -1825,6 +1836,7 @@ not_found:
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_http_pckg_core_segment_dts_variable(ngx_http_request_t *r,

@@ -31,6 +31,7 @@ ngx_json_str_write(u_char *p, ngx_json_str_t *str)
     return ngx_copy(p, str->s.data, str->s.len);
 }
 
+
 static ngx_inline u_char *
 ngx_json_str_write_escape(u_char *p, ngx_str_t *str, uintptr_t escape)
 {

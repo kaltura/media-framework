@@ -275,6 +275,7 @@ ngx_http_pckg_mpegts_preconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 static void *
 ngx_http_pckg_mpegts_create_loc_conf(ngx_conf_t *cf)
 {
@@ -292,6 +293,7 @@ ngx_http_pckg_mpegts_create_loc_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_http_pckg_mpegts_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)

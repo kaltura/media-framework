@@ -87,6 +87,7 @@ static ngx_command_t  ngx_live_persist_media_commands[] = {
       ngx_null_command
 };
 
+
 static ngx_live_module_t  ngx_live_persist_media_module_ctx = {
     ngx_live_persist_media_preconfiguration,  /* preconfiguration */
     ngx_live_persist_media_postconfiguration, /* postconfiguration */
@@ -97,6 +98,7 @@ static ngx_live_module_t  ngx_live_persist_media_module_ctx = {
     ngx_live_persist_media_create_preset_conf,/* create preset configuration */
     ngx_live_persist_media_merge_preset_conf  /* merge preset configuration */
 };
+
 
 ngx_module_t  ngx_live_persist_media_module = {
     NGX_MODULE_V1,
@@ -130,6 +132,7 @@ typedef struct {
     uint32_t    size;
     uint64_t    offset;
 } ngx_live_persist_media_read_track_ctx_t;
+
 
 typedef struct {
     ngx_queue_t                               queue;
@@ -402,6 +405,7 @@ ngx_live_persist_media_serve_clip_write(
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_persist_media_serve_clip_close(
     ngx_live_persist_media_serve_ctx_t *ctx)
@@ -637,6 +641,7 @@ ngx_live_persist_media_serve_parse_header(
     return NGX_OK;
 }
 
+
 static void
 ngx_live_persist_media_serve_complete(void *arg, ngx_int_t code,
     ngx_buf_t *response)
@@ -732,6 +737,7 @@ done:
     ctx->writer.close(ctx->writer.arg, rc);
 }
 
+
 static void
 ngx_live_persist_media_serve_detach(void *data)
 {
@@ -750,6 +756,7 @@ ngx_live_persist_media_serve_detach(void *data)
 
     ngx_queue_remove(&ctx->queue);
 }
+
 
 static ngx_int_t
 ngx_live_persist_media_serve(ngx_live_segment_serve_req_t *req)
@@ -961,6 +968,7 @@ ngx_live_persist_media_write_segment(ngx_persist_write_ctx_t *write_idx,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_persist_media_write_segments(ngx_persist_write_ctx_t *write_idx,
     void *obj)
@@ -1028,6 +1036,7 @@ ngx_live_persist_media_write_segments(ngx_persist_write_ctx_t *write_idx,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_persist_media_write_bucket(ngx_persist_write_ctx_t *write_idx,
     void *obj)
@@ -1088,6 +1097,7 @@ ngx_live_persist_media_write_bucket(ngx_persist_write_ctx_t *write_idx,
     return NGX_OK;
 }
 
+
 void
 ngx_live_persist_media_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
     ngx_int_t rc)
@@ -1116,6 +1126,7 @@ ngx_live_persist_media_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
         scope.max_index, rc);
 }
 
+
 static void
 ngx_live_persist_media_write_cancel(void *arg)
 {
@@ -1132,6 +1143,7 @@ ngx_live_persist_media_write_cancel(void *arg)
 
     ngx_live_persist_media_write_complete(write_ctx, NGX_ERROR);
 }
+
 
 static void
 ngx_live_persist_media_write_file(ngx_live_channel_t *channel,
@@ -1195,6 +1207,7 @@ error:
     ngx_live_segment_index_persisted(channel, ctx.scope.min_index,
         ctx.scope.max_index, NGX_ERROR);
 }
+
 
 static ngx_int_t
 ngx_live_persist_media_write_segment_created(ngx_live_channel_t *channel,
@@ -1288,6 +1301,7 @@ ngx_live_persist_media_bucket_id_variable(ngx_live_variables_ctx_t *ctx,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_persist_media_bucket_time_variable(ngx_live_variables_ctx_t *ctx,
     ngx_live_variable_value_t *v, uintptr_t data)
@@ -1369,6 +1383,7 @@ ngx_live_persist_media_bucket_time_variable(ngx_live_variables_ctx_t *ctx,
     return NGX_OK;
 }
 
+
 static char *
 ngx_live_persist_media_bucket_time(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf)
@@ -1447,6 +1462,7 @@ ngx_live_persist_media_read_json_get_size(ngx_live_channel_t *channel)
     return result;
 }
 
+
 u_char *
 ngx_live_persist_media_read_json_write(u_char *p, ngx_live_channel_t *channel)
 {
@@ -1488,6 +1504,7 @@ ngx_live_persist_media_channel_init(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_persist_media_channel_free(ngx_live_channel_t *channel, void *ectx)
 {
@@ -1514,6 +1531,7 @@ ngx_live_persist_media_channel_free(ngx_live_channel_t *channel, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_persist_media_channel_inactive(ngx_live_channel_t *channel,
@@ -1567,6 +1585,7 @@ ngx_live_persist_media_channel_inactive(ngx_live_channel_t *channel,
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_persist_media_channel_read(ngx_live_channel_t *channel, void *ectx)
 {
@@ -1594,6 +1613,7 @@ ngx_live_persist_media_channel_read(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static void *
 ngx_live_persist_media_create_preset_conf(ngx_conf_t *cf)
 {
@@ -1609,6 +1629,7 @@ ngx_live_persist_media_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_persist_media_merge_preset_conf(ngx_conf_t *cf, void *parent,
@@ -1659,6 +1680,7 @@ static ngx_persist_block_t  ngx_live_persist_media_blocks[] = {
       ngx_null_persist_block
 };
 
+
 static ngx_int_t
 ngx_live_persist_media_preconfiguration(ngx_conf_t *cf)
 {
@@ -1690,6 +1712,7 @@ static ngx_live_channel_event_t  ngx_live_persist_media_channel_events[] = {
         NGX_LIVE_EVENT_CHANNEL_SEGMENT_CREATED },
       ngx_live_null_event
 };
+
 
 static ngx_int_t
 ngx_live_persist_media_postconfiguration(ngx_conf_t *cf)

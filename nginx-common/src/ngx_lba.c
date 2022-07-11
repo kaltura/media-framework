@@ -26,6 +26,7 @@ typedef struct {
     uint32_t                 used;
 } ngx_lba_block_header_t;
 
+
 typedef struct {
     ngx_lba_block_header_t  *block;
 } ngx_lba_buf_header_t;
@@ -69,6 +70,7 @@ ngx_lba_mem_alloc(size_t size, ngx_log_t *log)
 
     return p;
 }
+
 
 static void
 ngx_lba_mem_free(void *p, size_t size, ngx_log_t *log)
@@ -124,6 +126,7 @@ ngx_lba_block_alloc(ngx_lba_t *lba)
     return buf;
 }
 
+
 static void
 ngx_lba_block_free(ngx_lba_t *lba, ngx_lba_block_header_t *block)
 {
@@ -139,6 +142,7 @@ ngx_lba_block_free(ngx_lba_t *lba, ngx_lba_block_header_t *block)
         ngx_queue_remove(&bin->queue);
     }
 }
+
 
 static void *
 ngx_lba_block_alloc_buf(ngx_lba_t *lba, ngx_lba_block_header_t *block)
@@ -197,6 +201,7 @@ ngx_lba_block_alloc_buf(ngx_lba_t *lba, ngx_lba_block_header_t *block)
 
     return buf;
 }
+
 
 static void
 ngx_lba_block_free_buf(ngx_lba_t *lba, ngx_lba_block_header_t *block,
@@ -271,6 +276,7 @@ ngx_lba_alloc(ngx_lba_t *lba)
     return ngx_lba_block_alloc_buf(lba, block);
 }
 
+
 void
 ngx_lba_free(ngx_lba_t *lba, void *buf)
 {
@@ -290,6 +296,7 @@ ngx_lba_alloc(ngx_lba_t *lba)
 {
     return ngx_alloc(lba->buf_size, ngx_cycle->log);
 }
+
 
 void
 ngx_lba_free(ngx_lba_t *lba, void *buf)
@@ -356,6 +363,7 @@ ngx_lba_create(ngx_pool_t *pool, size_t buf_size, ngx_uint_t bin_count)
     return lba;
 }
 
+
 ngx_flag_t
 ngx_lba_match(ngx_lba_t *lba, size_t buf_size, ngx_uint_t bin_count)
 {
@@ -370,6 +378,7 @@ ngx_lba_match(ngx_lba_t *lba, size_t buf_size, ngx_uint_t bin_count)
 
     return bin_count == lba->bin_count;
 }
+
 
 size_t
 ngx_lba_buf_size(ngx_lba_t *lba)

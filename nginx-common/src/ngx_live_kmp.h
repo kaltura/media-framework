@@ -44,6 +44,7 @@
 #define KMP_CH_LAYOUT_MONO      (KMP_CH_FRONT_CENTER)
 #define KMP_CH_LAYOUT_STEREO    (KMP_CH_FRONT_LEFT|KMP_CH_FRONT_RIGHT)
 
+
 /* enums */
 enum {
     /* client -> server */
@@ -56,11 +57,13 @@ enum {
     KMP_PACKET_ACK_FRAMES           = 0x666b6361,   /* ackf */
 };
 
+
 enum {
     KMP_MEDIA_VIDEO,
     KMP_MEDIA_AUDIO,
     KMP_MEDIA_COUNT,
 };
+
 
 enum {
     /* aligns with NGX_RTMP_VIDEO_XXX */
@@ -90,10 +93,12 @@ enum {
 
 
 /* basic types */
+
 typedef struct {
     uint32_t                num;
     uint32_t                denom;
 } kmp_rational_t;
+
 
 typedef struct {
     uint16_t                channels;
@@ -102,6 +107,7 @@ typedef struct {
     uint64_t                channel_layout;
 } kmp_audio_media_info_t;
 
+
 typedef struct {
     uint16_t                width;
     uint16_t                height;
@@ -109,10 +115,12 @@ typedef struct {
     uint32_t                cea_captions;
 } kmp_video_media_info_t;
 
+
 typedef union {
     kmp_video_media_info_t  video;
     kmp_audio_media_info_t  audio;
 } kmp_media_info_union_t;
+
 
 typedef struct {
     uint32_t                media_type;
@@ -122,6 +130,7 @@ typedef struct {
     kmp_media_info_union_t  u;
 } kmp_media_info_t;
 
+
 typedef struct {
     int64_t                 created;
     int64_t                 dts;
@@ -129,13 +138,16 @@ typedef struct {
     int32_t                 pts_delay;
 } kmp_frame_t;
 
+
 /* packets */
+
 typedef struct {
     uint32_t                packet_type;
     uint32_t                header_size;
     uint32_t                data_size;
     uint32_t                reserved;
 } kmp_packet_header_t;
+
 
 typedef struct {
     kmp_packet_header_t     header;
@@ -147,15 +159,18 @@ typedef struct {
     uint32_t                flags;
 } kmp_connect_packet_t;
 
+
 typedef struct {
     kmp_packet_header_t     header;
     kmp_media_info_t        m;
 } kmp_media_info_packet_t;
 
+
 typedef struct {
     kmp_packet_header_t     header;
     kmp_frame_t             f;
 } kmp_frame_packet_t;
+
 
 typedef struct {
     kmp_packet_header_t     header;

@@ -24,6 +24,7 @@ typedef struct {
     unsigned                no_partial_free:1;
 } ngx_live_input_bufs_t;
 
+
 struct ngx_live_input_bufs_lock_s {
     ngx_queue_t             queue;
     ngx_live_input_bufs_t  *input_bufs;
@@ -89,6 +90,7 @@ static ngx_command_t  ngx_live_input_bufs_commands[] = {
       ngx_null_command
 };
 
+
 static ngx_live_module_t  ngx_live_input_bufs_module_ctx = {
     NULL,                                   /* preconfiguration */
     ngx_live_input_bufs_postconfiguration,  /* postconfiguration */
@@ -99,6 +101,7 @@ static ngx_live_module_t  ngx_live_input_bufs_module_ctx = {
     ngx_live_input_bufs_create_preset_conf, /* create preset configuration */
     ngx_live_input_bufs_merge_preset_conf,  /* merge preset configuration */
 };
+
 
 ngx_module_t  ngx_live_input_bufs_module = {
     NGX_MODULE_V1,
@@ -144,6 +147,7 @@ ngx_live_input_bufs_init_process(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
+
 static ngx_live_input_bufs_t *
 ngx_live_input_bufs_create(ngx_live_track_t *track)
 {
@@ -184,6 +188,7 @@ ngx_live_input_bufs_create(ngx_live_track_t *track)
     return result;
 }
 
+
 static void
 ngx_live_input_bufs_free_bufs(ngx_live_input_bufs_t *input_bufs)
 {
@@ -215,6 +220,7 @@ ngx_live_input_bufs_free_bufs(ngx_live_input_bufs_t *input_bufs)
     ngx_buf_queue_free(&input_bufs->buf_queue, ptr);
 }
 
+
 static void
 ngx_live_input_bufs_free(ngx_live_input_bufs_t *input_bufs)
 {
@@ -243,6 +249,7 @@ ngx_live_input_bufs_free(ngx_live_input_bufs_t *input_bufs)
 
     ngx_block_pool_free(ngx_live_input_bufs_pool, NGX_LIVE_BP_OBJ, input_bufs);
 }
+
 
 ngx_int_t
 ngx_live_input_bufs_get(ngx_live_track_t *track, ngx_buf_t *b)
@@ -274,6 +281,7 @@ ngx_live_input_bufs_get(ngx_live_track_t *track, ngx_buf_t *b)
 
     return NGX_OK;
 }
+
 
 ngx_buf_chain_t *
 ngx_live_input_bufs_read_chain(ngx_live_track_t *track, ngx_str_t *src,
@@ -323,6 +331,7 @@ ngx_live_input_bufs_read_chain(ngx_live_track_t *track, ngx_str_t *src,
     *tail = cur;
     return head;
 }
+
 
 ngx_live_input_bufs_lock_t *
 ngx_live_input_bufs_lock(ngx_live_track_t *track, uint32_t segment_index,
@@ -396,6 +405,7 @@ done:
     return cur;
 }
 
+
 void
 ngx_live_input_bufs_unlock(ngx_live_input_bufs_lock_t *lock)
 {
@@ -424,6 +434,7 @@ ngx_live_input_bufs_unlock(ngx_live_input_bufs_lock_t *lock)
     ngx_block_pool_free(ngx_live_input_bufs_pool, NGX_LIVE_BP_LOCK, lock);
 }
 
+
 ngx_int_t
 ngx_live_input_bufs_lock_cleanup(ngx_pool_t *pool, ngx_live_track_t *track,
     uint32_t segment_index, u_char *ptr)
@@ -447,6 +458,7 @@ ngx_live_input_bufs_lock_cleanup(ngx_pool_t *pool, ngx_live_track_t *track,
     return NGX_OK;
 }
 
+
 void
 ngx_live_input_bufs_set_min_used(ngx_live_track_t *track,
     uint32_t segment_index, u_char *ptr)
@@ -467,6 +479,7 @@ ngx_live_input_bufs_set_min_used(ngx_live_track_t *track,
 
     ngx_live_input_bufs_free_bufs(input_bufs);
 }
+
 
 void
 ngx_live_input_bufs_link(ngx_live_track_t *dst, ngx_live_track_t *src)
@@ -508,6 +521,7 @@ ngx_live_input_bufs_channel_init(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_input_bufs_channel_free(ngx_live_channel_t *channel, void *ectx)
 {
@@ -535,6 +549,7 @@ ngx_live_input_bufs_channel_free(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_input_bufs_track_init(ngx_live_track_t *track, void *ectx)
 {
@@ -549,6 +564,7 @@ ngx_live_input_bufs_track_init(ngx_live_track_t *track, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_input_bufs_track_free(ngx_live_track_t *track, void *ectx)
@@ -578,6 +594,7 @@ ngx_live_input_bufs_global_json_get_size(void *obj)
         sizeof(",\"lock_count\":") - 1 + NGX_INT32_LEN +
         sizeof("}") - 1;
 }
+
 
 static u_char *
 ngx_live_input_bufs_global_json_write(u_char *p, void *obj)
@@ -615,6 +632,7 @@ ngx_live_input_bufs_global_json_write(u_char *p, void *obj)
     return p;
 }
 
+
 static size_t
 ngx_live_input_bufs_track_json_get_size(void *obj)
 {
@@ -624,6 +642,7 @@ ngx_live_input_bufs_track_json_get_size(void *obj)
         sizeof(",\"min_lock_index\":") - 1 + NGX_INT32_LEN +
         sizeof("}") - 1;
 }
+
 
 static u_char *
 ngx_live_input_bufs_track_json_write(u_char *p, void *obj)
@@ -670,6 +689,7 @@ static ngx_live_channel_event_t    ngx_live_input_bufs_channel_events[] = {
       ngx_live_null_event
 };
 
+
 static ngx_live_track_event_t      ngx_live_input_bufs_track_events[] = {
     { ngx_live_input_bufs_track_init, NGX_LIVE_EVENT_TRACK_INIT },
     { ngx_live_input_bufs_track_free, NGX_LIVE_EVENT_TRACK_FREE },
@@ -677,6 +697,7 @@ static ngx_live_track_event_t      ngx_live_input_bufs_track_events[] = {
 
       ngx_live_null_event
 };
+
 
 static ngx_live_json_writer_def_t  ngx_live_input_bufs_json_writers[] = {
     { { ngx_live_input_bufs_global_json_get_size,
@@ -689,6 +710,7 @@ static ngx_live_json_writer_def_t  ngx_live_input_bufs_json_writers[] = {
 
       ngx_live_null_json_writer
 };
+
 
 static ngx_int_t
 ngx_live_input_bufs_postconfiguration(ngx_conf_t *cf)
@@ -714,6 +736,7 @@ ngx_live_input_bufs_postconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 static void *
 ngx_live_input_bufs_create_preset_conf(ngx_conf_t *cf)
 {
@@ -730,6 +753,7 @@ ngx_live_input_bufs_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_input_bufs_merge_preset_conf(ngx_conf_t *cf, void *parent,

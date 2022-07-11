@@ -62,6 +62,7 @@ static ngx_command_t  ngx_live_dynamic_var_commands[] = {
       ngx_null_command
 };
 
+
 static ngx_live_module_t  ngx_live_dynamic_var_module_ctx = {
     ngx_live_dynamic_var_preconfiguration,    /* preconfiguration */
     ngx_live_dynamic_var_postconfiguration,   /* postconfiguration */
@@ -72,6 +73,7 @@ static ngx_live_module_t  ngx_live_dynamic_var_module_ctx = {
     ngx_live_dynamic_var_create_preset_conf,  /* create preset configuration */
     ngx_live_dynamic_var_merge_preset_conf,   /* merge preset configuration */
 };
+
 
 ngx_module_t  ngx_live_dynamic_var_module = {
     NGX_MODULE_V1,
@@ -96,6 +98,7 @@ static ngx_live_variable_t  ngx_live_dynamic_var_vars[] = {
 
       ngx_live_null_variable
 };
+
 
 static ngx_live_json_cmd_t  ngx_live_dynamic_var_dyn_cmds[] = {
 
@@ -240,6 +243,7 @@ failed:
     return NGX_ERROR;
 }
 
+
 static ngx_int_t
 ngx_live_dynamic_var_get(ngx_live_variables_ctx_t *ctx,
     ngx_live_variable_value_t *v, uintptr_t data)
@@ -271,6 +275,7 @@ ngx_live_dynamic_var_get(ngx_live_variables_ctx_t *ctx,
     return NGX_OK;
 }
 
+
 static size_t
 ngx_live_dynamic_var_channel_json_get_size(void *obj)
 {
@@ -282,6 +287,7 @@ ngx_live_dynamic_var_channel_json_get_size(void *obj)
     return ngx_live_dynamic_vars_json_get_size(cctx);
 }
 
+
 static u_char *
 ngx_live_dynamic_var_channel_json_write(u_char *p, void *obj)
 {
@@ -292,6 +298,7 @@ ngx_live_dynamic_var_channel_json_write(u_char *p, void *obj)
 
     return ngx_live_dynamic_vars_json_write(p, cctx);
 }
+
 
 static ngx_int_t
 ngx_live_dynamic_var_channel_init(ngx_live_channel_t *channel, void *ectx)
@@ -313,6 +320,7 @@ ngx_live_dynamic_var_channel_init(ngx_live_channel_t *channel, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_dynamic_var_write_setup(ngx_persist_write_ctx_t *write_ctx,
@@ -349,6 +357,7 @@ ngx_live_dynamic_var_write_setup(ngx_persist_write_ctx_t *write_ctx,
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_dynamic_var_read_setup(ngx_persist_block_header_t *header,
@@ -479,6 +488,7 @@ static ngx_live_channel_event_t    ngx_live_dynamic_var_channel_events[] = {
       ngx_live_null_event
 };
 
+
 static ngx_live_json_writer_def_t  ngx_live_dynamic_var_json_writers[] = {
     { { ngx_live_dynamic_var_channel_json_get_size,
         ngx_live_dynamic_var_channel_json_write },
@@ -486,6 +496,7 @@ static ngx_live_json_writer_def_t  ngx_live_dynamic_var_json_writers[] = {
 
       ngx_live_null_json_writer
 };
+
 
 static ngx_int_t
 ngx_live_dynamic_var_postconfiguration(ngx_conf_t *cf)
@@ -505,6 +516,7 @@ ngx_live_dynamic_var_postconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 static void *
 ngx_live_dynamic_var_create_preset_conf(ngx_conf_t *cf)
 {
@@ -519,6 +531,7 @@ ngx_live_dynamic_var_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_dynamic_var_merge_preset_conf(ngx_conf_t *cf, void *parent,

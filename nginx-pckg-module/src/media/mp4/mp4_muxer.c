@@ -153,6 +153,7 @@ mp4_fragment_write_mfhd_atom(u_char* p, uint32_t segment_index)
     return p;
 }
 
+
 static u_char*
 mp4_fragment_write_tfhd_atom(u_char* p, uint32_t track_id, uint32_t sample_description_index)
 {
@@ -176,6 +177,7 @@ mp4_fragment_write_tfhd_atom(u_char* p, uint32_t track_id, uint32_t sample_descr
     }
     return p;
 }
+
 
 static u_char*
 mp4_fragment_write_tfdt64_atom(u_char* p, uint64_t base_media_decode_time)
@@ -209,6 +211,7 @@ mp4_muxer_write_trun_header(
     return p;
 }
 
+
 static u_char*
 mp4_muxer_write_video_trun_frame(u_char* p, input_frame_t* frame, uint32_t initial_pts_delay)
 {
@@ -228,6 +231,7 @@ mp4_muxer_write_video_trun_frame(u_char* p, input_frame_t* frame, uint32_t initi
     return p;
 }
 
+
 static u_char*
 mp4_muxer_write_audio_trun_frame(u_char* p, input_frame_t* frame)
 {
@@ -235,6 +239,7 @@ mp4_muxer_write_audio_trun_frame(u_char* p, input_frame_t* frame)
     write_be32(p, frame->size);
     return p;
 }
+
 
 static u_char*
 mp4_muxer_write_video_trun_atoms(
@@ -319,6 +324,7 @@ mp4_muxer_write_video_trun_atoms(
 
     return p;
 }
+
 
 static u_char*
 mp4_muxer_write_audio_trun_atoms(
@@ -416,6 +422,7 @@ mp4_muxer_init_track(
     cur_stream->next_frame_time_offset = cur_stream->first_frame_time_offset;
 }
 
+
 static vod_status_t
 mp4_muxer_choose_stream(mp4_muxer_state_t* state)
 {
@@ -459,6 +466,7 @@ mp4_muxer_choose_stream(mp4_muxer_state_t* state)
 
     return VOD_NOT_FOUND;
 }
+
 
 static vod_status_t
 mp4_calculate_output_offsets(
@@ -605,6 +613,7 @@ mp4_muxer_init_state(
     return VOD_OK;
 }
 
+
 static int64_t
 mp4_muxer_get_earliest_pres_time(media_segment_t* segment, uint32_t index)
 {
@@ -624,6 +633,7 @@ mp4_muxer_get_earliest_pres_time(media_segment_t* segment, uint32_t index)
 
     return result;
 }
+
 
 static u_char*
 dash_packager_write_sidx_atom(
@@ -647,6 +657,7 @@ dash_packager_write_sidx_atom(
     return p;
 }
 
+
 static u_char*
 dash_packager_write_sidx64_atom(
     u_char* p,
@@ -668,6 +679,7 @@ dash_packager_write_sidx64_atom(
     write_be32(p, 0x90000000);           // starts with SAP / SAP type
     return p;
 }
+
 
 static u_char*
 mp4_muxer_write_id3_text_frame(u_char* p, vod_str_t* text)
@@ -693,6 +705,7 @@ mp4_muxer_write_id3_text_frame(u_char* p, vod_str_t* text)
 
     return p;
 }
+
 
 static u_char*
 mp4_muxer_write_emsg_atom(u_char* p, size_t atom_size, media_segment_t* segment)
@@ -1028,6 +1041,7 @@ mp4_muxer_init_fragment(
         per_stream_writer,
         processor_state);
 }
+
 
 static vod_status_t
 mp4_muxer_start_frame(mp4_muxer_state_t* state)

@@ -100,6 +100,7 @@ static ngx_command_t  ngx_stream_live_kmp_commands[] = {
       ngx_null_command
 };
 
+
 static ngx_stream_module_t  ngx_stream_live_kmp_module_ctx = {
     NULL,                                     /* preconfiguration */
     NULL,                                     /* postconfiguration */
@@ -110,6 +111,7 @@ static ngx_stream_module_t  ngx_stream_live_kmp_module_ctx = {
     ngx_stream_live_kmp_create_srv_conf,      /* create server configuration */
     ngx_stream_live_kmp_merge_srv_conf        /* merge server configuration */
 };
+
 
 ngx_module_t  ngx_stream_live_kmp_module = {
     NGX_MODULE_V1,
@@ -166,11 +168,13 @@ ngx_stream_live_kmp_free(void *data)
     ngx_memzero(&ctx->track->input, sizeof(ctx->track->input));
 }
 
+
 static void
 ngx_stream_live_kmp_disconnect(ngx_live_track_t *track, ngx_uint_t rc)
 {
     ngx_stream_finalize_session(track->input.data, rc);
 }
+
 
 static ngx_int_t
 ngx_stream_live_kmp_recv(ngx_stream_session_t *s, ngx_buf_t *b)
@@ -200,6 +204,7 @@ ngx_stream_live_kmp_recv(ngx_stream_session_t *s, ngx_buf_t *b)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
@@ -263,6 +268,7 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
     return NGX_OK;
 }
 
+
 static void
 ngx_stream_live_kmp_chain_md5_hex(u_char dst[32], ngx_buf_chain_t *chain)
 {
@@ -278,6 +284,7 @@ ngx_stream_live_kmp_chain_md5_hex(u_char dst[32], ngx_buf_chain_t *chain)
     ngx_md5_final(hash, &md5);
     ngx_hex_dump(dst, hash, sizeof(hash));
 }
+
 
 static ngx_int_t
 ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
@@ -440,6 +447,7 @@ done:
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
@@ -629,6 +637,7 @@ ngx_stream_live_kmp_process_buffer(ngx_stream_live_kmp_ctx_t *ctx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_stream_live_kmp_read_packets(ngx_stream_live_kmp_ctx_t *ctx)
 {
@@ -682,12 +691,14 @@ ngx_stream_live_kmp_read_packets(ngx_stream_live_kmp_ctx_t *ctx)
     }
 }
 
+
 static void
 ngx_stream_live_kmp_dummy_handler(ngx_event_t *wev)
 {
     ngx_log_debug0(NGX_LOG_DEBUG_STREAM, wev->log, 0,
         "ngx_stream_live_kmp_dummy_handler: called");
 }
+
 
 static void
 ngx_stream_live_kmp_write_handler(ngx_event_t *wev)
@@ -769,6 +780,7 @@ ngx_stream_live_kmp_write_handler(ngx_event_t *wev)
     }
 }
 
+
 static void
 ngx_stream_live_kmp_ack_frames(ngx_live_track_t *track, uint64_t next_frame_id)
 {
@@ -800,6 +812,7 @@ ngx_stream_live_kmp_ack_frames(ngx_live_track_t *track, uint64_t next_frame_id)
 
     ngx_post_event(wev, &ngx_posted_events);
 }
+
 
 static ngx_fd_t
 ngx_stream_live_kmp_open_dump_file(ngx_stream_session_t *s)
@@ -839,6 +852,7 @@ ngx_stream_live_kmp_open_dump_file(ngx_stream_session_t *s)
     return fd;
 }
 
+
 static u_char *
 ngx_stream_live_kmp_log_error(ngx_log_t *log, u_char *buf, size_t len)
 {
@@ -863,6 +877,7 @@ ngx_stream_live_kmp_log_error(ngx_log_t *log, u_char *buf, size_t len)
 
     return p;
 }
+
 
 static ngx_int_t
 ngx_stream_live_kmp_read_header(ngx_event_t *rev)
@@ -1087,6 +1102,7 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
     return NGX_OK;
 }
 
+
 static void
 ngx_stream_live_kmp_read_handler(ngx_event_t *rev)
 {
@@ -1180,6 +1196,7 @@ ngx_stream_live_kmp_handler(ngx_stream_session_t *s)
     ngx_stream_live_kmp_read_handler(c->read);
 }
 
+
 static void *
 ngx_stream_live_kmp_create_srv_conf(ngx_conf_t *cf)
 {
@@ -1196,6 +1213,7 @@ ngx_stream_live_kmp_create_srv_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_stream_live_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
@@ -1215,6 +1233,7 @@ ngx_stream_live_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
     return NGX_CONF_OK;
 }
+
 
 static char *
 ngx_stream_live_kmp(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)

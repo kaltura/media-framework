@@ -53,6 +53,7 @@ static ngx_command_t  ngx_ts_kmp_api_commands[] = {
     ngx_null_command
 };
 
+
 static ngx_http_module_t  ngx_ts_kmp_api_module_ctx = {
     NULL,                               /* preconfiguration */
     ngx_ts_kmp_api_postconfiguration,   /* postconfiguration */
@@ -66,6 +67,7 @@ static ngx_http_module_t  ngx_ts_kmp_api_module_ctx = {
     NULL,                               /* create location configuration */
     NULL                                /* merge location configuration */
 };
+
 
 ngx_module_t ngx_ts_kmp_api_module = {
     NGX_MODULE_V1,
@@ -108,6 +110,7 @@ ngx_ts_kmp_api_get_stream_core_main_conf(ngx_log_t *log)
     return cmcf;
 }
 
+
 static ngx_int_t
 ngx_ts_kmp_api_get(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -145,6 +148,7 @@ ngx_ts_kmp_api_get(ngx_http_request_t *r, ngx_str_t *params,
     return NGX_OK;
 }
 
+
 static ngx_stream_session_t *
 ngx_ts_kmp_api_server_get_session(ngx_uint_t connection,
     ngx_ts_kmp_conf_t *tscf)
@@ -165,6 +169,7 @@ ngx_ts_kmp_api_server_get_session(ngx_uint_t connection,
 
     return NULL;
 }
+
 
 static ngx_stream_session_t *
 ngx_ts_kmp_api_get_session(ngx_uint_t connection, ngx_log_t *log)
@@ -191,6 +196,7 @@ ngx_ts_kmp_api_get_session(ngx_uint_t connection, ngx_log_t *log)
 
     return NULL;
 }
+
 
 static ngx_int_t
 ngx_ts_kmp_api_session_delete(ngx_http_request_t *r, ngx_str_t *params,

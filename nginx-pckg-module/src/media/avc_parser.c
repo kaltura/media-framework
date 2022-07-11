@@ -66,6 +66,7 @@ avc_parser_skip_hrd_parameters(bit_reader_state_t* reader)
     bit_read_stream_skip(reader, 5); // time_offset_length
 }
 
+
 static void
 avc_parser_parse_vui_parameters(avc_sps_t* sps, bit_reader_state_t* reader)
 {
@@ -149,6 +150,7 @@ avc_parser_parse_vui_parameters(avc_sps_t* sps, bit_reader_state_t* reader)
     }
 }
 
+
 static void
 avc_parser_skip_scaling_list(bit_reader_state_t* reader, int size_of_scaling_list)
 {
@@ -167,6 +169,7 @@ avc_parser_skip_scaling_list(bit_reader_state_t* reader, int size_of_scaling_lis
         last_scale = (next_scale == 0) ? last_scale : next_scale;
     }
 }
+
 
 static vod_status_t
 avc_parser_seq_parameter_set_rbsp(avc_hevc_parse_ctx_t* ctx, bit_reader_state_t* reader)
@@ -624,6 +627,7 @@ avc_parser_skip_ref_pic_list_modification(
     }
 }
 
+
 static void
 avc_parser_skip_ref_pic_list_mvc_modification(
     bit_reader_state_t* reader,
@@ -687,6 +691,7 @@ avc_parser_skip_ref_pic_list_mvc_modification(
         }
     }
 }
+
 
 static void
 avc_parser_skip_pred_weight_table(
@@ -752,6 +757,7 @@ avc_parser_skip_pred_weight_table(
         }
     }
 }
+
 
 static void
 avc_parser_skip_dec_ref_pic_marking(

@@ -90,6 +90,7 @@ static ngx_conf_num_bounds_t  ngx_http_live_ksmp_comp_level_bounds = {
     ngx_conf_check_num_bounds, 1, 9
 };
 
+
 static ngx_command_t  ngx_http_live_ksmp_commands[] = {
 
     { ngx_string("live_ksmp"),
@@ -566,6 +567,7 @@ ngx_http_live_ksmp_segment_set_size(void *arg, size_t size)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_live_ksmp_segment_write(void *arg, ngx_chain_t *cl)
 {
@@ -583,6 +585,7 @@ ngx_http_live_ksmp_segment_write(void *arg, ngx_chain_t *cl)
 
     return NGX_OK;
 }
+
 
 static void
 ngx_http_live_ksmp_segment_close(void *arg, ngx_int_t rc)
@@ -748,6 +751,7 @@ ngx_http_live_ksmp_output_error_str(ngx_http_request_t *r, uint32_t code,
 
     return ngx_http_live_ksmp_output(r, NGX_HTTP_LAST);
 }
+
 
 static ngx_int_t
 ngx_http_live_ksmp_output_error(ngx_http_request_t *r, uint32_t code,
@@ -1421,6 +1425,7 @@ ngx_http_live_ksmp_value_count(ngx_str_t *value)
 
     return n;
 }
+
 
 static ngx_int_t
 ngx_http_live_ksmp_parse_variant_ids(ngx_http_request_t *r,

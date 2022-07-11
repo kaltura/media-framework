@@ -273,6 +273,7 @@ static u_char     ngx_http_pckg_mpd_playready_sys_id[] = {
     0xab, 0x92, 0xe6, 0x5b, 0xe0, 0x88, 0x5f, 0x95
 };
 
+
 static size_t
 ngx_http_pckg_mpd_cont_prot_get_size(ngx_pckg_track_t *track)
 {
@@ -314,6 +315,7 @@ ngx_http_pckg_mpd_cont_prot_get_size(ngx_pckg_track_t *track)
 
     return size;
 }
+
 
 static u_char *
 ngx_http_pckg_mpd_cont_prot_write(u_char *p, ngx_pckg_track_t *track)
@@ -362,6 +364,7 @@ ngx_http_pckg_mpd_cont_prot_get_size(ngx_pckg_track_t *track)
 {
     return 0;
 }
+
 
 static u_char *
 ngx_http_pckg_mpd_cont_prot_write(u_char *p, ngx_pckg_track_t *track)
@@ -938,6 +941,7 @@ ngx_http_pckg_mpd_header_get_size(ngx_str_t *profiles)
         sizeof(MPD_HEADER2) - 1 + NGX_INT32_LEN * 6;
 }
 
+
 static u_char *
 ngx_http_pckg_mpd_header_write(u_char *p, ngx_http_request_t *r,
     ngx_pckg_channel_t *channel, ngx_str_t *profiles)
@@ -1010,6 +1014,7 @@ ngx_http_pckg_mpd_header_write(u_char *p, ngx_http_request_t *r,
 
     return p;
 }
+
 
 static ngx_int_t
 ngx_http_pckg_mpd_build(ngx_http_request_t *r, ngx_pckg_channel_t *channel,
@@ -1233,6 +1238,7 @@ ngx_http_pckg_mpd_preconfiguration(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 static void *
 ngx_http_pckg_mpd_create_loc_conf(ngx_conf_t *cf)
 {
@@ -1249,6 +1255,7 @@ ngx_http_pckg_mpd_create_loc_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_http_pckg_mpd_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)

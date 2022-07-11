@@ -306,6 +306,7 @@ codec_config_hevc_get_nal_units(
     return VOD_OK;
 }
 
+
 static vod_status_t
 codec_config_get_avc_codec_name(vod_log_t* log, media_info_t* media_info)
 {
@@ -333,6 +334,7 @@ codec_config_get_avc_codec_name(vod_log_t* log, media_info_t* media_info)
     return VOD_OK;
 }
 
+
 static uint32_t
 codec_config_flip_bits_32(uint32_t n)
 {
@@ -346,6 +348,7 @@ codec_config_flip_bits_32(uint32_t n)
     }
     return res;
 }
+
 
 static vod_status_t
 codec_config_get_hevc_codec_name(vod_log_t* log, media_info_t* media_info)
@@ -424,6 +427,7 @@ codec_config_get_video_codec_name(vod_log_t* log, media_info_t* media_info)
         return VOD_UNEXPECTED;
     }
 }
+
 
 static vod_status_t
 codec_config_get_mp4a_codec_name(vod_log_t* log, media_info_t* media_info)

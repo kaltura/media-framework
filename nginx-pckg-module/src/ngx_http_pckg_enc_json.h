@@ -13,7 +13,8 @@ typedef struct {
     ngx_json_object_t  *systems;
 } ngx_pckg_enc_json_t;
 
-static ngx_json_prop_t ngx_pckg_enc_json_key_id = {
+
+static ngx_json_prop_t  ngx_pckg_enc_json_key_id = {
     ngx_string("key_id"),
     3160294139ULL,
     NGX_JSON_STRING,
@@ -22,7 +23,8 @@ static ngx_json_prop_t ngx_pckg_enc_json_key_id = {
     NULL
 };
 
-static ngx_json_prop_t ngx_pckg_enc_json_key = {
+
+static ngx_json_prop_t  ngx_pckg_enc_json_key = {
     ngx_string("key"),
     106079ULL,
     NGX_JSON_STRING,
@@ -31,7 +33,8 @@ static ngx_json_prop_t ngx_pckg_enc_json_key = {
     NULL
 };
 
-static ngx_json_prop_t ngx_pckg_enc_json_iv = {
+
+static ngx_json_prop_t  ngx_pckg_enc_json_iv = {
     ngx_string("iv"),
     3373ULL,
     NGX_JSON_STRING,
@@ -40,7 +43,8 @@ static ngx_json_prop_t ngx_pckg_enc_json_iv = {
     NULL
 };
 
-static ngx_json_prop_t ngx_pckg_enc_json_systems = {
+
+static ngx_json_prop_t  ngx_pckg_enc_json_systems = {
     ngx_string("systems"),
     105636811812ULL,
     NGX_JSON_OBJECT,
@@ -49,7 +53,8 @@ static ngx_json_prop_t ngx_pckg_enc_json_systems = {
     NULL
 };
 
-static ngx_json_prop_t *ngx_pckg_enc_json[] = {
+
+static ngx_json_prop_t  *ngx_pckg_enc_json[] = {
     &ngx_pckg_enc_json_systems,
     &ngx_pckg_enc_json_key,
     &ngx_pckg_enc_json_key_id,

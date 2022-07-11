@@ -13,7 +13,8 @@ typedef struct {
     ngx_flag_t  save;
 } ngx_live_filler_json_t;
 
-static ngx_json_prop_t ngx_live_filler_json_channel_id = {
+
+static ngx_json_prop_t  ngx_live_filler_json_channel_id = {
     ngx_string("channel_id"),
     2708992856568279ULL,
     NGX_JSON_STRING,
@@ -22,7 +23,8 @@ static ngx_json_prop_t ngx_live_filler_json_channel_id = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_filler_json_preset = {
+
+static ngx_json_prop_t  ngx_live_filler_json_preset = {
     ngx_string("preset"),
     3314868959ULL,
     NGX_JSON_STRING,
@@ -31,7 +33,8 @@ static ngx_json_prop_t ngx_live_filler_json_preset = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_filler_json_timeline_id = {
+
+static ngx_json_prop_t  ngx_live_filler_json_timeline_id = {
     ngx_string("timeline_id"),
     97948884474898905ULL,
     NGX_JSON_STRING,
@@ -40,7 +43,8 @@ static ngx_json_prop_t ngx_live_filler_json_timeline_id = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_filler_json_save = {
+
+static ngx_json_prop_t  ngx_live_filler_json_save = {
     ngx_string("save"),
     3522941ULL,
     NGX_JSON_BOOL,
@@ -49,7 +53,8 @@ static ngx_json_prop_t ngx_live_filler_json_save = {
     NULL
 };
 
-static ngx_json_prop_t *ngx_live_filler_json[] = {
+
+static ngx_json_prop_t  *ngx_live_filler_json[] = {
     &ngx_live_filler_json_timeline_id,
     &ngx_live_filler_json_channel_id,
     &ngx_live_filler_json_save,

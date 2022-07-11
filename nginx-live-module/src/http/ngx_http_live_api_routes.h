@@ -14,6 +14,7 @@ static ngx_http_api_route_node_t
     NULL,
 };
 
+
 static ngx_http_api_route_child_t
     ngx_http_live_api_route_channels_param_variants_param_children[] =
 {
@@ -22,6 +23,7 @@ static ngx_http_api_route_child_t
     { ngx_null_string, NULL },
 };
 
+
 static ngx_int_t
     ngx_http_live_api_channels_param_variants_param_list(ngx_http_request_t
     *r, ngx_str_t *params, ngx_str_t *response)
@@ -29,6 +31,7 @@ static ngx_int_t
     ngx_str_set(response, "[\"tracks\"]");
     return NGX_OK;
 }
+
 
 static ngx_http_api_route_node_t
     ngx_http_live_api_route_channels_param_variants_param =
@@ -41,6 +44,7 @@ static ngx_http_api_route_node_t
     &ngx_http_live_api_variant_put,
 };
 
+
 static ngx_http_api_route_child_t
     ngx_http_live_api_route_channels_param_variants_children[] =
 {
@@ -48,6 +52,7 @@ static ngx_http_api_route_child_t
         },
     { ngx_null_string, NULL },
 };
+
 
 static ngx_http_api_route_node_t
     ngx_http_live_api_route_channels_param_variants =
@@ -60,6 +65,7 @@ static ngx_http_api_route_node_t
     NULL,
 };
 
+
 static ngx_http_api_route_node_t
     ngx_http_live_api_route_channels_param_tracks_param =
 {
@@ -71,12 +77,14 @@ static ngx_http_api_route_node_t
     &ngx_http_live_api_track_put,
 };
 
+
 static ngx_http_api_route_child_t
     ngx_http_live_api_route_channels_param_tracks_children[] =
 {
     { ngx_string("%"), &ngx_http_live_api_route_channels_param_tracks_param },
     { ngx_null_string, NULL },
 };
+
 
 static ngx_http_api_route_node_t
     ngx_http_live_api_route_channels_param_tracks =
@@ -89,6 +97,7 @@ static ngx_http_api_route_node_t
     NULL,
 };
 
+
 static ngx_http_api_route_node_t
     ngx_http_live_api_route_channels_param_timelines_param =
 {
@@ -100,6 +109,7 @@ static ngx_http_api_route_node_t
     &ngx_http_live_api_timeline_put,
 };
 
+
 static ngx_http_api_route_child_t
     ngx_http_live_api_route_channels_param_timelines_children[] =
 {
@@ -107,6 +117,7 @@ static ngx_http_api_route_child_t
         },
     { ngx_null_string, NULL },
 };
+
 
 static ngx_http_api_route_node_t
     ngx_http_live_api_route_channels_param_timelines =
@@ -119,6 +130,7 @@ static ngx_http_api_route_node_t
     NULL,
 };
 
+
 static ngx_http_api_route_child_t
     ngx_http_live_api_route_channels_param_children[] =
 {
@@ -130,12 +142,14 @@ static ngx_http_api_route_child_t
     { ngx_null_string, NULL },
 };
 
+
 static ngx_int_t ngx_http_live_api_channels_param_list(ngx_http_request_t *r,
     ngx_str_t *params, ngx_str_t *response)
 {
     ngx_str_set(response, "[\"timelines\",\"tracks\",\"variants\"]");
     return NGX_OK;
 }
+
 
 static ngx_http_api_route_node_t  ngx_http_live_api_route_channels_param = {
     ngx_http_live_api_route_channels_param_children,
@@ -146,12 +160,14 @@ static ngx_http_api_route_node_t  ngx_http_live_api_route_channels_param = {
     &ngx_http_live_api_channel_put,
 };
 
+
 static ngx_http_api_route_child_t  ngx_http_live_api_route_channels_children[]
     =
 {
     { ngx_string("%"), &ngx_http_live_api_route_channels_param },
     { ngx_null_string, NULL },
 };
+
 
 static ngx_http_api_route_node_t  ngx_http_live_api_route_channels = {
     ngx_http_live_api_route_channels_children,
@@ -162,10 +178,12 @@ static ngx_http_api_route_node_t  ngx_http_live_api_route_channels = {
     NULL,
 };
 
+
 static ngx_http_api_route_child_t  ngx_http_live_api_route_children[] = {
     { ngx_string("channels"), &ngx_http_live_api_route_channels },
     { ngx_null_string, NULL },
 };
+
 
 static ngx_int_t ngx_http_live_api_list(ngx_http_request_t *r, ngx_str_t
     *params, ngx_str_t *response)
@@ -173,6 +191,7 @@ static ngx_int_t ngx_http_live_api_list(ngx_http_request_t *r, ngx_str_t
     ngx_str_set(response, "[\"channels\",\"multi\"]");
     return NGX_OK;
 }
+
 
 static ngx_http_api_route_node_t  ngx_http_live_api_route = {
     ngx_http_live_api_route_children,
@@ -182,5 +201,6 @@ static ngx_http_api_route_node_t  ngx_http_live_api_route = {
     NULL,
     NULL,
 };
+
 
 #endif /* _NGX_HTTP_LIVE_API_ROUTES_H_INCLUDED_ */

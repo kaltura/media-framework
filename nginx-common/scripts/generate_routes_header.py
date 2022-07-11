@@ -84,6 +84,7 @@ def outputNode(node, base):
         result += '''static %s  %s[] = {
 %s};
 
+
 ''' % (CHILD_TYPE_NAME, childrenParam, childSpecs)
         childrenParam = '%s' % childrenParam
     else:
@@ -105,6 +106,7 @@ def outputNode(node, base):
     return NGX_OK;
 }
 
+
 ''' % (handlerName, listResponse)
 
     handlersArr = ''
@@ -118,6 +120,7 @@ def outputNode(node, base):
     result += '''static %s  %s = {
     %s,
 %s};
+
 
 ''' % (NODE_TYPE_NAME, base, childrenParam, handlersArr)
 

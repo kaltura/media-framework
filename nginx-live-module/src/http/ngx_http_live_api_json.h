@@ -19,7 +19,8 @@ typedef struct {
     int64_t     segment_duration;
 } ngx_live_channel_json_t;
 
-static ngx_json_prop_t ngx_live_channel_json_id = {
+
+static ngx_json_prop_t  ngx_live_channel_json_id = {
     ngx_string("id"),
     3355ULL,
     NGX_JSON_STRING,
@@ -28,7 +29,8 @@ static ngx_json_prop_t ngx_live_channel_json_id = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_channel_json_preset = {
+
+static ngx_json_prop_t  ngx_live_channel_json_preset = {
     ngx_string("preset"),
     3314868959ULL,
     NGX_JSON_STRING,
@@ -37,7 +39,8 @@ static ngx_json_prop_t ngx_live_channel_json_preset = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_channel_json_opaque = {
+
+static ngx_json_prop_t  ngx_live_channel_json_opaque = {
     ngx_string("opaque"),
     3284272161ULL,
     NGX_JSON_STRING,
@@ -46,7 +49,8 @@ static ngx_json_prop_t ngx_live_channel_json_opaque = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_channel_json_read = {
+
+static ngx_json_prop_t  ngx_live_channel_json_read = {
     ngx_string("read"),
     3496342ULL,
     NGX_JSON_BOOL,
@@ -55,7 +59,8 @@ static ngx_json_prop_t ngx_live_channel_json_read = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_channel_json_initial_segment_index = {
+
+static ngx_json_prop_t  ngx_live_channel_json_initial_segment_index = {
     ngx_string("initial_segment_index"),
     18106540101855730443ULL,
     NGX_JSON_INT,
@@ -64,7 +69,8 @@ static ngx_json_prop_t ngx_live_channel_json_initial_segment_index = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_channel_json_segment_duration = {
+
+static ngx_json_prop_t  ngx_live_channel_json_segment_duration = {
     ngx_string("segment_duration"),
     15286675145585412384ULL,
     NGX_JSON_INT,
@@ -73,7 +79,8 @@ static ngx_json_prop_t ngx_live_channel_json_segment_duration = {
     NULL
 };
 
-static ngx_json_prop_t *ngx_live_channel_json[] = {
+
+static ngx_json_prop_t  *ngx_live_channel_json[] = {
     NULL,
     &ngx_live_channel_json_opaque,
     &ngx_live_channel_json_read,
@@ -85,6 +92,7 @@ static ngx_json_prop_t *ngx_live_channel_json[] = {
     NULL,
     &ngx_live_channel_json_preset,
 };
+
 
 /* ngx_live_variant_json reader */
 
@@ -98,7 +106,8 @@ typedef struct {
     ngx_json_object_t  *track_ids;
 } ngx_live_variant_json_t;
 
-static ngx_json_prop_t ngx_live_variant_json_id = {
+
+static ngx_json_prop_t  ngx_live_variant_json_id = {
     ngx_string("id"),
     3355ULL,
     NGX_JSON_STRING,
@@ -107,7 +116,8 @@ static ngx_json_prop_t ngx_live_variant_json_id = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_variant_json_opaque = {
+
+static ngx_json_prop_t  ngx_live_variant_json_opaque = {
     ngx_string("opaque"),
     3284272161ULL,
     NGX_JSON_STRING,
@@ -116,7 +126,8 @@ static ngx_json_prop_t ngx_live_variant_json_opaque = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_variant_json_label = {
+
+static ngx_json_prop_t  ngx_live_variant_json_label = {
     ngx_string("label"),
     102727412ULL,
     NGX_JSON_STRING,
@@ -125,7 +136,8 @@ static ngx_json_prop_t ngx_live_variant_json_label = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_variant_json_lang = {
+
+static ngx_json_prop_t  ngx_live_variant_json_lang = {
     ngx_string("lang"),
     3314158ULL,
     NGX_JSON_STRING,
@@ -134,7 +146,8 @@ static ngx_json_prop_t ngx_live_variant_json_lang = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_variant_json_role = {
+
+static ngx_json_prop_t  ngx_live_variant_json_role = {
     ngx_string("role"),
     3506294ULL,
     NGX_JSON_STRING,
@@ -143,7 +156,8 @@ static ngx_json_prop_t ngx_live_variant_json_role = {
     &ngx_live_variant_role_names
 };
 
-static ngx_json_prop_t ngx_live_variant_json_is_default = {
+
+static ngx_json_prop_t  ngx_live_variant_json_is_default = {
     ngx_string("is_default"),
     2876948233633836ULL,
     NGX_JSON_BOOL,
@@ -152,7 +166,8 @@ static ngx_json_prop_t ngx_live_variant_json_is_default = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_variant_json_track_ids = {
+
+static ngx_json_prop_t  ngx_live_variant_json_track_ids = {
     ngx_string("track_ids"),
     102160822245828ULL,
     NGX_JSON_OBJECT,
@@ -161,7 +176,8 @@ static ngx_json_prop_t ngx_live_variant_json_track_ids = {
     NULL
 };
 
-static ngx_json_prop_t *ngx_live_variant_json[] = {
+
+static ngx_json_prop_t  *ngx_live_variant_json[] = {
     &ngx_live_variant_json_is_default,
     NULL,
     &ngx_live_variant_json_role,
@@ -182,6 +198,7 @@ static ngx_json_prop_t *ngx_live_variant_json[] = {
     NULL,
 };
 
+
 /* ngx_live_track_json reader */
 
 typedef struct {
@@ -190,7 +207,8 @@ typedef struct {
     ngx_str_t   opaque;
 } ngx_live_track_json_t;
 
-static ngx_json_prop_t ngx_live_track_json_id = {
+
+static ngx_json_prop_t  ngx_live_track_json_id = {
     ngx_string("id"),
     3355ULL,
     NGX_JSON_STRING,
@@ -199,7 +217,8 @@ static ngx_json_prop_t ngx_live_track_json_id = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_track_json_media_type = {
+
+static ngx_json_prop_t  ngx_live_track_json_media_type = {
     ngx_string("media_type"),
     2970908127930037ULL,
     NGX_JSON_STRING,
@@ -208,7 +227,8 @@ static ngx_json_prop_t ngx_live_track_json_media_type = {
     &ngx_live_track_media_type_names
 };
 
-static ngx_json_prop_t ngx_live_track_json_opaque = {
+
+static ngx_json_prop_t  ngx_live_track_json_opaque = {
     ngx_string("opaque"),
     3284272161ULL,
     NGX_JSON_STRING,
@@ -217,13 +237,15 @@ static ngx_json_prop_t ngx_live_track_json_opaque = {
     NULL
 };
 
-static ngx_json_prop_t *ngx_live_track_json[] = {
+
+static ngx_json_prop_t  *ngx_live_track_json[] = {
     &ngx_live_track_json_id,
     &ngx_live_track_json_opaque,
     &ngx_live_track_json_media_type,
     NULL,
     NULL,
 };
+
 
 /* ngx_live_timeline_source_json reader */
 
@@ -233,7 +255,8 @@ typedef struct {
     int64_t    end_offset;
 } ngx_live_timeline_source_json_t;
 
-static ngx_json_prop_t ngx_live_timeline_source_json_id = {
+
+static ngx_json_prop_t  ngx_live_timeline_source_json_id = {
     ngx_string("id"),
     3355ULL,
     NGX_JSON_STRING,
@@ -242,7 +265,8 @@ static ngx_json_prop_t ngx_live_timeline_source_json_id = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_source_json_start_offset = {
+
+static ngx_json_prop_t  ngx_live_timeline_source_json_start_offset = {
     ngx_string("start_offset"),
     3019716876355455760ULL,
     NGX_JSON_INT,
@@ -251,7 +275,8 @@ static ngx_json_prop_t ngx_live_timeline_source_json_start_offset = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_source_json_end_offset = {
+
+static ngx_json_prop_t  ngx_live_timeline_source_json_end_offset = {
     ngx_string("end_offset"),
     2767058701794423ULL,
     NGX_JSON_INT,
@@ -260,7 +285,8 @@ static ngx_json_prop_t ngx_live_timeline_source_json_end_offset = {
     NULL
 };
 
-static ngx_json_prop_t *ngx_live_timeline_source_json[] = {
+
+static ngx_json_prop_t  *ngx_live_timeline_source_json[] = {
     NULL,
     &ngx_live_timeline_source_json_id,
     NULL,
@@ -268,6 +294,7 @@ static ngx_json_prop_t *ngx_live_timeline_source_json[] = {
     &ngx_live_timeline_source_json_start_offset,
     NULL,
 };
+
 
 /* ngx_live_timeline_json reader */
 
@@ -288,7 +315,8 @@ typedef struct {
     int64_t             manifest_target_duration_segments;
 } ngx_live_timeline_json_t;
 
-static ngx_json_prop_t ngx_live_timeline_json_id = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_id = {
     ngx_string("id"),
     3355ULL,
     NGX_JSON_STRING,
@@ -297,7 +325,8 @@ static ngx_json_prop_t ngx_live_timeline_json_id = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_source = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_source = {
     ngx_string("source"),
     3398461467ULL,
     NGX_JSON_OBJECT,
@@ -306,7 +335,8 @@ static ngx_json_prop_t ngx_live_timeline_json_source = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_active = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_active = {
     ngx_string("active"),
     2872016646ULL,
     NGX_JSON_BOOL,
@@ -315,7 +345,8 @@ static ngx_json_prop_t ngx_live_timeline_json_active = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_no_truncate = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_no_truncate = {
     ngx_string("no_truncate"),
     93178230369180196ULL,
     NGX_JSON_BOOL,
@@ -324,7 +355,8 @@ static ngx_json_prop_t ngx_live_timeline_json_no_truncate = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_end_list = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_end_list = {
     ngx_string("end_list"),
     2879353401730ULL,
     NGX_JSON_BOOL,
@@ -333,7 +365,8 @@ static ngx_json_prop_t ngx_live_timeline_json_end_list = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_period_gap = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_period_gap = {
     ngx_string("period_gap"),
     3050612575791960ULL,
     NGX_JSON_INT,
@@ -342,7 +375,8 @@ static ngx_json_prop_t ngx_live_timeline_json_period_gap = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_max_segments = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_max_segments = {
     ngx_string("max_segments"),
     2852284961494180891ULL,
     NGX_JSON_INT,
@@ -351,7 +385,8 @@ static ngx_json_prop_t ngx_live_timeline_json_max_segments = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_max_duration = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_max_duration = {
     ngx_string("max_duration"),
     2852284563309308431ULL,
     NGX_JSON_INT,
@@ -360,7 +395,8 @@ static ngx_json_prop_t ngx_live_timeline_json_max_duration = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_start = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_start = {
     ngx_string("start"),
     109757538ULL,
     NGX_JSON_INT,
@@ -369,7 +405,8 @@ static ngx_json_prop_t ngx_live_timeline_json_start = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_end = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_end = {
     ngx_string("end"),
     100571ULL,
     NGX_JSON_INT,
@@ -378,7 +415,8 @@ static ngx_json_prop_t ngx_live_timeline_json_end = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_manifest_max_segments = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_manifest_max_segments = {
     ngx_string("manifest_max_segments"),
     612119576334148651ULL,
     NGX_JSON_INT,
@@ -387,7 +425,8 @@ static ngx_json_prop_t ngx_live_timeline_json_manifest_max_segments = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_manifest_max_duration = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_manifest_max_duration = {
     ngx_string("manifest_max_duration"),
     612119178149276191ULL,
     NGX_JSON_INT,
@@ -396,7 +435,8 @@ static ngx_json_prop_t ngx_live_timeline_json_manifest_max_duration = {
     NULL
 };
 
-static ngx_json_prop_t ngx_live_timeline_json_manifest_expiry_threshold = {
+
+static ngx_json_prop_t  ngx_live_timeline_json_manifest_expiry_threshold = {
     ngx_string("manifest_expiry_threshold"),
     8208201564390535279ULL,
     NGX_JSON_INT,
@@ -404,6 +444,7 @@ static ngx_json_prop_t ngx_live_timeline_json_manifest_expiry_threshold = {
     offsetof(ngx_live_timeline_json_t, manifest_expiry_threshold),
     NULL
 };
+
 
 static ngx_json_prop_t
     ngx_live_timeline_json_manifest_target_duration_segments =
@@ -416,7 +457,8 @@ static ngx_json_prop_t
     NULL
 };
 
-static ngx_json_prop_t *ngx_live_timeline_json[] = {
+
+static ngx_json_prop_t  *ngx_live_timeline_json[] = {
     &ngx_live_timeline_json_start,
     NULL,
     NULL,
@@ -446,6 +488,7 @@ static ngx_json_prop_t *ngx_live_timeline_json[] = {
     NULL,
 };
 
+
 /* ngx_http_live_api_json writer */
 
 static size_t
@@ -472,6 +515,7 @@ ngx_http_live_api_json_get_size(void *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_http_live_api_json_write(u_char *p, void *obj)

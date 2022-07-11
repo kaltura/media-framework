@@ -12,10 +12,12 @@ static ngx_http_api_route_node_t  ngx_ts_kmp_api_route_sessions_param = {
     NULL,
 };
 
+
 static ngx_http_api_route_child_t  ngx_ts_kmp_api_route_sessions_children[] = {
     { ngx_string("%"), &ngx_ts_kmp_api_route_sessions_param },
     { ngx_null_string, NULL },
 };
+
 
 static ngx_http_api_route_node_t  ngx_ts_kmp_api_route_sessions = {
     ngx_ts_kmp_api_route_sessions_children,
@@ -26,10 +28,12 @@ static ngx_http_api_route_node_t  ngx_ts_kmp_api_route_sessions = {
     NULL,
 };
 
+
 static ngx_http_api_route_child_t  ngx_ts_kmp_api_route_children[] = {
     { ngx_string("sessions"), &ngx_ts_kmp_api_route_sessions },
     { ngx_null_string, NULL },
 };
+
 
 static ngx_int_t ngx_ts_kmp_api_list(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
@@ -37,6 +41,7 @@ static ngx_int_t ngx_ts_kmp_api_list(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_set(response, "[\"multi\",\"sessions\"]");
     return NGX_OK;
 }
+
 
 static ngx_http_api_route_node_t  ngx_ts_kmp_api_route = {
     ngx_ts_kmp_api_route_children,
@@ -46,5 +51,6 @@ static ngx_http_api_route_node_t  ngx_ts_kmp_api_route = {
     NULL,
     NULL,
 };
+
 
 #endif /* _NGX_TS_KMP_API_ROUTES_H_INCLUDED_ */

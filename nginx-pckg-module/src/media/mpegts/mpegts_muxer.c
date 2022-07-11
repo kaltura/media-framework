@@ -81,6 +81,7 @@ mpegts_muxer_init_track(
     return VOD_OK;
 }
 
+
 static bool_t
 mpegts_muxer_simulation_supported(
     media_segment_t* media_segment,
@@ -110,6 +111,7 @@ mpegts_muxer_simulation_supported(
 
     return TRUE;
 }
+
 
 static vod_status_t
 mpegts_muxer_init_stream(
@@ -168,11 +170,13 @@ frames_source_memory_init(
     return VOD_OK;
 }
 
+
 static vod_status_t
 frames_source_memory_start_frame(void* ctx, input_frame_t* frame)
 {
     return VOD_OK;
 }
+
 
 static vod_status_t
 frames_source_memory_read(void* ctx, u_char** buffer, uint32_t* size, bool_t* frame_done)
@@ -287,6 +291,7 @@ mpegts_muxer_init_id3_stream(
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 mpegts_muxer_init_base(
@@ -532,6 +537,7 @@ mpegts_muxer_init_segment(
     return VOD_OK;
 }
 
+
 static vod_status_t
 mpegts_muxer_choose_stream(mpegts_muxer_state_t* state, mpegts_muxer_stream_state_t** result)
 {
@@ -571,6 +577,7 @@ mpegts_muxer_choose_stream(mpegts_muxer_state_t* state, mpegts_muxer_stream_stat
 
     return VOD_NOT_FOUND;
 }
+
 
 static vod_status_t
 mpegts_muxer_start_frame(mpegts_muxer_state_t* state)
@@ -652,6 +659,7 @@ mpegts_muxer_start_frame(mpegts_muxer_state_t* state)
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 mpegts_muxer_send(mpegts_muxer_state_t* state)
@@ -752,6 +760,7 @@ mpegts_muxer_process(mpegts_muxer_state_t* state)
     return VOD_OK;
 }
 
+
 static void
 mpegts_muxer_simulation_flush_delayed_streams(
     mpegts_muxer_state_t* state,
@@ -780,6 +789,7 @@ mpegts_muxer_simulation_flush_delayed_streams(
     }
 }
 
+
 static void
 mpegts_muxer_simulation_write_frame(mpegts_muxer_stream_state_t* selected_stream, input_frame_t* cur_frame, uint64_t cur_frame_dts, bool_t last_frame)
 {
@@ -795,6 +805,7 @@ mpegts_muxer_simulation_write_frame(mpegts_muxer_stream_state_t* selected_stream
     selected_stream->filter.simulated_write(&selected_stream->filter_context, cur_frame->size);
     selected_stream->filter.simulated_flush_frame(&selected_stream->filter_context, last_frame);
 }
+
 
 static vod_status_t
 mpegts_muxer_simulate_get_segment_size(mpegts_muxer_state_t* state, size_t* result)
@@ -862,6 +873,7 @@ mpegts_muxer_simulate_get_segment_size(mpegts_muxer_state_t* state, size_t* resu
 
     return VOD_OK;
 }
+
 
 static void
 mpegts_muxer_simulation_reset(mpegts_muxer_state_t* state)

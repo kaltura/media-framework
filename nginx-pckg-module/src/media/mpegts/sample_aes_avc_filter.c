@@ -89,6 +89,7 @@ sample_aes_avc_filter_init(
     return VOD_OK;
 }
 
+
 static vod_status_t
 sample_aes_avc_write_emulation_prevention(
     media_filter_context_t* context,

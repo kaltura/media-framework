@@ -24,6 +24,7 @@ ngx_live_latency_stats_get_size(ngx_live_latency_stats_t *obj)
     return result;
 }
 
+
 u_char *
 ngx_live_latency_stats_write(u_char *p, ngx_live_latency_stats_t *obj)
 {
@@ -43,6 +44,7 @@ ngx_live_latency_stats_write(u_char *p, ngx_live_latency_stats_t *obj)
     return p;
 }
 
+
 /* ngx_live_track_input_skip writer */
 
 static size_t
@@ -60,6 +62,7 @@ ngx_live_track_input_skip_get_size(ngx_live_track_input_skip_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_live_track_input_skip_write(u_char *p, ngx_live_track_input_skip_t *obj)
 {
@@ -75,6 +78,7 @@ ngx_live_track_input_skip_write(u_char *p, ngx_live_track_input_skip_t *obj)
 
     return p;
 }
+
 
 /* ngx_live_track_input writer */
 
@@ -102,6 +106,7 @@ ngx_live_track_input_get_size(ngx_live_track_input_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_live_track_input_write(u_char *p, ngx_live_track_input_t *obj)
 {
@@ -127,6 +132,7 @@ ngx_live_track_input_write(u_char *p, ngx_live_track_input_t *obj)
     return p;
 }
 
+
 /* ngx_live_track_json writer */
 
 static size_t
@@ -150,6 +156,7 @@ ngx_live_track_json_get_size(ngx_live_track_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_live_track_json_write(u_char *p, ngx_live_track_t *obj)
@@ -178,6 +185,7 @@ ngx_live_track_json_write(u_char *p, ngx_live_track_t *obj)
     return p;
 }
 
+
 /* ngx_live_tracks_json writer */
 
 size_t
@@ -202,6 +210,7 @@ ngx_live_tracks_json_get_size(ngx_live_channel_t *obj)
 
     return result;
 }
+
 
 u_char *
 ngx_live_tracks_json_write(u_char *p, ngx_live_channel_t *obj)
@@ -234,6 +243,7 @@ ngx_live_tracks_json_write(u_char *p, ngx_live_channel_t *obj)
     return p;
 }
 
+
 /* ngx_live_track_ids_json writer */
 
 size_t
@@ -257,6 +267,7 @@ ngx_live_track_ids_json_get_size(ngx_live_channel_t *obj)
 
     return result;
 }
+
 
 u_char *
 ngx_live_track_ids_json_write(u_char *p, ngx_live_channel_t *obj)
@@ -287,6 +298,7 @@ ngx_live_track_ids_json_write(u_char *p, ngx_live_channel_t *obj)
     return p;
 }
 
+
 /* ngx_live_variant_json writer */
 
 static size_t
@@ -309,6 +321,7 @@ ngx_live_variant_json_get_size(ngx_live_variant_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_live_variant_json_write(u_char *p, ngx_live_variant_t *obj)
@@ -344,6 +357,7 @@ ngx_live_variant_json_write(u_char *p, ngx_live_variant_t *obj)
     return p;
 }
 
+
 /* ngx_live_variants_json writer */
 
 size_t
@@ -368,6 +382,7 @@ ngx_live_variants_json_get_size(ngx_live_channel_t *obj)
 
     return result;
 }
+
 
 u_char *
 ngx_live_variants_json_write(u_char *p, ngx_live_channel_t *obj)
@@ -400,6 +415,7 @@ ngx_live_variants_json_write(u_char *p, ngx_live_channel_t *obj)
     return p;
 }
 
+
 /* ngx_live_variant_ids_json writer */
 
 size_t
@@ -423,6 +439,7 @@ ngx_live_variant_ids_json_get_size(ngx_live_channel_t *obj)
 
     return result;
 }
+
 
 u_char *
 ngx_live_variant_ids_json_write(u_char *p, ngx_live_channel_t *obj)
@@ -453,6 +470,7 @@ ngx_live_variant_ids_json_write(u_char *p, ngx_live_channel_t *obj)
     return p;
 }
 
+
 /* ngx_live_channel_blocked_json writer */
 
 static size_t
@@ -474,6 +492,7 @@ ngx_live_channel_blocked_json_get_size(ngx_live_channel_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_live_channel_blocked_json_write(u_char *p, ngx_live_channel_t *obj)
 {
@@ -492,6 +511,7 @@ ngx_live_channel_blocked_json_write(u_char *p, ngx_live_channel_t *obj)
 
     return p;
 }
+
 
 /* ngx_live_channel_json writer */
 
@@ -530,6 +550,7 @@ ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
 
     return result;
 }
+
 
 u_char *
 ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
@@ -582,6 +603,7 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
     return p;
 }
 
+
 /* ngx_live_channels_json writer */
 
 size_t
@@ -606,6 +628,7 @@ ngx_live_channels_json_get_size(void *obj)
 
     return result;
 }
+
 
 u_char *
 ngx_live_channels_json_write(u_char *p, void *obj)
@@ -638,6 +661,7 @@ ngx_live_channels_json_write(u_char *p, void *obj)
     return p;
 }
 
+
 /* ngx_live_channel_ids_json writer */
 
 size_t
@@ -661,6 +685,7 @@ ngx_live_channel_ids_json_get_size(void *obj)
 
     return result;
 }
+
 
 u_char *
 ngx_live_channel_ids_json_write(u_char *p, void *obj)

@@ -120,6 +120,7 @@ mp4_to_annexb_simulation_supported(media_info_t* media_info)
     return TRUE;
 }
 
+
 static vod_status_t
 mp4_to_annexb_start_frame(media_filter_context_t* context, output_frame_t* frame)
 {
@@ -172,6 +173,7 @@ mp4_to_annexb_start_frame(media_filter_context_t* context, output_frame_t* frame
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 mp4_to_annexb_write(media_filter_context_t* context, const u_char* buffer, uint32_t size)
@@ -274,6 +276,7 @@ mp4_to_annexb_write(media_filter_context_t* context, const u_char* buffer, uint3
 
     return VOD_OK;
 }
+
 
 static vod_status_t
 mp4_to_annexb_flush_frame(media_filter_context_t* context, bool_t last_stream_frame)

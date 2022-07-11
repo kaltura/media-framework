@@ -103,6 +103,7 @@ typedef struct {
     ngx_buf_chain_t                   *data;
 } ngx_live_lls_frame_t;
 
+
 typedef struct ngx_live_lls_frame_part_s  ngx_live_lls_frame_part_t;
 
 struct ngx_live_lls_frame_part_s {
@@ -112,6 +113,7 @@ struct ngx_live_lls_frame_part_s {
 
     ngx_live_lls_frame_t               elts[NGX_LIVE_LLS_FRAME_PART_COUNT];
 };
+
 
 typedef struct {
     ngx_live_track_t                  *track;
@@ -134,6 +136,7 @@ typedef struct {
     uint64_t                           next_frame_id;
     uint32_t                           bitrate;
 } ngx_live_lls_track_pending_seg_t;
+
 
 typedef struct {
     ngx_rbtree_node_t                  node;        /* must be first */
@@ -186,10 +189,12 @@ typedef struct {
     unsigned                           end_set:1;
 } ngx_live_lls_pending_seg_t;
 
+
 typedef struct {
     uint32_t                           nelts;
     ngx_live_lls_pending_seg_t         elts[1];  /* must be last */
 } ngx_live_lls_pending_segs_t;
+
 
 typedef struct {
     uint32_t                           min_part_duration;
@@ -236,6 +241,7 @@ static ngx_int_t ngx_live_lls_force_close_segment(ngx_live_channel_t *channel);
 static ngx_conf_num_bounds_t  ngx_live_lls_max_pending_segments_bounds = {
     ngx_conf_check_num_bounds, 1, 128
 };
+
 
 static ngx_conf_num_bounds_t  ngx_live_lls_percent_bounds = {
     ngx_conf_check_num_bounds, 0, 99
@@ -370,6 +376,7 @@ static ngx_live_module_t  ngx_live_lls_module_ctx = {
     ngx_live_lls_create_preset_conf,          /* create preset configuration */
     ngx_live_lls_merge_preset_conf,           /* merge preset configuration */
 };
+
 
 ngx_module_t  ngx_live_lls_module = {
     NGX_MODULE_V1,
@@ -514,6 +521,7 @@ ngx_live_lls_frame_list_push(ngx_live_lls_frame_list_t *list,
     return frame;
 }
 
+
 static void
 ngx_live_lls_frame_list_pop(ngx_live_lls_frame_list_t *list)
 {
@@ -543,11 +551,13 @@ done:
     ngx_live_lls_frame_list_validate(list);
 }
 
+
 static ngx_live_lls_frame_t *
 ngx_live_lls_frame_list_head(ngx_live_lls_frame_list_t *list)
 {
     return list->part->elts + list->offset;
 }
+
 
 static ngx_live_lls_frame_t *
 ngx_live_lls_frame_list_last(ngx_live_lls_frame_list_t *list)
@@ -558,6 +568,7 @@ ngx_live_lls_frame_list_last(ngx_live_lls_frame_list_t *list)
 
     return &last->elts[last->nelts - 1];
 }
+
 
 static void
 ngx_live_lls_frame_list_free(ngx_live_lls_frame_list_t *list)
@@ -576,6 +587,7 @@ ngx_live_lls_frame_list_free(ngx_live_lls_frame_list_t *list)
             list->last);
     }
 }
+
 
 static void
 ngx_live_lls_frame_list_reset(ngx_live_lls_frame_list_t *list)
@@ -660,6 +672,7 @@ ngx_live_lls_validate_pending(ngx_live_channel_t *channel,
         }
     }
 }
+
 
 static void
 ngx_live_lls_validate(ngx_live_channel_t *channel)
@@ -2861,6 +2874,7 @@ ngx_live_lls_track_init(ngx_live_track_t *track, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_lls_track_free(ngx_live_track_t *track, void *ectx)
 {
@@ -2909,6 +2923,7 @@ ngx_live_lls_track_free(ngx_live_track_t *track, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_lls_track_channel_free(ngx_live_track_t *track, void *ectx)
@@ -3016,6 +3031,7 @@ ngx_live_lls_channel_init(ngx_live_channel_t *channel, void *ectx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_live_lls_channel_free(ngx_live_channel_t *channel, void *ectx)
 {
@@ -3036,6 +3052,7 @@ ngx_live_lls_channel_free(ngx_live_channel_t *channel, void *ectx)
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_live_lls_channel_read(ngx_live_channel_t *channel, void *ectx)
@@ -3094,6 +3111,7 @@ ngx_live_lls_track_json_get_size(void *obj)
         + ngx_live_latency_stats_get_size(&ctx->latency);
 }
 
+
 static u_char *
 ngx_live_lls_track_json_write(u_char *p, void *obj)
 {
@@ -3147,6 +3165,7 @@ static ngx_live_channel_event_t    ngx_live_lls_channel_events[] = {
       ngx_live_null_event
 };
 
+
 static ngx_live_track_event_t      ngx_live_lls_track_events[] = {
     { ngx_live_lls_track_init, NGX_LIVE_EVENT_TRACK_INIT },
     { ngx_live_lls_track_free, NGX_LIVE_EVENT_TRACK_FREE },
@@ -3155,6 +3174,7 @@ static ngx_live_track_event_t      ngx_live_lls_track_events[] = {
       ngx_live_null_event
 };
 
+
 static ngx_live_json_writer_def_t  ngx_live_lls_json_writers[] = {
     { { ngx_live_lls_track_json_get_size,
         ngx_live_lls_track_json_write },
@@ -3162,6 +3182,7 @@ static ngx_live_json_writer_def_t  ngx_live_lls_json_writers[] = {
 
       ngx_live_null_json_writer
 };
+
 
 static ngx_live_segmenter_t  ngx_live_lls_ll = {
     NGX_LIVE_LLS_ID,
@@ -3245,6 +3266,7 @@ ngx_live_lls_create_preset_conf(ngx_conf_t *cf)
 
     return conf;
 }
+
 
 static char *
 ngx_live_lls_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)

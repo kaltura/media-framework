@@ -17,6 +17,7 @@ static ngx_int_t  ngx_http_pckg_error_map[VOD_ERROR_LAST - VOD_ERROR_FIRST] = {
     NGX_HTTP_INTERNAL_SERVER_ERROR,     /* VOD_REDIRECT (internal)  */
 };
 
+
 u_char  ngx_http_pckg_media_type_code[KMP_MEDIA_COUNT] = {
     'v',
     'a',
@@ -387,6 +388,7 @@ ngx_http_pckg_parse_hex_char(int ch)
 
     return -1;
 }
+
 
 ngx_int_t
 ngx_http_pckg_parse_guid(ngx_str_t *str, u_char *dst)

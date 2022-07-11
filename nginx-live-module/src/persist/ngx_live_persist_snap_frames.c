@@ -9,6 +9,7 @@ typedef struct {
     uint64_t                               next_frame_id;
 } ngx_live_persist_snap_frames_track_t;
 
+
 typedef struct {
     ngx_live_persist_snap_t                base;
     ngx_live_persist_snap_frames_track_t  *tracks;
@@ -31,6 +32,7 @@ ngx_live_persist_snap_frames_free(ngx_live_persist_snap_t *snap)
 
     ngx_destroy_pool(snap->pool);
 }
+
 
 static void
 ngx_live_persist_snap_frames_close(void *data,
@@ -90,6 +92,7 @@ done:
     ngx_live_persist_snap_frames_free(&snap->base);
 }
 
+
 static ngx_int_t
 ngx_live_persist_snap_frames_update(void *data)
 {
@@ -129,6 +132,7 @@ ngx_live_persist_snap_frames_update(void *data)
 
     return NGX_OK;
 }
+
 
 ngx_live_persist_snap_t *
 ngx_live_persist_snap_frames_create(ngx_live_channel_t *channel,

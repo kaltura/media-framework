@@ -21,6 +21,7 @@ ngx_live_period_json_get_size(ngx_live_period_t *obj)
     return result;
 }
 
+
 static u_char *
 ngx_live_period_json_write(u_char *p, ngx_live_period_t *obj)
 {
@@ -36,6 +37,7 @@ ngx_live_period_json_write(u_char *p, ngx_live_period_t *obj)
 
     return p;
 }
+
 
 /* ngx_live_timeline_conf_json writer */
 
@@ -61,6 +63,7 @@ ngx_live_timeline_conf_json_get_size(ngx_live_timeline_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_live_timeline_conf_json_write(u_char *p, ngx_live_timeline_t *obj)
@@ -118,6 +121,7 @@ ngx_live_timeline_conf_json_write(u_char *p, ngx_live_timeline_t *obj)
     return p;
 }
 
+
 /* ngx_live_timeline_json writer */
 
 size_t
@@ -139,6 +143,7 @@ ngx_live_timeline_json_get_size(ngx_live_timeline_t *obj)
 
     return result;
 }
+
 
 u_char *
 ngx_live_timeline_json_write(u_char *p, ngx_live_timeline_t *obj)
@@ -165,6 +170,7 @@ ngx_live_timeline_json_write(u_char *p, ngx_live_timeline_t *obj)
     return p;
 }
 
+
 /* ngx_live_timelines_json writer */
 
 static size_t
@@ -189,6 +195,7 @@ ngx_live_timelines_json_get_size(ngx_live_timeline_channel_ctx_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_live_timelines_json_write(u_char *p, ngx_live_timeline_channel_ctx_t *obj)
@@ -221,6 +228,7 @@ ngx_live_timelines_json_write(u_char *p, ngx_live_timeline_channel_ctx_t *obj)
     return p;
 }
 
+
 /* ngx_live_timeline_ids_json writer */
 
 size_t
@@ -246,6 +254,7 @@ ngx_live_timeline_ids_json_get_size(ngx_live_channel_t *obj)
 
     return result;
 }
+
 
 u_char *
 ngx_live_timeline_ids_json_write(u_char *p, ngx_live_channel_t *obj)
@@ -278,6 +287,7 @@ ngx_live_timeline_ids_json_write(u_char *p, ngx_live_channel_t *obj)
     return p;
 }
 
+
 /* ngx_live_timelines_module_json writer */
 
 static size_t
@@ -293,6 +303,7 @@ ngx_live_timelines_module_json_get_size(ngx_live_timeline_channel_ctx_t *obj)
 
     return result;
 }
+
 
 static u_char *
 ngx_live_timelines_module_json_write(u_char *p,

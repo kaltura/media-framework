@@ -225,6 +225,7 @@ ngx_pckg_adapt_set_get_variant_ids_size(ngx_pckg_adapt_set_t *set)
     return size;
 }
 
+
 size_t
 ngx_pckg_adapt_sets_get_variant_ids_size(ngx_pckg_adapt_sets_t *sets)
 {
