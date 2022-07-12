@@ -1,6 +1,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "ngx_pckg_ksmp.h"
+#include "ngx_pckg_ksmp_sgts.h"
 
 #include "media/mp4/mp4_defs.h"
 #include "media/avc_hevc_parser.h"
@@ -15,24 +16,6 @@
 #ifndef ngx_copy_str
 #define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
 #endif
-
-
-enum {
-    NGX_PCKG_KSMP_CTX_MAIN = 0,
-    NGX_PCKG_KSMP_CTX_CHANNEL,
-    NGX_PCKG_KSMP_CTX_TIMELINE,
-    NGX_PCKG_KSMP_CTX_VARIANT,
-    NGX_PCKG_KSMP_CTX_TRACK,
-    NGX_PCKG_KSMP_CTX_MEDIA_INFO,
-    NGX_PCKG_KSMP_CTX_TRACK_PARTS,
-    NGX_PCKG_KSMP_CTX_RENDITION_REPORTS,
-    NGX_PCKG_KSMP_CTX_SEGMENT,
-
-    NGX_PCKG_KSMP_CTX_SGTS_MAIN,
-    NGX_PCKG_KSMP_CTX_SGTS_SEGMENT,
-
-    NGX_PCKG_KSMP_CTX_COUNT
-};
 
 
 static ngx_int_t
@@ -903,7 +886,7 @@ ngx_pckg_ksmp_parse_avc_extra_data(ngx_pckg_channel_t *channel,
 }
 
 
-static ngx_int_t
+ngx_int_t
 ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
     ngx_pckg_media_info_t *node)
 {
@@ -1415,300 +1398,6 @@ ngx_pckg_ksmp_read_error(ngx_persist_block_header_t *header,
 }
 
 
-static ngx_int_t
-ngx_pckg_ksmp_read_sgts_media_info(ngx_persist_block_header_t *header,
-    ngx_mem_rstream_t *rs, void *obj)
-{
-    ngx_int_t               rc;
-    kmp_media_info_t       *kmp_media_info;
-    ngx_pckg_track_t       *track = obj;
-    ngx_pckg_channel_t     *channel;
-    ngx_pckg_media_info_t  *media_info;
-
-    if (track->media_info.elts != NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_media_info: duplicate block");
-        return NGX_BAD_DATA;
-    }
-
-    channel = track->channel;
-
-    if (ngx_array_init(&track->media_info, channel->pool, 1,
-        sizeof(ngx_pckg_media_info_t)) != NGX_OK)
-    {
-        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_media_info: array init failed");
-        return NGX_ERROR;
-    }
-
-    media_info = ngx_array_push(&track->media_info);
-    if (media_info == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_media_info: push failed");
-        return NGX_ERROR;
-    }
-
-    kmp_media_info = ngx_mem_rstream_get_ptr(rs, sizeof(*kmp_media_info));
-    if (kmp_media_info == NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_media_info: read header failed");
-        return NGX_BAD_DATA;
-    }
-
-    track->header->media_type = kmp_media_info->media_type;
-    media_info->kmp_media_info = kmp_media_info;
-
-    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
-        return NGX_BAD_DATA;
-    }
-
-    ngx_mem_rstream_get_left(rs, &media_info->extra_data);
-
-    ngx_memzero(&media_info->media_info, sizeof(media_info->media_info));
-    media_info->media_info.codec_name.data = media_info->codec_name;
-
-    rc = ngx_pckg_ksmp_parse_media_info(channel, media_info);
-    if (rc != NGX_OK) {
-        return rc;
-    }
-
-    track->last_media_info = media_info;
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_pckg_ksmp_sgts_init(ngx_pckg_channel_t *channel)
-{
-    ngx_pckg_track_t    *track;
-    ngx_pckg_variant_t  *variant;
-    ngx_pckg_segment_t  *segment;
-
-
-    /* channel */
-
-    channel->header = ngx_pcalloc(channel->pool, sizeof(*channel->header));
-    if (channel->header == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-            "ngx_pckg_ksmp_sgts_init: alloc header failed");
-        return NGX_ERROR;
-    }
-
-
-    /* variant */
-
-    if (ngx_array_init(&channel->variants, channel->pool,
-        1, sizeof(ngx_pckg_variant_t)) != NGX_OK)
-    {
-        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-            "ngx_pckg_ksmp_sgts_init: variants array init failed");
-        return NGX_ERROR;
-    }
-
-    variant = ngx_array_push(&channel->variants);
-    if (variant == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-            "ngx_pckg_ksmp_sgts_init: push variant failed");
-        return NGX_ERROR;
-    }
-
-    ngx_memzero(variant, sizeof(*variant));
-
-    variant->header = ngx_pcalloc(channel->pool, sizeof(*variant->header));
-    if (variant->header == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-            "ngx_pckg_ksmp_sgts_init: alloc variant header failed");
-        return NGX_ERROR;
-    }
-
-
-    /* track */
-
-    if (ngx_array_init(&channel->tracks, channel->pool,
-        1, sizeof(ngx_pckg_track_t)) != NGX_OK)
-    {
-        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-            "ngx_pckg_ksmp_sgts_init: tracks array init failed");
-        return NGX_ERROR;
-    }
-
-    track = ngx_array_push(&channel->tracks);
-    if (track == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-            "ngx_pckg_ksmp_sgts_init: push track failed");
-        return NGX_ERROR;
-    }
-
-    ngx_memzero(track, sizeof(*track));
-
-    track->header = ngx_pcalloc(channel->pool, sizeof(*track->header));
-    if (track->header == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-            "ngx_pckg_ksmp_sgts_init: alloc header failed");
-        return NGX_ERROR;
-    }
-
-    track->channel = channel;
-
-
-    /* segment */
-
-    segment = ngx_pcalloc(channel->pool, sizeof(*segment));
-    if (segment == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-            "ngx_pckg_ksmp_sgts_init: alloc segment failed");
-        return NGX_ERROR;
-    }
-
-    track->segment = segment;
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_pckg_ksmp_read_sgts_segment(ngx_persist_block_header_t *header,
-    ngx_mem_rstream_t *rs, void *obj)
-{
-    ngx_int_t                   rc;
-    ngx_pckg_track_t           *track;
-    ngx_mem_rstream_t           save;
-    ngx_pckg_variant_t         *variant;
-    ngx_pckg_channel_t         *channel = obj;
-    ngx_pckg_segment_t         *segment;
-    ngx_pckg_channel_media_t   *media;
-    ngx_ksmp_segment_header_t  *h;
-    ngx_ksmp_channel_header_t  *ch;
-
-    h = ngx_mem_rstream_get_ptr(rs, sizeof(*h));
-    if (h == NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_segment: read header failed");
-        return NGX_BAD_DATA;
-    }
-
-    media = channel->media;
-
-    if (media->min_segment_index > h->index) {
-        media->min_segment_index = h->index;
-    }
-
-    if (media->max_segment_index < h->index) {
-        media->max_segment_index = h->index;
-    }
-
-    if (media->min_track_id > h->track_id) {
-        media->min_track_id = h->track_id;
-    }
-
-    if (media->max_track_id < h->track_id) {
-        media->max_track_id = h->track_id;
-    }
-
-    if (h->track_id != media->track_id
-        || h->index != channel->segment_index->index)
-    {
-        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_segment: "
-            "skipping segment, track: %uD, index: %uD",
-            h->track_id, h->index);
-        return NGX_OK;
-    }
-
-    if (channel->header != NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_segment: duplicate segment");
-        return NGX_BAD_DATA;
-    }
-
-    if (channel->flags & (NGX_KSMP_FLAG_TIMELINE | NGX_KSMP_FLAG_PERIODS
-        | NGX_KSMP_FLAG_SEGMENT_INFO))
-    {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_segment: invalid request, flags: 0x%uxD",
-            channel->flags);
-        return NGX_BAD_DATA;
-    }
-
-    if (h->frame_count <= 0) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_segment: invalid frame count");
-        return NGX_BAD_DATA;
-    }
-
-
-    if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
-        return NGX_BAD_DATA;
-    }
-
-    if (ngx_pckg_ksmp_sgts_init(channel) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    track = channel->tracks.elts;
-    track->header->id = h->track_id;
-
-    segment = track->segment;
-    segment->header = h;
-
-
-    save = *rs;
-
-    rc = ngx_persist_conf_read_blocks(channel->persist,
-        NGX_PCKG_KSMP_CTX_SEGMENT, rs, segment);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_segment: read blocks failed (1) %i", rc);
-        return rc;
-    }
-
-    if (segment->frames == NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_segment: missing frame list block");
-        return NGX_BAD_DATA;
-    }
-
-    if (segment->media.data == NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_segment: missing frame data block");
-        return NGX_BAD_DATA;
-    }
-
-
-    *rs = save;
-
-    rc = ngx_persist_conf_read_blocks(channel->persist,
-        NGX_PCKG_KSMP_CTX_SGTS_SEGMENT, rs, track);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_segment: read blocks failed (2) %i", rc);
-        return rc;
-    }
-
-    if (track->last_media_info == NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_sgts_segment: missing media info block");
-        return NGX_BAD_DATA;
-    }
-
-
-    ch = channel->header;
-
-    ch->track_count = 1;
-    ch->variant_count = 1;
-    ch->timescale = track->last_media_info->media_info.timescale;
-    ch->last_modified = ngx_time();
-    ch->now = ngx_time();
-
-    variant = channel->variants.elts;
-    variant->tracks[track->header->media_type] = track;
-    variant->track_count = 1;
-
-    return NGX_OK;
-}
-
-
 ngx_int_t
 ngx_pckg_ksmp_parse(ngx_pckg_channel_t *channel, ngx_str_t *buf,
     size_t max_size)
@@ -1768,7 +1457,7 @@ ngx_pckg_ksmp_parse(ngx_pckg_channel_t *channel, ngx_str_t *buf,
             ngx_log_error(NGX_LOG_ERR, channel->log, 0,
                 "ngx_pckg_ksmp_parse: segment not found, "
                 "index: %uD, range: %uD..%uD, track: %uD, range: %uD..%uD",
-                channel->segment_index->index, media->min_segment_index,
+                media->segment_index, media->min_segment_index,
                 media->max_segment_index, media->track_id,
                 media->min_track_id, media->max_track_id);
 
@@ -1801,6 +1490,7 @@ ngx_pckg_ksmp_parse(ngx_pckg_channel_t *channel, ngx_str_t *buf,
 
 
 static ngx_persist_block_t  ngx_pckg_ksmp_blocks[] = {
+
     { NGX_KSMP_BLOCK_CHANNEL, NGX_PCKG_KSMP_CTX_MAIN, 0, NULL,
       ngx_pckg_ksmp_read_channel },
 
@@ -1854,13 +1544,6 @@ static ngx_persist_block_t  ngx_pckg_ksmp_blocks[] = {
       ngx_pckg_ksmp_read_frame_data },
 
 
-    { NGX_KSMP_BLOCK_SEGMENT, NGX_PCKG_KSMP_CTX_SGTS_MAIN, 0, NULL,
-      ngx_pckg_ksmp_read_sgts_segment },
-
-    { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_PCKG_KSMP_CTX_SGTS_SEGMENT, 0, NULL,
-      ngx_pckg_ksmp_read_sgts_media_info },
-
-
     { NGX_KSMP_BLOCK_ERROR, NGX_PCKG_KSMP_CTX_MAIN, 0, NULL,
       ngx_pckg_ksmp_read_error },
 
@@ -1882,6 +1565,10 @@ ngx_pckg_ksmp_conf_create(ngx_conf_t *cf)
     if (ngx_persist_conf_add_blocks(cf, persist, ngx_pckg_ksmp_blocks)
         != NGX_OK)
     {
+        return NULL;
+    }
+
+    if (ngx_pckg_ksmp_sgts_add_blocks(cf, persist) != NGX_OK) {
         return NULL;
     }
 

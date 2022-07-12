@@ -27,6 +27,24 @@ typedef struct ngx_pckg_media_info_s  ngx_pckg_media_info_t;
 #include "ngx_pckg_media_info.h"
 
 
+enum {
+    NGX_PCKG_KSMP_CTX_MAIN = 0,
+    NGX_PCKG_KSMP_CTX_CHANNEL,
+    NGX_PCKG_KSMP_CTX_TIMELINE,
+    NGX_PCKG_KSMP_CTX_VARIANT,
+    NGX_PCKG_KSMP_CTX_TRACK,
+    NGX_PCKG_KSMP_CTX_MEDIA_INFO,
+    NGX_PCKG_KSMP_CTX_TRACK_PARTS,
+    NGX_PCKG_KSMP_CTX_RENDITION_REPORTS,
+    NGX_PCKG_KSMP_CTX_SEGMENT,
+
+    NGX_PCKG_KSMP_CTX_SGTS_MAIN,
+    NGX_PCKG_KSMP_CTX_SGTS_SEGMENT,
+
+    NGX_PCKG_KSMP_CTX_COUNT
+};
+
+
 typedef struct {
     ngx_str_t                      channel_id;
     ngx_str_t                      timeline_id;
@@ -143,6 +161,9 @@ typedef struct {
 
 typedef struct {
     uint32_t                       track_id;
+    uint32_t                       segment_index;
+    uint32_t                       media_type_mask;
+
     uint32_t                       min_segment_index;
     uint32_t                       max_segment_index;
     uint32_t                       min_track_id;
@@ -179,6 +200,9 @@ ngx_persist_conf_t *ngx_pckg_ksmp_conf_create(ngx_conf_t *cf);
 
 ngx_int_t ngx_pckg_ksmp_create_request(ngx_pool_t *pool,
     ngx_pckg_ksmp_req_t *req, ngx_str_t *result);
+
+ngx_int_t ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
+    ngx_pckg_media_info_t *node);
 
 ngx_int_t ngx_pckg_ksmp_parse(ngx_pckg_channel_t *channel, ngx_str_t *buf,
     size_t max_size);

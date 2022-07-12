@@ -58,7 +58,7 @@ ngx_pckg_segment_info_iter_gap_count(ngx_pckg_segment_info_iter_t *iter,
 
     for ( ;; ) {
 
-        if (iter->cur > iter->last || iter->cur->index >= last_index) {
+        if (iter->cur >= iter->last || iter->cur->index >= last_index) {
             if (iter->bitrate == 0) {
                 gap_count += last_index - start;
             }

@@ -217,6 +217,7 @@ PCKG_HTTP_SRCS="                                              \
     $ngx_addon_dir/src/ngx_http_pckg_utils.c                  \
     $ngx_addon_dir/src/ngx_pckg_adapt_set.c                   \
     $ngx_addon_dir/src/ngx_pckg_ksmp.c                        \
+    $ngx_addon_dir/src/ngx_pckg_ksmp_sgts.c                   \
     $ngx_addon_dir/src/ngx_pckg_media_group.c                 \
     $ngx_addon_dir/src/ngx_pckg_media_info.c                  \
     $ngx_addon_dir/src/ngx_pckg_segment_info.c                \
@@ -231,6 +232,7 @@ PCKG_DEPS="                                                   \
     $ngx_addon_dir/src/ngx_http_pckg_utils.h                  \
     $ngx_addon_dir/src/ngx_pckg_adapt_set.h                   \
     $ngx_addon_dir/src/ngx_pckg_ksmp.h                        \
+    $ngx_addon_dir/src/ngx_pckg_ksmp_sgts.h                   \
     $ngx_addon_dir/src/ngx_pckg_media_group.h                 \
     $ngx_addon_dir/src/ngx_pckg_media_info.h                  \
     $ngx_addon_dir/src/ngx_pckg_segment_info.h                \

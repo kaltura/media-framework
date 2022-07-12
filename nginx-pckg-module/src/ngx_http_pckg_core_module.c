@@ -554,31 +554,25 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
             goto done;
         }
 
-        media->track_id = ngx_atoi(ctx->params.variant_ids.data,
-            ctx->params.variant_ids.len);
-        if (media->track_id == (uint32_t) NGX_ERROR) {
-            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                "ngx_http_pckg_core_post_handler: invalid track id \"%V\"",
-                &ctx->params.variant_ids);
-            rc = NGX_HTTP_BAD_REQUEST;
-            goto done;
+        if (ctx->params.variant_ids.len > 0) {
+            media->track_id = ngx_atoi(ctx->params.variant_ids.data,
+                ctx->params.variant_ids.len);
+            if (media->track_id == (uint32_t) NGX_ERROR) {
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                    "ngx_http_pckg_core_post_handler: invalid track id \"%V\"",
+                    &ctx->params.variant_ids);
+                rc = NGX_HTTP_BAD_REQUEST;
+                goto done;
+            }
         }
 
         media->min_track_id = NGX_MAX_UINT32_VALUE;
         media->min_segment_index = NGX_MAX_UINT32_VALUE;
 
+        media->segment_index = ctx->params.segment_index;
+        media->media_type_mask = ctx->params.media_type_mask;
+
         channel->media = media;
-
-        channel->segment_index = ngx_pcalloc(r->pool,
-            sizeof(*channel->segment_index));
-        if (channel->segment_index == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                "ngx_http_pckg_core_post_handler: alloc index failed");
-            rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
-            goto done;
-        }
-
-        channel->segment_index->index = ctx->params.segment_index;
     }
 
     ngx_rbtree_init(&channel->vars.rbtree, &channel->vars.sentinel,
