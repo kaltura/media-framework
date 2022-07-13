@@ -21,10 +21,33 @@
 #define NGX_HTTP_PCKG_GUID_SIZE  (16)
 
 
+#define ngx_conf_init_complex_int_value(conf, default)                       \
+    if (conf == NULL) {                                                      \
+        conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_complex_value_t));      \
+        if (conf == NULL) {                                                  \
+            return NGX_CONF_ERROR;                                           \
+        }                                                                    \
+                                                                             \
+        conf->u.size = default;                                              \
+    }
+
+
 #if nginx_version < 1021000
 char *ngx_http_set_complex_value_zero_slot(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 #endif
+
+ngx_flag_t ngx_http_complex_value_flag(ngx_http_request_t *r,
+    ngx_http_complex_value_t *val, ngx_flag_t default_value);
+
+char *ngx_http_set_complex_value_flag_slot(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+
+ngx_uint_t ngx_http_complex_value_percent(ngx_http_request_t *r,
+    ngx_http_complex_value_t *val, ngx_uint_t default_value);
+
+char *ngx_http_set_complex_value_percent_slot(ngx_conf_t *cf,
+    ngx_command_t *cmd, void *conf);
 
 
 u_char *ngx_http_pckg_parse_uint32(u_char *start_pos, u_char *end_pos,

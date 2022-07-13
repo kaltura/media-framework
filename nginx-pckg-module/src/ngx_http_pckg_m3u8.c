@@ -20,19 +20,12 @@
 
 static char *ngx_http_pckg_m3u8_low_latency(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
-static char *ngx_http_pckg_m3u8_control(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf);
 
 static ngx_int_t ngx_http_pckg_m3u8_preconfiguration(ngx_conf_t *cf);
 
 static void *ngx_http_pckg_m3u8_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
     void *child);
-
-
-#define M3U8_CTL_FLAG_CAN_SKIP_UNTIL  (0x01)
-#define M3U8_CTL_FLAG_BLOCK_RELOAD    (0x02)
-#define M3U8_CTL_FLAG_PART_HOLD_BACK  (0x04)
 
 
 /* master playlist */
@@ -126,9 +119,9 @@ typedef struct {
 
 
 typedef struct {
-    ngx_flag_t                      block_reload;
-    ngx_uint_t                      part_hold_back_percent;
-    ngx_uint_t                      skip_boundary_percent;
+    ngx_http_complex_value_t       *block_reload;
+    ngx_http_complex_value_t       *part_hold_back_percent;
+    ngx_http_complex_value_t       *skip_boundary_percent;
 } ngx_http_pckg_m3u8_ctl_conf_t;
 
 
@@ -195,11 +188,25 @@ static ngx_command_t  ngx_http_pckg_m3u8_commands[] = {
       offsetof(ngx_http_pckg_m3u8_loc_conf_t, rendition_reports),
       NULL },
 
-    { ngx_string("pckg_m3u8_control"),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
-      ngx_http_pckg_m3u8_control,
+    { ngx_string("pckg_m3u8_ctl_block_reload"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_set_complex_value_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_pckg_m3u8_loc_conf_t, ctl),
+      offsetof(ngx_http_pckg_m3u8_loc_conf_t, ctl.block_reload),
+      NULL },
+
+    { ngx_string("pckg_m3u8_ctl_part_hold_back_percent"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_set_complex_value_percent_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_m3u8_loc_conf_t, ctl.part_hold_back_percent),
+      NULL },
+
+    { ngx_string("pckg_m3u8_ctl_skip_boundary_percent"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_set_complex_value_percent_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_m3u8_loc_conf_t, ctl.skip_boundary_percent),
       NULL },
 
 #if (NGX_HAVE_OPENSSL_EVP)
@@ -1365,9 +1372,11 @@ static u_char *
 ngx_http_pckg_m3u8_server_control_write(u_char *p, ngx_http_request_t *r,
     ngx_pckg_channel_t *channel, uint32_t target_duration)
 {
-    uint32_t                        flags;
     ngx_flag_t                      comma;
     ngx_uint_t                      value;
+    ngx_flag_t                      block_reload;
+    ngx_uint_t                      part_hold_back_percent;
+    ngx_uint_t                      skip_boundary_percent;
     ngx_pckg_timeline_t            *timeline;
     ngx_http_pckg_core_ctx_t       *ctx;
     ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
@@ -1376,31 +1385,45 @@ ngx_http_pckg_m3u8_server_control_write(u_char *p, ngx_http_request_t *r,
     mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
     timeline = &channel->timeline;
 
-    flags = 0;
-
-    if (mlcf->ctl.skip_boundary_percent) {
-        flags |= M3U8_CTL_FLAG_CAN_SKIP_UNTIL;
-    }
+    skip_boundary_percent = ngx_http_complex_value_percent(r,
+        mlcf->ctl.skip_boundary_percent, 0);
 
     if (ctx->params.media_type_count == 1) {
-        if (mlcf->ctl.block_reload && !timeline->header->end_list) {
-            flags |= M3U8_CTL_FLAG_BLOCK_RELOAD;
+
+        /* iPhone player does not allow CAN-BLOCK-RELOAD=YES when the stream
+            has EXT-X-ENDLIST */
+
+        if (!timeline->header->end_list) {
+            block_reload = ngx_http_complex_value_flag(r,
+                mlcf->ctl.block_reload, 0);
+
+        } else {
+            block_reload = 0;
         }
 
-        if (mlcf->ctl.part_hold_back_percent && mlcf->parts
-            && channel->header->part_duration)
-        {
-            flags |= M3U8_CTL_FLAG_PART_HOLD_BACK;
+        /* PART-HOLD-BACK is REQUIRED if the Playlist contains the EXT-X-
+            PART-INF tag */
+
+        if (mlcf->parts && channel->header->part_duration) {
+            part_hold_back_percent = ngx_http_complex_value_percent(r,
+                mlcf->ctl.part_hold_back_percent, 300);
+
+        } else {
+            part_hold_back_percent = 0;
         }
+
+    } else {
+        block_reload = 0;
+        part_hold_back_percent = 0;
     }
 
-    if (!flags) {
+    if (!block_reload && !skip_boundary_percent && !part_hold_back_percent) {
         return p;
     }
 
     p = ngx_copy_fix(p, M3U8_SERVER_CONTROL);
 
-    if (flags & M3U8_CTL_FLAG_BLOCK_RELOAD) {
+    if (block_reload) {
         comma = 1;
         p = ngx_copy_fix(p, M3U8_CTL_BLOCK_RELOAD);
 
@@ -1408,7 +1431,7 @@ ngx_http_pckg_m3u8_server_control_write(u_char *p, ngx_http_request_t *r,
         comma = 0;
     }
 
-    if (flags & M3U8_CTL_FLAG_CAN_SKIP_UNTIL) {
+    if (skip_boundary_percent) {
         if (comma) {
             *p++ = ',';
 
@@ -1416,13 +1439,13 @@ ngx_http_pckg_m3u8_server_control_write(u_char *p, ngx_http_request_t *r,
             comma = 1;
         }
 
-        value = target_duration * mlcf->ctl.skip_boundary_percent * 10;
+        value = target_duration * skip_boundary_percent * 10;
 
         p = ngx_sprintf(p, M3U8_CTL_CAN_SKIP_UNTIL,
             value / 1000, value % 1000);
     }
 
-    if (flags & M3U8_CTL_FLAG_PART_HOLD_BACK) {
+    if (part_hold_back_percent) {
         if (comma) {
             *p++ = ',';
 
@@ -1431,7 +1454,7 @@ ngx_http_pckg_m3u8_server_control_write(u_char *p, ngx_http_request_t *r,
         }
 
         value = channel->header->part_duration
-            * mlcf->ctl.part_hold_back_percent * 10
+            * part_hold_back_percent * 10
             / channel->header->timescale;
 
         p = ngx_sprintf(p, M3U8_CTL_PART_HOLD_BACK,
@@ -1827,6 +1850,7 @@ ngx_http_pckg_m3u8_args_handler(ngx_http_request_t *r, void *data,
     ngx_str_t *key, ngx_str_t *value)
 {
     ngx_int_t                       int_val;
+    ngx_uint_t                      skip_boundary_percent;
     ngx_pckg_ksmp_req_t            *params = data;
     ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
 
@@ -1845,7 +1869,10 @@ ngx_http_pckg_m3u8_args_handler(ngx_http_request_t *r, void *data,
             == 0)
     {
         mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
-        if (!mlcf->ctl.skip_boundary_percent) {
+
+        skip_boundary_percent = ngx_http_complex_value_percent(r,
+            mlcf->ctl.skip_boundary_percent, 0);
+        if (!skip_boundary_percent) {
             return NGX_OK;
         }
 
@@ -1855,7 +1882,7 @@ ngx_http_pckg_m3u8_args_handler(ngx_http_request_t *r, void *data,
                 && ngx_memcmp(value->data, "v2", sizeof("v2") - 1) == 0))
         {
             params->flags |= NGX_KSMP_FLAG_SKIP_SEGMENTS;
-            params->skip_boundary_percent = mlcf->ctl.skip_boundary_percent;
+            params->skip_boundary_percent = skip_boundary_percent;
 
         } else {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
@@ -2000,90 +2027,9 @@ ngx_http_pckg_m3u8_low_latency(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_conf_init_value(mlcf->parts, 1);
     ngx_conf_init_value(mlcf->rendition_reports, 1);
 
-    ngx_conf_init_value(mlcf->ctl.block_reload, 1);
-    ngx_conf_init_uint_value(mlcf->ctl.skip_boundary_percent, 600);
-    ngx_conf_init_uint_value(mlcf->ctl.part_hold_back_percent, 300);
-
-    return NGX_CONF_OK;
-}
-
-
-static char *
-ngx_http_pckg_m3u8_control(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
-{
-    char  *p = conf;
-
-    ngx_str_t                      *value;
-    ngx_int_t                       n;
-    ngx_uint_t                      i;
-    ngx_http_pckg_m3u8_ctl_conf_t  *ctl;
-
-    ctl = (ngx_http_pckg_m3u8_ctl_conf_t *) (p + cmd->offset);
-
-    value = cf->args->elts;
-
-    ngx_memzero(ctl, sizeof(*ctl));
-
-    if (cf->args->nelts == 2 && ngx_strcmp(value[1].data, "all") == 0) {
-        ctl->block_reload = 1;
-        ctl->skip_boundary_percent = 600;
-        ctl->part_hold_back_percent = 300;
-        return NGX_CONF_OK;
-    }
-
-    for (i = 1; i < cf->args->nelts; i++) {
-
-        if (ngx_strncmp(value[i].data, "block_reload=", 13) == 0) {
-
-            if (ngx_strcmp(&value[i].data[13], "on") == 0) {
-                ctl->block_reload = 1;
-
-            } else if (ngx_strcmp(&value[i].data[13], "off") == 0) {
-                ctl->block_reload = 0;
-
-            } else {
-                goto invalid;
-            }
-
-            continue;
-        }
-
-        if (ngx_strncmp(value[i].data, "skip_boundary=", 14) == 0) {
-            if (ngx_strcmp(&value[i].data[14], "default") == 0) {
-                n = 600;
-
-            } else {
-                n = ngx_atofp(value[i].data + 14, value[i].len - 14, 2);
-                if (n == NGX_ERROR || n == 0) {
-                    goto invalid;
-                }
-            }
-
-            ctl->skip_boundary_percent = n;
-            continue;
-        }
-
-        if (ngx_strncmp(value[i].data, "part_hold_back=", 15) == 0) {
-            if (ngx_strcmp(&value[i].data[15], "default") == 0) {
-                n = 300;
-
-            } else {
-                n = ngx_atofp(value[i].data + 15, value[i].len - 15, 2);
-                if (n == NGX_ERROR || n == 0) {
-                    goto invalid;
-                }
-            }
-
-            ctl->part_hold_back_percent = n;
-            continue;
-        }
-
-    invalid:
-
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-            "invalid parameter \"%V\"", &value[i]);
-        return NGX_CONF_ERROR;
-    }
+    ngx_conf_init_complex_int_value(mlcf->ctl.block_reload, 1);
+    ngx_conf_init_complex_int_value(mlcf->ctl.skip_boundary_percent, 600);
+    ngx_conf_init_complex_int_value(mlcf->ctl.part_hold_back_percent, 300);
 
     return NGX_CONF_OK;
 }
@@ -2119,10 +2065,6 @@ ngx_http_pckg_m3u8_create_loc_conf(ngx_conf_t *cf)
     conf->parts = NGX_CONF_UNSET;
     conf->rendition_reports = NGX_CONF_UNSET;
 
-    conf->ctl.block_reload = NGX_CONF_UNSET;
-    conf->ctl.part_hold_back_percent = NGX_CONF_UNSET_UINT;
-    conf->ctl.skip_boundary_percent = NGX_CONF_UNSET_UINT;
-
     conf->enc.output_iv = NGX_CONF_UNSET;
 
     return conf;
@@ -2149,16 +2091,17 @@ ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
                          prev->rendition_reports, 0);
 
 
-    ngx_conf_merge_value(conf->ctl.block_reload,
-                         prev->ctl.block_reload, 0);
+    if (conf->ctl.block_reload == NULL) {
+        conf->ctl.block_reload = prev->ctl.block_reload;
+    }
 
-    /* PART-HOLD-BACK is REQUIRED if the Playlist contains the EXT-X-
-      PART-INF tag */
-    ngx_conf_merge_uint_value(conf->ctl.part_hold_back_percent,
-                              prev->ctl.part_hold_back_percent, 300);
+    if (conf->ctl.part_hold_back_percent == NULL) {
+        conf->ctl.part_hold_back_percent = prev->ctl.part_hold_back_percent;
+    }
 
-    ngx_conf_merge_uint_value(conf->ctl.skip_boundary_percent,
-                              prev->ctl.skip_boundary_percent, 0);
+    if (conf->ctl.skip_boundary_percent == NULL) {
+        conf->ctl.skip_boundary_percent = prev->ctl.skip_boundary_percent;
+    }
 
 
     ngx_conf_merge_value(conf->enc.output_iv,
