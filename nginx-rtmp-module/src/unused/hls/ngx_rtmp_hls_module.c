@@ -308,7 +308,7 @@ static ngx_command_t ngx_rtmp_hls_commands[] = {
       offsetof(ngx_rtmp_hls_app_conf_t, frags_per_key),
       NULL },
 
-    ngx_null_command
+      ngx_null_command
 };
 
 

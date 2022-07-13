@@ -61,7 +61,7 @@ static ngx_command_t  ngx_rtmp_kmp_api_commands[] = {
       0,
       NULL},
 
-    ngx_null_command
+      ngx_null_command
 };
 
 

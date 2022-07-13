@@ -1548,7 +1548,7 @@ static ngx_persist_block_t  ngx_pckg_ksmp_blocks[] = {
       ngx_pckg_ksmp_read_error },
 
 
-    ngx_null_persist_block
+      ngx_null_persist_block
 };
 
 

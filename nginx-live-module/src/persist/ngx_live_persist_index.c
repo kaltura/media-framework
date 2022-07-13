@@ -68,6 +68,7 @@ typedef struct {
 
 
 static ngx_command_t  ngx_live_persist_index_commands[] = {
+
     { ngx_string("persist_max_delta_segments"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
@@ -991,7 +992,7 @@ static ngx_persist_block_t  ngx_live_persist_index_blocks[] = {
       ngx_live_persist_index_write_track,
       ngx_live_persist_index_read_track },
 
-    ngx_null_persist_block
+      ngx_null_persist_block
 };
 
 

@@ -2353,7 +2353,7 @@ static ngx_persist_block_t  ngx_live_media_info_blocks[] = {
       NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO, 0,
       ngx_live_media_info_write_serve, NULL },
 
-    ngx_null_persist_block
+      ngx_null_persist_block
 };
 
 

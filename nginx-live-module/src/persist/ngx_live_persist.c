@@ -24,6 +24,7 @@ static ngx_conf_num_bounds_t  ngx_live_persist_comp_level_bounds = {
 
 
 static ngx_command_t  ngx_live_persist_commands[] = {
+
     { ngx_string("persist_write"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_flag_slot,

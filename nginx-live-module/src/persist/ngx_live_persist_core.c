@@ -47,6 +47,7 @@ typedef struct {
 
 
 static ngx_command_t  ngx_live_persist_core_commands[] = {
+
     { ngx_string("persist_setup_path"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_live_set_complex_value_slot,

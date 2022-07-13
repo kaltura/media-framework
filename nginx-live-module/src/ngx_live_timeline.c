@@ -3646,7 +3646,7 @@ static ngx_persist_block_t  ngx_live_timeline_blocks[] = {
     { NGX_KSMP_BLOCK_PERIOD, NGX_LIVE_PERSIST_CTX_SERVE_TIMELINE, 0,
       ngx_live_timeline_serve_write_periods, NULL },
 
-    ngx_null_persist_block
+      ngx_null_persist_block
 };
 
 

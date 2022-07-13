@@ -68,7 +68,7 @@ static ngx_command_t  ngx_rtmp_stat_commands[] = {
         offsetof(ngx_rtmp_stat_loc_conf_t, stylesheet),
         NULL },
 
-    ngx_null_command
+      ngx_null_command
 };
 
 

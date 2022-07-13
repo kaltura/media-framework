@@ -130,6 +130,7 @@ static ngx_int_t ngx_live_filler_post_json(ngx_live_json_cmds_ctx_t *jctx,
 
 
 static ngx_command_t  ngx_live_filler_commands[] = {
+
     { ngx_string("persist_filler_path"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_live_set_complex_value_slot,
@@ -3027,7 +3028,7 @@ static ngx_persist_block_t  ngx_live_filler_blocks[] = {
       NGX_PERSIST_FLAG_SINGLE,
       ngx_live_filler_serve_write_frame_data, NULL },
 
-    ngx_null_persist_block
+      ngx_null_persist_block
 };
 
 

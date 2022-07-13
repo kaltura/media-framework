@@ -68,6 +68,7 @@ static ngx_live_module_t  ngx_live_segment_index_module_ctx = {
 
 
 static ngx_command_t  ngx_live_segment_index_commands[] = {
+
     { ngx_string("force_memory_segments"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,

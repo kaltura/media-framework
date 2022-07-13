@@ -69,6 +69,7 @@ typedef struct {
 
 
 static ngx_command_t  ngx_live_persist_setup_commands[] = {
+
     { ngx_string("persist_setup_timeout"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_msec_slot,
