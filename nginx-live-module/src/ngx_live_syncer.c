@@ -905,7 +905,7 @@ static ngx_persist_block_t  ngx_live_syncer_blocks[] = {
       ngx_live_syncer_write_index_track,
       ngx_live_syncer_read_index_track },
 
-    ngx_null_persist_block
+      ngx_null_persist_block
 };
 
 

@@ -66,6 +66,7 @@ static char *ngx_live_input_bufs_merge_preset_conf(ngx_conf_t *cf,
 
 
 static ngx_command_t  ngx_live_input_bufs_commands[] = {
+
     { ngx_string("input_bufs_size"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,

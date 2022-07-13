@@ -52,6 +52,7 @@ static ngx_int_t ngx_live_dynamic_var_set_vars(ngx_live_json_cmds_ctx_t *jctx,
 
 
 static ngx_command_t  ngx_live_dynamic_var_commands[] = {
+
     { ngx_string("dynamic_var_max_size"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
@@ -449,7 +450,7 @@ static ngx_persist_block_t  ngx_live_dynamic_var_blocks[] = {
     { NGX_KSMP_BLOCK_DYNAMIC_VAR, NGX_LIVE_PERSIST_CTX_SERVE_CHANNEL, 0,
       ngx_live_dynamic_var_serve_write, NULL },
 
-    ngx_null_persist_block
+      ngx_null_persist_block
 };
 
 

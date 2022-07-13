@@ -86,6 +86,7 @@ static ngx_command_t  ngx_live_store_s3_commands[] = {
 
 
 static ngx_command_t  ngx_live_store_s3_block_commands[] = {
+
     { ngx_string("url"),
       NGX_CONF_TAKE1,
       ngx_live_store_s3_set_url_slot,

@@ -134,7 +134,7 @@ static ngx_command_t ngx_rtmp_dash_commands[] = {
       offsetof(ngx_rtmp_dash_app_conf_t, nested),
       NULL },
 
-    ngx_null_command
+      ngx_null_command
 };
 
 

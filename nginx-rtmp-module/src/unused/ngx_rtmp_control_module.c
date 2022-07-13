@@ -67,7 +67,7 @@ static ngx_command_t  ngx_rtmp_control_commands[] = {
       offsetof(ngx_rtmp_control_loc_conf_t, control),
       ngx_rtmp_control_masks },
 
-    ngx_null_command
+      ngx_null_command
 };
 
 
