@@ -46,6 +46,9 @@ static ngx_int_t ngx_http_pckg_core_media_type_variable(ngx_http_request_t *r,
 static ngx_int_t ngx_http_pckg_core_channel_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
+static ngx_int_t ngx_http_pckg_core_part_duration_variable(
+    ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+
 static ngx_int_t ngx_http_pckg_core_err_code_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
@@ -326,6 +329,9 @@ static ngx_http_variable_t  ngx_http_pckg_core_vars[] = {
     { ngx_string("pckg_err_msg"), NULL,
       ngx_http_pckg_core_channel_variable,
       offsetof(ngx_pckg_channel_t, err_msg), 0, 0 },
+
+    { ngx_string("pckg_part_duration"), NULL,
+      ngx_http_pckg_core_part_duration_variable, 0, 0, 0 },
 
     { ngx_string("pckg_last_part"), NULL,
       ngx_http_pckg_core_last_part_variable, 0, 0, 0 },
@@ -1728,6 +1734,42 @@ ngx_http_pckg_core_channel_variable(ngx_http_request_t *r,
     } else {
         v->not_found = 1;
     }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_pckg_core_part_duration_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    uint32_t                    part_duration;
+    ngx_http_pckg_core_ctx_t   *ctx;
+    ngx_ksmp_channel_header_t  *ch;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    if (ctx == NULL || ctx->channel == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    ch = ctx->channel->header;
+    if (ch == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    part_duration = rescale_time(ch->part_duration, ch->timescale, 1000);
+
+    v->data = ngx_pnalloc(r->pool, NGX_INT32_LEN);
+    if (v->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->len = ngx_sprintf(v->data, "%uD", part_duration) - v->data;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
 
     return NGX_OK;
 }

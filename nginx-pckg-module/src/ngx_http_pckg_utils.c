@@ -64,6 +64,146 @@ ngx_http_set_complex_value_zero_slot(ngx_conf_t *cf, ngx_command_t *cmd,
 #endif
 
 
+static ngx_flag_t
+ngx_parse_flag(ngx_str_t *value)
+{
+    if (value->len == 2 && ngx_strncasecmp(value->data,
+        (u_char *) "on", 2) == 0)
+    {
+        return 1;
+
+    } else if (value->len == 3 && ngx_strncasecmp(value->data,
+        (u_char *) "off", 3) == 0)
+    {
+        return 0;
+
+    } else {
+        return NGX_ERROR;
+    }
+}
+
+
+ngx_flag_t
+ngx_http_complex_value_flag(ngx_http_request_t *r,
+    ngx_http_complex_value_t *val, ngx_flag_t default_value)
+{
+    ngx_str_t   value;
+    ngx_flag_t  flag;
+
+    if (val == NULL) {
+        return default_value;
+    }
+
+    if (val->lengths == NULL) {
+        return val->u.size;
+    }
+
+    if (ngx_http_complex_value(r, val, &value) != NGX_OK) {
+        return default_value;
+    }
+
+    flag = ngx_parse_flag(&value);
+
+    if (flag == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "invalid flag \"%V\"", &value);
+        return default_value;
+    }
+
+    return flag;
+}
+
+
+char *
+ngx_http_set_complex_value_flag_slot(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf)
+{
+    char  *p = conf;
+
+    char                      *rv;
+    ngx_http_complex_value_t  *cv;
+
+    rv = ngx_http_set_complex_value_slot(cf, cmd, conf);
+
+    if (rv != NGX_CONF_OK) {
+        return rv;
+    }
+
+    cv = *(ngx_http_complex_value_t **) (p + cmd->offset);
+
+    if (cv->lengths) {
+        return NGX_CONF_OK;
+    }
+
+    cv->u.size = ngx_parse_flag(&cv->value);
+    if (cv->u.size == (size_t) NGX_ERROR) {
+        return "invalid value";
+    }
+
+    return NGX_CONF_OK;
+}
+
+
+ngx_uint_t
+ngx_http_complex_value_percent(ngx_http_request_t *r,
+    ngx_http_complex_value_t *val, ngx_uint_t default_value)
+{
+    ngx_str_t  value;
+    ngx_int_t  percent;
+
+    if (val == NULL) {
+        return default_value;
+    }
+
+    if (val->lengths == NULL) {
+        return val->u.size;
+    }
+
+    if (ngx_http_complex_value(r, val, &value) != NGX_OK) {
+        return default_value;
+    }
+
+    percent = ngx_atofp(value.data, value.len, 2);
+    if (percent == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "invalid value \"%V\"", &value);
+        return default_value;
+    }
+
+    return percent;
+}
+
+
+char *
+ngx_http_set_complex_value_percent_slot(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf)
+{
+    char  *p = conf;
+
+    char                      *rv;
+    ngx_http_complex_value_t  *cv;
+
+    rv = ngx_http_set_complex_value_slot(cf, cmd, conf);
+
+    if (rv != NGX_CONF_OK) {
+        return rv;
+    }
+
+    cv = *(ngx_http_complex_value_t **) (p + cmd->offset);
+
+    if (cv->lengths) {
+        return NGX_CONF_OK;
+    }
+
+    cv->u.size = ngx_atofp(cv->value.data, cv->value.len, 2);
+    if (cv->u.size == (size_t) NGX_ERROR) {
+        return "invalid value";
+    }
+
+    return NGX_CONF_OK;
+}
+
+
 /* uri parsing */
 
 u_char *
