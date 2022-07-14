@@ -244,27 +244,6 @@ ngx_live_segment_list_free_nodes(ngx_live_segment_list_t *segment_list,
 
 
 ngx_int_t
-ngx_live_segment_list_get_segment_time(ngx_live_segment_list_t *segment_list,
-    uint32_t segment_index, int64_t *start, int64_t *end)
-{
-    ngx_int_t                rc;
-    ngx_live_segment_iter_t  iter;
-
-    rc = ngx_live_segment_iter_init(segment_list, &iter, segment_index, 1,
-        start);
-    if (rc != NGX_OK) {
-        return rc;
-    }
-
-    if (end != NULL) {
-        *end = *start + ngx_live_segment_iter_get_one(&iter);
-    }
-
-    return NGX_OK;
-}
-
-
-ngx_int_t
 ngx_live_segment_list_get_segment_index(
     ngx_live_segment_list_t *segment_list, int64_t time,
     ngx_live_get_segment_mode_e mode, uint32_t *segment_index,

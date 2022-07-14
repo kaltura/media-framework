@@ -1990,15 +1990,15 @@ ngx_live_timelines_get_segment_index(ngx_live_channel_t *channel, int64_t time,
 
 
 ngx_int_t
-ngx_live_timelines_get_segment_time(ngx_live_channel_t *channel,
-    uint32_t segment_index, int64_t *start, int64_t *end)
+ngx_live_timelines_get_segment_iter(ngx_live_channel_t *channel,
+    ngx_live_segment_iter_t *iter, uint32_t segment_index, int64_t *start)
 {
     ngx_live_timeline_channel_ctx_t  *cctx;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
-    return ngx_live_segment_list_get_segment_time(&cctx->segment_list,
-        segment_index, start, end);
+    return ngx_live_segment_iter_init(&cctx->segment_list, iter, segment_index,
+        1, start);
 }
 
 
@@ -3263,7 +3263,6 @@ ngx_live_timeline_serve_skip_segments(ngx_live_timeline_t *timeline,
     ngx_live_persist_serve_scope_t *scope, ngx_live_period_t *out)
 {
     int64_t                           time;
-    int64_t                           ignore;
     uint32_t                          max_index;
     uint32_t                          timescale;
     uint32_t                          segment_index;
@@ -3276,6 +3275,7 @@ ngx_live_timeline_serve_skip_segments(ngx_live_timeline_t *timeline,
     ngx_live_track_t                 *track;
     ngx_live_period_t                *period;
     ngx_live_channel_t               *channel;
+    ngx_live_segment_iter_t           iter;
     ngx_ksmp_timeline_header_t       *sp;
     ngx_live_timeline_channel_ctx_t  *cctx;
 
@@ -3331,8 +3331,8 @@ ngx_live_timeline_serve_skip_segments(ngx_live_timeline_t *timeline,
             continue;
         }
 
-        if (ngx_live_segment_list_get_segment_time(&cctx->segment_list,
-            max_index, &time, &ignore) != NGX_OK)
+        if (ngx_live_segment_iter_init(&cctx->segment_list, &iter, max_index,
+            1, &time) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_ALERT, &timeline->log, 0,
                 "ngx_live_timeline_serve_skip_segments: "
