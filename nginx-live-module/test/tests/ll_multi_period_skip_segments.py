@@ -35,41 +35,55 @@ def splitManifest(body):
     dateLine, data = data.split('\n', 1)
     date = parseDateTime(dateLine)
 
-    if header.endswith(DISCONTINUITY + '\n'):
-        header = header[:-len(DISCONTINUITY + '\n')]
-        data = DISCONTINUITY + '\n' + data
+    # move map/discontinuity from header to data
+    headerLast = getLastLine(header)
+    if headerLast.startswith('#EXT-X-MAP'):
+        header = header[:-len(headerLast)]
+        data = headerLast + data
+
+    headerLast = getLastLine(header)
+    if headerLast.startswith(DISCONTINUITY):
+        header = header[:-len(headerLast)]
+        data = headerLast + data
 
     return header, date, data
 
 def skipSegments(body, date, skip):
+    # get the strip size
     size = 0
-    prefix = ''
     for curLine in body.split('\n'):
-        # if there is a date-time tag right after the skipped segment, parse and remove it
-        if curLine.startswith(PROGRAM_DATE_TIME):
-            date = parseDateTime(curLine)
-            size += len(curLine) + 1
-            continue
-
         if skip <= 0:
-            if curLine.startswith(DISCONTINUITY):
-                # add the discontinuity to the body after parsing the date time
-                size += len(curLine) + 1
-                prefix = curLine + '\n'
-                continue
             break
 
         size += len(curLine) + 1
+
+        # update the date
+        if curLine.startswith(PROGRAM_DATE_TIME):
+            date = parseDateTime(curLine)
+            continue
+
         m = re.match('^#EXTINF:([0-9.]+)', curLine)
         if m is not None:
-            # update the date
             date += float(m.groups()[0])
             continue
 
         if not curLine.startswith('#'):
             skip -= 1
 
-    return (date, prefix + body[size:])
+    # strip the body
+    body = body[size:]
+
+    # if there is a date-time tag before the first segment, parse and remove it
+    for curLine in body.split('\n'):
+        if curLine.startswith(PROGRAM_DATE_TIME):
+            date = parseDateTime(curLine)
+            body = body.replace(curLine + '\n', '')
+            break
+
+        if not curLine.startswith('#'):
+            break
+
+    return (date, body)
 
 def splitByPrefix(s, prefix):
     lines = s.split('\n')
