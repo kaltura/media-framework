@@ -24,8 +24,10 @@ struct ngx_live_segment_s {
 
     ngx_list_t                frames;       /* ngx_live_frame_t */
     ngx_uint_t                frame_count;
+
     int64_t                   start_dts;
     int64_t                   end_dts;
+    int64_t                   timeline_pts;
 
     ngx_buf_chain_t          *data_head;
     ngx_buf_chain_t          *data_tail;

@@ -758,18 +758,36 @@ ngx_live_segment_part_write_serve(ngx_persist_write_ctx_t *write_ctx,
 }
 
 
+static int64_t
+ngx_live_segment_get_end_pts(ngx_live_segment_t *segment)
+{
+    int64_t                   pts;
+    ngx_uint_t                i, n;
+    ngx_live_segment_part_t  *parts;
+
+    parts = segment->parts.elts;
+    n = segment->parts.nelts;
+
+    pts = segment->timeline_pts;
+    for (i = 0; i < n; i++) {
+        pts += parts[i].duration;
+    }
+
+    return pts;
+}
+
+
 static ngx_int_t
 ngx_live_segment_part_list_write_serve(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
     int64_t                              dist;
-    int64_t                              segment_end, period_end;
+    int64_t                              period_end;
+    int64_t                              segment_end_pts;
     uint64_t                             trailing_duration;
     ngx_queue_t                         *q;
     ngx_queue_t                         *pq, *prev;
-    ngx_list_part_t                     *last;
     ngx_live_track_t                    *track = obj;
-    ngx_live_frame_t                    *frames, *frame;
     ngx_live_period_t                   *period;
     ngx_live_segment_t                  *segment;
     ngx_live_channel_t                  *channel;
@@ -855,23 +873,12 @@ ngx_live_segment_part_list_write_serve(ngx_persist_write_ctx_t *write_ctx,
 
         /* skip segments that are more than 3 target durations from the end */
 
-        if (segment->ready) {
-            last = segment->frames.last;
+        segment_end_pts = ngx_live_segment_get_end_pts(segment);
+        period_end = period->time + period->duration;
 
-            frames = last->elts;
-            frame = &frames[last->nelts - 1];
-
-            segment_end = segment->end_dts + frame->pts_delay;
-            period_end = period->time + period->duration;
-
-            dist = trailing_duration;
-            if (period_end > segment_end) {
-                dist += period_end - segment_end;
-            }
-
-            if (dist >= 3 * timeline->manifest.target_duration) {
-                goto next;
-            }
+        dist = period_end - segment_end_pts + trailing_duration;
+        if (dist >= 3 * timeline->manifest.target_duration) {
+            goto next;
         }
 
         /* write the parts of the segment */
