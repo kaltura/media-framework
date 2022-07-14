@@ -762,9 +762,14 @@ static ngx_int_t
 ngx_live_segment_part_list_write_serve(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
 {
+    int64_t                              dist;
+    int64_t                              segment_end, period_end;
+    uint64_t                             trailing_duration;
     ngx_queue_t                         *q;
     ngx_queue_t                         *pq, *prev;
+    ngx_list_part_t                     *last;
     ngx_live_track_t                    *track = obj;
+    ngx_live_frame_t                    *frames, *frame;
     ngx_live_period_t                   *period;
     ngx_live_segment_t                  *segment;
     ngx_live_channel_t                  *channel;
@@ -802,7 +807,9 @@ ngx_live_segment_part_list_write_serve(ngx_persist_write_ctx_t *write_ctx,
         (assume it's near the end of the timeline) */
 
     timeline = scope->timeline;
+    trailing_duration = 0;
     pq = ngx_queue_last(&timeline->periods);
+
     for ( ;; ) {
 
         period = ngx_queue_data(pq, ngx_live_period_t, queue);
@@ -815,6 +822,7 @@ ngx_live_segment_part_list_write_serve(ngx_persist_write_ctx_t *write_ctx,
             break;
         }
 
+        trailing_duration += period->duration;
         pq = prev;
     }
 
@@ -833,6 +841,7 @@ ngx_live_segment_part_list_write_serve(ngx_persist_write_ctx_t *write_ctx,
             }
 
             period = ngx_queue_data(pq, ngx_live_period_t, queue);
+            trailing_duration -= period->duration;
             continue;
         }
 
@@ -840,33 +849,57 @@ ngx_live_segment_part_list_write_serve(ngx_persist_write_ctx_t *write_ctx,
             goto done;
         }
 
-        if (segment->node.key >= period->node.key) {
+        if (segment->node.key < period->node.key) {
+            goto next;
+        }
 
-            /* write the parts of the segment */
+        /* skip segments that are more than 3 target durations from the end */
 
-            if (header.count <= 0) {
-                if (ngx_persist_write_block_open(write_ctx,
-                        NGX_KSMP_BLOCK_TRACK_PARTS) != NGX_OK ||
-                    ngx_persist_write_reserve(write_ctx, sizeof(header),
-                        &marker) != NGX_OK)
-                {
-                    ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                        "ngx_live_segment_part_list_write_serve: "
-                        "write failed");
-                    return NGX_ERROR;
-                }
+        if (segment->ready) {
+            last = segment->frames.last;
 
-                ngx_persist_write_block_set_header(write_ctx, 0);
+            frames = last->elts;
+            frame = &frames[last->nelts - 1];
+
+            segment_end = segment->end_dts + frame->pts_delay;
+            period_end = period->time + period->duration;
+
+            dist = trailing_duration;
+            if (period_end > segment_end) {
+                dist += period_end - segment_end;
             }
 
-            if (ngx_live_persist_write_blocks(channel, write_ctx,
-                NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_PARTS, segment) != NGX_OK)
+            if (dist >= 3 * timeline->manifest.target_duration) {
+                goto next;
+            }
+        }
+
+        /* write the parts of the segment */
+
+        if (header.count <= 0) {
+            if (ngx_persist_write_block_open(write_ctx,
+                    NGX_KSMP_BLOCK_TRACK_PARTS) != NGX_OK ||
+                ngx_persist_write_reserve(write_ctx, sizeof(header),
+                    &marker) != NGX_OK)
             {
+                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                    "ngx_live_segment_part_list_write_serve: "
+                    "write failed");
                 return NGX_ERROR;
             }
 
-            header.count++;
+            ngx_persist_write_block_set_header(write_ctx, 0);
         }
+
+        if (ngx_live_persist_write_blocks(channel, write_ctx,
+            NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_PARTS, segment) != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+
+        header.count++;
+
+    next:
 
         /* move to the next segment with parts */
 

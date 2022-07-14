@@ -847,7 +847,7 @@ ngx_live_segment_index_merge_preset_conf(ngx_conf_t *cf, void *parent,
     ngx_live_segment_index_preset_conf_t  *conf = child;
 
     ngx_conf_merge_uint_value(conf->force_memory_segments,
-                              prev->force_memory_segments, 5);
+                              prev->force_memory_segments, 6);
 
     if (ngx_live_core_add_block_pool_index(cf,
         &conf->bp_idx[NGX_LIVE_BP_SEGMENT_INDEX],
