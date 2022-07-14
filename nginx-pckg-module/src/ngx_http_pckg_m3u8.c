@@ -154,7 +154,7 @@ static ngx_conf_enum_t  ngx_http_pckg_m3u8_containers[] = {
 static ngx_command_t  ngx_http_pckg_m3u8_commands[] = {
 
     { ngx_string("pckg_m3u8_low_latency"),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_NOARGS,
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_http_pckg_m3u8_low_latency,
       NGX_HTTP_LOC_CONF_OFFSET,
       0,
@@ -2021,15 +2021,36 @@ ngx_http_pckg_m3u8_parse_request(ngx_http_request_t *r, u_char *start_pos,
 static char *
 ngx_http_pckg_m3u8_low_latency(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
+    ngx_str_t                      *value;
     ngx_http_pckg_m3u8_loc_conf_t  *mlcf = conf;
 
-    ngx_conf_init_value(mlcf->mux_segments, 0);
-    ngx_conf_init_value(mlcf->parts, 1);
-    ngx_conf_init_value(mlcf->rendition_reports, 1);
+    value = cf->args->elts;
 
-    ngx_conf_init_complex_int_value(mlcf->ctl.block_reload, 1);
-    ngx_conf_init_complex_int_value(mlcf->ctl.skip_boundary_percent, 600);
-    ngx_conf_init_complex_int_value(mlcf->ctl.part_hold_back_percent, 300);
+    if (ngx_strcasecmp(value[1].data, (u_char *) "on") == 0) {
+        ngx_conf_init_value(mlcf->mux_segments, 0);
+        ngx_conf_init_value(mlcf->parts, 1);
+        ngx_conf_init_value(mlcf->rendition_reports, 1);
+
+        ngx_conf_init_complex_int_value(mlcf->ctl.block_reload, 1);
+        ngx_conf_init_complex_int_value(mlcf->ctl.skip_boundary_percent, 600);
+        ngx_conf_init_complex_int_value(mlcf->ctl.part_hold_back_percent, 300);
+
+    } else if (ngx_strcasecmp(value[1].data, (u_char *) "off") == 0) {
+        ngx_conf_init_value(mlcf->mux_segments, 1);
+        ngx_conf_init_value(mlcf->parts, 0);
+        ngx_conf_init_value(mlcf->rendition_reports, 0);
+
+        ngx_conf_init_complex_int_value(mlcf->ctl.block_reload, 0);
+        ngx_conf_init_complex_int_value(mlcf->ctl.skip_boundary_percent, 0);
+        ngx_conf_init_complex_int_value(mlcf->ctl.part_hold_back_percent, 0);
+
+    } else {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "invalid value \"%s\" in \"%s\" directive, "
+            "it must be \"on\" or \"off\"",
+            value[1].data, cmd->name.data);
+        return NGX_CONF_ERROR;
+    }
 
     return NGX_CONF_OK;
 }
