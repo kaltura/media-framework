@@ -21,10 +21,6 @@ BODY: #EXTM3U
 #EXT-X-PART-INF:PART-TARGET=1.000
 #EXT-X-MAP:URI="init-1-svar1-a.mp4"
 #EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:00.000+00:00
-#EXT-X-PART:DURATION=1.000,URI="part-1-1-svar1-a.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-1-2-svar1-a.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-1-3-svar1-a.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-1-4-svar1-a.m4s"
 #EXTINF:4.000,
 #EXT-X-BITRATE:19
 seg-1-svar1-a.m4s
@@ -67,10 +63,6 @@ BODY: #EXTM3U
 #EXT-X-PART-INF:PART-TARGET=1.000
 #EXT-X-MAP:URI="init-1-svar1-v.mp4"
 #EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:00.000+00:00
-#EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-1-1-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-1-2-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-1-3-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-1-4-svar1-v.m4s"
 #EXTINF:4.000,
 #EXT-X-BITRATE:71
 seg-1-svar1-v.m4s
@@ -98,22 +90,6 @@ seg-5-svar1-v.m4s
 URL: /init-1-svar1-a.mp4
 HEADERS: 200 audio/mp4
 BODY: SIZE: 599, MD5: 6cfeb7a7e6731672ecbe5bbaf5055db5
-
-URL: /part-1-1-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2381, MD5: b3fd5bb3e6f70eadfc8bd4bc43d4ba46
-
-URL: /part-1-2-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 3034, MD5: 43525d46d6be9a3cbf3dc6955488c74b
-
-URL: /part-1-3-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2687, MD5: 3eb846d7fe4f18966fe65b9db0dc2a42
-
-URL: /part-1-4-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2699, MD5: d2602a9e082192b86be939bfd3e298bf
 
 URL: /seg-1-svar1-a.m4s
 HEADERS: 200 audio/mp4
@@ -202,22 +178,6 @@ BODY: SIZE: 9640, MD5: 99c80c85162551767dcf032d81cfee9a
 URL: /init-1-svar1-v.mp4
 HEADERS: 200 video/mp4
 BODY: SIZE: 659, MD5: 2baf2fd317f909719eca26dc9b8f8526
-
-URL: /part-1-1-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 6948, MD5: d7c1caaf4a07b237958b7861a3a19310
-
-URL: /part-1-2-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 10130, MD5: 3cde252d0c30bab52030b3e205c7b110
-
-URL: /part-1-3-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 10714, MD5: baee580c371da2aa93930e20e877cff5
-
-URL: /part-1-4-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 9176, MD5: 12d17a1f747dc1f688c85b5eac5d3a7b
 
 URL: /seg-1-svar1-v.m4s
 HEADERS: 200 video/mp4

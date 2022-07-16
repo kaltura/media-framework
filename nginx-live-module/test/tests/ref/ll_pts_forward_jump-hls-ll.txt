@@ -24,10 +24,6 @@ BODY: #EXTM3U
 #EXTINF:4.133,
 #EXT-X-BITRATE:19
 seg-1-svar1-a.m4s
-#EXT-X-PART:DURATION=1.000,URI="part-2-1-svar1-a.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-2-2-svar1-a.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-2-3-svar1-a.m4s"
-#EXT-X-PART:DURATION=0.933,URI="part-2-4-svar1-a.m4s"
 #EXTINF:3.933,
 seg-2-svar1-a.m4s
 #EXT-X-PART:DURATION=1.000,URI="part-3-1-svar1-a.m4s"
@@ -75,10 +71,6 @@ BODY: #EXTM3U
 #EXTINF:4.133,
 #EXT-X-BITRATE:71
 seg-1-svar1-v.m4s
-#EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-2-1-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-2-2-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-2-3-svar1-v.m4s"
-#EXT-X-PART:DURATION=0.933,URI="part-2-4-svar1-v.m4s"
 #EXTINF:3.933,
 #EXT-X-BITRATE:103
 seg-2-svar1-v.m4s
@@ -120,22 +112,6 @@ BODY: SIZE: 599, MD5: 6cfeb7a7e6731672ecbe5bbaf5055db5
 URL: /seg-1-svar1-a.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9870, MD5: dfac0f7cf5f5ea7ba5a62d0a1f318da2
-
-URL: /part-2-1-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2660, MD5: 18516e19a515a89136b0aefc03606246
-
-URL: /part-2-2-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2676, MD5: ae30a4eb2c0d5192bb261c03a30437b5
-
-URL: /part-2-3-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2681, MD5: d5d3934b78fddd4987ac5e51da4198f8
-
-URL: /part-2-4-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2504, MD5: 4cf86d98fc8b4f6054f63e769db41dc0
 
 URL: /seg-2-svar1-a.m4s
 HEADERS: 200 audio/mp4
@@ -226,22 +202,6 @@ BODY: SIZE: 659, MD5: 2baf2fd317f909719eca26dc9b8f8526
 URL: /seg-1-svar1-v.m4s
 HEADERS: 200 video/mp4
 BODY: SIZE: 36035, MD5: 2876050a698a87a2f4f06ed56cd8078b
-
-URL: /part-2-1-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 11563, MD5: 1f10cbd0be946d10fdca09489950781d
-
-URL: /part-2-2-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 12984, MD5: ded1ca8237ad702210a42f3f8f9e560c
-
-URL: /part-2-3-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 14677, MD5: 4768e7df01ad8181df62d7cd0107ae1c
-
-URL: /part-2-4-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 13652, MD5: 337e0f1886549c4cdb12e70d476d70ff
 
 URL: /seg-2-svar1-v.m4s
 HEADERS: 200 video/mp4

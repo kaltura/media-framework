@@ -22,10 +22,6 @@ BODY: #EXTM3U
 #EXTINF:4.000,
 #EXT-X-BITRATE:71
 seg-1-svar1-v.m4s
-#EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-2-1-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-2-2-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-2-3-svar1-v.m4s"
-#EXT-X-PART:DURATION=0.933,URI="part-2-4-svar1-v.m4s"
 #EXTINF:3.933,
 #EXT-X-BITRATE:103
 seg-2-svar1-v.m4s
@@ -61,22 +57,6 @@ BODY: SIZE: 659, MD5: 2baf2fd317f909719eca26dc9b8f8526
 URL: /seg-1-svar1-v.m4s
 HEADERS: 200 video/mp4
 BODY: SIZE: 36047, MD5: 10f907ed8e56c2401935168ce5e627ad
-
-URL: /part-2-1-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 11572, MD5: 1c1160c6a74d1398c82f7d86391b5322
-
-URL: /part-2-2-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 12993, MD5: b01d731c2473387f113727504883327f
-
-URL: /part-2-3-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 14686, MD5: 7eaf560bc1f3b2d1716140096fdcefe8
-
-URL: /part-2-4-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 13661, MD5: b4df78c5edc80e06bbf51aefc5b12b9e
 
 URL: /seg-2-svar1-v.m4s
 HEADERS: 200 video/mp4
