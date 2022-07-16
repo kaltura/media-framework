@@ -115,6 +115,7 @@ ngx_live_segment_cache_create(ngx_live_track_t *track, uint32_t segment_index)
     segment->track_id = track->in.key;
     segment->track = track;
     segment->pool = pool;
+    segment->timeline_end_pts = NGX_LIVE_INVALID_TIMESTAMP;
 
     ngx_rbtree_insert(&ctx->rbtree, &segment->node);
     ngx_queue_insert_tail(&ctx->queue, &segment->queue);
@@ -758,25 +759,6 @@ ngx_live_segment_part_write_serve(ngx_persist_write_ctx_t *write_ctx,
 }
 
 
-static int64_t
-ngx_live_segment_get_end_pts(ngx_live_segment_t *segment)
-{
-    int64_t                   pts;
-    ngx_uint_t                i, n;
-    ngx_live_segment_part_t  *parts;
-
-    parts = segment->parts.elts;
-    n = segment->parts.nelts;
-
-    pts = segment->timeline_pts;
-    for (i = 0; i < n; i++) {
-        pts += parts[i].duration;
-    }
-
-    return pts;
-}
-
-
 static ngx_int_t
 ngx_live_segment_part_list_write_serve(ngx_persist_write_ctx_t *write_ctx,
     void *obj)
@@ -871,19 +853,24 @@ ngx_live_segment_part_list_write_serve(ngx_persist_write_ctx_t *write_ctx,
             goto next;
         }
 
-        /* skip segments that are more than 3 target durations from the end */
-
-        segment_end_pts = ngx_live_segment_get_end_pts(segment);
-        period_end = period->time + period->duration;
-
-        dist = period_end - segment_end_pts + trailing_duration;
-        if (dist >= 3 * timeline->manifest.target_duration) {
-            goto next;
-        }
-
-        /* write the parts of the segment */
-
         if (header.count <= 0) {
+
+            /* skip segments that are more than 3 target durations from edge */
+
+            segment_end_pts = segment->timeline_end_pts;
+            period_end = period->time + period->duration;
+
+            dist = trailing_duration;
+            if (period_end > segment_end_pts) {
+                dist += period_end - segment_end_pts;
+            }
+
+            if (dist >= 3 * timeline->manifest.target_duration) {
+                goto next;
+            }
+
+            /* write the parts of the segment */
+
             if (ngx_persist_write_block_open(write_ctx,
                     NGX_KSMP_BLOCK_TRACK_PARTS) != NGX_OK ||
                 ngx_persist_write_reserve(write_ctx, sizeof(header),

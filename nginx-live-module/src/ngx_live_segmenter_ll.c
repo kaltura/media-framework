@@ -1388,7 +1388,6 @@ ngx_live_lls_track_start_segment(ngx_live_track_t *track,
     segment->part_sequence = pending->part_sequence;
     segment->start_dts = frame->dts;
     segment->data_head = frame->data;
-    segment->timeline_pts = pending->start_pts;
 
     ctx->part_start_pts = pending->start_pts;
     ctx->part_end_pts = ctx->part_start_pts + channel->part_duration;
@@ -1781,6 +1780,8 @@ ngx_live_lls_track_end_segment(ngx_live_track_t *track)
 
         ctx->part_start_pts += part->duration;
     }
+
+    segment->timeline_end_pts = pending->end_pts;
 
     info.segment_index = segment->node.key;
     info.bitrate = ctx->pending[track->pending_index].bitrate;

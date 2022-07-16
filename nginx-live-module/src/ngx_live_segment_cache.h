@@ -27,7 +27,7 @@ struct ngx_live_segment_s {
 
     int64_t                   start_dts;
     int64_t                   end_dts;
-    int64_t                   timeline_pts;
+    int64_t                   timeline_end_pts;
 
     ngx_buf_chain_t          *data_head;
     ngx_buf_chain_t          *data_tail;
