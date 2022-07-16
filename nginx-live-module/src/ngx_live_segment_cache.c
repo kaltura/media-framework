@@ -766,6 +766,7 @@ ngx_live_segment_part_list_write_serve(ngx_persist_write_ctx_t *write_ctx,
     int64_t                              dist;
     int64_t                              period_end;
     int64_t                              segment_end_pts;
+    uint32_t                             target_duration;
     uint64_t                             trailing_duration;
     ngx_queue_t                         *q;
     ngx_queue_t                         *pq, *prev;
@@ -865,7 +866,9 @@ ngx_live_segment_part_list_write_serve(ngx_persist_write_ctx_t *write_ctx,
                 dist += period_end - segment_end_pts;
             }
 
-            if (dist >= 3 * timeline->manifest.target_duration) {
+            target_duration = ngx_round_to_multiple(
+                timeline->manifest.target_duration, channel->timescale);
+            if (dist >= 3 * target_duration) {
                 goto next;
             }
 
