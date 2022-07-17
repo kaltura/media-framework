@@ -266,6 +266,8 @@ seg-121-svar2-v.m4s
 seg-122-svar2-v.m4s
 #EXTINF:2.000,
 seg-123-svar2-v.m4s
+#EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-124-1-svar2-v.m4s"
+#EXT-X-PART:DURATION=1.000,URI="part-124-2-svar2-v.m4s"
 #EXTINF:2.000,
 seg-124-svar2-v.m4s
 #EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-125-1-svar2-v.m4s"
@@ -789,6 +791,14 @@ BODY: SIZE: 101303, MD5: 7a16ceba3a38c3e4be447780c40654cf
 URL: /seg-123-svar2-v.m4s
 HEADERS: 200 video/mp4
 BODY: SIZE: 101804, MD5: 4f7a9cde6e08a3b8209b1a195c71789a
+
+URL: /part-124-1-svar2-v.m4s
+HEADERS: 200 video/mp4
+BODY: SIZE: 64415, MD5: 07c4544ac4eb1310eba26676b23b1a5c
+
+URL: /part-124-2-svar2-v.m4s
+HEADERS: 200 video/mp4
+BODY: SIZE: 36549, MD5: 31331e2dfa572abbc6a9527e14b3d6c9
 
 URL: /seg-124-svar2-v.m4s
 HEADERS: 200 video/mp4

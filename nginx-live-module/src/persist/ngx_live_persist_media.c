@@ -1313,6 +1313,7 @@ ngx_live_persist_media_bucket_time_variable(ngx_live_variables_ctx_t *ctx,
     uint32_t                                   limit;
     ngx_tm_t                                   tm;
     ngx_live_channel_t                        *channel;
+    ngx_live_segment_iter_t                    iter;
     ngx_live_persist_media_channel_ctx_t      *cctx;
     ngx_live_persist_media_preset_conf_t      *pmpcf;
     ngx_live_persist_media_bucket_time_ctx_t  *var = (void *) data;
@@ -1342,8 +1343,8 @@ ngx_live_persist_media_bucket_time_variable(ngx_live_variables_ctx_t *ctx,
             return NGX_ERROR;
         }
 
-        if (ngx_live_timelines_get_segment_time(channel, segment_index, &time,
-            NULL) == NGX_OK)
+        if (ngx_live_timelines_get_segment_iter(channel, &iter, segment_index,
+            &time) == NGX_OK)
         {
             break;
         }

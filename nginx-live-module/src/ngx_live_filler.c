@@ -782,6 +782,7 @@ ngx_live_filler_serve_segment(ngx_persist_write_ctx_t *write_ctx,
     ngx_live_track_t *track, uint32_t segment_index)
 {
     ngx_live_channel_t                 *channel;
+    ngx_live_segment_iter_t             iter;
     ngx_persist_write_marker_t          marker;
     ngx_live_filler_serve_ctx_t         sctx;
     ngx_live_filler_channel_ctx_t      *cctx;
@@ -798,14 +799,16 @@ ngx_live_filler_serve_segment(ngx_persist_write_ctx_t *write_ctx,
     ngx_memzero(&sctx, sizeof(sctx));
     sctx.track = track;
 
-    if (ngx_live_timelines_get_segment_time(channel, segment_index,
-        &sctx.start_pts, &sctx.end_pts) != NGX_OK)
+    if (ngx_live_timelines_get_segment_iter(channel, &iter, segment_index,
+        &sctx.start_pts) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_ERR, ngx_persist_write_log(write_ctx), 0,
             "ngx_live_filler_serve_segment: "
             "failed to get segment time, index: %uD", segment_index);
         return NGX_ERROR;
     }
+
+    sctx.end_pts = sctx.start_pts + ngx_live_segment_iter_get_one(&iter);
 
     if (ngx_persist_write_block_open(write_ctx, NGX_KSMP_BLOCK_SEGMENT)
             != NGX_OK ||

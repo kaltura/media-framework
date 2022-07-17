@@ -155,8 +155,8 @@ void ngx_live_timelines_truncate(ngx_live_channel_t *channel,
 ngx_int_t ngx_live_timelines_get_segment_index(ngx_live_channel_t *channel,
     int64_t time, uint32_t *segment_index);
 
-ngx_int_t ngx_live_timelines_get_segment_time(ngx_live_channel_t *channel,
-    uint32_t segment_index, int64_t *start, int64_t *end);
+ngx_int_t ngx_live_timelines_get_segment_iter(ngx_live_channel_t *channel,
+    ngx_live_segment_iter_t *iter, uint32_t segment_index, int64_t *start);
 
 int64_t ngx_live_timelines_get_last_time(ngx_live_channel_t *channel);
 

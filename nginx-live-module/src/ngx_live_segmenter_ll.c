@@ -1781,6 +1781,8 @@ ngx_live_lls_track_end_segment(ngx_live_track_t *track)
         ctx->part_start_pts += part->duration;
     }
 
+    segment->timeline_end_pts = pending->end_pts;
+
     info.segment_index = segment->node.key;
     info.bitrate = ctx->pending[track->pending_index].bitrate;
 

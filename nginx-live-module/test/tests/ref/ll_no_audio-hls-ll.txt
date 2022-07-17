@@ -47,11 +47,6 @@ seg-9-svar1-v.m4s
 seg-10-svar1-v.m4s
 #EXTINF:3.950,
 seg-11-svar1-v.m4s
-#EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-12-1-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-12-2-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-12-3-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-12-4-svar1-v.m4s"
-#EXT-X-PART:DURATION=0.050,URI="part-12-5-svar1-v.m4s"
 #EXTINF:4.050,
 seg-12-svar1-v.m4s
 #EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-13-1-svar1-v.m4s"
@@ -127,26 +122,6 @@ BODY: SIZE: 50216, MD5: 5fe1d2c15e0c6b9010876d6cd1190ef7
 URL: /seg-11-svar1-v.m4s
 HEADERS: 200 video/mp4
 BODY: SIZE: 45088, MD5: da31df338190763603e3336f7a20b3bc
-
-URL: /part-12-1-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 11994, MD5: 9962d8e3110bd5935211edd11b2b4480
-
-URL: /part-12-2-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 9909, MD5: edfd04b181e41af2a54e0146e2238616
-
-URL: /part-12-3-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 14243, MD5: 4af56714e56fc8a501ca17a4166f2af3
-
-URL: /part-12-4-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 10292, MD5: a33fbeabf591dbdb897cd5d49b431dd7
-
-URL: /part-12-5-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 1651, MD5: 6671e60f793cb43ea3a5099f83dfe825
 
 URL: /seg-12-svar1-v.m4s
 HEADERS: 200 video/mp4

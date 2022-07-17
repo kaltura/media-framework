@@ -21,17 +21,9 @@ BODY: #EXTM3U
 #EXT-X-PART-INF:PART-TARGET=1.000
 #EXT-X-MAP:URI="init-1-svar1-a.mp4"
 #EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:00.000+00:00
-#EXT-X-PART:DURATION=1.000,URI="part-1-1-svar1-a.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-1-2-svar1-a.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-1-3-svar1-a.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-1-4-svar1-a.m4s"
 #EXTINF:4.000,
 #EXT-X-BITRATE:19
 seg-1-svar1-a.m4s
-#EXT-X-PART:DURATION=1.000,URI="part-2-1-svar1-a.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-2-2-svar1-a.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-2-3-svar1-a.m4s"
-#EXT-X-PART:DURATION=0.933,URI="part-2-4-svar1-a.m4s"
 #EXTINF:3.933,
 seg-2-svar1-a.m4s
 #EXT-X-PART:DURATION=1.000,URI="part-3-1-svar1-a.m4s"
@@ -51,17 +43,9 @@ BODY: #EXTM3U
 #EXT-X-PART-INF:PART-TARGET=1.000
 #EXT-X-MAP:URI="init-1-svar1-v.mp4"
 #EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:00.000+00:00
-#EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-1-1-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-1-2-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-1-3-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-1-4-svar1-v.m4s"
 #EXTINF:4.000,
 #EXT-X-BITRATE:71
 seg-1-svar1-v.m4s
-#EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-2-1-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,URI="part-2-2-svar1-v.m4s"
-#EXT-X-PART:DURATION=1.000,INDEPENDENT=YES,URI="part-2-3-svar1-v.m4s"
-#EXT-X-PART:DURATION=0.933,URI="part-2-4-svar1-v.m4s"
 #EXTINF:3.933,
 #EXT-X-BITRATE:103
 seg-2-svar1-v.m4s
@@ -93,41 +77,9 @@ URL: /init-1-svar1-a.mp4
 HEADERS: 200 audio/mp4
 BODY: SIZE: 599, MD5: 6cfeb7a7e6731672ecbe5bbaf5055db5
 
-URL: /part-1-1-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2381, MD5: b3fd5bb3e6f70eadfc8bd4bc43d4ba46
-
-URL: /part-1-2-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 3034, MD5: 43525d46d6be9a3cbf3dc6955488c74b
-
-URL: /part-1-3-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2687, MD5: 3eb846d7fe4f18966fe65b9db0dc2a42
-
-URL: /part-1-4-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2699, MD5: d2602a9e082192b86be939bfd3e298bf
-
 URL: /seg-1-svar1-a.m4s
 HEADERS: 200 audio/mp4
 BODY: SIZE: 9880, MD5: 804334549974f714f78aa75e03040c0f
-
-URL: /part-2-1-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2669, MD5: ed084b7a53c3204ef7e6180e1103f867
-
-URL: /part-2-2-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2685, MD5: 816adbf30e3881d15ffeca70094b7cf8
-
-URL: /part-2-3-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2690, MD5: ae76fdda13ac22b6aec1fadd670f1720
-
-URL: /part-2-4-svar1-a.m4s
-HEADERS: 200 audio/mp4
-BODY: SIZE: 2513, MD5: 412ac052709274ae54f1116a550aba3a
 
 URL: /seg-2-svar1-a.m4s
 HEADERS: 200 audio/mp4
@@ -145,41 +97,9 @@ URL: /init-1-svar1-v.mp4
 HEADERS: 200 video/mp4
 BODY: SIZE: 659, MD5: 2baf2fd317f909719eca26dc9b8f8526
 
-URL: /part-1-1-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 6948, MD5: d7c1caaf4a07b237958b7861a3a19310
-
-URL: /part-1-2-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 10130, MD5: 3cde252d0c30bab52030b3e205c7b110
-
-URL: /part-1-3-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 10714, MD5: baee580c371da2aa93930e20e877cff5
-
-URL: /part-1-4-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 9176, MD5: 12d17a1f747dc1f688c85b5eac5d3a7b
-
 URL: /seg-1-svar1-v.m4s
 HEADERS: 200 video/mp4
 BODY: SIZE: 36047, MD5: 10f907ed8e56c2401935168ce5e627ad
-
-URL: /part-2-1-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 11572, MD5: 1c1160c6a74d1398c82f7d86391b5322
-
-URL: /part-2-2-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 12993, MD5: b01d731c2473387f113727504883327f
-
-URL: /part-2-3-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 14686, MD5: 7eaf560bc1f3b2d1716140096fdcefe8
-
-URL: /part-2-4-svar1-v.m4s
-HEADERS: 200 video/mp4
-BODY: SIZE: 13661, MD5: b4df78c5edc80e06bbf51aefc5b12b9e
 
 URL: /seg-2-svar1-v.m4s
 HEADERS: 200 video/mp4
