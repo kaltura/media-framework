@@ -23,8 +23,8 @@ def test(channelId=CHANNEL_ID):
 
     with open('/tmp/store/channel/test/bucket/0', 'rb+') as f:
         f.seek(CHANNEL_UID_START)
-        f.write('\0' * 8)
+        f.write(b'\0' * 8)
 
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'seg-1-svar1.m4s'))
-    assert(req.status_code == 502)
-    logTracker.assertContains('ngx_live_persist_media_serve_parse_header: uid mismatch, actual: 0000000000000000')
+    assertEquals(req.status_code, 502)
+    logTracker.assertContains(b'ngx_live_persist_media_serve_parse_header: uid mismatch, actual: 0000000000000000')

@@ -28,5 +28,5 @@ def test(channelId=CHANNEL_ID):
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
     nl.setChannelId(channelId)
 
-    logTracker.assertContains('ngx_persist_read_file_header: ignoring old file, version: 0, type: setp')
+    logTracker.assertContains(b'ngx_persist_read_file_header: ignoring old file, version: 0, type: setp')
     assert(nl.variant.getAll() == {})

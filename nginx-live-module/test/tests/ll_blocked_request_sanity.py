@@ -21,7 +21,7 @@ def test(channelId=CHANNEL_ID):
     url = getStreamUrl(channelId, 'hls-ll', 'index-svar1-v.m3u8')
     code, _, body = http_utils.getUrl(url)
     assert(code == 200)
-    assert('#EXT-X-PRELOAD-HINT:TYPE=PART,URI="part-2-6-svar1-v.m4s"' in body)
+    assert(b'#EXT-X-PRELOAD-HINT:TYPE=PART,URI="part-2-6-svar1-v.m4s"' in body)
 
     threads = []
     for msn in range(4):
@@ -44,7 +44,7 @@ def test(channelId=CHANNEL_ID):
         blockDuration = float(headers['block-duration'][0])
 
         if code == 200:
-            parts = re.findall('^#EXT-X-PART:.*,URI="part-(\d+)-(\d+)-svar1-v.m4s"$', body, re.MULTILINE)
+            parts = re.findall(b'^#EXT-X-PART:.*,URI="part-(\d+)-(\d+)-svar1-v.m4s"$', body, re.MULTILINE)
             lastPart = tuple(map(lambda x: int(x) - 1, parts[-1]))
         else:
             lastPart = None

@@ -23,5 +23,5 @@ def test(channelId=CHANNEL_ID):
         f.write(struct.pack('<L', 9999999))
 
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'seg-1-svar1.m4s'))
-    assert(req.status_code == 502)
-    logTracker.assertContains('ngx_persist_read_file_header: ignoring new file, version: 9999999, type: sgts')
+    assertEquals(req.status_code, 502)
+    logTracker.assertContains(b'ngx_persist_read_file_header: ignoring new file, version: 9999999, type: sgts')

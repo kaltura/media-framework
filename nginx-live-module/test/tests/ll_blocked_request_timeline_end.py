@@ -27,8 +27,8 @@ def test(channelId=CHANNEL_ID):
 
     code, headers, body = t.join()
     assert(code == 200)
-    assert(body.rstrip().endswith('#EXT-X-ENDLIST'))
+    assert(body.rstrip().endswith(b'#EXT-X-ENDLIST'))
 
-    logTracker.assertContains('ngx_live_timeline_update: end_list enabled, publishing timeline')
-    logTracker.assertContains('ngx_live_notif_segment_publish_timeline: calling handler 0')
+    logTracker.assertContains(b'ngx_live_timeline_update: end_list enabled, publishing timeline')
+    logTracker.assertContains(b'ngx_live_notif_segment_publish_timeline: calling handler 0')
     assertBetween(float(headers['block-duration'][0]), 0.9, 1.1)

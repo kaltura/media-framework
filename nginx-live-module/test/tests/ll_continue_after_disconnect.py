@@ -37,5 +37,5 @@ def test(channelId=CHANNEL_ID):
 
     testLLDefaultStreams(channelId, __file__)
 
-    logTracker.assertContains('ngx_live_lls_track_flush_segment: index: 1')
-    logTracker.assertNotContains('ngx_live_lls_track_dispose_all: disposing')
+    logTracker.assertContains(b'ngx_live_lls_track_flush_segment: index: 1')
+    logTracker.assertNotContains(b'ngx_live_lls_track_dispose_all: disposing')

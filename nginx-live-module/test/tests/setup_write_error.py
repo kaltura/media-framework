@@ -15,5 +15,5 @@ def test(channelId=CHANNEL_ID):
     nl.timeline.create(NginxLiveTimeline(id=TIMELINE_ID, active=True))
 
     time.sleep(4)     # setup timeout
-    logTracker.assertContains('ngx_live_store_http_write_complete: request failed')
-    logTracker.assertContains('ngx_live_persist_setup_write_complete: write failed')
+    logTracker.assertContains(b'ngx_live_store_http_write_complete: request failed')
+    logTracker.assertContains(b'ngx_live_persist_setup_write_complete: write failed')

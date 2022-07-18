@@ -11,7 +11,7 @@ import os
 
 nginxParser = os.path.join(os.path.dirname(__file__), 'nginxparser.py')
 if not os.path.isfile(nginxParser):
-    print 'Info: downloading %s' % nginxParser
+    print('Info: downloading %s' % nginxParser)
     r = requests.get('https://raw.githubusercontent.com/fatiherikli/nginxparser/master/nginxparser.py')
     open(nginxParser, 'wb').write(r.content)
 
@@ -33,7 +33,7 @@ def downloadTestVideos():
     for filePath, url in TEST_VIDEO_URLS.items():
         if os.path.isfile(filePath):
             continue
-        print 'Info: downloading %s' % filePath
+        print('Info: downloading %s' % filePath)
         http_utils.downloadUrl(url, filePath)
 
 def cleanupNginx():
@@ -61,7 +61,7 @@ def startNginx(confFile, fileName='', mode='w'):
     stdout = None
     if options.valgrind:
         cmdLine = [VALGRIND_BIN, '-v', '--tool=memcheck', '--leak-check=yes', '--num-callers=128'] + cmdLine
-        stdout = file('%s-valgrind.log' % fileName, mode)
+        stdout = open('%s-valgrind.log' % fileName, mode)
     nginxProc = subprocess.Popen(cmdLine, stdout=stdout, stderr=subprocess.STDOUT)
     waitForNginxStart()
     return nginxProc
@@ -70,7 +70,7 @@ def stopNginx(nginxProc):
     if options.single_process:
         nginxPid = nginxProc.pid    # daemon off
     else:
-        nginxPid = int(file(NGINX_PID).read().strip())
+        nginxPid = int(open(NGINX_PID).read().strip())
     os.kill(nginxPid, signal.SIGTERM)
     nginxProc.wait()
 
@@ -84,7 +84,7 @@ def singleProcessUpdateConf(conf):
     conf.append(['master_process', 'off'])
 
 def coverageResetCounters():
-    print 'Coverage: resetting counters'
+    print('Coverage: resetting counters')
     os.system('lcov --directory %s/ -z > /dev/null 2>&1' % NGINX_SRC)
 
 def coverageGenerateReport():
@@ -98,7 +98,7 @@ def coverageGenerateReport():
     except OSError:
         pass
 
-    print 'Coverage: generating report'
+    print('Coverage: generating report')
     cmd = ('lcov -c -d %s/ -o %s --ignore-errors graph > /dev/null' %
         (NGINX_SRC, COVERAGE_FILE))
     os.system(cmd)
@@ -138,7 +138,7 @@ def defaultTestCleanup():
     nl = nginxLiveClient()
     try:
         nl.channel.delete(CHANNEL_ID)
-    except requests.exceptions.HTTPError, e:
+    except requests.exceptions.HTTPError as e:
         if e.response.status_code != 404:
             raise
     cleanupStack.reset()
@@ -150,7 +150,7 @@ def run(tests):
         if options.only is None:
             longTest = getattr(curMod, 'LONG_TEST', False)
             if longTest:
-                print '>>> %s - skipped' % fileName
+                print('>>> %s - skipped' % fileName)
                 continue
 
         testFunc = getattr(curMod, 'test', None)
@@ -168,10 +168,10 @@ def run(tests):
                 updateConfFuncs.append(singleProcessUpdateConf)
 
             if len(updateConfFuncs) > 0:
-                conf = nginxparser.load(file(NGINX_CONF, 'r'))
+                conf = nginxparser.load(open(NGINX_CONF, 'r'))
                 for updateConfFunc in updateConfFuncs:
                     updateConfFunc(conf)
-                nginxparser.dump(conf, file(TEMP_NGINX_CONF, 'w'))
+                nginxparser.dump(conf, open(TEMP_NGINX_CONF, 'w'))
                 confFile = TEMP_NGINX_CONF
             else:
                 confFile = NGINX_CONF
@@ -193,7 +193,7 @@ def run(tests):
             raw_input('--Next--')
 
         logTracker.init()
-        print '>>> %s' % fileName
+        print('>>> %s' % fileName)
         testFunc()
 
         if validateFunc is not None:
@@ -209,7 +209,7 @@ def run(tests):
         if options.setup:
             stopNginx(nginxProc)
 
-        print '  took: %.3f sec' % (time.time() - startTime)
+        print('  took: %.3f sec' % (time.time() - startTime))
         sys.stdout.flush()
 
 if __name__ == '__main__':

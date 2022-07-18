@@ -40,29 +40,29 @@ LL_PRESET = 'll'
 def nginxLiveClient():
     return NginxLive(NGINX_LIVE_API_URL)
 
-def getHttpResponseRegular(body = '', status = '200 OK', length = None, headers = {}):
+def getHttpResponseRegular(body = b'', status = b'200 OK', length = None, headers = {}):
     if length == None:
         length = len(body)
-    headersStr = ''
+    headersStr = b''
     if len(headers) > 0:
         for curHeader in headers.items():
-            headersStr +='%s: %s\r\n' % curHeader
-    return 'HTTP/1.1 %s\r\nContent-Length: %s\r\n%s\r\n%s' % (status, length, headersStr, body)
+            headersStr += b'%s: %s\r\n' % curHeader
+    return b'HTTP/1.1 %s\r\nContent-Length: %d\r\n%s\r\n%s' % (status, length, headersStr, body)
 
-def getHttpResponseChunked(body = '', status = '200 OK', length = None, headers = {}):
+def getHttpResponseChunked(body = b'', status = b'200 OK', length = None, headers = {}):
     if length == None:
         length = len(body)
-    headersStr = ''
+    headersStr = b''
     if len(headers) > 0:
         for curHeader in headers.items():
-            headersStr +='%s: %s\r\n' % curHeader
-    return 'HTTP/1.1 %s\r\nTransfer-Encoding: Chunked\r\n%s\r\n%x\r\n%s\r\n0\r\n' % (status, headersStr, length, body)
+            headersStr += b'%s: %s\r\n' % curHeader
+    return b'HTTP/1.1 %s\r\nTransfer-Encoding: Chunked\r\n%s\r\n%x\r\n%s\r\n0\r\n' % (status, headersStr, length, body)
 
 def readRequestBody(s, header):
-    headerEnd = header.find('\r\n\r\n') + 4
+    headerEnd = header.find(b'\r\n\r\n') + 4
     body = header[headerEnd:]
     header = header[:headerEnd]
-    contentLength = int(re.findall('Content-Length: (\d+)', header)[0])
+    contentLength = int(re.findall(b'Content-Length: (\d+)', header)[0])
     while len(body) < contentLength:
         body += s.recv(contentLength - len(body))
     return body
@@ -170,7 +170,7 @@ def getConfParam(c, key):
             return cur
 
 def delConfParam(c, key):
-    for i in xrange(len(c) - 1, -1, -1):
+    for i in range(len(c) - 1, -1, -1):
         if c[i][0] == key:
             c.pop(i)
 
@@ -182,18 +182,18 @@ def testStream(url, basePath, streamName):
     info = manifest_utils.getStreamInfo(url)
     info = info.replace('\r\n', '\n')
     if not os.path.isfile(filePath):
-        print 'Info: saving stream, url: %s, file: %s' % (url, filePath)
-        file(filePath, 'w').write(info)
+        print('Info: saving stream, url: %s, file: %s' % (url, filePath))
+        open(filePath, 'w').write(info)
         return
 
-    expected = file(filePath, 'r').read()
+    expected = open(filePath, 'r').read()
     expected = expected.replace('\r\n', '\n')
     if expected == info:
         return
 
     newFilePath = filePath + '.new'
-    file(newFilePath, 'w').write(info)
-    print 'Error: stream does not match, url: %s, orig: %s, new: %s' % (url, filePath, newFilePath)
+    open(newFilePath, 'w').write(info)
+    print('Error: stream does not match, url: %s, orig: %s, new: %s' % (url, filePath, newFilePath))
 
 def getStreamUrl(channelId, prefix, suffix='', timelineId=TIMELINE_ID):
     if len(suffix) == 0 and prefix.startswith('hls'):
@@ -232,33 +232,33 @@ def assertHttpError(func, status):
     try:
         func()
         assert(False)
-    except requests.exceptions.HTTPError, e:
+    except requests.exceptions.HTTPError as e:
         if e.response.status_code != status:
             raise
 
 def assertEquals(v1, v2):
     if v1 != v2:
-        print 'Assert failed: %s != %s' % (v1, v2)
+        print('Assert failed: %s != %s' % (v1, v2))
         assert(False)
 
 def assertLessThan(v1, v2):
     if v1 >= v2:
-        print 'Assert failed: %s >= %s' % (v1, v2)
+        print('Assert failed: %s >= %s' % (v1, v2))
         assert(False)
 
 def assertGreaterThan(v1, v2):
     if v1 <= v2:
-        print 'Assert failed: %s <= %s' % (v1, v2)
+        print('Assert failed: %s <= %s' % (v1, v2))
         assert(False)
 
 def assertBetween(v, mi, mx):
     if v < mi or v > mx:
-        print 'Assert failed: %s not between %s and %s' % (v, mi, mx)
+        print('Assert failed: %s not between %s and %s' % (v, mi, mx))
         assert(False)
 
 def assertEndsWith(v1, v2):
     if not v1.endswith(v2):
-        print 'Assert failed: %s does not end with %s' % (v1, v2)
+        print('Assert failed: %s does not end with %s' % (v1, v2))
         assert(False)
 
 ### Log tracker - used to verify certain lines appear in nginx log
@@ -267,12 +267,12 @@ class LogTracker:
         self.initialSize = os.path.getsize(NGINX_LOG_PATH)
 
     def contains(self, logLine):
-        f = file(NGINX_LOG_PATH, 'rb')
+        f = open(NGINX_LOG_PATH, 'rb')
         f.seek(self.initialSize, os.SEEK_SET)
         buffer = f.read()
         f.close()
 
-        buffer = re.sub(r'\[emerg\] [^ ]+ bind\(\) to [^ ]+ failed', '', buffer)
+        buffer = re.sub(br'\[emerg\] [^ ]+ bind\(\) to [^ ]+ failed', '', buffer)
 
         if type(logLine) == list:
             found = False
@@ -291,7 +291,7 @@ class LogTracker:
         assert(not self.contains(logLine))
 
     def assertNoCriticalErrors(self):
-        self.assertNotContains(['[emerg]', '[alert]', '[crit]'])
+        self.assertNotContains([b'[emerg]', b'[alert]', b'[crit]'])
 
 logTracker = LogTracker()
 

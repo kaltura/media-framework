@@ -35,4 +35,4 @@ def test(channelId=CHANNEL_ID):
     nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
     testLLDefaultStreams(channelId, __file__)
 
-    logTracker.assertContains('ngx_live_lls_add_frame: enabling split due to pts forward jump')
+    logTracker.assertContains(b'ngx_live_lls_add_frame: enabling split due to pts forward jump')

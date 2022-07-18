@@ -8,10 +8,10 @@ def updateConf(conf):
     block.append([['location', '/store/channel/__filler/filler'], [['proxy_pass', 'http://127.0.0.1:8002']]])
 
 def readRequestBody(s, header):
-    headerEnd = header.find('\r\n\r\n') + 4
+    headerEnd = header.find(b'\r\n\r\n') + 4
     body = header[headerEnd:]
     header = header[:headerEnd]
-    contentLength = int(re.findall('Content-Length: (\d+)', header)[0])
+    contentLength = int(re.findall(b'Content-Length: (\d+)', header)[0])
     while len(body) < contentLength:
         body += s.recv(contentLength - len(body))
     return body
@@ -20,10 +20,10 @@ def fillerServer(s):
     global fillerData
 
     header = s.recv(4096)
-    if header.startswith('PUT '):
+    if header.startswith(b'PUT '):
         fillerData = readRequestBody(s, header)
-        res = ''
-    elif header.startswith('GET '):
+        res = b''
+    elif header.startswith(b'GET '):
         lock.acquire()
         lock.release()
         res = fillerData
@@ -56,7 +56,7 @@ def test(channelId=CHANNEL_ID):
 
     # start channel.create threads
     threads = []
-    for i in xrange(THREAD_COUNT):
+    for i in range(THREAD_COUNT):
         threads.append(CreateChannelThread(i))
 
     for cur in threads:
@@ -65,7 +65,7 @@ def test(channelId=CHANNEL_ID):
     time.sleep(1)
 
     # verify all channels are blocked
-    for i in xrange(THREAD_COUNT):
+    for i in range(THREAD_COUNT):
         ch = nl.channel.get('test%s' % i)
         assert(ch['blocked'])
 
@@ -83,7 +83,7 @@ def test(channelId=CHANNEL_ID):
         time.sleep(1)
 
     # verify all unblocked + have filler
-    for i in xrange(THREAD_COUNT):
+    for i in range(THREAD_COUNT):
         channelId = 'test%s' % i
         ch = nl.channel.get(channelId)
         assert(not ch['blocked'])
@@ -95,6 +95,6 @@ def test(channelId=CHANNEL_ID):
 def cleanup(channelId=CHANNEL_ID):
     nl = nginxLiveClient()
     nl.channel.delete(FILLER_CHANNEL_ID)
-    for i in xrange(THREAD_COUNT):
+    for i in range(THREAD_COUNT):
         channelId = 'test%s' % i
         nl.channel.delete(channelId)

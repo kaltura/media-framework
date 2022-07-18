@@ -20,5 +20,5 @@ def test(channelId=CHANNEL_ID):
 
     time.sleep(.5)
 
-    logTracker.assertContains('ngx_live_segment_index_ready: no active timeline, freeing segment')
-    logTracker.assertNotContains('ngx_live_persist_media_write_file: write started')
+    logTracker.assertContains(b'ngx_live_segment_index_ready: no active timeline, freeing segment')
+    logTracker.assertNotContains(b'ngx_live_persist_media_write_file: write started')

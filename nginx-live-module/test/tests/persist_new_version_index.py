@@ -28,5 +28,5 @@ def test(channelId=CHANNEL_ID):
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
     nl.setChannelId(channelId)
 
-    logTracker.assertContains('ngx_persist_read_file_header: ignoring new file, version: 9999999, type: sgix')
+    logTracker.assertContains(b'ngx_persist_read_file_header: ignoring new file, version: 9999999, type: sgix')
     assert('var1' in nl.variant.getAll())    # make sure setup was loaded

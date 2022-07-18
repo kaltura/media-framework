@@ -82,7 +82,7 @@ def testCycle(channelId, readers):
         maxDts = 4 * 90000 * (seg + 1)
         kmpSendStreams(streams, st, maxDts=maxDts, realtime=False, waitForVideoKey=True)
 
-        print ('y' if active else 'n') + ': ' + ','.join(ids)
+        print(('y' if active else 'n') + ': ' + ','.join(ids))
 
         if active:
             expectedSegs.append(str(seg + 1))
@@ -99,15 +99,15 @@ def testCycle(channelId, readers):
 
     actualSegs = getIndexSegments(getStreamUrl(channelId, 'hls-ts', 'index-s%s.m3u8' % list(actualLast)[0]))
     if actualSegs != expectedSegs:
-        print 'actual seg: ' + ','.join(actualSegs)
-        print 'expected seg: ' + ','.join(expectedSegs)
-        print 'retrying...'
+        print('actual seg: ' + ','.join(actualSegs))
+        print('expected seg: ' + ','.join(expectedSegs))
+        print('retrying...')
         nl.channel.delete(channelId)
         return False
 
-    print 'any: ' + ','.join(actualAny)
-    print 'last: ' + ','.join(actualLast)
-    print
+    print('any: ' + ','.join(actualAny))
+    print('last: ' + ','.join(actualLast))
+    print()
     assert(expectedAny == actualAny)
     assert(expectedLast == actualLast)
 
@@ -123,7 +123,7 @@ def test(channelId=CHANNEL_ID):
         readers[id] = KmpMemoryReader(KmpMediaFileReader(TEST_VIDEO2, 0 if mediaType == 'video' else 1), 100)
 
     while True:
-        print 'seed: %s' % seed
+        print('seed: %s' % seed)
         random.seed(seed)
 
         for reader in readers.values():

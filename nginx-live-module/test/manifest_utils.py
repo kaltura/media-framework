@@ -15,14 +15,14 @@ def filterChunkList(arr):
     n = len(arr) - 2
     m = MAX_PLAYLIST_ITEMS - 2
     if MAX_PLAYLIST_ITEMS > 0 and n > m:
-        print "Taking only %d segments from the %d segments available" % (MAX_PLAYLIST_ITEMS, len(arr))
+        print("Taking only %d segments from the %d segments available" % (MAX_PLAYLIST_ITEMS, len(arr)))
         # Bresenham's line algorithm, but take first and last as well
         return arr[0:1] + [arr[1 + i * n // m + len(arr) // (2 * m)] for i in range(m)] + [arr[-1]]
     return arr
 
 def getXmlAttributesDict(node):
     result = {}
-    for attIndex in xrange(len(node.attributes)):
+    for attIndex in range(len(node.attributes)):
         curAtt = node.attributes.item(attIndex)
         result[curAtt.name] = curAtt.value
     return result
@@ -67,7 +67,7 @@ def getHlsMasterPlaylistUrls(baseUrl, urlContent, headers):
         curBaseUrl = curUrl.rsplit('/', 1)[0]
 
         # Note: adding only new urls, otherwise rendition reports can cause an infinite loop
-        for url in getM3u8Urls(curBaseUrl, curContent):
+        for url in getM3u8Urls(curBaseUrl, curContent.decode('utf8')):
             if url not in result:
                 result.append(url)
 
@@ -80,7 +80,7 @@ def parseDashInterval(ts):
     result = 0
     while len(ts) > 0:
         mul = None
-        for pos in xrange(len(ts)):
+        for pos in range(len(ts)):
             if ts[pos] == 'H':
                 mul = 3600
             elif ts[pos] == 'M':
@@ -121,20 +121,20 @@ def getDashManifestUrls(baseUrl, urlContent, headers):
     publishTime = None
     for node in parsed.getElementsByTagName('MPD'):
         atts = getXmlAttributesDict(node)
-        if atts.has_key('mediaPresentationDuration'):
+        if 'mediaPresentationDuration' in atts:
             mediaDuration = parseDashInterval(atts['mediaPresentationDuration'])
-        if atts.has_key('timeShiftBufferDepth'):
+        if 'timeShiftBufferDepth' in atts:
             timeShiftBufferDepth = parseDashInterval(atts['timeShiftBufferDepth'])
-        if atts.has_key('availabilityStartTime'):
+        if 'availabilityStartTime' in atts:
             availabilityStartTime = parseDashDate(atts['availabilityStartTime'])
-        if atts.has_key('publishTime'):
+        if 'publishTime' in atts:
             publishTime = parseDashDate(atts['publishTime'])
 
     # get the period times
     periodTimes = []
     for period in parsed.getElementsByTagName('Period'):
         atts = getXmlAttributesDict(period)
-        if not atts.has_key('id') or not atts.has_key('start'):
+        if 'id' not in atts or 'start' not in atts:
             continue
         start = parseDashInterval(atts['start'])
         id = atts['id']
@@ -153,9 +153,9 @@ def getDashManifestUrls(baseUrl, urlContent, headers):
             atts = getXmlAttributesDict(node)
             initUrls.add(atts['initialization'])
             mediaUrls.add(atts['media'])
-            if atts.has_key('duration'):
+            if 'duration' in atts:
                 segmentDuration = int(atts['duration'])
-            if atts.has_key('startNumber'):
+            if 'startNumber' in atts:
                 startNumber = int(atts['startNumber']) - 1
 
         # get the representation ids
@@ -174,13 +174,13 @@ def getDashManifestUrls(baseUrl, urlContent, headers):
                 if childNode.nodeType == node.ELEMENT_NODE and childNode.nodeName == 'S':
                     atts = getXmlAttributesDict(childNode)
                     repeatCount = 1
-                    if atts.has_key('r'):
+                    if 'r' in atts:
                         repeatCount += int(atts['r'])
-                    if atts.has_key('t'):
+                    if 't' in atts:
                         curTime = int(atts['t'])
-                    if atts.has_key('d'):
+                    if 'd' in atts:
                         duration = int(atts['d'])
-                        for _ in xrange(repeatCount):
+                        for _ in range(repeatCount):
                             segmentTimes.append(curTime)
                             curTime += duration
                     segmentCount += repeatCount
@@ -195,18 +195,18 @@ def getDashManifestUrls(baseUrl, urlContent, headers):
 
             # period start time
             periodStartTime = 0
-            if periodAtts.has_key('start'):
+            if 'start' in periodAtts:
                 periodStartTime = parseDashInterval(periodAtts['start'])
 
             # period end time
-            if periodAtts.has_key('duration'):
+            if 'duration' in periodAtts:
                 periodEndTime = periodStartTime + parseDashInterval(periodAtts['duration'])
             elif mediaDuration != None:
                 periodEndTime = periodStartTime + mediaDuration
             else:
                 # derive the duration from the diff in start time
                 periodId = getXmlAttributesDict(period)['id']
-                for index in xrange(len(periodTimes)):
+                for index in range(len(periodTimes)):
                     if periodTimes[index][0] == periodId:
                         break
                 if index + 1 < len(periodTimes):
@@ -229,7 +229,7 @@ def getDashManifestUrls(baseUrl, urlContent, headers):
                 curUrl = curUrl.replace('$Bandwidth$', bandwidth)
                 result.append(getAbsoluteUrl(curUrl, baseUrl))
         for url in mediaUrls:
-            for curSeg in xrange(segmentCount):
+            for curSeg in range(segmentCount):
                 for repId, bandwidth in repIds:
                     curUrl = url.replace('$Number$', '%s' % (startNumber + curSeg + 1))
                     if len(segmentTimes) > 0:
@@ -275,7 +275,7 @@ def getHdsManifestUrls(baseUrl, urlContent, headers):
     segmentIndexes = {}
     for node in parsed.getElementsByTagName('bootstrapInfo'):
         atts = getXmlAttributesDict(node)
-        if atts.has_key('url'):
+        if 'url' in atts:
             curUrl = getAbsoluteUrl(atts['url'], baseUrl)
             result.append(curUrl)
 
@@ -292,7 +292,7 @@ def getHdsManifestUrls(baseUrl, urlContent, headers):
     for node in parsed.getElementsByTagName('media'):
         atts = getXmlAttributesDict(node)
         bootstrapId = atts['bootstrapInfoId']
-        if not segmentIndexes.has_key(bootstrapId):
+        if bootstrapId not in segmentIndexes:
             continue
 
         url = atts['url']
@@ -319,7 +319,7 @@ def getMssManifestUrls(baseUrl, urlContent, headers):
         curTimestamp = 0
         for childNode in node.getElementsByTagName('c'):
             curAtts = getXmlAttributesDict(childNode)
-            if curAtts.has_key('t'):
+            if 't' in curAtts:
                 curTimestamp = int(curAtts['t'])
             duration = int(curAtts['d'])
             timestamps.append('%s' % curTimestamp)
@@ -345,10 +345,10 @@ PARSER_BY_MIME_TYPE = {
 
 def getManifestUrls(baseUrl, urlContent, mimeType, headers={}):
     mimeType = mimeType.lower()
-    if not PARSER_BY_MIME_TYPE.has_key(mimeType):
+    if mimeType not in PARSER_BY_MIME_TYPE:
         return []
     parser = PARSER_BY_MIME_TYPE[mimeType]
-    return parser(baseUrl, urlContent, headers)
+    return parser(baseUrl, urlContent.decode('utf8'), headers)
 
 def getStreamInfo(url, headers={}):
     urls = [url]
@@ -370,10 +370,10 @@ def getStreamInfo(url, headers={}):
         result += 'URL: %s\n' % curUrl
         result += 'HEADERS: %s %s\n' % (code, mimeType)
         if mimeType.lower() in PARSER_BY_MIME_TYPE and len(urlContent) < 10 * 1024:
-            result += 'BODY: %s\n' % urlContent
-            if not urlContent.endswith('\n'):
+            result += 'BODY: %s\n' % urlContent.decode('utf8')
+            if not urlContent.endswith(b'\n'):
                 result += '\n'
-        elif code < 400:
+        elif code >= 200 and code < 400:
             m = hashlib.md5()
             m.update(urlContent)
             result += 'BODY: SIZE: %s, MD5: %s\n\n' % (len(urlContent), m.hexdigest())

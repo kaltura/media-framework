@@ -70,7 +70,7 @@ def test(channelId=CHANNEL_ID):
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
     nl.setChannelId(channelId)
 
-    logTracker.assertContains('ngx_live_filler_setup_free_unused_tracks: freeing track')
+    logTracker.assertContains(b'ngx_live_filler_setup_free_unused_tracks: freeing track')
 
     sv = KmpTcpSender(NGINX_LIVE_KMP_ADDR, channelId, 'v1', 'video')
     sa = KmpTcpSender(NGINX_LIVE_KMP_ADDR, channelId, 'a1', 'audio')

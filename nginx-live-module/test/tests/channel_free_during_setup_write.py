@@ -15,14 +15,14 @@ def test(channelId=CHANNEL_ID):
     while True:
         try:
             nl.channel.get(channelId)
-        except requests.exceptions.HTTPError, e:
+        except requests.exceptions.HTTPError as e:
             if e.response.status_code != 404:
                 raise
             break
 
         time.sleep(.1)
 
-    logTracker.assertContains('ngx_live_persist_setup_channel_free: cancelling write')
+    logTracker.assertContains(b'ngx_live_persist_setup_channel_free: cancelling write')
 
     cleanupStack.reset()
     time.sleep(1)

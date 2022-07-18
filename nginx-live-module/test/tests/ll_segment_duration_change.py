@@ -40,4 +40,4 @@ def test(channelId=CHANNEL_ID):
 
     testLLDefaultStreams(channelId, __file__)
 
-    logTracker.assertContains('ngx_live_lls_channel_duration_changed: set to 8000')
+    logTracker.assertContains(b'ngx_live_lls_channel_duration_changed: set to 8000')

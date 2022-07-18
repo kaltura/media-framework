@@ -38,7 +38,7 @@ def test(channelId=CHANNEL_ID):
     d = d[:KLPF_HEADER_SIZE_START] + struct.pack('<L', header_size & ~NGX_PERSIST_HEADER_FLAG_COMPRESSED) + d[KLPF_HEADER_SIZE_END:]
 
     # replace the uid
-    d = d[:CHANNEL_UID_START] + '\0' * 8 + d[CHANNEL_UID_END:]
+    d = d[:CHANNEL_UID_START] + b'\0' * 8 + d[CHANNEL_UID_END:]
 
     with open('/tmp/store/channel/test/index', 'wb') as f:
         f.write(d)
@@ -47,5 +47,5 @@ def test(channelId=CHANNEL_ID):
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
     nl.setChannelId(channelId)
 
-    logTracker.assertContains('ngx_live_persist_index_read_channel: uid mismatch, actual: 0000000000000000')
+    logTracker.assertContains(b'ngx_live_persist_index_read_channel: uid mismatch, actual: 0000000000000000')
     assert('var1' in nl.variant.getAll())    # make sure setup was loaded

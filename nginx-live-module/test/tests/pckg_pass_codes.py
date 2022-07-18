@@ -9,18 +9,18 @@ def updateConf(conf):
 
 def test(channelId=CHANNEL_ID):
     # by default status codes are mapped to 502
-    for status in ['400 Bad Request', '410 Gone', '500 Internal Server Error']:
-        TcpServer(8002, lambda s: socketSendAndShutdown(s, getHttpResponseRegular('x', status)))
+    for status in [b'400 Bad Request', b'410 Gone', b'500 Internal Server Error']:
+        TcpServer(8002, lambda s: socketSendAndShutdown(s, getHttpResponseRegular(b'x', status)))
         logTracker.init()
         req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'seg-1-svar1.m4s'))
-        assert(req.status_code == 502)
-        logTracker.assertContains('ngx_http_pckg_core_post_handler: bad subrequest status %s' % status[:3])
+        assertEquals(req.status_code, 502)
+        logTracker.assertContains(b'ngx_http_pckg_core_post_handler: bad subrequest status %s' % status[:3])
         cleanupStack.reset()
 
     # 404 passed as-is
-    TcpServer(8002, lambda s: socketSendAndShutdown(s, getHttpResponseRegular('x', '404 Not Found')))
+    TcpServer(8002, lambda s: socketSendAndShutdown(s, getHttpResponseRegular(b'x', b'404 Not Found')))
     logTracker.init()
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'seg-1-svar1.m4s'))
-    assert(req.status_code == 404)
-    logTracker.assertContains('ngx_http_pckg_core_post_handler: bad subrequest status 404')
+    assertEquals(req.status_code, 404)
+    logTracker.assertContains(b'ngx_http_pckg_core_post_handler: bad subrequest status 404')
     cleanupStack.reset()

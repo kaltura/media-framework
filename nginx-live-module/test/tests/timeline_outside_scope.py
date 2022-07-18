@@ -11,16 +11,16 @@ def storeServer(s):
     global lock
 
     header = s.recv(4096)
-    uri = header.split(' ')[1]
+    uri = header.split(b' ')[1]
     base = os.path.basename(uri)
-    if base == '0':
+    if base == b'0':
         lock.acquire()
         lock.release()
-    elif base not in ['setup', 'index']:
-        s.send(getHttpResponseRegular(status='500 Internal Server Error'))
+    elif base not in [b'setup', b'index']:
+        s.send(getHttpResponseRegular(status=b'500 Internal Server Error'))
         return
 
-    path = '/tmp' + uri
+    path = '/tmp' + uri.decode('utf8')
     data = readRequestBody(s, header)
     writeFile(path, data)
     s.send(getHttpResponseRegular())
@@ -61,5 +61,5 @@ def validate(channelId=CHANNEL_ID):
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
 
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'master.m3u8', SHORT_TIMELINE_ID))
-    assert(req.status_code == 410)
-    logTracker.assertContains('timeline "short" no longer has segments')
+    assertEquals(req.status_code, 410)
+    logTracker.assertContains(b'timeline "short" no longer has segments')

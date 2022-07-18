@@ -37,4 +37,4 @@ def test(channelId=CHANNEL_ID):
 
     testLLDefaultStreams(channelId, __file__)
 
-    logTracker.assertContains('ngx_live_lls_add_frame: updating end target')
+    logTracker.assertContains(b'ngx_live_lls_add_frame: updating end target')

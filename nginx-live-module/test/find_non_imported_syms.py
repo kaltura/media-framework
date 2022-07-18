@@ -32,4 +32,4 @@ for root, dirs, files in os.walk(objs_path):
 
 unused = list(exports - imports)
 for sym in sorted(unused):
-    print sym
+    print(sym)

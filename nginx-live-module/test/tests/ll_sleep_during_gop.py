@@ -28,4 +28,4 @@ def test(channelId=CHANNEL_ID):
 
     testLLDefaultStreams(channelId, __file__)
 
-    logTracker.assertContains('ngx_live_lls_inactive_handler: track inactive')
+    logTracker.assertContains(b'ngx_live_lls_inactive_handler: track inactive')

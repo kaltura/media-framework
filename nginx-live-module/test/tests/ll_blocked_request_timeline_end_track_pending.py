@@ -38,10 +38,10 @@ def test(channelId=CHANNEL_ID):
 
     code, headers, body = t.join()
     assert(code == 200)
-    assert('seg-4-svar1-a.m4s' in body)
+    assert(b'seg-4-svar1-a.m4s' in body)
 
     # the wait handler is first called when end list is enabled, but it blocks again because the track is pending
-    logTracker.assertContains('ngx_live_timeline_update: end_list enabled, publishing timeline')
-    logTracker.assertContains('ngx_live_notif_segment_publish_timeline: calling handler 0')
-    logTracker.assertContains('ngx_live_notif_segment_publish: calling handler 0')
+    logTracker.assertContains(b'ngx_live_timeline_update: end_list enabled, publishing timeline')
+    logTracker.assertContains(b'ngx_live_notif_segment_publish_timeline: calling handler 0')
+    logTracker.assertContains(b'ngx_live_notif_segment_publish: calling handler 0')
     assertBetween(float(headers['block-duration'][0]), 1.9, 2.1)

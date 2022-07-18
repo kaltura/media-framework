@@ -38,4 +38,4 @@ def test(channelId=CHANNEL_ID):
     assertGreaterThan(float(headers['block-duration'][0]), 10)
 
     # the wait completes, but then starts again
-    logTracker.assertContains('ngx_live_notif_segment_publish: calling handler 0')
+    logTracker.assertContains(b'ngx_live_notif_segment_publish: calling handler 0')

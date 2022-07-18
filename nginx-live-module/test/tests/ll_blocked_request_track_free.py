@@ -27,5 +27,5 @@ def test(channelId=CHANNEL_ID):
     code = t.join()[0]
     assert(code == 502)
 
-    logTracker.assertContains('ngx_live_notif_segment_publish: calling handler -6')
-    logTracker.assertContains('ngx_http_pckg_core_post_handler: bad subrequest status 409')
+    logTracker.assertContains(b'ngx_live_notif_segment_publish: calling handler -6')
+    logTracker.assertContains(b'ngx_http_pckg_core_post_handler: bad subrequest status 409')
