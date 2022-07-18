@@ -79,13 +79,13 @@ class KmpReader(KmpReaderBase):
 class KmpFileReader(KmpReader):
     def __init__(self, inputFile):
         self.inputFile = inputFile
-        super(KmpFileReader, self).__init__(file(inputFile, 'rb'), inputFile)
+        super(KmpFileReader, self).__init__(open(inputFile, 'rb'), inputFile)
 
 class KmpMediaFileReader(KmpReader):
     def __init__(self, inputFile, streamId, createdBase=DEFAULT_CREATED):
         fileToKmp = os.path.join(os.path.dirname(__file__), FILE_TO_KMP_BIN)
         if not os.path.isfile(fileToKmp):
-            print 'Error: "%s" does not exist\nPlease compile it' % fileToKmp
+            print('Error: "%s" does not exist\nPlease compile it' % fileToKmp)
             sys.exit(1)
 
         self.inputFile = inputFile
@@ -208,19 +208,19 @@ def kmpCreatePacket(type, header, data, reserved = 0):
     return struct.pack('<LLLL', type, KMP_PACKET_HEADER_SIZE + len(header), len(data), reserved) + header + data
 
 def kmpConnectPacket(channelId, trackId, initialFrameId = 0, initialOffset = 0, flags = 0):
-    header = (channelId + '\0' * (KMP_MAX_CHANNEL_ID_LEN - len(channelId)) +
-        trackId + '\0' * (KMP_MAX_TRACK_ID_LEN - len(trackId)) +
+    header = (channelId.encode('utf8') + b'\0' * (KMP_MAX_CHANNEL_ID_LEN - len(channelId)) +
+        trackId.encode('utf8') + b'\0' * (KMP_MAX_TRACK_ID_LEN - len(trackId)) +
         struct.pack('<QQLL', initialFrameId, 0, initialOffset, flags))
-    return kmpCreatePacket(KMP_PACKET_CONNECT, header, '')
+    return kmpCreatePacket(KMP_PACKET_CONNECT, header, b'')
 
 def kmpEndOfStreamPacket():
-    return kmpCreatePacket(KMP_PACKET_END_OF_STREAM, '', '')
+    return kmpCreatePacket(KMP_PACKET_END_OF_STREAM, b'', b'')
 
 def kmpGetFrameHeader(data):
-    return struct.unpack('<qqLL', data[KMP_PACKET_HEADER_SIZE:(KMP_PACKET_HEADER_SIZE + KMP_FRAME_HEADER_SIZE)])
+    return struct.unpack('<qqLl', data[KMP_PACKET_HEADER_SIZE:(KMP_PACKET_HEADER_SIZE + KMP_FRAME_HEADER_SIZE)])
 
 def kmpSetFrameHeader(data, frame):
-    return data[:KMP_PACKET_HEADER_SIZE] + struct.pack('<qqLL', *frame) + data[(KMP_PACKET_HEADER_SIZE + KMP_FRAME_HEADER_SIZE):]
+    return data[:KMP_PACKET_HEADER_SIZE] + struct.pack('<qqLl', *frame) + data[(KMP_PACKET_HEADER_SIZE + KMP_FRAME_HEADER_SIZE):]
 
 def kmpPacketToStr(data):
     type, headerSize, dataSize, reserved = kmpGetHeader(data)
@@ -244,7 +244,7 @@ def kmpPacketToStr(data):
             channels, bitsPerSample, sampleRate = struct.unpack('<HHL', data[:8])
             result += ', channels=%d, bitsPerSample=%d, sampleRate=%d' % (channels, bitsPerSample, sampleRate)
     elif type == KMP_PACKET_FRAME:
-        created, dts, flags, ptsDelay = struct.unpack('<qqLL', data[:24])
+        created, dts, flags, ptsDelay = struct.unpack('<qqLl', data[:24])
         result += ', created=%d, dts=%d, flags=0x%x, ptsDelay=%d' % (created, dts, flags, ptsDelay)
     return result
 
@@ -274,7 +274,7 @@ def kmpSendStreams(pipes, base = KmpSendTimestamps(), maxDuration = 0, maxDts = 
     lastProgress = None
 
     if VERBOSITY >= 2:
-        print 'sendStream started, streams=%s, duration=%s, realtime=%s, waitForVideoKey=%s' % (len(pipes), maxDuration, realtime, waitForVideoKey)
+        print('sendStream started, streams=%s, duration=%s, realtime=%s, waitForVideoKey=%s' % (len(pipes), maxDuration, realtime, waitForVideoKey))
 
     while True:
         minPipe = kmpGetMinDtsPipe(pipes)
@@ -317,7 +317,7 @@ def kmpSendStreams(pipes, base = KmpSendTimestamps(), maxDuration = 0, maxDts = 
         data = kmpSetFrameHeader(data, (created, dts, flags, ptsDelay))
 
         if VERBOSITY >= 3 and sender.name is not None:
-            print '%s --> %s, created=%d, dts=%d, flags=0x%x, ptsDelay=%d' % (reader.name, sender.name, created, dts, flags, ptsDelay)
+            print('%s --> %s, created=%d, dts=%d, flags=0x%x, ptsDelay=%d' % (reader.name, sender.name, created, dts, flags, ptsDelay))
 
         sender.send(data)
         reader.next()

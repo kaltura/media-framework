@@ -31,4 +31,4 @@ def test(channelId=CHANNEL_ID):
 
     testLLDefaultStreams(channelId, __file__)
 
-    logTracker.assertContains('ngx_live_lls_force_close_segment: forcing close, started_tracks: 0')
+    logTracker.assertContains(b'ngx_live_lls_force_close_segment: forcing close, started_tracks: 0')

@@ -23,5 +23,5 @@ def test(channelId=CHANNEL_ID):
     code = t.join()[0]
     assert(code == 503)
 
-    logTracker.assertContains('ngx_http_live_ksmp_wait_write_handler: wait request timed out')
-    logTracker.assertContains('ngx_http_pckg_core_post_handler: ksmp error')
+    logTracker.assertContains(b'ngx_http_live_ksmp_wait_write_handler: wait request timed out')
+    logTracker.assertContains(b'ngx_http_pckg_core_post_handler: ksmp error')

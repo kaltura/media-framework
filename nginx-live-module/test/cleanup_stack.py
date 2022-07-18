@@ -7,7 +7,7 @@ class CleanupStack:
         self.items.append(callback)
 
     def reset(self):
-        for i in xrange(len(self.items), 0 , -1):
+        for i in range(len(self.items), 0 , -1):
             self.items[i - 1]()
         self.items = []
 

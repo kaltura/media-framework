@@ -55,4 +55,4 @@ def test(channelId=CHANNEL_ID):
 
     testLLDefaultStreams(channelId, __file__)
 
-    logTracker.assertContains('ngx_live_lls_process_frame: postponing part start')
+    logTracker.assertContains(b'ngx_live_lls_process_frame: postponing part start')

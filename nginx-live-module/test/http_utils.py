@@ -1,15 +1,16 @@
-from httplib import BadStatusLine
-from httplib import IncompleteRead
-from StringIO import StringIO
-import urlparse
+import requests
 import hashlib
-import urllib2
 import base64
-import socket
 import shutil
 import hmac
 import time
-import gzip
+import zlib
+
+try:
+    import urllib.parse as urlparse # python 3
+except ImportError:
+    import urlparse # python 2
+
 
 try:
     from g2o_params import *
@@ -18,10 +19,8 @@ except ImportError:
 
 def parseHttpHeaders(headers):
     result = {}
-    for header in headers:
-        header = map(lambda y: y.strip(), header.split(':', 1))
-        headerName = header[0].lower()
-        headerValue = header[1] if len(header) > 1 else ''
+    for headerName, headerValue in headers.items():
+        headerName = headerName.lower()
         result.setdefault(headerName, [])
         result[headerName].append(headerValue)
     return result
@@ -29,41 +28,25 @@ def parseHttpHeaders(headers):
 def getUrl(url, extraHeaders={}, timeout=None):
     headers = getG2OHeaderFullUrl(url)
     headers.update(extraHeaders)
-    request = urllib2.Request(url, headers=headers)
+
     try:
-        f = urllib2.urlopen(request, timeout=timeout)
-        body = f.read()
-    except urllib2.HTTPError, e:
-        return e.getcode(), parseHttpHeaders(e.info().headers), e.read()
-    except urllib2.URLError, e:
-        return 0, {}, 'Error: request failed %s %s' % (url, e)
-    except BadStatusLine, e:
-        return 0, {}, 'Error: request failed %s %s' % (url, e)
-    except socket.error, e:
-        return 0, {}, 'Error: got socket error %s %s' % (url, e)
-    except IncompleteRead, e:
-        return 0, {}, 'Error: got incomplete read error %s %s' % (url, e)
+        res = requests.get(url, headers=headers, timeout=timeout)
+    except requests.exceptions.RequestException as e:
+        return 0, {}, ('Error: request failed %s %s' % (url, str(e))).encode('utf8')
+
+    body = res.content
 
     # validate content length
-    contentLength = f.info().getheader('content-length')
+    contentLength = res.headers.get('content-length')
     if contentLength != None and contentLength != '%s' % len(body):
-        return 0, {}, 'Error: %s content-length %s is different than the response size %s' % (url, contentLength, len(body))
+        return 0, {}, ('Error: %s content-length %s is different than the response size %s' % (url, contentLength, len(body))).encode('utf8')
 
-    # decode gzip
-    if f.info().get('Content-Encoding') == 'gzip':
-        gzipFile = gzip.GzipFile(fileobj=StringIO(body))
-        try:
-            body = gzipFile.read()
-        except IOError, e:
-            return 0, {}, 'Error: failed to decode gzip %s' % url
-
-    return f.getcode(), parseHttpHeaders(f.info().headers), body
+    return res.status_code, parseHttpHeaders(res.headers), body
 
 def downloadUrl(url, fileName):
-    r = urllib2.urlopen(urllib2.Request(url))
-    with file(fileName, 'wb') as w:
-        shutil.copyfileobj(r,w)
-    r.close()
+    with requests.get(url, stream=True) as r:
+        with open(fileName, 'wb') as w:
+            shutil.copyfileobj(r.raw, w)
 
 def getG2OHeaders(uri):
     if len(G2O_KEY) == 0:

@@ -40,6 +40,6 @@ def test(channelId=CHANNEL_ID):
     code, headers, body = t.join()
     assertEquals(code, 200)
     assertGreaterThan(float(headers['block-duration'][0]), 2)
-    assert('part-5-1-svar1-v.m4s' in body)  # segment number 4 was skipped to align on persist bucket
+    assert(b'part-5-1-svar1-v.m4s' in body)  # segment number 4 was skipped to align on persist bucket
 
-    logTracker.assertContains('ngx_live_notif_segment_publish: calling handler 0')
+    logTracker.assertContains(b'ngx_live_notif_segment_publish: calling handler 0')

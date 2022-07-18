@@ -32,5 +32,5 @@ def test(channelId=CHANNEL_ID):
     TcpServer(8002, lambda s: nl.channel.delete(channelId))
 
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'seg-1-svar1.m4s'))
-    assert(req.status_code == 502)
-    logTracker.assertContains('ngx_live_persist_media_channel_free: detaching from channel')
+    assertEquals(req.status_code, 502)
+    logTracker.assertContains(b'ngx_live_persist_media_channel_free: detaching from channel')

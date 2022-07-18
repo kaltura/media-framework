@@ -10,11 +10,11 @@ def test(channelId=CHANNEL_ID):
     try:
         nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
         assert(False)
-    except requests.exceptions.HTTPError, e:
+    except requests.exceptions.HTTPError as e:
         if e.response.status_code != 409:
             raise
 
-    logTracker.assertContains('ngx_live_persist_core_read_handler: read failed 409')
+    logTracker.assertContains(b'ngx_live_persist_core_read_handler: read failed 409')
 
     cleanupStack.reset()
     time.sleep(1)

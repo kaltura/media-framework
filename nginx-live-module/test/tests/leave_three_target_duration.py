@@ -30,4 +30,4 @@ def test(channelId=CHANNEL_ID):
     time.sleep(5)
 
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'index-svar1.m3u8', TIMELINE_ID))
-    assert(req.status_code == 410)
+    assertEquals(req.status_code, 410)

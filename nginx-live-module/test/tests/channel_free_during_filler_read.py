@@ -12,8 +12,8 @@ def test(channelId=CHANNEL_ID):
 
     time.sleep(1)
 
-    logTracker.assertContains('ngx_live_filler_read_handler: read failed 409')
-    logTracker.assertContains('ngx_live_filler_ready_handler: notif failed -6')
+    logTracker.assertContains(b'ngx_live_filler_read_handler: read failed 409')
+    logTracker.assertContains(b'ngx_live_filler_ready_handler: notif failed -6')
 
     cleanupStack.reset()
     time.sleep(1)

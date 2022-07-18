@@ -29,5 +29,5 @@ def validate(channelId=CHANNEL_ID):
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
 
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'master.m3u8', EMPTY_TIMELINE_ID))
-    assert(req.status_code == 400)
-    logTracker.assertContains('no segments in timeline "empty"')
+    assertEquals(req.status_code, 400)
+    logTracker.assertContains(b'no segments in timeline "empty"')

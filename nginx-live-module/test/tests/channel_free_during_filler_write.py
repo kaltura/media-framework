@@ -11,8 +11,8 @@ def test(channelId=CHANNEL_ID):
 
     assertHttpError(lambda: saveFiller(nl, channelId), 409)
 
-    logTracker.assertContains('ngx_live_filler_write_handler: write failed 409')
-    logTracker.assertContains('ngx_live_filler_write_cancel: cancelling write request')
+    logTracker.assertContains(b'ngx_live_filler_write_handler: write failed 409')
+    logTracker.assertContains(b'ngx_live_filler_write_cancel: cancelling write request')
 
     cleanupStack.reset()
     time.sleep(1)

@@ -15,7 +15,7 @@ def test(channelId=CHANNEL_ID):
 
     st = KmpSendTimestamps()
 
-    for i in xrange(2):
+    for i in range(2):
         if sv is None:
             initialFrameId = i * 1000000
             sv = KmpTcpSender(NGINX_LIVE_KMP_ADDR, channelId, 'v1', 'video', initialFrameId=initialFrameId)
@@ -42,6 +42,7 @@ def validate(channelId=CHANNEL_ID):
     nl.channel.create(NginxLiveChannel(id=channelId, preset='main'))
     testDefaultStreams(channelId, __file__)
 
+    time.sleep(1)
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'index-svar1.m3u8', EMPTY_TIMELINE_ID))
-    assert(req.status_code == 410)
-    logTracker.assertContains('timeline "empty" no longer has segments')
+    assertEquals(req.status_code, 410)
+    logTracker.assertContains(b'timeline "empty" no longer has segments')

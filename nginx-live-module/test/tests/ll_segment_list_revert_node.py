@@ -44,7 +44,7 @@ def test(channelId=CHANNEL_ID):
     sv, = createVariant(nl, 'var2', [('v2', 'video')])
 
     # create 118 segments with alternating durations 4, 2, 4, 2, ...
-    for i in range(NGX_LIVE_SEGMENT_LIST_NODE_ELTS / 2):
+    for i in range(NGX_LIVE_SEGMENT_LIST_NODE_ELTS // 2):
         rv = KmpHideKeyFramesReader(KmpMediaFileReader(TEST_VIDEO2, 0), [1.5 * 90000, 3 * 90000])
 
         kmpSendStreams([
@@ -64,5 +64,5 @@ def test(channelId=CHANNEL_ID):
     time.sleep(2)
 
     testLLDefaultStreams(channelId, __file__)
-    logTracker.assertContains('ngx_live_segment_list_update_last: reverting new node and incrementing previous count')
-    logTracker.assertNotContains('ngx_live_segment_list_update_last: incrementing previous count')
+    logTracker.assertContains(b'ngx_live_segment_list_update_last: reverting new node and incrementing previous count')
+    logTracker.assertNotContains(b'ngx_live_segment_list_update_last: incrementing previous count')

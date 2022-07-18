@@ -18,7 +18,7 @@ def test(channelId=CHANNEL_ID):
     sv2, sa2 = createVariant(nl, 'var2', [('v2', 'video'), ('a2', 'audio')])
     sv3, sa3 = createVariant(nl, 'var3', [('v3', 'video'), ('a3', 'audio')])
 
-    for i in xrange(1, 4):
+    for i in range(1, 4):
         for mt in 'va':
             nl.track.update(NginxLiveTrack(id='%s%s' % (mt, i), group_id='%s' % i))
 

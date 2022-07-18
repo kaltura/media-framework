@@ -27,10 +27,10 @@ def test(channelId=CHANNEL_ID):
     req = requests.post(url=nl.url + '/multi', json=multi)
     resp = req.json()
 
-    assert(len(resp) == 5)
-    codes = map(lambda x: x['code'], resp)
-    assert(codes == [409,] + [404,] * 4)
+    assertEquals(len(resp), 5)
+    codes = list(map(lambda x: x['code'], resp))
+    assertEquals(codes, [409,] + [404,] * 4)
 
-    logTracker.assertContains('ngx_live_persist_core_read_handler: read failed 409')
+    logTracker.assertContains(b'ngx_live_persist_core_read_handler: read failed 409')
 
     cleanupStack.reset()

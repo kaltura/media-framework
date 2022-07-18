@@ -28,5 +28,5 @@ def test(channelId=CHANNEL_ID):
 
     time.sleep(2)
 
-    logTracker.assertContains('ngx_live_store_http_write_complete: request failed')
-    logTracker.assertContains('ngx_live_persist_index_write_complete: write failed')
+    logTracker.assertContains(b'ngx_live_store_http_write_complete: request failed')
+    logTracker.assertContains(b'ngx_live_persist_index_write_complete: write failed')

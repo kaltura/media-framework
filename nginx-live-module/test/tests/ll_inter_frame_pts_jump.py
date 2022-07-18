@@ -32,4 +32,4 @@ def test(channelId=CHANNEL_ID):
 
     testLLDefaultStreams(channelId, __file__)
 
-    logTracker.assertContains('ngx_live_syncer_add_frame: large inter-frame pts jump')
+    logTracker.assertContains(b'ngx_live_syncer_add_frame: large inter-frame pts jump')

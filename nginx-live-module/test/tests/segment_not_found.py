@@ -23,16 +23,16 @@ def test(channelId=CHANNEL_ID):
     kmpSendEndOfStream([sv, sa])
 
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'seg-1-svar1.m4s'))
-    assert(req.status_code == 400)
-    logTracker.assertContains('segment 0 does not exist')
+    assertEquals(req.status_code, 400)
+    logTracker.assertContains(b'segment 0 does not exist')
 
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'seg-101-svar1.m4s'))
-    assert(req.status_code == 410)
-    logTracker.assertContains('segment 100 does not exist')
+    assertEquals(req.status_code, 410)
+    logTracker.assertContains(b'segment 100 does not exist')
 
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'seg-108-svar1.m4s'))
-    assert(req.status_code == 200)
+    assertEquals(req.status_code, 200)
 
     req = requests.get(url=getStreamUrl(channelId, 'hls-fmp4', 'seg-1000-svar1.m4s'))
-    assert(req.status_code == 400)
-    logTracker.assertContains('segment 999 does not exist')
+    assertEquals(req.status_code, 400)
+    logTracker.assertContains(b'segment 999 does not exist')

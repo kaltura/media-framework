@@ -10,7 +10,7 @@ def test(channelId=CHANNEL_ID):
     nl = nginxLiveClient()
     assertHttpError(lambda: nl.channel.create(NginxLiveChannel(id=channelId, preset='main', filler=getFiller())), 503)
 
-    logTracker.assertContains('ngx_live_filler_ready_handler: notif failed -6')
+    logTracker.assertContains(b'ngx_live_filler_ready_handler: notif failed -6')
 
     cleanupStack.reset()
     time.sleep(1)

@@ -22,15 +22,15 @@ def setup(channelId=CHANNEL_ID):
 
 def compareObjects(c1, c2, ignore_keys=set([])):
     result = True
-    for k, v1 in c1.iteritems():
+    for k, v1 in c1.items():
         if not k in c2:
-            print 'key %s exists only in first object' % k
+            print('key %s exists only in first object' % k)
             result = False
             continue
 
         v2 = c2[k]
         if type(v1) != type(v2):
-            print 'type mismatch for key %s, %s vs %s' % (k, type(v1), type(v2))
+            print('type mismatch for key %s, %s vs %s' % (k, type(v1), type(v2)))
             result = False
             continue
 
@@ -43,7 +43,7 @@ def compareObjects(c1, c2, ignore_keys=set([])):
             continue
 
         if v1 != v2:
-            print 'different values for key %s, type %s, %s vs %s' % (k, type(v1), v1, v2)
+            print('different values for key %s, type %s, %s vs %s' % (k, type(v1), v1, v2))
             result = False
 
     return result

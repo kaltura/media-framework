@@ -184,9 +184,9 @@ def test(channelId=CHANNEL_ID):
         'NO_TRUNCATE',
     ]
 
-    print '%s started' % time.ctime()
+    print('%s started' % time.ctime())
     for param in params:
-        print '%s: %s' % (param, globals()[param])
+        print('%s: %s' % (param, globals()[param]))
 
     # prepare the buffers in memory
     if BLOCKING_SEGMENT_REQUEST:
@@ -205,7 +205,7 @@ def test(channelId=CHANNEL_ID):
     buffers = []
     st = KmpSendTimestamps()
     for curReaders in readers:
-        curSenders = [KmpMemorySender() for _ in xrange(len(curReaders))]
+        curSenders = [KmpMemorySender() for _ in range(len(curReaders))]
         kmpSendStreams(zip(curReaders, curSenders), st,  maxDuration=10, realtime=False, waitForVideoKey=True)
         buffers.append(map(lambda ms: KmpBuffer(ms.buf), curSenders))
         st.dts += 9000        # add some margin to avoid backward jumps due to different pts delay
@@ -240,7 +240,7 @@ def test(channelId=CHANNEL_ID):
         if i % 20 == 0 and BLOCKING_SEGMENT_REQUEST:
             sendBlockingSegmentRequest(channelId)
 
-    print 'sending eos'
+    print('sending eos')
     kmpSendEndOfStream([sv, sa])
 
     # deactivate the timeline

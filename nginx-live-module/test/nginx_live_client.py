@@ -19,7 +19,7 @@ class NginxLive:
 
     @staticmethod
     def filterParams(params):
-        return {k:v for k,v in params.iteritems() if v is not None}
+        return {k:v for k,v in params.items() if v is not None}
 
     def post(self, path, params):
         req = requests.post(url=self.url + path, json=self.filterParams(params))
