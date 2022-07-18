@@ -155,6 +155,9 @@ typedef struct {
     int64_t                            part_end_pts;
     int64_t                            part_frame_created;
 
+    uint32_t                           dts_shift;
+    uint32_t                           pending_dts_shift;
+
     int64_t                            last_frame_pts;
     int64_t                            last_frame_dts;
     uint64_t                           next_frame_id;
@@ -848,7 +851,7 @@ ngx_live_lls_track_start_part(ngx_live_track_t *track,
     last_part = segment->frames.last;
     frames = last_part->elts;
 
-    part->start_dts = frame->dts;
+    part->start_dts = frame->dts - ctx->dts_shift;
 
     part->frame = &frames[last_part->nelts - 1];
     part->frame_part = last_part;
@@ -904,6 +907,20 @@ ngx_live_lls_track_stop_part(ngx_live_track_t *track, ngx_flag_t is_last)
     part_index = segment->parts.nelts - 1;
 
     part = parts + part_index;
+
+    if (part->frame_count <= 0 && ctx->pending_dts_shift > 0) {
+
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_lls_track_stop_part: "
+            "applying dts shift %uD, prev: %uD",
+            ctx->pending_dts_shift, ctx->dts_shift);
+
+        ngx_live_segment_cache_shift_dts(segment, ctx->pending_dts_shift);
+        part->start_dts -= ctx->pending_dts_shift;
+
+        ctx->dts_shift += ctx->pending_dts_shift;
+        ctx->pending_dts_shift = 0;
+    }
 
     part->frame_count = segment->frame_count - part->frame_count;
     part->data_size = segment->data_size - part->data_size;
@@ -1386,7 +1403,7 @@ ngx_live_lls_track_start_segment(ngx_live_track_t *track,
 
     segment->media_info = media_info;
     segment->part_sequence = pending->part_sequence;
-    segment->start_dts = frame->dts;
+    segment->start_dts = frame->dts - ctx->dts_shift;
     segment->data_head = frame->data;
 
     ctx->part_start_pts = pending->start_pts;
@@ -1431,7 +1448,7 @@ ngx_live_lls_track_stop_segment(ngx_live_track_t *track,
     cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
 
     segment = ctx->segment;
-    segment->end_dts = ctx->last_frame_dts + frame->duration;
+    segment->end_dts = ctx->last_frame_dts + frame->duration - ctx->dts_shift;
     segment->data_tail = ngx_buf_chain_terminate(segment->data_tail,
         frame->size);
 
@@ -2029,6 +2046,7 @@ static ngx_int_t
 ngx_live_lls_process_frame(ngx_live_track_t *track,
     ngx_live_lls_frame_t *frame, ngx_uint_t flags)
 {
+    int32_t                      pts_delay;
     uint32_t                     pending_index;
     ngx_int_t                    rc;
     ngx_flag_t                   start_part;
@@ -2166,6 +2184,26 @@ ngx_live_lls_process_frame(ngx_live_track_t *track,
 
         /* start segment */
 
+        if (ctx->pending_dts_shift > 0) {
+            ngx_log_error(NGX_LOG_WARN, &track->log, 0,
+                "ngx_live_lls_process_frame: "
+                "applying dts shift %uD, prev: %uD",
+                ctx->pending_dts_shift, ctx->dts_shift);
+
+            ctx->dts_shift += ctx->pending_dts_shift;
+            ctx->pending_dts_shift = 0;
+        }
+
+        if ((frame->flags & NGX_LIVE_FRAME_FLAG_RESET_DTS_SHIFT) &&
+            ctx->dts_shift > 0)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_lls_process_frame: "
+                "resetting dts shift, prev: %uD", ctx->dts_shift);
+
+            ctx->dts_shift = 0;
+        }
+
         rc = ngx_live_lls_track_get_pending_index(track, frame,
             &pending_index);
         switch (rc) {
@@ -2200,9 +2238,14 @@ ngx_live_lls_process_frame(ngx_live_track_t *track,
         return NGX_ERROR;
     }
 
+    pts_delay = frame->pts + ctx->dts_shift - frame->dts;
+    if (pts_delay < 0 && (uint32_t) -pts_delay > ctx->pending_dts_shift) {
+        ctx->pending_dts_shift = -pts_delay;
+    }
+
     seg_frame->size = frame->size;
     seg_frame->key_frame = (frame->flags & KMP_FRAME_FLAG_KEY) ? 1 : 0;
-    seg_frame->pts_delay = frame->pts - frame->dts;
+    seg_frame->pts_delay = pts_delay;
 
     /* Note: duration is set when the next frame arrives */
 
@@ -2460,7 +2503,8 @@ ngx_live_lls_add_media_info(ngx_live_track_t *track,
 
         /* force a split on the next frame to arrive */
 
-        ctx->next_flags |= NGX_LIVE_FRAME_FLAG_SPLIT;
+        ctx->next_flags |= NGX_LIVE_FRAME_FLAG_SPLIT
+            | NGX_LIVE_FRAME_FLAG_RESET_DTS_SHIFT;
         break;
 
     case NGX_DONE:
