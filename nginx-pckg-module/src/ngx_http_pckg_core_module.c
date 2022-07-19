@@ -624,7 +624,7 @@ ngx_http_pckg_core_post_handler(ngx_http_request_t *sr, void *data,
         }
 
     } else {
-        header = channel->header;
+        header = &channel->header;
 
         if (plcf->media_type_selector == NGX_HTTP_PCKG_MTS_ACTUAL) {
             if (ctx->params.segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX &&
@@ -1296,14 +1296,14 @@ ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
 
         if (ctx->params.part_index != NGX_KSMP_INVALID_PART_INDEX) {
             /* use part_sequence for parts instead of segment index */
-            dst->segment_index = src->header->part_sequence;
+            dst->segment_index = src->header.part_sequence;
         }
 
-        dst_track->frame_count = src->header->frame_count;
-        dst_track->start_dts = src->header->start_dts +
+        dst_track->frame_count = src->header.frame_count;
+        dst_track->start_dts = src->header.start_dts +
             channel->segment_index->correction;
 
-        dst_track->frames.part.nelts = src->header->frame_count;
+        dst_track->frames.part.nelts = src->header.frame_count;
         dst_track->frames.part.elts = src->frames;
 
         dst_track->frames_source_context = ngx_http_pckg_source_init(
@@ -1753,8 +1753,8 @@ ngx_http_pckg_core_part_duration_variable(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-    ch = ctx->channel->header;
-    if (ch == NULL) {
+    ch = &ctx->channel->header;
+    if (ch->timescale == 0) {
         v->not_found = 1;
         return NGX_OK;
     }
@@ -1905,7 +1905,7 @@ ngx_http_pckg_core_segment_dts_variable(ngx_http_request_t *r,
         }
 
         timescale = track->last_media_info->media_info.timescale;
-        dts = (segment->header->start_dts * 1000) / timescale;
+        dts = (segment->header.start_dts * 1000) / timescale;
         break;
     }
 

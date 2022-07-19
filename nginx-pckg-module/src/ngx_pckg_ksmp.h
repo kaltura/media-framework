@@ -64,7 +64,7 @@ typedef struct {
 
 typedef struct {
     ngx_pckg_timeline_t           *timeline;
-    ngx_ksmp_period_header_t      *header;
+    ngx_ksmp_period_header_t       header;
     ngx_ksmp_segment_repeat_t     *elts;
     ngx_uint_t                     nelts;
     ngx_uint_t                     segment_count;
@@ -75,7 +75,7 @@ typedef struct {
 struct ngx_pckg_timeline_s {
     ngx_pckg_channel_t            *channel;
     ngx_str_t                      id;
-    ngx_ksmp_timeline_header_t    *header;
+    ngx_ksmp_timeline_header_t     header;
     ngx_array_t                    periods;     /* ngx_pckg_period_t */
     ngx_uint_t                     segment_count;
     uint64_t                       duration;
@@ -92,15 +92,16 @@ typedef struct {
 
 
 typedef struct {
-    ngx_ksmp_segment_header_t     *header;
+    ngx_pckg_channel_t            *channel;
+    ngx_ksmp_segment_header_t      header;
     ngx_ksmp_frame_t              *frames;
     ngx_str_t                      media;
 } ngx_pckg_segment_t;
 
 
 struct ngx_pckg_media_info_s {
-    ngx_ksmp_media_info_header_t  *header;
-    kmp_media_info_t              *kmp_media_info;
+    ngx_ksmp_media_info_header_t   header;
+    kmp_media_info_t               kmp_media_info;
     media_info_t                   media_info;
     ngx_str_t                      extra_data;
     u_char                         codec_name[MAX_CODEC_NAME_SIZE];
@@ -116,7 +117,7 @@ typedef struct {
 
 struct ngx_pckg_track_s {
     ngx_pckg_channel_t            *channel;
-    ngx_ksmp_track_header_t       *header;
+    ngx_ksmp_track_header_t        header;
     ngx_array_t                    media_info;  /* ngx_pckg_media_info_t */
     ngx_array_t                    parts;       /* ngx_pckg_segment_parts_t */
     ngx_pckg_segment_parts_t      *parts_cur;
@@ -132,7 +133,7 @@ struct ngx_pckg_track_s {
 typedef struct {
     ngx_pckg_channel_t            *channel;
     ngx_str_t                      id;
-    ngx_ksmp_variant_t            *header;
+    ngx_ksmp_variant_t             header;
     ngx_str_t                      label;
     ngx_str_t                      lang;
     ngx_pckg_track_t              *tracks[KMP_MEDIA_COUNT];
@@ -182,7 +183,7 @@ struct ngx_pckg_channel_s {
     ngx_pckg_channel_media_t      *media;     /* sgts only */
 
     ngx_str_t                      id;
-    ngx_ksmp_channel_header_t     *header;
+    ngx_ksmp_channel_header_t      header;
     ngx_pckg_timeline_t            timeline;
     ngx_array_t                    variants;  /* ngx_pckg_variant_t */
     ngx_array_t                    tracks;    /* ngx_pckg_track_t */

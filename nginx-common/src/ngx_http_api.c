@@ -906,6 +906,10 @@ ngx_http_api_parse_args(ngx_http_request_t *r,
     ngx_str_t    value;
     ngx_flag_t   unescape;
 
+    if (r->args.len <= 0) {
+        return NGX_OK;
+    }
+
     buf = ngx_pnalloc(r->pool, r->args.len + 2);
     if (buf == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,

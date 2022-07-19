@@ -144,13 +144,13 @@ ngx_live_persist_setup_write_channel(ngx_persist_write_ctx_t *write_ctx,
 
 
 static ngx_int_t
-ngx_live_persist_setup_read_channel(ngx_persist_block_header_t *header,
+ngx_live_persist_setup_read_channel(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                              rc;
     ngx_live_channel_t                    *channel = obj;
-    ngx_live_persist_setup_channel_t      *cp;
-    ngx_live_persist_setup_channel_v1_t   *cp1;
+    ngx_live_persist_setup_channel_t       cp;
+    ngx_live_persist_setup_channel_v1_t    cp1;
     ngx_live_persist_setup_channel_ctx_t  *cctx;
 
     rc = ngx_live_persist_read_channel_header(channel, rs);
@@ -159,55 +159,53 @@ ngx_live_persist_setup_read_channel(ngx_persist_block_header_t *header,
     }
 
     if (rs->version >= 9) {
-        cp = ngx_mem_rstream_get_ptr(rs, sizeof(*cp));
-        if (cp == NULL) {
+        if (ngx_mem_rstream_read(rs, &cp, sizeof(cp)) != NGX_OK) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_persist_setup_read_channel: read failed");
             return NGX_BAD_DATA;
         }
 
-        if (cp->initial_segment_index >= NGX_LIVE_INVALID_SEGMENT_INDEX) {
+        if (cp.initial_segment_index >= NGX_LIVE_INVALID_SEGMENT_INDEX) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_persist_setup_read_channel: invalid segment index");
             return NGX_BAD_DATA;
         }
 
-        channel->uid = cp->uid;
-        channel->start_sec = cp->start_sec;
-        channel->conf.initial_segment_index = cp->initial_segment_index;
-        channel->next_segment_index = cp->initial_segment_index;
+        channel->uid = cp.uid;
+        channel->start_sec = cp.start_sec;
+        channel->conf.initial_segment_index = cp.initial_segment_index;
+        channel->next_segment_index = cp.initial_segment_index;
 
-        channel->conf.segment_duration = cp->segment_duration;
+        channel->conf.segment_duration = cp.segment_duration;
         channel->segment_duration = ngx_live_rescale_time(
             channel->conf.segment_duration, 1000, channel->timescale);
 
         cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_setup_module);
 
-        cctx->version = cctx->success_version = cp->version;
+        cctx->version = cctx->success_version = cp.version;
 
     } else {
         /* TODO: remove this */
-        cp1 = ngx_mem_rstream_get_ptr(rs, sizeof(*cp1));
-        if (cp1 == NULL) {
+        if (ngx_mem_rstream_read(rs, &cp1, sizeof(cp1)) != NGX_OK) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_persist_setup_read_channel: read failed");
             return NGX_BAD_DATA;
         }
 
-        if (cp1->initial_segment_index >= NGX_LIVE_INVALID_SEGMENT_INDEX) {
+        if (cp1.initial_segment_index >= NGX_LIVE_INVALID_SEGMENT_INDEX) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_persist_setup_read_channel: invalid segment index");
             return NGX_BAD_DATA;
         }
 
-        channel->uid = cp1->uid;
-        channel->start_sec = cp1->start_sec;
-        channel->conf.initial_segment_index = cp1->initial_segment_index;
-        channel->next_segment_index = cp1->initial_segment_index;
+        channel->uid = cp1.uid;
+        channel->start_sec = cp1.start_sec;
+        channel->conf.initial_segment_index = cp1.initial_segment_index;
+        channel->next_segment_index = cp1.initial_segment_index;
 
         cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_setup_module);
 
-        cctx->version = cctx->success_version = cp1->version;
+        cctx->version = cctx->success_version = cp1.version;
     }
 
     rc = ngx_live_channel_block_str_read(channel, &channel->opaque, rs);
@@ -279,7 +277,7 @@ ngx_live_persist_setup_write_track(ngx_persist_write_ctx_t *write_ctx,
 
 
 static ngx_int_t
-ngx_live_persist_setup_read_track(ngx_persist_block_header_t *header,
+ngx_live_persist_setup_read_track(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                        rc;
@@ -287,7 +285,7 @@ ngx_live_persist_setup_read_track(ngx_persist_block_header_t *header,
     ngx_log_t                       *orig_log;
     ngx_live_track_t                *track;
     ngx_live_channel_t              *channel = obj;
-    ngx_live_persist_setup_track_t  *tp;
+    ngx_live_persist_setup_track_t   tp;
 
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
@@ -295,15 +293,14 @@ ngx_live_persist_setup_read_track(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    tp = ngx_mem_rstream_get_ptr(rs, sizeof(*tp));
-    if (tp == NULL) {
+    if (ngx_mem_rstream_read(rs, &tp, sizeof(tp)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_track: "
             "read data failed, track: %V", &id);
         return NGX_BAD_DATA;
     }
 
-    switch (tp->type) {
+    switch (tp.type) {
 
     case ngx_live_track_type_default:
     case ngx_live_track_type_filler:
@@ -312,11 +309,11 @@ ngx_live_persist_setup_read_track(ngx_persist_block_header_t *header,
     default:
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_track: "
-            "invalid track type %uD, track: %V", tp->type, &id);
+            "invalid track type %uD, track: %V", tp.type, &id);
         return NGX_BAD_DATA;
     }
 
-    rc = ngx_live_track_create(channel, &id, tp->track_id, tp->media_type,
+    rc = ngx_live_track_create(channel, &id, tp.track_id, tp.media_type,
         rs->log, &track);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -332,8 +329,8 @@ ngx_live_persist_setup_read_track(ngx_persist_block_header_t *header,
     orig_log = rs->log;
     rs->log = &track->log;
 
-    track->start_sec = tp->start_sec;
-    track->type = tp->type;
+    track->start_sec = tp.start_sec;
+    track->type = tp.type;
 
     rc = ngx_live_channel_block_str_read(channel, &track->opaque, rs);
     if (rc != NGX_OK) {
@@ -419,7 +416,7 @@ ngx_live_persist_setup_write_variant(ngx_persist_write_ctx_t *write_ctx,
 
 
 static ngx_int_t
-ngx_live_persist_setup_read_variant(ngx_persist_block_header_t *header,
+ngx_live_persist_setup_read_variant(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                           i;
@@ -430,7 +427,7 @@ ngx_live_persist_setup_read_variant(ngx_persist_block_header_t *header,
     ngx_live_variant_t                *variant;
     ngx_live_channel_t                *channel = obj;
     ngx_live_variant_conf_t            conf;
-    ngx_live_persist_setup_variant_t  *v;
+    ngx_live_persist_setup_variant_t   v;
 
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
@@ -438,8 +435,7 @@ ngx_live_persist_setup_read_variant(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    v = ngx_mem_rstream_get_ptr(rs, sizeof(*v));
-    if (v == NULL) {
+    if (ngx_mem_rstream_read(rs, &v, sizeof(v)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_setup_read_variant: "
             "read data failed (1), variant: %V", &id);
@@ -455,8 +451,8 @@ ngx_live_persist_setup_read_variant(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    conf.role = v->role;
-    conf.is_default = v->is_default;
+    conf.role = v.role;
+    conf.is_default = v.is_default;
 
     rc = ngx_live_variant_create(channel, &id, &conf, rs->log, &variant);
     if (rc != NGX_OK) {
@@ -470,7 +466,7 @@ ngx_live_persist_setup_read_variant(ngx_persist_block_header_t *header,
         return NGX_ERROR;
     }
 
-    for (i = 0; i < v->track_count; i++) {
+    for (i = 0; i < v.track_count; i++) {
 
         if (ngx_mem_rstream_read(rs, &track_id, sizeof(track_id)) != NGX_OK) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,

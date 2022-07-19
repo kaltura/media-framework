@@ -2339,7 +2339,7 @@ ngx_live_timelines_write_setup(ngx_persist_write_ctx_t *write_ctx,
 
 
 static ngx_int_t
-ngx_live_timeline_read_setup(ngx_persist_block_header_t *header,
+ngx_live_timeline_read_setup(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                           rc;
@@ -2347,8 +2347,8 @@ ngx_live_timeline_read_setup(ngx_persist_block_header_t *header,
     ngx_str_t                           src_id;
     ngx_live_channel_t                 *channel = obj;
     ngx_live_timeline_t                *timeline;
-    ngx_live_timeline_conf_t           *conf;
-    ngx_live_timeline_manifest_conf_t  *manifest_conf;
+    ngx_live_timeline_conf_t            conf;
+    ngx_live_timeline_manifest_conf_t   manifest_conf;
 
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
@@ -2356,15 +2356,21 @@ ngx_live_timeline_read_setup(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    conf = ngx_mem_rstream_get_ptr(rs, sizeof(*conf) + sizeof(*manifest_conf));
-    if (conf == NULL) {
+    if (ngx_mem_rstream_read(rs, &conf, sizeof(conf)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_timeline_read_setup: "
-            "read data failed, timeline: %V", &id);
+            "read conf failed, timeline: %V", &id);
         return NGX_BAD_DATA;
     }
 
-    manifest_conf = (void *) (conf + 1);
+    if (ngx_mem_rstream_read(rs, &manifest_conf, sizeof(manifest_conf))
+        != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_timeline_read_setup: "
+            "read manifest conf failed, timeline: %V", &id);
+        return NGX_BAD_DATA;
+    }
 
     if (rs->version >= 6) {
         if (ngx_mem_rstream_str_get(rs, &src_id) != NGX_OK) {
@@ -2384,7 +2390,7 @@ ngx_live_timeline_read_setup(ngx_persist_block_header_t *header,
         src_id.len = 0;
     }
 
-    rc = ngx_live_timeline_create(channel, &id, conf, manifest_conf,
+    rc = ngx_live_timeline_create(channel, &id, &conf, &manifest_conf,
         rs->log, &timeline);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
@@ -2754,18 +2760,18 @@ ngx_live_timeline_read_alloc_period(ngx_live_timeline_t *timeline,
 
 
 static ngx_int_t
-ngx_live_timeline_read_periods(ngx_persist_block_header_t *header,
+ngx_live_timeline_read_periods(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
+    u_char                               *p, *end;
     uint32_t                              min_index;
     ngx_int_t                             rc;
-    ngx_str_t                             data;
     ngx_queue_t                          *q;
     ngx_live_period_t                    *period;
     ngx_live_channel_t                   *channel;
     ngx_live_timeline_t                  *timeline = obj;
     ngx_live_persist_index_scope_t       *scope;
-    ngx_live_timeline_persist_period_t   *cur, *end;
+    ngx_live_timeline_persist_period_t    cur;
     ngx_live_timeline_persist_periods_t   ph;
 
     if (ngx_mem_rstream_read(rs, &ph, sizeof(ph)) != NGX_OK) {
@@ -2778,15 +2784,14 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
+    p = ngx_mem_rstream_pos(rs);
+    end = ngx_mem_rstream_end(rs);
 
-    ngx_mem_rstream_get_left(rs, &data);
-
-    cur = (void *) data.data;
-    end = cur + data.len / sizeof(*cur);
-
-    if (cur >= end) {
+    if ((size_t) (end - p) < sizeof(cur)) {
         return NGX_OK;
     }
+
+    end -= sizeof(cur) - 1;
 
     scope = ngx_mem_rstream_scope(rs);
 
@@ -2813,36 +2818,39 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *header,
 
     channel = timeline->channel;
 
-    for (; cur < end; cur++) {
+    while (p < end) {
 
-        if (cur->segment_index < min_index) {
+        ngx_memcpy(&cur, p, sizeof(cur));
+        p += sizeof(cur);
+
+        if (cur.segment_index < min_index) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_timeline_read_periods: "
                 "segment index %uD less than min segment index %uD",
-                cur->segment_index, min_index);
+                cur.segment_index, min_index);
             return NGX_BAD_DATA;
         }
 
-        if (cur->segment_index > scope->max_index ||
-            cur->segment_count > scope->max_index - cur->segment_index + 1)
+        if (cur.segment_index > scope->max_index ||
+            cur.segment_count > scope->max_index - cur.segment_index + 1)
         {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_timeline_read_periods: "
                 "last index outside scope, index: %uD, count: %uD, max: %uD",
-                cur->segment_index, cur->segment_count, scope->max_index);
+                cur.segment_index, cur.segment_count, scope->max_index);
             return NGX_BAD_DATA;
         }
 
-        if (cur->segment_count <= 0) {
+        if (cur.segment_count <= 0) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_timeline_read_periods: zero segment count");
             return NGX_BAD_DATA;
         }
 
-        min_index = cur->segment_index + cur->segment_count;
+        min_index = cur.segment_index + cur.segment_count;
 
         if (!ph.merge) {
-            rc = ngx_live_timeline_read_alloc_period(timeline, cur);
+            rc = ngx_live_timeline_read_alloc_period(timeline, &cur);
             if (rc != NGX_OK) {
                 return rc;
             }
@@ -2853,9 +2861,9 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *header,
         ph.merge = 0;
 
         if (period == NULL ||
-            cur->segment_index != period->node.key + period->segment_count)
+            cur.segment_index != period->node.key + period->segment_count)
         {
-            rc = ngx_live_timeline_read_alloc_period(timeline, cur);
+            rc = ngx_live_timeline_read_alloc_period(timeline, &cur);
             if (rc != NGX_OK) {
                 return rc;
             }
@@ -2865,8 +2873,8 @@ ngx_live_timeline_read_periods(ngx_persist_block_header_t *header,
 
         /* append to last period */
 
-        period->segment_count += cur->segment_count;
-        timeline->segment_count += cur->segment_count;
+        period->segment_count += cur.segment_count;
+        timeline->segment_count += cur.segment_count;
 
         timeline->duration -= period->duration;
 
@@ -2983,7 +2991,7 @@ ngx_live_manifest_timeline_read(ngx_live_timeline_t *timeline,
 
 
 static ngx_int_t
-ngx_live_timeline_read_index(ngx_persist_block_header_t *header,
+ngx_live_timeline_read_index(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                               hash;
@@ -2992,9 +3000,9 @@ ngx_live_timeline_read_index(ngx_persist_block_header_t *header,
     ngx_log_t                             *orig_log;
     ngx_live_channel_t                    *channel = obj;
     ngx_live_timeline_t                   *timeline;
-    ngx_live_timeline_persist_t           *tp;
+    ngx_live_timeline_persist_t            tp;
     ngx_live_timeline_channel_ctx_t       *cctx;
-    ngx_live_timeline_persist_manifest_t  *mp;
+    ngx_live_timeline_persist_manifest_t   mp;
 
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
@@ -3015,14 +3023,18 @@ ngx_live_timeline_read_index(ngx_persist_block_header_t *header,
     orig_log = rs->log;
     rs->log = &timeline->log;
 
-    tp = ngx_mem_rstream_get_ptr(rs, sizeof(*tp) + sizeof(*mp));
-    if (tp == NULL) {
+    if (ngx_mem_rstream_read(rs, &tp, sizeof(tp)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_timeline_read_index: read failed, timeline: %V", &id);
         return NGX_BAD_DATA;
     }
 
-    mp = (void *) (tp + 1);
+    if (ngx_mem_rstream_read(rs, &mp, sizeof(mp)) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_timeline_read_index: "
+            "read manifest failed, timeline: %V", &id);
+        return NGX_BAD_DATA;
+    }
 
     if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
@@ -3037,10 +3049,10 @@ ngx_live_timeline_read_index(ngx_persist_block_header_t *header,
         return rc;
     }
 
-    timeline->last_time = tp->last_time;
-    timeline->last_segment_created = tp->last_segment_created;
+    timeline->last_time = tp.last_time;
+    timeline->last_segment_created = tp.last_segment_created;
 
-    rc = ngx_live_manifest_timeline_read(timeline, mp);
+    rc = ngx_live_manifest_timeline_read(timeline, &mp);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -3080,24 +3092,23 @@ ngx_live_timelines_channel_write_index(ngx_persist_write_ctx_t *write_ctx,
 
 
 static ngx_int_t
-ngx_live_timelines_channel_read_index(ngx_persist_block_header_t *header,
+ngx_live_timelines_channel_read_index(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_channel_t                   *channel = obj;
     ngx_live_timeline_channel_ctx_t      *cctx;
-    ngx_live_timeline_persist_channel_t  *cp;
+    ngx_live_timeline_persist_channel_t   cp;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
-    cp = ngx_mem_rstream_get_ptr(rs, sizeof(*cp));
-    if (cp == NULL) {
+    if (ngx_mem_rstream_read(rs, &cp, sizeof(cp)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_timelines_channel_read_index: read failed");
         return NGX_BAD_DATA;
     }
 
-    cctx->truncate = cp->truncate;
-    cctx->last_segment_middle = cp->last_segment_middle;
+    cctx->truncate = cp.truncate;
+    cctx->last_segment_middle = cp.last_segment_middle;
 
     if (cctx->truncate > 0) {
         ngx_live_timelines_truncate(channel, cctx->truncate);
@@ -3122,7 +3133,7 @@ ngx_live_timeline_write_segment_list(ngx_persist_write_ctx_t *write_ctx,
 
 
 static ngx_int_t
-ngx_live_timeline_read_segment_list(ngx_persist_block_header_t *header,
+ngx_live_timeline_read_segment_list(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_channel_t               *channel = obj;

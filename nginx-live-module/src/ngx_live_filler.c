@@ -104,6 +104,7 @@ typedef struct {
 
 
 typedef struct {
+    ngx_pool_t                        *pool;
     int64_t                            time;
     uint32_t                           count;
     uint32_t                           index;
@@ -1833,7 +1834,6 @@ ngx_live_filler_read_create_segments(ngx_live_channel_t *channel,
     for (i = 0; i < ctx->count; i++) {
         cur = ctx->durations[i];
 
-
         if (ngx_live_timelines_add_segment(channel, time,
             channel->next_segment_index, cur, 0) != NGX_OK)
         {
@@ -1898,6 +1898,7 @@ ngx_live_filler_read_handler(void *data, ngx_int_t rc, ngx_buf_t *response)
     fpcf = ngx_live_get_module_preset_conf(channel, ngx_live_filler_module);
 
     ngx_memzero(&ctx, sizeof(ctx));
+    ctx.pool = read_ctx->pool;
 
     rc = ngx_live_persist_read_parse(channel, &buf,
         &ngx_live_filler_file_type, fpcf->file.max_size, &ctx);
@@ -2224,7 +2225,7 @@ ngx_live_filler_write_setup(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
 
 static ngx_int_t
-ngx_live_filler_read_setup(ngx_persist_block_header_t *header,
+ngx_live_filler_read_setup(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                        filler_start_index;
@@ -2266,7 +2267,7 @@ ngx_live_filler_write_frame_list(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
 
 static ngx_int_t
-ngx_live_filler_read_frame_list(ngx_persist_block_header_t *header,
+ngx_live_filler_read_frame_list(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t            rc;
@@ -2304,7 +2305,7 @@ ngx_live_filler_write_frame_data(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
 
 static ngx_int_t
-ngx_live_filler_read_frame_data(ngx_persist_block_header_t *header,
+ngx_live_filler_read_frame_data(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_str_t            data;
@@ -2479,7 +2480,7 @@ ngx_live_filler_read_get_frames_info(ngx_live_segment_t *segment,
 
 
 static ngx_int_t
-ngx_live_filler_read_segment(ngx_persist_block_header_t *header,
+ngx_live_filler_read_segment(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     size_t                              size;
@@ -2488,21 +2489,20 @@ ngx_live_filler_read_segment(ngx_persist_block_header_t *header,
     ngx_live_track_t                   *track = obj;
     ngx_live_segment_t                 *segment;
     ngx_live_filler_read_ctx_t         *ctx;
-    ngx_live_persist_segment_header_t  *sp;
+    ngx_live_persist_segment_header_t   sp;
 
-    sp = ngx_mem_rstream_get_ptr(rs, sizeof(*sp));
-    if (sp == NULL) {
+    if (ngx_mem_rstream_read(rs, &sp, sizeof(sp)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_filler_read_segment: read header failed");
         return NGX_BAD_DATA;
     }
 
-    if (sp->frame_count <= 0 ||
-        sp->frame_count > NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT)
+    if (sp.frame_count <= 0 ||
+        sp.frame_count > NGX_LIVE_SEGMENTER_MAX_FRAME_COUNT)
     {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_filler_read_segment: invalid frame count %uD",
-            sp->frame_count);
+            sp.frame_count);
         return NGX_BAD_DATA;
     }
 
@@ -2520,7 +2520,7 @@ ngx_live_filler_read_segment(ngx_persist_block_header_t *header,
         return NGX_ERROR;
     }
 
-    segment->frame_count = sp->frame_count;
+    segment->frame_count = sp.frame_count;
 
     rc = ngx_live_persist_read_blocks(track->channel,
         NGX_LIVE_PERSIST_CTX_FILLER_SEGMENT, rs, segment);
@@ -2574,7 +2574,7 @@ ngx_live_filler_read_segment(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    segment->start_dts = sp->start_dts;
+    segment->start_dts = sp.start_dts;
     segment->end_dts = segment->start_dts + duration;
 
     track->has_last_segment = 1;
@@ -2609,13 +2609,13 @@ ngx_live_filler_write_media_info(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
 
 static ngx_int_t
-ngx_live_filler_read_media_info(ngx_persist_block_header_t *header,
+ngx_live_filler_read_media_info(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                    rc;
     ngx_str_t                    data;
     ngx_buf_chain_t              chain;
-    kmp_media_info_t            *media_info;
+    kmp_media_info_t             media_info;
     ngx_live_track_t            *track = obj;
     ngx_live_filler_read_ctx_t  *ctx;
 
@@ -2626,8 +2626,7 @@ ngx_live_filler_read_media_info(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    media_info = ngx_mem_rstream_get_ptr(rs, sizeof(*media_info));
-    if (media_info == NULL) {
+    if (ngx_mem_rstream_read(rs, &media_info, sizeof(media_info)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_filler_read_media_info: read media info failed");
         return NGX_BAD_DATA;
@@ -2644,7 +2643,7 @@ ngx_live_filler_read_media_info(ngx_persist_block_header_t *header,
     chain.size = data.len;
     chain.next = NULL;
 
-    rc = ngx_live_media_info_pending_add(track, media_info,
+    rc = ngx_live_media_info_pending_add(track, &media_info,
         &chain, chain.size, 0);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -2698,7 +2697,7 @@ ngx_live_filler_write_tracks(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
 
 static ngx_int_t
-ngx_live_filler_read_track(ngx_persist_block_header_t *header,
+ngx_live_filler_read_track(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                     media_type;
@@ -2819,7 +2818,7 @@ ngx_live_filler_write_timeline(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
 
 static ngx_int_t
-ngx_live_filler_read_timeline(ngx_persist_block_header_t *header,
+ngx_live_filler_read_timeline(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                           rc;
@@ -2881,7 +2880,14 @@ ngx_live_filler_read_timeline(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    ctx->durations = (void *) durations.data;
+    ctx->durations = ngx_palloc(ctx->pool, durations.len);
+    if (ctx->durations == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_filler_read_timeline: alloc failed");
+        return NGX_ERROR;
+    }
+
+    ngx_memcpy(ctx->durations, durations.data, durations.len);
 
     return NGX_OK;
 }
@@ -2915,7 +2921,7 @@ ngx_live_filler_write_channel(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
 
 static ngx_int_t
-ngx_live_filler_read_channel(ngx_persist_block_header_t *header,
+ngx_live_filler_read_channel(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t            rc;

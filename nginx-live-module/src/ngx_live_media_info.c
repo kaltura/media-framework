@@ -1701,7 +1701,7 @@ ngx_live_media_info_write_setup(ngx_persist_write_ctx_t *write_ctx,
 
 
 static ngx_int_t
-ngx_live_media_info_read_setup(ngx_persist_block_header_t *header,
+ngx_live_media_info_read_setup(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_track_t                 *track = obj;
@@ -1810,7 +1810,7 @@ done:
 
 
 static ngx_int_t
-ngx_live_media_info_read_index_source(ngx_persist_block_header_t *header,
+ngx_live_media_info_read_index_source(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                          source_id;
@@ -1883,7 +1883,7 @@ ngx_live_media_info_write_index_queue(ngx_persist_write_ctx_t *write_ctx,
 
 
 static ngx_int_t
-ngx_live_media_info_read_index_queue(ngx_persist_block_header_t *header,
+ngx_live_media_info_read_index_queue(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                          min_index;
@@ -2004,7 +2004,7 @@ typedef struct {
 
 
 static ngx_int_t
-ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
+ngx_live_media_info_read_index(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                         rc;
@@ -2012,24 +2012,29 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
     ngx_queue_t                      *q;
     ngx_buf_chain_t                   chain;
     ngx_live_track_t                 *track = obj;
-    kmp_media_info_t                 *media_info;
+    kmp_media_info_t                  media_info;
     ngx_live_media_info_node_t       *node;
-    ngx_live_media_info_persist_t    *mp;
+    ngx_live_media_info_persist_t     mp;
     ngx_live_persist_index_scope_t   *scope;
-    ngx_ksmp_media_info_header_v1_t  *mp1;
+    ngx_ksmp_media_info_header_v1_t   mp1;
     ngx_live_media_info_track_ctx_t  *ctx;
 
     if (rs->version >= 7) {
-        mp = ngx_mem_rstream_get_ptr(rs, sizeof(*mp) + sizeof(*media_info));
+        if (ngx_mem_rstream_read(rs, &mp, sizeof(mp)) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_live_media_info_read_index: read header failed");
+            return NGX_BAD_DATA;
+        }
 
     } else {
-        mp = ngx_mem_rstream_get_ptr(rs, sizeof(*mp1) + sizeof(*media_info));
-    }
+        if (ngx_mem_rstream_read(rs, &mp1, sizeof(mp1)) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_live_media_info_read_index: read header failed");
+            return NGX_BAD_DATA;
+        }
 
-    if (mp == NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_media_info_read_index: read failed");
-        return NGX_BAD_DATA;
+        mp.segment_index = mp1.segment_index;
+        mp.track_id = mp1.track_id;
     }
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
@@ -2040,42 +2045,47 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
     if (q != ngx_queue_sentinel(&ctx->active)) {
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
 
-        if (mp->segment_index < scope->min_index) {
-            if (mp->segment_index != node->node.key) {
+        if (mp.segment_index < scope->min_index) {
+            if (mp.segment_index != node->node.key) {
                 ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                     "ngx_live_media_info_read_index: "
                     "index %uD is before min %uD and does not match last %ui",
-                    mp->segment_index, scope->min_index, node->node.key);
+                    mp.segment_index, scope->min_index, node->node.key);
                 return NGX_BAD_DATA;
             }
 
             /* update stats */
             if (rs->version >= 7) {
-                node->stats = mp->stats;
+                node->stats = mp.stats;
 
             } else {
-                mp1 = (void *) mp;
-                node->stats.bitrate_sum = mp1->bitrate_sum;
-                node->stats.bitrate_count = mp1->bitrate_count;
-                node->stats.bitrate_max = mp1->bitrate_max;
+                node->stats.bitrate_sum = mp1.bitrate_sum;
+                node->stats.bitrate_count = mp1.bitrate_count;
+                node->stats.bitrate_max = mp1.bitrate_max;
             }
 
             return NGX_OK;
         }
 
-        if (mp->segment_index <= node->node.key) {
+        if (mp.segment_index <= node->node.key) {
             ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                 "ngx_live_media_info_read_index: index %uD is before last %ui",
-                mp->segment_index, node->node.key);
+                mp.segment_index, node->node.key);
             return NGX_BAD_DATA;
         }
     }
 
-    if (mp->segment_index > scope->max_index) {
+    if (mp.segment_index > scope->max_index) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_media_info_read_index: "
             "segment index %uD greater than max segment index %uD",
-            mp->segment_index, scope->max_index);
+            mp.segment_index, scope->max_index);
+        return NGX_BAD_DATA;
+    }
+
+    if (ngx_mem_rstream_read(rs, &media_info, sizeof(media_info)) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_media_info_read_index: read failed");
         return NGX_BAD_DATA;
     }
 
@@ -2084,21 +2094,13 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
     }
 
 
-    if (rs->version >= 7) {
-        media_info = (void *) (mp + 1);
-
-    } else {
-        mp1 = (void *) mp;
-        media_info = (void *) (mp1 + 1);
-    }
-
     ngx_mem_rstream_get_left(rs, &data);
 
     chain.data = data.data;
     chain.size = data.len;
     chain.next = NULL;
 
-    rc = ngx_live_media_info_node_create(track, media_info, &chain,
+    rc = ngx_live_media_info_node_create(track, &media_info, &chain,
         data.len, &node);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
@@ -2106,19 +2108,18 @@ ngx_live_media_info_read_index(ngx_persist_block_header_t *header,
         return rc;
     }
 
-    node->track_id = mp->track_id;
+    node->track_id = mp.track_id;
 
     if (rs->version >= 7) {
-        node->stats = mp->stats;
+        node->stats = mp.stats;
 
     } else {
-        mp1 = (void *) mp;
-        node->stats.bitrate_sum = mp1->bitrate_sum;
-        node->stats.bitrate_count = mp1->bitrate_count;
-        node->stats.bitrate_max = mp1->bitrate_max;
+        node->stats.bitrate_sum = mp1.bitrate_sum;
+        node->stats.bitrate_count = mp1.bitrate_count;
+        node->stats.bitrate_max = mp1.bitrate_max;
     }
 
-    ngx_live_media_info_queue_push(track, node, mp->segment_index);
+    ngx_live_media_info_queue_push(track, node, mp.segment_index);
 
     return NGX_OK;
 }
@@ -2138,7 +2139,7 @@ ngx_live_media_info_write_media_segment(
 
 
 static ngx_int_t
-ngx_live_media_info_read_media_segment(ngx_persist_block_header_t *header,
+ngx_live_media_info_read_media_segment(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_segment_t     *segment = obj;

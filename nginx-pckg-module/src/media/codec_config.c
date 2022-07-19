@@ -100,12 +100,13 @@ codec_config_avcc_nal_units_write(u_char* p, vod_str_t* extra_data)
             unit_size = parse_be16(cur_pos);
             cur_pos += sizeof(uint16_t);
 
-            *((uint32_t*)p) = 0x01000000;
-            p += sizeof(uint32_t);
+            *p++ = 0x00;
+            *p++ = 0x00;
+            *p++ = 0x00;
+            *p++ = 0x01;
 
-            vod_memcpy(p, cur_pos, unit_size);
+            p = vod_copy(p, cur_pos, unit_size);
             cur_pos += unit_size;
-            p += unit_size;
         }
     }
 

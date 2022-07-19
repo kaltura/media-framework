@@ -163,9 +163,10 @@ typedef struct {
 
 
 static ngx_int_t
-ngx_live_persist_media_read_frame_list(ngx_persist_block_header_t *header,
+ngx_live_persist_media_read_frame_list(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
+    void                *frames;
     ngx_str_t            data;
     ngx_uint_t           frame_count;
     ngx_live_segment_t  *segment = obj;
@@ -192,7 +193,16 @@ ngx_live_persist_media_read_frame_list(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    segment->frames.part.elts = (void *) data.data;
+    frames = ngx_palloc(segment->pool, data.len);
+    if (frames == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_live_persist_media_read_frame_list: alloc failed");
+        return NGX_ERROR;
+    }
+
+    ngx_memcpy(frames, data.data, data.len);
+
+    segment->frames.part.elts = frames;
     segment->frames.part.nelts = frame_count;
 
     return NGX_OK;
@@ -200,7 +210,7 @@ ngx_live_persist_media_read_frame_list(ngx_persist_block_header_t *header,
 
 
 static ngx_int_t
-ngx_live_persist_media_read_frame_data(ngx_persist_block_header_t *header,
+ngx_live_persist_media_read_frame_data(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_str_t            data;
@@ -290,13 +300,13 @@ ngx_live_persist_media_finalize_segment(ngx_live_segment_t *segment,
 
 
 static ngx_int_t
-ngx_live_persist_media_read_segment(ngx_persist_block_header_t *header,
+ngx_live_persist_media_read_segment(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                      rc;
     ngx_mem_rstream_t              save;
     ngx_live_segment_t            *segment = obj;
-    ngx_ksmp_segment_header_t     *h;
+    ngx_ksmp_segment_header_t      h;
     ngx_live_persist_main_conf_t  *pmcf;
 
     if (segment->frame_count > 0) {
@@ -305,23 +315,22 @@ ngx_live_persist_media_read_segment(ngx_persist_block_header_t *header,
         return NGX_BAD_DATA;
     }
 
-    h = ngx_mem_rstream_get_ptr(rs, sizeof(*h));
-    if (h == NULL) {
+    if (ngx_mem_rstream_read(rs, &h, sizeof(h)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_media_read_segment: read header failed");
         return NGX_BAD_DATA;
     }
 
-    if (h->frame_count <= 0) {
+    if (h.frame_count <= 0) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_persist_media_read_segment: invalid frame count");
         return NGX_BAD_DATA;
     }
 
-    segment->node.key = h->index;
-    segment->track_id = h->track_id;
-    segment->frame_count = h->frame_count;
-    segment->start_dts = h->start_dts;
+    segment->node.key = h.index;
+    segment->track_id = h.track_id;
+    segment->frame_count = h.frame_count;
+    segment->start_dts = h.start_dts;
 
     if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
@@ -486,18 +495,19 @@ ngx_live_persist_media_serve_parse_header(
 {
     size_t                           total_size;
     uint32_t                         i;
+    uint32_t                         id;
     uint32_t                         found_tracks;
     uint32_t                         channel_id_hash;
     uint64_t                         offset;
-    uint64_t                        *uid;
+    uint64_t                         uid;
     ngx_int_t                        rc;
     ngx_log_t                       *log = ctx->pool->log;
     ngx_str_t                        opaque;
     ngx_str_t                        channel_id;
     ngx_mem_rstream_t                rs;
     ngx_mem_rstream_t                block_rs;
-    ngx_persist_block_header_t      *header;
-    ngx_live_persist_media_entry_t  *entry;
+    ngx_persist_block_hdr_t         *header;
+    ngx_live_persist_media_entry_t   entry;
 
     rc = ngx_persist_read_file_header(buf, NGX_LIVE_PERSIST_TYPE_MEDIA, log,
         NULL, &rs);
@@ -516,10 +526,11 @@ ngx_live_persist_media_serve_parse_header(
         return NGX_BAD_DATA;
     }
 
-    if (header->id != NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY_LIST) {
+    ngx_memcpy(&id, header->id, sizeof(id));
+    if (id != NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY_LIST) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_serve_parse_header: "
-            "unexpected block, id: 0x%uxD", header->id);
+            "unexpected block, id: 0x%uxD", id);
         return NGX_BAD_DATA;
     }
 
@@ -546,18 +557,17 @@ ngx_live_persist_media_serve_parse_header(
         return NGX_BAD_DATA;
     }
 
-    uid = ngx_mem_rstream_get_ptr(&rs, sizeof(*uid));
-    if (uid == NULL) {
+    if (ngx_mem_rstream_read(&rs, &uid, sizeof(uid)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_serve_parse_header: read uid failed");
         return NGX_BAD_DATA;
     }
 
-    if (*uid != ctx->uid) {
+    if (uid != ctx->uid) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
             "ngx_live_persist_media_serve_parse_header: "
             "uid mismatch, actual: %016uxL, expected: %016uxL",
-            *uid, ctx->uid);
+            uid, ctx->uid);
         return NGX_BAD_DATA;
     }
 
@@ -582,44 +592,44 @@ ngx_live_persist_media_serve_parse_header(
             return NGX_BAD_DATA;
         }
 
-        if (header->id != NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY) {
+        ngx_memcpy(&id, header->id, sizeof(id));
+        if (id != NGX_LIVE_PERSIST_MEDIA_BLOCK_ENTRY) {
             continue;
         }
 
-        entry = ngx_mem_rstream_get_ptr(&block_rs, sizeof(*entry));
-        if (entry == NULL) {
+        if (ngx_mem_rstream_read(&block_rs, &entry, sizeof(entry)) != NGX_OK) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
                 "ngx_live_persist_media_serve_parse_header: "
                 "read segment entry failed");
             return NGX_BAD_DATA;
         }
 
-        if (entry->segment_index != ctx->segment_index) {
-            offset += entry->size;
+        if (entry.segment_index != ctx->segment_index) {
+            offset += entry.size;
             continue;
         }
 
         for (i = 0; i < ctx->track_count; i++) {
 
-            if (ctx->tracks[i].id != entry->track_id) {
+            if (ctx->tracks[i].id != entry.track_id) {
                 continue;
             }
 
             if (found_tracks & (1 << i)) {
                 ngx_log_error(NGX_LOG_ERR, log, 0,
                     "ngx_live_persist_media_serve_parse_header: "
-                    "track %uD found more than once", entry->track_id);
+                    "track %uD found more than once", entry.track_id);
                 return NGX_BAD_DATA;
             }
 
             ctx->tracks[i].offset = offset;
-            ctx->tracks[i].size = entry->size;
+            ctx->tracks[i].size = entry.size;
             found_tracks |= (1 << i);
 
-            total_size += entry->size;
+            total_size += entry.size;
         }
 
-        offset += entry->size;
+        offset += entry.size;
     }
 
     if (!found_tracks) {

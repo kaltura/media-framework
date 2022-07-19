@@ -28,7 +28,7 @@ typedef struct {
      * NGX_ERROR    - alloc/other error
      */
 
-    ngx_int_t  (*read)(ngx_persist_block_header_t *header,
+    ngx_int_t  (*read)(ngx_persist_block_hdr_t *header,
         ngx_mem_rstream_t *rs, void *obj);
 } ngx_persist_block_t;
 

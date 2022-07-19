@@ -213,7 +213,6 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
     ngx_buf_chain_t   *data = ctx->packet_data_first;
     ngx_live_track_t  *track;
     kmp_media_info_t   media_info;
-    kmp_media_info_t  *media_info_ptr;
 
     if (ctx->packet_header.header_size < sizeof(kmp_media_info_packet_t)) {
         ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
@@ -222,9 +221,7 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
         return NGX_STREAM_BAD_REQUEST;
     }
 
-    media_info_ptr = ngx_buf_chain_read(&data, &media_info,
-        sizeof(media_info));
-    if (media_info_ptr == NULL) {
+    if (ngx_buf_chain_copy(&data, &media_info, sizeof(media_info)) == NULL) {
         ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
             "ngx_stream_live_kmp_media_info: read header failed");
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
@@ -243,7 +240,7 @@ ngx_stream_live_kmp_media_info(ngx_stream_live_kmp_ctx_t *ctx)
 
     track = ctx->track;
 
-    rc = ctx->target.add_media_info(track, media_info_ptr, data,
+    rc = ctx->target.add_media_info(track, &media_info, data,
         ctx->packet_header.data_size);
     switch (rc) {
 
@@ -293,7 +290,6 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
     uint64_t                   frame_id;
     ngx_int_t                  rc;
     kmp_frame_t                frame;
-    kmp_frame_t               *frame_ptr;
     ngx_buf_chain_t           *cur;
     ngx_buf_chain_t           *data;
     ngx_live_track_t          *track;
@@ -340,8 +336,7 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
     }
 
     data = ctx->packet_data_first;
-    frame_ptr = ngx_buf_chain_read(&data, &frame, sizeof(frame));
-    if (frame_ptr == NULL) {
+    if (ngx_buf_chain_copy(&data, &frame, sizeof(frame)) == NULL) {
         ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
             "ngx_stream_live_kmp_frame: read header failed");
         return NGX_STREAM_INTERNAL_SERVER_ERROR;
@@ -350,11 +345,11 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
     if (ctx->wait_key) {
 
         /* ignore frames that arrive before the first key */
-        if (!(frame_ptr->flags & KMP_FRAME_FLAG_KEY)) {
+        if (!(frame.flags & KMP_FRAME_FLAG_KEY)) {
             ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
                 "ngx_stream_live_kmp_frame: "
                 "skipping non-key frame, created: %L, dts: %L",
-                frame_ptr->created, frame_ptr->dts);
+                frame.created, frame.dts);
             track->input.skipped.no_key++;
             goto done;
         }
@@ -379,29 +374,29 @@ ngx_stream_live_kmp_frame(ngx_stream_live_kmp_ctx_t *ctx)
         ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
             "ngx_stream_live_kmp_frame: id: %uL, created: %L, dts: %L, "
             "flags: 0x%uxD, ptsDelay: %uD, size: %uD, md5: %*s",
-            frame_id, frame_ptr->created, frame_ptr->dts, frame_ptr->flags,
-            frame_ptr->pts_delay, ctx->packet_header.data_size,
+            frame_id, frame.created, frame.dts, frame.flags,
+            frame.pts_delay, ctx->packet_header.data_size,
             (size_t) sizeof(data_md5), data_md5);
 
     } else {
         ngx_log_debug7(NGX_LOG_DEBUG_STREAM, ctx->log, 0,
             "ngx_stream_live_kmp_frame: track: %V, id: %uL, created: %L, "
             "size: %uD, dts: %L, flags: 0x%uxD, ptsDelay: %uD",
-            &track->sn.str, frame_id, frame_ptr->created,
-            ctx->packet_header.data_size, frame_ptr->dts, frame_ptr->flags,
-            frame_ptr->pts_delay);
+            &track->sn.str, frame_id, frame.created,
+            ctx->packet_header.data_size, frame.dts, frame.flags,
+            frame.pts_delay);
     }
 
     /* update latency stats */
     ngx_live_channel_update_latency_stats(ctx->channel, &track->input.latency,
-        frame_ptr->created);
+        frame.created);
 
     /* add the frame */
-    frame_ptr->flags &= KMP_FRAME_FLAG_MASK;
+    frame.flags &= KMP_FRAME_FLAG_MASK;
 
     req.track = track;
     req.frame_id = frame_id;
-    req.frame = frame_ptr;
+    req.frame = &frame;
 
     req.data_head = data;
     req.data_tail = ctx->packet_data_last;

@@ -435,7 +435,7 @@ ngx_persist_write_block_open(ngx_persist_write_ctx_t *ctx,
     block->header.id = id;
     block->header.header_size = 0;
 
-    if (ngx_persist_write_reserve(ctx, sizeof(ngx_persist_block_header_t),
+    if (ngx_persist_write_reserve(ctx, sizeof(ngx_persist_block_hdr_t),
             &block->marker) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,

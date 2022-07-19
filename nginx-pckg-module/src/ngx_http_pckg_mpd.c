@@ -396,7 +396,7 @@ ngx_http_pckg_mpd_get_segment_time(ngx_pckg_timeline_t *timeline,
     periods = timeline->periods.elts;
     for (i = timeline->periods.nelts; i > 0; i--) {
         period = &periods[i - 1];
-        time = period->header->time + period->duration;
+        time = period->header.time + period->duration;
 
         for (j = period->nelts; j > 0; j--) {
             elt = &period->elts[j - 1];
@@ -482,14 +482,14 @@ ngx_http_pckg_seg_tmpl_write(u_char *p, ngx_pckg_period_t *period,
     timeline = period->timeline;
     channel = timeline->channel;
 
-    start_number = period->header->segment_index + 1;
+    start_number = period->header.segment_index + 1;
 
     if ((void *) period == timeline->periods.elts) {
-        initial_time = timeline->header->first_period_initial_time;
-        start_time = period->header->time;
+        initial_time = timeline->header.first_period_initial_time;
+        start_time = period->header.time;
 
         shift = start_time - initial_time;
-        init_index = timeline->header->first_period_initial_segment_index + 1;
+        init_index = timeline->header.first_period_initial_segment_index + 1;
 
     } else {
         shift = 0;
@@ -497,7 +497,7 @@ ngx_http_pckg_seg_tmpl_write(u_char *p, ngx_pckg_period_t *period,
     }
 
     p = ngx_sprintf(p, MPD_SEGMENT_TEMPLATE_HEADER,
-        channel->header->timescale,
+        channel->header.timescale,
         &ngx_http_pckg_prefix_seg,
         container->seg_file_ext,
         &ngx_http_pckg_prefix_init_seg,
@@ -552,7 +552,7 @@ ngx_http_pckg_mpd_get_avg_segment_duration(ngx_pckg_period_t *period)
     ngx_pckg_channel_t  *channel;
 
     channel = period->timeline->channel;
-    timescale = channel->header->timescale;
+    timescale = channel->header.timescale;
 
     sd = rescale_time(period->duration / period->segment_count,
         timescale, 1000);
@@ -683,7 +683,7 @@ ngx_http_pckg_mpd_video_adapt_set_write(u_char *p, ngx_http_request_t *r,
     ngx_http_pckg_container_t          *container;
     ngx_http_pckg_mpd_video_params_t    params;
 
-    segment_index = period->header->segment_index;
+    segment_index = period->header.segment_index;
 
     ngx_http_pckg_mpd_init_video_params(set, segment_index, &params);
     if (params.max_frame_rate_num == 0) {
@@ -794,7 +794,7 @@ ngx_http_pckg_mpd_audio_adapt_set_write(u_char *p, ngx_http_request_t *r,
     ngx_pckg_variant_t         **variants, *variant;
     ngx_http_pckg_container_t   *container;
 
-    segment_index = period->header->segment_index;
+    segment_index = period->header.segment_index;
 
     media_info = ngx_http_pckg_mpd_get_sample_media_info(set, segment_index);
     if (media_info == NULL) {
@@ -961,9 +961,9 @@ ngx_http_pckg_mpd_header_write(u_char *p, ngx_http_request_t *r,
     mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_mpd_module);
 
     timeline = &channel->timeline;
-    timescale = channel->header->timescale;
+    timescale = channel->header.timescale;
 
-    ngx_gmtime(timeline->header->availability_start_time / timescale,
+    ngx_gmtime(timeline->header.availability_start_time / timescale,
         &avail_time_gmt);
 
     ngx_gmtime(timeline->last_time / timescale, &publish_time_gmt);
@@ -974,7 +974,7 @@ ngx_http_pckg_mpd_header_write(u_char *p, ngx_http_request_t *r,
         mpd_date_time_params(publish_time_gmt));
 
 
-    if (!timeline->header->end_list) {
+    if (!timeline->header.end_list) {
         min_update_period = rescale_time(
             timeline->duration / timeline->segment_count, timescale, 1000);
 
@@ -991,7 +991,7 @@ ngx_http_pckg_mpd_header_write(u_char *p, ngx_http_request_t *r,
     }
 
 
-    buffer_time = rescale_time(timeline->header->target_duration,
+    buffer_time = rescale_time(timeline->header.target_duration,
         timescale, 1000);
 
     buffer_depth = rescale_time(timeline->duration, timescale, 1000);
@@ -1000,7 +1000,7 @@ ngx_http_pckg_mpd_header_write(u_char *p, ngx_http_request_t *r,
         &channel->timeline, mlcf->pres_delay_segments);
 
     presentation_delay =
-        channel->header->now * 1000 -
+        channel->header.now * 1000 -
         rescale_time(segment_time, timescale, 1000);
 
     p = ngx_sprintf(p,
@@ -1091,30 +1091,30 @@ ngx_http_pckg_mpd_build(ngx_http_request_t *r, ngx_pckg_channel_t *channel,
     /* write */
     p = ngx_http_pckg_mpd_header_write(p, r, channel, &profiles);
 
-    timescale = channel->header->timescale;
+    timescale = channel->header.timescale;
 
-    availability_start_time = timeline->header->availability_start_time
+    availability_start_time = timeline->header.availability_start_time
         / timescale * 1000;
 
     for (i = 0; i < n; i++) {
         period = &periods[i];
 
         if (i == 0) {
-            start = timeline->header->first_period_initial_time;
+            start = timeline->header.first_period_initial_time;
 
         } else {
-            start = period->header->time;
+            start = period->header.time;
         }
 
         start = rescale_time(start, timescale, 1000) - availability_start_time;
 
-        end = period->header->time + period->duration;
+        end = period->header.time + period->duration;
 
-        if (i + 1 < n && end != periods[i + 1].header->time) {
+        if (i + 1 < n && end != periods[i + 1].header.time) {
             duration = rescale_time(period->duration, timescale, 1000);
 
             p = ngx_sprintf(p, MPD_PERIOD_HEADER_START_DURATION,
-                timeline->header->first_period_index + i,
+                timeline->header.first_period_index + i,
                 (uint32_t) (start / 1000),
                 (uint32_t) (start % 1000),
                 (uint32_t) (duration / 1000),
@@ -1122,7 +1122,7 @@ ngx_http_pckg_mpd_build(ngx_http_request_t *r, ngx_pckg_channel_t *channel,
 
         } else {
             p = ngx_sprintf(p, MPD_PERIOD_HEADER_START,
-                timeline->header->first_period_index + i,
+                timeline->header.first_period_index + i,
                 (uint32_t) (start / 1000),
                 (uint32_t) (start % 1000));
         }
@@ -1132,7 +1132,7 @@ ngx_http_pckg_mpd_build(ngx_http_request_t *r, ngx_pckg_channel_t *channel,
         p = ngx_copy_fix(p, MPD_PERIOD_FOOTER);
     }
 
-    ngx_gmtime(channel->header->now, &cur_time_gmt);
+    ngx_gmtime(channel->header.now, &cur_time_gmt);
 
     p = ngx_sprintf(p, MPD_UTC_TIMING,
         mpd_date_time_params(cur_time_gmt));
@@ -1171,8 +1171,8 @@ ngx_http_pckg_fmp4_handle_mpd(ngx_http_request_t *r)
         return rc;
     }
 
-    last_modified = ngx_max(channel->header->last_modified,
-        channel->timeline.header->last_modified);
+    last_modified = ngx_max(channel->header.last_modified,
+        channel->timeline.header.last_modified);
 
     rc = ngx_http_pckg_send_header(r, response.len,
         &ngx_http_pckg_mpd_content_type, last_modified,

@@ -327,7 +327,7 @@ ngx_http_pckg_capture_redirect(ngx_http_request_t *r)
     ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
 
     time = rescale_time(ctx->channel->segment_index->time,
-        ctx->channel->header->timescale, 1000);
+        ctx->channel->header.timescale, 1000);
 
     r->headers_out.status = NGX_HTTP_MOVED_TEMPORARILY;
 
