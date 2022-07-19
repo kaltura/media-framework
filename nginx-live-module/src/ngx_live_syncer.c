@@ -685,22 +685,21 @@ ngx_live_syncer_write_index_track(ngx_persist_write_ctx_t *write_ctx,
 
 
 static ngx_int_t
-ngx_live_syncer_read_index_track(ngx_persist_block_header_t *header,
+ngx_live_syncer_read_index_track(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_track_t                 *track = obj;
     ngx_live_syncer_log_t            *log;
     ngx_live_syncer_track_ctx_t      *ctx;
     ngx_live_syncer_channel_ctx_t    *cctx;
-    ngx_live_syncer_persist_track_t  *tp;
+    ngx_live_syncer_persist_track_t   tp;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_syncer_module);
     if (ctx == NULL) {
         return NGX_OK;
     }
 
-    tp = ngx_mem_rstream_get_ptr(rs, sizeof(*tp));
-    if (tp == NULL) {
+    if (ngx_mem_rstream_read(rs, &tp, sizeof(tp)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_syncer_read_index_track: read failed");
         return NGX_BAD_DATA;
@@ -708,7 +707,7 @@ ngx_live_syncer_read_index_track(ngx_persist_block_header_t *header,
 
     cctx = ngx_live_get_module_ctx(track->channel, ngx_live_syncer_module);
 
-    ctx->correction = tp->correction;
+    ctx->correction = tp.correction;
     if (track->last_frame_pts != NGX_LIVE_INVALID_TIMESTAMP) {
         ctx->last_pts = track->last_frame_pts - ctx->correction;
 
@@ -754,26 +753,25 @@ ngx_live_syncer_write_index(ngx_persist_write_ctx_t *write_ctx, void *obj)
 
 
 static ngx_int_t
-ngx_live_syncer_read_index(ngx_persist_block_header_t *header,
+ngx_live_syncer_read_index(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_live_channel_t                 *channel = obj;
     ngx_live_syncer_channel_ctx_t      *cctx;
-    ngx_live_syncer_persist_channel_t  *cp;
+    ngx_live_syncer_persist_channel_t   cp;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_syncer_module);
     if (cctx == NULL) {
         return NGX_OK;
     }
 
-    cp = ngx_mem_rstream_get_ptr(rs, sizeof(*cp));
-    if (cp == NULL) {
+    if (ngx_mem_rstream_read(rs, &cp, sizeof(cp)) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_syncer_read_index: read failed");
         return NGX_BAD_DATA;
     }
 
-    cctx->correction = cp->correction;
+    cctx->correction = cp.correction;
     cctx->sequence = 2;
 
     return NGX_OK;

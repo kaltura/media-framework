@@ -416,8 +416,13 @@ ngx_live_persist_read_file(ngx_live_channel_t *channel,
     ctx->path = request.path;
     ctx->cln = cln;
 
-    ctx->data = ctx + 1;
-    ngx_memcpy(ctx->data, data, data_size);
+    if (data_size > 0) {
+        ctx->data = ctx + 1;
+        ngx_memcpy(ctx->data, data, data_size);
+
+    } else {
+        ctx->data = NULL;
+    }
 
     request.pool = pool;
     request.channel = channel;

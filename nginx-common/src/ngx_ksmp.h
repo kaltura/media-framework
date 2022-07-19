@@ -85,7 +85,7 @@
 #define NGX_KSMP_MAX_MEDIA_INFOS            (65536)
 #define NGX_KSMP_MAX_SEGMENT_PARTS          (1024)
 
-#define NGX_KSMP_MIN_PADDING                sizeof(ngx_persist_block_header_t)
+#define NGX_KSMP_MIN_PADDING                sizeof(ngx_persist_block_hdr_t)
 #define NGX_KSMP_MAX_PADDING                128
 
 

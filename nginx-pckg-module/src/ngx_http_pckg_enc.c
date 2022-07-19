@@ -461,7 +461,7 @@ ngx_http_pckg_enc_init_media_type_scope(ngx_http_request_t *r)
     n = channel->tracks.nelts;
     for (i = 0; i < n; i++) {
         track = &tracks[i];
-        media_type = track->header->media_type;
+        media_type = track->header.media_type;
 
         enc = encs[media_type];
         if (enc == NULL) {

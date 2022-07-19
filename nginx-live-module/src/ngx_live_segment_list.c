@@ -544,17 +544,17 @@ ngx_live_segment_list_write_periods(ngx_persist_write_ctx_t *write_ctx,
 
 
 ngx_int_t
-ngx_live_segment_list_read_period(ngx_persist_block_header_t *header,
+ngx_live_segment_list_read_period(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
+    u_char                          *p, *next;
     uint32_t                         period_index;
     uint32_t                         left;
     uint32_t                         count;
     uint32_t                         max_index;
     ngx_str_t                        data;
     ngx_live_segment_list_t         *segment_list = obj;
-    ngx_live_segment_repeat_t       *cur;
-    ngx_live_segment_repeat_t       *next;
+    ngx_live_segment_repeat_t        cur;
     ngx_live_segment_repeat_t       *dst;
     ngx_live_segment_list_node_t    *last;
     ngx_live_persist_index_scope_t  *scope;
@@ -585,12 +585,12 @@ ngx_live_segment_list_read_period(ngx_persist_block_header_t *header,
 
     ngx_mem_rstream_get_left(rs, &data);
 
-    left = data.len / sizeof(*cur);
+    left = data.len / sizeof(cur);
     if (left <= 0) {
         return NGX_OK;
     }
 
-    cur = (void *) data.data;
+    p = data.data;
 
     max_index = scope->max_index + 1;
 
@@ -623,29 +623,30 @@ ngx_live_segment_list_read_period(ngx_persist_block_header_t *header,
         if (period.time == segment_list->last_time &&
             period.segment_index == last->last_segment_index + 1)
         {
+            ngx_memcpy(&cur, p, sizeof(cur));
             dst = &last->elts[last->nelts - 1];
-            if (dst->duration == cur->duration) {
-                if (cur->count <= 0) {
+            if (dst->duration == cur.duration) {
+                if (cur.count <= 0) {
                     ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                         "ngx_live_segment_list_read_period: "
                         "zero repeat count (1)");
                     return NGX_BAD_DATA;
                 }
 
-                if (cur->count > max_index - period.segment_index) {
+                if (cur.count > max_index - period.segment_index) {
                     ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                         "ngx_live_segment_list_read_period: "
                         "invalid repeat count %uD (1), index: %uD",
-                        cur->count, period.segment_index);
+                        cur.count, period.segment_index);
                     return NGX_BAD_DATA;
                 }
 
-                dst->count += cur->count;
+                dst->count += cur.count;
 
-                period.segment_index += cur->count;
-                period.time += (int64_t) cur->duration * cur->count;
+                period.segment_index += cur.count;
+                period.time += (int64_t) cur.duration * cur.count;
 
-                cur++;
+                p += sizeof(cur);
                 left--;
             }
 
@@ -657,28 +658,30 @@ ngx_live_segment_list_read_period(ngx_persist_block_header_t *header,
             }
 
             last->nelts += count;
-            next = cur + count;
+            next = p + sizeof(cur) * count;
 
-            for (; cur < next; cur++) {
-                if (cur->count <= 0) {
+            for (; p < next; p += sizeof(cur)) {
+                ngx_memcpy(&cur, p, sizeof(cur));
+
+                if (cur.count <= 0) {
                     ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                         "ngx_live_segment_list_read_period: "
                         "zero repeat count (2)");
                     return NGX_BAD_DATA;
                 }
 
-                if (cur->count > max_index - period.segment_index) {
+                if (cur.count > max_index - period.segment_index) {
                     ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                         "ngx_live_segment_list_read_period: "
                         "invalid repeat count %uD (2), index: %uD",
-                        cur->count, period.segment_index);
+                        cur.count, period.segment_index);
                     return NGX_BAD_DATA;
                 }
 
-                *dst++ = *cur;
+                *dst++ = cur;
 
-                period.segment_index += cur->count;
-                period.time += (int64_t) cur->duration * cur->count;
+                period.segment_index += cur.count;
+                period.time += (int64_t) cur.duration * cur.count;
             }
 
             left -= count;
@@ -710,28 +713,30 @@ ngx_live_segment_list_read_period(ngx_persist_block_header_t *header,
         dst = last->elts;
 
         last->nelts = ngx_min(left, NGX_LIVE_SEGMENT_LIST_NODE_ELTS);
-        next = cur + last->nelts;
+        next = p + sizeof(cur) * last->nelts;
 
-        for (; cur < next; cur++) {
-            if (cur->count <= 0) {
+        for (; p < next; p += sizeof(cur)) {
+            ngx_memcpy(&cur, p, sizeof(cur));
+
+            if (cur.count <= 0) {
                 ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                     "ngx_live_segment_list_read_period: "
                     "zero repeat count (3)");
                 return NGX_BAD_DATA;
             }
 
-            if (cur->count > max_index - period.segment_index) {
+            if (cur.count > max_index - period.segment_index) {
                 ngx_log_error(NGX_LOG_ERR, rs->log, 0,
                     "ngx_live_segment_list_read_period: "
                     "invalid repeat count %uD (3), index: %uD",
-                    cur->count, period.segment_index);
+                    cur.count, period.segment_index);
                 return NGX_BAD_DATA;
             }
 
-            *dst++ = *cur;
+            *dst++ = cur;
 
-            period.segment_index += cur->count;
-            period.time += (int64_t) cur->duration * cur->count;
+            period.segment_index += cur.count;
+            period.time += (int64_t) cur.duration * cur.count;
         }
 
         left -= last->nelts;

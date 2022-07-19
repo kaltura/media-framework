@@ -323,7 +323,7 @@ ngx_http_pckg_m3u8_get_container(ngx_http_request_t *r,
         return container;
     }
 
-    if (variant->channel->header->part_duration) {
+    if (variant->channel->header.part_duration) {
         /* prefer fmp4 when parts are used - mpegts can add significant
             overhead due to null packets added for consistent cc */
         return &ngx_http_pckg_fmp4_container;
@@ -429,7 +429,7 @@ ngx_http_pckg_m3u8_media_group_write(u_char *p, ngx_pckg_media_group_t *group,
             p = ngx_sprintf(p, M3U8_MEDIA_LANG, &variant->lang);
         }
 
-        if (variant->header->is_default) {
+        if (variant->header.is_default) {
             p = ngx_copy_fix(p, M3U8_MEDIA_DEFAULT);
 
         } else {
@@ -692,8 +692,8 @@ ngx_http_pckg_m3u8_master_build(ngx_http_request_t *r,
     }
 
     /* write streams */
-    segment_duration = rescale_time(channel->timeline.header->target_duration,
-        channel->header->timescale, 1000);
+    segment_duration = rescale_time(channel->timeline.header.target_duration,
+        channel->header.timescale, 1000);
     if (segment_duration <= 0) {
         segment_duration = 1;
     }
@@ -732,7 +732,7 @@ ngx_http_pckg_m3u8_master_handle(ngx_http_request_t *r)
     }
 
     rc = ngx_http_pckg_send_header(r, response.len,
-        &ngx_http_pckg_m3u8_content_type, channel->header->last_modified,
+        &ngx_http_pckg_m3u8_content_type, channel->header.last_modified,
         NGX_HTTP_PCKG_EXPIRES_MASTER);
     if (rc != NGX_OK) {
         return rc;
@@ -951,7 +951,7 @@ ngx_http_pckg_m3u8_get_gap_size(ngx_http_request_t *r,
     for (i = 0; i < n; i++) {
         period = &periods[i];
 
-        first_segment = period->header->segment_index;
+        first_segment = period->header.segment_index;
         last_segment = first_segment + period->segment_count;
 
         /* Note: using the min gap count since a gap is returned only if
@@ -987,9 +987,9 @@ ngx_http_pckg_m3u8_period_get_bitrate_count(ngx_pckg_period_t *period,
     ngx_uint_t                  i, n;
     ngx_ksmp_segment_repeat_t  *elt;
 
-    segment_index = period->header->segment_index;
+    segment_index = period->header.segment_index;
 
-    time = period->header->time;
+    time = period->header.time;
     start = time / milliscale;
 
     last_bitrate = 0;
@@ -1043,7 +1043,7 @@ ngx_http_pckg_m3u8_get_bitrate_size(ngx_http_request_t *r,
     ngx_pckg_period_t    *periods, *period;
     ngx_pckg_timeline_t  *timeline;
 
-    milliscale = channel->header->timescale / 1000;
+    milliscale = channel->header.timescale / 1000;
 
     gap_count = 0;
     bitrate_count = 0;
@@ -1056,7 +1056,7 @@ ngx_http_pckg_m3u8_get_bitrate_size(ngx_http_request_t *r,
     for (i = 0; i < n; i++) {
         period = &periods[i];
 
-        ngx_pckg_media_info_get(mi, period->header->segment_index, &ignore);
+        ngx_pckg_media_info_get(mi, period->header.segment_index, &ignore);
 
         ngx_http_pckg_get_bitrate_estimator(r, container,
             mi->media_infos, channel->tracks.nelts, bi->estimators);
@@ -1067,8 +1067,8 @@ ngx_http_pckg_m3u8_get_bitrate_size(ngx_http_request_t *r,
         ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
             "ngx_http_pckg_m3u8_get_bitrate_size: "
             "period %uD..%ui, accum_gaps: %uD, accum_bitrate: %uD",
-            period->header->segment_index,
-            (ngx_uint_t) period->header->segment_index + period->segment_count,
+            period->header.segment_index,
+            (ngx_uint_t) period->header.segment_index + period->segment_count,
             gap_count, bitrate_count);
     }
 
@@ -1216,7 +1216,7 @@ ngx_http_pckg_m3u8_write_period_segments(u_char *p, ngx_pckg_period_t *period,
     ngx_pckg_channel_t         *channel;
     ngx_ksmp_segment_repeat_t  *elt;
 
-    segment_index = period->header->segment_index;
+    segment_index = period->header.segment_index;
 
     /* get the segment index of the first part */
 
@@ -1244,7 +1244,7 @@ ngx_http_pckg_m3u8_write_period_segments(u_char *p, ngx_pckg_period_t *period,
         part_segment_index = NGX_KSMP_INVALID_SEGMENT_INDEX;
     }
 
-    time = period->header->time;
+    time = period->header.time;
     start = time / milliscale;
 
     last_bitrate = 0;
@@ -1393,7 +1393,7 @@ ngx_http_pckg_m3u8_server_control_write(u_char *p, ngx_http_request_t *r,
         /* iPhone player does not allow CAN-BLOCK-RELOAD=YES when the stream
             has EXT-X-ENDLIST */
 
-        if (!timeline->header->end_list) {
+        if (!timeline->header.end_list) {
             block_reload = ngx_http_complex_value_flag(r,
                 mlcf->ctl.block_reload, 0);
 
@@ -1404,7 +1404,7 @@ ngx_http_pckg_m3u8_server_control_write(u_char *p, ngx_http_request_t *r,
         /* PART-HOLD-BACK is REQUIRED if the Playlist contains the EXT-X-
             PART-INF tag */
 
-        if (mlcf->parts && channel->header->part_duration) {
+        if (mlcf->parts && channel->header.part_duration) {
             part_hold_back_percent = ngx_http_complex_value_percent(r,
                 mlcf->ctl.part_hold_back_percent, 300);
 
@@ -1453,9 +1453,9 @@ ngx_http_pckg_m3u8_server_control_write(u_char *p, ngx_http_request_t *r,
             comma = 1;
         }
 
-        value = channel->header->part_duration
+        value = channel->header.part_duration
             * part_hold_back_percent * 10
-            / channel->header->timescale;
+            / channel->header.timescale;
 
         p = ngx_sprintf(p, M3U8_CTL_PART_HOLD_BACK,
             value / 1000, value % 1000);
@@ -1605,12 +1605,12 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     }
 
     timeline = &channel->timeline;
-    th = timeline->header;
+    th = &timeline->header;
 
     periods = timeline->periods.elts;
     period = &periods[timeline->periods.nelts - 1];
     segment_index_size = vod_get_int_print_len(
-        period->header->segment_index + period->segment_count);
+        period->header.segment_index + period->segment_count);
 
     segment_size =
         sizeof(M3U8_EXTINF) - 1 + NGX_INT32_LEN + sizeof(".000,\n") - 1 +
@@ -1668,7 +1668,7 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
 
     /* Note: assuming timescale is a multiple of 1000, if it's not, this will
             cause drift over time */
-    timescale = channel->header->timescale;
+    timescale = channel->header.timescale;
     milliscale = timescale / 1000;
 
     /* write the header */
@@ -1698,10 +1698,10 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     p = ngx_http_pckg_m3u8_server_control_write(p, r, channel,
         target_duration);
 
-    if (channel->header->part_duration > 0 && mlcf->parts
+    if (channel->header.part_duration > 0 && mlcf->parts
         && ctx->params.media_type_count == 1)
     {
-        part_target = rescale_time(channel->header->part_duration, timescale,
+        part_target = rescale_time(channel->header.part_duration, timescale,
             1000);
         p = ngx_sprintf(p, M3U8_PART_INF,
             part_target / 1000, part_target % 1000);
@@ -1729,7 +1729,7 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     for (i = 0; i < n; i++) {
 
         period = &periods[i];
-        ph = period->header;
+        ph = &period->header;
 
         ngx_pckg_media_info_get(mi, ph->segment_index, &map_index);
 
@@ -1828,7 +1828,7 @@ ngx_http_pckg_m3u8_index_handle(ngx_http_request_t *r)
 
     rc = ngx_http_pckg_send_header(r, response.len,
         &ngx_http_pckg_m3u8_content_type,
-        channel->timeline.header->last_modified, expires_type);
+        channel->timeline.header.last_modified, expires_type);
     if (rc != NGX_OK) {
         return rc;
     }

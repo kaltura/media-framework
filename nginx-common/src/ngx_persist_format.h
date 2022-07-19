@@ -42,4 +42,12 @@ typedef struct {
 } ngx_persist_block_header_t;
 
 
+/* unaligned version */
+typedef struct {
+    u_char          id[4];
+    u_char          size[4];
+    u_char          header_size[4];
+} ngx_persist_block_hdr_t;
+
+
 #endif /* _NGX_PERSIST_FORMAT_H_INCLUDED_ */

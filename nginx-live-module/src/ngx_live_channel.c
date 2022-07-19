@@ -556,14 +556,18 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
     variant->sn.node.key = hash;
 
     variant->conf.label.s.data = variant->label_buf;
-    variant->conf.label.s.len = conf->label.s.len;
-    ngx_memcpy(variant->label_buf, conf->label.s.data, conf->label.s.len);
-    ngx_json_str_set_escape(&variant->conf.label);
+    if (conf->label.s.len > 0) {
+        variant->conf.label.s.len = conf->label.s.len;
+        ngx_memcpy(variant->label_buf, conf->label.s.data, conf->label.s.len);
+        ngx_json_str_set_escape(&variant->conf.label);
+    }
 
     variant->conf.lang.s.data = variant->lang_buf;
-    variant->conf.lang.s.len = conf->lang.s.len;
-    ngx_memcpy(variant->lang_buf, conf->lang.s.data, conf->lang.s.len);
-    ngx_json_str_set_escape(&variant->conf.lang);
+    if (conf->lang.s.len > 0) {
+        variant->conf.lang.s.len = conf->lang.s.len;
+        ngx_memcpy(variant->lang_buf, conf->lang.s.data, conf->lang.s.len);
+        ngx_json_str_set_escape(&variant->conf.lang);
+    }
 
     variant->conf.role = conf->role;
     variant->conf.is_default = conf->is_default;

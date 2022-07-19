@@ -291,7 +291,7 @@ class LogTracker:
         assert(not self.contains(logLine))
 
     def assertNoCriticalErrors(self):
-        self.assertNotContains([b'[emerg]', b'[alert]', b'[crit]'])
+        self.assertNotContains([b'[emerg]', b'[alert]', b'[crit]', b'runtime error'])
 
 logTracker = LogTracker()
 

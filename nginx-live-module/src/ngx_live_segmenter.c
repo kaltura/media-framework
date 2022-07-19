@@ -2969,11 +2969,12 @@ ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
         frame_info->flags, frame_info->pts_delay,
         frame_info->dts + frame_info->pts_delay - ctx->last_pts);
 
-    if (frame_info->dts >= NGX_LIVE_INVALID_PTS - frame_info->pts_delay &&
-        frame_info->pts_delay >= 0)
+    if (frame_info->pts_delay >= 0
+        && frame_info->dts >= NGX_LIVE_INVALID_PTS - frame_info->pts_delay)
     {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
-            "ngx_live_segmenter_add_frame: invalid dts %L", frame_info->dts);
+            "ngx_live_segmenter_add_frame: invalid dts %L, pts_delay: %D",
+            frame_info->dts, frame_info->pts_delay);
         return NGX_ERROR;
     }
 

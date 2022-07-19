@@ -142,7 +142,7 @@ ngx_pckg_media_groups_add_variants(ngx_pckg_media_groups_t *groups)
     cur = channel->variants.elts;
     for (last = cur + channel->variants.nelts; cur < last; cur++) {
 
-        if (cur->header->role == ngx_ksmp_variant_role_main) {
+        if (cur->header.role == ngx_ksmp_variant_role_main) {
             stream = ngx_array_push(&groups->streams);
             if (stream == NULL) {
                 ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,

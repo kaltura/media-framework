@@ -2548,11 +2548,12 @@ ngx_live_lls_add_frame(ngx_live_add_frame_req_t *req)
         req->frame_id, kmp_frame->created, req->size, kmp_frame->dts,
         kmp_frame->flags, req->data_head, req->data_tail, &track->sn.str);
 
-    if (kmp_frame->dts >= LLONG_MAX - kmp_frame->pts_delay
-        && kmp_frame->pts_delay >= 0)
+    if (kmp_frame->pts_delay >= 0
+        && kmp_frame->dts >= LLONG_MAX - kmp_frame->pts_delay)
     {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
-            "ngx_live_lls_add_frame: invalid dts %L", kmp_frame->dts);
+            "ngx_live_lls_add_frame: invalid dts %L, pts_delay: %D",
+            kmp_frame->dts, kmp_frame->pts_delay);
         return NGX_ERROR;
     }
 

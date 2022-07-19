@@ -17,6 +17,11 @@ if not os.path.isfile(nginxParser):
 
 import nginxparser
 
+try:
+    input = raw_input
+except NameError:
+    pass
+
 NGINX_CONF = 'nginx.conf'
 TEMP_NGINX_CONF = 'temp.conf'
 
@@ -190,7 +195,7 @@ def run(tests):
             nginxProc = restartNginx(nginxProc, confFile, fileName, cleanupFunc)
 
         if options.pause_before:
-            raw_input('--Next--')
+            input('--Next--')
 
         logTracker.init()
         print('>>> %s' % fileName)
@@ -202,7 +207,7 @@ def run(tests):
             validateFunc()
 
         if options.pause_after:
-            raw_input('--Next--')
+            input('--Next--')
 
         cleanupFunc()
 

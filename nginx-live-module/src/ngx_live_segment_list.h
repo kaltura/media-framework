@@ -72,7 +72,7 @@ ngx_int_t ngx_live_segment_list_write_periods(
     ngx_persist_write_ctx_t *write_ctx, void *obj);
 
 ngx_int_t ngx_live_segment_list_read_period(
-    ngx_persist_block_header_t *header, ngx_mem_rstream_t *rs, void *obj);
+    ngx_persist_block_hdr_t *header, ngx_mem_rstream_t *rs, void *obj);
 
 
 size_t ngx_live_segment_list_json_get_size(

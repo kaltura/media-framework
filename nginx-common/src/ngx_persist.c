@@ -4,11 +4,7 @@
 
 
 #define ngx_persist_block_id_key(id)                                         \
-    ngx_hash(ngx_hash(ngx_hash(                                              \
-        ( (id)        & 0xff) ,                                              \
-        (((id) >> 8)  & 0xff)),                                              \
-        (((id) >> 16) & 0xff)),                                              \
-        (((id) >> 24) & 0xff))
+    ngx_hash(ngx_hash(ngx_hash(id[0], id[1]), id[2]), id[3])
 
 
 typedef struct {
@@ -212,12 +208,12 @@ ngx_int_t
 ngx_persist_conf_read_blocks(ngx_persist_conf_t *conf, ngx_uint_t ctx,
     ngx_mem_rstream_t *rs, void *obj)
 {
-    ngx_hash_t                  *hash;
-    ngx_int_t                    rc;
-    ngx_uint_t                   key;
-    ngx_mem_rstream_t            block_rs;
-    ngx_persist_block_t         *block;
-    ngx_persist_block_header_t  *header;
+    ngx_int_t                 rc;
+    ngx_uint_t                key;
+    ngx_hash_t               *hash;
+    ngx_mem_rstream_t         block_rs;
+    ngx_persist_block_t      *block;
+    ngx_persist_block_hdr_t  *header;
 
     hash = &conf->blocks[ctx].hash;
 
@@ -229,8 +225,7 @@ ngx_persist_conf_read_blocks(ngx_persist_conf_t *conf, ngx_uint_t ctx,
         }
 
         key = ngx_persist_block_id_key(header->id);
-        block = ngx_hash_find(hash, key, (u_char *) &header->id,
-            sizeof(header->id));
+        block = ngx_hash_find(hash, key, header->id, sizeof(header->id));
         if (block == NULL) {
             continue;
         }
@@ -238,14 +233,14 @@ ngx_persist_conf_read_blocks(ngx_persist_conf_t *conf, ngx_uint_t ctx,
         ngx_log_debug3(NGX_LOG_DEBUG_CORE, rs->log, 0,
             "ngx_persist_conf_read_blocks: "
             "reading block, ctx: %ui, id: %*s",
-            ctx, (size_t) sizeof(header->id), &header->id);
+            ctx, (size_t) sizeof(header->id), header->id);
 
         rc = block->read(header, &block_rs, obj);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
                 "ngx_persist_conf_read_blocks: "
                 "read failed, ctx: %ui, id: %*s",
-                ctx, (size_t) sizeof(header->id), &header->id);
+                ctx, (size_t) sizeof(header->id), header->id);
             return rc;
         }
     }

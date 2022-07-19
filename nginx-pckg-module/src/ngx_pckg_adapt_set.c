@@ -11,7 +11,7 @@ ngx_pckg_adapt_set_has_track(ngx_pckg_adapt_set_t *set,
     ngx_pckg_variant_t  **cur;
     ngx_pckg_variant_t  **last;
 
-    media_type = track->header->media_type;
+    media_type = track->header.media_type;
 
     cur = set->variants.elts;
     for (last = cur + set->variants.nelts; cur < last; cur++) {
@@ -105,7 +105,7 @@ ngx_pckg_adapt_set_add_track(ngx_pckg_adapt_sets_t *sets,
     ngx_pckg_variant_t    **pvariant;
     ngx_pckg_adapt_set_t   *set;
 
-    if (sets->skip_media_types[variant->header->role] & (1 << media_type)) {
+    if (sets->skip_media_types[variant->header.role] & (1 << media_type)) {
         return NGX_OK;
     }
 
@@ -150,7 +150,7 @@ ngx_pckg_adapt_set_get_role_media_types(ngx_pckg_channel_t *channel,
     cur = channel->variants.elts;
     for (last = cur + channel->variants.nelts; cur < last; cur++) {
 
-        dest = &role_media_types[cur->header->role];
+        dest = &role_media_types[cur->header.role];
 
         for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
             if (cur->tracks[media_type] != NULL) {
