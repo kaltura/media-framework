@@ -74,27 +74,6 @@ ngx_buf_chain_copy(ngx_buf_chain_t **head_ptr, void *buf, size_t size)
 }
 
 
-void *
-ngx_buf_chain_read(ngx_buf_chain_t **head_ptr, void *buf, size_t size)
-{
-    u_char           *p;
-    ngx_buf_chain_t  *head = *head_ptr;
-
-    if (head->size >= size) {
-        /* data is contiguous, can avoid the memcpy */
-        p = head->data;
-        head->data = p + size;
-        head->size -= size;
-        if (head->size <= 0) {
-            *head_ptr = head->next;
-        }
-        return p;
-    }
-
-    return ngx_buf_chain_copy(head_ptr, buf, size);
-}
-
-
 ngx_int_t
 ngx_buf_chain_compare(ngx_buf_chain_t *head, void *buf, size_t size)
 {

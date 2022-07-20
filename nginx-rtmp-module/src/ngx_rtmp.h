@@ -489,19 +489,17 @@ ngx_int_t ngx_rtmp_aggregate_message_handler(ngx_rtmp_session_t *s,
         ngx_rtmp_header_t *h, ngx_chain_t *in);
 ngx_int_t ngx_rtmp_amf_message_handler(ngx_rtmp_session_t *s,
         ngx_rtmp_header_t *h, ngx_chain_t *in);
-ngx_int_t ngx_rtmp_amf_shared_object_handler(ngx_rtmp_session_t *s,
-        ngx_rtmp_header_t *h, ngx_chain_t *in);
 
 
 /* Shared output buffers */
 
 /* Store refcount in negative bytes of shared buffer */
 
-#define NGX_RTMP_REFCOUNT_TYPE              uint32_t
+#define NGX_RTMP_REFCOUNT_TYPE              uintptr_t
 #define NGX_RTMP_REFCOUNT_BYTES             sizeof(NGX_RTMP_REFCOUNT_TYPE)
 
 #define ngx_rtmp_ref(b)                                                      \
-    *((NGX_RTMP_REFCOUNT_TYPE *)(b) - 1)
+    *((NGX_RTMP_REFCOUNT_TYPE *) (b) - 1)
 
 #define ngx_rtmp_ref_set(b, v)                                               \
     ngx_rtmp_ref(b) = v

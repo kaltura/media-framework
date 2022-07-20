@@ -19,9 +19,6 @@ void ngx_buf_queue_reader_init(ngx_buf_queue_reader_t *reader,
 void *ngx_buf_queue_reader_copy(ngx_buf_queue_reader_t *reader,
     void *buffer, size_t size);
 
-void *ngx_buf_queue_reader_read(ngx_buf_queue_reader_t *reader,
-    void *buffer, size_t size);
-
 ngx_int_t ngx_buf_queue_reader_skip(ngx_buf_queue_reader_t *reader,
     size_t size);
 

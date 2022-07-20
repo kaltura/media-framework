@@ -292,6 +292,7 @@ ngx_rtmp_handshake_parse_challenge(ngx_rtmp_session_t *s, ngx_str_t *peer_key,
     ngx_buf_t              *b;
     u_char                 *p;
     ngx_int_t               offs;
+    uint32_t                version;
 
     b = s->hs_buf;
     if (*b->pos != '\x03') {
@@ -311,7 +312,9 @@ ngx_rtmp_handshake_parse_challenge(ngx_rtmp_session_t *s, ngx_str_t *peer_key,
             (ngx_int_t) p[3], (ngx_int_t) p[2],
             (ngx_int_t) p[1], (ngx_int_t) p[0],
             (uint32_t) s->peer_epoch);
-    if (*(uint32_t *) p == 0) {
+
+    ngx_memcpy(&version, p, sizeof(version));
+    if (version == 0) {
         s->hs_old = 1;
         return NGX_OK;
     }
