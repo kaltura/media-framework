@@ -816,7 +816,7 @@ ngx_rtmp_notify_parse_http_retcode(ngx_rtmp_session_t *s,
         b = in->buf;
         if (b->last - b->pos > n) {
             c = b->pos[n];
-            if (c >= (u_char)'0' && c <= (u_char)'9') {
+            if (c >= (u_char) '0' && c <= (u_char) '9') {
                 ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                     "notify: HTTP retcode: %dxx", (int) (c - '0'));
                 switch (c) {

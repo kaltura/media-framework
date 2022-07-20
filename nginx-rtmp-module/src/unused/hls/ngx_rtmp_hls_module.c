@@ -628,7 +628,7 @@ ngx_rtmp_hls_copy(ngx_rtmp_session_t *s, void *dst, u_char **src, size_t n,
     for ( ;; ) {
         last = (*in)->buf->last;
 
-        if ((size_t)(last - *src) >= n) {
+        if ((size_t) (last - *src) >= n) {
             if (dst) {
                 ngx_memcpy(dst, *src, n);
             }

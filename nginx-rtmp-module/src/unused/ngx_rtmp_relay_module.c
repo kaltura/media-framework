@@ -465,7 +465,7 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t *name,
     pc->free = ngx_rtmp_relay_free_peer;
     pc->name = &addr->name;
     pc->socklen = addr->socklen;
-    pc->sockaddr = (struct sockaddr *)ngx_palloc(pool, pc->socklen);
+    pc->sockaddr = (struct sockaddr *) ngx_palloc(pool, pc->socklen);
     if (pc->sockaddr == NULL) {
         goto clear;
     }

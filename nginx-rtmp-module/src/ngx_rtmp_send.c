@@ -30,8 +30,8 @@
 
 #define NGX_RTMP_UCTL_START(s, type, utype)                                  \
     NGX_RTMP_USER_START(s, type);                                            \
-    *(__b->last++) = (u_char)((utype) >> 8);                                 \
-    *(__b->last++) = (u_char)(utype);
+    *(__b->last++) = (u_char) ((utype) >> 8);                                \
+    *(__b->last++) = (u_char) (utype);
 
 #define NGX_RTMP_USER_OUT1(v)                                                \
     *(__b->last++) = ((u_char *) &v)[0];

@@ -155,7 +155,7 @@ ngx_rtmp_netcall_get_peer(ngx_peer_connection_t *pc, void *data)
 {
     ngx_rtmp_netcall_session_t   *cs = data;
 
-    pc->sockaddr =(struct sockaddr *)&cs->url->sockaddr;
+    pc->sockaddr =(struct sockaddr *) &cs->url->sockaddr;
     pc->socklen = cs->url->socklen;
     pc->name = &cs->url->host;
 

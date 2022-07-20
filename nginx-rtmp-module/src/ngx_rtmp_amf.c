@@ -48,7 +48,7 @@ ngx_rtmp_amf_debug(const char *op, ngx_log_t *log, u_char *p, size_t n)
             *hp++ = hex[(*p & 0xf0) >> 4];
             *hp++ = hex[*p & 0x0f];
             *sp++ = (*p >= 0x20 && *p <= 0x7e) ?
-                *p : (u_char)'?';
+                *p : (u_char) '?';
             ++p;
 
         } else {

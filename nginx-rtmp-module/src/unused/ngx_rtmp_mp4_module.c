@@ -575,7 +575,7 @@ ngx_rtmp_mp4_parse_hdlr(ngx_rtmp_session_t *s, u_char *pos, u_char *last)
         return NGX_ERROR;
     }
 
-    type = *(uint32_t *)(pos + 8);
+    type = *(uint32_t *) (pos + 8);
 
     if (type == ngx_rtmp_mp4_make_tag('v','i','d','e')) {
         ctx->track->type = NGX_RTMP_MSG_VIDEO;
