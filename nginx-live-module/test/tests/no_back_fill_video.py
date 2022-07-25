@@ -67,7 +67,7 @@ def test(channelId=CHANNEL_ID):
     kmpSendEndOfStream([sv, sa])
 
     # deactivate the timeline
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
 
     testDefaultStreams(channelId, __file__)
 

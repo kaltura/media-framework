@@ -16,7 +16,7 @@ def setup(channelId=CHANNEL_ID):
     nl.variant.create(NginxLiveVariant(id='v', track_ids={'video':'v1'}))
     nl.variant.create(NginxLiveVariant(id='a', track_ids={'audio':'a1'}))
     nl.timeline.create(NginxLiveTimeline(id='tl', active=False, start=50, end=2000000000, max_duration=80000, max_segments=150, no_truncate=True,
-        end_list=True, manifest_expiry_threshold=100000, manifest_max_duration=50000, manifest_max_segments=100, manifest_target_duration_segments=5))
+        end_list='on', manifest_expiry_threshold=100000, manifest_max_duration=50000, manifest_max_segments=100, manifest_target_duration_segments=5))
     time.sleep(2)
     before = nl.channel.get(channelId)
 

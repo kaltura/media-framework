@@ -44,6 +44,6 @@ def test(channelId=CHANNEL_ID):
     time.sleep(11)
 
     # deactivate the timeline
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
 
     testDefaultStreams(channelId, __file__)

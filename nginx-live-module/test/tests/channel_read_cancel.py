@@ -16,7 +16,7 @@ def test(channelId=CHANNEL_ID):
         (ra, sa),
     ], st, 30, realtime=False)
 
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
 
     time.sleep(5)
 

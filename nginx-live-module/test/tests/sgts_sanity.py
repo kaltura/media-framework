@@ -22,7 +22,7 @@ def test(channelId=CHANNEL_ID):
 
     kmpSendEndOfStream([sv, sa])
 
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
 
     for bucketId in [0, 1]:
         url = NGINX_LIVE_URL + '/sgts/%s/%s/master.m3u8' % (channelId, bucketId)

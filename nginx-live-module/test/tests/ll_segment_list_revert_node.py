@@ -59,7 +59,7 @@ def test(channelId=CHANNEL_ID):
     ], st, 20, realtime=20, waitForVideoKey=True)
 
     kmpSendEndOfStream([sv])
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
 
     time.sleep(2)
 

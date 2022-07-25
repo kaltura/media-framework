@@ -51,6 +51,6 @@ def test(channelId=CHANNEL_ID):
 
     kmpSendEndOfStream([sa1, sa2])
 
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
 
     testDefaultStreams(channelId, __file__)

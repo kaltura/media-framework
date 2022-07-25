@@ -92,7 +92,7 @@ def testCycle(channelId, readers):
     kmpSendEndOfStream(senders)
 
     # deactivate the timeline
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
 
     actualLast = getMasterVariants(getStreamUrl(channelId, 'hls-ts'))
     actualAny = getMasterVariants(getStreamUrl(channelId, 'hls-aa'))

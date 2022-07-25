@@ -40,6 +40,6 @@ def test(channelId=CHANNEL_ID):
     stream(nl, 30, False)
     stream(nl, 40, True)
 
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
 
     testDefaultStreams(channelId, __file__)

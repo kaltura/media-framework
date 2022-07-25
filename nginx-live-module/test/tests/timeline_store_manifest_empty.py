@@ -20,7 +20,7 @@ def test(channelId=CHANNEL_ID):
 
     kmpSendEndOfStream([sv, sa])
 
-    nl.timeline.update(NginxLiveTimeline(id=EMPTY_TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=EMPTY_TIMELINE_ID, end_list='on'))
 
     time.sleep(1)
 

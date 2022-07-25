@@ -32,7 +32,7 @@ def test(channelId=CHANNEL_ID):
 
     time.sleep(5)
 
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
     testLLDefaultStreams(channelId, __file__)
 
     logTracker.assertContains(b'ngx_live_lls_add_frame: enabling split due to pts backward jump')

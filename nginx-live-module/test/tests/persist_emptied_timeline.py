@@ -32,10 +32,10 @@ def test(channelId=CHANNEL_ID):
         kmpSendEndOfStream([sv, sa])
         sv = sa = None
 
-        nl.timeline.update(NginxLiveTimeline(id=EMPTY_TIMELINE_ID, active=False, end_list=True))
+        nl.timeline.update(NginxLiveTimeline(id=EMPTY_TIMELINE_ID, active=False, end_list='on'))
 
     # deactivate the timeline
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
 
 def validate(channelId=CHANNEL_ID):
     nl = nginxLiveClient()

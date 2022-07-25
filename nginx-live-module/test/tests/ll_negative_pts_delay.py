@@ -57,7 +57,7 @@ def test(channelId=CHANNEL_ID):
 
     time.sleep(.5)
 
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
     testLLDefaultStreams(channelId, __file__)
 
     logTracker.assertContains(b'ngx_live_lls_track_stop_part: applying dts shift 12000, prev: 0')

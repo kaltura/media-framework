@@ -34,7 +34,7 @@ def test(channelId=CHANNEL_ID):
 
     kmpSendEndOfStream([sa])
 
-    nl.timeline.update(NginxLiveTimeline(id=ONLY_TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=ONLY_TIMELINE_ID, end_list='on'))
 
     for prefix in ['hls-ts', 'hls-fmp4', 'hls-aa']:
         testStream(getStreamUrl(channelId, prefix, timelineId=ONLY_TIMELINE_ID), __file__, prefix)

@@ -33,7 +33,7 @@ def test(channelId=CHANNEL_ID):
         ], st, maxDts = (i + 1) * 180000)
 
     kmpSendEndOfStream([sa, sv])
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
 
     time.sleep(2)
 

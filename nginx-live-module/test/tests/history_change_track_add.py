@@ -51,7 +51,7 @@ def test(channelId=CHANNEL_ID):
 
     kmpSendEndOfStream([sv1, sa1, sv2, sa2])
 
-    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list=True))
+    nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
 
 def validate(channelId=CHANNEL_ID):
     nl = nginxLiveClient()
