@@ -303,7 +303,7 @@ typedef struct {
     ngx_json_object_t  *source;
     ngx_flag_t          active;
     ngx_flag_t          no_truncate;
-    ngx_flag_t          end_list;
+    ngx_uint_t          end_list;
     int64_t             period_gap;
     int64_t             max_segments;
     int64_t             max_duration;
@@ -359,10 +359,10 @@ static ngx_json_prop_t  ngx_live_timeline_json_no_truncate = {
 static ngx_json_prop_t  ngx_live_timeline_json_end_list = {
     ngx_string("end_list"),
     2879353401730ULL,
-    NGX_JSON_BOOL,
-    ngx_json_set_flag_slot,
+    NGX_JSON_STRING,
+    ngx_json_set_enum_slot,
     offsetof(ngx_live_timeline_json_t, end_list),
-    NULL
+    &ngx_live_end_list_names
 };
 
 

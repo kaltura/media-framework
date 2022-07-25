@@ -31,7 +31,7 @@ in ngx_live_timeline_json
     source %o
     active %b
     no_truncate %b
-    end_list %b
+    end_list %enum-ngx_live_end_list_names
     period_gap %L
     max_segments %L
     max_duration %L

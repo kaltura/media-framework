@@ -1589,7 +1589,10 @@ ngx_http_live_ksmp_init_scope(ngx_http_request_t *r,
         track = scope->track;
         if (track != NULL || !(flags & NGX_KSMP_FLAG_MAX_PENDING)) {
             next_segment_index = channel->next_segment_index;
-            if (track != NULL) {
+
+            if (timeline->manifest.conf.end_list != ngx_live_end_list_forced
+                && track != NULL)
+            {
                 next_segment_index += track->pending_index
                     + track->has_pending_segment;
             }

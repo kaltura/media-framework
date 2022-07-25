@@ -154,6 +154,15 @@ ngx_module_t  ngx_live_timeline_module = {
 };
 
 
+/* must match ngx_live_end_list_e */
+ngx_str_t  ngx_live_end_list_names[] = {
+    ngx_string("off"),
+    ngx_string("on"),
+    ngx_string("forced"),
+    ngx_null_string
+};
+
+
 #include "ngx_live_timeline_json.h"
 
 /* period */
@@ -376,7 +385,7 @@ ngx_live_manifest_timeline_remove_segments(
             break;
         }
 
-        if (!timeline->conf.end_list) {
+        if (timeline->conf.end_list == ngx_live_end_list_off) {
             min_duration = timeline->target_duration * 3;
             last_duration = ngx_live_segment_iter_peek(
                 &timeline->first_period.segment_iter);
@@ -577,6 +586,13 @@ ngx_live_timeline_conf_validate(ngx_live_timeline_conf_t *conf,
             "ngx_live_timeline_conf_validate: "
             "manifest max duration %uL larger than max duration %uL",
             manifest_conf->max_duration, conf->max_duration);
+        return NGX_ERROR;
+    }
+
+    if (manifest_conf->end_list >= ngx_live_end_list_count) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_timeline_conf_validate: "
+            "invalid end list value %uD", manifest_conf->end_list);
         return NGX_ERROR;
     }
 
@@ -981,7 +997,8 @@ ngx_live_timeline_update(ngx_live_timeline_t *timeline,
     channel = timeline->channel;
     cctx = ngx_live_get_module_ctx(channel, ngx_live_timeline_module);
 
-    if (manifest_conf->end_list && !timeline->manifest.conf.end_list
+    if (manifest_conf->end_list != ngx_live_end_list_off
+        && timeline->manifest.conf.end_list == ngx_live_end_list_off
         && !ngx_live_timeline_is_last_pending(timeline))
     {
         ngx_log_error(NGX_LOG_INFO, &timeline->log, 0,
@@ -1891,7 +1908,7 @@ ngx_live_timeline_update_last_segment(ngx_live_timeline_t *timeline,
             duration);
     }
 
-    if (timeline->manifest.conf.end_list) {
+    if (timeline->manifest.conf.end_list != ngx_live_end_list_off) {
         ngx_log_error(NGX_LOG_INFO, &timeline->log, 0,
             "ngx_live_timeline_update_last_segment: "
             "end_list enabled, publishing timeline");
@@ -3164,7 +3181,7 @@ ngx_live_timeline_serve_end_list(ngx_live_timeline_t *timeline,
     ngx_live_channel_t               *channel;
     ngx_live_timeline_channel_ctx_t  *cctx;
 
-    if (!timeline->manifest.conf.end_list) {
+    if (timeline->manifest.conf.end_list == ngx_live_end_list_off) {
         /* end_list not set on the timeline */
         return 0;
     }
@@ -3175,6 +3192,20 @@ ngx_live_timeline_serve_end_list(ngx_live_timeline_t *timeline,
     period = ngx_queue_data(q, ngx_live_period_t, queue);
 
     last_index = period->node.key + period->segment_count - 1;
+
+    if (timeline->manifest.conf.end_list == ngx_live_end_list_forced) {
+        channel = timeline->channel;
+
+        if (max_index < channel->next_segment_index - 1
+            && max_index < last_index)
+        {
+            /* some segments were excluded due to max_segment_index param */
+            return 0;
+        }
+
+        return 1;
+    }
+
     if (last_index > max_index) {
         /* timeline has segments after the requested scope */
         return 0;

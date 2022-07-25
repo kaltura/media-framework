@@ -12,6 +12,15 @@
 #define NGX_LIVE_TIMELINE_MAX_ID_LEN      (32)
 
 
+typedef enum {
+    ngx_live_end_list_off,
+    ngx_live_end_list_on,
+    ngx_live_end_list_forced,
+
+    ngx_live_end_list_count
+} ngx_live_end_list_e;
+
+
 typedef struct {
     int64_t                            start;
     int64_t                            end;
@@ -28,7 +37,7 @@ typedef struct {
     uint32_t                           max_segments;
     uint32_t                           expiry_threshold;
     uint32_t                           target_duration_segments;
-    unsigned                           end_list:1;
+    uint32_t                           end_list;
 } ngx_live_timeline_manifest_conf_t;
 
 
@@ -176,5 +185,8 @@ u_char *ngx_live_timeline_channel_json_write(u_char *p,
 size_t ngx_live_timeline_ids_json_get_size(ngx_live_channel_t *obj);
 
 u_char *ngx_live_timeline_ids_json_write(u_char *p, ngx_live_channel_t *obj);
+
+
+extern ngx_str_t  ngx_live_end_list_names[];
 
 #endif /* _NGX_LIVE_TIMELINE_H_INCLUDED_ */

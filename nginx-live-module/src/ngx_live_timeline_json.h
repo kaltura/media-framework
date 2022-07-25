@@ -49,8 +49,9 @@ ngx_live_timeline_conf_json_get_size(ngx_live_timeline_t *obj)
     result =
         sizeof("{\"active\":") - 1 + sizeof("false") - 1 +
         sizeof(",\"no_truncate\":") - 1 + sizeof("false") - 1 +
-        sizeof(",\"end_list\":") - 1 + sizeof("false") - 1 +
-        sizeof(",\"period_gap\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"end_list\":\"") - 1 +
+            ngx_live_end_list_names[obj->manifest.conf.end_list].len +
+        sizeof("\",\"period_gap\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"max_segments\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"max_duration\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"start\":") - 1 + NGX_INT64_LEN +
@@ -84,15 +85,10 @@ ngx_live_timeline_conf_json_write(u_char *p, ngx_live_timeline_t *obj)
         p = ngx_copy_fix(p, "false");
     }
 
-    p = ngx_copy_fix(p, ",\"end_list\":");
-    if (obj->manifest.conf.end_list) {
-        p = ngx_copy_fix(p, "true");
-
-    } else {
-        p = ngx_copy_fix(p, "false");
-    }
-
-    p = ngx_copy_fix(p, ",\"period_gap\":");
+    p = ngx_copy_fix(p, ",\"end_list\":\"");
+    p = ngx_sprintf(p, "%V",
+        &ngx_live_end_list_names[obj->manifest.conf.end_list]);
+    p = ngx_copy_fix(p, "\",\"period_gap\":");
     p = ngx_sprintf(p, "%L", (int64_t) obj->conf.period_gap);
     p = ngx_copy_fix(p, ",\"max_segments\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) (obj->conf.max_segments !=
