@@ -8,6 +8,7 @@
 #include "ngx_http_pckg_enc.h"
 #include "ngx_http_pckg_fmp4.h"
 #include "ngx_http_pckg_mpegts.h"
+#include "ngx_http_pckg_captions.h"
 
 #include "ngx_pckg_media_group.h"
 #include "ngx_pckg_media_info.h"
@@ -40,14 +41,18 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 #define M3U8_STREAM_VIDEO_RANGE_SDR  ",VIDEO-RANGE=SDR"
 #define M3U8_STREAM_VIDEO_RANGE_PQ   ",VIDEO-RANGE=PQ"
 #define M3U8_STREAM_TAG_AUDIO        ",AUDIO=\"%V%uD\""
+#define M3U8_STREAM_TAG_CC           ",CLOSED-CAPTIONS=\"CC\""
+#define M3U8_STREAM_TAG_NO_CC        ",CLOSED-CAPTIONS=NONE"
 
 #define M3U8_MEDIA_BASE              "#EXT-X-MEDIA:TYPE=%V"                  \
-    ",GROUP-ID=\"%V%uD\",NAME=\"%V\","
-#define M3U8_MEDIA_LANG              "LANGUAGE=\"%V\","
-#define M3U8_MEDIA_DEFAULT           "AUTOSELECT=YES,DEFAULT=YES,"
-#define M3U8_MEDIA_NON_DEFAULT       "AUTOSELECT=NO,DEFAULT=NO,"
-#define M3U8_MEDIA_CHANNELS          "CHANNELS=\"%uD\","
-#define M3U8_MEDIA_URI               "URI=\""
+    ",GROUP-ID=\"%V%uD\",NAME=\"%V\""
+#define M3U8_MEDIA_LANG              ",LANGUAGE=\"%V\""
+#define M3U8_MEDIA_DEFAULT           ",AUTOSELECT=YES,DEFAULT=YES"
+#define M3U8_MEDIA_NON_DEFAULT       ",AUTOSELECT=NO,DEFAULT=NO"
+#define M3U8_MEDIA_CHANNELS          ",CHANNELS=\"%uD\""
+#define M3U8_MEDIA_URI               ",URI=\""
+#define M3U8_MEDIA_CC                "#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS"     \
+    ",GROUP-ID=\"CC\",NAME=\"%V\",INSTREAM-ID=\"%V\""
 
 /* index playlist */
 #define M3U8_INDEX_HEADER            "#EXTM3U\n#EXT-X-TARGETDURATION:%uD\n"  \
@@ -455,6 +460,87 @@ ngx_http_pckg_m3u8_media_group_write(u_char *p, ngx_pckg_media_group_t *group,
 }
 
 
+static void
+ngx_http_pckg_m3u8_upper(ngx_str_t *str)
+{
+    size_t   n;
+    u_char  *p;
+
+    n = str->len;
+    p = str->data;
+
+    while (n) {
+        *p = ngx_toupper(*p);
+        p++;
+        n--;
+    }
+}
+
+
+static size_t
+ngx_http_pckg_m3u8_closed_captions_get_size(ngx_pckg_channel_t *channel)
+{
+    size_t                        size;
+    ngx_uint_t                    i, n;
+    ngx_pckg_captions_service_t  *css, *cs;
+
+    css = channel->css.elts;
+    n = channel->css.nelts;
+
+    size = sizeof("\n") - 1 + (sizeof(M3U8_MEDIA_CC) - 1
+        + sizeof(M3U8_MEDIA_LANG) - 1 + sizeof("\n") - 1) * n;
+
+    for (i = 0; i < n; i++) {
+        cs = &css[i];
+        size += cs->label.len + cs->id.len + cs->lang.len;
+
+        if (cs->is_default) {
+            size += sizeof(M3U8_MEDIA_DEFAULT) - 1;
+        }
+    }
+
+    return size;
+}
+
+
+static u_char *
+ngx_http_pckg_m3u8_closed_captions_write(u_char *p,
+    ngx_pckg_channel_t *channel)
+{
+    ngx_uint_t                    i, n;
+    ngx_pckg_captions_service_t  *css, *cs;
+
+    n = channel->css.nelts;
+    if (n <= 0) {
+        return p;
+    }
+
+    css = channel->css.elts;
+
+    *p++ = '\n';
+
+    for (i = 0; i < n; i++) {
+        cs = &css[i];
+
+        ngx_http_pckg_m3u8_upper(&cs->id);
+
+        p = ngx_sprintf(p, M3U8_MEDIA_CC, &cs->label, &cs->id);
+
+        if (cs->lang.len) {
+            p = ngx_sprintf(p, M3U8_MEDIA_LANG, &cs->lang);
+        }
+
+        if (cs->is_default) {
+            p = ngx_copy_fix(p, M3U8_MEDIA_DEFAULT);
+        }
+
+        *p++ = '\n';
+    }
+
+    return p;
+}
+
+
 static u_char *
 ngx_http_pckg_m3u8_write_video_range(u_char *p, u_char transfer_char)
 {
@@ -484,6 +570,7 @@ ngx_http_pckg_m3u8_streams_get_size(ngx_array_t *streams)
     base_size = sizeof(M3U8_STREAM_VIDEO) - 1 + 5 * NGX_INT32_LEN +
         MAX_CODEC_NAME_SIZE * 2 + sizeof(",\"\n") - 1 +
         sizeof(M3U8_STREAM_VIDEO_RANGE_SDR) - 1 +
+        sizeof(M3U8_STREAM_TAG_CC) - 1 +    /* CC / NO_CC have same length */
         ngx_http_pckg_prefix_index.len +
         ngx_http_pckg_m3u8_ext.len + sizeof("\n") - 1;
 
@@ -510,6 +597,7 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
 {
     uint32_t                     bitrate;
     uint64_t                     frame_rate;
+    ngx_str_t                    cc_group;
     media_info_t                *video;
     media_info_t                *audio;
     media_info_t                *media_infos[KMP_MEDIA_COUNT];
@@ -519,6 +607,18 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
     ngx_pckg_variant_t          *variant;
     ngx_pckg_media_group_t      *audio_group;
     ngx_http_pckg_container_t   *container;
+
+    if (channel->css.elts) {
+        if (channel->css.nelts) {
+            ngx_str_set(&cc_group, M3U8_STREAM_TAG_CC);
+
+        } else {
+            ngx_str_set(&cc_group, M3U8_STREAM_TAG_NO_CC);
+        }
+
+    } else {
+        ngx_str_null(&cc_group);
+    }
 
     *p++ = '\n';
 
@@ -602,6 +702,10 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
                 audio->codec_id);
         }
 
+        if (tracks[KMP_MEDIA_VIDEO] != NULL) {
+            p = ngx_copy_str(p, cc_group);
+        }
+
         *p++ = '\n';
 
         p = ngx_copy_str(p, ngx_http_pckg_prefix_index);
@@ -627,6 +731,11 @@ ngx_http_pckg_m3u8_master_build(ngx_http_request_t *r,
     ngx_pckg_media_group_t         *group;
     ngx_pckg_media_groups_t         groups;
     ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
+
+    rc = ngx_http_pckg_captions_init(r);
+    if (rc != NGX_OK && rc != NGX_BAD_DATA) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
 
     /* group the variants */
     mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
@@ -664,6 +773,8 @@ ngx_http_pckg_m3u8_master_build(ngx_http_request_t *r,
         }
     }
 
+    size += ngx_http_pckg_m3u8_closed_captions_get_size(channel);
+
     size += ngx_http_pckg_m3u8_streams_get_size(&groups.streams);
 
     /* allocate */
@@ -690,6 +801,8 @@ ngx_http_pckg_m3u8_master_build(ngx_http_request_t *r,
             p = ngx_http_pckg_m3u8_media_group_write(p, group, media_type);
         }
     }
+
+    p = ngx_http_pckg_m3u8_closed_captions_write(p, channel);
 
     /* write streams */
     segment_duration = rescale_time(channel->timeline.header.target_duration,

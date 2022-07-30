@@ -1,0 +1,5 @@
+
+in ngx_http_pckg_captions_service_json
+    label %V
+    lang %V
+    is_default %b

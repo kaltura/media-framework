@@ -161,6 +161,14 @@ typedef struct {
 
 
 typedef struct {
+    ngx_str_t                      id;
+    ngx_str_t                      label;
+    ngx_str_t                      lang;
+    ngx_flag_t                     is_default;
+} ngx_pckg_captions_service_t;
+
+
+typedef struct {
     uint32_t                       track_id;
     uint32_t                       segment_index;
     uint32_t                       media_type_mask;
@@ -188,6 +196,7 @@ struct ngx_pckg_channel_s {
     ngx_array_t                    variants;  /* ngx_pckg_variant_t */
     ngx_array_t                    tracks;    /* ngx_pckg_track_t */
     ngx_array_t                    rrs;       /* ngx_pckg_rendition_report_t */
+    ngx_array_t                    css;       /* ngx_pckg_captions_service_t */
     ngx_ksmp_segment_index_t      *segment_index;
     ngx_pckg_dynamic_vars_t        vars;
     uint32_t                       media_types;

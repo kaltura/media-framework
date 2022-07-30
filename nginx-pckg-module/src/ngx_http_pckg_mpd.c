@@ -4,6 +4,7 @@
 
 #include "ngx_http_pckg_utils.h"
 #include "ngx_http_pckg_fmp4.h"
+#include "ngx_http_pckg_captions.h"
 #include "ngx_pckg_adapt_set.h"
 
 #if (NGX_HAVE_OPENSSL_EVP)
@@ -66,8 +67,19 @@ static char *ngx_http_pckg_mpd_merge_loc_conf(ngx_conf_t *cf, void *parent,
     "        maxFrameRate=\"%uD/%uD\"\n"                                     \
     "        segmentAlignment=\"true\">\n"
 
+#define MPD_ACCESSIBILITY_CEA_608_MAX_LEN  (32)     /* "CC1=eng;" * 4 */
+#define MPD_ACCESSIBILITY_CEA_708_MAX_LEN  (180)    /* "63=lang:eng;" * 15 */
+
 #define MPD_ACCESSIBILITY_CEA_608                                            \
     "      <Accessibility schemeIdUri=\"urn:scte:dash:cc:cea-608:2015\"/>\n"
+
+#define MPD_ACCESSIBILITY_CEA_608_VALUE                                      \
+    "      <Accessibility schemeIdUri=\"urn:scte:dash:cc:cea-608:2015\"\n"   \
+    "          value=\"%V\"/>\n"
+
+#define MPD_ACCESSIBILITY_CEA_708_VALUE                                      \
+    "      <Accessibility schemeIdUri=\"urn:scte:dash:cc:cea-708:2015\"\n"   \
+    "          value=\"%V\"/>\n"
 
 #define MPD_REPRESENTATION_VIDEO                                             \
     "      <Representation\n"                                                \
@@ -205,6 +217,11 @@ typedef struct {
     uint32_t                   max_height;
     uint32_t                   max_frame_rate_num;
     uint32_t                   max_frame_rate_denom;
+
+    ngx_str_t                  cea608;
+    ngx_str_t                  cea708;
+    u_char                     cea608_buf[MPD_ACCESSIBILITY_CEA_608_MAX_LEN];
+    u_char                     cea708_buf[MPD_ACCESSIBILITY_CEA_708_MAX_LEN];
     unsigned                   cea_captions:1;
 } ngx_http_pckg_mpd_video_params_t;
 
@@ -593,6 +610,95 @@ ngx_http_pckg_mpd_get_sample_media_info(ngx_pckg_adapt_set_t *set,
 
 
 static void
+ngx_http_pckg_mpd_init_closed_captions(ngx_pckg_channel_t *channel,
+    ngx_http_pckg_mpd_video_params_t *params)
+{
+    u_char                       *c6_p, *c6_start, *c6_end;
+    u_char                       *c7_p, *c7_start, *c7_end;
+    ngx_uint_t                    i, n;
+    ngx_pckg_captions_service_t  *css, *cs;
+
+    c6_start = c6_p = params->cea608_buf;
+    c6_end = params->cea608_buf + sizeof(params->cea608_buf);
+
+    c7_start = c7_p = params->cea708_buf;
+    c7_end = params->cea708_buf + sizeof(params->cea708_buf);
+
+    css = channel->css.elts;
+    n = channel->css.nelts;
+
+    for (i = 0; i < n; i++) {
+        cs = &css[i];
+
+        if (cs->lang.len != 3) {
+            /* ISO 639.2/B language code is required */
+            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, channel->log, 0,
+                "ngx_http_pckg_mpd_init_closed_captions: "
+                "skipping captions service, lang: \"%V\"", &cs->lang);
+            continue;
+        }
+
+        switch (cs->id.len) {
+
+        case 3:
+            /* cc1 - cc4 */
+            if (c6_end - c6_p < 8) {
+                ngx_log_error(NGX_LOG_WARN, channel->log, 0,
+                    "ngx_http_pckg_mpd_init_closed_captions: "
+                    "608 value overflow");
+                continue;
+            }
+
+            if (c6_p != c6_start) {
+                *c6_p++ = ';';
+            }
+
+            *c6_p++ = 'C';
+            *c6_p++ = 'C';
+            *c6_p++ = cs->id.data[2];
+            *c6_p++ = '=';
+            c6_p = ngx_copy_str(c6_p, cs->lang);
+            break;
+
+        case 8:
+        case 9:
+            /* service1 - service63 */
+            if (c7_end - c7_p < 12) {
+                ngx_log_error(NGX_LOG_WARN, channel->log, 0,
+                    "ngx_http_pckg_mpd_init_closed_captions: "
+                    "708 value overflow");
+                continue;
+            }
+
+            if (c7_p != c7_start) {
+                *c7_p++ = ';';
+            }
+
+            *c7_p++ = cs->id.data[7];
+            if (cs->id.len == 9) {
+                *c7_p++ = cs->id.data[8];
+            }
+
+            c7_p = ngx_copy_fix(c7_p, "=lang:");
+            c7_p = ngx_copy_str(c7_p, cs->lang);
+            break;
+
+        default:
+            ngx_log_error(NGX_LOG_WARN, channel->log, 0,
+                "ngx_http_pckg_mpd_init_closed_captions: "
+                "unknown id \"%V\"", &cs->id);
+        }
+    }
+
+    params->cea608.data = c6_start;
+    params->cea608.len = c6_p - c6_start;
+
+    params->cea708.data = c7_start;
+    params->cea708.len = c7_p - c7_start;
+}
+
+
+static void
 ngx_http_pckg_mpd_init_video_params(ngx_pckg_adapt_set_t *set,
     uint32_t segment_index, ngx_http_pckg_mpd_video_params_t *params)
 {
@@ -639,6 +745,8 @@ ngx_http_pckg_mpd_init_video_params(ngx_pckg_adapt_set_t *set,
             params->max_height = media_info->u.video.height;
         }
     }
+
+    ngx_http_pckg_mpd_init_closed_captions(set->variant->channel, params);
 }
 
 
@@ -659,7 +767,10 @@ ngx_http_pckg_mpd_video_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
     track = variants[0]->tracks[KMP_MEDIA_VIDEO];
 
     return sizeof(MPD_ADAPTATION_HEADER_VIDEO) - 1 + NGX_INT32_LEN * 5
-        + sizeof(MPD_ACCESSIBILITY_CEA_608) - 1
+        + sizeof(MPD_ACCESSIBILITY_CEA_608_VALUE) - 1
+            + MPD_ACCESSIBILITY_CEA_608_MAX_LEN
+        + sizeof(MPD_ACCESSIBILITY_CEA_708_VALUE) - 1
+            + MPD_ACCESSIBILITY_CEA_708_MAX_LEN
         + ngx_http_pckg_seg_tmpl_get_size(period, container)
         + set->variants.nelts * (sizeof(MPD_REPRESENTATION_VIDEO) - 1
             + content_type.len + MAX_CODEC_NAME_SIZE + NGX_INT32_LEN * 5)
@@ -679,6 +790,7 @@ ngx_http_pckg_mpd_video_adapt_set_write(u_char *p, ngx_http_request_t *r,
     ngx_uint_t                          i, n;
     media_info_t                       *media_info;
     ngx_pckg_track_t                   *track;
+    ngx_pckg_channel_t                 *channel;
     ngx_pckg_variant_t                **variants, *variant;
     ngx_http_pckg_container_t          *container;
     ngx_http_pckg_mpd_video_params_t    params;
@@ -699,7 +811,19 @@ ngx_http_pckg_mpd_video_adapt_set_write(u_char *p, ngx_http_request_t *r,
         params.max_width, params.max_height,
         params.max_frame_rate_num, params.max_frame_rate_denom);
 
-    if (params.cea_captions) {
+    channel = period->timeline->channel;
+    if (channel->css.elts) {
+        if (params.cea608.len) {
+            p = ngx_sprintf(p, MPD_ACCESSIBILITY_CEA_608_VALUE,
+                &params.cea608);
+        }
+
+        if (params.cea708.len) {
+            p = ngx_sprintf(p, MPD_ACCESSIBILITY_CEA_708_VALUE,
+                &params.cea708);
+        }
+
+    } else if (params.cea_captions) {
         p = ngx_copy_fix(p, MPD_ACCESSIBILITY_CEA_608);
     }
 
@@ -1029,12 +1153,18 @@ ngx_http_pckg_mpd_build(ngx_http_request_t *r, ngx_pckg_channel_t *channel,
     int64_t                        duration;
     ngx_tm_t                       cur_time_gmt;
     uint32_t                       timescale;
+    ngx_int_t                      rc;
     ngx_str_t                      profiles;
     ngx_uint_t                     i, n;
     ngx_pckg_period_t             *periods, *period;
     ngx_pckg_timeline_t           *timeline;
     ngx_pckg_adapt_sets_t          sets;
     ngx_http_pckg_mpd_loc_conf_t  *mlcf;
+
+    rc = ngx_http_pckg_captions_init(r);
+    if (rc != NGX_OK && rc != NGX_BAD_DATA) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
 
     mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_mpd_module);
 
