@@ -44,7 +44,8 @@ def getUrl(url, extraHeaders={}, timeout=None):
     return res.status_code, parseHttpHeaders(res.headers), body
 
 def downloadUrl(url, fileName):
-    with requests.get(url, stream=True) as r:
+    headers = {'Accept-Encoding': None}     # avoid default 'Accept-Encoding: gzip, deflate'
+    with requests.get(url, stream=True, headers=headers) as r:
         with open(fileName, 'wb') as w:
             shutil.copyfileobj(r.raw, w)
 

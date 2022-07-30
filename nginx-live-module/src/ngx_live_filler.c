@@ -176,8 +176,7 @@ static ngx_live_json_cmd_t  ngx_live_filler_dyn_cmds[] = {
     { ngx_string("filler"), NGX_JSON_OBJECT,
       ngx_live_filler_set_channel },
 
-    { ngx_null_string, NGX_JSON_NULL,
-      ngx_live_filler_post_json },
+    { ngx_null_string, 0, ngx_live_filler_post_json },
 
       ngx_live_null_json_cmd
 };

@@ -1,5 +1,8 @@
 import requests
 
+class NginxLiveNull:
+    pass
+
 class NginxLive:
     def __init__(self, url):
         self.url = url
@@ -18,18 +21,25 @@ class NginxLive:
         req.raise_for_status()
 
     @staticmethod
-    def filterParams(params):
-        return {k:v for k,v in params.items() if v is not None}
+    def mapParams(params):
+        res = {}
+        for k, v in params.items():
+            if v is None:
+                continue
+            if isinstance(v, NginxLiveNull):
+                v = None
+            res[k] = v
+        return res
 
     def post(self, path, params):
-        req = requests.post(url=self.url + path, json=self.filterParams(params))
+        req = requests.post(url=self.url + path, json=self.mapParams(params))
         req.raise_for_status()
         if len(req.text) == 0:
             return None
         return req.json()
 
     def put(self, path, params):
-        req = requests.put(url=self.url + path, json=self.filterParams(params))
+        req = requests.put(url=self.url + path, json=self.mapParams(params))
         req.raise_for_status()
         if len(req.text) == 0:
             return None
