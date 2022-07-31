@@ -267,6 +267,7 @@ ngx_pckg_ksmp_sgts_add_media_info(ngx_pckg_track_t *track,
 
     h->track_id = track->header.id;
     h->segment_index = segment_index;
+    ngx_memzero(&h->stats, sizeof(h->stats));
 
     media_info->kmp_media_info = ctx->kmp_media_info;
 

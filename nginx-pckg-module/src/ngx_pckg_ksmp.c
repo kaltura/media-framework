@@ -1039,12 +1039,17 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
         return NGX_BAD_DATA;
     }
 
-    if (src->bitrate <= 0) {
+    if (src->bitrate < node->header.stats.bitrate_max) {
         src->bitrate = node->header.stats.bitrate_max;
     }
 
     dest->bitrate = src->bitrate;
     dest->timescale = src->timescale;
+
+    if (node->header.stats.bitrate_count > 1) {
+        dest->avg_bitrate = node->header.stats.bitrate_sum
+            / node->header.stats.bitrate_count;
+    }
 
     return NGX_OK;
 }

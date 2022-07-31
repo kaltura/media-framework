@@ -1012,10 +1012,11 @@ ngx_http_pckg_get_bitrate_estimator(ngx_http_request_t *r,
 uint32_t
 ngx_http_pckg_estimate_bitrate(ngx_http_request_t *r,
     ngx_http_pckg_container_t *container, media_info_t **media_infos,
-    uint32_t count, uint32_t segment_duration)
+    uint32_t count, uint32_t segment_duration, ngx_uint_t offset)
 {
     uint32_t                    i;
     uint32_t                    result;
+    uint32_t                   *bitrate;
     media_bitrate_estimator_t  *est;
     media_bitrate_estimator_t   estimators[KMP_MEDIA_COUNT];
 
@@ -1025,9 +1026,10 @@ ngx_http_pckg_estimate_bitrate(ngx_http_request_t *r,
     result = 0;
     for (i = 0; i < count; i++) {
 
+        bitrate = (void *) ((u_char *) media_infos[i] + offset);
+
         est = &estimators[i];
-        result += media_bitrate_estimate(*est, media_infos[i]->bitrate,
-            segment_duration);
+        result += media_bitrate_estimate(*est, *bitrate, segment_duration);
     }
 
     return result;
