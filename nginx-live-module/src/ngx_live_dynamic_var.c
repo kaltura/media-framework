@@ -114,6 +114,7 @@ static ngx_int_t
 ngx_live_dynamic_var_set_vars(ngx_live_json_cmds_ctx_t *jctx,
     ngx_live_json_cmd_t *cmd, ngx_json_value_t *value)
 {
+    size_t                               size;
     uint32_t                             hash;
     ngx_queue_t                         *q, *next;
     ngx_queue_t                          new_vars;
@@ -144,10 +145,12 @@ ngx_live_dynamic_var_set_vars(ngx_live_json_cmds_ctx_t *jctx,
             goto failed;
         }
 
-        if (cur->key.len + cur->value.v.str.s.len > dpcf->max_size) {
+        size = cur->key.len + cur->value.v.str.s.len;
+        if (size > dpcf->max_size) {
             ngx_log_error(NGX_LOG_ERR, jctx->pool->log, 0,
                 "ngx_live_dynamic_var_set_vars: "
-                "key \"%V\" exceeds max size", &cur->key);
+                "key \"%V\" size %uz exceeds max %uz",
+                &cur->key, size, dpcf->max_size);
             goto failed;
         }
 
@@ -542,7 +545,7 @@ ngx_live_dynamic_var_merge_preset_conf(ngx_conf_t *cf, void *parent,
     ngx_live_dynamic_var_preset_conf_t  *conf = child;
 
     ngx_conf_merge_size_value(conf->max_size,
-                              prev->max_size, 152);
+                              prev->max_size, 920);
 
     if (ngx_live_core_add_block_pool_index(cf, &conf->bp_idx[NGX_LIVE_BP_VAR],
         sizeof(ngx_live_dynamic_var_t) + conf->max_size) != NGX_OK)

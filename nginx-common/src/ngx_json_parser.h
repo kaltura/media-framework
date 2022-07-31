@@ -42,8 +42,6 @@ enum {
     NGX_JSON_OK             = 0,
     NGX_JSON_BAD_DATA       = -1,
     NGX_JSON_ALLOC_FAILED   = -2,
-    NGX_JSON_BAD_LENGTH     = -3,
-    NGX_JSON_BAD_TYPE       = -4,
 };
 
 
