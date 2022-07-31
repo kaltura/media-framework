@@ -74,7 +74,7 @@ ngx_live_json_cmds_add(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t ctx)
     ngx_strlow(v->name.data, name->data, name->len);
 
     v->set_handler = NULL;
-    v->type = NGX_JSON_NULL;
+    v->type = 0;
 
     keys = cmcf->json_cmds[ctx].keys;
     rc = ngx_hash_add_key(keys, &v->name, v, 0);
@@ -212,7 +212,7 @@ ngx_live_json_cmds_exec(ngx_live_channel_t *channel,
             continue;
         }
 
-        if (cmd->type != cur->value.type) {
+        if (!(cmd->type & cur->value.type)) {
             continue;
         }
 

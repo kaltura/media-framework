@@ -338,6 +338,7 @@ ngx_http_api_multi_parse(ngx_http_request_t *r, ngx_json_object_t *obj,
     ngx_json_key_value_t  *elts;
 
     ngx_memzero(req, sizeof(*req));
+    req->body.type = NGX_JSON_NULL;
 
     elts = obj->elts;
     n = obj->nelts;

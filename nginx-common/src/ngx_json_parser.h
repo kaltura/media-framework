@@ -28,13 +28,13 @@
 
 
 enum {
-    NGX_JSON_NULL,
-    NGX_JSON_BOOL,
-    NGX_JSON_INT,
-    NGX_JSON_FRAC,
-    NGX_JSON_STRING,
-    NGX_JSON_ARRAY,
-    NGX_JSON_OBJECT,
+    NGX_JSON_NULL   = 0x01,
+    NGX_JSON_BOOL   = 0x02,
+    NGX_JSON_INT    = 0x04,
+    NGX_JSON_FRAC   = 0x08,
+    NGX_JSON_STRING = 0x10,
+    NGX_JSON_ARRAY  = 0x20,
+    NGX_JSON_OBJECT = 0x40,
 };
 
 
