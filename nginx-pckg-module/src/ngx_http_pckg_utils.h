@@ -21,6 +21,15 @@
 #define NGX_HTTP_PCKG_GUID_SIZE  (16)
 
 
+#define ngx_http_pckg_estimate_max_bitrate(r, c, mis, cnt, sd)               \
+    ngx_http_pckg_estimate_bitrate(r, c, mis, cnt, sd,                       \
+    offsetof(media_info_t, bitrate))
+
+#define ngx_http_pckg_estimate_avg_bitrate(r, c, mis, cnt, sd)               \
+    ngx_http_pckg_estimate_bitrate(r, c, mis, cnt, sd,                       \
+    offsetof(media_info_t, avg_bitrate))
+
+
 #define ngx_conf_init_complex_int_value(conf, default)                       \
     if (conf == NULL) {                                                      \
         conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_complex_value_t));      \
@@ -103,7 +112,7 @@ void ngx_http_pckg_get_bitrate_estimator(ngx_http_request_t *r,
 
 uint32_t ngx_http_pckg_estimate_bitrate(ngx_http_request_t *r,
     ngx_http_pckg_container_t *container, media_info_t **media_infos,
-    uint32_t count, uint32_t segment_duration);
+    uint32_t count, uint32_t segment_duration, ngx_uint_t offset);
 
 
 extern u_char  ngx_http_pckg_media_type_code[KMP_MEDIA_COUNT];

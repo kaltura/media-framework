@@ -842,7 +842,7 @@ ngx_http_pckg_mpd_video_adapt_set_write(u_char *p, ngx_http_request_t *r,
             continue;
         }
 
-        bitrate = ngx_http_pckg_estimate_bitrate(r, container,
+        bitrate = ngx_http_pckg_estimate_max_bitrate(r, container,
             &media_info, 1, segment_duration);
 
         p = ngx_sprintf(p, MPD_REPRESENTATION_VIDEO,
@@ -967,7 +967,7 @@ ngx_http_pckg_mpd_audio_adapt_set_write(u_char *p, ngx_http_request_t *r,
             continue;
         }
 
-        bitrate = ngx_http_pckg_estimate_bitrate(r, container,
+        bitrate = ngx_http_pckg_estimate_max_bitrate(r, container,
             &media_info, 1, segment_duration);
 
         p = ngx_sprintf(p, MPD_REPRESENTATION_AUDIO,

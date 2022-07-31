@@ -34,12 +34,14 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 
 #define M3U8_MASTER_HEADER           "#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n"
 
-#define M3U8_STREAM_VIDEO            "#EXT-X-STREAM-INF:PROGRAM-ID=1"        \
-    ",BANDWIDTH=%uD,RESOLUTION=%uDx%uD,FRAME-RATE=%uD.%03uD,CODECS=\"%V"
-#define M3U8_STREAM_AUDIO            "#EXT-X-STREAM-INF:PROGRAM-ID=1"        \
-    ",BANDWIDTH=%uD,CODECS=\"%V"
+#define M3U8_STREAM_BASE             "#EXT-X-STREAM-INF:PROGRAM-ID=1"        \
+    ",BANDWIDTH=%uD"
+#define M3U8_STREAM_AVG_BANDWIDTH    ",AVERAGE-BANDWIDTH=%uD"
+#define M3U8_STREAM_VIDEO            ",RESOLUTION=%uDx%uD"                   \
+    ",FRAME-RATE=%uD.%03uD,CODECS=\"%V"
 #define M3U8_STREAM_VIDEO_RANGE_SDR  ",VIDEO-RANGE=SDR"
 #define M3U8_STREAM_VIDEO_RANGE_PQ   ",VIDEO-RANGE=PQ"
+#define M3U8_STREAM_CODECS           ",CODECS=\"%V"
 #define M3U8_STREAM_TAG_AUDIO        ",AUDIO=\"%V%uD\""
 #define M3U8_STREAM_TAG_CC           ",CLOSED-CAPTIONS=\"CC\""
 #define M3U8_STREAM_TAG_NO_CC        ",CLOSED-CAPTIONS=NONE"
@@ -567,7 +569,9 @@ ngx_http_pckg_m3u8_streams_get_size(ngx_array_t *streams)
     size_t              base_size;
     ngx_pckg_stream_t  *cur, *last;
 
-    base_size = sizeof(M3U8_STREAM_VIDEO) - 1 + 5 * NGX_INT32_LEN +
+    base_size = sizeof(M3U8_STREAM_BASE) - 1 + NGX_INT32_LEN +
+        sizeof(M3U8_STREAM_AVG_BANDWIDTH) - 1 + NGX_INT32_LEN +
+        sizeof(M3U8_STREAM_VIDEO) - 1 + 4 * NGX_INT32_LEN +
         MAX_CODEC_NAME_SIZE * 2 + sizeof(",\"\n") - 1 +
         sizeof(M3U8_STREAM_VIDEO_RANGE_SDR) - 1 +
         sizeof(M3U8_STREAM_TAG_CC) - 1 +    /* CC / NO_CC have same length */
@@ -596,6 +600,7 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
     uint32_t segment_duration)
 {
     uint32_t                     bitrate;
+    uint32_t                     avg_bitrate;
     uint64_t                     frame_rate;
     ngx_str_t                    cc_group;
     media_info_t                *video;
@@ -644,29 +649,54 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
         if (tracks[KMP_MEDIA_VIDEO] != NULL) {
             video = &tracks[KMP_MEDIA_VIDEO]->last_media_info->media_info;
 
+            avg_bitrate = 0;
+
             if (audio != NULL) {
                 if (audio_group != NULL) {
-                    bitrate = ngx_http_pckg_estimate_bitrate(r, container,
+                    bitrate = ngx_http_pckg_estimate_max_bitrate(r, container,
                             &video, 1, segment_duration) +
-                        ngx_http_pckg_estimate_bitrate(r, container,
+                        ngx_http_pckg_estimate_max_bitrate(r, container,
                             &audio, 1, segment_duration);
+
+                    if (video->avg_bitrate > 0 && audio->avg_bitrate > 0) {
+                        avg_bitrate = ngx_http_pckg_estimate_avg_bitrate(r,
+                                container, &video, 1, segment_duration) +
+                            ngx_http_pckg_estimate_avg_bitrate(r, container,
+                                &audio, 1, segment_duration);
+                    }
 
                 } else {
                     media_infos[0] = video;
                     media_infos[1] = audio;
-                    bitrate = ngx_http_pckg_estimate_bitrate(r, container,
+                    bitrate = ngx_http_pckg_estimate_max_bitrate(r, container,
                         media_infos, 2, segment_duration);
+
+                    if (video->avg_bitrate > 0 && audio->avg_bitrate > 0) {
+                        avg_bitrate = ngx_http_pckg_estimate_avg_bitrate(r,
+                            container, media_infos, 2, segment_duration);
+                    }
                 }
 
             } else {
-                bitrate = ngx_http_pckg_estimate_bitrate(r, container,
+                bitrate = ngx_http_pckg_estimate_max_bitrate(r, container,
                     &video, 1, segment_duration);
+
+                if (video->avg_bitrate > 0) {
+                    avg_bitrate = ngx_http_pckg_estimate_avg_bitrate(r,
+                        container, &video, 1, segment_duration);
+                }
             }
 
             frame_rate = (uint64_t) video->u.video.frame_rate_num * 1000 /
                 video->u.video.frame_rate_denom;
 
-            p = ngx_sprintf(p, M3U8_STREAM_VIDEO, bitrate,
+            p = ngx_sprintf(p, M3U8_STREAM_BASE, bitrate);
+
+            if (avg_bitrate > 0) {
+                p = ngx_sprintf(p, M3U8_STREAM_AVG_BANDWIDTH, avg_bitrate);
+            }
+
+            p = ngx_sprintf(p, M3U8_STREAM_VIDEO,
                 (uint32_t) video->u.video.width,
                 (uint32_t) video->u.video.height,
                 (uint32_t) (frame_rate / 1000),
@@ -684,11 +714,19 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
 
         } else if (audio != NULL) {
 
-            bitrate = ngx_http_pckg_estimate_bitrate(r, container,
+            bitrate = ngx_http_pckg_estimate_max_bitrate(r, container,
                 &audio, 1, segment_duration);
 
-            p = ngx_sprintf(p, M3U8_STREAM_AUDIO, bitrate,
-                &audio->codec_name);
+            p = ngx_sprintf(p, M3U8_STREAM_BASE, bitrate);
+
+            if (audio->avg_bitrate > 0) {
+                avg_bitrate = ngx_http_pckg_estimate_avg_bitrate(r, container,
+                    &audio, 1, segment_duration);
+
+                p = ngx_sprintf(p, M3U8_STREAM_AVG_BANDWIDTH, avg_bitrate);
+            }
+
+            p = ngx_sprintf(p, M3U8_STREAM_CODECS, &audio->codec_name);
 
             *p++ = '\"';
 
