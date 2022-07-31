@@ -37,7 +37,7 @@ def test(channelId=CHANNEL_ID):
             'ngx_http_pckg_captions_service_json_parse: missing label'),
 
         ('true',
-            'ngx_http_pckg_captions_json_parse: invalid element type 1, expected object'),
+            'ngx_http_pckg_captions_json_parse: invalid element type 2, expected object'),
 
         ('{"cc12":{"label": "l"}}',
             'ngx_http_pckg_captions_json_parse: invalid key "cc12"'),
