@@ -207,11 +207,13 @@ PCKG_HTTP_MODULES="                                           \
     ngx_http_pckg_fmp4_module                                 \
     ngx_http_pckg_mpegts_module                               \
     ngx_http_pckg_captions_module                             \
+    ngx_http_pckg_data_module                                 \
     $PCKG_HTTP_MODULES"
 
 PCKG_HTTP_SRCS="                                              \
     $ngx_addon_dir/src/ngx_http_pckg_captions.c               \
     $ngx_addon_dir/src/ngx_http_pckg_core_module.c            \
+    $ngx_addon_dir/src/ngx_http_pckg_data.c                   \
     $ngx_addon_dir/src/ngx_http_pckg_fmp4.c                   \
     $ngx_addon_dir/src/ngx_http_pckg_m3u8.c                   \
     $ngx_addon_dir/src/ngx_http_pckg_mpd.c                    \
@@ -230,6 +232,8 @@ PCKG_HTTP_SRCS="                                              \
 PCKG_DEPS="                                                   \
     $ngx_addon_dir/src/ngx_http_pckg_captions.h               \
     $ngx_addon_dir/src/ngx_http_pckg_captions_json.h          \
+    $ngx_addon_dir/src/ngx_http_pckg_data.h                   \
+    $ngx_addon_dir/src/ngx_http_pckg_data_json.h              \
     $ngx_addon_dir/src/ngx_http_pckg_core_module.h            \
     $ngx_addon_dir/src/ngx_http_pckg_fmp4.h                   \
     $ngx_addon_dir/src/ngx_http_pckg_mpegts.h                 \

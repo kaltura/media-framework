@@ -9,6 +9,7 @@
 #include "ngx_http_pckg_fmp4.h"
 #include "ngx_http_pckg_mpegts.h"
 #include "ngx_http_pckg_captions.h"
+#include "ngx_http_pckg_data.h"
 
 #include "ngx_pckg_media_group.h"
 #include "ngx_pckg_media_info.h"
@@ -33,6 +34,11 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 #define NGX_HTTP_PCKG_M3U8_MAX_GROUP_ID_LEN  (3)
 
 #define M3U8_MASTER_HEADER           "#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n"
+
+#define M3U8_SESSION_DATA_ID         "#EXT-X-SESSION-DATA:DATA-ID=\"%V\""
+#define M3U8_SESSION_DATA_VALUE      ",VALUE=\"%V\""
+#define M3U8_SESSION_DATA_URI        ",URI=\"%V\""
+#define M3U8_SESSION_DATA_LANG       ",LANGUAGE=\"%V\""
 
 #define M3U8_STREAM_BASE             "#EXT-X-STREAM-INF:PROGRAM-ID=1"        \
     ",BANDWIDTH=%uD"
@@ -543,6 +549,69 @@ ngx_http_pckg_m3u8_closed_captions_write(u_char *p,
 }
 
 
+static size_t
+ngx_http_pckg_m3u8_session_data_get_size(ngx_array_t *arr)
+{
+    size_t                  size;
+    ngx_uint_t              i, n;
+    ngx_pckg_data_value_t  *dvs, *dv;
+
+    dvs = arr->elts;
+    n = arr->nelts;
+
+    size = sizeof("\n") - 1 + (sizeof(M3U8_SESSION_DATA_ID) - 1
+        + sizeof(M3U8_SESSION_DATA_VALUE) - 1
+        + sizeof(M3U8_SESSION_DATA_URI) - 1
+        + sizeof(M3U8_SESSION_DATA_LANG) - 1 + sizeof("\n") - 1) * n;
+
+    for (i = 0; i < n; i++) {
+        dv = &dvs[i];
+        size += dv->id.len + dv->value.len + dv->uri.len + dv->lang.len;
+    }
+
+    return size;
+}
+
+
+static u_char *
+ngx_http_pckg_m3u8_session_data_write(u_char *p, ngx_array_t *arr)
+{
+    ngx_uint_t              i, n;
+    ngx_pckg_data_value_t  *dvs, *dv;
+
+    n = arr->nelts;
+    if (n <= 0) {
+        return p;
+    }
+
+    dvs = arr->elts;
+
+    *p++ = '\n';
+
+    for (i = 0; i < n; i++) {
+        dv = &dvs[i];
+
+        p = ngx_sprintf(p, M3U8_SESSION_DATA_ID, &dv->id);
+
+        if (dv->value.len > 0) {
+            p = ngx_sprintf(p, M3U8_SESSION_DATA_VALUE, &dv->value);
+        }
+
+        if (dv->uri.len > 0) {
+            p = ngx_sprintf(p, M3U8_SESSION_DATA_URI, &dv->uri);
+        }
+
+        if (dv->lang.len > 0) {
+            p = ngx_sprintf(p, M3U8_SESSION_DATA_LANG, &dv->lang);
+        }
+
+        *p++ = '\n';
+    }
+
+    return p;
+}
+
+
 static u_char *
 ngx_http_pckg_m3u8_write_video_range(u_char *p, u_char transfer_char)
 {
@@ -766,11 +835,17 @@ ngx_http_pckg_m3u8_master_build(ngx_http_request_t *r,
     uint32_t                        segment_duration;
     ngx_int_t                       rc;
     ngx_queue_t                    *q;
+    ngx_array_t                     dvs;
     ngx_pckg_media_group_t         *group;
     ngx_pckg_media_groups_t         groups;
     ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
 
     rc = ngx_http_pckg_captions_init(r);
+    if (rc != NGX_OK && rc != NGX_BAD_DATA) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    rc = ngx_http_pckg_data_init(r, &dvs);
     if (rc != NGX_OK && rc != NGX_BAD_DATA) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
@@ -799,6 +874,8 @@ ngx_http_pckg_m3u8_master_build(ngx_http_request_t *r,
     /* get the response size */
     size = sizeof(M3U8_MASTER_HEADER) - 1;
 
+    size += ngx_http_pckg_m3u8_session_data_get_size(&dvs);
+
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
         for (q = ngx_queue_head(&groups.queue[media_type]);
@@ -826,6 +903,8 @@ ngx_http_pckg_m3u8_master_build(ngx_http_request_t *r,
     result->data = p;
 
     p = ngx_copy_fix(p, M3U8_MASTER_HEADER);
+
+    p = ngx_http_pckg_m3u8_session_data_write(p, &dvs);
 
     /* write media groups */
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {

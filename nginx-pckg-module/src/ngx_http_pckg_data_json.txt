@@ -1,0 +1,6 @@
+
+in ngx_http_pckg_data_value_json
+    id %V
+    value %V
+    uri %V
+    lang %V

@@ -233,7 +233,7 @@ ngx_http_pckg_captions_init(ngx_http_request_t *r)
         return NGX_ERROR;
     }
 
-    if (str.len <= 0) {
+    if (str.data[0] == '\0') {
         return NGX_OK;
     }
 
