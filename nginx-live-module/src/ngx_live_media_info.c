@@ -1993,16 +1993,6 @@ ngx_live_media_info_write_index(ngx_persist_write_ctx_t *write_ctx,
 }
 
 
-/* TODO: remove this! */
-typedef struct {
-    uint32_t    track_id;
-    uint32_t    segment_index;
-    uint64_t    bitrate_sum;
-    uint32_t    bitrate_count;
-    uint32_t    bitrate_max;
-} ngx_ksmp_media_info_header_v1_t;
-
-
 static ngx_int_t
 ngx_live_media_info_read_index(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
@@ -2016,25 +2006,12 @@ ngx_live_media_info_read_index(ngx_persist_block_hdr_t *header,
     ngx_live_media_info_node_t       *node;
     ngx_live_media_info_persist_t     mp;
     ngx_live_persist_index_scope_t   *scope;
-    ngx_ksmp_media_info_header_v1_t   mp1;
     ngx_live_media_info_track_ctx_t  *ctx;
 
-    if (rs->version >= 7) {
-        if (ngx_mem_rstream_read(rs, &mp, sizeof(mp)) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_media_info_read_index: read header failed");
-            return NGX_BAD_DATA;
-        }
-
-    } else {
-        if (ngx_mem_rstream_read(rs, &mp1, sizeof(mp1)) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_media_info_read_index: read header failed");
-            return NGX_BAD_DATA;
-        }
-
-        mp.segment_index = mp1.segment_index;
-        mp.track_id = mp1.track_id;
+    if (ngx_mem_rstream_read(rs, &mp, sizeof(mp)) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_media_info_read_index: read header failed");
+        return NGX_BAD_DATA;
     }
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
@@ -2055,14 +2032,7 @@ ngx_live_media_info_read_index(ngx_persist_block_hdr_t *header,
             }
 
             /* update stats */
-            if (rs->version >= 7) {
-                node->stats = mp.stats;
-
-            } else {
-                node->stats.bitrate_sum = mp1.bitrate_sum;
-                node->stats.bitrate_count = mp1.bitrate_count;
-                node->stats.bitrate_max = mp1.bitrate_max;
-            }
+            node->stats = mp.stats;
 
             return NGX_OK;
         }
@@ -2109,15 +2079,7 @@ ngx_live_media_info_read_index(ngx_persist_block_hdr_t *header,
     }
 
     node->track_id = mp.track_id;
-
-    if (rs->version >= 7) {
-        node->stats = mp.stats;
-
-    } else {
-        node->stats.bitrate_sum = mp1.bitrate_sum;
-        node->stats.bitrate_count = mp1.bitrate_count;
-        node->stats.bitrate_max = mp1.bitrate_max;
-    }
+    node->stats = mp.stats;
 
     ngx_live_media_info_queue_push(track, node, mp.segment_index);
 

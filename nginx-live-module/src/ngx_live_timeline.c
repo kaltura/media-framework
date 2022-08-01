@@ -2389,22 +2389,17 @@ ngx_live_timeline_read_setup(ngx_persist_block_hdr_t *header,
         return NGX_BAD_DATA;
     }
 
-    if (rs->version >= 6) {
-        if (ngx_mem_rstream_str_get(rs, &src_id) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_timeline_read_setup: read src id failed");
-            return NGX_BAD_DATA;
-        }
+    if (ngx_mem_rstream_str_get(rs, &src_id) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_timeline_read_setup: read src id failed");
+        return NGX_BAD_DATA;
+    }
 
-        if (src_id.len > NGX_LIVE_TIMELINE_MAX_ID_LEN) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_timeline_read_setup: "
-                "invalid src id \"%V\", timeline: %V", &src_id, &id);
-            return NGX_BAD_DATA;
-        }
-
-    } else {
-        src_id.len = 0;
+    if (src_id.len > NGX_LIVE_TIMELINE_MAX_ID_LEN) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_timeline_read_setup: "
+            "invalid src id \"%V\", timeline: %V", &src_id, &id);
+        return NGX_BAD_DATA;
     }
 
     rc = ngx_live_timeline_create(channel, &id, &conf, &manifest_conf,

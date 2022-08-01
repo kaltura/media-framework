@@ -38,14 +38,6 @@ typedef struct {
     uint64_t                            uid;
     uint32_t                            version;
     uint32_t                            initial_segment_index;
-    uint64_t                            start_sec;
-} ngx_live_persist_setup_channel_v1_t;
-
-
-typedef struct {
-    uint64_t                            uid;
-    uint32_t                            version;
-    uint32_t                            initial_segment_index;
     uint32_t                            segment_duration;
     uint32_t                            reserved;
     uint64_t                            start_sec;
@@ -150,7 +142,6 @@ ngx_live_persist_setup_read_channel(ngx_persist_block_hdr_t *header,
     ngx_int_t                              rc;
     ngx_live_channel_t                    *channel = obj;
     ngx_live_persist_setup_channel_t       cp;
-    ngx_live_persist_setup_channel_v1_t    cp1;
     ngx_live_persist_setup_channel_ctx_t  *cctx;
 
     rc = ngx_live_persist_read_channel_header(channel, rs);
@@ -158,55 +149,30 @@ ngx_live_persist_setup_read_channel(ngx_persist_block_hdr_t *header,
         return rc;
     }
 
-    if (rs->version >= 9) {
-        if (ngx_mem_rstream_read(rs, &cp, sizeof(cp)) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_persist_setup_read_channel: read failed");
-            return NGX_BAD_DATA;
-        }
-
-        if (cp.initial_segment_index >= NGX_LIVE_INVALID_SEGMENT_INDEX) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_persist_setup_read_channel: invalid segment index");
-            return NGX_BAD_DATA;
-        }
-
-        channel->uid = cp.uid;
-        channel->start_sec = cp.start_sec;
-        channel->conf.initial_segment_index = cp.initial_segment_index;
-        channel->next_segment_index = cp.initial_segment_index;
-
-        channel->conf.segment_duration = cp.segment_duration;
-        channel->segment_duration = ngx_live_rescale_time(
-            channel->conf.segment_duration, 1000, channel->timescale);
-
-        cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_setup_module);
-
-        cctx->version = cctx->success_version = cp.version;
-
-    } else {
-        /* TODO: remove this */
-        if (ngx_mem_rstream_read(rs, &cp1, sizeof(cp1)) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_persist_setup_read_channel: read failed");
-            return NGX_BAD_DATA;
-        }
-
-        if (cp1.initial_segment_index >= NGX_LIVE_INVALID_SEGMENT_INDEX) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_persist_setup_read_channel: invalid segment index");
-            return NGX_BAD_DATA;
-        }
-
-        channel->uid = cp1.uid;
-        channel->start_sec = cp1.start_sec;
-        channel->conf.initial_segment_index = cp1.initial_segment_index;
-        channel->next_segment_index = cp1.initial_segment_index;
-
-        cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_setup_module);
-
-        cctx->version = cctx->success_version = cp1.version;
+    if (ngx_mem_rstream_read(rs, &cp, sizeof(cp)) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_setup_read_channel: read failed");
+        return NGX_BAD_DATA;
     }
+
+    if (cp.initial_segment_index >= NGX_LIVE_INVALID_SEGMENT_INDEX) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_setup_read_channel: invalid segment index");
+        return NGX_BAD_DATA;
+    }
+
+    channel->uid = cp.uid;
+    channel->start_sec = cp.start_sec;
+    channel->conf.initial_segment_index = cp.initial_segment_index;
+    channel->next_segment_index = cp.initial_segment_index;
+
+    channel->conf.segment_duration = cp.segment_duration;
+    channel->segment_duration = ngx_live_rescale_time(
+        channel->conf.segment_duration, 1000, channel->timescale);
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_setup_module);
+
+    cctx->version = cctx->success_version = cp.version;
 
     rc = ngx_live_channel_block_str_read(channel, &channel->opaque, rs);
     if (rc != NGX_OK) {

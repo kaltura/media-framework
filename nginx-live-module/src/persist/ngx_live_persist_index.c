@@ -52,16 +52,6 @@ typedef struct {
     uint32_t                            last_segment_bitrate;
     uint32_t                            initial_segment_index;
     int64_t                             last_frame_pts;
-    uint64_t                            next_frame_id;
-} ngx_live_persist_index_track_v1_t;
-
-
-typedef struct {
-    uint32_t                            track_id;
-    uint32_t                            has_last_segment;
-    uint32_t                            last_segment_bitrate;
-    uint32_t                            initial_segment_index;
-    int64_t                             last_frame_pts;
     int64_t                             last_frame_dts;
     uint64_t                            next_frame_id;
 } ngx_live_persist_index_track_t;
@@ -625,14 +615,12 @@ static ngx_int_t
 ngx_live_persist_index_read_track(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
-    uint32_t                            track_id;
-    ngx_int_t                           rc;
-    ngx_str_t                           id;
-    ngx_log_t                          *orig_log;
-    ngx_live_track_t                   *track;
-    ngx_live_channel_t                 *channel = obj;
-    ngx_live_persist_index_track_t      tp;
-    ngx_live_persist_index_track_v1_t   tp1;
+    ngx_int_t                        rc;
+    ngx_str_t                        id;
+    ngx_log_t                       *orig_log;
+    ngx_live_track_t                *track;
+    ngx_live_channel_t              *channel = obj;
+    ngx_live_persist_index_track_t   tp;
 
     if (ngx_mem_rstream_str_get(rs, &id) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
@@ -640,35 +628,17 @@ ngx_live_persist_index_read_track(ngx_persist_block_hdr_t *header,
         return NGX_BAD_DATA;
     }
 
-    if (rs->version >= 8) {
-        if (ngx_mem_rstream_read(rs, &tp, sizeof(tp)) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_persist_index_read_track: read failed");
-            return NGX_BAD_DATA;
-        }
-
-        track_id = tp.track_id;
-
-        ngx_memzero(&tp1, sizeof(tp1));
-
-    } else {
-        /* TODO: remove this */
-        if (ngx_mem_rstream_read(rs, &tp1, sizeof(tp1)) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-                "ngx_live_persist_index_read_track: read failed");
-            return NGX_BAD_DATA;
-        }
-
-        track_id = tp1.track_id;
-
-        ngx_memzero(&tp, sizeof(tp));
+    if (ngx_mem_rstream_read(rs, &tp, sizeof(tp)) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_persist_index_read_track: read failed");
+        return NGX_BAD_DATA;
     }
 
-    track = ngx_live_track_get_by_int(channel, track_id);
+    track = ngx_live_track_get_by_int(channel, tp.track_id);
     if (track == NULL) {
         ngx_log_error(NGX_LOG_WARN, rs->log, 0,
             "ngx_live_persist_index_read_track: "
-            "track index %uD not found", track_id);
+            "track index %uD not found", tp.track_id);
         return NGX_OK;
     }
 
@@ -686,23 +656,12 @@ ngx_live_persist_index_read_track(ngx_persist_block_hdr_t *header,
     orig_log = rs->log;
     rs->log = &track->log;
 
-    if (rs->version >= 8) {
-        track->has_last_segment = tp.has_last_segment;
-        track->last_segment_bitrate = tp.last_segment_bitrate;
-        track->initial_segment_index = tp.initial_segment_index;
-        track->last_frame_pts = tp.last_frame_pts;
-        track->last_frame_dts = tp.last_frame_dts;
-        track->next_frame_id = tp.next_frame_id;
-
-    } else {
-        /* TODO: remove this */
-        track->has_last_segment = tp1.has_last_segment;
-        track->last_segment_bitrate = tp1.last_segment_bitrate;
-        track->initial_segment_index = tp1.initial_segment_index;
-        track->last_frame_pts = tp1.last_frame_pts;
-        track->last_frame_dts = NGX_LIVE_INVALID_TIMESTAMP;
-        track->next_frame_id = tp1.next_frame_id;
-    }
+    track->has_last_segment = tp.has_last_segment;
+    track->last_segment_bitrate = tp.last_segment_bitrate;
+    track->initial_segment_index = tp.initial_segment_index;
+    track->last_frame_pts = tp.last_frame_pts;
+    track->last_frame_dts = tp.last_frame_dts;
+    track->next_frame_id = tp.next_frame_id;
 
     if (ngx_persist_read_skip_block_header(rs, header) != NGX_OK) {
         return NGX_BAD_DATA;
