@@ -5,6 +5,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include "ngx_pckg_ksmp.h"
 
 
 #ifndef AES_BLOCK_SIZE
@@ -30,9 +31,13 @@ typedef struct {
 } ngx_http_pckg_enc_loc_conf_t;
 
 
-extern ngx_module_t  ngx_http_pckg_enc_module;
+size_t ngx_http_pckg_enc_key_uri_get_size(ngx_uint_t scope,
+    ngx_pckg_variant_t *variant);
 
-extern ngx_str_t  ngx_http_pckg_enc_key_prefix;
-extern ngx_str_t  ngx_http_pckg_enc_key_ext;
+u_char *ngx_http_pckg_enc_key_uri_write(u_char *p, ngx_uint_t scope,
+    ngx_pckg_variant_t *variant, uint32_t media_types);
+
+
+extern ngx_module_t  ngx_http_pckg_enc_module;
 
 #endif /* _NGX_HTTP_PCKG_ENC_H_INCLUDED_ */

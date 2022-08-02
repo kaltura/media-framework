@@ -319,7 +319,8 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
     start_pos++;    /* skip the - */
 
     if (*start_pos == 's' &&
-        (flags & NGX_HTTP_PCKG_PARSE_OPTIONAL_VARIANTS))
+        (flags & (NGX_HTTP_PCKG_PARSE_OPTIONAL_VARIANTS
+         | NGX_HTTP_PCKG_PARSE_OPTIONAL_SINGLE_VARIANT)))
     {
         p = ngx_pnalloc(r->pool, end_pos - start_pos);
         if (p == NULL) {
@@ -360,6 +361,15 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
         } while (*start_pos == 's');
 
         result->variant_ids.len = p - result->variant_ids.data;
+
+        if ((flags & NGX_HTTP_PCKG_PARSE_OPTIONAL_SINGLE_VARIANT)
+            && ngx_strlchr(result->variant_ids.data, p, ',') != NULL)
+        {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_pckg_parse_uri_file_name: "
+                "invalid variant id \"%V\"", &result->variant_ids);
+            return NGX_HTTP_BAD_REQUEST;
+        }
     }
 
     if ((*start_pos == 'v' || *start_pos == 'a') &&
@@ -671,7 +681,7 @@ found:
 }
 
 
-static u_char *
+u_char *
 ngx_http_pckg_write_media_type_mask(u_char *p, uint32_t media_type_mask)
 {
     uint32_t  i;

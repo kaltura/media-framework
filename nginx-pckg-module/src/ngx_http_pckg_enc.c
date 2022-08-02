@@ -14,10 +14,14 @@ static void *ngx_http_pckg_enc_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_pckg_enc_merge_loc_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
+static char *ngx_http_pckg_enc_json(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+
 
 enum {
     NGX_HTTP_PCKG_ENC_SCOPE_CHANNEL,
     NGX_HTTP_PCKG_ENC_SCOPE_MEDIA_TYPE,
+    NGX_HTTP_PCKG_ENC_SCOPE_VARIANT,
     NGX_HTTP_PCKG_ENC_SCOPE_TRACK,
 };
 
@@ -35,6 +39,7 @@ static ngx_conf_enum_t  ngx_http_pckg_enc_schemes[] = {
 static ngx_conf_enum_t  ngx_http_pckg_enc_scopes[] = {
     { ngx_string("channel"),    NGX_HTTP_PCKG_ENC_SCOPE_CHANNEL },
     { ngx_string("media_type"), NGX_HTTP_PCKG_ENC_SCOPE_MEDIA_TYPE},
+    { ngx_string("variant"),    NGX_HTTP_PCKG_ENC_SCOPE_VARIANT },
     { ngx_string("track"),      NGX_HTTP_PCKG_ENC_SCOPE_TRACK },
 
     { ngx_null_string, 0 }
@@ -80,7 +85,7 @@ static ngx_command_t  ngx_http_pckg_enc_commands[] = {
 
     { ngx_string("pckg_enc_json"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_http_set_complex_value_zero_slot,
+      ngx_http_pckg_enc_json,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_enc_loc_conf_t, json),
       NULL },
@@ -129,8 +134,8 @@ static ngx_str_t  ngx_http_pckg_enc_iv_salt =
     ngx_string("\xa7\xc6\x17\xab\x52\x2c\x40\x3c\xf6\x8a");
 
 
-ngx_str_t  ngx_http_pckg_enc_key_prefix = ngx_string("enc");
-ngx_str_t  ngx_http_pckg_enc_key_ext = ngx_string(".key");
+static ngx_str_t  ngx_http_pckg_enc_key_prefix = ngx_string("enc");
+static ngx_str_t  ngx_http_pckg_enc_key_ext = ngx_string(".key");
 
 
 static ngx_int_t
@@ -441,6 +446,50 @@ ngx_http_pckg_enc_init_track_scope(ngx_http_request_t *r)
 
 
 static ngx_int_t
+ngx_http_pckg_enc_init_variant_scope(ngx_http_request_t *r)
+{
+    uint32_t                   media_type;
+    ngx_int_t                  rc;
+    ngx_uint_t                 i, n;
+    media_enc_t               *enc;
+    ngx_pckg_track_t          *track;
+    ngx_pckg_variant_t        *variant, *variants;
+    ngx_pckg_channel_t        *channel;
+    ngx_http_pckg_core_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    channel = ctx->channel;
+
+    variants = channel->variants.elts;
+    n = channel->variants.nelts;
+    for (i = 0; i < n; i++) {
+        variant = &variants[i];
+
+        ctx->variant = variant;
+
+        rc = ngx_http_pckg_enc_create(r, &enc);
+        if (rc != NGX_OK) {
+            return rc;
+        }
+
+        for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+            track = variant->tracks[media_type];
+
+            if (track == NULL || track->enc != NULL) {
+                continue;
+            }
+
+            track->enc = enc;
+        }
+    }
+
+    ctx->variant = NULL;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_http_pckg_enc_init_media_type_scope(ngx_http_request_t *r)
 {
     uint32_t                   media_type;
@@ -521,6 +570,7 @@ ngx_http_pckg_enc_init(ngx_http_request_t *r)
     static ngx_http_handler_pt     handlers[] = {
         ngx_http_pckg_enc_init_channel_scope,
         ngx_http_pckg_enc_init_media_type_scope,
+        ngx_http_pckg_enc_init_variant_scope,
         ngx_http_pckg_enc_init_track_scope,
     };
 
@@ -534,24 +584,77 @@ ngx_http_pckg_enc_init(ngx_http_request_t *r)
 }
 
 
+size_t
+ngx_http_pckg_enc_key_uri_get_size(ngx_uint_t scope,
+    ngx_pckg_variant_t *variant)
+{
+    size_t  size;
+
+    size = ngx_http_pckg_enc_key_prefix.len + ngx_http_pckg_enc_key_ext.len;
+
+    switch (scope) {
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_CHANNEL:
+        break;
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_MEDIA_TYPE:
+        size += KMP_MEDIA_COUNT;
+        break;
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_VARIANT:
+    case NGX_HTTP_PCKG_ENC_SCOPE_TRACK:
+        size += ngx_http_pckg_selector_get_size(&variant->id);
+        break;
+    }
+
+    return size;
+}
+
+
+u_char *
+ngx_http_pckg_enc_key_uri_write(u_char *p, ngx_uint_t scope,
+    ngx_pckg_variant_t *variant, uint32_t media_types)
+{
+    p = ngx_copy_str(p, ngx_http_pckg_enc_key_prefix);
+
+    switch (scope) {
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_CHANNEL:
+        break;
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_MEDIA_TYPE:
+        p = ngx_http_pckg_write_media_type_mask(p, media_types);
+        break;
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_VARIANT:
+        p = ngx_http_pckg_selector_write(p, &variant->id, KMP_MEDIA_TYPE_MASK);
+        break;
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_TRACK:
+        p = ngx_http_pckg_selector_write(p, &variant->id, media_types);
+        break;
+    }
+
+    p = ngx_copy_str(p, ngx_http_pckg_enc_key_ext);
+
+    return p;
+}
+
+
 static ngx_int_t
 ngx_http_pckg_handle_enc_key(ngx_http_request_t *r)
 {
-    ngx_int_t  rc;
-    ngx_str_t  response;
+    ngx_int_t                  rc;
+    ngx_str_t                  response;
+    ngx_pckg_track_t          *track;
+    ngx_http_pckg_core_ctx_t  *ctx;
 
-    response.len = AES_BLOCK_SIZE;
-    response.data = ngx_pnalloc(r->pool, response.len);
-    if (response.data == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-            "ngx_http_pckg_handle_enc_key: alloc failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
 
-    rc = ngx_http_pckg_enc_get_key(r, response.data);
-    if (rc != NGX_OK) {
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
+    track = ctx->channel->tracks.elts;
+
+    response.data = track->enc->key;
+    response.len = sizeof(track->enc->key);
 
     rc = ngx_http_pckg_send_header(r, response.len,
         &ngx_http_pckg_enc_key_content_type, -1, NGX_HTTP_PCKG_EXPIRES_STATIC);
@@ -586,7 +689,7 @@ ngx_http_pckg_parse_key_request(ngx_http_request_t *r, u_char *start_pos,
         start_pos += ngx_http_pckg_enc_key_prefix.len;
 
         *handler = &ngx_http_pckg_enc_key_handler;
-        flags = NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT |
+        flags = NGX_HTTP_PCKG_PARSE_OPTIONAL_SINGLE_VARIANT |
             NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
     } else {
@@ -662,4 +765,17 @@ ngx_http_pckg_enc_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_ptr_value(conf->json, prev->json, NULL);
 
     return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_http_pckg_enc_json(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_pckg_enc_loc_conf_t  *elcf;
+
+    elcf = conf;
+
+    ngx_conf_init_value(elcf->serve_key, 0);
+
+    return ngx_http_set_complex_value_zero_slot(cf, cmd, conf);
 }
