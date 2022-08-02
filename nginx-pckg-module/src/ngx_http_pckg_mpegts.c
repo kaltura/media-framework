@@ -220,6 +220,7 @@ ngx_http_pckg_mpegts_init_frame_processor(ngx_http_request_t *r,
 
 
 static ngx_http_pckg_request_handler_t  ngx_http_pckg_mpegts_ts_seg_handler = {
+    NULL,
     ngx_http_pckg_core_write_segment,
     ngx_http_pckg_mpegts_init_frame_processor,
 };

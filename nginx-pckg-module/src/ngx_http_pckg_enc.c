@@ -18,14 +18,6 @@ static char *ngx_http_pckg_enc_json(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 
 
-enum {
-    NGX_HTTP_PCKG_ENC_SCOPE_CHANNEL,
-    NGX_HTTP_PCKG_ENC_SCOPE_MEDIA_TYPE,
-    NGX_HTTP_PCKG_ENC_SCOPE_VARIANT,
-    NGX_HTTP_PCKG_ENC_SCOPE_TRACK,
-};
-
-
 static ngx_conf_enum_t  ngx_http_pckg_enc_schemes[] = {
     { ngx_string("none"),    NGX_HTTP_PCKG_ENC_NONE },
     { ngx_string("aes-128"), NGX_HTTP_PCKG_ENC_AES_128 },
@@ -359,6 +351,7 @@ ngx_http_pckg_enc_create(ngx_http_request_t *r, media_enc_t **result)
     ngx_int_t                      rc;
     media_enc_t                   *enc;
     ngx_json_value_t               value;
+    ngx_http_pckg_core_ctx_t      *ctx;
     ngx_http_pckg_enc_loc_conf_t  *elcf;
 
     enc = ngx_pcalloc(r->pool, sizeof(*enc));
@@ -392,6 +385,14 @@ ngx_http_pckg_enc_create(ngx_http_request_t *r, media_enc_t **result)
 
     if (ngx_http_pckg_enc_get_iv(r, enc->iv) != NGX_OK) {
         return NGX_ERROR;
+    }
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+
+    if (ctx->handler->init_enc != NULL) {
+        if (ctx->handler->init_enc(r, enc) != NGX_OK) {
+            return NGX_ERROR;
+        }
     }
 
     *result = enc;
@@ -667,6 +668,7 @@ ngx_http_pckg_handle_enc_key(ngx_http_request_t *r)
 
 
 static ngx_http_pckg_request_handler_t  ngx_http_pckg_enc_key_handler = {
+    NULL,
     ngx_http_pckg_handle_enc_key,
     NULL,
 };

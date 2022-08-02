@@ -349,12 +349,14 @@ ngx_http_pckg_capture_redirect(ngx_http_request_t *r)
 
 
 static ngx_http_pckg_request_handler_t  ngx_http_pckg_redirect_handler = {
+    NULL,
     ngx_http_pckg_capture_redirect,
     NULL,
 };
 
 
 static ngx_http_pckg_request_handler_t  ngx_http_pckg_capture_handler = {
+    NULL,
     ngx_http_pckg_core_write_segment,
     ngx_http_pckg_capture_init_frame_processor,
 };

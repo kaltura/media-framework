@@ -57,6 +57,8 @@ typedef struct {
 
 typedef struct {
 
+    ngx_int_t   (*init_enc)(ngx_http_request_t *r, media_enc_t *enc);
+
     ngx_int_t   (*handler)(ngx_http_request_t *r);
 
     ngx_int_t   (*init_frame_processor)(ngx_http_request_t *r,

@@ -1316,6 +1316,7 @@ ngx_http_pckg_fmp4_handle_mpd(ngx_http_request_t *r)
 
 
 static ngx_http_pckg_request_handler_t  ngx_http_pckg_fmp4_mpd_handler = {
+    NULL,
     ngx_http_pckg_fmp4_handle_mpd,
     NULL,
 };

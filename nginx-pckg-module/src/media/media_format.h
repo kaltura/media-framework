@@ -108,6 +108,7 @@ typedef struct {
     u_char iv[VOD_ENC_IV_SIZE];
     u_char key_id[VOD_ENC_KID_SIZE];
     vod_array_t systems;    /* media_enc_sys_t */
+    void* ctx;
     unsigned has_key_id:1;
 } media_enc_t;
 

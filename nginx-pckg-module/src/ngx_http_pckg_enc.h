@@ -21,6 +21,14 @@ enum {
 };
 
 
+enum {
+    NGX_HTTP_PCKG_ENC_SCOPE_CHANNEL,
+    NGX_HTTP_PCKG_ENC_SCOPE_MEDIA_TYPE,
+    NGX_HTTP_PCKG_ENC_SCOPE_VARIANT,
+    NGX_HTTP_PCKG_ENC_SCOPE_TRACK,
+};
+
+
 typedef struct {
     ngx_uint_t                 scheme;
     ngx_uint_t                 scope;

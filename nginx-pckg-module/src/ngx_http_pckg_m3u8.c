@@ -79,11 +79,13 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 #define M3U8_MAP_BASE                "#EXT-X-MAP:URI=\""
 #define M3U8_END_LIST                "#EXT-X-ENDLIST\n"
 
-#define M3U8_ENC_KEY_BASE            "#EXT-X-KEY:METHOD="
+#define M3U8_ENC_KEY                 "#EXT-X-KEY:"
+#define M3U8_ENC_KEY_METHOD          "METHOD="
 #define M3U8_ENC_KEY_URI             ",URI=\""
 #define M3U8_ENC_KEY_IV              ",IV=0x"
 #define M3U8_ENC_KEY_KEY_FORMAT      ",KEYFORMAT=\""
 #define M3U8_ENC_KEY_KEY_FORMAT_VER  ",KEYFORMATVERSIONS=\""
+#define M3U8_ENC_SESSION_KEY         "#EXT-X-SESSION-KEY:"
 
 #define M3U8_ENC_METHOD_AES_128      "AES-128"
 #define M3U8_ENC_METHOD_SAMPLE_AES   "SAMPLE-AES"
@@ -150,10 +152,8 @@ typedef struct {
 
 
 typedef struct {
-    ngx_uint_t                      type;
     ngx_str_t                       key_uri;
-    ngx_str_t                       iv;
-} ngx_http_pckg_m3u8_enc_params_t;
+} ngx_http_pckg_m3u8_enc_ctx_t;
 
 
 static ngx_conf_enum_t  ngx_http_pckg_m3u8_containers[] = {
@@ -364,7 +364,385 @@ ngx_http_pckg_m3u8_get_container(ngx_http_request_t *r,
 }
 
 
+#if (NGX_HAVE_OPENSSL_EVP)
+
+static ngx_str_t  ngx_http_pckg_m3u8_key =
+    ngx_string(M3U8_ENC_KEY);
+
+static ngx_str_t  ngx_http_pckg_m3u8_session_key =
+    ngx_string(M3U8_ENC_SESSION_KEY);
+
+
+static ngx_int_t
+ngx_http_pckg_m3u8_init_enc(ngx_http_request_t *r, media_enc_t *enc)
+{
+    ngx_str_t                       key_uri;
+    ngx_http_pckg_m3u8_enc_ctx_t   *ctx;
+    ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
+
+    mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
+    if (mlcf->enc.key_uri == NULL) {
+        return NGX_OK;
+    }
+
+    if (ngx_http_complex_value(r, mlcf->enc.key_uri, &key_uri) != NGX_OK) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            "ngx_http_pckg_m3u8_init_enc: complex value failed");
+        return NGX_ERROR;
+    }
+
+    if (key_uri.len <= 0) {
+        return NGX_OK;
+    }
+
+    ctx = ngx_palloc(r->pool, sizeof(*ctx));
+    if (ctx == NULL) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            "ngx_http_pckg_m3u8_init_enc: alloc failed");
+        return NGX_ERROR;
+    }
+
+    ctx->key_uri = key_uri;
+
+    enc->ctx = ctx;
+
+    return NGX_OK;
+}
+
+
+static size_t
+ngx_http_pckg_m3u8_enc_key_get_size(ngx_http_request_t *r, ngx_str_t *tag,
+    ngx_pckg_variant_t *variant, ngx_pckg_track_t *track)
+{
+    size_t                          size;
+    media_enc_t                    *enc;
+    ngx_http_pckg_enc_loc_conf_t   *elcf;
+    ngx_http_pckg_m3u8_enc_ctx_t   *ctx;
+    ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
+
+    elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
+
+    enc = track->enc;
+    ctx = enc->ctx;
+
+    size = tag->len + sizeof(M3U8_ENC_KEY_METHOD) - 1 +
+        sizeof(M3U8_ENC_METHOD_SAMPLE_AES_CTR) - 1 +
+        sizeof(M3U8_ENC_KEY_URI) - 1 +
+        sizeof("\"\n") - 1;
+
+    if (ctx != NULL) {
+        size += ctx->key_uri.len;
+
+    } else if (elcf->scheme == NGX_HTTP_PCKG_ENC_CENC) {
+        size += sizeof(M3U8_URI_BASE64_DATA) - 1 +
+            mp4_dash_encrypt_base64_psshs_get_size(enc);
+
+    } else {
+        size += ngx_http_pckg_enc_key_uri_get_size(elcf->scope, variant);
+    }
+
+    mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
+
+    if (mlcf->enc.output_iv) {
+        size += sizeof(M3U8_ENC_KEY_IV) - 1 +
+            sizeof(enc->iv) * 2;
+    }
+
+    if (mlcf->enc.key_format.len != 0) {
+        size += sizeof(M3U8_ENC_KEY_KEY_FORMAT) +         /* '"' */
+            mlcf->enc.key_format.len;
+    }
+
+    if (mlcf->enc.key_format_versions.len != 0) {
+        size += sizeof(M3U8_ENC_KEY_KEY_FORMAT_VER) +     /* '"' */
+            mlcf->enc.key_format_versions.len;
+    }
+
+    return size;
+}
+
+
+static u_char *
+ngx_http_pckg_m3u8_enc_key_write(u_char *p, ngx_http_request_t *r,
+    ngx_str_t *tag, ngx_pckg_variant_t *variant, ngx_pckg_track_t *track)
+{
+    media_enc_t                    *enc;
+    ngx_http_pckg_enc_loc_conf_t   *elcf;
+    ngx_http_pckg_m3u8_enc_ctx_t   *ctx;
+    ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
+
+    elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
+
+    enc = track->enc;
+    ctx = enc->ctx;
+
+    p = ngx_copy_str(p, *tag);
+    p = ngx_copy_fix(p, M3U8_ENC_KEY_METHOD);
+
+    switch (elcf->scheme) {
+
+    case NGX_HTTP_PCKG_ENC_AES_128:
+        p = ngx_copy_fix(p, M3U8_ENC_METHOD_AES_128);
+        break;
+
+    case NGX_HTTP_PCKG_ENC_CBCS:
+        p = ngx_copy_fix(p, M3U8_ENC_METHOD_SAMPLE_AES);
+        break;
+
+    case NGX_HTTP_PCKG_ENC_CENC:
+        p = ngx_copy_fix(p, M3U8_ENC_METHOD_SAMPLE_AES_CTR);
+        break;
+    }
+
+    /* uri */
+    p = ngx_copy_fix(p, M3U8_ENC_KEY_URI);
+    if (ctx != NULL) {
+        p = ngx_copy_str(p, ctx->key_uri);
+
+    } else if (elcf->scheme == NGX_HTTP_PCKG_ENC_CENC) {
+        p = ngx_copy_fix(p, M3U8_URI_BASE64_DATA);
+        p = mp4_dash_encrypt_base64_psshs_write(p, enc);
+
+    } else {
+        p = ngx_http_pckg_enc_key_uri_write(p, elcf->scope, variant,
+            1 << track->header.media_type);
+    }
+
+    *p++ = '"';
+
+    /* iv */
+    mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
+
+    if (mlcf->enc.output_iv) {
+        p = ngx_copy_fix(p, M3U8_ENC_KEY_IV);
+        p = vod_append_hex_string(p, enc->iv, sizeof(enc->iv));
+    }
+
+    /* keyformat */
+    if (mlcf->enc.key_format.len != 0) {
+        p = ngx_copy_fix(p, M3U8_ENC_KEY_KEY_FORMAT);
+        p = ngx_copy_str(p, mlcf->enc.key_format);
+        *p++ = '"';
+    }
+
+    /* keyformatversions */
+    if (mlcf->enc.key_format_versions.len != 0) {
+        p = ngx_copy_fix(p, M3U8_ENC_KEY_KEY_FORMAT_VER);
+        p = ngx_copy_str(p, mlcf->enc.key_format_versions);
+        *p++ = '"';
+    }
+
+    *p++ = '\n';
+
+    return p;
+}
+#else
+#define ngx_http_pckg_m3u8_init_enc  NULL
+#endif
+
+
 /* master */
+
+#if (NGX_HAVE_OPENSSL_EVP)
+static size_t
+ngx_http_pckg_m3u8_session_key_get_size(ngx_http_request_t *r)
+{
+    size_t                         size;
+    ngx_uint_t                     i, n;
+    ngx_uint_t                     media_type;
+    ngx_pckg_track_t              *track;
+    ngx_pckg_variant_t            *variant, *variants;
+    ngx_pckg_channel_t            *channel;
+    ngx_http_pckg_core_ctx_t      *ctx;
+    ngx_http_pckg_enc_loc_conf_t  *elcf;
+
+    elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
+    if (elcf->scheme == NGX_HTTP_PCKG_ENC_NONE) {
+        return 0;
+    }
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    channel = ctx->channel;
+
+    size = sizeof("\n") - 1;
+
+    switch (elcf->scope) {
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_CHANNEL:
+        variant = channel->variants.elts;
+        track = channel->tracks.elts;
+
+        size += ngx_http_pckg_m3u8_enc_key_get_size(r,
+            &ngx_http_pckg_m3u8_session_key, variant, track);
+        break;
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_MEDIA_TYPE:
+        variants = channel->variants.elts;
+        n = channel->variants.nelts;
+
+        for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+            for (i = 0; i < n; i++) {
+                variant = &variants[i];
+                track = variant->tracks[media_type];
+
+                if (track == NULL) {
+                    continue;
+                }
+
+                size += ngx_http_pckg_m3u8_enc_key_get_size(r,
+                    &ngx_http_pckg_m3u8_session_key, variant, track);
+                break;
+            }
+        }
+
+        break;
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_VARIANT:
+        variants = channel->variants.elts;
+        n = channel->variants.nelts;
+
+        for (i = 0; i < n; i++) {
+            variant = &variants[i];
+
+            for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+                track = variant->tracks[media_type];
+
+                if (track == NULL) {
+                    continue;
+                }
+
+                size += ngx_http_pckg_m3u8_enc_key_get_size(r,
+                    &ngx_http_pckg_m3u8_session_key, variant, track);
+                break;
+            }
+        }
+
+        break;
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_TRACK:
+        variants = channel->variants.elts;
+        n = channel->variants.nelts;
+
+        for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+            for (i = 0; i < n; i++) {
+                variant = &variants[i];
+                track = variant->tracks[media_type];
+
+                if (track == NULL) {
+                    continue;
+                }
+
+                size += ngx_http_pckg_m3u8_enc_key_get_size(r,
+                    &ngx_http_pckg_m3u8_session_key, variant, track);
+            }
+        }
+
+        break;
+    }
+
+    return size;
+}
+
+
+static u_char *
+ngx_http_pckg_m3u8_session_key_write(u_char *p, ngx_http_request_t *r)
+{
+    ngx_uint_t                     i, n;
+    ngx_uint_t                     media_type;
+    ngx_pckg_track_t              *track;
+    ngx_pckg_variant_t            *variant, *variants;
+    ngx_pckg_channel_t            *channel;
+    ngx_http_pckg_core_ctx_t      *ctx;
+    ngx_http_pckg_enc_loc_conf_t  *elcf;
+
+    elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
+    if (elcf->scheme == NGX_HTTP_PCKG_ENC_NONE) {
+        return p;
+    }
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    channel = ctx->channel;
+
+    *p++ = '\n';
+
+    switch (elcf->scope) {
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_CHANNEL:
+        variant = channel->variants.elts;
+        track = channel->tracks.elts;
+
+        p = ngx_http_pckg_m3u8_enc_key_write(p, r,
+            &ngx_http_pckg_m3u8_session_key, variant, track);
+        break;
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_MEDIA_TYPE:
+        variants = channel->variants.elts;
+        n = channel->variants.nelts;
+
+        for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+            for (i = 0; i < n; i++) {
+                variant = &variants[i];
+                track = variant->tracks[media_type];
+
+                if (track == NULL) {
+                    continue;
+                }
+
+                p = ngx_http_pckg_m3u8_enc_key_write(p, r,
+                    &ngx_http_pckg_m3u8_session_key, variant, track);
+                break;
+            }
+        }
+
+        break;
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_VARIANT:
+        variants = channel->variants.elts;
+        n = channel->variants.nelts;
+
+        for (i = 0; i < n; i++) {
+            variant = &variants[i];
+
+            for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+                track = variant->tracks[media_type];
+
+                if (track == NULL) {
+                    continue;
+                }
+
+                p = ngx_http_pckg_m3u8_enc_key_write(p, r,
+                    &ngx_http_pckg_m3u8_session_key, variant, track);
+                break;
+            }
+        }
+
+        break;
+
+    case NGX_HTTP_PCKG_ENC_SCOPE_TRACK:
+        variants = channel->variants.elts;
+        n = channel->variants.nelts;
+
+        for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+            for (i = 0; i < n; i++) {
+                variant = &variants[i];
+                track = variant->tracks[media_type];
+
+                if (track == NULL) {
+                    continue;
+                }
+
+                p = ngx_http_pckg_m3u8_enc_key_write(p, r,
+                    &ngx_http_pckg_m3u8_session_key, variant, track);
+            }
+        }
+
+        break;
+    }
+
+    return p;
+}
+#endif
+
 
 static size_t
 ngx_http_pckg_m3u8_media_group_get_size(ngx_pckg_media_group_t *group,
@@ -876,6 +1254,10 @@ ngx_http_pckg_m3u8_master_build(ngx_http_request_t *r,
 
     size += ngx_http_pckg_m3u8_session_data_get_size(&dvs);
 
+#if (NGX_HAVE_OPENSSL_EVP)
+    size += ngx_http_pckg_m3u8_session_key_get_size(r);
+#endif
+
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
         for (q = ngx_queue_head(&groups.queue[media_type]);
@@ -905,6 +1287,10 @@ ngx_http_pckg_m3u8_master_build(ngx_http_request_t *r,
     p = ngx_copy_fix(p, M3U8_MASTER_HEADER);
 
     p = ngx_http_pckg_m3u8_session_data_write(p, &dvs);
+
+#if (NGX_HAVE_OPENSSL_EVP)
+    p = ngx_http_pckg_m3u8_session_key_write(p, r);
+#endif
 
     /* write media groups */
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
@@ -973,210 +1359,13 @@ ngx_http_pckg_m3u8_master_handle(ngx_http_request_t *r)
 
 
 static ngx_http_pckg_request_handler_t  ngx_http_pckg_m3u8_master_handler = {
+    ngx_http_pckg_m3u8_init_enc,
     ngx_http_pckg_m3u8_master_handle,
     NULL,
 };
 
 
 /* index */
-
-#if (NGX_HAVE_OPENSSL_EVP)
-static ngx_int_t
-ngx_http_pckg_m3u8_enc_init(ngx_http_request_t *r, ngx_pckg_channel_t *channel,
-    ngx_http_pckg_m3u8_enc_params_t *enc_params)
-{
-    ngx_pckg_track_t               *track;
-    ngx_http_pckg_enc_loc_conf_t   *elcf;
-    ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
-
-    elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
-
-    enc_params->type = elcf->scheme;
-    switch (enc_params->type) {
-
-    case NGX_HTTP_PCKG_ENC_NONE:
-        return NGX_OK;
-
-    case NGX_HTTP_PCKG_ENC_AES_128:
-    case NGX_HTTP_PCKG_ENC_CBCS:
-    case NGX_HTTP_PCKG_ENC_CENC:
-        break;
-
-    default:
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_pckg_m3u8_enc_init: "
-            "scheme %ui not supported", enc_params->type);
-        return NGX_HTTP_BAD_REQUEST;
-    }
-
-    mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
-
-    if (mlcf->enc.key_uri != NULL) {
-
-        if (ngx_http_complex_value(r, mlcf->enc.key_uri, &enc_params->key_uri)
-            != NGX_OK)
-        {
-            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                "ngx_http_pckg_m3u8_enc_init: "
-                "ngx_http_complex_value failed");
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-
-    } else {
-        enc_params->key_uri.len = 0;
-    }
-
-    if (mlcf->enc.output_iv) {
-        track = channel->tracks.elts;
-
-        enc_params->iv.data = track->enc->iv;
-        enc_params->iv.len = sizeof(track->enc->iv);
-
-    } else {
-        enc_params->iv.len = 0;
-    }
-
-    return NGX_OK;
-}
-
-
-static size_t
-ngx_http_pckg_m3u8_enc_key_get_size(ngx_http_request_t *r,
-    ngx_http_pckg_m3u8_enc_params_t *enc_params)
-{
-    size_t                          result;
-    ngx_pckg_track_t               *track;
-    ngx_pckg_variant_t             *variant;
-    ngx_http_pckg_core_ctx_t       *ctx;
-    ngx_http_pckg_enc_loc_conf_t   *elcf;
-    ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
-
-    result = sizeof(M3U8_ENC_KEY_BASE) - 1 +
-        sizeof(M3U8_ENC_METHOD_SAMPLE_AES_CTR) - 1 +
-        sizeof(M3U8_ENC_KEY_URI) - 1 +
-        sizeof("\"\n") - 1;
-
-    if (enc_params->key_uri.len != 0) {
-        result += enc_params->key_uri.len;
-
-    } else if (enc_params->type == NGX_HTTP_PCKG_ENC_CENC) {
-        ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
-        track = ctx->channel->tracks.elts;
-
-        result += sizeof(M3U8_URI_BASE64_DATA) - 1 +
-            mp4_dash_encrypt_base64_psshs_get_size(track->enc);
-
-    } else {
-        ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
-        variant = ctx->channel->variants.elts;
-
-        elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
-
-        result += ngx_http_pckg_enc_key_uri_get_size(elcf->scope, variant);
-    }
-
-    if (enc_params->iv.len > 0) {
-        result += sizeof(M3U8_ENC_KEY_IV) - 1 +
-            enc_params->iv.len * 2;
-    }
-
-    mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
-
-    if (mlcf->enc.key_format.len != 0) {
-        result += sizeof(M3U8_ENC_KEY_KEY_FORMAT) +         /* '"' */
-            mlcf->enc.key_format.len;
-    }
-
-    if (mlcf->enc.key_format_versions.len != 0) {
-        result += sizeof(M3U8_ENC_KEY_KEY_FORMAT_VER) +     /* '"' */
-            mlcf->enc.key_format_versions.len;
-    }
-
-    return result;
-}
-
-
-static u_char *
-ngx_http_pckg_m3u8_enc_key_write(u_char *p, ngx_http_request_t *r,
-    ngx_http_pckg_m3u8_enc_params_t *enc_params)
-{
-    ngx_pckg_track_t               *track;
-    ngx_pckg_variant_t             *variant;
-    ngx_pckg_channel_t             *channel;
-    ngx_http_pckg_core_ctx_t       *ctx;
-    ngx_http_pckg_enc_loc_conf_t   *elcf;
-    ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
-
-    p = ngx_copy_fix(p, M3U8_ENC_KEY_BASE);
-
-    switch (enc_params->type) {
-
-    case NGX_HTTP_PCKG_ENC_AES_128:
-        p = ngx_copy_fix(p, M3U8_ENC_METHOD_AES_128);
-        break;
-
-    case NGX_HTTP_PCKG_ENC_CBCS:
-        p = ngx_copy_fix(p, M3U8_ENC_METHOD_SAMPLE_AES);
-        break;
-
-    case NGX_HTTP_PCKG_ENC_CENC:
-        p = ngx_copy_fix(p, M3U8_ENC_METHOD_SAMPLE_AES_CTR);
-        break;
-    }
-
-    /* uri */
-    p = ngx_copy_fix(p, M3U8_ENC_KEY_URI);
-    if (enc_params->key_uri.len != 0) {
-        p = ngx_copy_str(p, enc_params->key_uri);
-
-    } else if (enc_params->type == NGX_HTTP_PCKG_ENC_CENC) {
-        ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
-        track = ctx->channel->tracks.elts;
-
-        p = ngx_copy_fix(p, M3U8_URI_BASE64_DATA);
-        p = mp4_dash_encrypt_base64_psshs_write(p, track->enc);
-
-    } else {
-        ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
-        channel = ctx->channel;
-        variant = channel->variants.elts;
-
-        elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
-
-        p = ngx_http_pckg_enc_key_uri_write(p, elcf->scope, variant,
-            channel->media_types);
-    }
-
-    *p++ = '"';
-
-    /* iv */
-    if (enc_params->iv.len > 0) {
-        p = ngx_copy_fix(p, M3U8_ENC_KEY_IV);
-        p = vod_append_hex_string(p, enc_params->iv.data, enc_params->iv.len);
-    }
-
-    /* keyformat */
-    mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
-
-    if (mlcf->enc.key_format.len != 0) {
-        p = ngx_copy_fix(p, M3U8_ENC_KEY_KEY_FORMAT);
-        p = ngx_copy_str(p, mlcf->enc.key_format);
-        *p++ = '"';
-    }
-
-    /* keyformatversions */
-    if (mlcf->enc.key_format_versions.len != 0) {
-        p = ngx_copy_fix(p, M3U8_ENC_KEY_KEY_FORMAT_VER);
-        p = ngx_copy_str(p, mlcf->enc.key_format_versions);
-        *p++ = '"';
-    }
-
-    *p++ = '\n';
-
-    return p;
-}
-#endif
-
 
 static size_t
 ngx_http_pckg_m3u8_get_gap_size(ngx_http_request_t *r,
@@ -1774,9 +1963,7 @@ ngx_http_pckg_m3u8_redition_reports_write(u_char *p,
 
 
 static ngx_int_t
-ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
-    ngx_pckg_channel_t *channel, ngx_http_pckg_m3u8_enc_params_t *enc_params,
-    ngx_str_t *result)
+ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r, ngx_str_t *result)
 {
     u_char                         *p;
     size_t                          size, period_size, segment_size;
@@ -1790,8 +1977,12 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     ngx_int_t                       rc;
     ngx_str_t                       selector, seg_suffix;
     ngx_uint_t                      i, n;
+#if (NGX_HAVE_OPENSSL_EVP)
+    ngx_pckg_track_t               *track;
+#endif
     ngx_pckg_period_t              *periods, *period;
     ngx_pckg_variant_t             *variant;
+    ngx_pckg_channel_t             *channel;
     ngx_pckg_timeline_t            *timeline;
     ngx_http_pckg_core_ctx_t       *ctx;
     ngx_ksmp_period_header_t       *ph;
@@ -1800,13 +1991,16 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     ngx_pckg_media_info_ctx_t      *mi;
     ngx_ksmp_timeline_header_t     *th;
     ngx_pckg_segment_info_ctx_t    *bi;
+    ngx_http_pckg_enc_loc_conf_t   *elcf;
     ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+    elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
     mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
 
     /* get the container format */
 
+    channel = ctx->channel;
     variant = channel->variants.elts;
 
     container = ngx_http_pckg_m3u8_get_container(r, variant);
@@ -1886,8 +2080,11 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
         sizeof(M3U8_END_LIST) - 1;
 
 #if (NGX_HAVE_OPENSSL_EVP)
-    if (enc_params->type != NGX_HTTP_PCKG_ENC_NONE) {
-        size += ngx_http_pckg_m3u8_enc_key_get_size(r, enc_params);
+    track = channel->tracks.elts;
+
+    if (elcf->scheme != NGX_HTTP_PCKG_ENC_NONE) {
+        size += ngx_http_pckg_m3u8_enc_key_get_size(r, &ngx_http_pckg_m3u8_key,
+            variant, track);
     }
 #endif
 
@@ -1929,8 +2126,8 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     } else if (container->init_file_ext) {
         version = 6;    /* EXT-X-MAP requires version 6 */
 
-    } else if (enc_params->type == NGX_HTTP_PCKG_ENC_CBCS ||
-        enc_params->type == NGX_HTTP_PCKG_ENC_CENC ||
+    } else if (elcf->scheme == NGX_HTTP_PCKG_ENC_CBCS ||
+        elcf->scheme == NGX_HTTP_PCKG_ENC_CENC ||
         mlcf->enc.key_format.len != 0 ||
         mlcf->enc.key_format_versions.len != 0)
     {
@@ -1965,8 +2162,9 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
     }
 
 #if (NGX_HAVE_OPENSSL_EVP)
-    if (enc_params->type != NGX_HTTP_PCKG_ENC_NONE) {
-        p = ngx_http_pckg_m3u8_enc_key_write(p, r, enc_params);
+    if (elcf->scheme != NGX_HTTP_PCKG_ENC_NONE) {
+        p = ngx_http_pckg_m3u8_enc_key_write(p, r, &ngx_http_pckg_m3u8_key,
+            variant, track);
     }
 #endif
 
@@ -2043,29 +2241,17 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r,
 static ngx_int_t
 ngx_http_pckg_m3u8_index_handle(ngx_http_request_t *r)
 {
-    ngx_int_t                         rc;
-    ngx_str_t                         response;
-    ngx_uint_t                        expires_type;
-    ngx_pckg_channel_t               *channel;
-    ngx_http_pckg_core_ctx_t         *ctx;
-    ngx_http_pckg_m3u8_enc_params_t   enc_params;
+    ngx_int_t                  rc;
+    ngx_str_t                  response;
+    ngx_uint_t                 expires_type;
+    ngx_http_pckg_core_ctx_t  *ctx;
+
+    rc = ngx_http_pckg_m3u8_index_build(r, &response);
+    if (rc != NGX_OK) {
+        return rc;
+    }
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
-    channel = ctx->channel;
-
-#if (NGX_HAVE_OPENSSL_EVP)
-    rc = ngx_http_pckg_m3u8_enc_init(r, channel, &enc_params);
-    if (rc != NGX_OK) {
-        return rc;
-    }
-#else
-    enc_params.type = NGX_HTTP_PCKG_ENC_NONE;
-#endif
-
-    rc = ngx_http_pckg_m3u8_index_build(r, channel, &enc_params, &response);
-    if (rc != NGX_OK) {
-        return rc;
-    }
 
     if (ctx->params.flags & NGX_KSMP_FLAG_WAIT) {
         expires_type = NGX_HTTP_PCKG_EXPIRES_INDEX_BLOCKING;
@@ -2076,7 +2262,7 @@ ngx_http_pckg_m3u8_index_handle(ngx_http_request_t *r)
 
     rc = ngx_http_pckg_send_header(r, response.len,
         &ngx_http_pckg_m3u8_content_type,
-        channel->timeline.header.last_modified, expires_type);
+        ctx->channel->timeline.header.last_modified, expires_type);
     if (rc != NGX_OK) {
         return rc;
     }
@@ -2086,6 +2272,7 @@ ngx_http_pckg_m3u8_index_handle(ngx_http_request_t *r)
 
 
 static ngx_http_pckg_request_handler_t  ngx_http_pckg_m3u8_index_handler = {
+    ngx_http_pckg_m3u8_init_enc,
     ngx_http_pckg_m3u8_index_handle,
     NULL,
 };

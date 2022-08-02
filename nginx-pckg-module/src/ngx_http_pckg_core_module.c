@@ -317,10 +317,10 @@ static ngx_http_variable_t  ngx_http_pckg_core_vars[] = {
 
 
     { ngx_string("pckg_variant_id"), NULL,
-      ngx_http_pckg_core_variant_id_variable, 0, 0, 0 },
+      ngx_http_pckg_core_variant_id_variable, 0, NGX_HTTP_VAR_NOCACHEABLE, 0 },
 
     { ngx_string("pckg_media_type"), NULL,
-      ngx_http_pckg_core_media_type_variable, 0, 0, 0 },
+      ngx_http_pckg_core_media_type_variable, 0, NGX_HTTP_VAR_NOCACHEABLE, 0 },
 
 
     { ngx_string("pckg_err_code"), NULL, ngx_http_pckg_core_err_code_variable,
