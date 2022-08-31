@@ -1262,6 +1262,7 @@ ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
     ngx_pckg_segment_t             *src;
     ngx_pckg_channel_t             *channel;
     media_segment_track_t          *dst_track;
+    ngx_ksmp_segment_index_t       *si;
     ngx_http_pckg_core_ctx_t       *ctx;
     ngx_http_pckg_core_loc_conf_t  *plcf;
 
@@ -1276,10 +1277,14 @@ ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    dst_track = (void *)(dst + 1);
+    dst_track = (void *) (dst + 1);
 
     dst->tracks = dst_track;
-    dst->segment_index = channel->segment_index->index;
+
+    si = channel->segment_index;
+    dst->segment_index = si->index;
+    dst->duration = si->duration;
+    dst->start = si->start + si->correction;
 
     found = 0;
 
@@ -1300,8 +1305,7 @@ ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
         }
 
         dst_track->frame_count = src->header.frame_count;
-        dst_track->start_dts = src->header.start_dts +
-            channel->segment_index->correction;
+        dst_track->start_dts = src->header.start_dts + si->correction;
 
         dst_track->frames.part.nelts = src->header.frame_count;
         dst_track->frames.part.elts = src->frames;
@@ -1324,7 +1328,9 @@ ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
     if (!found) {
         plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
 
-        if (!plcf->empty_segments) {
+        if (!plcf->empty_segments
+            && tracks[0].header.media_type != KMP_MEDIA_SUBTITLE)
+        {
             if (ctx->params.part_index != NGX_KSMP_INVALID_PART_INDEX) {
                 ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                     "ngx_http_pckg_media_segment: "
@@ -1665,6 +1671,7 @@ ngx_http_pckg_core_media_type_variable(ngx_http_request_t *r,
     static ngx_str_t  media_types[KMP_MEDIA_COUNT] = {
         ngx_string("video"),
         ngx_string("audio"),
+        ngx_string("subtitle"),
     };
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);

@@ -93,6 +93,7 @@ typedef struct {
 
 typedef struct {
     ngx_pckg_channel_t            *channel;
+    ngx_pool_t                    *pool;
     ngx_ksmp_segment_header_t      header;
     ngx_ksmp_frame_t              *frames;
     ngx_str_t                      media;

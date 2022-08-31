@@ -8,7 +8,13 @@ ngx_pckg_segment_info_iter_reset(ngx_pckg_segment_info_iter_t *iter,
     ngx_pckg_track_t *track)
 {
     iter->cur = track->segment_info.elts;
-    iter->last = iter->cur + track->segment_info.nelts;
+
+    /* Note: ignoring gaps/bitrates for subtitles */
+    iter->last = iter->cur;
+    if (track->header.media_type != KMP_MEDIA_SUBTITLE) {
+        iter->last += track->segment_info.nelts;
+    }
+
     iter->bitrate = NGX_KSMP_SEGMENT_NO_BITRATE;
 }
 

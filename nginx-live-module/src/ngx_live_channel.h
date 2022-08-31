@@ -48,11 +48,10 @@
         (ch)->bp_idx[NGX_LIVE_CORE_BP_BUF_CHAIN], (head), (tail))
 
 
-typedef void (*ngx_live_track_ack_frames_pt)(ngx_live_track_t *track,
+typedef void (*ngx_live_track_ack_frames_pt)(void *data,
     uint64_t next_frame_id);
 
-typedef void (*ngx_live_track_disconnect_pt)(ngx_live_track_t *track,
-    ngx_uint_t rc);
+typedef void (*ngx_live_track_disconnect_pt)(void *data, ngx_uint_t rc);
 
 
 typedef enum {

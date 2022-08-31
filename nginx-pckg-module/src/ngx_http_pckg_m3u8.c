@@ -9,6 +9,7 @@
 #include "ngx_http_pckg_fmp4.h"
 #include "ngx_http_pckg_mpegts.h"
 #include "ngx_http_pckg_captions.h"
+#include "ngx_http_pckg_webvtt.h"
 #include "ngx_http_pckg_data.h"
 
 #include "ngx_pckg_media_group.h"
@@ -48,7 +49,9 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 #define M3U8_STREAM_VIDEO_RANGE_SDR  ",VIDEO-RANGE=SDR"
 #define M3U8_STREAM_VIDEO_RANGE_PQ   ",VIDEO-RANGE=PQ"
 #define M3U8_STREAM_CODECS           ",CODECS=\"%V"
+#define M3U8_STREAM_CODEC_STPP       ",stpp.ttml.im1t"
 #define M3U8_STREAM_TAG_AUDIO        ",AUDIO=\"%V%uD\""
+#define M3U8_STREAM_TAG_SUBTITLE     ",SUBTITLES=\"%V%uD\""
 #define M3U8_STREAM_TAG_CC           ",CLOSED-CAPTIONS=\"CC\""
 #define M3U8_STREAM_TAG_NO_CC        ",CLOSED-CAPTIONS=NONE"
 
@@ -125,6 +128,12 @@ enum {
 };
 
 
+enum {
+    NGX_HTTP_PCKG_M3U8_SUBTITLE_WEBVTT,
+    NGX_HTTP_PCKG_M3U8_SUBTITLE_IMSC,
+};
+
+
 typedef struct {
     ngx_flag_t                      output_iv;
     ngx_http_complex_value_t       *key_uri;
@@ -143,6 +152,7 @@ typedef struct {
 typedef struct {
     ngx_uint_t                      version;
     ngx_uint_t                      container;
+    ngx_uint_t                      subtitle_format;
     ngx_flag_t                      mux_segments;
     ngx_flag_t                      parts;
     ngx_flag_t                      rendition_reports;
@@ -164,6 +174,13 @@ static ngx_conf_enum_t  ngx_http_pckg_m3u8_containers[] = {
 };
 
 
+static ngx_conf_enum_t  ngx_http_pckg_m3u8_subtitle_formats[] = {
+    { ngx_string("webvtt"), NGX_HTTP_PCKG_M3U8_SUBTITLE_WEBVTT },
+    { ngx_string("imsc"),   NGX_HTTP_PCKG_M3U8_SUBTITLE_IMSC },
+    { ngx_null_string, 0 }
+};
+
+
 static ngx_command_t  ngx_http_pckg_m3u8_commands[] = {
 
     { ngx_string("pckg_m3u8_low_latency"),
@@ -179,6 +196,13 @@ static ngx_command_t  ngx_http_pckg_m3u8_commands[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_m3u8_loc_conf_t, container),
       &ngx_http_pckg_m3u8_containers },
+
+    { ngx_string("pckg_m3u8_subtitle_format"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_enum_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_m3u8_loc_conf_t, subtitle_format),
+      &ngx_http_pckg_m3u8_subtitle_formats },
 
     { ngx_string("pckg_m3u8_mux_segments"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -296,12 +320,14 @@ static ngx_str_t  ngx_http_pckg_m3u8_content_type =
 static ngx_str_t  ngx_http_pckg_m3u8_media_group_id[KMP_MEDIA_COUNT] = {
     ngx_string("vid"),
     ngx_string("aud"),
+    ngx_string("sub"),
 };
 
 
 static ngx_str_t  ngx_http_pckg_m3u8_media_type_name[KMP_MEDIA_COUNT] = {
     ngx_string("VIDEO"),
     ngx_string("AUDIO"),
+    ngx_string("SUBTITLES"),
 };
 
 
@@ -314,6 +340,7 @@ static ngx_http_pckg_container_t *
 ngx_http_pckg_m3u8_get_container(ngx_http_request_t *r,
     ngx_pckg_variant_t *variant)
 {
+    ngx_uint_t                         media_type;
     media_info_t                      *media_info;
     ngx_pckg_track_t                  *video;
     ngx_http_pckg_container_t         *container;
@@ -329,7 +356,24 @@ ngx_http_pckg_m3u8_get_container(ngx_http_request_t *r,
         &ngx_http_pckg_fmp4_container,
     };
 
+    for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+        if (variant->tracks[media_type] != NULL) {
+            break;
+        }
+    }
+
     mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
+
+    if (media_type == KMP_MEDIA_SUBTITLE) {
+        switch (mlcf->subtitle_format) {
+
+        case NGX_HTTP_PCKG_M3U8_SUBTITLE_IMSC:
+            return &ngx_http_pckg_fmp4_container;
+
+        default:
+            return &ngx_http_pckg_webvtt_container;
+        }
+    }
 
     container = containers[mlcf->container];
     if (container != NULL) {
@@ -420,9 +464,12 @@ ngx_http_pckg_m3u8_enc_key_get_size(ngx_http_request_t *r, ngx_str_t *tag,
     ngx_http_pckg_m3u8_enc_ctx_t   *ctx;
     ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
 
-    elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
-
     enc = track->enc;
+    if (enc == NULL) {
+        return 0;
+    }
+
+    elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
     ctx = enc->ctx;
 
     size = tag->len + sizeof(M3U8_ENC_KEY_METHOD) - 1 +
@@ -471,9 +518,12 @@ ngx_http_pckg_m3u8_enc_key_write(u_char *p, ngx_http_request_t *r,
     ngx_http_pckg_m3u8_enc_ctx_t   *ctx;
     ngx_http_pckg_m3u8_loc_conf_t  *mlcf;
 
-    elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
-
     enc = track->enc;
+    if (enc == NULL) {
+        return p;
+    }
+
+    elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
     ctx = enc->ctx;
 
     p = ngx_copy_str(p, *tag);
@@ -1032,8 +1082,14 @@ ngx_http_pckg_m3u8_streams_get_size(ngx_array_t *streams)
         result += ngx_http_pckg_selector_get_size(&cur->variant->id);
 
         if (cur->groups[KMP_MEDIA_AUDIO] != NULL) {
-            base_size += sizeof(M3U8_STREAM_TAG_AUDIO) - 1 +
-                NGX_HTTP_PCKG_M3U8_MAX_GROUP_ID_LEN + NGX_INT32_LEN;
+            result += sizeof(M3U8_STREAM_TAG_AUDIO) - 1
+                + NGX_HTTP_PCKG_M3U8_MAX_GROUP_ID_LEN + NGX_INT32_LEN;
+        }
+
+        if (cur->groups[KMP_MEDIA_SUBTITLE] != NULL) {
+            result += sizeof(M3U8_STREAM_CODEC_STPP) - 1
+                + sizeof(M3U8_STREAM_TAG_SUBTITLE) - 1
+                + NGX_HTTP_PCKG_M3U8_MAX_GROUP_ID_LEN + NGX_INT32_LEN;
         }
     }
 
@@ -1046,19 +1102,23 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
     ngx_array_t *streams, ngx_pckg_channel_t *channel,
     uint32_t segment_duration)
 {
-    uint32_t                     bitrate;
-    uint32_t                     avg_bitrate;
-    uint64_t                     frame_rate;
-    ngx_str_t                    cc_group;
-    media_info_t                *video;
-    media_info_t                *audio;
-    media_info_t                *media_infos[KMP_MEDIA_COUNT];
-    ngx_pckg_track_t           **tracks;
-    ngx_pckg_stream_t           *cur;
-    ngx_pckg_stream_t           *last;
-    ngx_pckg_variant_t          *variant;
-    ngx_pckg_media_group_t      *audio_group;
-    ngx_http_pckg_container_t   *container;
+    uint32_t                         bitrate;
+    uint32_t                         avg_bitrate;
+    uint64_t                         frame_rate;
+    ngx_str_t                        cc_group;
+    media_info_t                    *video;
+    media_info_t                    *audio;
+    media_info_t                    *media_infos[KMP_MEDIA_COUNT];
+    ngx_pckg_track_t               **tracks;
+    ngx_pckg_stream_t               *cur;
+    ngx_pckg_stream_t               *last;
+    ngx_pckg_variant_t              *variant;
+    ngx_pckg_media_group_t          *audio_group;
+    ngx_pckg_media_group_t          *subtitle_group;
+    ngx_http_pckg_container_t       *container;
+    ngx_http_pckg_m3u8_loc_conf_t   *mlcf;
+
+    mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_m3u8_module);
 
     if (channel->css.elts) {
         if (channel->css.nelts) {
@@ -1092,6 +1152,8 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
         } else {
             audio = NULL;
         }
+
+        subtitle_group = cur->groups[KMP_MEDIA_SUBTITLE];
 
         if (tracks[KMP_MEDIA_VIDEO] != NULL) {
             video = &tracks[KMP_MEDIA_VIDEO]->last_media_info->media_info;
@@ -1149,9 +1211,16 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
                 (uint32_t) (frame_rate / 1000),
                 (uint32_t) (frame_rate % 1000),
                 &video->codec_name);
+
             if (audio != NULL) {
                 *p++ = ',';
                 p = ngx_copy_str(p, audio->codec_name);
+            }
+
+            if (subtitle_group != NULL
+                && mlcf->subtitle_format == NGX_HTTP_PCKG_M3U8_SUBTITLE_IMSC)
+            {
+                p = ngx_copy_fix(p, M3U8_STREAM_CODEC_STPP);
             }
 
             *p++ = '\"';
@@ -1188,6 +1257,12 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
         }
 
         if (tracks[KMP_MEDIA_VIDEO] != NULL) {
+            if (subtitle_group != NULL) {
+                p = ngx_sprintf(p, M3U8_STREAM_TAG_SUBTITLE,
+                    &ngx_http_pckg_m3u8_media_group_id[KMP_MEDIA_SUBTITLE],
+                    subtitle_group->media_info->codec_id);
+            }
+
             p = ngx_copy_str(p, cc_group);
         }
 
@@ -2082,10 +2157,8 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r, ngx_str_t *result)
 #if (NGX_HAVE_OPENSSL_EVP)
     track = channel->tracks.elts;
 
-    if (elcf->scheme != NGX_HTTP_PCKG_ENC_NONE) {
-        size += ngx_http_pckg_m3u8_enc_key_get_size(r, &ngx_http_pckg_m3u8_key,
-            variant, track);
-    }
+    size += ngx_http_pckg_m3u8_enc_key_get_size(r, &ngx_http_pckg_m3u8_key,
+        variant, track);
 #endif
 
     if (ngx_pckg_segment_info_has_bitrate(bi)) {
@@ -2162,10 +2235,8 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r, ngx_str_t *result)
     }
 
 #if (NGX_HAVE_OPENSSL_EVP)
-    if (elcf->scheme != NGX_HTTP_PCKG_ENC_NONE) {
-        p = ngx_http_pckg_m3u8_enc_key_write(p, r, &ngx_http_pckg_m3u8_key,
-            variant, track);
-    }
+    p = ngx_http_pckg_m3u8_enc_key_write(p, r, &ngx_http_pckg_m3u8_key,
+        variant, track);
 #endif
 
     /* write the periods */
@@ -2517,6 +2588,7 @@ ngx_http_pckg_m3u8_create_loc_conf(ngx_conf_t *cf)
     }
 
     conf->container = NGX_CONF_UNSET_UINT;
+    conf->subtitle_format = NGX_CONF_UNSET_UINT;
     conf->mux_segments = NGX_CONF_UNSET;
     conf->parts = NGX_CONF_UNSET;
     conf->rendition_reports = NGX_CONF_UNSET;
@@ -2536,6 +2608,10 @@ ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_uint_value(conf->container,
                               prev->container,
                               NGX_HTTP_PCKG_M3U8_CONTAINER_AUTO);
+
+    ngx_conf_merge_uint_value(conf->subtitle_format,
+                              prev->subtitle_format,
+                              NGX_HTTP_PCKG_M3U8_SUBTITLE_WEBVTT);
 
     ngx_conf_merge_value(conf->mux_segments,
                          prev->mux_segments, 1);

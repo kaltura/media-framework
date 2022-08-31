@@ -420,7 +420,7 @@ ngx_http_pckg_enc_init_track_scope(ngx_http_request_t *r)
     for (i = 0; i < n; i++) {
         variant = &variants[i];
 
-        for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+        for (media_type = 0; media_type < KMP_MEDIA_SUBTITLE; media_type++) {
             track = variant->tracks[media_type];
 
             if (track == NULL || track->enc != NULL) {
@@ -466,18 +466,21 @@ ngx_http_pckg_enc_init_variant_scope(ngx_http_request_t *r)
     for (i = 0; i < n; i++) {
         variant = &variants[i];
 
-        ctx->variant = variant;
+        enc = NULL;
+        for (media_type = 0; media_type < KMP_MEDIA_SUBTITLE; media_type++) {
 
-        rc = ngx_http_pckg_enc_create(r, &enc);
-        if (rc != NGX_OK) {
-            return rc;
-        }
-
-        for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
             track = variant->tracks[media_type];
-
             if (track == NULL || track->enc != NULL) {
                 continue;
+            }
+
+            if (enc == NULL) {
+                ctx->variant = variant;
+
+                rc = ngx_http_pckg_enc_create(r, &enc);
+                if (rc != NGX_OK) {
+                    return rc;
+                }
             }
 
             track->enc = enc;
@@ -497,7 +500,7 @@ ngx_http_pckg_enc_init_media_type_scope(ngx_http_request_t *r)
     ngx_int_t                  rc;
     ngx_uint_t                 i, n;
     media_enc_t               *enc;
-    media_enc_t               *encs[KMP_MEDIA_COUNT];
+    media_enc_t               *encs[KMP_MEDIA_SUBTITLE];
     ngx_pckg_track_t          *track, *tracks;
     ngx_pckg_channel_t        *channel;
     ngx_http_pckg_core_ctx_t  *ctx;
@@ -512,6 +515,9 @@ ngx_http_pckg_enc_init_media_type_scope(ngx_http_request_t *r)
     for (i = 0; i < n; i++) {
         track = &tracks[i];
         media_type = track->header.media_type;
+        if (media_type >= KMP_MEDIA_SUBTITLE) {
+            continue;
+        }
 
         enc = encs[media_type];
         if (enc == NULL) {
@@ -547,15 +553,25 @@ ngx_http_pckg_enc_init_channel_scope(ngx_http_request_t *r)
     ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
     channel = ctx->channel;
 
-    rc = ngx_http_pckg_enc_create(r, &enc);
-    if (rc != NGX_OK) {
-        return rc;
-    }
+    enc = NULL;
 
     tracks = channel->tracks.elts;
     n = channel->tracks.nelts;
+
     for (i = 0; i < n; i++) {
         track = &tracks[i];
+
+        if (track->header.media_type >= KMP_MEDIA_SUBTITLE) {
+            continue;
+        }
+
+        if (enc == NULL) {
+            rc = ngx_http_pckg_enc_create(r, &enc);
+            if (rc != NGX_OK) {
+                return rc;
+            }
+        }
+
         track->enc = enc;
     }
 
@@ -647,6 +663,7 @@ ngx_http_pckg_handle_enc_key(ngx_http_request_t *r)
 {
     ngx_int_t                  rc;
     ngx_str_t                  response;
+    media_enc_t               *enc;
     ngx_pckg_track_t          *track;
     ngx_http_pckg_core_ctx_t  *ctx;
 
@@ -654,8 +671,15 @@ ngx_http_pckg_handle_enc_key(ngx_http_request_t *r)
 
     track = ctx->channel->tracks.elts;
 
-    response.data = track->enc->key;
-    response.len = sizeof(track->enc->key);
+    enc = track->enc;
+    if (enc == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_pckg_handle_enc_key: track is not encrypted");
+        return NGX_HTTP_BAD_REQUEST;
+    }
+
+    response.data = enc->key;
+    response.len = sizeof(enc->key);
 
     rc = ngx_http_pckg_send_header(r, response.len,
         &ngx_http_pckg_enc_key_content_type, -1, NGX_HTTP_PCKG_EXPIRES_STATIC);
@@ -690,13 +714,17 @@ ngx_http_pckg_parse_key_request(ngx_http_request_t *r, u_char *start_pos,
     {
         start_pos += ngx_http_pckg_enc_key_prefix.len;
 
-        *handler = &ngx_http_pckg_enc_key_handler;
-        flags = NGX_HTTP_PCKG_PARSE_OPTIONAL_SINGLE_VARIANT |
-            NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
-
     } else {
         return NGX_DECLINED;
     }
+
+    *handler = &ngx_http_pckg_enc_key_handler;
+
+    flags = NGX_HTTP_PCKG_PARSE_OPTIONAL_SINGLE_VARIANT |
+        NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
+
+    result->media_type_mask = (1 << KMP_MEDIA_VIDEO) | (1 << KMP_MEDIA_AUDIO);
+    result->media_type_count = 2;
 
     return ngx_http_pckg_parse_uri_file_name(r, start_pos, end_pos,
         flags, result);

@@ -57,6 +57,7 @@ enum {
     // captions
     VOD_CODEC_ID_SUBTITLE,
     VOD_CODEC_ID_WEBVTT = VOD_CODEC_ID_SUBTITLE,
+    VOD_CODEC_ID_TTML,
 
     VOD_CODEC_ID_COUNT
 };
@@ -127,6 +128,8 @@ typedef struct {
 
 typedef struct {
     uint32_t segment_index;
+    uint32_t duration;
+    int64_t start;
     media_segment_track_t* tracks;
     media_segment_track_t* tracks_end;
     uint32_t track_count;
@@ -156,5 +159,8 @@ typedef struct {
     uint32_t k2;
     uint32_t k3;
 } media_bitrate_estimator_t;
+
+
+size_t media_segment_track_get_total_size(media_segment_track_t* track);
 
 #endif //__MEDIA_FORMAT_H__

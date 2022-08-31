@@ -18,17 +18,27 @@ NGINX_LIVE_KMP_ADDR = (NGINX_LIVE_HOST, 6543)
 NGINX_LOG_PATH = '/var/log/nginx/error.log'
 
 TEST_VIDEO1 = 'video1.mp4'
-TEST_VIDEO2 = 'video2.mp4'
 TEST_VIDEO_HIGH = 'video-high.mp4'
 TEST_VIDEO_CEA608 = 'video-cea608.mp4'
 TEST_AUDIO_MP3 = 'audio-mp3.mp4'
 
+TEST_VIDEO2 = 'video2.mp4'
+TEST_VIDEO2_CC_ENG = 'video2-eng.srt'
+TEST_VIDEO2_CC_SPA = 'video2-spa.srt'
+TEST_VIDEO2_CC_FRE = 'video2-fre.srt'
+TEST_VIDEO2_CC_GER = 'video2-ger.srt'
+
 TEST_VIDEO_URLS = {
     TEST_VIDEO1: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_k13xaap6/flavorId/0_4c84uq72/format/download/a.mp4',
-    TEST_VIDEO2: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_w4l3m87h/flavorId/0_vsu1xutk/format/download/a.mp4',
     TEST_VIDEO_HIGH: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_g0nj9w94/flavorId/0_0smocyms/format/download/a.mp4',
     TEST_VIDEO_CEA608: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/1_q4smvuo2/flavorId/1_df7tv1ni/format/download/a.mp4',
     TEST_AUDIO_MP3: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_tfb5x3j0/flavorId/0_i30q8rs2/format/download/a.mp4',
+
+    TEST_VIDEO2: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_w4l3m87h/flavorId/0_vsu1xutk/format/download/a.mp4',
+    TEST_VIDEO2_CC_ENG: 'http://cdnapi.kaltura.com/api_v3/service/caption_captionasset/action/serve/captionAssetId/1_b2pq04j0/a.srt',
+    TEST_VIDEO2_CC_SPA: 'http://cdnapi.kaltura.com/api_v3/service/caption_captionasset/action/serve/captionAssetId/1_88jwclpb/a.srt',
+    TEST_VIDEO2_CC_FRE: 'http://cdnapi.kaltura.com/api_v3/service/caption_captionasset/action/serve/captionAssetId/1_9bktbjz6/a.srt',
+    TEST_VIDEO2_CC_GER: 'http://cdnapi.kaltura.com/api_v3/service/caption_captionasset/action/serve/captionAssetId/1_4tebpykn/a.srt',
 }
 
 CHANNEL_ID = 'test'
@@ -139,6 +149,11 @@ def createVariant(nl, varName, tracks, initialFrameId=0, flags=0):
     for trackName, mediaType in tracks:
         result.append(createTrack(nl, trackName, mediaType, varName, initialFrameId, flags))
     return result
+
+def createSubtitleVariant(nl, variantId, trackId, label, lang):
+    ss = createTrack(nl, trackId, 'subtitle')
+    nl.variant.create(NginxLiveVariant(id=variantId, role='alternate', label=label, lang=lang, track_ids={'subtitle': trackId}))
+    return ss
 
 def setupChannelVideoAudio(channelId, duration=10, timelineId=TIMELINE_ID):
     nl = setupChannelTimeline(channelId, timelineId)

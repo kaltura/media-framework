@@ -10,14 +10,15 @@ def test(channelId=CHANNEL_ID):
 
     nl.variant.create(NginxLiveVariant(id=VARIANT_ID))
 
-    rv = KmpMediaFileReader(TEST_VIDEO2, 0)
-    ra = KmpMediaFileReader(TEST_VIDEO2, 1)
-
     sv, sa = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
 
+    ss = createTrack(nl, 's1', 'subtitle')
+    nl.variant.create(NginxLiveVariant(id='sub1', role='alternate', track_ids={'subtitle': 's1'}))
+
     kmpSendStreams([
-        (rv, sv),
-        (ra, sa),
+        (KmpMediaFileReader(TEST_VIDEO2, 0), sv),
+        (KmpMediaFileReader(TEST_VIDEO2, 1), sa),
+        (KmpSRTReader(TEST_VIDEO2_CC_ENG), ss),
     ], st, 10, realtime=True)
 
     kmpSendEndOfStream([sv, sa])

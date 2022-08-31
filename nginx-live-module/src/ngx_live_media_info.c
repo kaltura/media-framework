@@ -14,6 +14,8 @@
 
 #define NGX_LIVE_MEDIA_INFO_PERSIST_BLOCK_SOURCE  (0x6372736d)    /* msrc */
 
+#define NGX_LIVE_MEDIA_INFO_WEBVTT_HEADER         "WEBVTT"
+
 
 #define NGX_LIVE_TRACK_MAX_GROUP_ID_LEN  (32)
 #define NGX_LIVE_MEDIA_INFO_FREE_PERIOD  (64)
@@ -53,6 +55,8 @@ typedef struct {
 
     ngx_live_track_t             *source;
     uint32_t                      source_refs;
+
+    ngx_live_media_info_node_t   *default_node;
 } ngx_live_media_info_track_ctx_t;
 
 
@@ -265,6 +269,54 @@ ngx_live_media_info_node_create(ngx_live_track_t *track,
     node->media_info.extra.len = extra_data_size;
 
     node->track_id = track->in.key;
+
+    *result = node;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_media_info_node_create_default(ngx_live_track_t *track,
+    ngx_live_media_info_node_t **result)
+{
+    ngx_live_channel_t                 *channel;
+    ngx_live_media_info_node_t         *node;
+    ngx_live_media_info_preset_conf_t  *mipcf;
+
+    if (track->media_type != KMP_MEDIA_SUBTITLE) {
+        return NGX_OK;
+    }
+
+    channel = track->channel;
+    mipcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_media_info_module);
+
+    node = ngx_block_pool_calloc(channel->block_pool,
+        mipcf->bp_idx[NGX_LIVE_BP_MEDIA_INFO_NODE]);
+    if (node == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_media_info_create_subtitle_node: alloc failed");
+        return NGX_ERROR;
+    }
+
+    node->media_info.extra.data = ngx_live_channel_auto_alloc(channel,
+        sizeof(NGX_LIVE_MEDIA_INFO_WEBVTT_HEADER) - 1);
+    if (node->media_info.extra.data == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_media_info_create_subtitle_node: alloc data failed");
+        return NGX_ERROR;
+    }
+
+    node->track_id = track->in.key;
+    node->media_info.info.media_type = KMP_MEDIA_SUBTITLE;
+    node->media_info.info.codec_id = KMP_CODEC_SUBTITLE_WEBVTT;
+    node->media_info.info.timescale = channel->timescale;
+    node->media_info.info.bitrate = 1;
+
+    ngx_memcpy(node->media_info.extra.data, NGX_LIVE_MEDIA_INFO_WEBVTT_HEADER,
+        sizeof(NGX_LIVE_MEDIA_INFO_WEBVTT_HEADER) - 1);
+    node->media_info.extra.len = sizeof(NGX_LIVE_MEDIA_INFO_WEBVTT_HEADER) - 1;
 
     *result = node;
 
@@ -634,6 +686,7 @@ ngx_live_media_info_queue_get_after(ngx_live_media_info_track_ctx_t *ctx,
 }
 #endif
 
+
 ngx_live_media_info_node_t *
 ngx_live_media_info_queue_get_node(ngx_live_track_t *track,
     uint32_t segment_index, uint32_t *track_id)
@@ -645,7 +698,10 @@ ngx_live_media_info_queue_get_node(ngx_live_track_t *track,
 
     node = ngx_live_media_info_queue_get_before(ctx, segment_index);
     if (node == NULL) {
-        return NULL;
+        node = ctx->default_node;
+        if (node == NULL) {
+            return NULL;
+        }
     }
 
     *track_id = node->track_id;
@@ -1232,7 +1288,9 @@ ngx_live_media_info_queue_copy(ngx_live_track_t *track,
     ngx_live_media_info_track_ctx_t  *source_ctx;
 
     channel = track->channel;
-    if (channel->next_segment_index == channel->conf.initial_segment_index) {
+    if (channel->next_segment_index == channel->conf.initial_segment_index
+        || track->media_type == KMP_MEDIA_SUBTITLE)
+    {
         return NGX_OK;
     }
 
@@ -1306,7 +1364,9 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
-        if (cur_track->type == ngx_live_track_type_filler) {
+        if (cur_track->type == ngx_live_track_type_filler
+            || cur_track->media_type == KMP_MEDIA_SUBTITLE)
+        {
             continue;
         }
 
@@ -1320,9 +1380,6 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
 
             continue;
         }
-
-        cur_ctx = ngx_live_get_module_ctx(cur_track,
-            ngx_live_media_info_module);
 
         if (cur_ctx->source != NULL) {
             if (cur_ctx->source->has_last_segment) {
@@ -1513,6 +1570,12 @@ ngx_live_media_info_track_init(ngx_live_track_t *track, void *ectx)
 
     ctx->group_id.s.data = ctx->group_id_buf;
 
+    if (ngx_live_media_info_node_create_default(track, &ctx->default_node)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
     return NGX_OK;
 }
 
@@ -1520,11 +1583,19 @@ ngx_live_media_info_track_init(ngx_live_track_t *track, void *ectx)
 static ngx_int_t
 ngx_live_media_info_track_free(ngx_live_track_t *track, void *ectx)
 {
+    ngx_live_media_info_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
+
     ngx_live_media_info_queue_free_all(track);
 
     ngx_live_media_info_pending_free_all(track);
 
     ngx_live_media_info_source_remove_refs(track);
+
+    if (ctx->default_node != NULL) {
+        ngx_live_media_info_node_free(track->channel, ctx->default_node);
+    }
 
     return NGX_OK;
 }
@@ -1568,6 +1639,10 @@ ngx_live_media_info_track_json_get_size(void *obj)
 
     case KMP_MEDIA_AUDIO:
         result += ngx_live_media_info_json_audio_get_size(node);
+        break;
+
+    case KMP_MEDIA_SUBTITLE:
+        result += ngx_live_media_info_json_subtitle_get_size(node);
         break;
     }
 
@@ -1617,6 +1692,10 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
 
     case KMP_MEDIA_AUDIO:
         p = ngx_live_media_info_json_audio_write(p, node);
+        break;
+
+    case KMP_MEDIA_SUBTITLE:
+        p = ngx_live_media_info_json_subtitle_write(p, node);
         break;
     }
 
@@ -1829,6 +1908,13 @@ ngx_live_media_info_read_index_source(ngx_persist_block_hdr_t *header,
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_live_media_info_read_index_source: "
             "source pointing to self, id: %uD", source_id);
+        return NGX_BAD_DATA;
+    }
+
+    if (track->media_type == KMP_MEDIA_SUBTITLE) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_live_media_info_read_index_source: "
+            "subtitle track with source");
         return NGX_BAD_DATA;
     }
 
@@ -2202,8 +2288,13 @@ ngx_live_media_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
 
     node = ngx_live_media_info_queue_get_before(ctx, scope->min_index);
     if (node == NULL) {
+
         q = ngx_queue_head(&ctx->active);
         if (q == ngx_queue_sentinel(&ctx->active)) {
+            if (ctx->default_node != NULL) {
+                goto write_default;
+            }
+
             ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
                 "ngx_live_media_info_write_serve: active queue is empty");
             return NGX_ERROR;
@@ -2246,6 +2337,20 @@ ngx_live_media_info_write_serve(ngx_persist_write_ctx_t *write_ctx,
     }
 
     header->count = count;
+
+    return NGX_OK;
+
+write_default:
+
+    if (ngx_live_media_info_node_write(write_ctx, ctx->default_node)
+        != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_media_info_write_serve: write failed");
+        return NGX_ERROR;
+    }
+
+    header->count = 1;
 
     return NGX_OK;
 }

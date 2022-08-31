@@ -6,6 +6,15 @@
 
 #define DRM_KID_SIZE vod_member_size(tenc_atom_t, default_kid)
 
+#define STSD_STPP_EXTRA_DATA                                                 \
+    "http://www.smpte-ra.org/schemas/2052-1/2013/smpte-tt "                  \
+    "http://www.w3.org/ns/ttml "                                             \
+    "http://www.w3.org/ns/ttml#metadata "                                    \
+    "http://www.w3.org/ns/ttml#parameter "                                   \
+    "http://www.w3.org/ns/ttml#styling "                                     \
+    "urn:ebu:tt:metadata urn:ebu:tt:style\0\0"
+
+
 // macros
 #define mp4_rescale_millis(millis, timescale) (millis * ((timescale) / 1000))
 #define mp4_esds_atom_size(extra_data_len) (ATOM_HEADER_SIZE + 29 + extra_data_len)
@@ -98,6 +107,32 @@ static const u_char hdlr_audio_atom[] = {
     0x00
 };
 
+static const u_char hdlr_subtitle_wvtt_atom[] = {
+    0x00, 0x00, 0x00, 0x25,        // size
+    0x68, 0x64, 0x6c, 0x72,        // hdlr
+    0x00, 0x00, 0x00, 0x00,        // version + flags
+    0x00, 0x00, 0x00, 0x00,        // pre defined
+    0x74, 0x65, 0x78, 0x74,        // handler type = text
+    0x00, 0x00, 0x00, 0x00,        // reserved1
+    0x00, 0x00, 0x00, 0x00,        // reserved2
+    0x00, 0x00, 0x00, 0x00,        // reserved3
+    0x73, 0x75, 0x62, 0x74,        // name = subt\0
+    0x00
+};
+
+static const u_char hdlr_subtitle_stpp_atom[] = {
+    0x00, 0x00, 0x00, 0x25,        // size
+    0x68, 0x64, 0x6c, 0x72,        // hdlr
+    0x00, 0x00, 0x00, 0x00,        // version + flags
+    0x00, 0x00, 0x00, 0x00,        // pre defined
+    0x73, 0x75, 0x62, 0x74,        // handler type = subt
+    0x00, 0x00, 0x00, 0x00,        // reserved1
+    0x00, 0x00, 0x00, 0x00,        // reserved2
+    0x00, 0x00, 0x00, 0x00,        // reserved3
+    0x73, 0x75, 0x62, 0x74,        // name = subt\0
+    0x00
+};
+
 static const u_char dinf_atom[] = {
     0x00, 0x00, 0x00, 0x24,        // atom size
     0x64, 0x69, 0x6e, 0x66,        // dinf
@@ -124,6 +159,13 @@ static const u_char smhd_atom[] = {
     0x00, 0x00, 0x00, 0x00,        // version & flags
     0x00, 0x00, 0x00, 0x00,        // reserved
 };
+
+static const u_char sthd_atom[] = {
+    0x00, 0x00, 0x00, 0x0C,        // atom size
+    0x73, 0x74, 0x68, 0x64,        // sthd
+    0x00, 0x00, 0x00, 0x00,        // version & flags
+};
+
 
 static const u_char fixed_stbl_atoms[] = {
     0x00, 0x00, 0x00, 0x10,        // atom size
@@ -152,11 +194,12 @@ mp4_init_segment_get_track_sizes(
     atom_writer_t* stsd_atom_writer,
     track_sizes_t* result)
 {
+    media_info_t* media_info;
     size_t tkhd_atom_size;
     size_t mdhd_atom_size;
     size_t hdlr_atom_size = 0;
 
-    if (stsd_atom_writer != NULL)
+    if (stsd_atom_writer != NULL && stsd_atom_writer->write != NULL)
     {
         result->stsd_size = stsd_atom_writer->atom_size;
     }
@@ -170,17 +213,34 @@ mp4_init_segment_get_track_sizes(
 
     result->stbl_size = ATOM_HEADER_SIZE + result->stsd_size + sizeof(fixed_stbl_atoms);
     result->minf_size = ATOM_HEADER_SIZE + sizeof(dinf_atom) + result->stbl_size;
-    switch (cur_track->media_info->media_type)
+
+    media_info = cur_track->media_info;
+    switch (media_info->media_type)
     {
     case MEDIA_TYPE_VIDEO:
         result->minf_size += sizeof(vmhd_atom);
         hdlr_atom_size = sizeof(hdlr_video_atom);
         break;
+
     case MEDIA_TYPE_AUDIO:
         result->minf_size += sizeof(smhd_atom);
         hdlr_atom_size = sizeof(hdlr_audio_atom);
         break;
+
+    case MEDIA_TYPE_SUBTITLE:
+        result->minf_size += sizeof(sthd_atom);
+        switch (media_info->codec_id)
+        {
+        case VOD_CODEC_ID_WEBVTT:
+            hdlr_atom_size = sizeof(hdlr_subtitle_wvtt_atom);
+            break;
+
+        default: // VOD_CODEC_ID_TTML
+            hdlr_atom_size = sizeof(hdlr_subtitle_stpp_atom);
+            break;
+        }
     }
+
     result->mdia_size = ATOM_HEADER_SIZE + mdhd_atom_size + hdlr_atom_size + result->minf_size;
     result->trak_size = ATOM_HEADER_SIZE + tkhd_atom_size + result->mdia_size;
 }
@@ -489,6 +549,56 @@ mp4_init_segment_write_stsd_audio_entry(u_char* p, media_info_t* media_info)
 }
 
 
+static u_char*
+mp4_init_segment_write_vttc_atom(u_char* p, media_info_t* media_info)
+{
+    size_t atom_size = ATOM_HEADER_SIZE + media_info->extra_data.len;
+
+    write_atom_header(p, atom_size, 'v', 't', 't', 'C');
+    p = vod_copy(p, media_info->extra_data.data, media_info->extra_data.len);
+    return p;
+}
+
+
+static u_char*
+mp4_init_segment_write_stsd_wvtt_entry(u_char* p, media_info_t* media_info)
+{
+    size_t atom_size = ATOM_HEADER_SIZE + sizeof(sample_entry_t) +
+        ATOM_HEADER_SIZE + media_info->extra_data.len;
+
+    write_atom_header(p, atom_size, 'w', 'v', 't', 't');
+
+    // sample_entry_t
+    write_be32(p, 0);        // reserved
+    write_be16(p, 0);        // reserved
+    write_be16(p, 1);        // data reference index
+
+    p = mp4_init_segment_write_vttc_atom(p, media_info);
+
+    return p;
+}
+
+
+static u_char*
+mp4_init_segment_write_stsd_stpp_entry(u_char* p, media_info_t* media_info)
+{
+    size_t atom_size = ATOM_HEADER_SIZE + sizeof(sample_entry_t) +
+        sizeof(STSD_STPP_EXTRA_DATA);
+
+    write_atom_header(p, atom_size, 's', 't', 'p', 'p');
+
+    // sample_entry_t
+    write_be32(p, 0);        // reserved
+    write_be16(p, 0);        // reserved
+    write_be16(p, 1);        // data reference index
+
+    p = vod_copy(p, STSD_STPP_EXTRA_DATA, sizeof(STSD_STPP_EXTRA_DATA));
+
+    return p;
+}
+
+
+
 static size_t
 mp4_init_segment_get_stsd_atom_size(media_info_t* media_info)
 {
@@ -497,13 +607,28 @@ mp4_init_segment_get_stsd_atom_size(media_info_t* media_info)
     switch (media_info->media_type)
     {
     case MEDIA_TYPE_VIDEO:
-        atom_size += ATOM_HEADER_SIZE + sizeof(sample_entry_t) + sizeof(stsd_video_t)+
+        atom_size += ATOM_HEADER_SIZE + sizeof(sample_entry_t) + sizeof(stsd_video_t) +
             ATOM_HEADER_SIZE + media_info->extra_data.len;
         break;
 
     case MEDIA_TYPE_AUDIO:
-        atom_size += ATOM_HEADER_SIZE + sizeof(sample_entry_t) + sizeof(stsd_audio_t)+
+        atom_size += ATOM_HEADER_SIZE + sizeof(sample_entry_t) + sizeof(stsd_audio_t) +
             mp4_esds_atom_size(media_info->extra_data.len);
+        break;
+
+    case MEDIA_TYPE_SUBTITLE:
+        switch (media_info->codec_id)
+        {
+        case VOD_CODEC_ID_WEBVTT:
+            atom_size += ATOM_HEADER_SIZE + sizeof(sample_entry_t) +
+                ATOM_HEADER_SIZE + media_info->extra_data.len;
+            break;
+
+        default: // VOD_CODEC_ID_TTML
+            atom_size += ATOM_HEADER_SIZE + sizeof(sample_entry_t) +
+                sizeof(STSD_STPP_EXTRA_DATA);
+            break;
+        }
         break;
     }
 
@@ -525,6 +650,19 @@ mp4_init_segment_write_stsd_atom(u_char* p, size_t atom_size, media_info_t* medi
 
     case MEDIA_TYPE_AUDIO:
         p = mp4_init_segment_write_stsd_audio_entry(p, media_info);
+        break;
+
+    case MEDIA_TYPE_SUBTITLE:
+        switch (media_info->codec_id)
+        {
+        case VOD_CODEC_ID_WEBVTT:
+            p = mp4_init_segment_write_stsd_wvtt_entry(p, media_info);
+            break;
+
+        default: // VOD_CODEC_ID_TTML
+            p = mp4_init_segment_write_stsd_stpp_entry(p, media_info);
+            break;
+        }
         break;
     }
     return p;
@@ -660,8 +798,22 @@ mp4_init_segment_write(
         case MEDIA_TYPE_VIDEO:
             p = vod_copy(p, hdlr_video_atom, sizeof(hdlr_video_atom));
             break;
+
         case MEDIA_TYPE_AUDIO:
             p = vod_copy(p, hdlr_audio_atom, sizeof(hdlr_audio_atom));
+            break;
+
+        case MEDIA_TYPE_SUBTITLE:
+            switch (media_info->codec_id)
+            {
+            case VOD_CODEC_ID_WEBVTT:
+                p = vod_copy(p, hdlr_subtitle_wvtt_atom, sizeof(hdlr_subtitle_wvtt_atom));
+                break;
+
+            default: // VOD_CODEC_ID_TTML
+                p = vod_copy(p, hdlr_subtitle_stpp_atom, sizeof(hdlr_subtitle_stpp_atom));
+                break;
+            }
             break;
         }
 
@@ -672,15 +824,20 @@ mp4_init_segment_write(
         case MEDIA_TYPE_VIDEO:
             p = vod_copy(p, vmhd_atom, sizeof(vmhd_atom));
             break;
+
         case MEDIA_TYPE_AUDIO:
             p = vod_copy(p, smhd_atom, sizeof(smhd_atom));
+            break;
+
+        case MEDIA_TYPE_SUBTITLE:
+            p = vod_copy(p, sthd_atom, sizeof(sthd_atom));
             break;
         }
         p = vod_copy(p, dinf_atom, sizeof(dinf_atom));
 
         // moov.trak.mdia.minf.stbl
         write_atom_header(p, track_sizes->stbl_size, 's', 't', 'b', 'l');
-        if (stsd_atom_writers != NULL)
+        if (stsd_atom_writers != NULL && stsd_atom_writers[i].write != NULL)
         {
             p = stsd_atom_writers[i].write(stsd_atom_writers[i].context, p);
         }
@@ -988,6 +1145,7 @@ mp4_init_segment_get_encrypted_stsd_writers(
     stsd_writer_context_t* stsd_writer_context;
     atom_writer_t* stsd_atom_writer;
     vod_status_t rc;
+    media_enc_t* enc;
     uint32_t i;
 
     // allocate the context
@@ -1009,19 +1167,25 @@ mp4_init_segment_get_encrypted_stsd_writers(
         i++, stsd_writer_context++, stsd_atom_writer++)
     {
         cur_track = &segment->first[i];
+        enc = cur_track->enc;
+        if (enc == NULL) // subtitles
+        {
+            vod_memzero(stsd_atom_writer, sizeof(*stsd_atom_writer));
+            continue;
+        }
 
         // build the stsd writer for the current track
         stsd_writer_context->scheme_type = scheme_type;
         stsd_writer_context->has_clear_lead = has_clear_lead;
-        if (cur_track->enc->has_key_id)
+        if (enc->has_key_id)
         {
-            stsd_writer_context->default_kid = cur_track->enc->key_id;
+            stsd_writer_context->default_kid = enc->key_id;
         }
         else
         {
             stsd_writer_context->default_kid = NULL;
         }
-        stsd_writer_context->iv = scheme_type == SCHEME_TYPE_CBCS ? cur_track->enc->iv : NULL;
+        stsd_writer_context->iv = scheme_type == SCHEME_TYPE_CBCS ? enc->iv : NULL;
 
         rc = mp4_init_segment_init_encrypted_stsd_writer(
             request_context,

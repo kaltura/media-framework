@@ -16,6 +16,11 @@
     ((end_pos) - (start_pos) >= (int) (prefix).len                           \
      && ngx_memcmp((start_pos), (prefix).data, (prefix).len) == 0)
 
+#define ngx_http_pckg_match_suffix(start_pos, end_pos, suffix)               \
+    ((end_pos) - (start_pos) >= (int) (suffix).len                           \
+     && ngx_memcmp((end_pos) - (suffix).len, (suffix).data, (suffix).len)    \
+        == 0)
+
 
 enum {
     NGX_HTTP_PCKG_EXPIRES_STATIC,

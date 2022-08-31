@@ -37,7 +37,8 @@
 #define NGX_KSMP_FLAG_RENDITION_REPORTS     (0x00000010)
 #define NGX_KSMP_FLAG_SEGMENT_PARTS         (0x00000020)
 #define NGX_KSMP_FLAG_SEGMENT_INFO          (0x00000040)
-#define NGX_KSMP_FLAG_DYNAMIC_VAR           (0x00000080)
+#define NGX_KSMP_FLAG_SEGMENT_TIME          (0x00000080)
+#define NGX_KSMP_FLAG_DYNAMIC_VAR           (0x00000100)
 
 #define NGX_KSMP_FLAG_MEDIA_CLOSEST_KEY     (0x00001000)
 #define NGX_KSMP_FLAG_MEDIA_MIN_GOP         (0x00002000)
@@ -193,9 +194,10 @@ typedef struct {
 
 typedef struct {
     uint32_t                     index;
-    uint32_t                     reserved;
-    int64_t                      correction;
+    uint32_t                     duration;
+    int64_t                      start;
     int64_t                      time;
+    int64_t                      correction;
 } ngx_ksmp_segment_index_t;
 
 

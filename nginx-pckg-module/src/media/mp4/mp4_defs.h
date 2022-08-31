@@ -49,6 +49,9 @@
 #define ATOM_NAME_CMVD (0x64766d63)        // compressed movie data
 #define ATOM_NAME_DOPS (0x73704f64)
 
+#define ATOM_NAME_VTTC (0x63747476)        // webvtt cue
+#define ATOM_NAME_PAYL (0x6c796170)        // cue payload
+
 #define ATOM_NAME_NULL (0x00000000)
 
 #define HDLR_TYPE_VIDE (0x65646976)        // video track

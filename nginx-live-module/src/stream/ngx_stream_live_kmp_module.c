@@ -170,9 +170,11 @@ ngx_stream_live_kmp_free(void *data)
 
 
 static void
-ngx_stream_live_kmp_disconnect(ngx_live_track_t *track, ngx_uint_t rc)
+ngx_stream_live_kmp_disconnect(void *data, ngx_uint_t rc)
 {
-    ngx_stream_finalize_session(track->input.data, rc);
+    ngx_stream_session_t  *s = data;
+
+    ngx_stream_finalize_session(s, rc);
 }
 
 
@@ -777,10 +779,10 @@ ngx_stream_live_kmp_write_handler(ngx_event_t *wev)
 
 
 static void
-ngx_stream_live_kmp_ack_frames(ngx_live_track_t *track, uint64_t next_frame_id)
+ngx_stream_live_kmp_ack_frames(void *data, uint64_t next_frame_id)
 {
     ngx_event_t                *wev;
-    ngx_stream_session_t       *s = track->input.data;
+    ngx_stream_session_t       *s = data;
     ngx_stream_live_kmp_ctx_t  *ctx;
 
     ctx = ngx_stream_get_module_ctx(s, ngx_stream_live_kmp_module);

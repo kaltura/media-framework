@@ -31,14 +31,6 @@ ngx_pckg_ksmp_sgts_init(ngx_pckg_channel_t *channel)
 
     channel->timeline.channel = channel;
 
-    if (ngx_array_init(&channel->timeline.periods, channel->pool,
-        1, sizeof(ngx_pckg_period_t)) != NGX_OK)
-    {
-        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-            "ngx_pckg_ksmp_sgts_init: periods array init failed");
-        return NGX_ERROR;
-    }
-
     if (ngx_array_init(&channel->variants, channel->pool,
         1, sizeof(ngx_pckg_variant_t)) != NGX_OK)
     {
@@ -206,6 +198,10 @@ ngx_pckg_ksmp_sgts_track_set_media_type(ngx_pckg_track_t *track)
     variant->tracks[media_type] = track;
     variant->track_count = 1;
 
+    if (media_type != KMP_MEDIA_VIDEO) {
+        variant->header.role = ngx_ksmp_variant_role_alternate;
+    }
+
     variant->channel = channel;
 
     channel->header.variant_count++;
@@ -354,6 +350,17 @@ ngx_pckg_ksmp_sgts_update_timeline(ngx_pckg_channel_t *channel,
 
     duration = end_pts - start_pts;
 
+    if (timeline->periods.pool == NULL) {
+        if (ngx_array_init(&timeline->periods, channel->pool, 1,
+            sizeof(ngx_pckg_period_t)) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
+                "ngx_pckg_ksmp_sgts_update_timeline: "
+                "periods array init failed");
+            return NGX_ERROR;
+        }
+    }
+
     period = ngx_array_push(&timeline->periods);
     if (period == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
@@ -404,10 +411,62 @@ ngx_pckg_ksmp_sgts_update_timeline(ngx_pckg_channel_t *channel,
 
 
 static ngx_int_t
+ngx_pckg_ksmp_sgts_create_segment(ngx_pool_t *pool,
+    ngx_pckg_channel_t *channel, ngx_mem_rstream_t *rs,
+    ngx_ksmp_segment_header_t *header, ngx_pckg_segment_t **out)
+{
+    ngx_int_t            rc;
+    ngx_pckg_segment_t  *segment;
+
+    segment = ngx_pcalloc(pool, sizeof(*segment));
+    if (segment == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
+            "ngx_pckg_ksmp_sgts_create_segment: alloc segment failed");
+        return NGX_ERROR;
+    }
+
+    segment->channel = channel;
+    segment->pool = pool;
+    segment->header = *header;
+
+    rc = ngx_persist_conf_read_blocks(channel->persist,
+        NGX_PCKG_KSMP_CTX_SEGMENT, rs, segment);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
+            "ngx_pckg_ksmp_sgts_create_segment: read blocks failed %i", rc);
+        return rc;
+    }
+
+    if (segment->frames == NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_sgts_create_segment: missing frame list block");
+        return NGX_BAD_DATA;
+    }
+
+    if (segment->media.data == NULL) {
+        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+            "ngx_pckg_ksmp_sgts_create_segment: missing frame data block");
+        return NGX_BAD_DATA;
+    }
+
+    rc = ngx_pckg_ksmp_sgts_update_timeline(channel, segment);
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    *out = segment;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_pckg_ksmp_sgts_read_segment(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     ngx_int_t                   rc;
+    ngx_pool_t                 *pool;
+    ngx_flag_t                  skip;
     ngx_pckg_track_t           *track;
     ngx_mem_rstream_t           save;
     ngx_pckg_channel_t         *channel = obj;
@@ -440,24 +499,6 @@ ngx_pckg_ksmp_sgts_read_segment(ngx_persist_block_hdr_t *header,
         media->max_track_id = h.track_id;
     }
 
-    if (media->track_id && h.track_id != media->track_id) {
-        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, rs->log, 0,
-            "ngx_pckg_ksmp_sgts_read_segment: "
-            "skipping track, track: %uD, index: %uD",
-            h.track_id, h.index);
-        return NGX_OK;
-    }
-
-    if (media->segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX
-        && h.index != media->segment_index)
-    {
-        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, rs->log, 0,
-            "ngx_pckg_ksmp_sgts_read_segment: "
-            "skipping segment, track: %uD, index: %uD",
-            h.track_id, h.index);
-        return NGX_OK;
-    }
-
     if (h.frame_count <= 0) {
         ngx_log_error(NGX_LOG_ERR, rs->log, 0,
             "ngx_pckg_ksmp_sgts_read_segment: invalid frame count");
@@ -470,48 +511,61 @@ ngx_pckg_ksmp_sgts_read_segment(ngx_persist_block_hdr_t *header,
     }
 
 
-    segment = ngx_pcalloc(channel->pool, sizeof(*segment));
-    if (segment == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
-            "ngx_pckg_ksmp_sgts_read_segment: alloc segment failed");
-        return NGX_ERROR;
+    if (media->track_id && h.track_id != media->track_id) {
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, rs->log, 0,
+            "ngx_pckg_ksmp_sgts_read_segment: "
+            "skipping track, track: %uD, index: %uD",
+            h.track_id, h.index);
+        skip = 1;
+
+    } else if (media->segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX
+        && h.index != media->segment_index)
+    {
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, rs->log, 0,
+            "ngx_pckg_ksmp_sgts_read_segment: "
+            "skipping segment, track: %uD, index: %uD",
+            h.track_id, h.index);
+        skip = 1;
+
+    } else {
+        skip = 0;
     }
 
-    segment->channel = channel;
-    segment->header = h;
+    if (skip || !(channel->flags & NGX_KSMP_FLAG_MEDIA)) {
+        pool = ngx_create_pool(1024, channel->log);
+        if (pool == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
+                "ngx_pckg_ksmp_sgts_read_segment: create pool failed");
+            return NGX_ERROR;
+        }
+
+    } else {
+        pool = channel->pool;
+    }
 
 
     save = *rs;
 
-    rc = ngx_persist_conf_read_blocks(channel->persist,
-        NGX_PCKG_KSMP_CTX_SEGMENT, rs, segment);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-            "ngx_pckg_ksmp_sgts_read_segment: read blocks failed (1) %i", rc);
+    rc = ngx_pckg_ksmp_sgts_create_segment(pool, channel, rs, &h, &segment);
+
+    if (pool != channel->pool) {
+        ngx_destroy_pool(pool);
+    }
+
+    if (skip || rc != NGX_OK) {
         return rc;
     }
 
-    if (segment->frames == NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_sgts_read_segment: missing frame list block");
-        return NGX_BAD_DATA;
-    }
+    *rs = save;
 
-    if (segment->media.data == NULL) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_sgts_read_segment: missing frame data block");
-        return NGX_BAD_DATA;
-    }
 
     ngx_memzero(&ctx, sizeof(ctx));
-
-    *rs = save;
 
     rc = ngx_persist_conf_read_blocks(channel->persist,
         NGX_PCKG_KSMP_CTX_SGTS_SEGMENT, rs, &ctx);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
-            "ngx_pckg_ksmp_sgts_read_segment: read blocks failed (2) %i", rc);
+            "ngx_pckg_ksmp_sgts_read_segment: read blocks failed %i", rc);
         return rc;
     }
 
@@ -548,11 +602,6 @@ ngx_pckg_ksmp_sgts_read_segment(ngx_persist_block_hdr_t *header,
     }
 
     rc = ngx_pckg_ksmp_sgts_add_media_info(track, h.index, &ctx);
-    if (rc != NGX_OK) {
-        return rc;
-    }
-
-    rc = ngx_pckg_ksmp_sgts_update_timeline(channel, segment);
     if (rc != NGX_OK) {
         return rc;
     }

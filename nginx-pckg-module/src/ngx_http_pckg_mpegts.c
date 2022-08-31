@@ -109,8 +109,17 @@ static ngx_int_t
 ngx_http_pckg_mpegts_init_enc_params(ngx_http_request_t *r,
     ngx_pckg_channel_t *channel, hls_encryption_params_t *enc_params)
 {
+    media_enc_t                   *enc;
     ngx_pckg_track_t              *track;
     ngx_http_pckg_enc_loc_conf_t  *elcf;
+
+    track = channel->tracks.elts;
+
+    enc = track->enc;
+    if (enc == NULL) {
+        enc_params->type = HLS_ENC_NONE;
+        return NGX_OK;
+    }
 
     elcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_enc_module);
 
@@ -135,10 +144,8 @@ ngx_http_pckg_mpegts_init_enc_params(ngx_http_request_t *r,
         return NGX_HTTP_BAD_REQUEST;
     }
 
-    track = channel->tracks.elts;
-
-    enc_params->key = track->enc->key;
-    enc_params->iv = track->enc->iv;
+    enc_params->key = enc->key;
+    enc_params->iv = enc->iv;
 
     return NGX_OK;
 }
@@ -258,6 +265,9 @@ ngx_http_pckg_mpegts_parse_ts_request(ngx_http_request_t *r, u_char *start_pos,
     result->flags = NGX_KSMP_FLAG_MEDIA | NGX_KSMP_FLAG_MEDIA_INFO;
 
     result->parse_flags = NGX_PCKG_KSMP_PARSE_FLAG_EXTRA_DATA;
+
+    result->media_type_mask = (1 << KMP_MEDIA_VIDEO) | (1 << KMP_MEDIA_AUDIO);
+    result->media_type_count = 2;
 
     return ngx_http_pckg_parse_uri_file_name(r, start_pos, end_pos,
         flags, result);

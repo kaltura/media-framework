@@ -199,3 +199,36 @@ ngx_live_media_info_json_audio_write(u_char *p, ngx_live_media_info_node_t
 
     return p;
 }
+
+
+/* ngx_live_media_info_json_subtitle writer */
+
+static size_t
+ngx_live_media_info_json_subtitle_get_size(ngx_live_media_info_node_t *obj)
+{
+    size_t  result;
+
+    result =
+        sizeof("{") - 1 + ngx_live_media_info_json_base_get_size(obj) +
+        sizeof(",") - 1 + ngx_live_media_info_json_stats_get_size(obj) +
+        sizeof("}") - 1;
+
+    return result;
+}
+
+
+static u_char *
+ngx_live_media_info_json_subtitle_write(u_char *p, ngx_live_media_info_node_t
+    *obj)
+{
+    u_char  *next;
+
+    *p++ = '{';
+    p = ngx_live_media_info_json_base_write(p, obj);
+    *p++ = ',';
+    next = ngx_live_media_info_json_stats_write(p, obj);
+    p = next == p ? p - 1 : next;
+    *p++ = '}';
+
+    return p;
+}

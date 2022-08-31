@@ -1246,7 +1246,7 @@ dispose:
         if (ctx->last_dropped_frames % NGX_LIVE_LLS_DISPOSE_ACK_FREQUENCY == 0
             && channel->snapshots <= 0 && track->input.ack_frames != NULL)
         {
-            track->input.ack_frames(track, track->next_frame_id);
+            track->input.ack_frames(track->input.data, track->next_frame_id);
         }
     }
 
