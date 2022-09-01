@@ -3032,18 +3032,24 @@ ngx_live_segmenter_add_media_info(ngx_live_track_t *track,
     switch (rc) {
 
     case NGX_OK:
-        /* force a split on the next frame to arrive */
-        ctx->next_flags |= NGX_LIVE_FRAME_FLAG_SPLIT |
-            NGX_LIVE_FRAME_FLAG_RESET_DTS_SHIFT;
 
-        /* fall through */
+        /* force a split on the next frame to arrive */
+
+        ctx->next_flags |= NGX_LIVE_FRAME_FLAG_SPLIT
+            | NGX_LIVE_FRAME_FLAG_RESET_DTS_SHIFT;
+        break;
 
     case NGX_DONE:
-        return NGX_OK;
+        break;
+
+    case NGX_BAD_DATA:
+        return NGX_ERROR;
 
     default:
-        return rc;
+        return NGX_ABORT;
     }
+
+    return NGX_OK;
 }
 
 

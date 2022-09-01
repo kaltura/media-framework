@@ -18,6 +18,12 @@ struct ngx_live_media_info_s {
 
 
 /* pending */
+
+/*
+ * NGX_DONE - ignored, media info is identical to previous one
+ * NGX_BAD_DATA - media type / timescale mismatch
+ * NGX_ERROR - alloc / other unexpected error
+ */
 ngx_int_t ngx_live_media_info_pending_add(ngx_live_track_t *track,
     kmp_media_info_t *media_info, ngx_buf_chain_t *extra_data,
     uint32_t extra_data_size, uint32_t frame_index);
