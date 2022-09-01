@@ -197,28 +197,28 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       NGX_RTMP_APP_CONF_OFFSET,
-      offsetof(ngx_rtmp_kmp_app_conf_t, t.video_buffer_size),
+      offsetof(ngx_rtmp_kmp_app_conf_t, t.buffer_size[KMP_MEDIA_VIDEO]),
       NULL },
 
     { ngx_string("kmp_video_mem_limit"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       NGX_RTMP_APP_CONF_OFFSET,
-      offsetof(ngx_rtmp_kmp_app_conf_t, t.video_mem_limit),
+      offsetof(ngx_rtmp_kmp_app_conf_t, t.mem_limit[KMP_MEDIA_VIDEO]),
       NULL },
 
     { ngx_string("kmp_audio_buffer_size"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       NGX_RTMP_APP_CONF_OFFSET,
-      offsetof(ngx_rtmp_kmp_app_conf_t, t.audio_buffer_size),
+      offsetof(ngx_rtmp_kmp_app_conf_t, t.buffer_size[KMP_MEDIA_AUDIO]),
       NULL },
 
     { ngx_string("kmp_audio_mem_limit"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       NGX_RTMP_APP_CONF_OFFSET,
-      offsetof(ngx_rtmp_kmp_app_conf_t, t.audio_mem_limit),
+      offsetof(ngx_rtmp_kmp_app_conf_t, t.mem_limit[KMP_MEDIA_AUDIO]),
       NULL },
 
     { ngx_string("kmp_flush_timeout"),
@@ -385,6 +385,7 @@ ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf)
 static char *
 ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 {
+    ngx_uint_t                media_type;
     ngx_rtmp_kmp_app_conf_t  *prev = parent;
     ngx_rtmp_kmp_app_conf_t  *conf = child;
 
@@ -393,16 +394,12 @@ ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_kmp_push_track_merge_conf(&conf->t, &prev->t);
 
-    conf->t.video_lba = ngx_rtmp_kmp_get_lba(cf, conf->t.video_buffer_size,
-        conf->t.buffer_bin_count);
-    if (conf->t.video_lba == NULL) {
-        return NGX_CONF_ERROR;
-    }
-
-    conf->t.audio_lba = ngx_rtmp_kmp_get_lba(cf, conf->t.audio_buffer_size,
-        conf->t.buffer_bin_count);
-    if (conf->t.audio_lba == NULL) {
-        return NGX_CONF_ERROR;
+    for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+        conf->t.lba[media_type] = ngx_rtmp_kmp_get_lba(cf,
+            conf->t.buffer_size[media_type], conf->t.buffer_bin_count);
+        if (conf->t.lba[media_type] == NULL) {
+            return NGX_CONF_ERROR;
+        }
     }
 
     if (conf->t.timescale % NGX_RTMP_TIMESCALE) {
