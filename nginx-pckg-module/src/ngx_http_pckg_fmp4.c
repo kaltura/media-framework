@@ -16,7 +16,7 @@
 
 #if (NGX_HAVE_OPENSSL_EVP)
 #include "media/mp4/mp4_dash_encrypt.h"
-#include "media/mpegts/aes_cbc_encrypt.h"
+#include "media/aes_cbc_encrypt.h"
 #endif /* NGX_HAVE_OPENSSL_EVP */
 
 
