@@ -1,5 +1,5 @@
 #include "aes_cbc_encrypt.h"
-#include "../buffer_pool.h"
+#include "buffer_pool.h"
 
 static void
 aes_cbc_encrypt_cleanup(aes_cbc_encrypt_context_t* state)

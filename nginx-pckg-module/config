@@ -28,22 +28,22 @@ echo "#define NGX_PCKG_VERSION \""$PCKG_VERSION"\"" > $NGX_OBJS/ngx_pckg_version
 # openssl evp
 #
 PCKG_FEATURE_SRCS="                                           \
+    $ngx_addon_dir/src/media/aes_cbc_encrypt.c                \
     $ngx_addon_dir/src/media/mp4/mp4_aes_ctr.c                \
     $ngx_addon_dir/src/media/mp4/mp4_cbcs_encrypt.c           \
     $ngx_addon_dir/src/media/mp4/mp4_cenc_encrypt.c           \
     $ngx_addon_dir/src/media/mp4/mp4_dash_encrypt.c           \
-    $ngx_addon_dir/src/media/mpegts/aes_cbc_encrypt.c         \
     $ngx_addon_dir/src/media/mpegts/eac3_encrypt_filter.c     \
     $ngx_addon_dir/src/media/mpegts/frame_encrypt_filter.c    \
     $ngx_addon_dir/src/media/mpegts/sample_aes_avc_filter.c   \
     "
 
 PCKG_FEATURE_DEPS="                                           \
+    $ngx_addon_dir/src/media/aes_cbc_encrypt.h                \
     $ngx_addon_dir/src/media/mp4/mp4_aes_ctr.h                \
     $ngx_addon_dir/src/media/mp4/mp4_cbcs_encrypt.h           \
     $ngx_addon_dir/src/media/mp4/mp4_cenc_encrypt.h           \
     $ngx_addon_dir/src/media/mp4/mp4_dash_encrypt.h           \
-    $ngx_addon_dir/src/media/mpegts/aes_cbc_encrypt.h         \
     $ngx_addon_dir/src/media/mpegts/eac3_encrypt_filter.h     \
     $ngx_addon_dir/src/media/mpegts/frame_encrypt_filter.h    \
     $ngx_addon_dir/src/media/mpegts/sample_aes_avc_filter.h   \

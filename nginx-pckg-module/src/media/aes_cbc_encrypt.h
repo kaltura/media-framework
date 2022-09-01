@@ -2,7 +2,7 @@
 #define __AES_CBC_ENCRYPT_H__
 
 // includes
-#include "../aes_defs.h"
+#include "aes_defs.h"
 
 // typedefs
 typedef struct {

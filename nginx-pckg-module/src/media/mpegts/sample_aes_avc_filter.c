@@ -5,7 +5,7 @@
 #define get_context(ctx) ((sample_aes_avc_filter_state_t*)ctx->context[THIS_FILTER])
 
 #include <openssl/evp.h>
-#include "aes_cbc_encrypt.h"
+#include "../aes_defs.h"
 #include "../avc_defs.h"
 
 #define SAMPLE_AES_KEY_SIZE (16)
