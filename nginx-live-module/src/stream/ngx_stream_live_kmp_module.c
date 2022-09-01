@@ -951,7 +951,7 @@ ngx_stream_live_kmp_read_header(ngx_event_t *rev)
         return NGX_STREAM_BAD_REQUEST;
     }
 
-    if (header->initial_frame_id >= NGX_LIVE_INVALID_FRAME_ID) {
+    if (header->initial_frame_id >= KMP_INVALID_FRAME_ID) {
         ngx_log_error(NGX_LOG_ERR, c->log, 0,
             "ngx_stream_live_kmp_read_header: invalid initial frame id %uL",
             header->initial_frame_id);

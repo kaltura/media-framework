@@ -193,34 +193,6 @@ ngx_ts_kmp_track_write_chain(ngx_kmp_push_track_t *track,
 
 
 static ngx_int_t
-ngx_ts_kmp_track_alloc_extra_data(ngx_ts_kmp_track_t *ts_track,
-    uint32_t extra_data_size)
-{
-    ngx_str_t             *extra_data;
-    ngx_kmp_push_track_t  *track;
-
-    if (ts_track->extra_data_alloc >= extra_data_size) {
-        return NGX_OK;
-    }
-
-    track = ts_track->track;
-    extra_data = &track->extra_data;
-
-    ts_track->extra_data_alloc = ngx_max(extra_data_size,
-        ts_track->extra_data_alloc * 2);
-
-    extra_data->data = ngx_pnalloc(track->pool, ts_track->extra_data_alloc);
-    if (extra_data->data == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_ts_kmp_track_alloc_extra_data: alloc failed");
-        return NGX_ERROR;
-    }
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
 ngx_ts_kmp_track_handle_media_info(ngx_ts_kmp_track_t *ts_track)
 {
     ngx_int_t              rc;
@@ -475,7 +447,7 @@ ngx_ts_kmp_track_avc_update_media_info(ngx_ts_kmp_track_t *ts_track,
         + 1 + 2 + sps_size      /* sps */
         + 1 + 2 + pps_size;     /* pps */
 
-    if (ngx_ts_kmp_track_alloc_extra_data(ts_track, extra_data_size)
+    if (ngx_kmp_push_track_alloc_extra_data(track, extra_data_size)
         != NGX_OK)
     {
         return NGX_ERROR;
@@ -664,7 +636,7 @@ ngx_ts_kmp_track_aac_update_media_info(ngx_ts_kmp_track_t *ts_track,
     extra_data = &ts_track->track->extra_data;
     extra_data->len = 2;
 
-    if (ngx_ts_kmp_track_alloc_extra_data(ts_track, extra_data->len)
+    if (ngx_kmp_push_track_alloc_extra_data(track, extra_data->len)
         != NGX_OK)
     {
         return NGX_ERROR;

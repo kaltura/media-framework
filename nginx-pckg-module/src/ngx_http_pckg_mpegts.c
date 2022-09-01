@@ -9,7 +9,7 @@
 #include "media/mpegts/mpegts_muxer.h"
 
 #if (NGX_HAVE_OPENSSL_EVP)
-#include "media/mpegts/aes_cbc_encrypt.h"
+#include "media/aes_cbc_encrypt.h"
 #endif /* NGX_HAVE_OPENSSL_EVP */
 
 

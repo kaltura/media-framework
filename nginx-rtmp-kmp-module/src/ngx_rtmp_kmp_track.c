@@ -114,7 +114,6 @@ static ngx_int_t
 ngx_rtmp_kmp_track_set_extra_data(ngx_kmp_push_track_t *track,
     ngx_rtmp_session_t *s, ngx_chain_t *in, u_char *p, uint32_t size)
 {
-    size_t     alloc_size;
     ngx_int_t  rc;
 
     track->extra_data.len = size;
@@ -123,27 +122,8 @@ ngx_rtmp_kmp_track_set_extra_data(ngx_kmp_push_track_t *track,
         return NGX_OK;
     }
 
-    if (size > track->extra_data_size) {
-
-        alloc_size = ngx_max(size, track->extra_data_size * 2);
-        if (track->mem_left < alloc_size) {
-            ngx_log_error(NGX_LOG_ERR, &track->log, 0,
-                "ngx_rtmp_kmp_track_set_extra_data: "
-                "memory limit exceeded");
-            ngx_kmp_push_track_set_error_reason(track, "alloc_failed");
-            return NGX_ERROR;
-        }
-
-        track->extra_data.data = ngx_pnalloc(track->pool, alloc_size);
-        if (track->extra_data.data == NULL) {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_rtmp_kmp_track_set_extra_data: alloc failed");
-            ngx_kmp_push_track_set_error_reason(track, "alloc_failed");
-            return NGX_ERROR;
-        }
-
-        track->extra_data_size = alloc_size;
-        track->mem_left -= alloc_size;
+    if (ngx_kmp_push_track_alloc_extra_data(track, size) != NGX_OK) {
+        return NGX_ERROR;
     }
 
     rc = ngx_rtmp_kmp_copy(&track->log, track->extra_data.data, &p, size, &in);

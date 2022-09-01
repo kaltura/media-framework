@@ -4,7 +4,7 @@
 #define THIS_FILTER (MEDIA_FILTER_ENCRYPT)
 #define get_context(ctx) ((frame_encrypt_filter_state_t*)ctx->context[THIS_FILTER])
 
-#include "aes_cbc_encrypt.h"
+#include "../aes_defs.h"
 
 #define FRAME_ENCRYPT_KEY_SIZE (16)
 #define CLEAR_LEAD_SIZE (16)
