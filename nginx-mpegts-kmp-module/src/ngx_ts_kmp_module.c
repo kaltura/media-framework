@@ -123,7 +123,7 @@ ngx_ts_kmp_connect(ngx_ts_handler_data_t *hd)
     if (url == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_KMP, ts->log, 0,
             "ngx_ts_kmp_connect: no connect url set in conf");
-        return NGX_ERROR;
+        return NGX_OK;
     }
 
     ctx->header = ts->header;
