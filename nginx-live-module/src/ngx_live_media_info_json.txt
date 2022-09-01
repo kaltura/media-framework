@@ -37,3 +37,7 @@ out ngx_live_media_info_json_audio ngx_live_media_info_node_t
     bits_per_sample %uD mi->info.u.audio.
     sample_rate %uD mi->info.u.audio.
     - %func-ngx_live_media_info_json_stats obj
+
+out ngx_live_media_info_json_subtitle ngx_live_media_info_node_t
+    - %func-ngx_live_media_info_json_base obj
+    - %func-ngx_live_media_info_json_stats obj

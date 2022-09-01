@@ -1,0 +1,307 @@
+URL: /master.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-INDEPENDENT-SEGMENTS
+
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="sub14",NAME="English",LANGUAGE="en",AUTOSELECT=NO,DEFAULT=NO,URI="index-ssub1-t.m3u8"
+
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=608622,AVERAGE-BANDWIDTH=513513,RESOLUTION=480x256,FRAME-RATE=25.000,CODECS="avc1.42c01e,mp4a.40.2",SUBTITLES="sub14"
+index-svar1.m3u8
+
+URL: /index-ssub1-t.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:00:00.000+00:00
+#EXTINF:3.983,
+seg-1-ssub1-t.vtt
+#EXTINF:4.000,
+seg-2-ssub1-t.vtt
+#EXTINF:4.000,
+seg-3-ssub1-t.vtt
+#EXTINF:4.000,
+seg-4-ssub1-t.vtt
+#EXTINF:4.000,
+seg-5-ssub1-t.vtt
+#EXTINF:4.000,
+seg-6-ssub1-t.vtt
+#EXTINF:2.000,
+seg-7-ssub1-t.vtt
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:01:26.023+00:00
+#EXTINF:3.960,
+seg-8-ssub1-t.vtt
+#EXTINF:4.000,
+seg-9-ssub1-t.vtt
+#EXTINF:4.000,
+seg-10-ssub1-t.vtt
+#EXTINF:4.000,
+seg-11-ssub1-t.vtt
+#EXTINF:4.000,
+seg-12-ssub1-t.vtt
+#EXTINF:4.000,
+seg-13-ssub1-t.vtt
+#EXTINF:2.000,
+seg-14-ssub1-t.vtt
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:02:52.023+00:00
+#EXTINF:3.960,
+seg-15-ssub1-t.vtt
+#EXTINF:4.000,
+seg-16-ssub1-t.vtt
+#EXTINF:4.000,
+seg-17-ssub1-t.vtt
+#EXTINF:4.000,
+seg-18-ssub1-t.vtt
+#EXTINF:4.000,
+seg-19-ssub1-t.vtt
+#EXTINF:4.000,
+seg-20-ssub1-t.vtt
+#EXTINF:1.600,
+seg-21-ssub1-t.vtt
+#EXT-X-ENDLIST
+
+URL: /index-svar1.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:00:00.000+00:00
+#EXTINF:3.983,
+#EXT-X-BITRATE:537
+seg-1-svar1.ts
+#EXTINF:4.000,
+seg-2-svar1.ts
+#EXTINF:4.000,
+seg-3-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:599
+seg-4-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:512
+seg-5-svar1.ts
+#EXTINF:4.000,
+seg-6-svar1.ts
+#EXTINF:2.000,
+#EXT-X-BITRATE:519
+seg-7-svar1.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:01:26.023+00:00
+#EXTINF:3.960,
+#EXT-X-BITRATE:512
+seg-8-svar1.ts
+#EXTINF:4.000,
+seg-9-svar1.ts
+#EXTINF:4.000,
+seg-10-svar1.ts
+#EXTINF:4.000,
+seg-11-svar1.ts
+#EXTINF:4.000,
+seg-12-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:444
+seg-13-svar1.ts
+#EXTINF:2.000,
+#EXT-X-BITRATE:509
+seg-14-svar1.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:02:52.023+00:00
+#EXTINF:3.960,
+#EXT-X-BITRATE:501
+seg-15-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:606
+seg-16-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:440
+seg-17-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:508
+seg-18-svar1.ts
+#EXTINF:4.000,
+seg-19-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:578
+seg-20-svar1.ts
+#EXTINF:1.600,
+#EXT-X-BITRATE:468
+seg-21-svar1.ts
+#EXT-X-ENDLIST
+
+URL: /seg-1-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 102, MD5: 957bca6314500df6fc915354e74839f5
+
+URL: /seg-2-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 201, MD5: 346cc93681d81f1fa29ad49a21904dda
+
+URL: /seg-3-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 258, MD5: d470bb0f34930f1c017de45106661a3e
+
+URL: /seg-4-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 240, MD5: d6318556c5a7de6dd7ed69d79515655e
+
+URL: /seg-5-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 304, MD5: 6dcc40ca0d97c8d5d420334b660c2149
+
+URL: /seg-6-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 227, MD5: 23e65a00aad68e767aed119a443744af
+
+URL: /seg-7-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 237, MD5: 8ea312df62d965c1be79aacceb9ea9ee
+
+URL: /seg-8-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 55, MD5: ec5c892c7353bf0c09b623efc7d83c91
+
+URL: /seg-9-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 213, MD5: 4ed4e2dad06d219f9e22138683e53b83
+
+URL: /seg-10-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 230, MD5: 70cbcf745ea57b53008ab8ec22d8bb95
+
+URL: /seg-11-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 230, MD5: 99288fb6bd9eb26c906dfe8c55f019c4
+
+URL: /seg-12-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 324, MD5: 5f9bc3f3d0567b43c1e203d6a167e3ef
+
+URL: /seg-13-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 221, MD5: 1cdc685c35f722423fb6d3a792418b76
+
+URL: /seg-14-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 121, MD5: c7eaa50cc66ff6d8674ed013aa0215ee
+
+URL: /seg-15-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 238, MD5: 337a87adcce0e40e0d7088d568c8583c
+
+URL: /seg-16-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 193, MD5: 3405e0aa1969b9b987cc4c7b079457aa
+
+URL: /seg-17-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 199, MD5: 602566d2e63595e9f0a8049a26e4774b
+
+URL: /seg-18-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 246, MD5: 45ac33bad0f7472f368255c5f4a4b4d5
+
+URL: /seg-19-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 234, MD5: 9598a1e966ae08c35c8ac89808d50917
+
+URL: /seg-20-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 272, MD5: 4973f414301f6557cec6fc4856115b9c
+
+URL: /seg-21-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 206, MD5: e49855eac058876705cfbe9f9f81394e
+
+URL: /seg-1-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 268276, MD5: 28ed4cc3c28908330f4758a013d0ec11
+
+URL: /seg-2-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 256244, MD5: 84af3299a8719e1b049aee038789fba5
+
+URL: /seg-3-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 256244, MD5: 30d1eb419db640ff71b70808d0093d67
+
+URL: /seg-4-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 298356, MD5: e155183b75aa457073a66be61bfe6bf4
+
+URL: /seg-5-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 256244, MD5: 7992887aaa0fb34205d66036221a5c70
+
+URL: /seg-6-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 247220, MD5: 46ba2cbdc4a696d70e67ed778425948d
+
+URL: /seg-7-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 129908, MD5: 75f5ed6c1245ddb539ba5c387912adfc
+
+URL: /seg-8-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 256244, MD5: 3823e6b8f6a24a8a6237996b423b4c2c
+
+URL: /seg-9-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 256244, MD5: 309def1587969c03fc05607eb827c1e7
+
+URL: /seg-10-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 256244, MD5: 9f41068ea9ca716c2e97248927eece56
+
+URL: /seg-11-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 253236, MD5: 046324bc72db65bda3eb458ccee3e6dd
+
+URL: /seg-12-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 262260, MD5: f0a82cc1e83d05cc1cb1a104e79fe930
+
+URL: /seg-13-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 223156, MD5: d3d2cc804370e6f940016a1e0b965189
+
+URL: /seg-14-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 129908, MD5: 135dd1a11aa204d4406448f7504bbaf8
+
+URL: /seg-15-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 241204, MD5: 98a4b6d6824e8159f385945abc21da2a
+
+URL: /seg-16-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 304372, MD5: 39f2899ef9a5da7c9c4991278d5a49dc
+
+URL: /seg-17-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 220148, MD5: 46f7ddaf4404d9f378d370fbc1b68c66
+
+URL: /seg-18-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 253236, MD5: 4b194e4c6daf87c562ab31c304d4b9cd
+
+URL: /seg-19-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 253236, MD5: 9fe2b9d9f1e76372fefa0be1b3fadcaa
+
+URL: /seg-20-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 289332, MD5: 1e2781eeec06887c0266c0b5428a33e4
+
+URL: /seg-21-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 93812, MD5: 4dd7dd11e5cc1e95d6a47e94250f9858
+

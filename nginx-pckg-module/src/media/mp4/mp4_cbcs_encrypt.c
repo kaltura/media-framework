@@ -85,6 +85,11 @@ typedef struct {
     u_char* slice_header_end;
 } mp4_cbcs_encrypt_video_stream_state_t;
 
+typedef struct {
+    mp4_cbcs_encrypt_state_t* state;
+    uint32_t left;
+} mp4_cbcs_encrypt_skip_stream_state_t;
+
 // enums
 enum {
     // regular states
@@ -820,6 +825,55 @@ mp4_cbcs_encrypt_audio_get_fragment_writer(
     return VOD_OK;
 }
 
+static vod_status_t
+mp4_cbcs_encrypt_skip_stream_write(void* context, u_char* buffer, uint32_t size)
+{
+    mp4_cbcs_encrypt_skip_stream_state_t* stream_state = context;
+    mp4_cbcs_encrypt_state_t* state = stream_state->state;
+    vod_status_t rc;
+
+    rc = write_buffer_write(&state->write_buffer, buffer, size);
+    if (rc != VOD_OK)
+    {
+        return rc;
+    }
+
+    stream_state->left -= size;
+    if (stream_state->left > 0)
+    {
+        return VOD_OK;
+    }
+
+    return mp4_cbcs_encrypt_flush(state);
+}
+
+static vod_status_t
+mp4_cbcs_encrypt_skip_get_fragment_writer(
+    mp4_cbcs_encrypt_state_t* state,
+    media_segment_track_t* track,
+    segment_writer_t* segment_writer)
+{
+    mp4_cbcs_encrypt_skip_stream_state_t *stream_state;
+    request_context_t* request_context = state->request_context;
+
+    stream_state = vod_alloc(request_context->pool, sizeof(*stream_state));
+    if (stream_state == NULL)
+    {
+        vod_log_debug0(VOD_LOG_DEBUG_LEVEL, request_context->log, 0,
+            "mp4_cbcs_encrypt_skip_get_fragment_writer: vod_alloc failed");
+        return VOD_ALLOC_FAILED;
+    }
+
+    stream_state->state = state;
+    stream_state->left = media_segment_track_get_total_size(track);
+
+    segment_writer->write_tail = mp4_cbcs_encrypt_skip_stream_write;
+    segment_writer->write_head = NULL;
+    segment_writer->context = stream_state;
+
+    return VOD_OK;
+}
+
 vod_status_t
 mp4_cbcs_encrypt_get_writers(
     request_context_t* request_context,
@@ -886,6 +940,13 @@ mp4_cbcs_encrypt_get_writers(
 
         case MEDIA_TYPE_AUDIO:
             rc = mp4_cbcs_encrypt_audio_get_fragment_writer(
+                state,
+                cur_track,
+                cur_segment_writer);
+            break;
+
+        default:
+            rc = mp4_cbcs_encrypt_skip_get_fragment_writer(
                 state,
                 cur_track,
                 cur_segment_writer);

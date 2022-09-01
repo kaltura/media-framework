@@ -11,6 +11,9 @@
 #include "media/mp4/mp4_muxer.h"
 #include "media/mp4/mp4_defs.h"
 
+#include "media/subtitle/subtitle_format.h"
+#include "media/subtitle/ttml_builder.h"
+
 #if (NGX_HAVE_OPENSSL_EVP)
 #include "media/mp4/mp4_dash_encrypt.h"
 #include "media/mpegts/aes_cbc_encrypt.h"
@@ -18,6 +21,17 @@
 
 
 static ngx_int_t ngx_http_pckg_fmp4_preconfiguration(ngx_conf_t *cf);
+
+
+enum {
+    NGX_HTTP_PCKG_FMP4_SUBTITLE_WVTT,
+    NGX_HTTP_PCKG_FMP4_SUBTITLE_STPP,
+};
+
+
+typedef struct {
+    ngx_uint_t  subtitle_format;
+} ngx_http_pckg_fmp4_ctx_t;
 
 
 static ngx_http_module_t  ngx_http_pckg_fmp4_module_ctx = {
@@ -55,9 +69,16 @@ static ngx_str_t  ngx_http_pckg_fmp4_content_type_video =
     ngx_string("video/mp4");
 static ngx_str_t  ngx_http_pckg_fmp4_content_type_audio =
     ngx_string("audio/mp4");
+static ngx_str_t  ngx_http_pckg_fmp4_content_type_application =
+    ngx_string("application/mp4");
 
 static ngx_str_t  ngx_http_pckg_fmp4_ext_seg = ngx_string(".m4s");
 static ngx_str_t  ngx_http_pckg_fmp4_ext_init = ngx_string(".mp4");
+
+static ngx_str_t  ngx_http_pckg_fmp4_suffix_wvtt =
+    ngx_string("-" NGX_HTTP_PCKG_FMP4_PARAM_WVTT);
+static ngx_str_t  ngx_http_pckg_fmp4_suffix_stpp =
+    ngx_string("-" NGX_HTTP_PCKG_FMP4_PARAM_STPP);
 
 
 static void
@@ -73,11 +94,19 @@ static void
 ngx_http_pckg_fmp4_get_content_type(media_info_t *media_info,
     ngx_str_t *content_type)
 {
-    if (media_info->media_type == MEDIA_TYPE_VIDEO) {
-        *content_type = ngx_http_pckg_fmp4_content_type_video;
+    switch (media_info->media_type) {
 
-    } else {
+    case MEDIA_TYPE_VIDEO:
+        *content_type = ngx_http_pckg_fmp4_content_type_video;
+        break;
+
+    case MEDIA_TYPE_AUDIO:
         *content_type = ngx_http_pckg_fmp4_content_type_audio;
+        break;
+
+    default:    /* MEDIA_TYPE_SUBTITLE */
+        *content_type = ngx_http_pckg_fmp4_content_type_application;
+        break;
     }
 }
 
@@ -121,6 +150,7 @@ ngx_http_pckg_fmp4_handle_init_segment(ngx_http_request_t *r)
     atom_writer_t             *stsd_atom_writers = NULL;
     media_init_segment_t       segment;
     ngx_http_pckg_core_ctx_t  *ctx;
+    ngx_http_pckg_fmp4_ctx_t  *fctx;
 
     rc = ngx_http_pckg_media_init_segment(r, &segment);
     if (rc != NGX_OK) {
@@ -128,6 +158,21 @@ ngx_http_pckg_fmp4_handle_init_segment(ngx_http_request_t *r)
     }
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+
+    if (ctx->channel->media_types & (1 << KMP_MEDIA_SUBTITLE)) {
+        fctx = ngx_http_get_module_ctx(r, ngx_http_pckg_fmp4_module);
+
+        if (fctx->subtitle_format == NGX_HTTP_PCKG_FMP4_SUBTITLE_STPP) {
+            rc = ttml_builder_convert_init_segment(&ctx->request_context,
+                &segment);
+            if (rc != VOD_OK) {
+                ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                    "ngx_http_pckg_fmp4_handle_init_segment: "
+                    "convert to ttml failed %i", rc);
+                return ngx_http_pckg_status_to_ngx_error(r, rc);
+            }
+        }
+    }
 
 #if (NGX_HAVE_OPENSSL_EVP)
     ngx_uint_t                  scheme;
@@ -137,6 +182,11 @@ ngx_http_pckg_fmp4_handle_init_segment(ngx_http_request_t *r)
     rc = ngx_http_pckg_fmp4_get_enc_scheme(r, &scheme);
     if (rc != NGX_OK) {
         return rc;
+    }
+
+    enc = segment.first[0].enc;
+    if (enc == NULL) {
+        scheme = NGX_HTTP_PCKG_ENC_NONE;
     }
 
     switch (scheme) {
@@ -182,10 +232,8 @@ ngx_http_pckg_fmp4_handle_init_segment(ngx_http_request_t *r)
 
 #if (NGX_HAVE_OPENSSL_EVP)
     if (scheme == NGX_HTTP_PCKG_ENC_AES_128) {
-        enc = segment.first[0].enc;
-
-        rc = aes_cbc_encrypt_init(&enc_write_ctx,
-            &ctx->request_context, NULL, NULL, NULL, enc->key, enc->iv);
+        rc = aes_cbc_encrypt_init(&enc_write_ctx, &ctx->request_context,
+            NULL, NULL, NULL, enc->key, enc->iv);
         if (rc != VOD_OK) {
             ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                 "ngx_http_pckg_fmp4_handle_init_segment: "
@@ -220,15 +268,38 @@ static ngx_int_t
 ngx_http_pckg_fmp4_init_frame_processor(ngx_http_request_t *r,
     media_segment_t *segment, ngx_http_pckg_frame_processor_t *processor)
 {
-    bool_t                      size_only;
-    bool_t                      per_stream_writer;
-    bool_t                      reuse_input_buffers;
-    vod_status_t                rc;
-    segment_writer_t           *segment_writers;
-    mp4_muxer_state_t          *muxer_state;
-    ngx_http_pckg_core_ctx_t   *ctx;
+    bool_t                     size_only;
+    bool_t                     per_stream_writer;
+    bool_t                     reuse_input_buffers;
+    vod_status_t               rc;
+    segment_writer_t          *segment_writers;
+    mp4_muxer_state_t         *muxer_state;
+    ngx_http_pckg_core_ctx_t  *ctx;
+    ngx_http_pckg_fmp4_ctx_t  *fctx;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_pckg_core_module);
+
+    if (ctx->channel->media_types & (1 << KMP_MEDIA_SUBTITLE)) {
+        rc = subtitle_trim_timestamps(&ctx->request_context, segment);
+        if (rc != VOD_OK) {
+            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                "ngx_http_pckg_fmp4_init_frame_processor: "
+                "trim timestamps failed %i", rc);
+            return ngx_http_pckg_status_to_ngx_error(r, rc);
+        }
+
+        fctx = ngx_http_get_module_ctx(r, ngx_http_pckg_fmp4_module);
+
+        if (fctx->subtitle_format == NGX_HTTP_PCKG_FMP4_SUBTITLE_STPP) {
+            rc = ttml_builder_convert_segment(&ctx->request_context, segment);
+            if (rc != VOD_OK) {
+                ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                    "ngx_http_pckg_fmp4_init_frame_processor: "
+                    "convert to ttml failed %i", rc);
+                return ngx_http_pckg_status_to_ngx_error(r, rc);
+            }
+        }
+    }
 
     segment_writers = &ctx->segment_writer;
     per_stream_writer = FALSE;
@@ -246,15 +317,17 @@ ngx_http_pckg_fmp4_init_frame_processor(ngx_http_request_t *r,
         return rc;
     }
 
+    enc = segment->tracks[0].enc;
+    if (enc == NULL) {
+        scheme = NGX_HTTP_PCKG_ENC_NONE;
+    }
+
     reuse_input_buffers = scheme != NGX_HTTP_PCKG_ENC_NONE;
     muxer_state = NULL;
 
     switch (scheme) {
 
     case NGX_HTTP_PCKG_ENC_AES_128:
-
-        enc = segment->tracks[0].enc;
-
         /* Note: cant use buffer pool for fmp4 - the buffer sizes vary */
         rc = aes_cbc_encrypt_init(&enc_write_ctx,
             &ctx->request_context, segment_writers->write_tail,
@@ -354,12 +427,48 @@ static ngx_http_pckg_request_handler_t  ngx_http_pckg_fmp4_init_seg_handler = {
 };
 
 
+static u_char *
+ngx_http_pckg_fmp4_init_ctx(ngx_http_request_t *r, u_char *start_pos,
+    u_char *end_pos)
+{
+    ngx_http_pckg_fmp4_ctx_t  *fctx;
+
+    fctx = ngx_pcalloc(r->pool, sizeof(*fctx));
+    if (fctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_pckg_fmp4_init_ctx: alloc failed");
+        return NULL;
+    }
+
+    ngx_http_set_ctx(r, fctx, ngx_http_pckg_fmp4_module);
+
+    if (ngx_http_pckg_match_suffix(start_pos, end_pos,
+        ngx_http_pckg_fmp4_suffix_wvtt))
+    {
+        end_pos -= ngx_http_pckg_fmp4_suffix_wvtt.len;
+        fctx->subtitle_format = NGX_HTTP_PCKG_FMP4_SUBTITLE_WVTT;
+
+    } else if (ngx_http_pckg_match_suffix(start_pos, end_pos,
+        ngx_http_pckg_fmp4_suffix_stpp))
+    {
+        end_pos -= ngx_http_pckg_fmp4_suffix_stpp.len;
+        fctx->subtitle_format = NGX_HTTP_PCKG_FMP4_SUBTITLE_STPP;
+
+    } else {
+        fctx->subtitle_format = NGX_HTTP_PCKG_FMP4_SUBTITLE_STPP;
+    }
+
+    return end_pos;
+}
+
+
 static ngx_int_t
 ngx_http_pckg_fmp4_parse_m4s_request(ngx_http_request_t *r, u_char *start_pos,
     u_char *end_pos, ngx_pckg_ksmp_req_t *result,
     ngx_http_pckg_request_handler_t **handler)
 {
-    uint32_t  flags;
+    uint32_t   flags;
+    ngx_int_t  rc;
 
     if (ngx_http_pckg_match_prefix(start_pos, end_pos,
         ngx_http_pckg_prefix_seg))
@@ -377,17 +486,31 @@ ngx_http_pckg_fmp4_parse_m4s_request(ngx_http_request_t *r, u_char *start_pos,
         return NGX_DECLINED;
     }
 
+    end_pos = ngx_http_pckg_fmp4_init_ctx(r, start_pos, end_pos);
+    if (end_pos == NULL) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
     *handler = &ngx_http_pckg_fmp4_fmp4_seg_handler;
 
     flags |= NGX_HTTP_PCKG_PARSE_REQUIRE_INDEX
         | NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT
         | NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
 
+    rc = ngx_http_pckg_parse_uri_file_name(r, start_pos, end_pos,
+        flags, result);
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
     result->flags = NGX_KSMP_FLAG_MEDIA | NGX_KSMP_FLAG_MEDIA_INFO
         | NGX_KSMP_FLAG_RELATIVE_DTS;
 
-    return ngx_http_pckg_parse_uri_file_name(r, start_pos, end_pos,
-        flags, result);
+    if (result->media_type_mask & (1 << KMP_MEDIA_SUBTITLE)) {
+        result->flags |= NGX_KSMP_FLAG_SEGMENT_TIME;
+    }
+
+    return NGX_OK;
 }
 
 
@@ -403,16 +526,22 @@ ngx_http_pckg_fmp4_parse_mp4_request(ngx_http_request_t *r, u_char *start_pos,
     {
         start_pos += ngx_http_pckg_prefix_init_seg.len;
 
-        *handler = &ngx_http_pckg_fmp4_init_seg_handler;
-        flags = NGX_HTTP_PCKG_PARSE_REQUIRE_INDEX |
-            NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT |
-            NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
-
-        result->flags = NGX_KSMP_FLAG_MEDIA_INFO;
-
     } else {
         return NGX_DECLINED;
     }
+
+    end_pos = ngx_http_pckg_fmp4_init_ctx(r, start_pos, end_pos);
+    if (end_pos == NULL) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    *handler = &ngx_http_pckg_fmp4_init_seg_handler;
+
+    flags = NGX_HTTP_PCKG_PARSE_REQUIRE_INDEX
+        | NGX_HTTP_PCKG_PARSE_REQUIRE_SINGLE_VARIANT
+        | NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE;
+
+    result->flags = NGX_KSMP_FLAG_MEDIA_INFO;
 
     return ngx_http_pckg_parse_uri_file_name(r, start_pos, end_pos,
         flags, result);

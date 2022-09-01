@@ -412,11 +412,12 @@ ngx_http_live_ksmp_parse(ngx_http_request_t *r)
         }
 
         if (params->time == NGX_KSMP_INVALID_TIMESTAMP &&
-            (params->flags & NGX_KSMP_FLAG_MEDIA))
+            (params->flags & (NGX_KSMP_FLAG_MEDIA
+                | NGX_KSMP_FLAG_SEGMENT_TIME)))
         {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "ngx_http_live_ksmp_parse: "
-                "missing \"segment_index\" arg when requesting media");
+                "missing \"segment_index\" arg when requesting media/time");
             return NGX_HTTP_BAD_REQUEST;
         }
 
@@ -1504,6 +1505,7 @@ ngx_http_live_ksmp_init_scope(ngx_http_request_t *r,
     ngx_live_period_t            *period;
     ngx_live_channel_t           *channel;
     ngx_live_timeline_t          *timeline;
+    ngx_live_segment_iter_t       iter;
     ngx_http_live_ksmp_ctx_t     *ctx;
     ngx_http_live_ksmp_params_t  *params;
 
@@ -1565,9 +1567,24 @@ ngx_http_live_ksmp_init_scope(ngx_http_request_t *r,
         scope->si.correction = 0;
     }
 
+    if (flags & NGX_KSMP_FLAG_SEGMENT_TIME) {
+        if (ngx_live_timelines_get_segment_iter(channel,
+            &iter, segment_index, &scope->si.start))
+        {
+            return ngx_http_live_ksmp_output_error(r, code,
+                "segment %uD does not exist, channel: %V",
+                segment_index, &channel->sn.str);
+        }
+
+        scope->si.duration = ngx_live_segment_iter_get_one(&iter);
+
+    } else {
+        scope->si.start = 0;
+        scope->si.duration = 0;
+    }
+
     scope->si.index = segment_index;
     scope->si.time = time;
-    scope->si.reserved = 0;
 
     if (segment_index != NGX_KSMP_INVALID_SEGMENT_INDEX) {
         scope->min_index = scope->max_index = segment_index;

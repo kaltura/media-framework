@@ -6,6 +6,8 @@
 #define KMP_MAX_HEADER_SIZE          (64 * 1024)
 #define KMP_MAX_DATA_SIZE            (16 * 1024 * 1024)
 
+#define KMP_INVALID_FRAME_ID         (ULLONG_MAX)
+
 #define KMP_MAX_CHANNEL_ID_LEN       (32)
 #define KMP_MAX_TRACK_ID_LEN         (32)
 
@@ -61,6 +63,7 @@ enum {
 enum {
     KMP_MEDIA_VIDEO,
     KMP_MEDIA_AUDIO,
+    KMP_MEDIA_SUBTITLE,
     KMP_MEDIA_COUNT,
 };
 
@@ -89,6 +92,8 @@ enum {
     KMP_CODEC_AUDIO_SPEEX           = 1011,
     KMP_CODEC_AUDIO_MP3_8           = 1014,
     KMP_CODEC_AUDIO_DEVSPEC         = 1015,
+
+    KMP_CODEC_SUBTITLE_WEBVTT       = 2001,
 };
 
 

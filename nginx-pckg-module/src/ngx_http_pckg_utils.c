@@ -19,8 +19,9 @@ static ngx_int_t  ngx_http_pckg_error_map[VOD_ERROR_LAST - VOD_ERROR_FIRST] = {
 
 
 u_char  ngx_http_pckg_media_type_code[KMP_MEDIA_COUNT] = {
-    'v',
-    'a',
+    'v',    /* video */
+    'a',    /* audio */
+    't',    /* subtitle (text) */
 };
 
 
@@ -254,7 +255,8 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
     ngx_pckg_ksmp_req_t *result)
 {
     u_char     *p;
-    uint32_t    media_type;
+    uint32_t    media_type_flag;
+    uint32_t    media_type_mask;
     ngx_str_t   cur;
 
     /* required params */
@@ -372,9 +374,11 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
         }
     }
 
-    if ((*start_pos == 'v' || *start_pos == 'a') &&
+    if ((*start_pos == 'v' || *start_pos == 'a' || *start_pos == 't') &&
         (flags & NGX_HTTP_PCKG_PARSE_OPTIONAL_MEDIA_TYPE))
     {
+        media_type_mask = result->media_type_mask;
+
         result->media_type_mask = 0;
         result->media_type_count = 0;
 
@@ -383,11 +387,15 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
             switch (*start_pos) {
 
             case 'v':
-                media_type = KMP_MEDIA_VIDEO;
+                media_type_flag = 1 << KMP_MEDIA_VIDEO;
                 break;
 
             case 'a':
-                media_type = KMP_MEDIA_AUDIO;
+                media_type_flag = 1 << KMP_MEDIA_AUDIO;
+                break;
+
+            case 't':
+                media_type_flag = 1 << KMP_MEDIA_SUBTITLE;
                 break;
 
             default:
@@ -397,14 +405,21 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
                 return NGX_HTTP_BAD_REQUEST;
             }
 
-            if (result->media_type_mask & (1 << media_type)) {
+            if (!(media_type_mask & media_type_flag)) {
                 ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                     "ngx_http_pckg_parse_uri_file_name: "
-                    "media type repeats more than once");
+                    "unsupported media type \"%c\"", *start_pos);
                 return NGX_HTTP_BAD_REQUEST;
             }
 
-            result->media_type_mask |= (1 << media_type);
+            if (result->media_type_mask & media_type_flag) {
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                    "ngx_http_pckg_parse_uri_file_name: "
+                    "media type \"%c\" repeats more than once", *start_pos);
+                return NGX_HTTP_BAD_REQUEST;
+            }
+
+            result->media_type_mask |= media_type_flag;
             result->media_type_count++;
 
             start_pos++;

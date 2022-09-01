@@ -375,6 +375,7 @@ ngx_live_segment_cache_validate(ngx_live_segment_t *segment)
 #define ngx_live_segment_cache_validate(segment)
 #endif
 
+
 void
 ngx_live_segment_cache_shift_dts(ngx_live_segment_t *segment, uint32_t shift)
 {
@@ -402,6 +403,65 @@ ngx_live_segment_cache_shift_dts(ngx_live_segment_t *segment, uint32_t shift)
 
     segment->start_dts -= shift;
     segment->end_dts -= shift;
+}
+
+
+ngx_int_t
+ngx_live_segment_cache_copy_chains(ngx_live_segment_t *segment)
+{
+    size_t                left;
+    ngx_buf_chain_t      *src, *dst;
+    ngx_buf_chain_t      *head, *tail;
+    ngx_buf_chain_t     **last;
+    ngx_live_channel_t   *channel;
+
+    channel = segment->track->channel;
+
+    last = &head;
+    dst = NULL;
+
+    left = segment->data_size;
+    for (src = segment->data_head; left > 0; src = src->next) {
+
+#if (NGX_LIVE_VALIDATIONS)
+        if (left < src->size) {
+            ngx_log_error(NGX_LOG_ALERT, segment->pool->log, 0,
+                "ngx_live_segment_cache_copy_chains: "
+                "size left %uz smaller than buf chain size %uz",
+                left, src->size);
+            ngx_debug_point();
+        }
+#endif
+
+        dst = ngx_live_channel_buf_chain_alloc(channel);
+        if (dst == NULL) {
+            goto failed;
+        }
+
+        *last = dst;
+        last = &dst->next;
+
+        dst->data = src->data;
+        dst->size = src->size;
+
+        left -= src->size;
+    }
+
+    *last = NULL;
+
+    segment->data_head = head;
+    segment->data_tail = dst;
+
+    return NGX_OK;
+
+failed:
+
+    if (last != &head) {
+        tail = (ngx_buf_chain_t *) last; /* next is first in ngx_buf_chain_t */
+        ngx_live_channel_buf_chain_free_list(channel, head, tail);
+    }
+
+    return NGX_ERROR;
 }
 
 

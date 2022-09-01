@@ -1,0 +1,237 @@
+URL: /master.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-INDEPENDENT-SEGMENTS
+
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="sub14",NAME="English",LANGUAGE="en",AUTOSELECT=NO,DEFAULT=NO,URI="index-ssub1-t.m3u8"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="sub14",NAME="Spanish",LANGUAGE="es",AUTOSELECT=NO,DEFAULT=NO,URI="index-ssub2-t.m3u8"
+
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=600767,AVERAGE-BANDWIDTH=522317,RESOLUTION=480x256,FRAME-RATE=25.000,CODECS="avc1.42c01e,mp4a.40.2",SUBTITLES="sub14"
+index-svar1.m3u8
+
+URL: /index-ssub1-t.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:00.000+00:00
+#EXTINF:3.983,
+seg-1-ssub1-t.vtt
+#EXTINF:4.000,
+seg-2-ssub1-t.vtt
+#EXTINF:4.000,
+seg-3-ssub1-t.vtt
+#EXTINF:4.000,
+seg-4-ssub1-t.vtt
+#EXTINF:4.000,
+seg-5-ssub1-t.vtt
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:19.983+00:00
+#EXTINF:4.000,
+seg-6-ssub1-t.vtt
+#EXTINF:4.000,
+seg-7-ssub1-t.vtt
+#EXTINF:4.000,
+seg-8-ssub1-t.vtt
+#EXTINF:4.000,
+seg-9-ssub1-t.vtt
+#EXTINF:4.000,
+seg-10-ssub1-t.vtt
+#EXT-X-ENDLIST
+
+URL: /index-ssub2-t.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:00.000+00:00
+#EXTINF:3.983,
+seg-1-ssub2-t.vtt
+#EXTINF:4.000,
+seg-2-ssub2-t.vtt
+#EXTINF:4.000,
+seg-3-ssub2-t.vtt
+#EXTINF:4.000,
+seg-4-ssub2-t.vtt
+#EXTINF:4.000,
+seg-5-ssub2-t.vtt
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:19.983+00:00
+#EXTINF:4.000,
+seg-6-ssub2-t.vtt
+#EXTINF:4.000,
+seg-7-ssub2-t.vtt
+#EXTINF:4.000,
+seg-8-ssub2-t.vtt
+#EXTINF:4.000,
+seg-9-ssub2-t.vtt
+#EXTINF:4.000,
+seg-10-ssub2-t.vtt
+#EXT-X-ENDLIST
+
+URL: /index-svar1.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:00.000+00:00
+#EXTINF:3.983,
+#EXT-X-BITRATE:537
+seg-1-svar1.ts
+#EXTINF:4.000,
+seg-2-svar1.ts
+#EXTINF:4.000,
+seg-3-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:599
+seg-4-svar1.ts
+#EXTINF:4.000,
+#EXT-X-BITRATE:512
+seg-5-svar1.ts
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:19.983+00:00
+#EXTINF:4.000,
+#EXT-X-BITRATE:512
+seg-6-svar1.ts
+#EXTINF:4.000,
+seg-7-svar1.ts
+#EXTINF:4.000,
+seg-8-svar1.ts
+#EXTINF:4.000,
+seg-9-svar1.ts
+#EXTINF:4.000,
+seg-10-svar1.ts
+#EXT-X-ENDLIST
+
+URL: /seg-1-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 102, MD5: c1e5bd4a6d69271a2bab2a0320836a70
+
+URL: /seg-2-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 201, MD5: 87dc47d5bf3a3d885373c4473d835bb3
+
+URL: /seg-3-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 258, MD5: ed3014da153d56bb5e7092a12d54a438
+
+URL: /seg-4-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 240, MD5: cc52a3d3d34ba16e18389a810c88b6cb
+
+URL: /seg-5-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 304, MD5: 84e55bb367a0b9a938dd6281ba9596ba
+
+URL: /seg-6-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 227, MD5: 83d7e340038ca38785dfca8a8337ff3d
+
+URL: /seg-7-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 237, MD5: 592cdb009c9229003992086ad7174cd8
+
+URL: /seg-8-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 246, MD5: 9f469f891f110e65c598bc9650b0efa1
+
+URL: /seg-9-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 213, MD5: fed8bc3d5ed28521fb0f931203eb0cfc
+
+URL: /seg-10-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 307, MD5: 5f4dcf331a1ecfa69feac77f3ea7b7a6
+
+URL: /seg-1-ssub2-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 102, MD5: b739480d867e1f1f7f01d6d86941f0ae
+
+URL: /seg-2-ssub2-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 219, MD5: 84e7615b64cddaed3b8c8466e2d7bbde
+
+URL: /seg-3-ssub2-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 282, MD5: e9a96a7d77e24acb3cddf525790d8b13
+
+URL: /seg-4-ssub2-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 249, MD5: 40e0f5e2827cf2ca71f5374633140d4a
+
+URL: /seg-5-ssub2-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 312, MD5: c29eb3783a3ca13262b1c5c16dd9b8b8
+
+URL: /seg-6-ssub2-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 243, MD5: bae19b31997e93fb5fa9fdf2972dc054
+
+URL: /seg-7-ssub2-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 251, MD5: 0625180f28db20cbd153f8ffe58da4e1
+
+URL: /seg-8-ssub2-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 251, MD5: 61fb02b25c29329c9189a0973b92ad28
+
+URL: /seg-9-ssub2-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 226, MD5: 74ec720a2451742cd28a8229520a2b3c
+
+URL: /seg-10-ssub2-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 331, MD5: dad61ea87a96504e73496d2d71ceb53f
+
+URL: /seg-1-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 268276, MD5: 868430ee9cce0659a50870e54398216d
+
+URL: /seg-2-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 256244, MD5: 6f26d6de1c19d28dce001ee043105771
+
+URL: /seg-3-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 256244, MD5: f9dd81253afcbb18dd2a46d5cdd912ab
+
+URL: /seg-4-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 298356, MD5: 8aaa6f10d8137a4adcc2012570836b60
+
+URL: /seg-5-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 256244, MD5: f2d2c9b967331ab3178c8992d97ad683
+
+URL: /seg-6-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 247220, MD5: 6ac9e2ff2e7782a14f3321ec33604faf
+
+URL: /seg-7-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 259252, MD5: fdb3fc1f325bafacdf79e07146eb093f
+
+URL: /seg-8-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 259252, MD5: 1dc0522b17a82aeba69fa49da603fcc9
+
+URL: /seg-9-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 253236, MD5: 7f63aa98b88b3605f7c0e9472b4d7125
+
+URL: /seg-10-svar1.ts
+HEADERS: 200 video/mp2t
+BODY: SIZE: 256244, MD5: 6993f714c61e49289f53e1af349b1d5d
+

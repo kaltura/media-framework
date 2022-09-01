@@ -128,6 +128,30 @@ static char *ngx_http_pckg_mpd_merge_loc_conf(ngx_conf_t *cf, void *parent,
     "          codecs=\"%V\"\n"                                              \
     "          startWithSAP=\"1\"/>\n"
 
+#define MPD_ADAPTATION_HEADER_SUBTITLE                                       \
+    "    <AdaptationSet\n"                                                   \
+    "        id=\"%uD\"\n"                                                   \
+    "        contentType=\"text\"\n"                                         \
+    "        segmentAlignment=\"true\">\n"
+
+#define MPD_ADAPTATION_HEADER_SUBTITLE_LANG                                  \
+    "    <AdaptationSet\n"                                                   \
+    "        id=\"%uD\"\n"                                                   \
+    "        contentType=\"text\"\n"                                         \
+    "        lang=\"%V\"\n"                                                  \
+    "        segmentAlignment=\"true\">\n"
+
+#define MPD_REPRESENTATION_SUBTITLE                                          \
+    "      <Representation\n"                                                \
+    "          id=\"s%V-t-%V\"\n"                                            \
+    "          bandwidth=\"%uD\"\n"                                          \
+    "          mimeType=\"%V\"\n"                                            \
+    "          codecs=\"%V\"\n"                                              \
+    "          startWithSAP=\"1\"/>\n"
+
+#define MPD_SUBTITLE_CODEC_MAX_LEN                                           \
+    (sizeof(NGX_HTTP_PCKG_FMP4_PARAM_WVTT) - 1)
+
 #define MPD_SEGMENT_TEMPLATE_HEADER                                          \
     "      <SegmentTemplate\n"                                               \
     "          timescale=\"%uD\"\n"                                          \
@@ -206,8 +230,15 @@ static char *ngx_http_pckg_mpd_merge_loc_conf(ngx_conf_t *cf, void *parent,
         sizeof(ngx_http_pckg_mpd_playready_sys_id)) == 0)
 
 
+enum {
+    NGX_HTTP_PCKG_MPD_SUBTITLE_WVTT,
+    NGX_HTTP_PCKG_MPD_SUBTITLE_STPP,
+};
+
+
 typedef struct {
     ngx_http_complex_value_t  *profiles;
+    ngx_uint_t                 subtitle_format;
     ngx_uint_t                 pres_delay_segments;
 }  ngx_http_pckg_mpd_loc_conf_t;
 
@@ -226,6 +257,13 @@ typedef struct {
 } ngx_http_pckg_mpd_video_params_t;
 
 
+static ngx_conf_enum_t  ngx_http_pckg_mpd_subtitle_formats[] = {
+    { ngx_string("wvtt"), NGX_HTTP_PCKG_MPD_SUBTITLE_WVTT },
+    { ngx_string("stpp"), NGX_HTTP_PCKG_MPD_SUBTITLE_STPP },
+    { ngx_null_string, 0 }
+};
+
+
 static ngx_command_t  ngx_http_pckg_mpd_commands[] = {
 
     { ngx_string("pckg_mpd_profiles"),
@@ -234,6 +272,13 @@ static ngx_command_t  ngx_http_pckg_mpd_commands[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_mpd_loc_conf_t, profiles),
       NULL },
+
+    { ngx_string("pckg_mpd_subtitle_format"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_enum_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_mpd_loc_conf_t, subtitle_format),
+      &ngx_http_pckg_mpd_subtitle_formats },
 
     { ngx_string("pckg_mpd_pres_delay_segments"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -281,6 +326,12 @@ static ngx_str_t  ngx_http_pckg_mpd_ext = ngx_string(".mpd");
 
 static ngx_str_t  ngx_http_pckg_mpd_content_type =
     ngx_string("application/dash+xml");
+
+/* Note: must match NGX_HTTP_PCKG_MPD_SUBTITLE_XXX in order */
+static ngx_str_t  ngx_http_pckg_mpd_subtitle_codecs[] = {
+    ngx_string(NGX_HTTP_PCKG_FMP4_PARAM_WVTT),
+    ngx_string(NGX_HTTP_PCKG_FMP4_PARAM_STPP),
+};
 
 
 #if (NGX_HAVE_OPENSSL_EVP)
@@ -987,6 +1038,107 @@ ngx_http_pckg_mpd_audio_adapt_set_write(u_char *p, ngx_http_request_t *r,
 }
 
 
+/* Note: the size of the variant ids must be added outside this function */
+static size_t
+ngx_http_pckg_mpd_subtitle_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
+    ngx_pckg_period_t *period)
+{
+    size_t                       size;
+    ngx_str_t                    content_type;
+    ngx_pckg_track_t            *track;
+    ngx_pckg_variant_t         **variants;
+    ngx_http_pckg_container_t   *container;
+
+    container = ngx_http_pckg_mpd_get_container(set->media_info->codec_id);
+    container->get_content_type(set->media_info, &content_type);
+
+    variants = set->variants.elts;
+    track = variants[0]->tracks[KMP_MEDIA_SUBTITLE];
+
+    size = sizeof(MPD_ADAPTATION_HEADER_SUBTITLE_LANG) - 1 + NGX_INT32_LEN
+            + variants[0]->lang.len
+        + sizeof(MPD_ADAPTATION_LABEL) - 1 + variants[0]->label.len
+        + ngx_http_pckg_seg_tmpl_get_size(period, container)
+        + set->variants.nelts * (sizeof(MPD_REPRESENTATION_SUBTITLE) - 1
+            + MPD_SUBTITLE_CODEC_MAX_LEN * 2 + NGX_INT32_LEN
+            + content_type.len)
+        + ngx_http_pckg_mpd_cont_prot_get_size(track)
+        + sizeof(MPD_ADAPTATION_FOOTER) - 1;
+
+    return size;
+}
+
+
+static u_char *
+ngx_http_pckg_mpd_subtitle_adapt_set_write(u_char *p, ngx_http_request_t *r,
+    ngx_pckg_adapt_set_t *set, ngx_pckg_period_t *period, uint32_t id)
+{
+    uint32_t                        bitrate;
+    uint32_t                        segment_index;
+    uint32_t                        segment_duration;
+    ngx_str_t                      *codec;
+    ngx_str_t                       content_type;
+    ngx_uint_t                      i, n;
+    media_info_t                   *media_info;
+    ngx_pckg_track_t               *track;
+    ngx_pckg_variant_t            **variants, *variant;
+    ngx_http_pckg_container_t      *container;
+    ngx_http_pckg_mpd_loc_conf_t   *mlcf;
+
+    mlcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_mpd_module);
+
+    segment_index = period->header.segment_index;
+
+    container = ngx_http_pckg_mpd_get_container(set->media_info->codec_id);
+    container->get_content_type(set->media_info, &content_type);
+
+    segment_duration = ngx_http_pckg_mpd_get_avg_segment_duration(period);
+
+    n = set->variants.nelts;
+    variants = set->variants.elts;
+
+    if (variants[0]->lang.len != 0) {
+        p = ngx_sprintf(p, MPD_ADAPTATION_HEADER_SUBTITLE_LANG, id,
+            &variants[0]->lang);
+
+    } else {
+        p = ngx_sprintf(p, MPD_ADAPTATION_HEADER_SUBTITLE, id);
+    }
+
+    if (variants[0]->label.len != 0) {
+        p = ngx_sprintf(p, MPD_ADAPTATION_LABEL, &variants[0]->label);
+    }
+
+    p = ngx_http_pckg_seg_tmpl_write(p, period, container);
+
+    for (i = 0; i < n; i++) {
+        variant = variants[i];
+        track = variant->tracks[KMP_MEDIA_SUBTITLE];
+
+        ngx_pckg_media_info_iter_get(&track->media_info_iter, segment_index,
+            &media_info);
+        if (media_info == NULL) {
+            continue;
+        }
+
+        bitrate = ngx_http_pckg_estimate_max_bitrate(r, container,
+            &media_info, 1, segment_duration);
+
+        codec = &ngx_http_pckg_mpd_subtitle_codecs[mlcf->subtitle_format];
+
+        p = ngx_sprintf(p, MPD_REPRESENTATION_SUBTITLE,
+            &variant->id, codec, bitrate, &content_type, codec);
+    }
+
+    track = variants[0]->tracks[KMP_MEDIA_SUBTITLE];
+    p = ngx_http_pckg_mpd_cont_prot_write(p, track);
+
+    p = ngx_copy_fix(p, MPD_ADAPTATION_FOOTER);
+
+    return p;
+}
+
+
 static size_t
 ngx_http_pckg_mpd_adapt_sets_get_size(ngx_pckg_adapt_sets_t *sets,
     ngx_pckg_period_t *period)
@@ -1013,6 +1165,15 @@ ngx_http_pckg_mpd_adapt_sets_get_size(ngx_pckg_adapt_sets_t *sets,
         set = ngx_queue_data(q, ngx_pckg_adapt_set_t, queue);
 
         size += ngx_http_pckg_mpd_audio_adapt_set_get_size(set, period);
+    }
+
+    for (q = ngx_queue_head(&sets->queue[KMP_MEDIA_SUBTITLE]);
+        q != ngx_queue_sentinel(&sets->queue[KMP_MEDIA_SUBTITLE]);
+        q = ngx_queue_next(q))
+    {
+        set = ngx_queue_data(q, ngx_pckg_adapt_set_t, queue);
+
+        size += ngx_http_pckg_mpd_subtitle_adapt_set_get_size(set, period);
     }
 
     return size;
@@ -1050,6 +1211,18 @@ ngx_http_pckg_mpd_adapt_sets_write(u_char *p, ngx_http_request_t *r,
         adapt_id++;
 
         p = ngx_http_pckg_mpd_audio_adapt_set_write(p, r, set, period,
+            adapt_id);
+    }
+
+    for (q = ngx_queue_head(&sets->queue[KMP_MEDIA_SUBTITLE]);
+        q != ngx_queue_sentinel(&sets->queue[KMP_MEDIA_SUBTITLE]);
+        q = ngx_queue_next(q))
+    {
+        set = ngx_queue_data(q, ngx_pckg_adapt_set_t, queue);
+
+        adapt_id++;
+
+        p = ngx_http_pckg_mpd_subtitle_adapt_set_write(p, r, set, period,
             adapt_id);
     }
 
@@ -1382,6 +1555,7 @@ ngx_http_pckg_mpd_create_loc_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    conf->subtitle_format = NGX_CONF_UNSET_UINT;
     conf->pres_delay_segments = NGX_CONF_UNSET_UINT;
 
     return conf;
@@ -1397,6 +1571,10 @@ ngx_http_pckg_mpd_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->profiles == NULL) {
         conf->profiles = prev->profiles;
     }
+
+    ngx_conf_merge_uint_value(conf->subtitle_format,
+                              prev->subtitle_format,
+                              NGX_HTTP_PCKG_MPD_SUBTITLE_WVTT);
 
     ngx_conf_merge_uint_value(conf->pres_delay_segments,
                               prev->pres_delay_segments, 3);

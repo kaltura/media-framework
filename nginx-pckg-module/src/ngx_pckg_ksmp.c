@@ -1032,6 +1032,18 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
         }
         break;
 
+    case KMP_MEDIA_SUBTITLE:
+        if (src->codec_id != KMP_CODEC_SUBTITLE_WEBVTT) {
+            ngx_log_error(NGX_LOG_ERR, channel->log, 0,
+                "ngx_pckg_ksmp_parse_media_info: "
+                "invalid subtitle codec id %uD", src->codec_id);
+            return NGX_BAD_DATA;
+        }
+
+        dest->media_type = MEDIA_TYPE_SUBTITLE;
+        dest->codec_id = VOD_CODEC_ID_WEBVTT;
+        break;
+
     default:
         ngx_log_error(NGX_LOG_ALERT, channel->log, 0,
             "ngx_pckg_ksmp_parse_media_info: invalid media type %uD",
@@ -1302,6 +1314,7 @@ ngx_pckg_ksmp_read_segment(ngx_persist_block_hdr_t *header,
     }
 
     segment->channel = channel;
+    segment->pool = channel->pool;
 
     rc = ngx_persist_conf_read_blocks(channel->persist,
         NGX_PCKG_KSMP_CTX_SEGMENT, rs, segment);
@@ -1385,7 +1398,7 @@ ngx_pckg_ksmp_read_frame_list(ngx_persist_block_hdr_t *header,
         return NGX_BAD_DATA;
     }
 
-    segment->frames = ngx_palloc(segment->channel->pool, frames.len);
+    segment->frames = ngx_palloc(segment->pool, frames.len);
     if (segment->frames == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_pckg_ksmp_read_frame_list: alloc failed");

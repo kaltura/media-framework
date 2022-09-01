@@ -1,4 +1,5 @@
 from cleanup_stack import *
+import subtitle_utils
 import subprocess
 import struct
 import socket
@@ -27,10 +28,13 @@ KMP_PACKET_HEADER_SIZE  = 16
 
 KMP_MEDIA_VIDEO = 0
 KMP_MEDIA_AUDIO = 1
+KMP_MEDIA_SUBTITLE = 2
 
 KMP_FRAME_FLAG_KEY = 0x01
 
 KMP_FRAME_HEADER_SIZE = 24
+
+KMP_CODEC_SUBTITLE_WEBVTT = 2001
 
 VERBOSITY = 0
 
@@ -46,6 +50,7 @@ class KmpReaderBase(object):
         res = self.getPacketData()
         self.readPacket()
         return res
+
 
 class KmpReader(KmpReaderBase):
     def __init__(self, input, name = ''):
@@ -80,6 +85,7 @@ class KmpFileReader(KmpReader):
     def __init__(self, inputFile):
         self.inputFile = inputFile
         super(KmpFileReader, self).__init__(open(inputFile, 'rb'), inputFile)
+
 
 class KmpMediaFileReader(KmpReader):
     def __init__(self, inputFile, streamId, createdBase=DEFAULT_CREATED):
@@ -147,10 +153,67 @@ class KmpMemoryReader(KmpReaderBase):
             self.index += 1
 
 
+class KmpSRTReader(KmpReaderBase):
+    def __init__(self, inputFile, createdBase=DEFAULT_CREATED):
+        self.name = inputFile
+
+        with open(inputFile, 'rb') as f:
+            self.cues = subtitle_utils.parseSRTCues(f.read())
+        self.cueIndex = -1
+
+        self.timescale = 90000
+        self.createdBase = createdBase
+
+        self.initMediaInfo()
+
+        self.readPacket()
+
+    def initMediaInfo(self):
+        bitrate = 100
+        extraData = 'WEBVTT'
+
+        mediaInfo = struct.pack('<LLLL', KMP_MEDIA_SUBTITLE, KMP_CODEC_SUBTITLE_WEBVTT, self.timescale, bitrate) + '\0' * 16
+        self.mediaInfo = kmpCreatePacket(KMP_PACKET_MEDIA_INFO, mediaInfo, extraData)
+
+    @staticmethod
+    def getVttcAtom(payload):
+        payload = struct.pack('>L', 8 + len(payload)) + b'payl' + payload
+        return struct.pack('>L', 8 + len(payload)) + b'vttc' + payload
+
+    def readPacket(self):
+        if self.cueIndex >= len(self.cues):
+            self.packetType = None
+            self.packetData = None
+            return
+
+        if self.cueIndex < 0:
+            self.cueIndex = 0
+            self.packetType = KMP_PACKET_MEDIA_INFO
+            self.packetData = self.mediaInfo
+            return
+
+        start, end, body = self.cues[self.cueIndex]
+        self.cueIndex += 1
+
+        start = (start * self.timescale) // 1000
+        end = (end * self.timescale) // 1000
+
+        created = self.createdBase + start
+        dts = start
+        ptsDelay = end - start
+        flags = 0
+
+        header = struct.pack('<qqLl', created, dts, flags, ptsDelay)
+
+        self.packetType = KMP_PACKET_FRAME
+        self.packetData = kmpCreatePacket(self.packetType, header, self.getVttcAtom(body))
+
+
 class KmpSendTimestamps:
     def __init__(self):
         self.dts = 0
         self.created = DEFAULT_CREATED
+
 
 class KmpNullSender(object):
     def __init__(self):
@@ -161,6 +224,7 @@ class KmpNullSender(object):
 
     def recv(self, bufsize):
         return ''
+
 
 class KmpTcpSender(object):
     def __init__(self, addr, channelId, trackId, mediaType, initialFrameId = 0, initialOffset = 0, flags = 0):
@@ -186,6 +250,7 @@ class KmpTcpSender(object):
     def setsockopt(self, level, optname, value):
         return self.s.setsockopt(level, optname, value)
 
+
 class FilteredSender(object):
     def __init__(self, sender, filter):
         self.sender = sender
@@ -195,6 +260,7 @@ class FilteredSender(object):
     def send(self, data):
         if self.filter(data):
             self.sender.send(data)
+
 
 class KmpTypeFilteredSender(FilteredSender):
     def __init__(self, sender, types):

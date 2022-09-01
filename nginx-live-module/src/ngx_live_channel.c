@@ -42,6 +42,7 @@ ngx_str_t  ngx_live_variant_role_names[] = {
 ngx_str_t  ngx_live_track_media_type_names[] = {
     ngx_string("video"),
     ngx_string("audio"),
+    ngx_string("subtitle"),
     ngx_null_string
 };
 
@@ -405,7 +406,8 @@ ngx_live_channel_ack_frames(ngx_live_channel_t *channel)
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
 
         if (cur_track->input.ack_frames != NULL) {
-            cur_track->input.ack_frames(cur_track, cur_track->next_frame_id);
+            cur_track->input.ack_frames(cur_track->input.data,
+                cur_track->next_frame_id);
         }
     }
 }
@@ -711,7 +713,7 @@ ngx_live_variant_update_active(ngx_live_variant_t *variant)
 
     channel = variant->channel;
 
-    for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+    for (media_type = 0; media_type < KMP_MEDIA_SUBTITLE; media_type++) {
 
         cur_track = variant->tracks[media_type];
         if (cur_track == NULL) {
@@ -734,6 +736,11 @@ ngx_live_variant_update_active(ngx_live_variant_t *variant)
         {
             goto active;
         }
+    }
+
+    cur_track = variant->tracks[KMP_MEDIA_SUBTITLE];
+    if (cur_track != NULL) {
+        goto active;
     }
 
     variant->active = 0;
@@ -795,7 +802,7 @@ ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
         return variant->active;
     }
 
-    for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+    for (media_type = 0; media_type < KMP_MEDIA_SUBTITLE; media_type++) {
 
         cur_track = variant->tracks[media_type];
         if (cur_track == NULL) {
@@ -829,6 +836,11 @@ ngx_live_variant_is_active_last(ngx_live_variant_t *variant,
 
         /* other track segment */
         return 0;
+    }
+
+    cur_track = variant->tracks[KMP_MEDIA_SUBTITLE];
+    if (cur_track != NULL) {
+        return 1;
     }
 
     return 0;
@@ -913,7 +925,8 @@ ngx_live_variant_json_track_ids_get_size(ngx_live_variant_t *obj)
             continue;
         }
 
-        result += sizeof("\"video\":\"") - 1 + sizeof("\",") - 1 +
+        result += sizeof("\"\":\"\",") - 1 +
+            ngx_live_track_media_type_names[media_type].len +
             cur_track->sn.str.len + cur_track->id_escape;
     }
 
@@ -943,17 +956,13 @@ ngx_live_variant_json_track_ids_write(u_char *p, ngx_live_variant_t *obj)
             comma = 1;
         }
 
-        switch (media_type) {
+        *p++ = '"';
+        p = ngx_copy_str(p, ngx_live_track_media_type_names[media_type]);
+        *p++ = '"';
 
-        case KMP_MEDIA_VIDEO:
-            p = ngx_copy_fix(p, "\"video\":\"");
-            break;
+        *p++ = ':';
 
-        case KMP_MEDIA_AUDIO:
-            p = ngx_copy_fix(p, "\"audio\":\"");
-            break;
-        }
-
+        *p++ = '"';
         p = ngx_json_str_write_escape(p, &cur_track->sn.str,
             cur_track->id_escape);
         *p++ = '"';
@@ -1181,7 +1190,7 @@ ngx_live_track_channel_free(ngx_live_track_t *track, ngx_uint_t event)
     (void) ngx_live_core_track_event(track, event, NULL);
 
     if (track->input.data != NULL) {
-        track->input.disconnect(track, NGX_OK);
+        track->input.disconnect(track->input.data, NGX_OK);
     }
 }
 

@@ -84,7 +84,7 @@ ngx_live_persist_snap_frames_close(void *data,
             continue;
         }
 
-        cur_track->input.ack_frames(cur_track, tf->next_frame_id);
+        cur_track->input.ack_frames(cur_track->input.data, tf->next_frame_id);
     }
 
 done:

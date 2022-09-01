@@ -19,15 +19,17 @@ def test(channelId=CHANNEL_ID):
 
     sv1, sa1 = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
     sv2, sa2 = createVariant(nl, 'var2', [('v2', 'video'), ('a2', 'audio')])
+    ssEn = createSubtitleVariant(nl, 'sub1', 's1', 'English', 'en')
 
     kmpSendStreams([
         (KmpMediaFileReader(TEST_VIDEO1, 0), sv1),
         (KmpMediaFileReader(TEST_VIDEO1, 1), sa1),
         (KmpMediaFileReader(TEST_VIDEO2, 0), sv2),
         (KmpMediaFileReader(TEST_VIDEO2, 1), sa2),
+        (KmpSRTReader(TEST_VIDEO2_CC_ENG), ssEn),
     ], st, 20, realtime=False)
 
-    kmpSendEndOfStream([sv1, sa1, sv2, sa2])
+    kmpSendEndOfStream([sv1, sa1, sv2, sa2, ssEn])
 
     nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
 

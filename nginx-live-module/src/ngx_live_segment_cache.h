@@ -129,6 +129,8 @@ void ngx_live_segment_cache_free_by_index(ngx_live_channel_t *channel,
 void ngx_live_segment_cache_shift_dts(ngx_live_segment_t *segment,
     uint32_t shift);
 
+ngx_int_t ngx_live_segment_cache_copy_chains(ngx_live_segment_t *segment);
+
 void ngx_live_segment_cache_finalize(ngx_live_segment_t *segment,
     uint32_t *bitrate);
 

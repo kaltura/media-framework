@@ -265,11 +265,13 @@ ngx_pckg_media_groups_assign_groups(ngx_pckg_media_groups_t *groups,
         q != ngx_queue_sentinel(&groups->queue[media_type]);
         q = ngx_queue_next(q))
     {
+        if (cur != streams) {
+            ngx_memcpy(cur, streams, sizeof(*cur) * n);
+        }
+
         group = ngx_queue_data(q, ngx_pckg_media_group_t, queue);
 
         for (i = 0; i < n; i++, cur++) {
-            cur->variant = streams[i].variant;
-            cur->media_types = streams[i].media_types;
             cur->groups[media_type] = group;
         }
     }
@@ -309,9 +311,15 @@ ngx_pckg_media_groups_init(ngx_pckg_media_groups_t *groups)
         return ngx_pckg_media_groups_derive_streams(groups, KMP_MEDIA_AUDIO);
     }
 
-    if (ngx_pckg_media_groups_assign_groups(groups, KMP_MEDIA_AUDIO) != NGX_OK)
+    for (media_type = KMP_MEDIA_AUDIO;
+        media_type < KMP_MEDIA_COUNT;
+        media_type++)
     {
-        return NGX_ERROR;
+        if (ngx_pckg_media_groups_assign_groups(groups, media_type)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
     }
 
     return NGX_OK;

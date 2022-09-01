@@ -143,23 +143,29 @@ fi
 PCKG_MEDIA_SRCS="                                             \
     $ngx_addon_dir/src/media/avc_hevc_parser.c                \
     $ngx_addon_dir/src/media/avc_parser.c                     \
-    $ngx_addon_dir/src/media/common.c                         \
     $ngx_addon_dir/src/media/buffer_pool.c                    \
     $ngx_addon_dir/src/media/codec_config.c                   \
+    $ngx_addon_dir/src/media/common.c                         \
     $ngx_addon_dir/src/media/dynamic_buffer.c                 \
+    $ngx_addon_dir/src/media/frames_source_memory.c           \
     $ngx_addon_dir/src/media/hevc_parser.c                    \
     $ngx_addon_dir/src/media/id3_defs.c                       \
+    $ngx_addon_dir/src/media/media_format.c                   \
     $ngx_addon_dir/src/media/write_buffer.c                   \
     $ngx_addon_dir/src/media/write_buffer_queue.c             \
     $ngx_addon_dir/src/media/mpegts/adts_encoder_filter.c     \
     $ngx_addon_dir/src/media/mpegts/buffer_filter.c           \
     $ngx_addon_dir/src/media/mpegts/frame_joiner_filter.c     \
-    $ngx_addon_dir/src/media/mpegts/mpegts_muxer.c            \
     $ngx_addon_dir/src/media/mpegts/id3_encoder_filter.c      \
     $ngx_addon_dir/src/media/mpegts/mp4_to_annexb_filter.c    \
     $ngx_addon_dir/src/media/mpegts/mpegts_encoder_filter.c   \
+    $ngx_addon_dir/src/media/mpegts/mpegts_muxer.c            \
     $ngx_addon_dir/src/media/mp4/mp4_init_segment.c           \
     $ngx_addon_dir/src/media/mp4/mp4_muxer.c                  \
+    $ngx_addon_dir/src/media/mp4/mp4_parser_base.c            \
+    $ngx_addon_dir/src/media/subtitle/subtitle_format.c       \
+    $ngx_addon_dir/src/media/subtitle/ttml_builder.c          \
+    $ngx_addon_dir/src/media/subtitle/webvtt_builder.c        \
     $PCKG_MEDIA_SRCS                                          \
     "
 
@@ -171,30 +177,35 @@ PCKG_MEDIA_DEPS="                                             \
     $ngx_addon_dir/src/media/bit_read_stream.h                \
     $ngx_addon_dir/src/media/buffer_pool.h                    \
     $ngx_addon_dir/src/media/codec_config.h                   \
-    $ngx_addon_dir/src/media/dynamic_buffer.h                 \
     $ngx_addon_dir/src/media/common.h                         \
+    $ngx_addon_dir/src/media/dynamic_buffer.h                 \
     $ngx_addon_dir/src/media/frames_source.h                  \
+    $ngx_addon_dir/src/media/frames_source_memory.h           \
     $ngx_addon_dir/src/media/hevc_parser.h                    \
     $ngx_addon_dir/src/media/id3_defs.h                       \
+    $ngx_addon_dir/src/media/media_format.h                   \
+    $ngx_addon_dir/src/media/read_stream.h                    \
+    $ngx_addon_dir/src/media/write_buffer.h                   \
+    $ngx_addon_dir/src/media/write_buffer_queue.h             \
+    $ngx_addon_dir/src/media/write_stream.h                   \
     $ngx_addon_dir/src/media/mpegts/adts_encoder_filter.h     \
     $ngx_addon_dir/src/media/mpegts/bit_fields.h              \
     $ngx_addon_dir/src/media/mpegts/buffer_filter.h           \
     $ngx_addon_dir/src/media/mpegts/frame_joiner_filter.h     \
     $ngx_addon_dir/src/media/mpegts/hls_encryption.h          \
-    $ngx_addon_dir/src/media/mpegts/mpegts_muxer.h            \
     $ngx_addon_dir/src/media/mpegts/id3_encoder_filter.h      \
     $ngx_addon_dir/src/media/mpegts/media_filter.h            \
     $ngx_addon_dir/src/media/mpegts/mp4_to_annexb_filter.h    \
     $ngx_addon_dir/src/media/mpegts/mpegts_encoder_filter.h   \
-    $ngx_addon_dir/src/media/media_format.h                   \
+    $ngx_addon_dir/src/media/mpegts/mpegts_muxer.h            \
     $ngx_addon_dir/src/media/mp4/mp4_defs.h                   \
     $ngx_addon_dir/src/media/mp4/mp4_init_segment.h           \
     $ngx_addon_dir/src/media/mp4/mp4_muxer.h                  \
+    $ngx_addon_dir/src/media/mp4/mp4_parser_base.h            \
     $ngx_addon_dir/src/media/mp4/mp4_write_stream.h           \
-    $ngx_addon_dir/src/media/read_stream.h                    \
-    $ngx_addon_dir/src/media/write_buffer.h                   \
-    $ngx_addon_dir/src/media/write_buffer_queue.h             \
-    $ngx_addon_dir/src/media/write_stream.h                   \
+    $ngx_addon_dir/src/media/subtitle/subtitle_format.h       \
+    $ngx_addon_dir/src/media/subtitle/ttml_builder.h          \
+    $ngx_addon_dir/src/media/subtitle/webvtt_builder.h        \
     $PCKG_MEDIA_DEPS                                          \
     "
 
@@ -207,6 +218,7 @@ PCKG_HTTP_MODULES="                                           \
     ngx_http_pckg_fmp4_module                                 \
     ngx_http_pckg_mpegts_module                               \
     ngx_http_pckg_captions_module                             \
+    ngx_http_pckg_webvtt_module                               \
     ngx_http_pckg_data_module                                 \
     $PCKG_HTTP_MODULES"
 
@@ -219,6 +231,7 @@ PCKG_HTTP_SRCS="                                              \
     $ngx_addon_dir/src/ngx_http_pckg_mpd.c                    \
     $ngx_addon_dir/src/ngx_http_pckg_mpegts.c                 \
     $ngx_addon_dir/src/ngx_http_pckg_utils.c                  \
+    $ngx_addon_dir/src/ngx_http_pckg_webvtt.c                 \
     $ngx_addon_dir/src/ngx_pckg_adapt_set.c                   \
     $ngx_addon_dir/src/ngx_pckg_ksmp.c                        \
     $ngx_addon_dir/src/ngx_pckg_ksmp_sgts.c                   \
@@ -238,6 +251,7 @@ PCKG_DEPS="                                                   \
     $ngx_addon_dir/src/ngx_http_pckg_fmp4.h                   \
     $ngx_addon_dir/src/ngx_http_pckg_mpegts.h                 \
     $ngx_addon_dir/src/ngx_http_pckg_utils.h                  \
+    $ngx_addon_dir/src/ngx_http_pckg_webvtt.h                 \
     $ngx_addon_dir/src/ngx_pckg_adapt_set.h                   \
     $ngx_addon_dir/src/ngx_pckg_ksmp.h                        \
     $ngx_addon_dir/src/ngx_pckg_ksmp_sgts.h                   \

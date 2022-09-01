@@ -175,7 +175,8 @@ typedef struct {
 
     ngx_live_segmenter_kf_list_t      key_frames;
 
-    uint32_t                          split_index;      /* volatile */
+    uint32_t                          remove_index;     /* volatile */
+    uint32_t                          copy_index;       /* volatile */
 
     /* Note: split_count ignores the first pending frame */
     uint32_t                          split_count;
@@ -561,27 +562,39 @@ ngx_live_segmenter_frame_list_get(ngx_live_segmenter_frame_list_t *list,
 
 
 static void
+ngx_live_segmenter_frame_list_free_chains(
+    ngx_live_segmenter_frame_list_t *list, ngx_uint_t count)
+{
+    ngx_buf_chain_t             *data_tail;
+    ngx_live_segmenter_frame_t  *first, *last;
+
+    first = list->part.elts;
+    last = ngx_live_segmenter_frame_list_get(list, count - 1);
+
+    data_tail = ngx_live_segmenter_terminate_frame_chain(last);
+
+    ngx_live_channel_buf_chain_free_list(list->track->channel,
+        first->data, data_tail);
+}
+
+
+static void
 ngx_live_segmenter_frame_list_remove(ngx_live_segmenter_frame_list_t *list,
     ngx_uint_t count, ngx_flag_t free_data_chains, uint32_t *split_count,
     ngx_live_segmenter_remove_res_t *res)
 {
-    int64_t                            prev_pts;
-    ngx_uint_t                         left;
-    ngx_buf_chain_t                   *data_tail;
-    ngx_live_segmenter_frame_t        *cur, *last;
-    ngx_live_segmenter_frame_part_t   *part;
-    ngx_live_segmenter_frame_part_t   *next_part;
+    int64_t                           prev_pts;
+    ngx_uint_t                        left;
+    ngx_live_segmenter_frame_t       *cur, *last;
+    ngx_live_segmenter_frame_part_t  *part;
+    ngx_live_segmenter_frame_part_t  *next_part;
 
     left = count;
     part = &list->part;
     cur = part->elts;
 
     if (free_data_chains) {
-        last = ngx_live_segmenter_frame_list_get(list, count - 1);
-        data_tail = ngx_live_segmenter_terminate_frame_chain(last);
-
-        ngx_live_channel_buf_chain_free_list(list->track->channel,
-            cur->data, data_tail);
+        ngx_live_segmenter_frame_list_free_chains(list, count);
 
         if ((cur->flags & NGX_LIVE_FRAME_FLAG_RESET_DTS_SHIFT) &&
             list->dts_shift > 0)
@@ -809,6 +822,51 @@ ngx_live_segmenter_frame_list_get_index(ngx_live_segmenter_frame_list_t *list,
 }
 
 
+static void
+ngx_live_segmenter_frame_list_get_subtitle_indexes(
+    ngx_live_segmenter_frame_list_t *list, int64_t target_pts,
+    uint32_t *remove_index, uint32_t *copy_index)
+{
+    int64_t                           start, end;
+    ngx_live_segmenter_frame_t       *cur, *last;
+    ngx_live_segmenter_frame_part_t  *part;
+
+    *remove_index = 0;
+    *copy_index = 0;
+
+    part = &list->part;
+    cur = part->elts;
+    last = cur + part->nelts;
+
+    for ( ;; ) {
+
+        if (cur >= last) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            cur = part->elts;
+            last = cur + part->nelts;
+        }
+
+        start = cur->dts;
+        if (start >= target_pts) {
+            break;
+        }
+
+        end = cur->pts;
+        if (end < target_pts) {
+            (*remove_index)++;
+        }
+
+        (*copy_index)++;
+
+        cur++;
+    }
+}
+
+
 static ngx_uint_t
 ngx_live_segmenter_frame_list_get_truncate_index(
     ngx_live_segmenter_frame_list_t *list, int64_t target_pts)
@@ -851,7 +909,7 @@ ngx_live_segmenter_frame_list_get_truncate_index(
 
 static ngx_int_t
 ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
-    ngx_live_segment_t *segment, uint32_t count)
+    ngx_live_segment_t *segment, uint32_t count, uint32_t remove_count)
 {
     size_t                            size;
     int32_t                           pts_delay;
@@ -967,8 +1025,23 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
         list->dts_shift += dts_shift;
     }
 
-    segment->data_tail = ngx_live_segmenter_terminate_frame_chain(prev_src);
     segment->data_size = size;
+
+    if (count != remove_count) {
+        if (ngx_live_segment_cache_copy_chains(segment) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &list->track->log, 0,
+                "ngx_live_segmenter_frame_list_copy: copy chains failed");
+            return NGX_ERROR;
+        }
+
+        if (remove_count > 0) {
+            ngx_live_segmenter_frame_list_free_chains(list, remove_count);
+        }
+
+    } else {
+        segment->data_tail = ngx_live_segmenter_terminate_frame_chain(
+            prev_src);
+    }
 
     return NGX_OK;
 }
@@ -1389,6 +1462,7 @@ ngx_live_segmenter_channel_inactive(ngx_live_channel_t *channel)
         NGX_LIVE_EVENT_CHANNEL_INACTIVE, NULL);
 }
 
+
 #if (NGX_LIVE_VALIDATIONS)
 static void
 ngx_live_segmenter_validate_empty_track_ctx(ngx_live_track_t *track)
@@ -1717,6 +1791,7 @@ ngx_live_segmenter_validate_channel_ctx(ngx_live_channel_t *channel)
 #define ngx_live_segmenter_validate_channel_ctx(channel)
 #endif
 
+
 static void
 ngx_live_segmenter_dump_track(ngx_live_track_t *track, int64_t base_pts)
 {
@@ -1739,8 +1814,8 @@ ngx_live_segmenter_dump_track(ngx_live_track_t *track, int64_t base_pts)
         ctx->min_split_pts - base_pts;
 
     ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-        "  track: split: index: %uD, count: %uD, min_pts: %L",
-        ctx->split_index, ctx->split_count, min_split_pts);
+        "  track: split: remove: %uD, copy: %uD, count: %uD, min_pts: %L",
+        ctx->remove_index, ctx->copy_index, ctx->split_count, min_split_pts);
 
     ngx_live_segmenter_kf_list_dump(&ctx->key_frames, base_pts);
 }
@@ -1880,7 +1955,7 @@ done:
 
     if (free_data_chains) {
         if (channel->snapshots <= 0 && track->input.ack_frames != NULL) {
-            track->input.ack_frames(track, track->next_frame_id);
+            track->input.ack_frames(track->input.data, track->next_frame_id);
         }
 
         ngx_live_segment_cache_free_input_bufs(track);
@@ -1984,6 +2059,10 @@ ngx_live_segmenter_prepare_create_segment(ngx_live_channel_t *channel,
             }
         }
 
+        if (cur_track->media_type == KMP_MEDIA_SUBTITLE) {
+            continue;
+        }
+
         *media_types_mask |= (1 << cur_track->media_type);
 
         if (cur_ctx->start_pts < *min_pts) {
@@ -2072,6 +2151,9 @@ ngx_live_segmenter_candidates_get(ngx_live_channel_t *channel,
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+        if (cur_track->media_type == KMP_MEDIA_SUBTITLE) {
+            continue;
+        }
 
         cur_ctx = ngx_live_get_module_ctx(cur_track,
             ngx_live_segmenter_module);
@@ -2359,7 +2441,19 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
             ngx_live_segmenter_module);
 
         if (cur_ctx->frame_count <= 0) {
-            cur_ctx->split_index = 0;
+            cur_ctx->copy_index = 0;
+            continue;
+        }
+
+        if (cur_track->media_type == KMP_MEDIA_SUBTITLE) {
+            ngx_live_segmenter_frame_list_get_subtitle_indexes(
+                &cur_ctx->frames, target_pts, &cur_ctx->remove_index,
+                &cur_ctx->copy_index);
+
+            if (cur_ctx->copy_index > 0) {
+                *media_types_mask |= (1 << KMP_MEDIA_SUBTITLE);
+            }
+
             continue;
         }
 
@@ -2394,7 +2488,7 @@ ngx_live_segmenter_set_split_indexes(ngx_live_channel_t *channel,
             }
         }
 
-        cur_ctx->split_index = split_index;
+        cur_ctx->copy_index = cur_ctx->remove_index = split_index;
 
         if (split_index <= 0) {
 
@@ -2512,14 +2606,14 @@ ngx_live_segmenter_dispose_segment(ngx_live_channel_t *channel,
         cur_ctx = ngx_live_get_module_ctx(cur_track,
             ngx_live_segmenter_module);
 
-        if (cur_ctx->split_index <= 0) {
+        if (cur_ctx->copy_index <= 0) {
             continue;
         }
 
         ngx_log_debug2(NGX_LOG_DEBUG_LIVE, &cur_track->log, 0,
             "ngx_live_segmenter_dispose_segment: "
             "removing %uD frames, track: %V",
-            cur_ctx->split_index, &cur_track->sn.str);
+            cur_ctx->remove_index, &cur_track->sn.str);
 
         removed = 1;
 
@@ -2528,7 +2622,7 @@ ngx_live_segmenter_dispose_segment(ngx_live_channel_t *channel,
             force_new_period = 1;
         }
 
-        ngx_live_segmenter_remove_frames(cur_track, cur_ctx->split_index, 1);
+        ngx_live_segmenter_remove_frames(cur_track, cur_ctx->remove_index, 1);
     }
 
     if (!removed) {
@@ -2579,13 +2673,15 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
             return NGX_ERROR;
         }
 
-        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-            "ngx_live_segmenter_track_create_segment: "
-            "media info changed, forcing new period");
+        if (track->media_type != KMP_MEDIA_SUBTITLE) {
+            ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+                "ngx_live_segmenter_track_create_segment: "
+                "media info changed, forcing new period");
 
-        cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
+            cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
-        cctx->force_new_period = 1;
+            cctx->force_new_period = 1;
+        }
     }
 
     media_info = ngx_live_media_info_queue_get_last(track);
@@ -2607,7 +2703,7 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
 
     /* add the frames */
     rc = ngx_live_segmenter_frame_list_copy(&ctx->frames, segment,
-        ctx->split_index);
+        ctx->copy_index, ctx->remove_index);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_segmenter_track_create_segment: copy frames failed");
@@ -2615,7 +2711,7 @@ ngx_live_segmenter_track_create_segment(ngx_live_track_t *track)
         return rc;
     }
 
-    ngx_live_segmenter_remove_frames(track, ctx->split_index, 0);
+    ngx_live_segmenter_remove_frames(track, ctx->remove_index, 0);
 
     ngx_live_segment_cache_finalize(segment, &track->last_segment_bitrate);
 
@@ -2648,13 +2744,16 @@ ngx_live_segmenter_create_segment(ngx_live_channel_t *channel)
         cur_ctx = ngx_live_get_module_ctx(cur_track,
             ngx_live_segmenter_module);
 
-        if (cur_ctx->split_index <= 0) {
+        if (cur_ctx->copy_index <= 0) {
 
             if (cur_track->type == ngx_live_track_type_filler) {
                 continue;
             }
 
-            if (cur_track->has_last_segment) {
+            if (cur_track->media_type == KMP_MEDIA_SUBTITLE) {
+                cur_track->has_last_segment = 0;
+
+            } else if (cur_track->has_last_segment) {
 
                 /* Note: if the iPhone player stops getting audio, it stalls
                     playback, keeps downloading segments waiting for audio to
@@ -2673,7 +2772,10 @@ ngx_live_segmenter_create_segment(ngx_live_channel_t *channel)
             continue;
         }
 
-        if (!cur_track->has_last_segment) {
+        if (cur_track->media_type == KMP_MEDIA_SUBTITLE) {
+            cur_track->has_last_segment = 1;
+
+        } else if (!cur_track->has_last_segment) {
 
             if (cur_track->last_segment_bitrate) {
 
@@ -3093,6 +3195,10 @@ ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
     ctx->last_data_ptr = req->data_tail->data;
 
     ctx->frame_count++;
+
+    if (track->media_type == KMP_MEDIA_SUBTITLE) {
+        return NGX_OK;      /* subtitle tracks are always in inactive state */
+    }
 
     spcf = ngx_live_get_module_preset_conf(channel, ngx_live_segmenter_module);
 

@@ -8,8 +8,9 @@
 
 #define EMSG_ID3_SCHEME_URI "https://developer.apple.com/streaming/emsg-id3"
 
-#define TRUN_VIDEO_FLAGS (0xF01)        // = data offset, duration, size, key, delay
-#define TRUN_AUDIO_FLAGS (0x301)        // = data offset, duration, size
+#define TRUN_VIDEO_FLAGS    (0xf01)     // = data offset, duration, size, key, delay
+#define TRUN_AUDIO_FLAGS    (0x301)     // = data offset, duration, size
+#define TRUN_SUBTITLE_FLAGS (0xb01)     // = data offset, duration, size, delay
 
 // macros
 #define mp4_rescale_millis(millis, timescale) (millis * ((timescale) / 1000))
@@ -21,6 +22,7 @@ typedef struct {
     void* write_context;
     uint32_t timescale;
     int media_type;
+    uint32_t codec_id;
     uint32_t frame_count;
     uint32_t index;
 
@@ -81,6 +83,12 @@ typedef struct {
     u_char duration[4];
     u_char size[4];
 } trun_audio_frame_t;
+
+typedef struct {
+    u_char duration[4];
+    u_char size[4];
+    u_char pts_delay[4];
+} trun_subtitle_frame_t;
 
 typedef struct {
     u_char version[1];
@@ -212,7 +220,7 @@ mp4_muxer_write_trun_header(
 }
 
 
-static u_char*
+static vod_inline u_char*
 mp4_muxer_write_video_trun_frame(u_char* p, input_frame_t* frame, uint32_t initial_pts_delay)
 {
     int32_t pts_delay = frame->pts_delay - initial_pts_delay;
@@ -232,11 +240,21 @@ mp4_muxer_write_video_trun_frame(u_char* p, input_frame_t* frame, uint32_t initi
 }
 
 
-static u_char*
+static vod_inline u_char*
 mp4_muxer_write_audio_trun_frame(u_char* p, input_frame_t* frame)
 {
     write_be32(p, frame->duration);
     write_be32(p, frame->size);
+    return p;
+}
+
+
+static vod_inline u_char*
+mp4_muxer_write_subtitle_trun_frame(u_char* p, input_frame_t* frame, uint32_t pts_delay)
+{
+    write_be32(p, frame->pts_delay);    // duration
+    write_be32(p, frame->size);         // size
+    write_be32(p, pts_delay);           // pts_delay
     return p;
 }
 
@@ -307,6 +325,7 @@ mp4_muxer_write_video_trun_atoms(
 
         // add the frame to the trun atom
         p = mp4_muxer_write_video_trun_frame(p, cur_frame, initial_pts_delay);
+
         frame_count++;
         cur_offset += cur_frame->size;
     }
@@ -374,7 +393,7 @@ mp4_muxer_write_audio_trun_atoms(
                     TRUN_AUDIO_FLAGS);
             }
 
-            // add the frame to the trun atom
+            // start a new trun atom
             trun_header = p;
             p += ATOM_HEADER_SIZE + sizeof(trun_atom_t);
             cur_offset = start_offset = *output_offset;
@@ -383,6 +402,7 @@ mp4_muxer_write_audio_trun_atoms(
 
         // add the frame to the trun atom
         p = mp4_muxer_write_audio_trun_frame(p, cur_frame);
+
         frame_count++;
         cur_offset += cur_frame->size;
     }
@@ -401,6 +421,86 @@ mp4_muxer_write_audio_trun_atoms(
     return p;
 }
 
+
+static u_char*
+mp4_muxer_write_subtitle_trun_atoms(
+    u_char* p,
+    media_segment_t* segment,
+    mp4_muxer_stream_state_t* cur_stream,
+    uint32_t base_offset)
+{
+    media_segment_track_t* cur_track;
+    vod_list_part_t* part;
+    input_frame_t* cur_frame;
+    input_frame_t* last_frame;
+    uint32_t* output_offset = cur_stream->first_frame_output_offset;
+    uint32_t start_offset = 0;
+    uint32_t cur_offset = UINT_MAX;
+    uint32_t frame_count = 0;
+    uint32_t pts_delay = 0;
+    u_char* trun_header = NULL;
+
+    cur_track = &segment->tracks[cur_stream->index];
+
+    part = &cur_track->frames.part;
+    for (cur_frame = part->elts, last_frame = cur_frame + part->nelts;
+        ;
+        cur_frame++, output_offset++)
+    {
+        if (cur_frame >= last_frame)
+        {
+            if (part->next == NULL)
+            {
+                break;
+            }
+            part = part->next;
+            cur_frame = part->elts;
+            last_frame = cur_frame + part->nelts;
+        }
+
+        if (*output_offset != cur_offset)
+        {
+            if (trun_header != NULL)
+            {
+                // close current trun atom
+                mp4_muxer_write_trun_header(
+                    trun_header,
+                    base_offset + start_offset,
+                    frame_count,
+                    sizeof(trun_subtitle_frame_t),
+                    TRUN_SUBTITLE_FLAGS);
+            }
+
+            // start a new trun atom
+            trun_header = p;
+            p += ATOM_HEADER_SIZE + sizeof(trun_atom_t);
+            cur_offset = start_offset = *output_offset;
+            frame_count = 0;
+        }
+
+        // add the frame to the trun atom
+        p = mp4_muxer_write_subtitle_trun_frame(p, cur_frame, pts_delay);
+
+        frame_count++;
+        cur_offset += cur_frame->size;
+        pts_delay += cur_frame->duration;
+    }
+
+    if (trun_header != NULL)
+    {
+        // close current trun atom
+        mp4_muxer_write_trun_header(
+            trun_header,
+            base_offset + start_offset,
+            frame_count,
+            sizeof(trun_subtitle_frame_t),
+            TRUN_SUBTITLE_FLAGS);
+    }
+
+    return p;
+}
+
+
 ////// Muxer
 
 static void
@@ -411,6 +511,7 @@ mp4_muxer_init_track(
 {
     cur_stream->timescale = cur_track->media_info->timescale;
     cur_stream->media_type = cur_track->media_info->media_type;
+    cur_stream->codec_id = cur_track->media_info->codec_id;
     cur_stream->first_frame_part = &cur_track->frames.part;
     cur_stream->cur_frame_part = &cur_track->frames.part;
     cur_stream->cur_frame = cur_track->frames.part.elts;
@@ -790,6 +891,16 @@ mp4_muxer_build_fragment_header(
         case MEDIA_TYPE_VIDEO:
             moof_atom_size += cur_stream->frame_count * sizeof(trun_video_frame_t);
             break;
+
+        case MEDIA_TYPE_SUBTITLE:
+            if (cur_stream->codec_id == VOD_CODEC_ID_WEBVTT)
+            {
+                moof_atom_size += cur_stream->frame_count * sizeof(trun_subtitle_frame_t);
+                break;
+            }
+
+            // fall through
+
         case MEDIA_TYPE_AUDIO:
             moof_atom_size += cur_stream->frame_count * sizeof(trun_audio_frame_t);
             break;
@@ -906,18 +1017,22 @@ mp4_muxer_build_fragment_header(
         switch (cur_stream->media_type)
         {
         case MEDIA_TYPE_VIDEO:
-            p = mp4_muxer_write_video_trun_atoms(
-                p,
-                segment,
-                cur_stream,
+            p = mp4_muxer_write_video_trun_atoms(p, segment, cur_stream,
                 moof_atom_size + MDAT_HEADER_SIZE);
             break;
 
+        case MEDIA_TYPE_SUBTITLE:
+            if (cur_stream->codec_id == VOD_CODEC_ID_WEBVTT)
+            {
+                p = mp4_muxer_write_subtitle_trun_atoms(p, segment, cur_stream,
+                    moof_atom_size + MDAT_HEADER_SIZE);
+                break;
+            }
+
+            // fall through
+
         case MEDIA_TYPE_AUDIO:
-            p = mp4_muxer_write_audio_trun_atoms(
-                p,
-                segment,
-                cur_stream,
+            p = mp4_muxer_write_audio_trun_atoms(p, segment, cur_stream,
                 moof_atom_size + MDAT_HEADER_SIZE);
             break;
         }
@@ -1265,6 +1380,18 @@ mp4_muxer_get_bitrate_estimator(
 
             result->k3 += (uint64_t)8 * sizeof(trun_audio_frame_t) * cur->u.audio.sample_rate /
                 samples_per_frame;
+            break;
+
+        case MEDIA_TYPE_SUBTITLE:
+            // assume 1 frame per segment
+            if (cur->codec_id == VOD_CODEC_ID_WEBVTT)
+            {
+                result->k2 += 8 * sizeof(trun_subtitle_frame_t);
+            }
+            else
+            {
+                result->k2 += 8 * sizeof(trun_audio_frame_t);
+            }
             break;
         }
     }
