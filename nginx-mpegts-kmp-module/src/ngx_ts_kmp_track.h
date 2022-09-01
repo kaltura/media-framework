@@ -16,7 +16,6 @@ typedef struct  {
     ngx_buf_t                sps;
     ngx_buf_t                pps;
     ngx_ts_aac_params_t      last_aac_params;
-    uint32_t                 extra_data_alloc;
     uint32_t                 caption_tries;
     int64_t                  timestamp;
     int64_t                  last_timestamp;
