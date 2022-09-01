@@ -2510,10 +2510,11 @@ ngx_live_lls_add_media_info(ngx_live_track_t *track,
     case NGX_DONE:
         break;
 
+    case NGX_BAD_DATA:
+        return NGX_ERROR;
+
     default:
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_live_lls_add_media_info: add failed");
-        return rc;
+        return NGX_ABORT;
     }
 
     return NGX_OK;
