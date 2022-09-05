@@ -11,7 +11,7 @@
 
 typedef struct {
     ngx_url_t                  *ctrl_connect_url;
-    ngx_kmp_push_track_conf_t   t;
+    ngx_kmp_out_track_conf_t    t;
     ngx_queue_t                 sessions;
 } ngx_rtmp_kmp_app_conf_t;
 
@@ -19,7 +19,7 @@ typedef struct {
 typedef struct {
     ngx_rtmp_publish_t          publish_buf;
     ngx_rtmp_kmp_publish_t      publish;
-    ngx_kmp_push_track_t       *tracks[KMP_MEDIA_COUNT];
+    ngx_kmp_out_track_t        *tracks[KMP_MEDIA_COUNT];
 } ngx_rtmp_kmp_stream_ctx_t;
 
 

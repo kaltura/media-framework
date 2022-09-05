@@ -6,8 +6,8 @@
 #include <ngx_http_api.h>
 
 #include <ngx_live_kmp.h>
-#include <ngx_kmp_push_track.h>
-#include <ngx_kmp_push_upstream.h>
+#include <ngx_kmp_out_track.h>
+#include <ngx_kmp_out_upstream.h>
 
 #include "ngx_ts_kmp_module.h"
 #include "ngx_stream_ts_kmp_module.h"

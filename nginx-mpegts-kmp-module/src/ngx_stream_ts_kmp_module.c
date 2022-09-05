@@ -1,7 +1,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_stream.h>
-#include <ngx_kmp_push_utils.h>
+#include <ngx_kmp_out_utils.h>
 #include <ngx_ts_stream.h>
 #include <ngx_stream_ts_module.h>
 
@@ -37,28 +37,28 @@ static ngx_command_t  ngx_stream_ts_kmp_commands[] = {
 
     { ngx_string("ts_kmp_ctrl_connect_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_push_url_slot,
+      ngx_kmp_out_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.ctrl_connect_url),
       NULL },
 
     { ngx_string("ts_kmp_ctrl_publish_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_push_url_slot,
+      ngx_kmp_out_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.t.ctrl_publish_url),
       NULL },
 
     { ngx_string("ts_kmp_ctrl_unpublish_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_push_url_slot,
+      ngx_kmp_out_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.t.ctrl_unpublish_url),
       NULL },
 
     { ngx_string("ts_kmp_ctrl_republish_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_push_url_slot,
+      ngx_kmp_out_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.t.ctrl_republish_url),
       NULL },
@@ -321,7 +321,7 @@ ngx_stream_ts_kmp_create_srv_conf(ngx_conf_t *cf)
 
     ngx_queue_init(&conf->kmp.sessions);
     conf->kmp.ctrl_connect_url = NGX_CONF_UNSET_PTR;
-    ngx_kmp_push_track_init_conf(&conf->kmp.t);
+    ngx_kmp_out_track_init_conf(&conf->kmp.t);
 
     return conf;
 }
@@ -337,7 +337,7 @@ ngx_stream_ts_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_ptr_value(conf->kmp.ctrl_connect_url,
                              prev->kmp.ctrl_connect_url, NULL);
 
-    ngx_kmp_push_track_merge_conf(&conf->kmp.t, &prev->kmp.t);
+    ngx_kmp_out_track_merge_conf(&conf->kmp.t, &prev->kmp.t);
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
         conf->kmp.t.lba[media_type] = ngx_stream_ts_kmp_get_lba(cf,

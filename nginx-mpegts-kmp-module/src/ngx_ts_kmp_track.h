@@ -6,13 +6,13 @@
 
 #include <ngx_ts_aac.h>
 #include <ngx_ts_stream.h>
-#include <ngx_kmp_push_track.h>
+#include <ngx_kmp_out_track.h>
 
 
 typedef struct  {
     ngx_rbtree_node_t        in;
     ngx_queue_t              queue;
-    ngx_kmp_push_track_t    *track;
+    ngx_kmp_out_track_t     *track;
     ngx_buf_t                sps;
     ngx_buf_t                pps;
     ngx_ts_aac_params_t      last_aac_params;
