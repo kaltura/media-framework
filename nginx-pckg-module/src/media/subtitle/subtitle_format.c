@@ -117,6 +117,7 @@ subtitle_trim_timestamps_track(request_context_t* request_context, media_segment
         return VOD_ALLOC_FAILED;
     }
 
+    last_cue_start = 0;     /* suppress warning */
     dst_cur = dst_frames;
 
     segment_start = segment->start;
