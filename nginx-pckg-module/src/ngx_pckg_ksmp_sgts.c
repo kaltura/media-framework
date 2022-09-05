@@ -544,6 +544,7 @@ ngx_pckg_ksmp_sgts_read_segment(ngx_persist_block_hdr_t *header,
     }
 
 
+    segment = NULL;     /* suppress warning */
     save = *rs;
 
     rc = ngx_pckg_ksmp_sgts_create_segment(pool, channel, rs, &h, &segment);
