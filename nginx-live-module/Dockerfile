@@ -24,6 +24,7 @@ RUN git clone --branch ${SET_MISC_NGINX_MODULE_VERSION} https://github.com/kaltu
 COPY nginx-live-module nginx-live-module
 COPY nginx-pckg-module nginx-pckg-module
 COPY nginx-common nginx-common
+COPY nginx-kmp-in-module nginx-kmp-in-module
 
 ARG APP_VERSION="0.1"
 ARG LIVE_VERSION="${APP_VERSION}"
@@ -34,6 +35,7 @@ RUN cd /tmp/build/nginx && \
     ./configure --with-http_secure_link_module \
             --with-http_stub_status_module \
             --add-module=/tmp/build/nginx-common \
+            --add-module=/tmp/build/nginx-kmp-in-module \
             --add-module=/tmp/build/nginx-live-module \
             --add-module=/tmp/build/nginx-pckg-module \
             --add-module=/tmp/build/ngx_devel_kit \
