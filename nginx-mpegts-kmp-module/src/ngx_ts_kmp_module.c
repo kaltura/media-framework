@@ -3,8 +3,8 @@
 
 #include <ngx_http_call.h>
 #include <ngx_json_parser.h>
-#include <ngx_kmp_push_utils.h>
-#include <ngx_kmp_push_connect.h>
+#include <ngx_kmp_out_utils.h>
+#include <ngx_kmp_out_connect.h>
 
 #include "ngx_ts_kmp_module.h"
 #include "ngx_ts_kmp_track.h"
@@ -41,7 +41,7 @@ ngx_ts_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
 
     connect.stream_id = cctx->stream_id;
     size = ngx_ts_kmp_connect_json_get_size(&connect, ctx->connection);
-    cl = ngx_kmp_push_alloc_chain_temp_buf(pool, size);
+    cl = ngx_kmp_out_alloc_chain_temp_buf(pool, size);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_ts_kmp_connect_create: alloc chain buf failed");
@@ -60,7 +60,7 @@ ngx_ts_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
         return NULL;
     }
 
-    return ngx_kmp_push_format_json_http_request(pool,
+    return ngx_kmp_out_format_json_http_request(pool,
         &conf->ctrl_connect_url->host, &conf->ctrl_connect_url->uri,
         conf->t.ctrl_headers, cl);
 }
@@ -77,7 +77,7 @@ ngx_ts_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg,
 
     log = cctx->ctx->connection->log;
 
-    rc = ngx_kmp_push_connect_parse(temp_pool, log, code, content_type,
+    rc = ngx_kmp_out_connect_parse(temp_pool, log, code, content_type,
         body, &desc);
     switch (rc) {
 
@@ -218,7 +218,7 @@ ngx_ts_kmp_detach_tracks(ngx_ts_kmp_ctx_t *ctx, char *reason)
         ts_track = ngx_queue_data(q, ngx_ts_kmp_track_t, queue);
         q = ngx_queue_next(q);      /* the track may be freed */
 
-        ngx_kmp_push_track_detach(ts_track->track, reason);
+        ngx_kmp_out_track_detach(ts_track->track, reason);
     }
 }
 

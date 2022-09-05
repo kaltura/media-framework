@@ -10,8 +10,8 @@
 #include <ngx_http_call.h>
 #include <ngx_json_parser.h>
 #include <ngx_lba.h>
-#include "ngx_kmp_push_utils.h"
-#include "ngx_kmp_push_connect.h"
+#include "ngx_kmp_out_utils.h"
+#include "ngx_kmp_out_connect.h"
 #include "ngx_rtmp_kmp_module.h"
 
 
@@ -82,28 +82,28 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
 
     { ngx_string("kmp_ctrl_connect_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_push_url_slot,
+      ngx_kmp_out_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, ctrl_connect_url),
       NULL },
 
     { ngx_string("kmp_ctrl_publish_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_push_url_slot,
+      ngx_kmp_out_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_publish_url),
       NULL },
 
     { ngx_string("kmp_ctrl_unpublish_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_push_url_slot,
+      ngx_kmp_out_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_unpublish_url),
       NULL },
 
     { ngx_string("kmp_ctrl_republish_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_push_url_slot,
+      ngx_kmp_out_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_republish_url),
       NULL },
@@ -376,7 +376,7 @@ ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf)
     ngx_queue_init(&kacf->sessions);
     kacf->ctrl_connect_url = NGX_CONF_UNSET_PTR;
 
-    ngx_kmp_push_track_init_conf(&kacf->t);
+    ngx_kmp_out_track_init_conf(&kacf->t);
 
     return kacf;
 }
@@ -392,7 +392,7 @@ ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_ptr_value(conf->ctrl_connect_url,
                              prev->ctrl_connect_url, NULL);
 
-    ngx_kmp_push_track_merge_conf(&conf->t, &prev->t);
+    ngx_kmp_out_track_merge_conf(&conf->t, &prev->t);
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
         conf->t.lba[media_type] = ngx_rtmp_kmp_get_lba(cf,
@@ -615,7 +615,7 @@ ngx_rtmp_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
 
     size = ngx_rtmp_kmp_connect_json_get_size(&connect, s);
 
-    cl = ngx_kmp_push_alloc_chain_temp_buf(pool, size);
+    cl = ngx_kmp_out_alloc_chain_temp_buf(pool, size);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_rtmp_kmp_connect_create: alloc chain buf failed");
@@ -635,7 +635,7 @@ ngx_rtmp_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
     }
 
     kacf = ctx->kacf;
-    return ngx_kmp_push_format_json_http_request(pool,
+    return ngx_kmp_out_format_json_http_request(pool,
         &kacf->ctrl_connect_url->host, &kacf->ctrl_connect_url->uri,
         kacf->t.ctrl_headers, cl);
 }
@@ -656,7 +656,7 @@ ngx_rtmp_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
 
     log = s->connection->log;
 
-    rc = ngx_kmp_push_connect_parse(temp_pool, log, code, content_type,
+    rc = ngx_kmp_out_connect_parse(temp_pool, log, code, content_type,
         body, &desc);
     switch (rc) {
 
@@ -878,8 +878,8 @@ next:
 static void
 ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_stream_ctx_t *sctx, char *reason)
 {
-    ngx_uint_t             media_type;
-    ngx_kmp_push_track_t  *track;
+    ngx_uint_t            media_type;
+    ngx_kmp_out_track_t  *track;
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
@@ -890,7 +890,7 @@ ngx_rtmp_kmp_detach_tracks(ngx_rtmp_kmp_stream_ctx_t *sctx, char *reason)
 
         sctx->tracks[media_type] = NULL;
 
-        ngx_kmp_push_track_detach(track, reason);
+        ngx_kmp_out_track_detach(track, reason);
     }
 }
 
@@ -938,7 +938,7 @@ ngx_rtmp_kmp_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
 {
     ngx_uint_t                  media_type;
     ngx_rtmp_kmp_ctx_t         *ctx;
-    ngx_kmp_push_track_t       *track;
+    ngx_kmp_out_track_t        *track;
     ngx_rtmp_kmp_app_conf_t    *kacf;
     ngx_rtmp_kmp_stream_ctx_t  *sctx;
 

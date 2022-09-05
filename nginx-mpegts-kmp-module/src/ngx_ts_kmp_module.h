@@ -7,12 +7,12 @@
 #include <ngx_ts_stream.h>
 #include <ngx_live_kmp.h>
 
-#include "ngx_kmp_push_track.h"
+#include "ngx_kmp_out_track.h"
 
 
 typedef struct {
     ngx_url_t                  *ctrl_connect_url;
-    ngx_kmp_push_track_conf_t   t;
+    ngx_kmp_out_track_conf_t    t;
     ngx_queue_t                 sessions;
 } ngx_ts_kmp_conf_t;
 

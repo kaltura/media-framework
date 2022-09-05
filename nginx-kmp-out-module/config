@@ -1,0 +1,67 @@
+ngx_addon_name=ngx_kmp_out_module
+
+# ngx_live_common dependency
+#
+if test -n "$ngx_module_link"; then
+    if test -n "$LIVE_COMMON_CORE_SRCS"; then
+        echo "found ngx_live_common for $ngx_addon_name; looks good."
+    else
+        echo "error: ngx_live_common is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2
+        exit 1
+    fi
+else
+    if echo $NGX_ADDON_SRCS | grep " ngx_json_parser" > /dev/null; then
+        echo "found ngx_live_common for $ngx_addon_name; looks good."
+    else
+        echo "error: ngx_live_common is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2
+        exit 1
+    fi
+fi
+
+# source
+#
+KMP_OUT_CORE_SRCS="                                  \
+    $ngx_addon_dir/src/ngx_kmp_out_connect.c         \
+    $ngx_addon_dir/src/ngx_kmp_out_module.c          \
+    $ngx_addon_dir/src/ngx_kmp_out_track.c           \
+    $ngx_addon_dir/src/ngx_kmp_out_upstream.c        \
+    $ngx_addon_dir/src/ngx_kmp_out_utils.c           \
+    "
+
+KMP_OUT_DEPS="                                       \
+    $ngx_addon_dir/src/ngx_kmp_out_connect.h         \
+    $ngx_addon_dir/src/ngx_kmp_out_connect_json.h    \
+    $ngx_addon_dir/src/ngx_kmp_out_track.h           \
+    $ngx_addon_dir/src/ngx_kmp_out_track_internal.h  \
+    $ngx_addon_dir/src/ngx_kmp_out_track_json.h      \
+    $ngx_addon_dir/src/ngx_kmp_out_upstream.h        \
+    $ngx_addon_dir/src/ngx_kmp_out_upstream_json.h   \
+    $ngx_addon_dir/src/ngx_kmp_out_utils.h           \
+    "
+
+if [ -f auto/module ] ; then
+    ngx_module_incs=$ngx_addon_dir/src
+    ngx_module_deps=$KMP_OUT_DEPS
+
+    if [ $ngx_module_link = DYNAMIC ] ; then
+        ngx_module_name="ngx_kmp_out_module"
+        ngx_module_srcs="$KMP_OUT_CORE_SRCS"
+
+        . auto/module
+
+    else
+        ngx_module_type=CORE
+        ngx_module_name=ngx_kmp_out_module
+        ngx_module_srcs=$KMP_OUT_CORE_SRCS
+
+        . auto/module
+    fi
+
+else
+    CORE_MODULES="$CORE_MODULES ngx_kmp_out_module"
+
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $KMP_OUT_DEPS"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $KMP_OUT_CORE_SRCS"
+
+    CFLAGS="$CFLAGS -I$ngx_addon_dir"
+fi

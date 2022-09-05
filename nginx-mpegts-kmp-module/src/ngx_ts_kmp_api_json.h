@@ -12,7 +12,7 @@ ngx_ts_kmp_api_track_json_get_size(ngx_ts_kmp_track_t *obj)
     size_t  result;
 
     result =
-        ngx_kmp_push_track_json_get_size(obj->track);
+        ngx_kmp_out_track_json_get_size(obj->track);
 
     return result;
 }
@@ -21,7 +21,7 @@ ngx_ts_kmp_api_track_json_get_size(ngx_ts_kmp_track_t *obj)
 static u_char *
 ngx_ts_kmp_api_track_json_write(u_char *p, ngx_ts_kmp_track_t *obj)
 {
-    p = ngx_kmp_push_track_json_write(p, obj->track);
+    p = ngx_kmp_out_track_json_write(p, obj->track);
 
     return p;
 }

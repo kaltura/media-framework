@@ -7,8 +7,8 @@
 #include <ngx_http_api.h>
 #include "ngx_rtmp_kmp_module.h"
 #include "ngx_rtmp_live_module.h"
-#include "ngx_kmp_push_track.h"
-#include "ngx_kmp_push_upstream.h"
+#include "ngx_kmp_out_track.h"
+#include "ngx_kmp_out_upstream.h"
 #include "ngx_rtmp_kmp_version.h"
 
 /* routes */
@@ -26,9 +26,9 @@ static u_char *ngx_rtmp_kmp_api_streams_json_write(u_char *p,
     ngx_rtmp_session_t *s);
 
 static size_t ngx_rtmp_kmp_api_tracks_json_get_size(
-    ngx_kmp_push_track_t **tracks);
+    ngx_kmp_out_track_t **tracks);
 static u_char *ngx_rtmp_kmp_api_tracks_json_write(u_char *p,
-    ngx_kmp_push_track_t **tracks);
+    ngx_kmp_out_track_t **tracks);
 
 static ngx_str_t  ngx_rtmp_kmp_version = ngx_string(NGX_RTMP_KMP_VERSION);
 static ngx_str_t  ngx_rtmp_kmp_nginx_version = ngx_string(NGINX_VERSION);
@@ -174,15 +174,15 @@ ngx_rtmp_kmp_api_streams_json_write(u_char *p, ngx_rtmp_session_t *s)
 
 
 static size_t
-ngx_rtmp_kmp_api_tracks_json_get_size(ngx_kmp_push_track_t **tracks)
+ngx_rtmp_kmp_api_tracks_json_get_size(ngx_kmp_out_track_t **tracks)
 {
-    size_t                 result = 0;
-    ngx_kmp_push_track_t  *track;
+    size_t                result = 0;
+    ngx_kmp_out_track_t  *track;
 
     track = tracks[KMP_MEDIA_VIDEO];
     if (track != NULL) {
         result += sizeof("\"video\":") - 1;
-        result += ngx_kmp_push_track_json_get_size(track);
+        result += ngx_kmp_out_track_json_get_size(track);
     }
 
     track = tracks[KMP_MEDIA_AUDIO];
@@ -190,7 +190,7 @@ ngx_rtmp_kmp_api_tracks_json_get_size(ngx_kmp_push_track_t **tracks)
         result++;      /* ',' */
 
         result += sizeof("\"audio\":") - 1;
-        result += ngx_kmp_push_track_json_get_size(track);
+        result += ngx_kmp_out_track_json_get_size(track);
     }
 
     return result;
@@ -198,15 +198,15 @@ ngx_rtmp_kmp_api_tracks_json_get_size(ngx_kmp_push_track_t **tracks)
 
 
 static u_char *
-ngx_rtmp_kmp_api_tracks_json_write(u_char *p, ngx_kmp_push_track_t **tracks)
+ngx_rtmp_kmp_api_tracks_json_write(u_char *p, ngx_kmp_out_track_t **tracks)
 {
-    u_char                *start = p;
-    ngx_kmp_push_track_t  *track;
+    u_char               *start = p;
+    ngx_kmp_out_track_t  *track;
 
     track = tracks[KMP_MEDIA_VIDEO];
     if (track != NULL) {
         p = ngx_copy_fix(p, "\"video\":");
-        p = ngx_kmp_push_track_json_write(p, track);
+        p = ngx_kmp_out_track_json_write(p, track);
     }
 
     track = tracks[KMP_MEDIA_AUDIO];
@@ -216,7 +216,7 @@ ngx_rtmp_kmp_api_tracks_json_write(u_char *p, ngx_kmp_push_track_t **tracks)
         }
 
         p = ngx_copy_fix(p, "\"audio\":");
-        p = ngx_kmp_push_track_json_write(p, track);
+        p = ngx_kmp_out_track_json_write(p, track);
     }
 
     return p;

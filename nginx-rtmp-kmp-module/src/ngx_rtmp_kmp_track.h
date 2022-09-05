@@ -6,7 +6,7 @@
 #include <ngx_core.h>
 #include <ngx_rtmp.h>
 #include <ngx_rtmp_codec_module.h>
-#include "ngx_kmp_push_track.h"
+#include "ngx_kmp_out_track.h"
 
 
 #define NGX_RTMP_TIMESCALE   (1000)
@@ -20,11 +20,11 @@ typedef struct {
 } ngx_rtmp_kmp_publish_t;
 
 
-ngx_kmp_push_track_t *ngx_rtmp_kmp_track_create(
-    ngx_kmp_push_track_conf_t *conf, ngx_rtmp_session_t *s,
+ngx_kmp_out_track_t *ngx_rtmp_kmp_track_create(
+    ngx_kmp_out_track_conf_t *conf, ngx_rtmp_session_t *s,
     ngx_rtmp_kmp_publish_t  *publish, ngx_rtmp_header_t *h, ngx_chain_t *in);
 
-ngx_int_t ngx_rtmp_kmp_track_av(ngx_kmp_push_track_t *track,
+ngx_int_t ngx_rtmp_kmp_track_av(ngx_kmp_out_track_t *track,
     ngx_rtmp_header_t *h, ngx_chain_t *in);
 
 #endif /* _NGX_RTMP_KMP_TRACK_H_INCLUDED_ */

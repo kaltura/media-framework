@@ -2,9 +2,9 @@
 #include <ngx_core.h>
 
 #include <ngx_ts_avc.h>
-#include <ngx_kmp_push_track.h>
-#include <ngx_kmp_push_track_internal.h>
-#include <ngx_kmp_push_utils.h>
+#include <ngx_kmp_out_track.h>
+#include <ngx_kmp_out_track_internal.h>
+#include <ngx_kmp_out_utils.h>
 
 #include "ngx_ts_kmp_module.h"
 #include "ngx_ts_kmp_track.h"
@@ -150,7 +150,7 @@ ngx_ts_kmp_copy_chain(ngx_pool_t *pool, ngx_buf_t *dst, ngx_chain_t *cl,
 
 
 static ngx_int_t
-ngx_ts_kmp_track_write_chain(ngx_kmp_push_track_t *track,
+ngx_ts_kmp_track_write_chain(ngx_kmp_out_track_t *track,
     ngx_chain_t *cl, u_char *pos, size_t size)
 {
     size_t      left;
@@ -162,7 +162,7 @@ ngx_ts_kmp_track_write_chain(ngx_kmp_push_track_t *track,
 
         left = buf->last - pos;
         if (size <= left) {
-            if (ngx_kmp_push_track_write_frame_data(track, pos, size)
+            if (ngx_kmp_out_track_write_frame_data(track, pos, size)
                 != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
@@ -173,7 +173,7 @@ ngx_ts_kmp_track_write_chain(ngx_kmp_push_track_t *track,
             break;
         }
 
-        if (ngx_kmp_push_track_write_frame_data(track, pos, left)
+        if (ngx_kmp_out_track_write_frame_data(track, pos, left)
             != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
@@ -195,13 +195,13 @@ ngx_ts_kmp_track_write_chain(ngx_kmp_push_track_t *track,
 static ngx_int_t
 ngx_ts_kmp_track_handle_media_info(ngx_ts_kmp_track_t *ts_track)
 {
-    ngx_int_t              rc;
-    ngx_kmp_push_track_t  *track;
+    ngx_int_t             rc;
+    ngx_kmp_out_track_t  *track;
 
     if (!ts_track->media_info_sent) {
         track = ts_track->track;
 
-        rc = ngx_kmp_push_track_write_media_info(track);
+        rc = ngx_kmp_out_track_write_media_info(track);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_ts_kmp_track_handle_media_info: send media info failed");
@@ -214,7 +214,7 @@ ngx_ts_kmp_track_handle_media_info(ngx_ts_kmp_track_t *ts_track)
     if (!ts_track->published) {
         track = ts_track->track;
 
-        if (ngx_kmp_push_track_publish(track) != NGX_OK) {
+        if (ngx_kmp_out_track_publish(track) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_ts_kmp_track_handle_media_info: publish failed");
             return NGX_ERROR;
@@ -231,7 +231,7 @@ static void
 ngx_ts_kmp_track_init_frame(ngx_ts_kmp_track_t *ts_track,
     kmp_frame_packet_t *frame, int is_key_frame, int64_t pts, int64_t dts)
 {
-    ngx_kmp_push_track_t  *track = ts_track->track;
+    ngx_kmp_out_track_t  *track = ts_track->track;
 
     ngx_memzero(frame, sizeof(*frame));
     frame->header.packet_type = KMP_PACKET_FRAME;
@@ -246,7 +246,7 @@ ngx_ts_kmp_track_init_frame(ngx_ts_kmp_track_t *ts_track,
     }
 
     /* created */
-    frame->f.created = ngx_kmp_push_track_get_time(track);
+    frame->f.created = ngx_kmp_out_track_get_time(track);
 
     /* dts */
     if (!ts_track->timestamps_synced) {
@@ -272,8 +272,8 @@ static ngx_int_t
 ngx_ts_kmp_track_avc_handle_nalu(ngx_ts_kmp_track_t *ts_track,
     ngx_ts_kmp_avc_nalu_t *nalu)
 {
-    ngx_buf_t             *dst;
-    ngx_kmp_push_track_t  *track;
+    ngx_buf_t            *dst;
+    ngx_kmp_out_track_t  *track;
 
     switch (nalu->type) {
 
@@ -414,13 +414,13 @@ static ngx_int_t
 ngx_ts_kmp_track_avc_update_media_info(ngx_ts_kmp_track_t *ts_track,
     ngx_ts_stream_t *ts)
 {
-    size_t                 sps_size;
-    size_t                 pps_size;
-    size_t                 extra_data_size;
-    u_char                *p;
-    ngx_str_t             *extra_data;
-    ngx_ts_avc_params_t    avc_params;
-    ngx_kmp_push_track_t  *track = ts_track->track;
+    size_t                sps_size;
+    size_t                pps_size;
+    size_t                extra_data_size;
+    u_char               *p;
+    ngx_str_t            *extra_data;
+    ngx_ts_avc_params_t   avc_params;
+    ngx_kmp_out_track_t  *track = ts_track->track;
 
     sps_size = ts_track->sps.last - ts_track->sps.pos;
     pps_size = ts_track->pps.last - ts_track->pps.pos;
@@ -447,7 +447,7 @@ ngx_ts_kmp_track_avc_update_media_info(ngx_ts_kmp_track_t *ts_track,
         + 1 + 2 + sps_size      /* sps */
         + 1 + 2 + pps_size;     /* pps */
 
-    if (ngx_kmp_push_track_alloc_extra_data(track, extra_data_size)
+    if (ngx_kmp_out_track_alloc_extra_data(track, extra_data_size)
         != NGX_OK)
     {
         return NGX_ERROR;
@@ -491,10 +491,10 @@ ngx_ts_kmp_track_avc_write_frame(ngx_ts_kmp_track_t *ts_track,
 {
     u_char                  len_buf[4];
     uint32_t                i;
-    ngx_kmp_push_track_t   *track = ts_track->track;
+    ngx_kmp_out_track_t    *track = ts_track->track;
     ngx_ts_kmp_avc_nalu_t  *nalu;
 
-    if (ngx_kmp_push_track_write_frame_start(track) != NGX_OK) {
+    if (ngx_kmp_out_track_write_frame_start(track) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_ts_kmp_track_avc_write_frame: start frame failed");
         return NGX_ERROR;
@@ -516,7 +516,7 @@ ngx_ts_kmp_track_avc_write_frame(ngx_ts_kmp_track_t *ts_track,
 
         ngx_ts_kmp_write_be32(len_buf, nalu->size);
 
-        if (ngx_kmp_push_track_write_frame_data(track,
+        if (ngx_kmp_out_track_write_frame_data(track,
             len_buf, sizeof(len_buf)) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
@@ -531,7 +531,7 @@ ngx_ts_kmp_track_avc_write_frame(ngx_ts_kmp_track_t *ts_track,
         }
     }
 
-    if (ngx_kmp_push_track_write_frame_end(track, frame) != NGX_OK) {
+    if (ngx_kmp_out_track_write_frame_end(track, frame) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_ts_kmp_track_avc_write_frame: end frame failed");
         return NGX_ERROR;
@@ -600,11 +600,11 @@ static ngx_int_t
 ngx_ts_kmp_track_aac_update_media_info(ngx_ts_kmp_track_t *ts_track,
     ngx_ts_stream_t *ts, u_char *hdr)
 {
-    u_char                *p;
-    ngx_str_t             *extra_data;
-    kmp_media_info_t      *media_info;
-    ngx_ts_aac_params_t    aac_params;
-    ngx_kmp_push_track_t  *track;
+    u_char               *p;
+    ngx_str_t            *extra_data;
+    kmp_media_info_t     *media_info;
+    ngx_ts_aac_params_t   aac_params;
+    ngx_kmp_out_track_t  *track;
 
     track = ts_track->track;
 
@@ -636,7 +636,7 @@ ngx_ts_kmp_track_aac_update_media_info(ngx_ts_kmp_track_t *ts_track,
     extra_data = &ts_track->track->extra_data;
     extra_data->len = 2;
 
-    if (ngx_kmp_push_track_alloc_extra_data(track, extra_data->len)
+    if (ngx_kmp_out_track_alloc_extra_data(track, extra_data->len)
         != NGX_OK)
     {
         return NGX_ERROR;
@@ -659,19 +659,19 @@ static ngx_int_t
 ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
     ngx_ts_handler_data_t *hd)
 {
-    size_t                 buf_left;
-    u_char                *pos, *dst;
-    u_char                *header;
-    u_char                 header_buf[NGX_TS_AAC_ADTS_CRC_LEN];
-    uint32_t               left;
-    uint32_t               header_len;
-    uint64_t               dts;
-    ngx_buf_t             *buf;
-    ngx_uint_t             index = 0;
-    ngx_chain_t           *cl;
-    ngx_ts_stream_t       *ts = hd->ts;
-    kmp_frame_packet_t     frame;
-    ngx_kmp_push_track_t  *track = ts_track->track;
+    size_t                buf_left;
+    u_char               *pos, *dst;
+    u_char               *header;
+    u_char                header_buf[NGX_TS_AAC_ADTS_CRC_LEN];
+    uint32_t              left;
+    uint32_t              header_len;
+    uint64_t              dts;
+    ngx_buf_t            *buf;
+    ngx_uint_t            index = 0;
+    ngx_chain_t          *cl;
+    ngx_ts_stream_t      *ts = hd->ts;
+    kmp_frame_packet_t    frame;
+    ngx_kmp_out_track_t  *track = ts_track->track;
 
     cl = hd->bufs;
     buf = cl->buf;
@@ -747,7 +747,7 @@ ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
                 return NGX_ERROR;
             }
 
-            if (ngx_kmp_push_track_write_frame_start(track) != NGX_OK) {
+            if (ngx_kmp_out_track_write_frame_start(track) != NGX_OK) {
                 ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                     "ngx_ts_kmp_track_aac_pes_handler: start frame failed");
                 return NGX_ERROR;
@@ -771,7 +771,7 @@ ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
 
             buf_left = buf->last - pos;
             if (buf_left < left) {
-                if (ngx_kmp_push_track_write_frame_data(track, pos, buf_left)
+                if (ngx_kmp_out_track_write_frame_data(track, pos, buf_left)
                     != NGX_OK)
                 {
                     ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
@@ -795,7 +795,7 @@ ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
                 continue;
             }
 
-            if (ngx_kmp_push_track_write_frame_data(track, pos, left)
+            if (ngx_kmp_out_track_write_frame_data(track, pos, left)
                 != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
@@ -810,7 +810,7 @@ ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
 
             ngx_ts_kmp_track_init_frame(ts_track, &frame, 0, dts, dts);
 
-            if (ngx_kmp_push_track_write_frame_end(track, &frame) != NGX_OK) {
+            if (ngx_kmp_out_track_write_frame_end(track, &frame) != NGX_OK) {
                 ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                     "ngx_ts_kmp_track_aac_pes_handler: end frame failed");
                 return NGX_ERROR;
@@ -827,7 +827,7 @@ ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
 /* main */
 
 static ngx_int_t
-ngx_ts_kmp_track_init_json_info(ngx_kmp_push_track_t *track,
+ngx_ts_kmp_track_init_json_info(ngx_kmp_out_track_t *track,
     ngx_ts_kmp_publish_t *publish, ngx_ts_stream_t *ts)
 {
     u_char  *p;
@@ -849,7 +849,7 @@ ngx_ts_kmp_track_init_json_info(ngx_kmp_push_track_t *track,
 
 
 static ngx_int_t
-ngx_ts_kmp_track_init_input_id(ngx_kmp_push_track_t *track,
+ngx_ts_kmp_track_init_input_id(ngx_kmp_out_track_t *track,
     ngx_ts_kmp_publish_t *publish)
 {
     u_char  *p;
@@ -936,8 +936,8 @@ ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
     ngx_ts_program_t      *prog;
     ngx_ts_kmp_ctx_t      *ctx;
     ngx_ts_kmp_track_t    *ts_track;
+    ngx_kmp_out_track_t   *track;
     ngx_ts_kmp_publish_t   publish;
-    ngx_kmp_push_track_t  *track;
 
     ctx = hd->data;
     prog = hd->prog;
@@ -972,7 +972,7 @@ ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
 
         media_type = es->video ? KMP_MEDIA_VIDEO : KMP_MEDIA_AUDIO;
 
-        track = ngx_kmp_push_track_create(&ctx->conf->t, media_type);
+        track = ngx_kmp_out_track_create(&ctx->conf->t, media_type);
         if (track == NULL) {
             ngx_log_error(NGX_LOG_NOTICE, ts->log, 0,
                 "ngx_ts_kmp_track_create: create failed");
@@ -1016,7 +1016,7 @@ ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
 
 failed:
 
-    ngx_kmp_push_track_detach(track, "");
+    ngx_kmp_out_track_detach(track, "");
 
     return NGX_ERROR;
 }
@@ -1026,7 +1026,7 @@ ngx_int_t
 ngx_ts_kmp_track_pes_handler(ngx_ts_kmp_track_t *ts_track,
     ngx_ts_handler_data_t *hd)
 {
-    ngx_kmp_push_track_t  *track;
+    ngx_kmp_out_track_t  *track;
 
     track = ts_track->track;
 
