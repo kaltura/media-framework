@@ -296,7 +296,7 @@ ngx_live_media_info_node_create_default(ngx_live_track_t *track,
         mipcf->bp_idx[NGX_LIVE_BP_MEDIA_INFO_NODE]);
     if (node == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_live_media_info_create_subtitle_node: alloc failed");
+            "ngx_live_media_info_node_create_default: alloc failed");
         return NGX_ERROR;
     }
 
@@ -304,7 +304,7 @@ ngx_live_media_info_node_create_default(ngx_live_track_t *track,
         sizeof(NGX_LIVE_MEDIA_INFO_WEBVTT_HEADER) - 1);
     if (node->media_info.extra.data == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_live_media_info_create_subtitle_node: alloc data failed");
+            "ngx_live_media_info_node_create_default: alloc data failed");
         return NGX_ERROR;
     }
 

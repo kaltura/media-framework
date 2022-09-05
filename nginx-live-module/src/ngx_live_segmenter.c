@@ -1954,8 +1954,8 @@ ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
 done:
 
     if (free_data_chains) {
-        if (channel->snapshots <= 0 && track->input.ack_frames != NULL) {
-            track->input.ack_frames(track->input.data, track->next_frame_id);
+        if (channel->snapshots <= 0 && track->input != NULL) {
+            ngx_kmp_in_ack_frames(track->input, track->next_frame_id);
         }
 
         ngx_live_segment_cache_free_input_bufs(track);
@@ -3018,17 +3018,17 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
 
 
 static ngx_int_t
-ngx_live_segmenter_add_media_info(ngx_live_track_t *track,
-    kmp_media_info_t *media_info, ngx_buf_chain_t *extra_data,
-    uint32_t extra_data_size)
+ngx_live_segmenter_add_media_info(void *data, ngx_kmp_in_evt_media_info_t *evt)
 {
     ngx_int_t                        rc;
+    ngx_live_track_t                *track;
     ngx_live_segmenter_track_ctx_t  *ctx;
 
+    track = data;
     ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
 
-    rc = ngx_live_media_info_pending_add(track, media_info, extra_data,
-        extra_data_size, ctx->frame_count);
+    rc = ngx_live_media_info_pending_add(track, evt->media_info,
+        evt->extra_data, evt->extra_data_size, ctx->frame_count);
     switch (rc) {
 
     case NGX_OK:
@@ -3046,6 +3046,8 @@ ngx_live_segmenter_add_media_info(ngx_live_track_t *track,
         return NGX_ERROR;
 
     default:
+        ngx_live_channel_finalize(track->channel,
+            ngx_live_free_add_media_info_failed);
         return NGX_ABORT;
     }
 
@@ -3054,7 +3056,7 @@ ngx_live_segmenter_add_media_info(ngx_live_track_t *track,
 
 
 static ngx_int_t
-ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
+ngx_live_segmenter_add_frame(void *data, ngx_kmp_in_evt_frame_t *evt)
 {
     kmp_frame_t                       *frame_info;
     ngx_live_track_t                  *track;
@@ -3065,15 +3067,15 @@ ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
     ngx_live_segmenter_preset_conf_t  *spcf;
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
-    track = req->track;
-    frame_info = req->frame;
+    track = data;
+    frame_info = evt->frame;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
 
     ngx_log_debug7(NGX_LOG_DEBUG_LIVE, &track->log, 0,
         "ngx_live_segmenter_add_frame: track: %V, created: %L, size: %uz, "
         "dts: %L, flags: 0x%uxD, ptsDelay: %D, ptsDelta: %L",
-        &track->sn.str, frame_info->created, req->size, frame_info->dts,
+        &track->sn.str, frame_info->created, evt->size, frame_info->dts,
         frame_info->flags, frame_info->pts_delay,
         frame_info->dts + frame_info->pts_delay - ctx->last_pts);
 
@@ -3106,25 +3108,26 @@ ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
     }
 
     ctx->received_frames++;
-    ctx->received_bytes += req->size;
+    ctx->received_bytes += evt->size;
     ctx->last_created = frame_info->created;
-
-    frame = ngx_live_segmenter_frame_list_push(&ctx->frames, req->data_head,
-        req->data_tail);
-    if (frame == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_live_segmenter_add_frame: push frame failed");
-        return NGX_ABORT;
-    }
 
     channel = track->channel;
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
-    frame->id = req->frame_id;
+    frame = ngx_live_segmenter_frame_list_push(&ctx->frames, evt->data_head,
+        evt->data_tail);
+    if (frame == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_segmenter_add_frame: push frame failed");
+        ngx_live_channel_finalize(channel, ngx_live_free_add_frame_failed);
+        return NGX_ABORT;
+    }
+
+    frame->id = evt->frame_id;
     frame->dts = frame_info->dts;
     frame->pts = frame_info->dts + frame_info->pts_delay;
     frame->flags = frame_info->flags;
-    frame->size = req->size;
+    frame->size = evt->size;
 
     if (track->media_type != KMP_MEDIA_VIDEO ||
         (frame->flags & KMP_FRAME_FLAG_KEY))
@@ -3177,6 +3180,8 @@ ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
             if (kf == NULL) {
                 ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                     "ngx_live_segmenter_add_frame: push key frame failed");
+                ngx_live_channel_finalize(channel,
+                    ngx_live_free_add_frame_failed);
                 return NGX_ABORT;
             }
 
@@ -3198,7 +3203,7 @@ ngx_live_segmenter_add_frame(ngx_live_add_frame_req_t *req)
     }
 
     ctx->last_pts = frame->pts;
-    ctx->last_data_ptr = req->data_tail->data;
+    ctx->last_data_ptr = evt->data_tail->data;
 
     ctx->frame_count++;
 
@@ -3268,11 +3273,13 @@ ngx_live_segmenter_start_stream(ngx_live_stream_stream_req_t *req)
 
 
 static void
-ngx_live_segmenter_end_stream(ngx_live_track_t *track)
+ngx_live_segmenter_end_stream(void *data)
 {
+    ngx_live_track_t                  *track;
     ngx_live_segmenter_track_ctx_t    *ctx;
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
+    track = data;
     ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
 
     if (ctx->inactive.timer_set) {

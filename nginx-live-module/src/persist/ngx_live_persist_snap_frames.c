@@ -66,7 +66,7 @@ ngx_live_persist_snap_frames_close(void *data,
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
 
         if (cur_track->in.key > snap->base.max_track_id ||
-            cur_track->input.ack_frames == NULL)
+            cur_track->input == NULL)
         {
             continue;
         }
@@ -80,11 +80,11 @@ ngx_live_persist_snap_frames_close(void *data,
             }
         }
 
-        if (tf->connection != cur_track->input.connection) {
+        if (tf->connection != cur_track->input->connection->number) {
             continue;
         }
 
-        cur_track->input.ack_frames(cur_track->input.data, tf->next_frame_id);
+        ngx_kmp_in_ack_frames(cur_track->input, tf->next_frame_id);
     }
 
 done:
@@ -123,7 +123,8 @@ ngx_live_persist_snap_frames_update(void *data)
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
 
         tf->track_id = cur_track->in.key;
-        tf->connection = cur_track->input.connection;
+        tf->connection = cur_track->input != NULL ?
+            cur_track->input->connection->number : 0;
         tf->next_frame_id = cur_track->next_frame_id;
         tf++;
     }

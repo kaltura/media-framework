@@ -18,7 +18,7 @@
 
 typedef struct {
     ngx_flag_t             enabled;
-    ngx_live_add_frame_pt  next_add_frame;
+    ngx_kmp_in_frame_pt    next_add_frame;
 
     time_t                 inter_jump_log_threshold;
     time_t                 inter_jump_threshold;
@@ -308,7 +308,7 @@ ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
 
 
 static ngx_int_t
-ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
+ngx_live_syncer_add_frame(void *data, ngx_kmp_in_evt_frame_t *evt)
 {
     int64_t                         pts;
     int64_t                         min_correction;
@@ -320,7 +320,7 @@ ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
     ngx_live_syncer_track_ctx_t    *ctx;
     ngx_live_syncer_preset_conf_t  *spcf;
 
-    track = req->track;
+    track = data;
     channel = track->channel;
     spcf = ngx_live_get_module_preset_conf(channel, ngx_live_syncer_module);
 
@@ -330,7 +330,7 @@ ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
         ctx->force_sync_count--;
     }
 
-    frame = req->frame;
+    frame = evt->frame;
     pts = frame->dts;
 
     if (track->media_type == KMP_MEDIA_VIDEO) {
@@ -374,7 +374,7 @@ ngx_live_syncer_add_frame(ngx_live_add_frame_req_t *req)
                 pts, ctx->last_pts, min_correction);
 
             ngx_live_syncer_sync_track(track, pts, frame->created,
-                req->frame_id, spcf->jump_sync_frames, min_correction);
+                evt->frame_id, spcf->jump_sync_frames, min_correction);
             goto done;
         }
     }
@@ -422,7 +422,7 @@ sync:
 
     frame->flags |= NGX_LIVE_FRAME_FLAG_SPLIT;
 
-    ngx_live_syncer_sync_track(track, pts, frame->created, req->frame_id,
+    ngx_live_syncer_sync_track(track, pts, frame->created, evt->frame_id,
         sync_frames, LLONG_MIN);
 
 done:
@@ -432,7 +432,7 @@ done:
     frame->dts += ctx->correction;
     ctx->last_output_dts = frame->dts;
 
-    return spcf->next_add_frame(req);
+    return spcf->next_add_frame(track, evt);
 }
 
 
