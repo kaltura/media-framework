@@ -7,6 +7,7 @@
 #include <ngx_event.h>
 #include <ngx_buf_queue.h>
 #include <ngx_buf_chain.h>
+#include <ngx_kmp_in.h>
 #include "ngx_live_config.h"
 #include "ngx_block_pool.h"
 #include "ngx_block_str.h"
@@ -160,38 +161,6 @@ typedef enum {
 } ngx_live_track_type_e;
 
 
-typedef struct {
-    ngx_uint_t                     duplicate;
-    ngx_uint_t                     empty;
-    ngx_uint_t                     no_media_info;
-    ngx_uint_t                     no_key;
-} ngx_live_track_input_skip_t;
-
-
-typedef struct {
-    uint64_t                       min;
-    uint64_t                       max;
-    uint64_t                       sum;
-    ngx_uint_t                     count;
-} ngx_live_latency_stats_t;
-
-
-typedef struct {
-    void                          *data;
-    ngx_live_track_ack_frames_pt   ack_frames;
-    ngx_live_track_disconnect_pt   disconnect;
-
-    ngx_atomic_uint_t              connection;
-    ngx_json_str_t                 remote_addr;
-
-    time_t                         start_sec;
-    off_t                          received_bytes;
-    ngx_live_track_input_skip_t    skipped;
-
-    ngx_live_latency_stats_t       latency;
-} ngx_live_track_input_t;
-
-
 struct ngx_live_track_s {
     ngx_str_node_t                 sn;        /* must be first */
     ngx_rbtree_node_t              in;
@@ -209,7 +178,7 @@ struct ngx_live_track_s {
     void                         **ctx;
     ngx_log_t                      log;
 
-    ngx_live_track_input_t         input;
+    ngx_kmp_in_ctx_t              *input;
 
     /* Note: the fields below can be read only while handling the events:
         index ready / snapshot, track reconnect, read from persist */
@@ -360,14 +329,6 @@ u_char *ngx_live_tracks_json_write(u_char *p, ngx_live_channel_t *obj);
 size_t ngx_live_track_ids_json_get_size(ngx_live_channel_t *obj);
 
 u_char *ngx_live_track_ids_json_write(u_char *p, ngx_live_channel_t *obj);
-
-/* latency helpers */
-void ngx_live_channel_update_latency_stats(ngx_live_channel_t *channel,
-    ngx_live_latency_stats_t *stats, int64_t from);
-
-size_t ngx_live_latency_stats_get_size(ngx_live_latency_stats_t *obj);
-
-u_char *ngx_live_latency_stats_write(u_char *p, ngx_live_latency_stats_t *obj);
 
 
 extern ngx_str_t  ngx_live_track_type_names[];

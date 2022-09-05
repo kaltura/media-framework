@@ -1,31 +1,10 @@
 
-out nostatic ngx_live_latency_stats ngx_live_latency_stats_t
-    - %return-null obj->count <= 0
-    min %uL
-    max %uL
-    avg %uL obj->sum / obj->count
-
-out ngx_live_track_input_skip ngx_live_track_input_skip_t
-    duplicate %ui
-    empty %ui
-    no_media_info %ui
-    no_key %ui
-
-out ngx_live_track_input ngx_live_track_input_t
-    - %return-null !obj->connection
-    connection %uA
-    remote_addr %jV
-    uptime %T (ngx_time() - obj->start_sec)
-    received_bytes %O
-    skipped_frames %func-ngx_live_track_input_skip &obj->skipped
-    latency %func-ngx_live_latency_stats &obj->latency
-
 out ngx_live_track_json ngx_live_track_t
     media_type %enum-ngx_live_track_media_type_names
     type %enum-ngx_live_track_type_names
     uptime %T (ngx_time() - obj->start_sec)
     opaque %bs
-    input %func-ngx_live_track_input &obj->input
+    input %func-ngx_kmp_in_json obj->input
     last_segment_bitrate %uD
     - %func-ngx_live_core_json obj, obj->channel, NGX_LIVE_JSON_CTX_TRACK
 

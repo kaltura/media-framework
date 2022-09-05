@@ -169,7 +169,7 @@ typedef struct {
     ngx_uint_t                         received_frames;
     ngx_uint_t                         received_key_frames;
     ngx_uint_t                         dropped_frames;
-    ngx_live_latency_stats_t           latency;
+    ngx_kmp_in_stats_latency_t         latency;
 
     ngx_live_lls_track_pending_seg_t   pending[1];  /* must be last */
 } ngx_live_lls_track_ctx_t;
@@ -947,7 +947,7 @@ ngx_live_lls_track_stop_part(ngx_live_track_t *track, ngx_flag_t is_last)
 
     track->next_part_index = segment->parts.nelts;
 
-    ngx_live_channel_update_latency_stats(channel, &ctx->latency,
+    ngx_kmp_in_update_latency_stats(channel->timescale, &ctx->latency,
         ctx->part_frame_created);
 
     ngx_live_notif_segment_publish(track, segment->node.key, part_index,
@@ -1244,9 +1244,9 @@ dispose:
         track->next_frame_id = frame->id + 1;
 
         if (ctx->last_dropped_frames % NGX_LIVE_LLS_DISPOSE_ACK_FREQUENCY == 0
-            && channel->snapshots <= 0 && track->input.ack_frames != NULL)
+            && channel->snapshots <= 0 && track->input != NULL)
         {
-            track->input.ack_frames(track->input.data, track->next_frame_id);
+            ngx_kmp_in_ack_frames(track->input, track->next_frame_id);
         }
     }
 
@@ -1776,7 +1776,7 @@ ngx_live_lls_track_end_segment(ngx_live_track_t *track)
 
     ctx->part_start_pts += part->duration;
 
-    ngx_live_channel_update_latency_stats(channel, &ctx->latency,
+    ngx_kmp_in_update_latency_stats(channel->timescale, &ctx->latency,
         ctx->part_frame_created);
 
     /* add gap parts */
@@ -2486,17 +2486,17 @@ ngx_live_lls_force_close_segment(ngx_live_channel_t *channel)
 
 
 static ngx_int_t
-ngx_live_lls_add_media_info(ngx_live_track_t *track,
-    kmp_media_info_t *media_info, ngx_buf_chain_t *extra_data,
-    uint32_t extra_data_size)
+ngx_live_lls_add_media_info(void *data, ngx_kmp_in_evt_media_info_t *evt)
 {
     ngx_int_t                  rc;
+    ngx_live_track_t          *track;
     ngx_live_lls_track_ctx_t  *ctx;
 
+    track = data;
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
 
-    rc = ngx_live_media_info_pending_add(track, media_info, extra_data,
-        extra_data_size, ctx->frames.count);
+    rc = ngx_live_media_info_pending_add(track, evt->media_info,
+        evt->extra_data, evt->extra_data_size, ctx->frames.count);
     switch (rc) {
 
     case NGX_OK:
@@ -2514,6 +2514,8 @@ ngx_live_lls_add_media_info(ngx_live_track_t *track,
         return NGX_ERROR;
 
     default:
+        ngx_live_channel_finalize(track->channel,
+            ngx_live_free_add_media_info_failed);
         return NGX_ABORT;
     }
 
@@ -2522,7 +2524,7 @@ ngx_live_lls_add_media_info(ngx_live_track_t *track,
 
 
 static ngx_int_t
-ngx_live_lls_add_frame(ngx_live_add_frame_req_t *req)
+ngx_live_lls_add_frame(void *data, ngx_kmp_in_evt_frame_t *evt)
 {
     int64_t                      last_pts;
     ngx_flag_t                   is_first;
@@ -2536,9 +2538,9 @@ ngx_live_lls_add_frame(ngx_live_add_frame_req_t *req)
     ngx_live_lls_channel_ctx_t  *cctx;
     ngx_live_lls_pending_seg_t  *pending;
 
-    track = req->track;
+    track = data;
     channel = track->channel;
-    kmp_frame = req->frame;
+    kmp_frame = evt->frame;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
     cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
@@ -2546,8 +2548,8 @@ ngx_live_lls_add_frame(ngx_live_add_frame_req_t *req)
     ngx_log_debug8(NGX_LOG_DEBUG_LIVE, &track->log, 0,
         "ngx_live_lls_add_frame: id: %uL, created: %L, size: %uz, "
         "dts: %L, flags: 0x%uxD, head: %p, tail: %p, track: %V",
-        req->frame_id, kmp_frame->created, req->size, kmp_frame->dts,
-        kmp_frame->flags, req->data_head, req->data_tail, &track->sn.str);
+        evt->frame_id, kmp_frame->created, evt->size, kmp_frame->dts,
+        kmp_frame->flags, evt->data_head, evt->data_tail, &track->sn.str);
 
     if (kmp_frame->pts_delay >= 0
         && kmp_frame->dts >= LLONG_MAX - kmp_frame->pts_delay)
@@ -2569,26 +2571,27 @@ ngx_live_lls_add_frame(ngx_live_add_frame_req_t *req)
     }
 
     ctx->received_frames++;
-    ctx->received_bytes += req->size;
+    ctx->received_bytes += evt->size;
     ctx->last_created = kmp_frame->created;
 
     is_first = ctx->frames.count <= 0;
 
-    frame = ngx_live_lls_frame_list_push(&ctx->frames, req->data_head,
-        req->data_tail);
+    frame = ngx_live_lls_frame_list_push(&ctx->frames, evt->data_head,
+        evt->data_tail);
     if (frame == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_lls_add_frame: push frame failed");
+        ngx_live_channel_finalize(channel, ngx_live_free_add_frame_failed);
         return NGX_ABORT;
     }
 
     frame->created = kmp_frame->created;
     frame->added = ngx_current_msec;
-    frame->id = req->frame_id;
+    frame->id = evt->frame_id;
     frame->dts = kmp_frame->dts;
     frame->pts = kmp_frame->dts + kmp_frame->pts_delay;
     frame->flags = kmp_frame->flags;
-    frame->size = req->size;
+    frame->size = evt->size;
 
     if (track->media_type != KMP_MEDIA_VIDEO
         || (frame->flags & KMP_FRAME_FLAG_KEY))
@@ -2650,7 +2653,7 @@ ngx_live_lls_add_frame(ngx_live_add_frame_req_t *req)
     }
 
     ctx->last_added_pts = frame->pts;
-    ctx->last_data_ptr = req->data_tail->data;
+    ctx->last_data_ptr = evt->data_tail->data;
 
     if (ctx->fstate == ngx_live_lls_fs_idle) {
         cctx->non_idle_tracks++;
@@ -2681,6 +2684,7 @@ ngx_live_lls_add_frame(ngx_live_add_frame_req_t *req)
     if (ngx_live_lls_process(channel) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_lls_add_frame: process failed");
+        ngx_live_channel_finalize(channel, ngx_live_free_process_frame_failed);
         return NGX_ABORT;
     }
 
@@ -2696,17 +2700,19 @@ ngx_live_lls_start_stream(ngx_live_stream_stream_req_t *req)
     ngx_int_t                    rc;
     ngx_live_track_t            *track;
     ngx_live_lls_frame_t        *frame;
+    kmp_connect_packet_t        *header;
     ngx_live_lls_track_ctx_t    *ctx;
     ngx_live_lls_preset_conf_t  *spcf;
 
     track = req->track;
+    header = req->header;
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
 
     ngx_log_error(NGX_LOG_INFO, &track->log, 0,
         "ngx_live_lls_start_stream: flags: 0x%uxD, pending_frames: %ui",
-        req->header->flags, ctx->frames.count);
+        header->flags, ctx->frames.count);
 
-    if (!(req->header->flags & KMP_CONNECT_FLAG_CONSISTENT)) {
+    if (!(header->flags & KMP_CONNECT_FLAG_CONSISTENT)) {
 
         rc = ngx_live_lls_track_flush_frames(track,
             NGX_LIVE_LLS_FLAG_FLUSH_PART);
@@ -2744,7 +2750,7 @@ ngx_live_lls_start_stream(ngx_live_stream_stream_req_t *req)
         next_frame_id = ctx->next_frame_id;
     }
 
-    initial_frame_id = req->header->initial_frame_id;
+    initial_frame_id = header->initial_frame_id;
     if (next_frame_id > initial_frame_id) {
         spcf = ngx_live_get_module_preset_conf(track->channel,
             ngx_live_lls_module);
@@ -2760,7 +2766,7 @@ ngx_live_lls_start_stream(ngx_live_stream_stream_req_t *req)
         }
     }
 
-    if ((req->header->flags & KMP_CONNECT_FLAG_CONSISTENT)
+    if ((header->flags & KMP_CONNECT_FLAG_CONSISTENT)
         && initial_frame_id + req->skip_count == next_frame_id
         && (ctx->frames.count > 0 || ctx->sstate == ngx_live_lls_ss_started))
     {
@@ -2772,10 +2778,12 @@ ngx_live_lls_start_stream(ngx_live_stream_stream_req_t *req)
 
 
 static void
-ngx_live_lls_end_stream(ngx_live_track_t *track)
+ngx_live_lls_end_stream(void *data)
 {
+    ngx_live_track_t          *track;
     ngx_live_lls_track_ctx_t  *ctx;
 
+    track = data;
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
 
     if (ctx->fstate != ngx_live_lls_fs_active) {
@@ -3156,7 +3164,7 @@ ngx_live_lls_track_json_get_size(void *obj)
         + sizeof(",\"received_key_frames\":") - 1 + NGX_INT_T_LEN
         + sizeof(",\"dropped_frames\":") - 1 + NGX_INT_T_LEN
         + sizeof(",\"latency\":") - 1
-        + ngx_live_latency_stats_get_size(&ctx->latency);
+        + ngx_kmp_in_stats_latency_json_get_size(&ctx->latency);
 }
 
 
@@ -3197,7 +3205,7 @@ ngx_live_lls_track_json_write(u_char *p, void *obj)
     p = ngx_sprintf(p, "%ui", ctx->dropped_frames);
 
     p = ngx_copy_fix(p, ",\"latency\":");
-    p = ngx_live_latency_stats_write(p, &ctx->latency);
+    p = ngx_kmp_in_stats_latency_json_write(p, &ctx->latency);
 
     return p;
 }

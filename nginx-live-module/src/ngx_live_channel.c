@@ -405,9 +405,8 @@ ngx_live_channel_ack_frames(ngx_live_channel_t *channel)
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
 
-        if (cur_track->input.ack_frames != NULL) {
-            cur_track->input.ack_frames(cur_track->input.data,
-                cur_track->next_frame_id);
+        if (cur_track->input != NULL) {
+            ngx_kmp_in_ack_frames(cur_track->input, cur_track->next_frame_id);
         }
     }
 }
@@ -446,37 +445,6 @@ ngx_live_channel_block_str_read(ngx_live_channel_t *channel,
 {
     return ngx_block_str_read(rs, dest, channel->block_pool,
         channel->bp_idx[NGX_LIVE_CORE_BP_STR]);
-}
-
-
-void
-ngx_live_channel_update_latency_stats(ngx_live_channel_t *channel,
-    ngx_live_latency_stats_t *stats, int64_t from)
-{
-    int64_t      now;
-    uint64_t     latency;
-    ngx_time_t  *tp;
-
-    tp = ngx_timeofday();
-    now = (int64_t) tp->sec * channel->timescale +
-        (int64_t) tp->msec * channel->timescale / 1000;
-
-    if (now < from) {
-        return;
-    }
-
-    latency = now - from;
-
-    if (stats->min > latency || stats->count <= 0) {
-        stats->min = latency;
-    }
-
-    if (stats->max < latency) {
-        stats->max = latency;
-    }
-
-    stats->count++;
-    stats->sum += latency;
 }
 
 
@@ -1189,8 +1157,8 @@ ngx_live_track_channel_free(ngx_live_track_t *track, ngx_uint_t event)
 {
     (void) ngx_live_core_track_event(track, event, NULL);
 
-    if (track->input.data != NULL) {
-        track->input.disconnect(track->input.data, NGX_OK);
+    if (track->input != NULL) {
+        track->input->disconnect(track->input, NGX_OK);
     }
 }
 

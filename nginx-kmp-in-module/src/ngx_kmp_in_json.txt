@@ -1,0 +1,21 @@
+
+out nostatic ngx_kmp_in_stats_latency_json ngx_kmp_in_stats_latency_t
+    - %return-null obj->count <= 0
+    min %uL
+    max %uL
+    avg %uL obj->sum / obj->count
+
+out ngx_kmp_in_stats_skip_json ngx_kmp_in_stats_skip_t
+    duplicate %ui
+    empty %ui
+    no_media_info %ui
+    no_key %ui
+
+out nostatic ngx_kmp_in_json ngx_kmp_in_ctx_t
+    - %return-null !obj
+    connection %uA obj->connection->number
+    remote_addr %jV
+    uptime %T (ngx_time() - obj->start_sec)
+    received_bytes %O
+    skipped_frames %func-ngx_kmp_in_stats_skip_json &obj->skipped
+    latency %func-ngx_kmp_in_stats_latency_json &obj->latency
