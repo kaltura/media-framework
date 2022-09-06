@@ -342,6 +342,9 @@ def kmpSendStreams(pipes, base = KmpSendTimestamps(), maxDuration = 0, maxDts = 
     if VERBOSITY >= 2:
         print('sendStream started, streams=%s, duration=%s, realtime=%s, waitForVideoKey=%s' % (len(pipes), maxDuration, realtime, waitForVideoKey))
 
+    if not realtime:
+        realtime = 20
+
     while True:
         minPipe = kmpGetMinDtsPipe(pipes)
         if minPipe is None:
@@ -375,10 +378,9 @@ def kmpSendStreams(pipes, base = KmpSendTimestamps(), maxDuration = 0, maxDts = 
         created = base.created + dtsOffset
         dts = base.dts + dtsOffset
 
-        if realtime:
-            sleepTime = dtsOffsetSec - (time.time() - startTime) * realtime
-            if sleepTime > 0:
-                time.sleep(sleepTime)
+        sleepTime = dtsOffsetSec - (time.time() - startTime) * realtime
+        if sleepTime > 0:
+            time.sleep(sleepTime)
 
         data = kmpSetFrameHeader(data, (created, dts, flags, ptsDelay))
 

@@ -33,23 +33,6 @@ ngx_kmp_in_strnlen(u_char *p, size_t n)
 #endif
 
 
-static void
-ngx_kmp_in_chain_md5_hex(u_char dst[32], ngx_buf_chain_t *chain)
-{
-    u_char     hash[16];
-    ngx_md5_t  md5;
-
-    ngx_md5_init(&md5);
-
-    for (; chain; chain = chain->next) {
-        ngx_md5_update(&md5, chain->data, chain->size);
-    }
-
-    ngx_md5_final(hash, &md5);
-    ngx_hex_dump(dst, hash, sizeof(hash));
-}
-
-
 void
 ngx_kmp_in_update_latency_stats(ngx_uint_t timescale,
     ngx_kmp_in_stats_latency_t *stats, int64_t from)
@@ -78,6 +61,60 @@ ngx_kmp_in_update_latency_stats(ngx_uint_t timescale,
 
     stats->count++;
     stats->sum += latency;
+}
+
+
+ngx_int_t
+ngx_kmp_in_parse_json_chain(ngx_pool_t *pool, ngx_buf_chain_t *chain,
+    size_t size, ngx_json_value_t *json)
+{
+    u_char     *p, *str;
+    u_char      error[128];
+    ngx_int_t   rc;
+
+    p = ngx_pnalloc(pool, size + 1);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_json_parse_chain: alloc failed");
+        return NGX_ABORT;
+    }
+
+    str = p;
+
+    p = ngx_buf_chain_copy(&chain, p, size);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
+            "ngx_json_parse_chain: copy failed");
+        return NGX_ABORT;
+    }
+
+    *p = '\0';
+
+    rc = ngx_json_parse(pool, str, json, error, sizeof(error));
+    if (rc != NGX_JSON_OK) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_json_parse_chain: parse failed %i, %s", rc, error);
+        return rc == NGX_JSON_BAD_DATA ? NGX_ERROR : NGX_ABORT;
+    }
+
+    return NGX_OK;
+}
+
+
+static void
+ngx_kmp_in_chain_md5_hex(u_char dst[32], ngx_buf_chain_t *chain)
+{
+    u_char     hash[16];
+    ngx_md5_t  md5;
+
+    ngx_md5_init(&md5);
+
+    for (; chain; chain = chain->next) {
+        ngx_md5_update(&md5, chain->data, chain->size);
+    }
+
+    ngx_md5_final(hash, &md5);
+    ngx_hex_dump(dst, hash, sizeof(hash));
 }
 
 
@@ -130,6 +167,54 @@ ngx_kmp_in_recv(ngx_connection_t *c, ngx_buf_t *b)
     }
 
     b->last += n;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_kmp_in_connect_data(ngx_kmp_in_ctx_t *ctx)
+{
+    ngx_int_t                       rc;
+    ngx_buf_chain_t                *data;
+    ngx_kmp_in_evt_connect_data_t   evt;
+
+    if (ctx->connect_data == NULL) {
+        return NGX_OK;
+    }
+
+    data = ctx->packet_data_first;
+
+    if (ctx->packet_header.header_size > sizeof(kmp_connect_packet_t)) {
+
+        if (ngx_buf_chain_skip(&data, ctx->packet_header.header_size -
+            sizeof(kmp_connect_packet_t)) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
+                "ngx_kmp_in_connect_data: skip failed");
+            return NGX_KMP_IN_INTERNAL_SERVER_ERROR;
+        }
+    }
+
+    evt.header = (void *) ctx->connection->buffer->pos;
+    evt.data = data;
+
+    rc = ctx->connect_data(ctx, &evt);
+    switch (rc) {
+
+    case NGX_OK:
+        break;
+
+    case NGX_ABORT:
+        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
+            "ngx_kmp_in_connect_data: connect_data handler returned abort");
+        return NGX_KMP_IN_INTERNAL_SERVER_ERROR;
+
+    default:
+        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
+            "ngx_kmp_in_connect_data: connect_data handler failed");
+        return NGX_KMP_IN_BAD_REQUEST;
+    }
 
     return NGX_OK;
 }
@@ -497,26 +582,15 @@ ngx_kmp_in_process_buffer(ngx_kmp_in_ctx_t *ctx)
         switch (packet_type) {
 
         case KMP_PACKET_CONNECT:
+            rc = ngx_kmp_in_connect_data(ctx);
             break;
 
         case KMP_PACKET_MEDIA_INFO:
             rc = ngx_kmp_in_media_info(ctx);
-            if (rc != NGX_OK) {
-                ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
-                    "ngx_kmp_in_process_buffer: "
-                    "handle media info failed %i", rc);
-                return rc;
-            }
             break;
 
         case KMP_PACKET_FRAME:
             rc = ngx_kmp_in_frame(ctx);
-            if (rc != NGX_OK) {
-                ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
-                    "ngx_kmp_in_process_buffer: "
-                    "handle frame failed %i", rc);
-                return rc;
-            }
             break;
 
         case KMP_PACKET_END_OF_STREAM:
@@ -531,6 +605,14 @@ ngx_kmp_in_process_buffer(ngx_kmp_in_ctx_t *ctx)
                 "ngx_kmp_in_process_buffer: "
                 "unknown kmp packet 0x%uxD", packet_type);
             return NGX_KMP_IN_BAD_REQUEST;
+        }
+
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
+                "ngx_kmp_in_process_buffer: "
+                "handler failed %i, type: %*s",
+                rc, (size_t) sizeof(packet_type), &packet_type);
+            return rc;
         }
 
         if (ctx->packet_data_last != NULL) {
@@ -802,20 +884,31 @@ ngx_kmp_in_read_header(ngx_kmp_in_ctx_t *ctx)
         return rc;
     }
 
-    /* initialize parser/sender */
+    /* initialize parser */
     ctx->packet_header_pos = (u_char *) &ctx->packet_header;
     ctx->packet_left = header->header.header_size + header->header.data_size
         - sizeof(*header);
-    ctx->packet_header.packet_type = KMP_PACKET_CONNECT;
-
-    ctx->ack_packet.header.packet_type = KMP_PACKET_ACK_FRAMES;
-    ctx->ack_packet.header.header_size = sizeof(ctx->ack_packet);
-    ctx->cur_frame_id = header->initial_frame_id;
-    ctx->acked_frame_id = header->initial_frame_id;
+    ctx->packet_header = header->header;
 
     ctx->skip_left = evt.skip_count;
     ctx->skip_wait_key = evt.skip_wait_key;
     ctx->header_read = 1;
+
+    if (ctx->packet_left <= 0) {
+        rc = ngx_kmp_in_connect_data(ctx);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
+                "ngx_kmp_in_read_header: "
+                "handle connect data failed %i", rc);
+            return rc;
+        }
+    }
+
+    /* initialize sender */
+    ctx->ack_packet.header.packet_type = KMP_PACKET_ACK_FRAMES;
+    ctx->ack_packet.header.header_size = sizeof(ctx->ack_packet);
+    ctx->cur_frame_id = header->initial_frame_id;
+    ctx->acked_frame_id = header->initial_frame_id;
 
     level = evt.skip_count > 0 ? NGX_LOG_NOTICE : NGX_LOG_INFO;
 

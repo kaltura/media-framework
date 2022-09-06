@@ -110,7 +110,8 @@ ngx_stream_live_kmp_alloc_chain(void *data)
 
 
 static void
-ngx_stream_live_kmp_free_chain_list(void *data, void *head, void *tail)
+ngx_stream_live_kmp_free_chain_list(void *data, ngx_buf_chain_t *head,
+    ngx_buf_chain_t *tail)
 {
     ngx_live_track_t    *track;
     ngx_live_channel_t  *channel;

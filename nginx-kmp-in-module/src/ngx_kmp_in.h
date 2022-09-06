@@ -7,6 +7,7 @@
 
 #include <ngx_live_kmp.h>
 #include <ngx_buf_chain.h>
+#include <ngx_json_parser.h>
 #include <ngx_json_str.h>
 
 
@@ -46,6 +47,12 @@ typedef struct {
 
 
 typedef struct {
+    kmp_connect_packet_t  *header;
+    ngx_buf_chain_t       *data;
+} ngx_kmp_in_evt_connect_data_t;
+
+
+typedef struct {
     kmp_media_info_t      *media_info;
     ngx_buf_chain_t       *extra_data;
     uint32_t               extra_data_size;
@@ -67,6 +74,12 @@ typedef ngx_int_t (*ngx_kmp_in_connected_pt)(ngx_kmp_in_ctx_t *ctx,
 typedef void (*ngx_kmp_in_disconnected_pt)(ngx_kmp_in_ctx_t *ctx);
 typedef void (*ngx_kmp_in_disconnect_pt)(ngx_kmp_in_ctx_t *ctx, ngx_uint_t rc);
 
+/*
+ * NGX_ABORT - fatal error (e.g. memory)
+ * NGX_ERROR - other error
+ */
+typedef ngx_int_t (*ngx_kmp_in_connect_data_pt)(ngx_kmp_in_ctx_t *ctx,
+    ngx_kmp_in_evt_connect_data_t *evt);
 
 /*
  * NGX_ABORT - fatal error (e.g. memory)
@@ -76,7 +89,10 @@ typedef ngx_int_t  (*ngx_kmp_in_media_info_pt)(void *data,
     ngx_kmp_in_evt_media_info_t *evt);
 
 /*
- * NGX_DONE - frame skipped
+ * NGX_OK - frame handled successfully, the frame handler takes ownership of
+ *      the ngx_buf_chain_t's of the frame data
+ * NGX_DONE - frame skipped, the ngx_buf_chain_t's of the frame data will be
+ *      freed by nginx-kmp-in-module.
  * NGX_ABORT - fatal error (e.g. memory)
  * NGX_ERROR - other error
  */
@@ -87,8 +103,8 @@ typedef void (*ngx_kmp_in_end_stream_pt)(void *data);
 
 
 typedef ngx_buf_chain_t *(*ngx_kmp_in_alloc_chain_pt)(void *data);
-typedef void (*ngx_kmp_in_free_chain_list_pt)(void *data, void *head,
-    void *tail);
+typedef void (*ngx_kmp_in_free_chain_list_pt)(void *data,
+    ngx_buf_chain_t *head, ngx_buf_chain_t *tail);
 typedef ngx_int_t (*ngx_kmp_in_get_input_buf_pt)(void *data, ngx_buf_t *b);
 
 
@@ -111,6 +127,7 @@ struct ngx_kmp_in_ctx_s {
 
     /* events */
     ngx_kmp_in_connected_pt         connected;
+    ngx_kmp_in_connect_data_pt      connect_data;
     ngx_kmp_in_disconnected_pt      disconnected;
 
     ngx_kmp_in_media_info_pt        media_info;
@@ -166,6 +183,8 @@ ngx_int_t ngx_kmp_in_read_handler(ngx_kmp_in_ctx_t *ctx);
 
 void ngx_kmp_in_update_latency_stats(ngx_uint_t timescale,
     ngx_kmp_in_stats_latency_t *stats, int64_t from);
+ngx_int_t ngx_kmp_in_parse_json_chain(ngx_pool_t *pool, ngx_buf_chain_t *chain,
+    size_t size, ngx_json_value_t *json);
 
 size_t ngx_kmp_in_json_get_size(ngx_kmp_in_ctx_t *ctx);
 u_char *ngx_kmp_in_json_write(u_char *p, ngx_kmp_in_ctx_t *ctx);

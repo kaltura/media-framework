@@ -58,7 +58,7 @@ ngx_buf_chain_copy(ngx_buf_chain_t **head_ptr, void *buf, size_t size)
         }
 
         if (size < head->size) {
-            ngx_memcpy(p, head->data, size);
+            p = ngx_copy(p, head->data, size);
             head->data += size;
             head->size -= size;
             break;
@@ -70,7 +70,7 @@ ngx_buf_chain_copy(ngx_buf_chain_t **head_ptr, void *buf, size_t size)
         *head_ptr = head;
     }
 
-    return buf;
+    return p;
 }
 
 
