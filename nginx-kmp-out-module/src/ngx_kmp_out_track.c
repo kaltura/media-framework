@@ -241,6 +241,109 @@ ngx_kmp_out_track_set_error_reason(ngx_kmp_out_track_t *track, char *code)
 }
 
 
+ngx_int_t
+ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
+    ngx_json_object_t *obj, ngx_pool_t *temp_pool)
+{
+    ngx_str_t                        track_id;
+    ngx_str_t                        channel_id;
+    ngx_array_part_t                *part;
+    ngx_json_array_t                *upstreams;
+    ngx_json_object_t               *cur;
+    kmp_connect_packet_t            *header;
+    ngx_kmp_out_track_json_t         json;
+
+    ngx_memset(&json, 0xff, sizeof(json));
+
+    if (ngx_json_object_parse(temp_pool, obj, ngx_kmp_out_track_json,
+        ngx_array_entries(ngx_kmp_out_track_json), &json)
+        != NGX_JSON_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_kmp_out_track_publish_json: failed to parse object");
+        return NGX_ERROR;
+    }
+
+    if (json.channel_id.data == NGX_CONF_UNSET_PTR ||
+        json.track_id.data == NGX_CONF_UNSET_PTR ||
+        json.upstreams == NGX_CONF_UNSET_PTR)
+    {
+        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
+            "ngx_kmp_out_track_publish_json: missing required params in json");
+        return NGX_ERROR;
+    }
+
+    channel_id = json.channel_id;
+    if (channel_id.len > sizeof(header->channel_id)) {
+        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
+            "ngx_kmp_out_track_publish_json: channel id \"%V\" too long",
+            &channel_id);
+        return NGX_ERROR;
+    }
+
+    track_id = json.track_id;
+    if (track_id.len > sizeof(header->track_id)) {
+        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
+            "ngx_kmp_out_track_publish_json: track id \"%V\" too long",
+            &track_id);
+        return NGX_ERROR;
+    }
+
+    upstreams = json.upstreams;
+    if (upstreams->type != NGX_JSON_OBJECT) {
+        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
+            "ngx_kmp_out_track_publish_json: "
+            "invalid upstreams element type %d", upstreams->type);
+        return NGX_ERROR;
+    }
+
+    /* init the header */
+    header = &track->connect;
+    header->header.packet_type = KMP_PACKET_CONNECT;
+    header->header.header_size = sizeof(*header);
+    ngx_memcpy(header->channel_id, channel_id.data, channel_id.len);
+    ngx_memcpy(header->track_id, track_id.data, track_id.len);
+    header->flags = KMP_CONNECT_FLAG_CONSISTENT;
+
+    track->channel_id.data = header->channel_id;
+    track->channel_id.len = channel_id.len;
+    track->track_id.data = header->track_id;
+    track->track_id.len = track_id.len;
+
+    /* create the upstreams */
+    if (upstreams->count == 0) {
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+            "ngx_kmp_out_track_publish_json: no upstreams");
+        track->state = NGX_KMP_TRACK_INACTIVE;
+        ngx_kmp_out_track_cleanup(track);
+        return NGX_OK;
+    }
+
+    part = &upstreams->part;
+    for (cur = part->first; ; cur++) {
+        if ((void *) cur >= part->last) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            cur = part->first;
+        }
+
+        if (ngx_kmp_out_upstream_from_json(temp_pool, track, cur) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_kmp_out_track_publish_json: failed to create upstream");
+            ngx_kmp_out_track_error(track, "create_upstream_failed");
+            return NGX_OK;
+        }
+    }
+
+    track->state = NGX_KMP_TRACK_ACTIVE;
+
+    return NGX_OK;
+}
+
+
 static ngx_chain_t *
 ngx_kmp_out_track_publish_create(void *arg, ngx_pool_t *pool,
     ngx_chain_t **body)
@@ -303,16 +406,10 @@ static ngx_int_t
 ngx_kmp_out_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
     ngx_str_t *content_type, ngx_buf_t *body)
 {
-    ngx_str_t                        track_id;
-    ngx_str_t                        channel_id;
-    ngx_array_part_t                *part;
-    ngx_json_array_t                *upstreams;
+    ngx_int_t                        rc;
     ngx_json_value_t                 obj;
-    ngx_json_object_t               *cur;
-    ngx_http_call_ctx_t             *publish_call;
     ngx_kmp_out_track_t             *track;
-    kmp_connect_packet_t            *header;
-    ngx_kmp_out_track_json_t         json;
+    ngx_http_call_ctx_t             *publish_call;
     ngx_kmp_out_publish_call_ctx_t  *ctx = arg;
 
     track = ctx->track;
@@ -329,94 +426,10 @@ ngx_kmp_out_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
         goto retry;
     }
 
-    ngx_memset(&json, 0xff, sizeof(json));
-
-    if (ngx_json_object_parse(temp_pool, &obj.v.obj, ngx_kmp_out_track_json,
-            ngx_array_entries(ngx_kmp_out_track_json), &json)
-        != NGX_JSON_OK)
-    {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_kmp_out_publish_handle: failed to parse object");
-        goto retry;
-    }
-
-    if (json.channel_id.data == NGX_CONF_UNSET_PTR ||
-        json.track_id.data == NGX_CONF_UNSET_PTR ||
-        json.upstreams == NGX_CONF_UNSET_PTR)
-    {
-        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
-            "ngx_kmp_out_publish_handle: missing required params in json");
-        goto retry;
-    }
-
-    channel_id = json.channel_id;
-    if (channel_id.len > sizeof(header->channel_id)) {
-        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
-            "ngx_kmp_out_publish_handle: channel id \"%V\" too long",
-            &channel_id);
-        goto retry;
-    }
-
-    track_id = json.track_id;
-    if (track_id.len > sizeof(header->track_id)) {
-        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
-            "ngx_kmp_out_publish_handle: track id \"%V\" too long",
-            &track_id);
-        goto retry;
-    }
-
-    upstreams = json.upstreams;
-    if (upstreams->type != NGX_JSON_OBJECT) {
-        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
-            "ngx_kmp_out_publish_handle: invalid upstreams element type %d",
-            upstreams->type);
-        goto retry;
-    }
-
-    /* init the header */
-    header = &track->connect;
-    header->header.packet_type = KMP_PACKET_CONNECT;
-    header->header.header_size = sizeof(*header);
-    ngx_memcpy(header->channel_id, channel_id.data, channel_id.len);
-    ngx_memcpy(header->track_id, track_id.data, track_id.len);
-    header->flags = KMP_CONNECT_FLAG_CONSISTENT;
-
-    track->channel_id.data = header->channel_id;
-    track->channel_id.len = channel_id.len;
-    track->track_id.data = header->track_id;
-    track->track_id.len = track_id.len;
-
-    /* create the upstreams */
-    if (upstreams->count == 0) {
-        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-            "ngx_kmp_out_publish_handle: no upstreams");
-        track->state = NGX_KMP_TRACK_INACTIVE;
-        ngx_kmp_out_track_cleanup(track);
+    rc = ngx_kmp_out_track_publish_json(track, &obj.v.obj, temp_pool);
+    if (rc == NGX_OK) {
         return NGX_OK;
     }
-
-    part = &upstreams->part;
-    for (cur = part->first; ; cur++) {
-        if ((void *) cur >= part->last) {
-            if (part->next == NULL) {
-                break;
-            }
-
-            part = part->next;
-            cur = part->first;
-        }
-
-        if (ngx_kmp_out_upstream_from_json(temp_pool, track, cur) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_kmp_out_publish_handle: failed to create upstream");
-            ngx_kmp_out_track_error(track, "create_upstream_failed");
-            return NGX_OK;
-        }
-    }
-
-    track->state = NGX_KMP_TRACK_ACTIVE;
-
-    return NGX_OK;
 
 retry:
 

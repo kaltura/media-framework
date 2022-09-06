@@ -5,6 +5,7 @@
 #include <ngx_core.h>
 #include <ngx_lba.h>
 #include <ngx_live_kmp.h>
+#include <ngx_json_parser.h>
 
 
 typedef struct ngx_kmp_out_track_s  ngx_kmp_out_track_t;
@@ -48,6 +49,9 @@ ngx_kmp_out_track_t *ngx_kmp_out_track_create(
     ngx_kmp_out_track_conf_t *conf, ngx_uint_t media_type);
 
 ngx_int_t ngx_kmp_out_track_publish(ngx_kmp_out_track_t *track);
+
+ngx_int_t ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
+    ngx_json_object_t *obj, ngx_pool_t *temp_pool);
 
 void ngx_kmp_out_track_detach(ngx_kmp_out_track_t *track, char *reason);
 
