@@ -10,7 +10,7 @@ parser.add_argument('--bind_ip_address', dest='bind_ip_address', type=str, actio
 parser.add_argument('--log_files_dir', dest='log_files_dir', type=str, action='store', default=None,  help="directory to place logs")
 parser.add_argument('--health_initial_timeout_sec', dest='health_initial_timeout_sec', type=int, action='store', default=10,  help="probe health of the new task after this many seconds")
 parser.add_argument('--health_period_sec', dest='health_period_sec', type=int, action='store', default=None,  help="health check interval in seconds")
-parser.add_argument('--max_concurrent_health_trasks', dest='max_concurrent_health_trasks', type=int, action='store', default=5,  help="max concurrently executing health checks")
+parser.add_argument('--max_concurrent_health_tasks', dest='max_concurrent_health_tasks', type=int, action='store', default=5,  help="max concurrently executing health checks")
 parser.add_argument('--logging_level', dest='logging_level', type=str, action='store', default='debug',  help="log level")
 
 config = parser.parse_args()

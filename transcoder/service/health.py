@@ -17,7 +17,7 @@ from utils import read_file, insert_to_redis, delete_state_from_redis
 # limit number of concurrent health checks to number of available processors x 5
 # because part of the code is I/O bound while zip is CPU bound we can concurrently execute as many
 executor = concurrent.futures.ProcessPoolExecutor(
-    max_workers=cpu_count(logical=False) * config.max_concurrent_health_trasks
+    max_workers=cpu_count(logical=False) * config.max_concurrent_health_tasks
 )
 
 def run_health_check(id: str, p: str):
