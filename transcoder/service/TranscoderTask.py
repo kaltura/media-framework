@@ -137,8 +137,8 @@ class TranscoderTask:
         self.logger.info(f" exited with status: {self.process.returncode}")
         self.handler.task_exited(self)
 
-    async def suicide(self, timeout: int = 5) -> str:
-        self.logger.info(f"commiting suicide with timeout: {timeout} sec")
+    async def abort(self, timeout: int = 5) -> str:
+        self.logger.info(f"commiting abort with timeout: {timeout} sec")
         # schedule graceful exit
         self.process.send_signal(signal.SIGINT)
         try:

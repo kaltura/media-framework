@@ -47,13 +47,13 @@ class TranscoderService(TaskEventsHandler):
         processes = []
         killed = []
         if '*' in data:
-            processes = list(map(lambda x: x.suicide(), self.tasks.values()))
+            processes = list(map(lambda x: x.abort(), self.tasks.values()))
         else:
             for pattern in map(lambda x: x.lower(), data):
               for id in filter(lambda x: pattern in x.lower(), self.tasks):
                  logger.info(F"found task {id}")
                  task = self.tasks[id]
-                 processes.append(task.suicide())
+                 processes.append(task.abort())
         if processes:
             done, _ = await asyncio.wait(processes, timeout=5)
             killed = list(map(lambda x: x.result(), done))
