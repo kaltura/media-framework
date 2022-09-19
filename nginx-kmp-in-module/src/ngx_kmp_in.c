@@ -16,7 +16,7 @@
 
 
 #if (nginx_version < 1013006)
-size_t
+static size_t
 ngx_kmp_in_strnlen(u_char *p, size_t n)
 {
     size_t  i;
@@ -30,6 +30,8 @@ ngx_kmp_in_strnlen(u_char *p, size_t n)
 
     return n;
 }
+#else
+#define ngx_kmp_in_strnlen  ngx_strnlen
 #endif
 
 
@@ -75,7 +77,7 @@ ngx_kmp_in_parse_json_chain(ngx_pool_t *pool, ngx_buf_chain_t *chain,
     p = ngx_pnalloc(pool, size + 1);
     if (p == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_json_parse_chain: alloc failed");
+            "ngx_kmp_in_parse_json_chain: alloc failed");
         return NGX_ABORT;
     }
 
@@ -84,7 +86,7 @@ ngx_kmp_in_parse_json_chain(ngx_pool_t *pool, ngx_buf_chain_t *chain,
     p = ngx_buf_chain_copy(&chain, p, size);
     if (p == NULL) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
-            "ngx_json_parse_chain: copy failed");
+            "ngx_kmp_in_parse_json_chain: copy failed");
         return NGX_ABORT;
     }
 
@@ -93,7 +95,7 @@ ngx_kmp_in_parse_json_chain(ngx_pool_t *pool, ngx_buf_chain_t *chain,
     rc = ngx_json_parse(pool, str, json, error, sizeof(error));
     if (rc != NGX_JSON_OK) {
         ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_json_parse_chain: parse failed %i, %s", rc, error);
+            "ngx_kmp_in_parse_json_chain: parse failed %i, %s", rc, error);
         return rc == NGX_JSON_BAD_DATA ? NGX_ERROR : NGX_ABORT;
     }
 
@@ -874,6 +876,16 @@ ngx_kmp_in_read_header(ngx_kmp_in_ctx_t *ctx)
     }
 
     /* send connected event */
+    ctx->channel_id.s.data = header->channel_id;
+    ctx->channel_id.s.len = ngx_kmp_in_strnlen(header->channel_id,
+        sizeof(header->channel_id));
+    ngx_json_str_set_escape(&ctx->channel_id);
+
+    ctx->track_id.s.data = header->track_id;
+    ctx->track_id.s.len = ngx_kmp_in_strnlen(header->track_id,
+        sizeof(header->track_id));
+    ngx_json_str_set_escape(&ctx->track_id);
+
     ngx_memzero(&evt, sizeof(evt));
     evt.header = header;
 

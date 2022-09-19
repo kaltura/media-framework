@@ -8,16 +8,10 @@
 #include "ngx_ts_kmp_module.h"
 
 
-static void *ngx_stream_ts_kmp_create_main_conf(ngx_conf_t *cf);
 static void *ngx_stream_ts_kmp_create_srv_conf(ngx_conf_t *cf);
 static char *ngx_stream_ts_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent,
     void *child);
 static char *ngx_stream_ts_kmp(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-
-
-typedef struct {
-    ngx_array_t        lba_array;
-} ngx_stream_ts_kmp_main_conf_t;
 
 
 typedef struct {
@@ -215,7 +209,7 @@ static ngx_command_t  ngx_stream_ts_kmp_commands[] = {
 static ngx_stream_module_t  ngx_stream_ts_kmp_module_ctx = {
     NULL,                                   /* preconfiguration */
     NULL,                                   /* postconfiguration */
-    ngx_stream_ts_kmp_create_main_conf,     /* create main configuration */
+    NULL,                                   /* create main configuration */
     NULL,                                   /* init main configuration */
     ngx_stream_ts_kmp_create_srv_conf,      /* create server configuration */
     ngx_stream_ts_kmp_merge_srv_conf        /* merge server configuration */
@@ -236,60 +230,6 @@ ngx_module_t  ngx_stream_ts_kmp_module = {
     NULL,                                   /* exit master */
     NGX_MODULE_V1_PADDING
 };
-
-
-static void *
-ngx_stream_ts_kmp_create_main_conf(ngx_conf_t *cf)
-{
-    ngx_stream_ts_kmp_main_conf_t  *kmcf;
-
-    kmcf = ngx_pcalloc(cf->pool, sizeof(ngx_stream_ts_kmp_main_conf_t));
-    if (kmcf == NULL) {
-        return NULL;
-    }
-
-    if (ngx_array_init(&kmcf->lba_array, cf->temp_pool, 1, sizeof(void *))
-        != NGX_OK)
-    {
-        return NULL;
-    }
-
-    return kmcf;
-}
-
-
-static ngx_lba_t *
-ngx_stream_ts_kmp_get_lba(ngx_conf_t *cf, size_t buffer_size,
-    ngx_uint_t bin_count)
-{
-    ngx_lba_t                      *lba, **plba;
-    ngx_uint_t                      i;
-    ngx_stream_ts_kmp_main_conf_t  *kmcf;
-
-    kmcf = ngx_stream_conf_get_module_main_conf(cf, ngx_stream_ts_kmp_module);
-
-    plba = kmcf->lba_array.elts;
-    for (i = 0; i < kmcf->lba_array.nelts; i++) {
-        lba = plba[i];
-        if (ngx_lba_match(lba, buffer_size, bin_count)) {
-            return lba;
-        }
-    }
-
-    lba = ngx_lba_create(cf->pool, buffer_size, bin_count);
-    if (lba == NULL) {
-        return NULL;
-    }
-
-    plba = ngx_array_push(&kmcf->lba_array);
-    if (plba == NULL) {
-        return NULL;
-    }
-
-    *plba = lba;
-
-    return lba;
-}
 
 
 static char *
@@ -330,21 +270,16 @@ ngx_stream_ts_kmp_create_srv_conf(ngx_conf_t *cf)
 static char *
 ngx_stream_ts_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    ngx_uint_t                     media_type;
     ngx_stream_ts_kmp_srv_conf_t  *prev = parent;
     ngx_stream_ts_kmp_srv_conf_t  *conf = child;
 
     ngx_conf_merge_ptr_value(conf->kmp.ctrl_connect_url,
                              prev->kmp.ctrl_connect_url, NULL);
 
-    ngx_kmp_out_track_merge_conf(&conf->kmp.t, &prev->kmp.t);
-
-    for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
-        conf->kmp.t.lba[media_type] = ngx_stream_ts_kmp_get_lba(cf,
-            conf->kmp.t.buffer_size[media_type], conf->kmp.t.buffer_bin_count);
-        if (conf->kmp.t.lba[media_type] == NULL) {
-            return NGX_CONF_ERROR;
-        }
+    if (ngx_kmp_out_track_merge_conf(cf, &conf->kmp.t, &prev->kmp.t)
+        != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
     }
 
     return NGX_CONF_OK;

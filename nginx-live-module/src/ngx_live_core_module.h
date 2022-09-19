@@ -125,8 +125,6 @@ typedef struct {
     ngx_live_json_cmds_conf_t       json_cmds[NGX_LIVE_JSON_CTX_MAX];
     ngx_array_t                     json_writers[NGX_LIVE_JSON_CTX_MAX];
 
-    ngx_array_t                     lba_array;
-
 } ngx_live_core_main_conf_t;
 
 
@@ -176,9 +174,6 @@ ngx_int_t ngx_live_core_add_block_pool_index(ngx_conf_t *cf, ngx_uint_t *index,
 ngx_int_t ngx_live_core_prepare_preset(ngx_conf_t *cf,
     ngx_live_core_preset_conf_t *cpcf);
 
-
-ngx_lba_t *ngx_live_core_get_lba(ngx_conf_t *cf, size_t buffer_size,
-    ngx_uint_t bin_count);
 
 ngx_int_t ngx_live_core_channel_events_add(ngx_conf_t *cf,
     ngx_live_channel_event_t *events);

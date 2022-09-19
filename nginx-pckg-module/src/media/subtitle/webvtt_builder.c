@@ -13,10 +13,12 @@
 
 typedef struct {
     mp4_atom_t payload;
+    mp4_atom_t settings;
 } webvtt_cue_atoms_t;
 
 static mp4_get_atom_t webvtt_vttc_atoms[] = {
     { ATOM_NAME_PAYL, offsetof(webvtt_cue_atoms_t, payload), NULL },
+    { ATOM_NAME_STTG, offsetof(webvtt_cue_atoms_t, settings), NULL },
     { ATOM_NAME_NULL, 0, NULL }
 };
 
@@ -43,6 +45,9 @@ webvtt_parse_cue(request_context_t* request_context, u_char* buf, size_t size, w
 
     cue->payload.data = atoms.payload.ptr;
     cue->payload.len = atoms.payload.size;
+
+    cue->settings.data = atoms.settings.ptr;
+    cue->settings.len = atoms.settings.size;
 
     return rc;
 }
@@ -128,7 +133,7 @@ webvtt_builder_build(
 
     result_size = media_info->extra_data.len + sizeof(WEBVTT_TIMESTAMP_MAP) - 1 + sizeof("\r\n") - 1 +
         media_segment_track_get_total_size(track) +
-        (WEBVTT_CUE_TIMINGS_MAX_SIZE + sizeof("\n\n\n") - 1) * track->frame_count;
+        (WEBVTT_CUE_TIMINGS_MAX_SIZE + sizeof(" \n\n\n") - 1) * track->frame_count;
 
     // allocate the buffer
     p = vod_alloc(request_context->pool, result_size);
@@ -210,6 +215,13 @@ webvtt_builder_build(
         p = webvtt_builder_write_timestamp(p, cue_start, timescale);
         p = vod_copy(p, WEBVTT_TIMESTAMP_DELIM, sizeof(WEBVTT_TIMESTAMP_DELIM) - 1);
         p = webvtt_builder_write_timestamp(p, cue_end, timescale);
+
+        // cue settings
+        if (cue.settings.len > 0)
+        {
+            *p++ = ' ';
+            p = vod_copy(p, cue.settings.data, cue.settings.len);
+        }
 
         *p++ = '\n';
 

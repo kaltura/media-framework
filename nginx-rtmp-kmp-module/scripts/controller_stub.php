@@ -1,5 +1,19 @@
 <?php
 
+// params
+$publishUrl = 'kmp://127.0.0.1:6543';
+$ccPublishUrl = 'kmp://127.0.0.1:7890';
+$controlUrl = 'http://127.0.0.1:8001/control';
+
+/* ccConf -
+ * false - don't send video to cc upstream
+ * null - automatically publish all cc tracks in the video
+ * array - publish cc tracks according to the specified conf,
+    element format is - 'cc1' => array('label' => 'English',  'lang' => 'eng')
+*/
+$ccConf = null;
+$ccOutputAll = false;
+
 function outputJson($params)
 {
     header('Content-Type: application/json');
@@ -33,11 +47,11 @@ function postJson($url, $fields)
     }
 }
 
-function setupPackager($controlUrl, $channelId, $variantId, $trackId, $mediaType)
+function setupPackager($controlUrl, $channelId, $preset, $variantId, $trackId, $mediaType)
 {
     // create the channel
     postJson("$controlUrl/channels",
-        array('id' => $channelId, 'preset' => 'main', 'initial_segment_index' => time()));
+        array('id' => $channelId, 'preset' => $preset, 'initial_segment_index' => time()));
 
     // create the main timeline
     postJson("$controlUrl/channels/$channelId/timelines",
@@ -56,7 +70,68 @@ function setupPackager($controlUrl, $channelId, $variantId, $trackId, $mediaType
         array('id' => $trackId));
 }
 
-//error_log(json_encode($_REQUEST));
+function setupPackagerCCTrack($controlUrl, $channelId, $trackId, $label=null, $lang=null)
+{
+    if (!$label)
+    {
+        $label = $trackId;
+    }
+
+    postJson("$controlUrl/channels/$channelId/tracks",
+        array('id' => $trackId, 'media_type' => 'subtitle'));
+
+    postJson("$controlUrl/channels/$channelId/variants",
+        array(
+            'id' => $trackId,
+            'track_ids' => array('subtitle' => $trackId),
+            'role' => 'alternate',
+            'label' => $label,
+            'lang' => $lang,
+        )
+    );
+}
+
+function setupPackagerCC($controlUrl, $channelId, $ccConf)
+{
+    foreach ($ccConf as $id => $cc)
+    {
+        setupPackagerCCTrack($controlUrl, $channelId, $id, $cc['label'], $cc['lang']);
+    }
+}
+
+function getCCDecodeUpstream($publishUrl, $channelId, $ccConf)
+{
+    global $ccPublishUrl, $ccOutputAll;
+
+    $upstream = array(
+        'id' => 'cc',
+        'url' => $ccPublishUrl,
+    );
+
+    if ($ccConf)
+    {
+        $connectData = array();
+        foreach ($ccConf as $id => $cc)
+        {
+            $connectData[$id] = array(
+                'channel_id' => $channelId,
+                'track_id' => $id,
+                "upstreams" => array(
+                    array('url' => $publishUrl),
+                )
+            );
+        }
+
+        if ($ccOutputAll)
+        {
+            $connectData['*'] = null;
+        }
+
+        $upstream['connect_data'] = base64_encode(json_encode($connectData));
+    }
+
+    return $upstream;
+}
 
 // get input params (support json post)
 $params = $_REQUEST;
@@ -70,10 +145,6 @@ if (isset($_SERVER['CONTENT_TYPE']) && strtolower($_SERVER['CONTENT_TYPE']) == '
     }
 }
 
-// packager params
-$publishUrl = 'kmp://127.0.0.1:6543';
-$controlUrl = 'http://127.0.0.1:8001/control';
-
 switch ($params['event_type'])
 {
 case 'connect':
@@ -84,8 +155,13 @@ case 'unpublish':
     break;
 
 case 'republish':
-    outputJson(array(
-        'url' => $publishUrl));
+    $upstreamId = $params['id'];
+    $channelId = $params['channel_id'];
+
+    $upstream = $upstreamId == 'cc' ?
+        getCCDecodeUpstream($publishUrl, $channelId, $ccConf) :
+        array('url' => $publishUrl);
+    outputJson($upstream);
     break;
 
 case 'publish':
@@ -107,6 +183,20 @@ else if (isset($params['mpegts']))
 {
     $streamName = $params['mpegts']['stream_id'];
 }
+else
+{
+    $channelId = $params['cc']['channel_id'];
+    $trackId = $params['cc']['service_id'];
+
+    setupPackagerCCTrack($controlUrl, $channelId, $trackId);
+
+    outputJson(array(
+        'channel_id' => $channelId,
+        'track_id' => $trackId,
+        'upstreams' => array(array('url' => $publishUrl)),
+    ));
+}
+
 $undPos = strrpos($streamName, '_');
 $channelId = substr($streamName, 0, $undPos);
 $variantId = substr($streamName, $undPos + 1);
@@ -114,15 +204,27 @@ $mediaType = $params['media_info']['media_type'];
 $trackId = $mediaType[0] . $variantId;
 
 // set up the packager
-setupPackager($controlUrl, $channelId, $variantId, $trackId, $mediaType);
+setupPackager($controlUrl, $channelId, 'main', $variantId, $trackId, $mediaType);
+
+$upstreams = array(
+    array('url' => $publishUrl),
+);
+
+if ($mediaType == 'video' && $ccConf !== false)
+{
+    if ($ccConf)
+    {
+        setupPackagerCC($controlUrl, $channelId, $ccConf);
+    }
+
+    $upstreams[] = getCCDecodeUpstream($publishUrl, $channelId, $ccConf);
+}
 
 // return the publish url
 $params = array(
     'channel_id' => $channelId,
     'track_id' => $trackId,
-    'upstreams' => array(
-        array('url' => $publishUrl),
-    ),
+    'upstreams' => $upstreams,
 );
 
 outputJson($params);

@@ -91,8 +91,8 @@ ngx_kmp_out_track_init_conf(ngx_kmp_out_track_conf_t *conf)
 }
 
 
-void
-ngx_kmp_out_track_merge_conf(ngx_kmp_out_track_conf_t *conf,
+ngx_int_t
+ngx_kmp_out_track_merge_conf(ngx_conf_t *cf, ngx_kmp_out_track_conf_t *conf,
     ngx_kmp_out_track_conf_t *prev)
 {
     ngx_uint_t  media_type;
@@ -160,6 +160,16 @@ ngx_kmp_out_track_merge_conf(ngx_kmp_out_track_conf_t *conf,
 
     ngx_conf_merge_uint_value(conf->max_republishes,
                               prev->max_republishes, 10);
+
+    for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
+        conf->lba[media_type] = ngx_lba_get_global(cf,
+            conf->buffer_size[media_type], conf->buffer_bin_count);
+        if (conf->lba[media_type] == NULL) {
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
 }
 
 
@@ -728,7 +738,7 @@ ngx_kmp_out_track_send_all(ngx_kmp_out_track_t *track)
     ngx_queue_t             *q;
     ngx_kmp_out_upstream_t  *u;
 
-    if (track->no_send) {
+    if (track->send_blocked) {
         return NGX_OK;
     }
 
@@ -1131,39 +1141,48 @@ ngx_kmp_out_track_write_frame(ngx_kmp_out_track_t *track,
 }
 
 
+void
+ngx_kmp_out_track_write_marker_start(ngx_kmp_out_track_t *track,
+    ngx_kmp_out_track_marker_t *marker)
+{
+    ngx_buf_queue_reader_init_tail(&marker->reader, &track->buf_queue,
+        track->active_buf.last);
+
+    marker->written = track->stats.written;
+
+    track->send_blocked++;  /* must not send anything until marker ends */
+}
+
+
+ngx_int_t
+ngx_kmp_out_track_write_marker_end(ngx_kmp_out_track_t *track,
+    ngx_kmp_out_track_marker_t *marker, void *data, size_t size)
+{
+    if (ngx_buf_queue_reader_write(&marker->reader, data, size) == NULL) {
+        ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
+            "ngx_kmp_out_track_write_marker_end: write failed");
+        return NGX_ERROR;
+    }
+
+    track->send_blocked--;
+
+    return ngx_kmp_out_track_send_all(track);
+}
+
+
 ngx_int_t
 ngx_kmp_out_track_write_frame_start(ngx_kmp_out_track_t *track)
 {
-    ngx_buf_t           *active_buf;
-    ngx_str_t           *header;
-    kmp_frame_packet_t   frame;
+    kmp_frame_packet_t  frame;
 
-    track->no_send = 1;     /* must not send anything until frame is done */
-
-    header = track->cur_frame.header;
-
-    active_buf = &track->active_buf;
-    header[0].data = active_buf->last;
-    header[0].len = active_buf->end - active_buf->last;
-    if (header[0].len > sizeof(frame)) {
-        header[0].len = sizeof(frame);
-    }
+    ngx_kmp_out_track_write_marker_start(track, &track->cur_frame);
 
     ngx_memzero(&frame, sizeof(frame));
+
     if (ngx_kmp_out_track_write(track, (u_char *) &frame, sizeof(frame))
         != NGX_OK)
     {
         return NGX_ERROR;
-    }
-
-    active_buf = &track->active_buf;
-    header[1].len = sizeof(frame) - header[0].len;
-    header[1].data = active_buf->last - header[1].len;
-
-    track->cur_frame.written = track->stats.written;
-
-    if (track->conf->log_frames) {
-        ngx_md5_init(&track->cur_frame.data_md5);
     }
 
     return NGX_OK;
@@ -1174,10 +1193,6 @@ ngx_int_t
 ngx_kmp_out_track_write_frame_data(ngx_kmp_out_track_t *track, u_char *data,
     size_t size)
 {
-    if (track->conf->log_frames) {
-        ngx_md5_update(&track->cur_frame.data_md5, data, size);
-    }
-
     return ngx_kmp_out_track_write(track, data, size);
 }
 
@@ -1186,14 +1201,28 @@ ngx_int_t
 ngx_kmp_out_track_write_frame_end(ngx_kmp_out_track_t *track,
     kmp_frame_packet_t *frame)
 {
-    u_char      hash[16];
-    u_char      hash_hex[32];
-    ngx_str_t  *header;
+    u_char     hash[16];
+    u_char     hash_hex[32];
+    ngx_int_t  rc;
 
-    frame->header.data_size = track->stats.written - track->cur_frame.written;
+    frame->header.data_size = ngx_kmp_out_track_marker_get_size(
+        track, &track->cur_frame) - sizeof(*frame);
+
+    rc = ngx_kmp_out_track_write_marker_end(track, &track->cur_frame,
+        frame, sizeof(*frame));
+    if (rc != NGX_OK) {
+        return rc;
+    }
 
     if (track->conf->log_frames) {
-        ngx_md5_final(hash, &track->cur_frame.data_md5);
+        if (ngx_buf_queue_reader_md5(&track->cur_frame.reader,
+            frame->header.data_size, hash) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
+                "ngx_kmp_out_track_write_frame_end: failed to calc frame md5");
+            return NGX_ERROR;
+        }
+
         ngx_hex_dump(hash_hex, hash, sizeof(hash));
 
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
@@ -1210,16 +1239,9 @@ ngx_kmp_out_track_write_frame_end(ngx_kmp_out_track_t *track,
             frame->f.dts, frame->f.flags, frame->f.pts_delay);
     }
 
-    header = track->cur_frame.header;
-    ngx_memcpy(header[0].data, frame, header[0].len);
-    ngx_memcpy(header[1].data, (u_char *) frame + header[0].len,
-        header[1].len);
-
     ngx_kmp_out_track_update_frame_stats(&track->stats, frame);
 
-    track->no_send = 0;
-
-    return ngx_kmp_out_track_send_all(track);
+    return NGX_OK;
 }
 
 
@@ -1334,14 +1356,6 @@ ngx_kmp_out_track_create(ngx_kmp_out_track_conf_t *conf,
     {
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_kmp_out_track_create: ngx_buf_queue_init failed");
-        ngx_destroy_pool(pool);
-        return NULL;
-    }
-
-    if (track->buf_queue.used_size < sizeof(kmp_frame_packet_t)) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_kmp_out_track_create: buf size %uz too small",
-            track->buf_queue.used_size);
         ngx_destroy_pool(pool);
         return NULL;
     }

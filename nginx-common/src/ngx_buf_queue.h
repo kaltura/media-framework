@@ -8,6 +8,11 @@
 
 #define ngx_buf_queue_head(buf_queue) (buf_queue)->used_head
 
+/* Note: must only be used when the buffer queue is not empty.
+    this cast is ok because next is the first field in ngx_buf_queue_node_t */
+#define ngx_buf_queue_tail(buf_queue)                                        \
+    ((ngx_buf_queue_node_t *) (buf_queue)->used_tail)
+
 #define ngx_buf_queue_next(node) (node)->next
 
 #define ngx_buf_queue_start(node)                                            \

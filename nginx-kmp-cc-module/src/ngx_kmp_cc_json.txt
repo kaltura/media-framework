@@ -1,0 +1,15 @@
+
+out ngx_kmp_cc_service_publish_json ngx_kmp_cc_service_t
+    channel_id %jV obj->ctx->input.
+    track_id %jV obj->ctx->input.
+    service_id %jV obj->id
+
+out ngx_kmp_cc_service_json ngx_kmp_cc_service_t
+    output %func-ngx_kmp_out_track_json obj->out
+    received_bytes %ui
+
+out nostatic ngx_kmp_cc_json ngx_kmp_cc_ctx_t
+    services %objQueue-ngx_kmp_cc_service_json,ngx_kmp_cc_service_t,queue,id.s,id.escape obj->services.queue
+    pending_packets %ui
+    received_bytes %ui
+    received_packets %ui

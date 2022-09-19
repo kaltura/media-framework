@@ -7,6 +7,7 @@
 // structs
 typedef struct {
     vod_str_t payload;
+    vod_str_t settings;
 } webvtt_cue_t;
 
 // functions

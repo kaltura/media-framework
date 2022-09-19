@@ -1,0 +1,16 @@
+mkdir testcases ; mkdir findings
+
+dos2unix build.sh ; CC=/usr/local/bin/afl-gcc CC_OPT="-O2 -Wall" AFL_HARDEN=1 bash build.sh
+
+# update core settings
+cat /proc/sys/kernel/core_pattern
+|/usr/share/apport/apport %p %s %c %P
+
+echo core >/proc/sys/kernel/core_pattern
+
+# minimize test set (run in screen)
+python minimize_avc_kmp.py in.kmp > min.kmp
+afl-tmin -m 256 -i min.kmp -o testcases/min.kmp ../main @@
+
+# fuzz (run in screen)
+python run.py

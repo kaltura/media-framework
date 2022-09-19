@@ -263,6 +263,10 @@ ngx_kmp_out_track_json_get_size(ngx_kmp_out_track_t *obj)
     ngx_queue_t             *q;
     ngx_kmp_out_upstream_t  *cur;
 
+    if (!obj) {
+        return sizeof("null") - 1;
+    }
+
     result =
         sizeof("{\"input_id\":\"") - 1 + obj->input_id.len +
             ngx_escape_json(NULL, obj->input_id.data, obj->input_id.len) +
@@ -301,6 +305,11 @@ ngx_kmp_out_track_json_write(u_char *p, ngx_kmp_out_track_t *obj)
     u_char                  *next;
     ngx_queue_t             *q;
     ngx_kmp_out_upstream_t  *cur;
+
+    if (!obj) {
+        p = ngx_copy_fix(p, "null");
+        return p;
+    }
 
     p = ngx_copy_fix(p, "{\"input_id\":\"");
     p = (u_char *) ngx_escape_json(p, obj->input_id.data, obj->input_id.len);

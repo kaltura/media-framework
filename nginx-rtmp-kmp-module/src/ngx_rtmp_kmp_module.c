@@ -28,11 +28,6 @@ static ngx_rtmp_disconnect_pt    next_disconnect;
 
 
 typedef struct {
-    ngx_array_t  lba_array;
-} ngx_rtmp_kmp_main_conf_t;
-
-
-typedef struct {
     ngx_msec_t   idle_timeout;
 } ngx_rtmp_kmp_srv_conf_t;
 
@@ -51,8 +46,6 @@ typedef struct {
 
 
 static ngx_int_t ngx_rtmp_kmp_postconfiguration(ngx_conf_t *cf);
-
-static void *ngx_rtmp_kmp_create_main_conf(ngx_conf_t *cf);
 
 static void *ngx_rtmp_kmp_create_srv_conf(ngx_conf_t *cf);
 static char *ngx_rtmp_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent,
@@ -256,7 +249,7 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
 static ngx_rtmp_module_t  ngx_rtmp_kmp_module_ctx = {
     NULL,                                   /* preconfiguration */
     ngx_rtmp_kmp_postconfiguration,         /* postconfiguration */
-    ngx_rtmp_kmp_create_main_conf,          /* create main configuration */
+    NULL,                                   /* create main configuration */
     NULL,                                   /* init main configuration */
     ngx_rtmp_kmp_create_srv_conf,           /* create server configuration */
     ngx_rtmp_kmp_merge_srv_conf,            /* merge server configuration */
@@ -279,59 +272,6 @@ ngx_module_t  ngx_rtmp_kmp_module = {
     NULL,                                   /* exit master */
     NGX_MODULE_V1_PADDING
 };
-
-
-static void *
-ngx_rtmp_kmp_create_main_conf(ngx_conf_t *cf)
-{
-    ngx_rtmp_kmp_main_conf_t  *kmcf;
-
-    kmcf = ngx_pcalloc(cf->pool, sizeof(ngx_rtmp_kmp_main_conf_t));
-    if (kmcf == NULL) {
-        return NULL;
-    }
-
-    if (ngx_array_init(&kmcf->lba_array, cf->temp_pool, 1, sizeof(void *))
-        != NGX_OK)
-    {
-        return NULL;
-    }
-
-    return kmcf;
-}
-
-
-static ngx_lba_t *
-ngx_rtmp_kmp_get_lba(ngx_conf_t *cf, size_t buffer_size, ngx_uint_t bin_count)
-{
-    ngx_lba_t                 *lba, **plba;
-    ngx_uint_t                 i;
-    ngx_rtmp_kmp_main_conf_t  *kmcf;
-
-    kmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_kmp_module);
-
-    plba = kmcf->lba_array.elts;
-    for (i = 0; i < kmcf->lba_array.nelts; i++) {
-        lba = plba[i];
-        if (ngx_lba_match(lba, buffer_size, bin_count)) {
-            return lba;
-        }
-    }
-
-    lba = ngx_lba_create(cf->pool, buffer_size, bin_count);
-    if (lba == NULL) {
-        return NULL;
-    }
-
-    plba = ngx_array_push(&kmcf->lba_array);
-    if (plba == NULL) {
-        return NULL;
-    }
-
-    *plba = lba;
-
-    return lba;
-}
 
 
 static void *
@@ -385,21 +325,14 @@ ngx_rtmp_kmp_create_app_conf(ngx_conf_t *cf)
 static char *
 ngx_rtmp_kmp_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    ngx_uint_t                media_type;
     ngx_rtmp_kmp_app_conf_t  *prev = parent;
     ngx_rtmp_kmp_app_conf_t  *conf = child;
 
     ngx_conf_merge_ptr_value(conf->ctrl_connect_url,
                              prev->ctrl_connect_url, NULL);
 
-    ngx_kmp_out_track_merge_conf(&conf->t, &prev->t);
-
-    for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
-        conf->t.lba[media_type] = ngx_rtmp_kmp_get_lba(cf,
-            conf->t.buffer_size[media_type], conf->t.buffer_bin_count);
-        if (conf->t.lba[media_type] == NULL) {
-            return NGX_CONF_ERROR;
-        }
+    if (ngx_kmp_out_track_merge_conf(cf, &conf->t, &prev->t) != NGX_OK) {
+        return NGX_CONF_ERROR;
     }
 
     if (conf->t.timescale % NGX_RTMP_TIMESCALE) {

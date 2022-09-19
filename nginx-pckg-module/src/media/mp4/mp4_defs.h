@@ -51,6 +51,7 @@
 
 #define ATOM_NAME_VTTC (0x63747476)        // webvtt cue
 #define ATOM_NAME_PAYL (0x6c796170)        // cue payload
+#define ATOM_NAME_STTG (0x67747473)        // cue settings
 
 #define ATOM_NAME_NULL (0x00000000)
 
