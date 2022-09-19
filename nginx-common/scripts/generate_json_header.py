@@ -198,6 +198,7 @@ def getObjectWriter(objectInfo, properties):
     sizeCalc = ''
     getSizeCode = ''
     writeCode = ''
+    skipCond = ''
     funcDefs = []
     varDefs = set([])
     writeVarDefs = set([])
@@ -222,6 +223,10 @@ def getObjectWriter(objectInfo, properties):
 
         if property[1] == '%writeVar':
             addVarDef(writeVarDefs, property[2], property[3])
+            continue
+
+        if property[1] == '%skipCond':
+            skipCond = ' '.join(property[2:])
             continue
 
         if property[1].startswith('%return'):
@@ -422,26 +427,35 @@ for (q = ngx_queue_head(&%s);
                 nextFixed = ']'
                 objectTypePtr = '*' * (objectType.count('*') + 1)
                 objectTypePtr = objectType.rstrip('*') + ' ' + objectTypePtr
+                if skipCond != '':
+                    skipCond = '''
+    if (%s) {
+        continue;
+    }
+''' % skipCond
+
                 getSizeCode += '''
 for (n = 0; n < %s.nelts; n++) {
     cur = ((%s) %s.elts)[n];
+%s
     result += %s_get_size(cur) + sizeof(",") - 1;
 }
-''' % (expr, objectTypePtr, expr, baseFunc)
+''' % (expr, objectTypePtr, expr, skipCond, baseFunc)
                 valueWrite = '''
 for (n = 0; n < %s.nelts; n++) {
     cur = ((%s) %s.elts)[n];
-
-    if (n > 0) {
+%s
+    if (p[-1] != '[') {
         *p++ = ',';
     }
 
     p = %s_write(p, cur);
 }
-''' % (expr, objectTypePtr, expr, baseFunc)
+''' % (expr, objectTypePtr, expr, skipCond, baseFunc)
                 addVarDef(varDefs, 'ngx_uint_t', 'n')
                 addVarDef(varDefs, objectType, 'cur')
                 valueSize = ''
+                skipCond = ''
             elif format == 'jV':
                 fixed += '"'
                 nextFixed = '"'

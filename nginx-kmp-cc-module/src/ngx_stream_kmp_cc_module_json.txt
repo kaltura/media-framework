@@ -1,0 +1,17 @@
+
+out ngx_stream_kmp_cc_session_json ngx_stream_kmp_cc_ctx_t
+    channel_id %jV obj->input->
+    track_id %jV obj->input->
+    mem_left %uz
+    mem_limit %uz
+    input %func-ngx_kmp_in_json
+    cc %func-ngx_kmp_cc_json
+
+out ngx_stream_kmp_cc_server_json ngx_stream_core_srv_conf_t
+    - %var ngx_stream_kmp_cc_srv_conf_t *kscf
+    - %code kscf = ngx_stream_get_module_srv_conf(obj->ctx, ngx_stream_kmp_cc_module);
+    sessions %queue-ngx_stream_kmp_cc_session_json,ngx_stream_kmp_cc_ctx_t,queue kscf->
+
+out nostatic ngx_stream_kmp_cc_stream_json ngx_stream_core_main_conf_t
+    - %skipCond cur->handler != ngx_stream_kmp_cc_handler
+    servers %array-ngx_stream_kmp_cc_server_json,ngx_stream_core_srv_conf_t* obj->

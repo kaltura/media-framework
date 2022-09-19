@@ -772,7 +772,7 @@ ngx_live_input_bufs_merge_preset_conf(ngx_conf_t *cf, void *parent,
     ngx_conf_merge_uint_value(conf->max_free_buffers,
                               prev->max_free_buffers, 4);
 
-    conf->lba = ngx_live_core_get_lba(cf, conf->buffer_size, conf->bin_count);
+    conf->lba = ngx_lba_get_global(cf, conf->buffer_size, conf->bin_count);
     if (conf->lba == NULL) {
         return NGX_CONF_ERROR;
     }

@@ -1,5 +1,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
+#include <ngx_md5.h>
 #include "ngx_buf_queue_reader.h"
 
 
@@ -19,14 +20,71 @@ ngx_buf_queue_reader_init(ngx_buf_queue_reader_t *reader,
 }
 
 
+void
+ngx_buf_queue_reader_init_tail(ngx_buf_queue_reader_t *reader,
+    ngx_buf_queue_t *buf_queue, u_char *pos)
+{
+    reader->buf_queue = buf_queue;
+    reader->node = ngx_buf_queue_tail(buf_queue);
+    reader->start = pos;
+}
+
+
+ngx_int_t
+ngx_buf_queue_reader_md5(ngx_buf_queue_reader_t *reader, size_t size,
+    u_char result[16])
+{
+    u_char                *start;
+    u_char                *end;
+    size_t                 chunk;
+    ngx_md5_t              md5;
+    ngx_buf_queue_node_t  *node;
+
+    node = reader->node;
+    start = reader->start;
+    end = ngx_buf_queue_end(reader->buf_queue, node);
+
+    ngx_md5_init(&md5);
+
+    while (size > 0) {
+        chunk = end - start;
+        if (chunk > size) {
+            chunk = size;
+        }
+
+        ngx_md5_update(&md5, start, chunk);
+        start += chunk;
+        size -= chunk;
+
+        if (start >= end) {
+            node = ngx_buf_queue_next(node);
+            if (node == NULL) {
+                return NGX_ERROR;
+            }
+
+            reader->node = node;
+
+            start = ngx_buf_queue_start(node);
+            end = ngx_buf_queue_end(reader->buf_queue, node);
+        }
+    }
+
+    ngx_md5_final(result, &md5);
+
+    reader->start = start;
+
+    return NGX_OK;
+}
+
+
 void *
-ngx_buf_queue_reader_copy(ngx_buf_queue_reader_t *reader, void *buffer,
+ngx_buf_queue_reader_write(ngx_buf_queue_reader_t *reader, void *buffer,
     size_t size)
 {
     u_char                *start;
     u_char                *end;
     u_char                *p;
-    size_t                 copy;
+    size_t                 chunk;
     ngx_buf_queue_node_t  *node;
 
     node = reader->node;
@@ -35,10 +93,58 @@ ngx_buf_queue_reader_copy(ngx_buf_queue_reader_t *reader, void *buffer,
     p = buffer;
 
     while (size > 0) {
-        copy = ngx_min(size, (size_t) (end - start));
-        p = ngx_copy(p, start, copy);
-        start += copy;
-        size -= copy;
+        chunk = end - start;
+        if (chunk > size) {
+            chunk = size;
+        }
+
+        start = ngx_copy(start, p, chunk);
+        p += chunk;
+        size -= chunk;
+
+        if (start >= end) {
+            node = ngx_buf_queue_next(node);
+            if (node == NULL) {
+                return NULL;
+            }
+
+            reader->node = node;
+
+            start = ngx_buf_queue_start(node);
+            end = ngx_buf_queue_end(reader->buf_queue, node);
+        }
+    }
+
+    reader->start = start;
+
+    return buffer;
+}
+
+
+void *
+ngx_buf_queue_reader_copy(ngx_buf_queue_reader_t *reader, void *buffer,
+    size_t size)
+{
+    u_char                *start;
+    u_char                *end;
+    u_char                *p;
+    size_t                 chunk;
+    ngx_buf_queue_node_t  *node;
+
+    node = reader->node;
+    start = reader->start;
+    end = ngx_buf_queue_end(reader->buf_queue, node);
+    p = buffer;
+
+    while (size > 0) {
+        chunk = end - start;
+        if (chunk > size) {
+            chunk = size;
+        }
+
+        p = ngx_copy(p, start, chunk);
+        start += chunk;
+        size -= chunk;
 
         if (start >= end) {
             node = ngx_buf_queue_next(node);

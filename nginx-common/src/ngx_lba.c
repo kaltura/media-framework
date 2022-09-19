@@ -39,6 +39,7 @@ typedef struct {
 
 
 struct ngx_lba_s {
+    ngx_queue_t              queue;
     ngx_uint_t               bin_count;
     ngx_uint_t               initial_bin;
     ngx_uint_t               block_bufs;
@@ -46,6 +47,9 @@ struct ngx_lba_s {
     ngx_queue_t             *active;        /* ordered by used count asc */
     ngx_lba_block_bin_t      bins[1];
 };
+
+
+static ngx_queue_t  ngx_lba_queue = { 0 };
 
 
 /* Note: NGX_LBA_SKIP makes the module proxy to ngx_alloc/ngx_free. */
@@ -384,4 +388,36 @@ size_t
 ngx_lba_buf_size(ngx_lba_t *lba)
 {
     return lba->buf_size - sizeof(ngx_lba_buf_header_t);
+}
+
+
+ngx_lba_t *
+ngx_lba_get_global(ngx_conf_t *cf, size_t buf_size, ngx_uint_t bin_count)
+{
+    ngx_lba_t    *lba;
+    ngx_queue_t  *q;
+
+    if (ngx_queue_next(&ngx_lba_queue) == NULL) {
+        ngx_queue_init(&ngx_lba_queue);
+    }
+
+    for (q = ngx_queue_head(&ngx_lba_queue);
+        q != ngx_queue_sentinel(&ngx_lba_queue);
+        q = ngx_queue_next(q))
+    {
+        lba = ngx_queue_data(q, ngx_lba_t, queue);
+
+        if (ngx_lba_match(lba, buf_size, bin_count)) {
+            return lba;
+        }
+    }
+
+    lba = ngx_lba_create(cf->cycle->pool, buf_size, bin_count);
+    if (lba == NULL) {
+        return NULL;
+    }
+
+    ngx_queue_insert_tail(&ngx_lba_queue, &lba->queue);
+
+    return lba;
 }

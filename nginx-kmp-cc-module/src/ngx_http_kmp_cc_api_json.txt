@@ -1,0 +1,9 @@
+
+out ngx_http_kmp_cc_api_json ngx_stream_core_main_conf_t
+    version %V ngx_kmp_cc_version
+    nginx_version %V ngx_kmp_cc_nginx_version
+    compiler %V ngx_kmp_cc_compiler
+    built %V ngx_kmp_cc_built
+    pid %ui ngx_getpid()
+    uptime %i (ngx_cached_time->sec - ngx_kmp_cc_start_time)
+    stream %func-ngx_stream_kmp_cc_stream_json obj

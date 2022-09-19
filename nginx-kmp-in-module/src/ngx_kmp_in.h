@@ -119,7 +119,8 @@ struct ngx_kmp_in_ctx_s {
 
     ngx_fd_t                        dump_fd;
 
-    ngx_str_t                       track_id;
+    ngx_json_str_t                  channel_id;
+    ngx_json_str_t                  track_id;
     void                           *data;
 
     /* operations */
@@ -168,12 +169,6 @@ struct ngx_kmp_in_ctx_s {
 };
 
 
-#if (nginx_version < 1013006)
-size_t ngx_kmp_in_strnlen(u_char *p, size_t n);
-#else
-#define ngx_kmp_in_strnlen  ngx_strnlen
-#endif
-
 ngx_kmp_in_ctx_t *ngx_kmp_in_create(ngx_connection_t *c,
     ngx_kmp_in_conf_t *conf);
 void ngx_kmp_in_ack_frames(ngx_kmp_in_ctx_t *ctx, uint64_t next_frame_id);
@@ -183,6 +178,11 @@ ngx_int_t ngx_kmp_in_read_handler(ngx_kmp_in_ctx_t *ctx);
 
 void ngx_kmp_in_update_latency_stats(ngx_uint_t timescale,
     ngx_kmp_in_stats_latency_t *stats, int64_t from);
+
+/*
+ * NGX_ABORT - fatal error (e.g. memory)
+ * NGX_ERROR - parse error
+ */
 ngx_int_t ngx_kmp_in_parse_json_chain(ngx_pool_t *pool, ngx_buf_chain_t *chain,
     size_t size, ngx_json_value_t *json);
 

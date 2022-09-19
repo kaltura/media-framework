@@ -21,4 +21,8 @@ void *ngx_lba_alloc(ngx_lba_t *lba);
 
 void ngx_lba_free(ngx_lba_t *lba, void *buf);
 
+
+ngx_lba_t *ngx_lba_get_global(ngx_conf_t *cf, size_t buf_size,
+    ngx_uint_t bin_count);
+
 #endif /* _NGX_LBA_H_INCLUDED_ */

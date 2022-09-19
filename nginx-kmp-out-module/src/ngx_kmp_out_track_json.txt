@@ -41,6 +41,8 @@ out noobject ngx_kmp_out_track_unpublish_json ngx_kmp_out_track_t
 
 
 out nostatic ngx_kmp_out_track_json ngx_kmp_out_track_t
+    - %return-null !obj
+
     input_id %V
     channel_id %V
     track_id %V

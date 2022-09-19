@@ -10,7 +10,12 @@
 #include <ngx_live_kmp.h>
 #include <ngx_http_call.h>
 #include <ngx_buf_queue.h>
+#include <ngx_buf_queue_reader.h>
 #include "ngx_kmp_out_track.h"
+
+
+#define ngx_kmp_out_track_marker_get_size(track, marker)                     \
+    ((track)->stats.written - (marker)->written)
 
 
 typedef enum {
@@ -25,10 +30,9 @@ typedef void (*ngx_kmp_out_track_handler_pt)(void *ctx);
 
 
 typedef struct {
-    ngx_md5_t                      data_md5;
     size_t                         written;
-    ngx_str_t                      header[2];
-} ngx_kmp_out_track_frame_t;
+    ngx_buf_queue_reader_t         reader;
+} ngx_kmp_out_track_marker_t;
 
 
 typedef struct {
@@ -76,7 +80,8 @@ struct ngx_kmp_out_track_s {
     size_t                         extra_data_size;
 
     ngx_kmp_out_track_stats_t      stats;
-    ngx_kmp_out_track_frame_t      cur_frame;
+    ngx_kmp_out_track_marker_t     cur_frame;
+    ngx_uint_t                     send_blocked;
 
     void                          *ctx;
     ngx_kmp_out_track_handler_pt   handler;
@@ -85,7 +90,6 @@ struct ngx_kmp_out_track_s {
 
     unsigned                       detached:1;
     unsigned                       write_error:1;
-    unsigned                       no_send:1;
 };
 
 
@@ -99,6 +103,13 @@ ngx_http_call_ctx_t *ngx_kmp_out_track_http_call_create(
 
 ngx_int_t ngx_kmp_out_track_alloc_extra_data(ngx_kmp_out_track_t *track,
     size_t size);
+
+
+void ngx_kmp_out_track_write_marker_start(ngx_kmp_out_track_t *track,
+    ngx_kmp_out_track_marker_t *marker);
+
+ngx_int_t ngx_kmp_out_track_write_marker_end(ngx_kmp_out_track_t *track,
+    ngx_kmp_out_track_marker_t *marker, void *data, size_t size);
 
 
 ngx_int_t ngx_kmp_out_track_write_media_info(ngx_kmp_out_track_t *track);

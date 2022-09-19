@@ -41,8 +41,8 @@ typedef struct {
 
 void ngx_kmp_out_track_init_conf(ngx_kmp_out_track_conf_t *conf);
 
-void ngx_kmp_out_track_merge_conf(ngx_kmp_out_track_conf_t *conf,
-    ngx_kmp_out_track_conf_t *prev);
+ngx_int_t ngx_kmp_out_track_merge_conf(ngx_conf_t *cf,
+    ngx_kmp_out_track_conf_t *conf, ngx_kmp_out_track_conf_t *prev);
 
 
 ngx_kmp_out_track_t *ngx_kmp_out_track_create(
