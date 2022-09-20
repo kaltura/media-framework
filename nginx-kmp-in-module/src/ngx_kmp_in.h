@@ -141,7 +141,11 @@ struct ngx_kmp_in_ctx_s {
     ngx_kmp_in_get_input_buf_pt     get_input_buf;
 
     /* stats */
-    off_t                           received_bytes;
+    size_t                          received_bytes;
+    size_t                          received_data_bytes;
+    ngx_uint_t                      received_frames;
+    ngx_uint_t                      received_key_frames;
+    int64_t                         last_created;
     ngx_kmp_in_stats_skip_t         skipped;
     ngx_kmp_in_stats_latency_t      latency;
 
