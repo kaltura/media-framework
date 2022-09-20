@@ -3027,7 +3027,7 @@ ngx_live_segmenter_add_media_info(void *data, ngx_kmp_in_evt_media_info_t *evt)
     track = data;
     ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
 
-    rc = ngx_live_media_info_pending_add(track, evt->media_info,
+    rc = ngx_live_media_info_pending_add(track, &evt->media_info,
         evt->extra_data, evt->extra_data_size, ctx->frame_count);
     switch (rc) {
 
@@ -3068,7 +3068,7 @@ ngx_live_segmenter_add_frame(void *data, ngx_kmp_in_evt_frame_t *evt)
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
     track = data;
-    frame_info = evt->frame;
+    frame_info = &evt->frame;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
 

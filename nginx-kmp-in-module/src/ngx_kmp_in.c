@@ -227,7 +227,7 @@ ngx_kmp_in_media_info(ngx_kmp_in_ctx_t *ctx)
 {
     ngx_int_t                     rc;
     ngx_buf_chain_t              *data = ctx->packet_data_first;
-    kmp_media_info_t              media_info;
+    kmp_media_info_t             *media_info;
     ngx_kmp_in_evt_media_info_t   evt;
 
     if (ctx->packet_header.header_size < sizeof(kmp_media_info_packet_t)) {
@@ -237,16 +237,17 @@ ngx_kmp_in_media_info(ngx_kmp_in_ctx_t *ctx)
         return NGX_KMP_IN_BAD_REQUEST;
     }
 
-    if (ngx_buf_chain_copy(&data, &media_info, sizeof(media_info)) == NULL) {
+    media_info = &evt.media_info;
+    if (ngx_buf_chain_copy(&data, media_info, sizeof(*media_info)) == NULL) {
         ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
             "ngx_kmp_in_media_info: read header failed");
         return NGX_KMP_IN_INTERNAL_SERVER_ERROR;
     }
 
-    if (media_info.timescale <= 0) {
+    if (media_info->timescale <= 0) {
         ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
             "ngx_kmp_in_media_info: invalid timescale %uD",
-            media_info.timescale);
+            media_info->timescale);
         return NGX_KMP_IN_BAD_REQUEST;
     }
 
@@ -261,7 +262,6 @@ ngx_kmp_in_media_info(ngx_kmp_in_ctx_t *ctx)
         }
     }
 
-    evt.media_info = &media_info;
     evt.extra_data = data;
     evt.extra_data_size = ctx->packet_header.data_size;
 
@@ -282,8 +282,8 @@ ngx_kmp_in_media_info(ngx_kmp_in_ctx_t *ctx)
         return NGX_KMP_IN_BAD_REQUEST;
     }
 
-    ctx->timescale = media_info.timescale;
-    ctx->wait_key = media_info.media_type == KMP_MEDIA_VIDEO;
+    ctx->timescale = media_info->timescale;
+    ctx->wait_key = media_info->media_type == KMP_MEDIA_VIDEO;
     return NGX_OK;
 }
 
@@ -294,7 +294,7 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
     u_char                   data_md5[32];
     uint64_t                 frame_id;
     ngx_int_t                rc;
-    kmp_frame_t              frame;
+    kmp_frame_t             *frame;
     ngx_buf_chain_t         *cur;
     ngx_buf_chain_t         *data;
     ngx_kmp_in_evt_frame_t   evt;
@@ -338,8 +338,10 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
         goto done;
     }
 
+    frame = &evt.frame;
     data = ctx->packet_data_first;
-    if (ngx_buf_chain_copy(&data, &frame, sizeof(frame)) == NULL) {
+
+    if (ngx_buf_chain_copy(&data, frame, sizeof(*frame)) == NULL) {
         ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
             "ngx_kmp_in_frame: read header failed");
         return NGX_KMP_IN_INTERNAL_SERVER_ERROR;
@@ -348,11 +350,11 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
     if (ctx->wait_key) {
 
         /* ignore frames that arrive before the first key */
-        if (!(frame.flags & KMP_FRAME_FLAG_KEY)) {
+        if (!(frame->flags & KMP_FRAME_FLAG_KEY)) {
             ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
                 "ngx_kmp_in_frame: "
                 "skipping non-key frame, created: %L, dts: %L",
-                frame.created, frame.dts);
+                frame->created, frame->dts);
             ctx->skipped.no_key++;
             goto done;
         }
@@ -372,12 +374,12 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
     }
 
     ctx->received_frames++;
-    if (frame.flags & KMP_FRAME_FLAG_KEY) {
+    if (frame->flags & KMP_FRAME_FLAG_KEY) {
         ctx->received_key_frames++;
     }
 
     ctx->received_data_bytes += ctx->packet_header.data_size;
-    ctx->last_created = frame.created;
+    ctx->last_created = frame->created;
 
     if (ctx->conf.log_frames) {
         ngx_kmp_in_chain_md5_hex(data_md5, data);
@@ -385,28 +387,27 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
         ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
             "ngx_kmp_in_frame: id: %uL, created: %L, dts: %L, "
             "flags: 0x%uxD, ptsDelay: %uD, size: %uD, md5: %*s",
-            frame_id, frame.created, frame.dts, frame.flags,
-            frame.pts_delay, ctx->packet_header.data_size,
+            frame_id, frame->created, frame->dts, frame->flags,
+            frame->pts_delay, ctx->packet_header.data_size,
             (size_t) sizeof(data_md5), data_md5);
 
     } else {
         ngx_log_debug7(NGX_LOG_DEBUG_STREAM, ctx->log, 0,
             "ngx_kmp_in_frame: track: %V, id: %uL, created: %L, "
             "size: %uD, dts: %L, flags: 0x%uxD, ptsDelay: %uD",
-            &ctx->track_id, frame_id, frame.created,
-            ctx->packet_header.data_size, frame.dts, frame.flags,
-            frame.pts_delay);
+            &ctx->track_id, frame_id, frame->created,
+            ctx->packet_header.data_size, frame->dts, frame->flags,
+            frame->pts_delay);
     }
 
     /* update latency stats */
     ngx_kmp_in_update_latency_stats(ctx->timescale, &ctx->latency,
-        frame.created);
+        frame->created);
 
     /* add the frame */
-    frame.flags &= KMP_FRAME_FLAG_MASK;
+    frame->flags &= KMP_FRAME_FLAG_MASK;
 
     evt.frame_id = frame_id;
-    evt.frame = &frame;
 
     evt.data_head = data;
     evt.data_tail = ctx->packet_data_last;

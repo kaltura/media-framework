@@ -2495,7 +2495,7 @@ ngx_live_lls_add_media_info(void *data, ngx_kmp_in_evt_media_info_t *evt)
     track = data;
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
 
-    rc = ngx_live_media_info_pending_add(track, evt->media_info,
+    rc = ngx_live_media_info_pending_add(track, &evt->media_info,
         evt->extra_data, evt->extra_data_size, ctx->frames.count);
     switch (rc) {
 
@@ -2540,7 +2540,7 @@ ngx_live_lls_add_frame(void *data, ngx_kmp_in_evt_frame_t *evt)
 
     track = data;
     channel = track->channel;
-    kmp_frame = evt->frame;
+    kmp_frame = &evt->frame;
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
     cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);

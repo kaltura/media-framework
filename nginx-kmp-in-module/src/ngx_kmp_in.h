@@ -53,7 +53,7 @@ typedef struct {
 
 
 typedef struct {
-    kmp_media_info_t      *media_info;
+    kmp_media_info_t       media_info;
     ngx_buf_chain_t       *extra_data;
     uint32_t               extra_data_size;
 } ngx_kmp_in_evt_media_info_t;
@@ -61,7 +61,7 @@ typedef struct {
 
 typedef struct {
     uint64_t               frame_id;
-    kmp_frame_t           *frame;
+    kmp_frame_t            frame;
 
     ngx_buf_chain_t       *data_head;
     ngx_buf_chain_t       *data_tail;

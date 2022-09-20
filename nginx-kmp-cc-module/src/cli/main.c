@@ -174,18 +174,20 @@ static void
 handle_kmp_media_info(ngx_kmp_cc_ctx_t *ctx, kmp_packet_header_t *header,
     u_char *base)
 {
-    ngx_buf_chain_t              extra_data;
-    kmp_media_info_t             media_info;
-    ngx_kmp_in_evt_media_info_t  evt;
+    ngx_buf_chain_t               extra_data;
+    kmp_media_info_t             *media_info;
+    ngx_kmp_in_evt_media_info_t   evt;
 
-    if (header->header_size != sizeof(*header) + sizeof(media_info)) {
+    if (header->header_size != sizeof(*header) + sizeof(*media_info)) {
         return;
     }
 
-    ngx_memcpy(&media_info, base, sizeof(media_info));
-    base += sizeof(media_info);
+    media_info = &evt.media_info;
 
-    if (media_info.timescale <= 0) {
+    ngx_memcpy(media_info, base, sizeof(*media_info));
+    base += sizeof(*media_info);
+
+    if (media_info->timescale <= 0) {
         return;
     }
 
@@ -193,7 +195,6 @@ handle_kmp_media_info(ngx_kmp_cc_ctx_t *ctx, kmp_packet_header_t *header,
     extra_data.size = header->data_size;
     extra_data.next = NULL;
 
-    evt.media_info = &media_info;
     evt.extra_data = &extra_data;
     evt.extra_data_size = header->data_size;
 
@@ -205,24 +206,25 @@ static void
 handle_kmp_frame(ngx_kmp_cc_ctx_t *ctx, kmp_packet_header_t *header,
     u_char *base)
 {
-    kmp_frame_t             frame;
-    ngx_buf_chain_t         frame_data;
-    ngx_kmp_in_evt_frame_t  evt;
+    kmp_frame_t             *frame;
+    ngx_buf_chain_t          frame_data;
+    ngx_kmp_in_evt_frame_t   evt;
 
-    if (header->header_size != sizeof(*header) + sizeof(frame)
+    if (header->header_size != sizeof(*header) + sizeof(*frame)
         || header->data_size == 0)
     {
         return;
     }
 
-    ngx_memcpy(&frame, base, sizeof(frame));
-    base += sizeof(frame);
+    frame = &evt.frame;
+
+    ngx_memcpy(frame, base, sizeof(*frame));
+    base += sizeof(*frame);
 
     frame_data.data = base;
     frame_data.size = header->data_size;
     frame_data.next = NULL;
 
-    evt.frame = &frame;
     evt.frame_id = 0;
     evt.size = header->data_size;
     evt.data_head = &frame_data;

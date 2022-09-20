@@ -330,7 +330,7 @@ ngx_live_syncer_add_frame(void *data, ngx_kmp_in_evt_frame_t *evt)
         ctx->force_sync_count--;
     }
 
-    frame = evt->frame;
+    frame = &evt->frame;
     pts = frame->dts;
 
     if (track->media_type == KMP_MEDIA_VIDEO) {

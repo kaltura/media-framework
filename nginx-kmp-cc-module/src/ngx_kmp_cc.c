@@ -1198,7 +1198,7 @@ ngx_kmp_cc_add_frame(ngx_kmp_cc_ctx_t *ctx, ngx_kmp_in_evt_frame_t *evt)
     ngx_int_t     rc;
     kmp_frame_t  *frame;
 
-    frame = evt->frame;
+    frame = &evt->frame;
 
     ctx->pts = frame->dts + frame->pts_delay;
     ctx->last_created = frame->created;
@@ -1229,7 +1229,7 @@ ngx_kmp_cc_add_media_info(ngx_kmp_cc_ctx_t *ctx,
     kmp_media_info_t          *media_info;
     ngx_kmp_cc_avcc_config_t   avcc;
 
-    media_info = evt->media_info;
+    media_info = &evt->media_info;
 
     if (media_info->media_type != KMP_MEDIA_VIDEO) {
         ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
