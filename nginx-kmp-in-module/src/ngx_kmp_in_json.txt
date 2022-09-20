@@ -16,6 +16,10 @@ out nostatic ngx_kmp_in_json ngx_kmp_in_ctx_t
     connection %uA obj->connection->number
     remote_addr %jV
     uptime %T (ngx_time() - obj->start_sec)
-    received_bytes %O
+    received_bytes %uz
+    received_data_bytes %uz
+    received_frames %ui
+    received_key_frames %ui
+    last_created %L
     skipped_frames %func-ngx_kmp_in_stats_skip_json &obj->skipped
     latency %func-ngx_kmp_in_stats_latency_json &obj->latency

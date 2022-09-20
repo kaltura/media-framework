@@ -371,6 +371,14 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
         }
     }
 
+    ctx->received_frames++;
+    if (frame.flags & KMP_FRAME_FLAG_KEY) {
+        ctx->received_key_frames++;
+    }
+
+    ctx->received_data_bytes += ctx->packet_header.data_size;
+    ctx->last_created = frame.created;
+
     if (ctx->conf.log_frames) {
         ngx_kmp_in_chain_md5_hex(data_md5, data);
 
