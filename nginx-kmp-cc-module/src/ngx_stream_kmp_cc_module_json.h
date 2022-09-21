@@ -107,18 +107,24 @@ ngx_stream_kmp_cc_server_json_write(u_char *p, ngx_stream_core_srv_conf_t *obj)
 /* ngx_stream_kmp_cc_stream_json writer */
 
 size_t
-ngx_stream_kmp_cc_stream_json_get_size(ngx_stream_core_main_conf_t *obj)
+ngx_stream_kmp_cc_stream_json_get_size(void *obj)
 {
-    size_t                       result;
-    ngx_uint_t                   n;
-    ngx_stream_core_srv_conf_t  *cur;
+    size_t                        result;
+    ngx_uint_t                    n;
+    ngx_stream_core_srv_conf_t   *cur;
+    ngx_stream_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_stream_kmp_cc_get_core_main_conf();
+    if (!cmcf) {
+        return sizeof("null") - 1;
+    }
 
     result =
         sizeof("{\"servers\":[") - 1 +
         sizeof("]}") - 1;
 
-    for (n = 0; n < obj->servers.nelts; n++) {
-        cur = ((ngx_stream_core_srv_conf_t **) obj->servers.elts)[n];
+    for (n = 0; n < cmcf->servers.nelts; n++) {
+        cur = ((ngx_stream_core_srv_conf_t **) cmcf->servers.elts)[n];
 
         if (cur->handler != ngx_stream_kmp_cc_handler) {
             continue;
@@ -133,16 +139,22 @@ ngx_stream_kmp_cc_stream_json_get_size(ngx_stream_core_main_conf_t *obj)
 
 
 u_char *
-ngx_stream_kmp_cc_stream_json_write(u_char *p, ngx_stream_core_main_conf_t
-    *obj)
+ngx_stream_kmp_cc_stream_json_write(u_char *p, void *obj)
 {
-    ngx_uint_t                   n;
-    ngx_stream_core_srv_conf_t  *cur;
+    ngx_uint_t                    n;
+    ngx_stream_core_srv_conf_t   *cur;
+    ngx_stream_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_stream_kmp_cc_get_core_main_conf();
+    if (!cmcf) {
+        p = ngx_copy_fix(p, "null");
+        return p;
+    }
 
     p = ngx_copy_fix(p, "{\"servers\":[");
 
-    for (n = 0; n < obj->servers.nelts; n++) {
-        cur = ((ngx_stream_core_srv_conf_t **) obj->servers.elts)[n];
+    for (n = 0; n < cmcf->servers.nelts; n++) {
+        cur = ((ngx_stream_core_srv_conf_t **) cmcf->servers.elts)[n];
 
         if (cur->handler != ngx_stream_kmp_cc_handler) {
             continue;
