@@ -712,7 +712,7 @@ ngx_kmp_out_track_append_all(ngx_kmp_out_track_t *track, ngx_flag_t *send)
         }
 
         if (u->acked_frame_id < min_acked_frame_id) {
-            min_used_ptr = u->acked_reader.start;
+            min_used_ptr = ngx_buf_queue_stream_pos(&u->acked_reader);
             min_acked_frame_id = u->acked_frame_id;
         }
 
@@ -835,7 +835,8 @@ ngx_kmp_out_track_free_bufs(ngx_kmp_out_track_t *track)
         return;
     }
 
-    ngx_buf_queue_free(&track->buf_queue, u->acked_reader.start);
+    ngx_buf_queue_free(&track->buf_queue,
+        ngx_buf_queue_stream_pos(&u->acked_reader));
 }
 
 
@@ -1145,7 +1146,7 @@ void
 ngx_kmp_out_track_write_marker_start(ngx_kmp_out_track_t *track,
     ngx_kmp_out_track_marker_t *marker)
 {
-    ngx_buf_queue_reader_init_tail(&marker->reader, &track->buf_queue,
+    ngx_buf_queue_stream_init_tail(&marker->reader, &track->buf_queue,
         track->active_buf.last);
 
     marker->written = track->stats.written;
@@ -1158,7 +1159,7 @@ ngx_int_t
 ngx_kmp_out_track_write_marker_end(ngx_kmp_out_track_t *track,
     ngx_kmp_out_track_marker_t *marker, void *data, size_t size)
 {
-    if (ngx_buf_queue_reader_write(&marker->reader, data, size) == NULL) {
+    if (ngx_buf_queue_stream_write(&marker->reader, data, size) == NULL) {
         ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
             "ngx_kmp_out_track_write_marker_end: write failed");
         return NGX_ERROR;
@@ -1215,7 +1216,7 @@ ngx_kmp_out_track_write_frame_end(ngx_kmp_out_track_t *track,
     }
 
     if (track->conf->log_frames) {
-        if (ngx_buf_queue_reader_md5(&track->cur_frame.reader,
+        if (ngx_buf_queue_stream_md5(&track->cur_frame.reader,
             frame->header.data_size, hash) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_ALERT, &track->log, 0,

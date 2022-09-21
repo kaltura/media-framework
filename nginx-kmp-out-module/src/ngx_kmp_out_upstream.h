@@ -5,7 +5,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_event_connect.h>
-#include <ngx_buf_queue_reader.h>
+#include <ngx_buf_queue_stream.h>
 #include <ngx_json_parser.h>
 #include <ngx_http_call.h>
 
@@ -43,7 +43,7 @@ typedef struct {
     kmp_ack_frames_packet_t    ack_frames;
     u_char                    *recv_pos;
 
-    ngx_buf_queue_reader_t     acked_reader;
+    ngx_buf_queue_stream_t     acked_reader;
     uint64_t                   acked_frame_id;
     uint64_t                   acked_upstream_frame_id;
     uint32_t                   acked_offset;
