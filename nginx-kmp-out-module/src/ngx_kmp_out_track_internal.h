@@ -10,7 +10,7 @@
 #include <ngx_live_kmp.h>
 #include <ngx_http_call.h>
 #include <ngx_buf_queue.h>
-#include <ngx_buf_queue_reader.h>
+#include <ngx_buf_queue_stream.h>
 #include "ngx_kmp_out_track.h"
 
 
@@ -31,7 +31,7 @@ typedef void (*ngx_kmp_out_track_handler_pt)(void *ctx);
 
 typedef struct {
     size_t                         written;
-    ngx_buf_queue_reader_t         reader;
+    ngx_buf_queue_stream_t         reader;
 } ngx_kmp_out_track_marker_t;
 
 

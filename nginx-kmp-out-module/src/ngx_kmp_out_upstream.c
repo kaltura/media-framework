@@ -5,7 +5,7 @@
 #include <ngx_json_parser.h>
 #include <ngx_live_kmp.h>
 #include <ngx_http_call.h>
-#include <ngx_buf_queue_reader.h>
+#include <ngx_buf_queue_stream.h>
 
 #include "ngx_kmp_out_utils.h"
 #include "ngx_kmp_out_track_internal.h"
@@ -98,7 +98,7 @@ ngx_kmp_out_upstream_create(ngx_kmp_out_track_t *track, ngx_str_t *id)
     u->track = track;
     u->timeout = track->conf->timeout;
 
-    ngx_buf_queue_reader_init(&u->acked_reader, &track->buf_queue);
+    ngx_buf_queue_stream_init(&u->acked_reader, &track->buf_queue);
     u->acked_frame_id = track->connect.initial_frame_id;
     u->acked_upstream_frame_id = track->connect.initial_upstream_frame_id;
 
@@ -648,7 +648,7 @@ ngx_kmp_out_upstream_ack_packet(ngx_kmp_out_upstream_t *u,
         mi->last = p + size;
 
         p = ngx_copy(p, kmp_header, sizeof(*kmp_header));
-        if (ngx_buf_queue_reader_copy(&u->acked_reader, p,
+        if (ngx_buf_queue_stream_copy(&u->acked_reader, p,
             size - sizeof(*kmp_header)) == NULL)
         {
             ngx_log_error(NGX_LOG_ALERT, &u->log, 0,
@@ -663,7 +663,7 @@ ngx_kmp_out_upstream_ack_packet(ngx_kmp_out_upstream_t *u,
         break;
 
     case KMP_PACKET_FRAME:
-        if (ngx_buf_queue_reader_skip(&u->acked_reader,
+        if (ngx_buf_queue_stream_skip(&u->acked_reader,
             size - sizeof(*kmp_header)) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_ALERT, &u->log, 0,
@@ -702,7 +702,7 @@ ngx_kmp_out_upstream_auto_ack(ngx_kmp_out_upstream_t *u, size_t left)
     ngx_int_t               rc;
     ngx_uint_t              count;
     kmp_packet_header_t     kmp_header;
-    ngx_buf_queue_reader_t  reader;
+    ngx_buf_queue_stream_t  reader;
 
     if (u->peer.connection != NULL) {
         sent = u->sent_base + u->peer.connection->sent;
@@ -718,7 +718,7 @@ ngx_kmp_out_upstream_auto_ack(ngx_kmp_out_upstream_t *u, size_t left)
         }
 
         reader = u->acked_reader;
-        if (ngx_buf_queue_reader_copy(&u->acked_reader,
+        if (ngx_buf_queue_stream_copy(&u->acked_reader,
             &kmp_header, sizeof(kmp_header)) == NULL)
         {
             ngx_log_error(NGX_LOG_ALERT, &u->log, 0,
@@ -779,7 +779,7 @@ ngx_kmp_out_upstream_ack_frames(ngx_kmp_out_upstream_t *u)
             goto failed;
         }
 
-        if (ngx_buf_queue_reader_copy(&u->acked_reader,
+        if (ngx_buf_queue_stream_copy(&u->acked_reader,
             &kmp_header, sizeof(kmp_header)) == NULL)
         {
             ngx_log_error(NGX_LOG_ALERT, &u->log, 0,

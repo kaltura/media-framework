@@ -1,7 +1,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_md5.h>
-#include "ngx_buf_queue_reader.h"
+#include "ngx_buf_queue_stream.h"
 
 
 /* Note: the reader must ensure the start pointer is within a node (=not at
@@ -11,27 +11,27 @@
     another buffer must always be allocated. */
 
 void
-ngx_buf_queue_reader_init(ngx_buf_queue_reader_t *reader,
+ngx_buf_queue_stream_init(ngx_buf_queue_stream_t *stream,
     ngx_buf_queue_t *buf_queue)
 {
-    reader->buf_queue = buf_queue;
-    reader->node = ngx_buf_queue_head(buf_queue);
-    reader->start = ngx_buf_queue_start(reader->node);
+    stream->buf_queue = buf_queue;
+    stream->node = ngx_buf_queue_head(buf_queue);
+    stream->start = ngx_buf_queue_start(stream->node);
 }
 
 
 void
-ngx_buf_queue_reader_init_tail(ngx_buf_queue_reader_t *reader,
+ngx_buf_queue_stream_init_tail(ngx_buf_queue_stream_t *stream,
     ngx_buf_queue_t *buf_queue, u_char *pos)
 {
-    reader->buf_queue = buf_queue;
-    reader->node = ngx_buf_queue_tail(buf_queue);
-    reader->start = pos;
+    stream->buf_queue = buf_queue;
+    stream->node = ngx_buf_queue_tail(buf_queue);
+    stream->start = pos;
 }
 
 
 ngx_int_t
-ngx_buf_queue_reader_md5(ngx_buf_queue_reader_t *reader, size_t size,
+ngx_buf_queue_stream_md5(ngx_buf_queue_stream_t *stream, size_t size,
     u_char result[16])
 {
     u_char                *start;
@@ -40,9 +40,9 @@ ngx_buf_queue_reader_md5(ngx_buf_queue_reader_t *reader, size_t size,
     ngx_md5_t              md5;
     ngx_buf_queue_node_t  *node;
 
-    node = reader->node;
-    start = reader->start;
-    end = ngx_buf_queue_end(reader->buf_queue, node);
+    node = stream->node;
+    start = stream->start;
+    end = ngx_buf_queue_end(stream->buf_queue, node);
 
     ngx_md5_init(&md5);
 
@@ -62,23 +62,23 @@ ngx_buf_queue_reader_md5(ngx_buf_queue_reader_t *reader, size_t size,
                 return NGX_ERROR;
             }
 
-            reader->node = node;
+            stream->node = node;
 
             start = ngx_buf_queue_start(node);
-            end = ngx_buf_queue_end(reader->buf_queue, node);
+            end = ngx_buf_queue_end(stream->buf_queue, node);
         }
     }
 
     ngx_md5_final(result, &md5);
 
-    reader->start = start;
+    stream->start = start;
 
     return NGX_OK;
 }
 
 
 void *
-ngx_buf_queue_reader_write(ngx_buf_queue_reader_t *reader, void *buffer,
+ngx_buf_queue_stream_write(ngx_buf_queue_stream_t *stream, void *buffer,
     size_t size)
 {
     u_char                *start;
@@ -87,9 +87,9 @@ ngx_buf_queue_reader_write(ngx_buf_queue_reader_t *reader, void *buffer,
     size_t                 chunk;
     ngx_buf_queue_node_t  *node;
 
-    node = reader->node;
-    start = reader->start;
-    end = ngx_buf_queue_end(reader->buf_queue, node);
+    node = stream->node;
+    start = stream->start;
+    end = ngx_buf_queue_end(stream->buf_queue, node);
     p = buffer;
 
     while (size > 0) {
@@ -108,21 +108,21 @@ ngx_buf_queue_reader_write(ngx_buf_queue_reader_t *reader, void *buffer,
                 return NULL;
             }
 
-            reader->node = node;
+            stream->node = node;
 
             start = ngx_buf_queue_start(node);
-            end = ngx_buf_queue_end(reader->buf_queue, node);
+            end = ngx_buf_queue_end(stream->buf_queue, node);
         }
     }
 
-    reader->start = start;
+    stream->start = start;
 
     return buffer;
 }
 
 
 void *
-ngx_buf_queue_reader_copy(ngx_buf_queue_reader_t *reader, void *buffer,
+ngx_buf_queue_stream_copy(ngx_buf_queue_stream_t *stream, void *buffer,
     size_t size)
 {
     u_char                *start;
@@ -131,9 +131,9 @@ ngx_buf_queue_reader_copy(ngx_buf_queue_reader_t *reader, void *buffer,
     size_t                 chunk;
     ngx_buf_queue_node_t  *node;
 
-    node = reader->node;
-    start = reader->start;
-    end = ngx_buf_queue_end(reader->buf_queue, node);
+    node = stream->node;
+    start = stream->start;
+    end = ngx_buf_queue_end(stream->buf_queue, node);
     p = buffer;
 
     while (size > 0) {
@@ -152,33 +152,33 @@ ngx_buf_queue_reader_copy(ngx_buf_queue_reader_t *reader, void *buffer,
                 return NULL;
             }
 
-            reader->node = node;
+            stream->node = node;
 
             start = ngx_buf_queue_start(node);
-            end = ngx_buf_queue_end(reader->buf_queue, node);
+            end = ngx_buf_queue_end(stream->buf_queue, node);
         }
     }
 
-    reader->start = start;
+    stream->start = start;
 
     return buffer;
 }
 
 
 ngx_int_t
-ngx_buf_queue_reader_skip(ngx_buf_queue_reader_t *reader, size_t size)
+ngx_buf_queue_stream_skip(ngx_buf_queue_stream_t *stream, size_t size)
 {
     u_char                *start;
     u_char                *end;
     ngx_buf_queue_node_t  *node;
 
-    node = reader->node;
-    start = reader->start;
-    end = ngx_buf_queue_end(reader->buf_queue, node);
+    node = stream->node;
+    start = stream->start;
+    end = ngx_buf_queue_end(stream->buf_queue, node);
 
     for ( ;; ) {
         if (size < (size_t) (end - start)) {
-            reader->start = start + size;
+            stream->start = start + size;
             return NGX_OK;
         }
 
@@ -190,7 +190,7 @@ ngx_buf_queue_reader_skip(ngx_buf_queue_reader_t *reader, size_t size)
         }
 
         start = ngx_buf_queue_start(node);
-        end = ngx_buf_queue_end(reader->buf_queue, node);
-        reader->node = node;
+        end = ngx_buf_queue_end(stream->buf_queue, node);
+        stream->node = node;
     }
 }
