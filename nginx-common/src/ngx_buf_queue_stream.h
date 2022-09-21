@@ -6,10 +6,13 @@
 #include "ngx_buf_queue.h"
 
 
+#define ngx_buf_queue_stream_pos(s)  ((s)->pos)
+
+
 typedef struct {
     ngx_buf_queue_t       *buf_queue;
     ngx_buf_queue_node_t  *node;
-    u_char                *start;
+    u_char                *pos;
 } ngx_buf_queue_stream_t;
 
 

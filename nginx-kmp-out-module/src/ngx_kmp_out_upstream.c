@@ -1108,7 +1108,7 @@ ngx_kmp_out_upstream_send_buffered(ngx_kmp_out_upstream_t *u)
         }
 
         if (cur == u->acked_reader.node) {
-            start = u->acked_reader.start;
+            start = ngx_buf_queue_stream_pos(&u->acked_reader);
         }
 
         if (start >= end) {

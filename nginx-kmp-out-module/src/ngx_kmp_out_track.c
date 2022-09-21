@@ -712,7 +712,7 @@ ngx_kmp_out_track_append_all(ngx_kmp_out_track_t *track, ngx_flag_t *send)
         }
 
         if (u->acked_frame_id < min_acked_frame_id) {
-            min_used_ptr = u->acked_reader.start;
+            min_used_ptr = ngx_buf_queue_stream_pos(&u->acked_reader);
             min_acked_frame_id = u->acked_frame_id;
         }
 
@@ -835,7 +835,8 @@ ngx_kmp_out_track_free_bufs(ngx_kmp_out_track_t *track)
         return;
     }
 
-    ngx_buf_queue_free(&track->buf_queue, u->acked_reader.start);
+    ngx_buf_queue_free(&track->buf_queue,
+        ngx_buf_queue_stream_pos(&u->acked_reader));
 }
 
 
