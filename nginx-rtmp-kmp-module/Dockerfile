@@ -1,4 +1,4 @@
-#docker run  -it --name live-rtmp --rm  --cap-add=SYS_PTRACE --security-opt seccomp=unconfined   -v /Users/guyjacubovski/dev/live/nginx-rtmp.conf:/usr/local/nginx/conf/nginx.conf -p 1935:1935 -p 8001:8001 kaltura/live-nginx-rtmp 
+#docker run  -it --name live-rtmp --rm  --cap-add=SYS_PTRACE --security-opt seccomp=unconfined   -v /Users/guyjacubovski/dev/live/nginx-rtmp.conf:/usr/local/nginx/conf/nginx.conf -p 1935:1935 -p 8001:8001 kaltura/live-nginx-rtmp
 #for debug: add gdb ../sbin/nginx
 ARG ALPINE_VER=3.16
 FROM alpine:$ALPINE_VER as builder
