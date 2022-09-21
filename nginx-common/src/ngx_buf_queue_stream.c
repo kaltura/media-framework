@@ -122,7 +122,7 @@ ngx_buf_queue_stream_write(ngx_buf_queue_stream_t *stream, void *buffer,
 
 
 void *
-ngx_buf_queue_stream_copy(ngx_buf_queue_stream_t *stream, void *buffer,
+ngx_buf_queue_stream_read(ngx_buf_queue_stream_t *stream, void *buffer,
     size_t size)
 {
     u_char                *pos;
