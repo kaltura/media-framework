@@ -7,7 +7,7 @@
 /* ngx_http_kmp_cc_api_json writer */
 
 static size_t
-ngx_http_kmp_cc_api_json_get_size(ngx_stream_core_main_conf_t *obj)
+ngx_http_kmp_cc_api_json_get_size(void *obj)
 {
     size_t  result;
 
@@ -35,7 +35,7 @@ ngx_http_kmp_cc_api_json_get_size(ngx_stream_core_main_conf_t *obj)
 
 
 static u_char *
-ngx_http_kmp_cc_api_json_write(u_char *p, ngx_stream_core_main_conf_t *obj)
+ngx_http_kmp_cc_api_json_write(u_char *p, void *obj)
 {
     p = ngx_copy_fix(p, "{\"version\":\"");
     p = (u_char *) ngx_escape_json(p, ngx_kmp_cc_version.data,

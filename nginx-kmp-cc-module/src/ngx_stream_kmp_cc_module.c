@@ -37,7 +37,6 @@ typedef struct {
     ngx_buf_queue_t            buf_queue;
     size_t                     mem_left;
     size_t                     mem_limit;
-    ngx_uint_t                 count;
     ngx_kmp_cc_ctx_t          *cc;
 } ngx_stream_kmp_cc_ctx_t;
 
@@ -49,6 +48,8 @@ static char *ngx_stream_kmp_cc_merge_srv_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
 static char *ngx_stream_kmp_cc(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+
+static ngx_stream_core_main_conf_t *ngx_stream_kmp_cc_get_core_main_conf(void);
 
 
 static ngx_command_t  ngx_stream_kmp_cc_commands[] = {
@@ -404,14 +405,12 @@ ngx_stream_kmp_cc_frame(void *data, ngx_kmp_in_evt_frame_t *evt)
 
     ctx = data;
 
-    ctx->count++;
-
     rc = ngx_kmp_cc_add_frame(ctx->cc, evt);
     if (rc != NGX_OK) {
         return rc;
     }
 
-    if ((ctx->count % NGX_STREAM_KMP_CC_FREE_PERIOD) == 0) {
+    if ((evt->frame_id % NGX_STREAM_KMP_CC_FREE_PERIOD) == 0) {
         limit = ngx_kmp_cc_get_min_used(ctx->cc);
         ngx_buf_queue_free(&ctx->buf_queue, limit);
     }
@@ -667,8 +666,8 @@ ngx_stream_kmp_cc_handler(ngx_stream_session_t *s)
 }
 
 
-ngx_stream_core_main_conf_t *
-ngx_stream_kmp_cc_get_stream_core_main_conf(ngx_log_t *log)
+static ngx_stream_core_main_conf_t *
+ngx_stream_kmp_cc_get_core_main_conf(void)
 {
     ngx_stream_conf_ctx_t        *stream_ctx;
     ngx_stream_core_main_conf_t  *cmcf;
@@ -676,16 +675,11 @@ ngx_stream_kmp_cc_get_stream_core_main_conf(ngx_log_t *log)
     stream_ctx = (ngx_stream_conf_ctx_t *) ngx_get_conf(ngx_cycle->conf_ctx,
         ngx_stream_module);
     if (stream_ctx == NULL) {
-        ngx_log_error(NGX_LOG_CRIT, log, 0,
-            "ngx_stream_kmp_cc_get_stream_core_main_conf: no stream conf");
         return NULL;
     }
 
     cmcf = ngx_stream_get_module_main_conf(stream_ctx, ngx_stream_core_module);
     if (cmcf == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_stream_kmp_cc_get_stream_core_main_conf: "
-            "no stream core main conf");
         return NULL;
     }
 
@@ -746,8 +740,11 @@ ngx_stream_kmp_cc_finalize_session(ngx_uint_t connection, ngx_log_t *log)
     ngx_stream_session_t         *s;
     ngx_stream_core_main_conf_t  *cmcf;
 
-    cmcf = ngx_stream_kmp_cc_get_stream_core_main_conf(log);
+    cmcf = ngx_stream_kmp_cc_get_core_main_conf();
     if (cmcf == NULL) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_stream_kmp_cc_finalize_session: "
+            "failed to get stream conf");
         return NGX_ERROR;
     }
 

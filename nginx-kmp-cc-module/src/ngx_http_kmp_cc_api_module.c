@@ -85,16 +85,10 @@ static ngx_int_t
 ngx_http_kmp_cc_api_get(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
 {
-    u_char                       *p;
-    size_t                        size;
-    ngx_stream_core_main_conf_t  *cmcf;
+    u_char  *p;
+    size_t   size;
 
-    cmcf = ngx_stream_kmp_cc_get_stream_core_main_conf(r->connection->log);
-    if (cmcf == NULL) {
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    size = ngx_http_kmp_cc_api_json_get_size(cmcf);
+    size = ngx_http_kmp_cc_api_json_get_size(NULL);
 
     p = ngx_pnalloc(r->pool, size);
     if (p == NULL) {
@@ -104,7 +98,7 @@ ngx_http_kmp_cc_api_get(ngx_http_request_t *r, ngx_str_t *params,
     }
 
     response->data = p;
-    p = ngx_http_kmp_cc_api_json_write(p, cmcf);
+    p = ngx_http_kmp_cc_api_json_write(p, NULL);
     response->len = p - response->data;
 
     if (response->len > size) {

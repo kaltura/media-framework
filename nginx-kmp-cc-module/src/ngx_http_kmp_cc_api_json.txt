@@ -1,5 +1,5 @@
 
-out ngx_http_kmp_cc_api_json ngx_stream_core_main_conf_t
+out ngx_http_kmp_cc_api_json void
     version %V ngx_kmp_cc_version
     nginx_version %V ngx_kmp_cc_nginx_version
     compiler %V ngx_kmp_cc_compiler
