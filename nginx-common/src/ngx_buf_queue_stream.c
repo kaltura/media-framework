@@ -11,7 +11,7 @@
     another buffer must always be allocated. */
 
 void
-ngx_buf_queue_stream_init(ngx_buf_queue_stream_t *stream,
+ngx_buf_queue_stream_init_head(ngx_buf_queue_stream_t *stream,
     ngx_buf_queue_t *buf_queue)
 {
     stream->buf_queue = buf_queue;

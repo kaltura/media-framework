@@ -17,7 +17,7 @@ typedef struct {
 
 
 /* Note: the init functions must not be called when empty */
-void ngx_buf_queue_stream_init(ngx_buf_queue_stream_t *stream,
+void ngx_buf_queue_stream_init_head(ngx_buf_queue_stream_t *stream,
     ngx_buf_queue_t *buf_queue);
 
 void ngx_buf_queue_stream_init_tail(ngx_buf_queue_stream_t *stream,

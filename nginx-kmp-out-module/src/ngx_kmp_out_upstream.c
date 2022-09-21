@@ -98,7 +98,7 @@ ngx_kmp_out_upstream_create(ngx_kmp_out_track_t *track, ngx_str_t *id)
     u->track = track;
     u->timeout = track->conf->timeout;
 
-    ngx_buf_queue_stream_init(&u->acked_reader, &track->buf_queue);
+    ngx_buf_queue_stream_init_head(&u->acked_reader, &track->buf_queue);
     u->acked_frame_id = track->connect.initial_frame_id;
     u->acked_upstream_frame_id = track->connect.initial_upstream_frame_id;
 
