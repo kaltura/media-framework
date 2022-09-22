@@ -96,6 +96,7 @@ typedef struct {
 
 typedef struct {
     ngx_msec_t                     segment_duration;
+    ngx_msec_t                     input_delay;
     uint32_t                       initial_segment_index;
 } ngx_live_channel_conf_t;
 
@@ -131,6 +132,7 @@ struct ngx_live_channel_s {
     void                         **preset_conf;
 
     ngx_live_channel_conf_t        conf;
+    ngx_msec_t                     input_delay_margin;
 
     ngx_uint_t                     timescale;
     uint32_t                       segment_duration;    /* sec / timescale */

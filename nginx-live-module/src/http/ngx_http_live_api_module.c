@@ -335,6 +335,18 @@ ngx_http_live_api_channel_update(ngx_http_request_t *r)
         conf.segment_duration = val;
     }
 
+    val = json->input_delay;
+    if (val != NGX_JSON_UNSET) {
+        if (val < 0 || val >= NGX_LIVE_SEGMENTER_MAX_INPUT_DELAY) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_live_api_channel_update: "
+                "invalid input delay %L", val);
+            return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
+        }
+
+        conf.input_delay = val;
+    }
+
     rc = ngx_live_channel_update(channel, &conf);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,

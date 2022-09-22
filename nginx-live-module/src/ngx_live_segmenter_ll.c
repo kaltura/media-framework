@@ -2273,6 +2273,8 @@ ngx_live_lls_process_frame(ngx_live_track_t *track,
 static ngx_int_t
 ngx_live_lls_process(ngx_live_channel_t *channel)
 {
+    int64_t                      now;
+    int64_t                      created;
     ngx_msec_t                   timer;
     ngx_live_track_t            *track;
     ngx_rbtree_node_t           *root, *sentinel, *node;
@@ -2308,7 +2310,7 @@ ngx_live_lls_process(ngx_live_channel_t *channel)
             ngx_log_debug5(NGX_LOG_DEBUG_LIVE, &track->log, 0,
                 "ngx_live_lls_process: delaying frame, "
                 "id: %uL, msec: %M, current: %M, wait: %M, track: %V",
-                frame->id, frame->created, ngx_current_msec, timer,
+                frame->id, frame->added, ngx_current_msec, timer,
                 &track->sn.str);
 
             ngx_add_timer(&cctx->process, timer);
@@ -2325,11 +2327,32 @@ ngx_live_lls_process(ngx_live_channel_t *channel)
             ngx_log_debug5(NGX_LOG_DEBUG_LIVE, &track->log, 0,
                 "ngx_live_lls_process: waiting for video, "
                 "id: %uL, msec: %M, current: %M, wait: %M, track: %V",
-                frame->id, frame->created, ngx_current_msec, timer,
+                frame->id, frame->added, ngx_current_msec, timer,
                 &track->sn.str);
 
             ngx_add_timer(&cctx->process, timer);
             break;
+        }
+
+        if (channel->conf.input_delay > 0) {
+
+            created = ngx_live_rescale_time(frame->created,
+                channel->timescale, 1000);
+            now = ngx_live_get_time(1000);
+
+            if (now > created - (int64_t) channel->input_delay_margin
+                && now < created + (int64_t) channel->conf.input_delay)
+            {
+                timer = created + channel->conf.input_delay - now;
+
+                ngx_log_debug5(NGX_LOG_DEBUG_LIVE, &track->log, 0,
+                    "ngx_live_lls_process: delaying frame, "
+                    "id: %uL, created: %L, current: %L, wait: %M, track: %V",
+                    frame->id, frame->created, now, timer, &track->sn.str);
+
+                ngx_add_timer(&cctx->process, timer);
+                break;
+            }
         }
 
         if (ngx_live_lls_process_frame(track, frame, 0) != NGX_OK) {
@@ -3000,7 +3023,7 @@ ngx_live_lls_track_channel_free(ngx_live_track_t *track, void *ectx)
 
 
 static ngx_int_t
-ngx_live_lls_channel_duration_changed(ngx_live_channel_t *channel,
+ngx_live_lls_channel_conf_changed(ngx_live_channel_t *channel,
     void *ectx)
 {
     ngx_live_lls_channel_ctx_t   *cctx;
@@ -3015,14 +3038,14 @@ ngx_live_lls_channel_duration_changed(ngx_live_channel_t *channel,
 
     if (channel->conf.segment_duration < cpcf->part_duration) {
         ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
-            "ngx_live_lls_channel_duration_changed: "
+            "ngx_live_lls_channel_conf_changed: "
             "segment duration %M smaller than configured part duration %M",
             channel->conf.segment_duration, cpcf->part_duration);
         return NGX_ERROR;
     }
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_lls_channel_duration_changed: set to %M",
+        "ngx_live_lls_channel_conf_changed: duration set to %M",
         channel->conf.segment_duration);
 
     return NGX_OK;
@@ -3056,7 +3079,7 @@ ngx_live_lls_channel_init(ngx_live_channel_t *channel, void *ectx)
 
     ngx_live_set_ctx(channel, cctx, ngx_live_lls_module);
 
-    if (ngx_live_lls_channel_duration_changed(channel, NULL) != NGX_OK) {
+    if (ngx_live_lls_channel_conf_changed(channel, NULL) != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -3123,7 +3146,7 @@ ngx_live_lls_channel_read(ngx_live_channel_t *channel, void *ectx)
         return NGX_OK;
     }
 
-    if (ngx_live_lls_channel_duration_changed(channel, NULL) != NGX_OK) {
+    if (ngx_live_lls_channel_conf_changed(channel, NULL) != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -3215,8 +3238,8 @@ static ngx_live_channel_event_t    ngx_live_lls_channel_events[] = {
     { ngx_live_lls_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
     { ngx_live_lls_channel_free, NGX_LIVE_EVENT_CHANNEL_FREE },
     { ngx_live_lls_channel_read, NGX_LIVE_EVENT_CHANNEL_READ },
-    { ngx_live_lls_channel_duration_changed,
-        NGX_LIVE_EVENT_CHANNEL_DURATION_CHANGED },
+    { ngx_live_lls_channel_conf_changed,
+        NGX_LIVE_EVENT_CHANNEL_CONF_CHANGED },
 
       ngx_live_null_event
 };

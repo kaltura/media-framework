@@ -56,6 +56,7 @@ out nostatic ngx_live_channel_json ngx_live_channel_t
     last_segment_created %T
     last_accessed %T
     segment_duration %M obj->conf.
+    input_delay %M obj->conf.
     snapshots %uD
     tracks %func-ngx_live_tracks_json obj
     variants %func-ngx_live_variants_json obj

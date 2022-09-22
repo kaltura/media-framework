@@ -411,6 +411,7 @@ ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
         sizeof(",\"last_segment_created\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"last_accessed\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"segment_duration\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"input_delay\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"snapshots\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"tracks\":") - 1 + ngx_live_tracks_json_get_size(obj) +
         sizeof(",\"variants\":") - 1 + ngx_live_variants_json_get_size(obj) +
@@ -459,6 +460,8 @@ ngx_live_channel_json_write(u_char *p, ngx_live_channel_t *obj)
     p = ngx_sprintf(p, "%T", (time_t) obj->last_accessed);
     p = ngx_copy_fix(p, ",\"segment_duration\":");
     p = ngx_sprintf(p, "%M", (ngx_msec_t) obj->conf.segment_duration);
+    p = ngx_copy_fix(p, ",\"input_delay\":");
+    p = ngx_sprintf(p, "%M", (ngx_msec_t) obj->conf.input_delay);
     p = ngx_copy_fix(p, ",\"snapshots\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->snapshots);
     p = ngx_copy_fix(p, ",\"tracks\":");

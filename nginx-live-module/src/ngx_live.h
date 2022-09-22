@@ -74,6 +74,8 @@ typedef struct {
 char *ngx_live_block_command_handler(ngx_conf_t *cf, ngx_command_t *dummy,
     void *conf);
 
+int64_t ngx_live_get_time(ngx_uint_t timescale);
+
 
 extern ngx_module_t  ngx_live_module;
 

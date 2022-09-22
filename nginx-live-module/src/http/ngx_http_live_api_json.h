@@ -17,6 +17,7 @@ typedef struct {
     ngx_flag_t  read;
     int64_t     initial_segment_index;
     int64_t     segment_duration;
+    int64_t     input_delay;
 } ngx_live_channel_json_t;
 
 
@@ -80,16 +81,28 @@ static ngx_json_prop_t  ngx_live_channel_json_segment_duration = {
 };
 
 
+static ngx_json_prop_t  ngx_live_channel_json_input_delay = {
+    ngx_string("input_delay"),
+    89068177108366542ULL,
+    NGX_JSON_INT,
+    ngx_json_set_num_slot,
+    offsetof(ngx_live_channel_json_t, input_delay),
+    NULL
+};
+
+
 static ngx_json_prop_t  *ngx_live_channel_json[] = {
+    &ngx_live_channel_json_segment_duration,
+    NULL,
+    NULL,
+    &ngx_live_channel_json_initial_segment_index,
+    NULL,
+    NULL,
+    &ngx_live_channel_json_input_delay,
+    &ngx_live_channel_json_id,
     NULL,
     &ngx_live_channel_json_opaque,
     &ngx_live_channel_json_read,
-    &ngx_live_channel_json_initial_segment_index,
-    &ngx_live_channel_json_segment_duration,
-    &ngx_live_channel_json_id,
-    NULL,
-    NULL,
-    NULL,
     &ngx_live_channel_json_preset,
 };
 

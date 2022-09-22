@@ -123,6 +123,20 @@ static ngx_command_t  ngx_live_core_commands[] = {
       offsetof(ngx_live_core_preset_conf_t, part_duration),
       NULL },
 
+    { ngx_string("input_delay"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_core_preset_conf_t, input_delay),
+      NULL },
+
+    { ngx_string("input_delay_margin"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_core_preset_conf_t, input_delay_margin),
+      NULL },
+
       ngx_null_command
 };
 
@@ -525,6 +539,8 @@ ngx_live_core_create_preset_conf(ngx_conf_t *cf)
     conf->timescale = NGX_CONF_UNSET_UINT;
     conf->segment_duration = NGX_CONF_UNSET_MSEC;
     conf->part_duration = NGX_CONF_UNSET_MSEC;
+    conf->input_delay = NGX_CONF_UNSET_MSEC;
+    conf->input_delay_margin = NGX_CONF_UNSET_MSEC;
 
     conf->mem_temp_blocks = ngx_array_create(cf->temp_pool, 10,
         sizeof(ngx_live_core_block_size_t));
@@ -573,6 +589,12 @@ ngx_live_core_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_msec_value(conf->part_duration,
                               prev->part_duration, 1000);
+
+    ngx_conf_merge_msec_value(conf->input_delay,
+                              prev->input_delay, 0);
+
+    ngx_conf_merge_msec_value(conf->input_delay_margin,
+                              prev->input_delay_margin, 1000);
 
     if (conf->mem_conf_blocks == NULL) {
         conf->mem_conf_blocks = prev->mem_conf_blocks;
@@ -729,6 +751,9 @@ ngx_live_core_channel_init(ngx_live_channel_t *channel)
     channel->timescale = cpcf->timescale;
 
     channel->conf.segment_duration = cpcf->segment_duration;
+    channel->conf.input_delay = cpcf->input_delay;
+    channel->input_delay_margin = cpcf->input_delay_margin;
+
     channel->segment_duration = ngx_live_rescale_time(
         channel->conf.segment_duration, 1000, channel->timescale);
 

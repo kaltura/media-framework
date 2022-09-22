@@ -39,7 +39,7 @@ typedef struct {
     uint32_t                            version;
     uint32_t                            initial_segment_index;
     uint32_t                            segment_duration;
-    uint32_t                            reserved;
+    uint32_t                            input_delay;
     uint64_t                            start_sec;
 } ngx_live_persist_setup_channel_t;
 
@@ -117,8 +117,8 @@ ngx_live_persist_setup_write_channel(ngx_persist_write_ctx_t *write_ctx,
     cp.version = scope->version;
     cp.initial_segment_index = channel->conf.initial_segment_index;
     cp.segment_duration = channel->conf.segment_duration;
+    cp.input_delay = channel->conf.input_delay;
     cp.start_sec = channel->start_sec;
-    cp.reserved = 0;
 
     if (ngx_live_persist_write_channel_header(write_ctx, channel) != NGX_OK ||
         ngx_persist_write(write_ctx, &cp, sizeof(cp)) != NGX_OK ||
@@ -165,6 +165,7 @@ ngx_live_persist_setup_read_channel(ngx_persist_block_hdr_t *header,
     channel->start_sec = cp.start_sec;
     channel->conf.initial_segment_index = cp.initial_segment_index;
     channel->next_segment_index = cp.initial_segment_index;
+    channel->conf.input_delay = cp.input_delay;
 
     channel->conf.segment_duration = cp.segment_duration;
     channel->segment_duration = ngx_live_rescale_time(

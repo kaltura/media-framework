@@ -343,26 +343,32 @@ ngx_int_t
 ngx_live_channel_update(ngx_live_channel_t *channel,
     ngx_live_channel_conf_t *conf)
 {
-    ngx_msec_t  old_segment_duration;
+    ngx_live_channel_conf_t  old_conf;
 
-    if (conf->segment_duration != channel->conf.segment_duration) {
-        old_segment_duration = channel->conf.segment_duration;
-
-        channel->conf.segment_duration = conf->segment_duration;
-        channel->segment_duration = ngx_live_rescale_time(
-            channel->conf.segment_duration, 1000, channel->timescale);
-
-        if (ngx_live_core_channel_event(channel,
-            NGX_LIVE_EVENT_CHANNEL_DURATION_CHANGED, NULL) != NGX_OK)
-        {
-            goto revert;
-        }
+    if (channel->next_segment_index != 0
+        || ngx_live_channel_has_pending_segments(channel))
+    {
+        /* initial segment index cant be changed once there are segments */
+        conf->initial_segment_index = channel->conf.initial_segment_index;
     }
 
-    if (channel->next_segment_index == 0
-        && !ngx_live_channel_has_pending_segments(channel))
+    if (ngx_memcmp(conf, &channel->conf, sizeof(*conf)) == 0) {
+        return NGX_OK;
+    }
+
+    old_conf = channel->conf;
+
+    channel->conf = *conf;
+    channel->segment_duration = ngx_live_rescale_time(
+        channel->conf.segment_duration, 1000, channel->timescale);
+
+    if (ngx_live_core_channel_event(channel,
+        NGX_LIVE_EVENT_CHANNEL_CONF_CHANGED, NULL) != NGX_OK)
     {
-        channel->conf.initial_segment_index = conf->initial_segment_index;
+        goto revert;
+    }
+
+    if (old_conf.initial_segment_index != conf->initial_segment_index) {
         channel->next_segment_index = conf->initial_segment_index;
     }
 
@@ -370,12 +376,12 @@ ngx_live_channel_update(ngx_live_channel_t *channel,
 
 revert:
 
-    channel->conf.segment_duration = old_segment_duration;
+    channel->conf = old_conf;
     channel->segment_duration = ngx_live_rescale_time(
         channel->conf.segment_duration, 1000, channel->timescale);
 
     (void) ngx_live_core_channel_event(channel,
-        NGX_LIVE_EVENT_CHANNEL_DURATION_CHANGED, NULL);
+        NGX_LIVE_EVENT_CHANNEL_CONF_CHANGED, NULL);
     return NGX_ERROR;
 }
 

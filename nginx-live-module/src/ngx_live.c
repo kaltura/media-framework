@@ -57,6 +57,18 @@ static ngx_uint_t  argument_number[] = {
 };
 
 
+int64_t
+ngx_live_get_time(ngx_uint_t timescale)
+{
+    struct timespec  spec;
+
+    clock_gettime(CLOCK_REALTIME, &spec);
+
+    return (int64_t) spec.tv_sec * timescale +
+        (int64_t) spec.tv_nsec * timescale / 1000000000;
+}
+
+
 static ngx_int_t
 ngx_live_preset_names(ngx_conf_t *cf, ngx_live_core_main_conf_t *cmcf)
 {

@@ -27,7 +27,7 @@ enum {
     NGX_LIVE_EVENT_CHANNEL_INDEX_SNAP,
     NGX_LIVE_EVENT_CHANNEL_READ,
     NGX_LIVE_EVENT_CHANNEL_HISTORY_CHANGED,
-    NGX_LIVE_EVENT_CHANNEL_DURATION_CHANGED,
+    NGX_LIVE_EVENT_CHANNEL_CONF_CHANGED,
 
     NGX_LIVE_EVENT_CHANNEL_SEGMENT_CREATED,
     NGX_LIVE_EVENT_CHANNEL_SEGMENT_FREE,
@@ -97,6 +97,8 @@ typedef struct ngx_live_core_preset_conf_s {
 
     ngx_msec_t                      segment_duration;
     ngx_msec_t                      part_duration;
+    ngx_msec_t                      input_delay;
+    ngx_msec_t                      input_delay_margin;
     ngx_live_segmenter_t            segmenter;
 } ngx_live_core_preset_conf_t;
 
