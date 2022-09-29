@@ -1,5 +1,3 @@
-#docker run  -it --name live-rtmp --rm  --cap-add=SYS_PTRACE --security-opt seccomp=unconfined   -v /Users/guyjacubovski/dev/live/nginx-rtmp.conf:/usr/local/nginx/conf/nginx.conf -p 1935:1935 -p 8001:8001 kaltura/live-nginx-rtmp
-#for debug: add gdb ../sbin/nginx
 ARG ALPINE_VER=3.16
 FROM alpine:$ALPINE_VER as builder
 
@@ -9,10 +7,8 @@ WORKDIR /tmp/build
 
 ARG NGINX_VERSION=1.21.0
 
-# get srt lib
 RUN git clone https://github.com/Haivision/srt/ && cd srt && ./configure && make && make install
 
-#echo "pulling nginx source code"
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     tar -zxvf nginx-${NGINX_VERSION}.tar.gz && \
     rm nginx-${NGINX_VERSION}.tar.gz -f && \
@@ -76,10 +72,9 @@ STOPSIGNAL SIGTERM
 
 
 RUN mkdir /var/log/nginx
-# Forward logs to Docker
+
 RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
     ln -sf /dev/stderr /var/log/nginx/error.log
-
 
 WORKDIR /usr/local/nginx/conf/
 

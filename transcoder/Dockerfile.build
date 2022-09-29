@@ -41,9 +41,4 @@ RUN  cd ffmpeg && \
        make -j 8 && \
        make install
 
-
-#RUN cmake -DSTATICCOMPILE=ON   -DSTATIC=true . && make
 RUN make clean && make && make install
-
-
-
