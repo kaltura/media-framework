@@ -68,13 +68,6 @@
             // not using -it so that it can be a preLaunchTask
             "command": "docker exec -d transcoder-dev  pkill transcoder",
             "problemMatcher": []
-        },
-        {
-            "label": "upload develop image to aws",
-            "type": "shell",
-            // not using -it so that it can be a preLaunchTask
-            "command": "eval `aws ecr get-login --no-include-email --region eu-west-1` && docker tag kaltura/transcoder-dev 983882572364.dkr.ecr.eu-west-1.amazonaws.com/transcoder-dev &&  docker push 983882572364.dkr.ecr.eu-west-1.amazonaws.com/transcoder-dev",
-            "problemMatcher": []
         }
     ]
 }
