@@ -1,8 +1,0 @@
-{ "input": {
-    "file": "/Users/guyjacubovski/Sample_video/900.mp4",
-    "realTime": true,
-    "activeStream": 0,
-    "duration": 9000000,
-    "randomDataPercentage": 0
-},
-"image":"983882572364.dkr.ecr.us-east-1.amazonaws.com/live-transcoder:test","imagepullpolicy":"IfNotPresent","kmp":{"listenport":0,"listenaddress":"0.0.0.0"},"input":{"channelid":"1_avsafa2p"},"control":{"listenport":8002,"listenaddress":"0.0.0.0"},"logger":{"loglevels":["DEBUG","VERBOSE","INFO","WARN","ERROR","FATAL","PANIC"],"loglevel":"DEBUG"},"output":{"savefile":false,"outputfilenamepattern":"./output_%s.mp4","streamingurl":""},"debug":{"diagnosticsintervalinseconds":60},"engine":{"usenvidiadecoder":true,"encoders":{"h264":["h264_nvenc","h264_videotoolbox","libx264"]},"presets":{"a":{"h264_videotoolbox":"default","libx264":"veryfast","h264_nvenc":"fast"}}},"outputtracks":[{"trackid":"v32","type":0,"enabled":true,"description":"Maintains the original format and settings of the input stream","bitrate":900,"passthrough":true},{"trackid":"v33","type":0,"enabled":true,"description":"Basic/Small - WEB/MBL (H264/400)","bitrate":400,"codec":"h264","passthrough":false,"videoparams":{"profile":"baseline","height":-2,"width":480,"skipframe":1}},{"trackid":"v34","type":0,"enabled":true,"description":"Basic/Small - WEB/MBL (H264/600)","bitrate":600,"codec":"h264","passthrough":false,"videoparams":{"profile":"baseline","height":-2,"width":640,"skipframe":1}},{"trackid":"v35","type":0,"enabled":true,"description":"SD/Small - WEB/MBL (H264)","bitrate":900,"codec":"h264","passthrough":false,"videoparams":{"profile":"main","height":-2,"width":640,"skipframe":1}}]}
