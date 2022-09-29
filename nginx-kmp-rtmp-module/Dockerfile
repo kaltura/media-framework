@@ -6,10 +6,7 @@ RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base 
 WORKDIR /tmp/build
 
 ARG NGINX_VERSION=1.21.0
-#ARG NGX_DEVEL_KIT_VERSION=v0.3.1
-#ARG SET_MISC_NGINX_MODULE_VERSION=v0.32
 
-#echo "pulling nginx source code"
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     tar -zxvf nginx-${NGINX_VERSION}.tar.gz && \
     rm nginx-${NGINX_VERSION}.tar.gz -f && \
@@ -55,10 +52,11 @@ EXPOSE 80
 STOPSIGNAL SIGTERM
 
 RUN mkdir /var/log/nginx
-# Forward logs to Docker
+
 RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
     ln -sf /dev/stderr /var/log/nginx/error.log
 
 WORKDIR /usr/local/nginx/conf/
+
 # TODO: Swap chmod for more elegant solution
 CMD chmod 777 /tmp/dumps && /usr/local/nginx/sbin/nginx
