@@ -370,7 +370,9 @@ ngx_stream_kmp_rtmp_process_handler(ngx_stream_kmp_rtmp_upstream_t *upstream)
 
         ngx_kmp_rtmp_build_meta_data(&upstream->active_buf,
             cur_stream->tracks_list[0], cur_stream->tracks_list[1]);
-        ch = ngx_kmp_rtmp_build_get_chain(upstream, cur_stream->tracks_list[0]->pool,
+        ch = ngx_kmp_rtmp_build_get_chain(upstream,
+            cur_stream->tracks_list[0] ? cur_stream->tracks_list[0]->pool
+            : cur_stream->tracks_list[1]->pool,
             upstream->active_buf.pos, upstream->active_buf.last);
         *upstream->last = ch;
         upstream->last = &ch->next;
