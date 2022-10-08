@@ -1265,7 +1265,7 @@ ngx_kmp_cc_add_media_info(ngx_kmp_cc_ctx_t *ctx,
     ctx->avc_nal_bytes = (avcc.nula_length_size & 0x3) + 1;
     ctx->timescale = media_info->timescale;
 
-    return NGX_OK;
+    return NGX_DONE;
 }
 
 

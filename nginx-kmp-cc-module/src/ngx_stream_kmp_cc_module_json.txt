@@ -1,7 +1,5 @@
 
 out ngx_stream_kmp_cc_session_json ngx_stream_kmp_cc_ctx_t
-    channel_id %jV obj->input->
-    track_id %jV obj->input->
     mem_left %uz
     mem_limit %uz
     input %func-ngx_kmp_in_json

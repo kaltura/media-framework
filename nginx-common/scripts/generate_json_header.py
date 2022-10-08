@@ -306,8 +306,7 @@ for (q = ngx_queue_head(&%s);
 {
     cur = ngx_queue_data(q, %s, %s);
 
-    if (q != ngx_queue_head(&%s))
-    {
+    if (p[-1] != '{') {
         *p++ = ',';
     }
 
@@ -317,8 +316,7 @@ for (q = ngx_queue_head(&%s);
     *p++ = ':';
     p = %s_write(p, cur);
 }
-''' % (expr, expr, objectType, queueNode, expr, idField,
-        escField, baseFunc)
+''' % (expr, expr, objectType, queueNode, idField, escField, baseFunc)
 
                 addVarDef(varDefs, 'ngx_queue_t', '*q')
                 addVarDef(varDefs, objectType, '*cur')
@@ -346,8 +344,7 @@ for (q = ngx_queue_head(&%s);
 {
     cur = ngx_queue_data(q, %s, %s);
 
-    if (q != ngx_queue_head(&%s))
-    {
+    if (p[-1] != '[') {
         *p++ = ',';
     }
 
@@ -355,8 +352,7 @@ for (q = ngx_queue_head(&%s);
     p = ngx_json_str_write_escape(p, &cur->%s, cur->%s);
     *p++ = '"';
 }
-''' % (expr, expr, objectType, queueNode, expr, idField,
-        escField)
+''' % (expr, expr, objectType, queueNode, idField, escField)
 
                 addVarDef(varDefs, 'ngx_queue_t', '*q')
                 addVarDef(varDefs, objectType, '*cur')
@@ -376,13 +372,13 @@ for (cur = %s; cur; cur = cur->next) {
                 valueWrite = '''
 for (cur = %s; cur; cur = cur->next) {
 
-    if (cur != %s) {
+    if (p[-1] != '[') {
         *p++ = ',';
     }
 
     p = %s_write(p, cur);
 }
-''' % (expr, expr, baseFunc)
+''' % (expr, baseFunc)
 
                 addVarDef(varDefs, objectType, '*cur')
                 valueSize = ''
@@ -409,13 +405,13 @@ for (q = ngx_queue_head(&%s);
 {
     cur = ngx_queue_data(q, %s, %s);
 
-    if (q != ngx_queue_head(&%s)) {
+    if (p[-1] != '[') {
         *p++ = ',';
     }
 
     p = %s_write(p, cur);
 }
-''' % (expr, expr, objectType, queueNode, expr, baseFunc)
+''' % (expr, expr, objectType, queueNode, baseFunc)
 
                 addVarDef(varDefs, 'ngx_queue_t', '*q')
                 addVarDef(varDefs, objectType, '*cur')
@@ -461,6 +457,11 @@ for (n = 0; n < %s.nelts; n++) {
                 nextFixed = '"'
                 valueWrite = 'p = ngx_json_str_write(p, &%s);' % expr
                 valueSize = 'ngx_json_str_get_size(&%s)' % expr
+            elif format == 'rV':
+                fixed += '"'
+                nextFixed = '"'
+                valueWrite = 'p = ngx_copy_str(p, %s);' % expr
+                valueSize = '%s.len' % expr
             elif format == 'V':
                 fixed += '"'
                 nextFixed = '"'
@@ -735,6 +736,10 @@ if 'in' in map(lambda x: x[0][0], objects):
 if 'out' in map(lambda x: x[0][0], objects):
     result += '''#ifndef ngx_copy_fix
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
+#endif
+
+#ifndef ngx_copy_str
+#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
 #endif
 
 '''

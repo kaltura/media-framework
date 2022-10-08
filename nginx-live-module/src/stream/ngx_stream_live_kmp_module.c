@@ -167,7 +167,7 @@ ngx_stream_live_kmp_connected(ngx_kmp_in_ctx_t *ctx,
     if (channel->blocked) {
         ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
             "ngx_stream_live_kmp_connected: channel \"%V\" is blocked",
-            &ctx->channel_id.s);
+            &channel->sn.str);
         return NGX_STREAM_BAD_REQUEST;
     }
 
@@ -177,7 +177,7 @@ ngx_stream_live_kmp_connected(ngx_kmp_in_ctx_t *ctx,
         ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
             "ngx_stream_live_kmp_connected: "
             "unknown track \"%V\" in channel \"%V\"",
-            &ctx->track_id.s, &ctx->channel_id.s);
+            &ctx->track_id.s, &channel->sn.str);
         return NGX_STREAM_BAD_REQUEST;
     }
 
@@ -185,7 +185,7 @@ ngx_stream_live_kmp_connected(ngx_kmp_in_ctx_t *ctx,
         ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
             "ngx_stream_live_kmp_connected: "
             "track \"%V\" in channel \"%V\" is a filler track",
-            &ctx->track_id.s, &ctx->channel_id.s);
+            &track->sn.str, &channel->sn.str);
         return NGX_STREAM_BAD_REQUEST;
     }
 
@@ -193,7 +193,7 @@ ngx_stream_live_kmp_connected(ngx_kmp_in_ctx_t *ctx,
         ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
             "ngx_stream_live_kmp_connected: "
             "track \"%V\" in channel \"%V\" already connected to %uA",
-            &ctx->track_id.s, &ctx->channel_id.s,
+            &track->sn.str, &channel->sn.str,
             track->input->connection->number);
         return NGX_STREAM_BAD_REQUEST;
     }
@@ -225,6 +225,12 @@ ngx_stream_live_kmp_connected(ngx_kmp_in_ctx_t *ctx,
 
     evt->skip_count = req.skip_count;
     evt->skip_wait_key = req.skip_wait_key;
+
+    /* avoid printing the channel/track id in the kmp-in json
+        (it already appears on the containing objects) */
+
+    ngx_memzero(&ctx->channel_id, sizeof(ctx->channel_id));
+    ngx_memzero(&ctx->track_id, sizeof(ctx->track_id));
 
     return NGX_OK;
 }

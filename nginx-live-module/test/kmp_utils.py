@@ -227,10 +227,10 @@ class KmpNullSender(object):
 
 
 class KmpTcpSender(object):
-    def __init__(self, addr, channelId, trackId, mediaType, initialFrameId = 0, initialOffset = 0, flags = 0):
+    def __init__(self, addr, channelId, trackId, mediaType, initialFrameId = 0, initialOffset = 0, flags = 0, data = b''):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect(addr)
-        s.send(kmpConnectPacket(channelId, trackId, initialFrameId, initialOffset, flags))
+        s.send(kmpConnectPacket(channelId, trackId, initialFrameId, initialOffset, flags, data))
         # reduce send buffer size for audio
         if mediaType == 'audio':
             s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024)
@@ -273,11 +273,11 @@ def kmpGetHeader(data):
 def kmpCreatePacket(type, header, data, reserved = 0):
     return struct.pack('<LLLL', type, KMP_PACKET_HEADER_SIZE + len(header), len(data), reserved) + header + data
 
-def kmpConnectPacket(channelId, trackId, initialFrameId = 0, initialOffset = 0, flags = 0):
+def kmpConnectPacket(channelId, trackId, initialFrameId = 0, initialOffset = 0, flags = 0, data = b''):
     header = (channelId.encode('utf8') + b'\0' * (KMP_MAX_CHANNEL_ID_LEN - len(channelId)) +
         trackId.encode('utf8') + b'\0' * (KMP_MAX_TRACK_ID_LEN - len(trackId)) +
         struct.pack('<QQLL', initialFrameId, 0, initialOffset, flags))
-    return kmpCreatePacket(KMP_PACKET_CONNECT, header, b'')
+    return kmpCreatePacket(KMP_PACKET_CONNECT, header, data)
 
 def kmpEndOfStreamPacket():
     return kmpCreatePacket(KMP_PACKET_END_OF_STREAM, b'', b'')

@@ -1,0 +1,9 @@
+
+out ngx_http_kmp_rtmp_api_json void
+    version %jV ngx_kmp_rtmp_version
+    nginx_version %jV ngx_kmp_rtmp_nginx_version
+    compiler %jV ngx_kmp_rtmp_compiler
+    built %jV ngx_kmp_rtmp_built
+    pid %ui ngx_getpid()
+    uptime %i (ngx_cached_time->sec - ngx_kmp_rtmp_start_time)
+    upstreams %func-ngx_kmp_rtmp_upstreams_json obj

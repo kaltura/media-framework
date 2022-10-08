@@ -69,6 +69,8 @@ enum {
 
 
 enum {
+    KMP_CODEC_INVALID               = 0,
+
     /* aligns with NGX_RTMP_VIDEO_XXX */
     KMP_CODEC_VIDEO_JPEG            = 1,
     KMP_CODEC_VIDEO_SORENSON_H263   = 2,
@@ -79,6 +81,7 @@ enum {
     KMP_CODEC_VIDEO_H264            = 7,
 
     /* NGX_RTMP_AUDIO_XXX + 1000 */
+    KMP_CODEC_AUDIO_BASE            = 1000,
     KMP_CODEC_AUDIO_UNCOMPRESSED    = 1016,
     KMP_CODEC_AUDIO_ADPCM           = 1001,
     KMP_CODEC_AUDIO_MP3             = 1002,

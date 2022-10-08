@@ -1,0 +1,32 @@
+
+in ngx_kmp_rtmp_connect_data_json
+    upstream_id %V
+    url %V
+    header %V
+    opaque %rV
+    app %V
+    name %V
+    flash_ver %V
+    swf_url %V
+    tc_url %V
+    page_url %V
+
+out ngx_kmp_rtmp_upstream_json ngx_kmp_rtmp_upstream_t
+    url %jV
+    header %jV
+    opaque %rV
+    remote_addr %jV
+    local_addr %jV
+    connection %uA obj->log.
+    mem_limit %uz
+    mem_left %uz
+    written_bytes %uz
+    sent_bytes %O obj->peer.connection->sent
+    received_bytes %uz
+    streams %objQueue-ngx_kmp_rtmp_stream_json,ngx_kmp_rtmp_stream_t,queue,sn.str,id_escape obj->streams.queue
+
+out nostatic noobject ngx_kmp_rtmp_upstreams_json void
+    - %objQueue-ngx_kmp_rtmp_upstream_json,ngx_kmp_rtmp_upstream_t,queue,sn.str,id_escape ngx_kmp_rtmp_upstreams.queue
+
+out nostatic noobject ngx_kmp_rtmp_upstream_ids_json void
+    - %objQueueIds-ngx_kmp_rtmp_upstream_t,queue,sn.str,id_escape ngx_kmp_rtmp_upstreams.queue

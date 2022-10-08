@@ -26,9 +26,6 @@
 #define NGX_RTMP_INTER_FRAME             (2)
 
 
-#define NGX_RTMP_KMP_AUDIO_CODEC_BASE    (1000)
-
-
 typedef struct {
     ngx_rtmp_session_t  *s;
     int64_t              timestamp;
@@ -180,7 +177,7 @@ ngx_rtmp_kmp_track_send_media_info(ngx_kmp_out_track_t *track,
 
     case KMP_MEDIA_AUDIO:
         /* KMP audio codec ids match NGX_RTMP_AUDIO_XXX + base */
-        media_info->codec_id = NGX_RTMP_KMP_AUDIO_CODEC_BASE +
+        media_info->codec_id = KMP_CODEC_AUDIO_BASE +
             codec_ctx->audio_codec_id;
         media_info->bitrate = codec_ctx->audio_data_rate * 1000;
 

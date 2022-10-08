@@ -4,6 +4,10 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
+#ifndef ngx_copy_str
+#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
+#endif
+
 /* ngx_kmp_in_stats_latency_json writer */
 
 size_t
@@ -80,6 +84,45 @@ ngx_kmp_in_stats_skip_json_write(u_char *p, ngx_kmp_in_stats_skip_t *obj)
 }
 
 
+/* ngx_kmp_in_assoc_json writer */
+
+static size_t
+ngx_kmp_in_assoc_json_get_size(ngx_kmp_in_ctx_t *obj)
+{
+    size_t  result;
+
+    if (!obj->track_id.s.len) {
+        return 0;
+    }
+
+    result =
+        sizeof("\"channel_id\":\"") - 1 +
+            ngx_json_str_get_size(&obj->channel_id) +
+        sizeof("\",\"track_id\":\"") - 1 +
+            ngx_json_str_get_size(&obj->track_id) +
+        sizeof("\"") - 1;
+
+    return result;
+}
+
+
+static u_char *
+ngx_kmp_in_assoc_json_write(u_char *p, ngx_kmp_in_ctx_t *obj)
+{
+    if (!obj->track_id.s.len) {
+        return p;
+    }
+
+    p = ngx_copy_fix(p, "\"channel_id\":\"");
+    p = ngx_json_str_write(p, &obj->channel_id);
+    p = ngx_copy_fix(p, "\",\"track_id\":\"");
+    p = ngx_json_str_write(p, &obj->track_id);
+    *p++ = '\"';
+
+    return p;
+}
+
+
 /* ngx_kmp_in_json writer */
 
 size_t
@@ -95,7 +138,8 @@ ngx_kmp_in_json_get_size(ngx_kmp_in_ctx_t *obj)
         sizeof("{\"connection\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"remote_addr\":\"") - 1 +
             ngx_json_str_get_size(&obj->remote_addr) +
-        sizeof("\",\"uptime\":") - 1 + NGX_TIME_T_LEN +
+        sizeof("\",") - 1 + ngx_kmp_in_assoc_json_get_size(obj) +
+        sizeof(",\"uptime\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"received_bytes\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"received_data_bytes\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"received_frames\":") - 1 + NGX_INT_T_LEN +
@@ -114,6 +158,8 @@ ngx_kmp_in_json_get_size(ngx_kmp_in_ctx_t *obj)
 u_char *
 ngx_kmp_in_json_write(u_char *p, ngx_kmp_in_ctx_t *obj)
 {
+    u_char  *next;
+
     if (!obj) {
         p = ngx_copy_fix(p, "null");
         return p;
@@ -123,7 +169,10 @@ ngx_kmp_in_json_write(u_char *p, ngx_kmp_in_ctx_t *obj)
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->connection->number);
     p = ngx_copy_fix(p, ",\"remote_addr\":\"");
     p = ngx_json_str_write(p, &obj->remote_addr);
-    p = ngx_copy_fix(p, "\",\"uptime\":");
+    p = ngx_copy_fix(p, "\",");
+    next = ngx_kmp_in_assoc_json_write(p, obj);
+    p = next == p ? p - 1 : next;
+    p = ngx_copy_fix(p, ",\"uptime\":");
     p = ngx_sprintf(p, "%T", (time_t) (ngx_time() - obj->start_sec));
     p = ngx_copy_fix(p, ",\"received_bytes\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->received_bytes);

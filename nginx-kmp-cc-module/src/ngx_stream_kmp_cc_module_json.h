@@ -4,6 +4,10 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
+#ifndef ngx_copy_str
+#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
+#endif
+
 /* ngx_stream_kmp_cc_session_json writer */
 
 static size_t
@@ -12,11 +16,7 @@ ngx_stream_kmp_cc_session_json_get_size(ngx_stream_kmp_cc_ctx_t *obj)
     size_t  result;
 
     result =
-        sizeof("{\"channel_id\":\"") - 1 +
-            ngx_json_str_get_size(&obj->input->channel_id) +
-        sizeof("\",\"track_id\":\"") - 1 +
-            ngx_json_str_get_size(&obj->input->track_id) +
-        sizeof("\",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof("{\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"input\":") - 1 + ngx_kmp_in_json_get_size(obj->input) +
         sizeof(",\"cc\":") - 1 + ngx_kmp_cc_json_get_size(obj->cc) +
@@ -29,11 +29,7 @@ ngx_stream_kmp_cc_session_json_get_size(ngx_stream_kmp_cc_ctx_t *obj)
 static u_char *
 ngx_stream_kmp_cc_session_json_write(u_char *p, ngx_stream_kmp_cc_ctx_t *obj)
 {
-    p = ngx_copy_fix(p, "{\"channel_id\":\"");
-    p = ngx_json_str_write(p, &obj->input->channel_id);
-    p = ngx_copy_fix(p, "\",\"track_id\":\"");
-    p = ngx_json_str_write(p, &obj->input->track_id);
-    p = ngx_copy_fix(p, "\",\"mem_left\":");
+    p = ngx_copy_fix(p, "{\"mem_left\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_left);
     p = ngx_copy_fix(p, ",\"mem_limit\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_limit);
@@ -91,7 +87,7 @@ ngx_stream_kmp_cc_server_json_write(u_char *p, ngx_stream_core_srv_conf_t *obj)
     {
         cur = ngx_queue_data(q, ngx_stream_kmp_cc_ctx_t, queue);
 
-        if (q != ngx_queue_head(&kscf->sessions)) {
+        if (p[-1] != '[') {
             *p++ = ',';
         }
 

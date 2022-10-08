@@ -1,0 +1,8 @@
+GET  /
+
+GET /upstreams
+LIST /upstreams
+
+DELETE /upstreams/%
+
+DELETE /upstreams/%/tracks/%

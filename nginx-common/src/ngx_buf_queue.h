@@ -21,6 +21,9 @@
 #define ngx_buf_queue_end(buf_queue, node)                                   \
     ((u_char *) (node) + (buf_queue)->alloc_size)
 
+#define ngx_buf_queue_mem_used(buf_queue)                                    \
+    ((buf_queue)->alloc_size * (buf_queue)->nbuffers)
+
 
 typedef struct ngx_buf_queue_node_s  ngx_buf_queue_node_t;
 

@@ -1,0 +1,5 @@
+
+out nostatic ngx_kmp_rtmp_track_json ngx_kmp_rtmp_track_t
+    pending_frames %ui obj->frames.count
+    mem_used %uz ngx_buf_queue_mem_used(&obj->buf_queue)
+    input %func-ngx_kmp_in_json

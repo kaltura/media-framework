@@ -2542,7 +2542,7 @@ ngx_live_lls_add_media_info(void *data, ngx_kmp_in_evt_media_info_t *evt)
         return NGX_ABORT;
     }
 
-    return NGX_OK;
+    return NGX_DONE;
 }
 
 
