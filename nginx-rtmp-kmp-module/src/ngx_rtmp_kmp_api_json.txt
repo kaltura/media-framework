@@ -42,11 +42,11 @@ out ngx_rtmp_kmp_api_server_json ngx_rtmp_core_srv_conf_t
 out ngx_rtmp_kmp_api_json
     - %var ngx_rtmp_core_main_conf_t *cmcf
     - %code cmcf = ngx_rtmp_core_main_conf;
-    version %V ngx_rtmp_kmp_version
-    nginx_version %V ngx_rtmp_kmp_nginx_version
-    rtmp_version %V ngx_rtmp_kmp_rtmp_version
-    compiler %V ngx_rtmp_kmp_compiler
-    built %V ngx_rtmp_kmp_built
+    version %jV ngx_rtmp_kmp_version
+    nginx_version %jV ngx_rtmp_kmp_nginx_version
+    rtmp_version %jV ngx_rtmp_kmp_rtmp_version
+    compiler %jV ngx_rtmp_kmp_compiler
+    built %jV ngx_rtmp_kmp_built
     pid %ui ngx_getpid()
     uptime %i (ngx_cached_time->sec - ngx_rtmp_kmp_start_time)
     naccepted %ui ngx_rtmp_naccepted

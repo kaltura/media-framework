@@ -4,6 +4,7 @@
 #include <nginx.h>
 
 #include <ngx_http_api.h>
+#include <ngx_json_str.h>
 
 #include "ngx_stream_kmp_cc_module.h"
 #include "ngx_kmp_cc_version.h"
@@ -20,10 +21,15 @@ static ngx_int_t ngx_http_kmp_cc_api_session_delete(ngx_http_request_t *r,
 #include "ngx_http_kmp_cc_api_routes.h"
 
 
-static ngx_str_t  ngx_kmp_cc_version = ngx_string(NGX_KMP_CC_VERSION);
-static ngx_str_t  ngx_kmp_cc_nginx_version = ngx_string(NGINX_VERSION);
-static ngx_str_t  ngx_kmp_cc_compiler = ngx_string(NGX_COMPILER);
-static ngx_str_t  ngx_kmp_cc_built = ngx_string(__DATE__ " " __TIME__);
+static ngx_json_str_t  ngx_kmp_cc_version =
+    ngx_json_string(NGX_KMP_CC_VERSION);
+static ngx_json_str_t  ngx_kmp_cc_nginx_version =
+    ngx_json_string(NGINX_VERSION);
+static ngx_json_str_t  ngx_kmp_cc_compiler =
+    ngx_json_string(NGX_COMPILER);
+static ngx_json_str_t  ngx_kmp_cc_built =
+    ngx_json_string(__DATE__ " " __TIME__);
+
 static time_t     ngx_kmp_cc_start_time = 0;
 
 
@@ -187,6 +193,11 @@ ngx_http_kmp_cc_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 static ngx_int_t
 ngx_http_kmp_cc_api_postconfiguration(ngx_conf_t *cf)
 {
+    ngx_json_str_set_escape(&ngx_kmp_cc_version);
+    ngx_json_str_set_escape(&ngx_kmp_cc_nginx_version);
+    ngx_json_str_set_escape(&ngx_kmp_cc_compiler);
+    ngx_json_str_set_escape(&ngx_kmp_cc_built);
+
     ngx_kmp_cc_start_time = ngx_cached_time->sec;
 
     return NGX_OK;

@@ -18,10 +18,10 @@ out noobject ngx_ts_kmp_api_stream_json ngx_stream_core_main_conf_t
     servers %array-ngx_ts_kmp_api_server_json,ngx_stream_core_srv_conf_t* obj->
 
 out ngx_ts_kmp_api_json ngx_stream_core_main_conf_t
-    version %V ngx_ts_kmp_version
-    nginx_version %V ngx_ts_kmp_nginx_version
-    compiler %V ngx_ts_kmp_compiler
-    built %V ngx_ts_kmp_built
+    version %jV ngx_ts_kmp_version
+    nginx_version %jV ngx_ts_kmp_nginx_version
+    compiler %jV ngx_ts_kmp_compiler
+    built %jV ngx_ts_kmp_built
     pid %ui ngx_getpid()
     uptime %i (ngx_cached_time->sec - ngx_ts_kmp_start_time)
     stream %objFunc-ngx_ts_kmp_api_stream_json obj

@@ -4,6 +4,10 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
+#ifndef ngx_copy_str
+#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
+#endif
+
 /* ngx_ts_kmp_api_track_json writer */
 
 static size_t
@@ -83,7 +87,7 @@ ngx_ts_kmp_api_session_json_write(u_char *p, ngx_ts_kmp_ctx_t *obj)
     {
         cur = ngx_queue_data(q, ngx_ts_kmp_track_t, queue);
 
-        if (q != ngx_queue_head(&obj->tracks)) {
+        if (p[-1] != '[') {
             *p++ = ',';
         }
 
@@ -139,7 +143,7 @@ ngx_ts_kmp_api_server_json_write(u_char *p, ngx_stream_core_srv_conf_t *obj)
     {
         cur = ngx_queue_data(q, ngx_ts_kmp_ctx_t, queue);
 
-        if (q != ngx_queue_head(&tscf->sessions)) {
+        if (p[-1] != '[') {
             *p++ = ',';
         }
 
@@ -167,6 +171,7 @@ ngx_ts_kmp_api_stream_json_get_size(ngx_stream_core_main_conf_t *obj)
 
     for (n = 0; n < obj->servers.nelts; n++) {
         cur = ((ngx_stream_core_srv_conf_t **) obj->servers.elts)[n];
+
         result += ngx_ts_kmp_api_server_json_get_size(cur) + sizeof(",") - 1;
     }
 
@@ -185,7 +190,7 @@ ngx_ts_kmp_api_stream_json_write(u_char *p, ngx_stream_core_main_conf_t *obj)
     for (n = 0; n < obj->servers.nelts; n++) {
         cur = ((ngx_stream_core_srv_conf_t **) obj->servers.elts)[n];
 
-        if (n > 0) {
+        if (p[-1] != '[') {
             *p++ = ',';
         }
 
@@ -206,18 +211,14 @@ ngx_ts_kmp_api_json_get_size(ngx_stream_core_main_conf_t *obj)
     size_t  result;
 
     result =
-        sizeof("{\"version\":\"") - 1 + ngx_ts_kmp_version.len +
-            ngx_escape_json(NULL, ngx_ts_kmp_version.data,
-            ngx_ts_kmp_version.len) +
-        sizeof("\",\"nginx_version\":\"") - 1 + ngx_ts_kmp_nginx_version.len +
-            ngx_escape_json(NULL, ngx_ts_kmp_nginx_version.data,
-            ngx_ts_kmp_nginx_version.len) +
-        sizeof("\",\"compiler\":\"") - 1 + ngx_ts_kmp_compiler.len +
-            ngx_escape_json(NULL, ngx_ts_kmp_compiler.data,
-            ngx_ts_kmp_compiler.len) +
-        sizeof("\",\"built\":\"") - 1 + ngx_ts_kmp_built.len +
-            ngx_escape_json(NULL, ngx_ts_kmp_built.data, ngx_ts_kmp_built.len)
-            +
+        sizeof("{\"version\":\"") - 1 +
+            ngx_json_str_get_size(&ngx_ts_kmp_version) +
+        sizeof("\",\"nginx_version\":\"") - 1 +
+            ngx_json_str_get_size(&ngx_ts_kmp_nginx_version) +
+        sizeof("\",\"compiler\":\"") - 1 +
+            ngx_json_str_get_size(&ngx_ts_kmp_compiler) +
+        sizeof("\",\"built\":\"") - 1 +
+            ngx_json_str_get_size(&ngx_ts_kmp_built) +
         sizeof("\",\"pid\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"uptime\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"stream\":{") - 1 + ngx_ts_kmp_api_stream_json_get_size(obj)
@@ -232,17 +233,13 @@ static u_char *
 ngx_ts_kmp_api_json_write(u_char *p, ngx_stream_core_main_conf_t *obj)
 {
     p = ngx_copy_fix(p, "{\"version\":\"");
-    p = (u_char *) ngx_escape_json(p, ngx_ts_kmp_version.data,
-        ngx_ts_kmp_version.len);
+    p = ngx_json_str_write(p, &ngx_ts_kmp_version);
     p = ngx_copy_fix(p, "\",\"nginx_version\":\"");
-    p = (u_char *) ngx_escape_json(p, ngx_ts_kmp_nginx_version.data,
-        ngx_ts_kmp_nginx_version.len);
+    p = ngx_json_str_write(p, &ngx_ts_kmp_nginx_version);
     p = ngx_copy_fix(p, "\",\"compiler\":\"");
-    p = (u_char *) ngx_escape_json(p, ngx_ts_kmp_compiler.data,
-        ngx_ts_kmp_compiler.len);
+    p = ngx_json_str_write(p, &ngx_ts_kmp_compiler);
     p = ngx_copy_fix(p, "\",\"built\":\"");
-    p = (u_char *) ngx_escape_json(p, ngx_ts_kmp_built.data,
-        ngx_ts_kmp_built.len);
+    p = ngx_json_str_write(p, &ngx_ts_kmp_built);
     p = ngx_copy_fix(p, "\",\"pid\":");
     p = ngx_sprintf(p, "%ui", (ngx_uint_t) ngx_getpid());
     p = ngx_copy_fix(p, ",\"uptime\":");
