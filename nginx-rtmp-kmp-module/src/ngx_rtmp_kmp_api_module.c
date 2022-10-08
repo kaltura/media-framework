@@ -2,9 +2,12 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 #include <nginx.h>
+
 #include <ngx_rtmp.h>
 #include <ngx_rtmp_version.h>
 #include <ngx_http_api.h>
+#include <ngx_json_str.h>
+
 #include "ngx_rtmp_kmp_module.h"
 #include "ngx_rtmp_live_module.h"
 #include "ngx_kmp_out_track.h"
@@ -30,11 +33,17 @@ static size_t ngx_rtmp_kmp_api_tracks_json_get_size(
 static u_char *ngx_rtmp_kmp_api_tracks_json_write(u_char *p,
     ngx_kmp_out_track_t **tracks);
 
-static ngx_str_t  ngx_rtmp_kmp_version = ngx_string(NGX_RTMP_KMP_VERSION);
-static ngx_str_t  ngx_rtmp_kmp_nginx_version = ngx_string(NGINX_VERSION);
-static ngx_str_t  ngx_rtmp_kmp_rtmp_version = ngx_string(NGINX_RTMP_VERSION);
-static ngx_str_t  ngx_rtmp_kmp_compiler = ngx_string(NGX_COMPILER);
-static ngx_str_t  ngx_rtmp_kmp_built = ngx_string(__DATE__ " " __TIME__);
+static ngx_json_str_t  ngx_rtmp_kmp_version =
+    ngx_json_string(NGX_RTMP_KMP_VERSION);
+static ngx_json_str_t  ngx_rtmp_kmp_nginx_version =
+    ngx_json_string(NGINX_VERSION);
+static ngx_json_str_t  ngx_rtmp_kmp_rtmp_version =
+    ngx_json_string(NGINX_RTMP_VERSION);
+static ngx_json_str_t  ngx_rtmp_kmp_compiler =
+    ngx_json_string(NGX_COMPILER);
+static ngx_json_str_t  ngx_rtmp_kmp_built =
+    ngx_json_string(__DATE__ " " __TIME__);
+
 static time_t     ngx_rtmp_kmp_start_time = 0;
 
 /* must match NGX_RTMP_TYPE3_EXT_TS_XXX */
@@ -408,6 +417,12 @@ ngx_rtmp_kmp_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 static ngx_int_t
 ngx_rtmp_kmp_api_postconfiguration(ngx_conf_t *cf)
 {
+    ngx_json_str_set_escape(&ngx_rtmp_kmp_version);
+    ngx_json_str_set_escape(&ngx_rtmp_kmp_nginx_version);
+    ngx_json_str_set_escape(&ngx_rtmp_kmp_rtmp_version);
+    ngx_json_str_set_escape(&ngx_rtmp_kmp_compiler);
+    ngx_json_str_set_escape(&ngx_rtmp_kmp_built);
+
     ngx_rtmp_kmp_start_time = ngx_cached_time->sec;
 
     return NGX_OK;
