@@ -17,7 +17,7 @@ out ngx_ts_kmp_api_server_json ngx_stream_core_srv_conf_t
 out noobject ngx_ts_kmp_api_stream_json ngx_stream_core_main_conf_t
     servers %array-ngx_ts_kmp_api_server_json,ngx_stream_core_srv_conf_t* obj->
 
-out ngx_ts_kmp_api_json ngx_stream_core_main_conf_t
+out ngx_ts_kmp_api_json void
     version %jV ngx_ts_kmp_version
     nginx_version %jV ngx_ts_kmp_nginx_version
     compiler %jV ngx_ts_kmp_compiler

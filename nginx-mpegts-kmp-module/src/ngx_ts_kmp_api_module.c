@@ -121,37 +121,19 @@ static ngx_int_t
 ngx_ts_kmp_api_get(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
 {
-    u_char                       *p;
-    size_t                        size;
     ngx_stream_core_main_conf_t  *cmcf;
+
+    static ngx_http_api_json_writer_t  writer = {
+        ngx_ts_kmp_api_json_get_size,
+        ngx_ts_kmp_api_json_write,
+    };
 
     cmcf = ngx_ts_kmp_api_get_stream_core_main_conf(r->connection->log);
     if (cmcf == NULL) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    size = ngx_ts_kmp_api_json_get_size(cmcf);
-
-    p = ngx_pnalloc(r->pool, size);
-    if (p == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_ts_kmp_api_get: alloc failed");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    response->data = p;
-    p = ngx_ts_kmp_api_json_write(p, cmcf);
-    response->len = p - response->data;
-
-    if (response->len > size) {
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
-            "ngx_ts_kmp_api_get: "
-            "result length %uz greater than allocated length %uz",
-            response->len, size);
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    return NGX_OK;
+    return ngx_http_api_build_json(r, &writer, cmcf, response);
 }
 
 
