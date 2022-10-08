@@ -39,7 +39,7 @@ out ngx_rtmp_kmp_api_application_json ngx_rtmp_core_app_conf_t
 out ngx_rtmp_kmp_api_server_json ngx_rtmp_core_srv_conf_t
     applications %array-ngx_rtmp_kmp_api_application_json,ngx_rtmp_core_app_conf_t*
 
-out ngx_rtmp_kmp_api_json
+out ngx_rtmp_kmp_api_json void
     - %var ngx_rtmp_core_main_conf_t *cmcf
     - %code cmcf = ngx_rtmp_core_main_conf;
     version %jV ngx_rtmp_kmp_version

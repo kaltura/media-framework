@@ -268,7 +268,7 @@ ngx_rtmp_kmp_api_server_json_write(u_char *p, ngx_rtmp_core_srv_conf_t *obj)
 /* ngx_rtmp_kmp_api_json writer */
 
 static size_t
-ngx_rtmp_kmp_api_json_get_size(void)
+ngx_rtmp_kmp_api_json_get_size(void *obj)
 {
     size_t                      result;
     ngx_uint_t                  n;
@@ -308,7 +308,7 @@ ngx_rtmp_kmp_api_json_get_size(void)
 
 
 static u_char *
-ngx_rtmp_kmp_api_json_write(u_char *p)
+ngx_rtmp_kmp_api_json_write(u_char *p, void *obj)
 {
     ngx_uint_t                  n;
     ngx_rtmp_core_srv_conf_t   *cur;
