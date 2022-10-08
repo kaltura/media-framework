@@ -48,7 +48,7 @@ static ngx_command_t  ngx_ts_kmp_api_commands[] = {
       ngx_ts_kmp_api,
       0,
       0,
-      NULL},
+      NULL },
 
       ngx_null_command
 };

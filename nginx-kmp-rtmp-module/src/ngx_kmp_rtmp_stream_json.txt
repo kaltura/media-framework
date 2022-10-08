@@ -1,0 +1,5 @@
+
+out nostatic ngx_kmp_rtmp_stream_json ngx_kmp_rtmp_stream_t
+    id %uD obj->ctx.msid
+    uptime %i (ngx_current_msec - obj->created) / 1000
+    tracks %func-ngx_kmp_rtmp_stream_tracks_json obj

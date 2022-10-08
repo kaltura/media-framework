@@ -2928,7 +2928,7 @@ ngx_live_segmenter_create_segments(ngx_live_channel_t *channel)
 
             if (start_pts) {
                 ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-                    "ngx_live_segmenter_get_segment_times: "
+                    "ngx_live_segmenter_create_segments: "
                     "pts forward skip, forcing new period, "
                     "start_pts: %L, last_segment_pts: %L, delta: %L",
                     start_pts, cctx->last_segment_end_pts,
@@ -3088,7 +3088,7 @@ ngx_live_segmenter_add_media_info(void *data, ngx_kmp_in_evt_media_info_t *evt)
         return NGX_ABORT;
     }
 
-    return NGX_OK;
+    return NGX_DONE;
 }
 
 

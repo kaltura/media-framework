@@ -223,25 +223,83 @@ ngx_kmp_in_connect_data(ngx_kmp_in_ctx_t *ctx)
 
 
 static ngx_int_t
-ngx_kmp_in_media_info(ngx_kmp_in_ctx_t *ctx)
+ngx_kmp_in_copy_packet_header(ngx_kmp_in_ctx_t *ctx, void *buf, size_t size,
+    ngx_buf_chain_t **data)
 {
-    ngx_int_t                     rc;
-    ngx_buf_chain_t              *data = ctx->packet_data_first;
-    kmp_media_info_t             *media_info;
-    ngx_kmp_in_evt_media_info_t   evt;
+    uint32_t          header_left;
+    ngx_buf_chain_t  *cur;
 
-    if (ctx->packet_header.header_size < sizeof(kmp_media_info_packet_t)) {
+    header_left = ctx->packet_header.header_size - sizeof(ctx->packet_header);
+
+    if (header_left < size) {
         ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
-            "ngx_kmp_in_media_info: invalid header size %uD",
-            ctx->packet_header.header_size);
+            "ngx_kmp_in_copy_packet_header: "
+            "header size left %uD too small, expected: %uz",
+            header_left, size);
         return NGX_KMP_IN_BAD_REQUEST;
     }
 
-    media_info = &evt.media_info;
-    if (ngx_buf_chain_copy(&data, media_info, sizeof(*media_info)) == NULL) {
+    *data = ctx->packet_data_first;
+
+    if (ngx_buf_chain_copy(data, buf, size) == NULL) {
         ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
-            "ngx_kmp_in_media_info: read header failed");
+            "ngx_kmp_in_copy_packet_header: read header failed");
         return NGX_KMP_IN_INTERNAL_SERVER_ERROR;
+    }
+
+    header_left -= size;
+
+    if (header_left > 0) {
+        if (ngx_buf_chain_skip(data, header_left) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
+                "ngx_kmp_in_copy_packet_header: skip failed");
+            return NGX_KMP_IN_INTERNAL_SERVER_ERROR;
+        }
+    }
+
+    if (*data == ctx->packet_data_first) {
+        return NGX_OK;
+    }
+
+    /* free the chains used by the packet header */
+
+    if (*data == NULL) {
+        ctx->free_chain_list(ctx->data, ctx->packet_data_first,
+            ctx->packet_data_last);
+
+        ctx->packet_data_last = NULL;
+
+    } else {
+        for (cur = ctx->packet_data_first;
+            cur->next != *data;
+            cur = cur->next);
+
+        cur->next = NULL;
+
+        ctx->free_chain_list(ctx->data, ctx->packet_data_first, cur);
+    }
+
+    ctx->packet_data_first = *data;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_kmp_in_media_info(ngx_kmp_in_ctx_t *ctx)
+{
+    ngx_int_t                     rc;
+    ngx_buf_chain_t              *data;
+    kmp_media_info_t             *media_info;
+    ngx_kmp_in_evt_media_info_t   evt;
+
+    media_info = &evt.media_info;
+    rc = ngx_kmp_in_copy_packet_header(ctx, media_info, sizeof(*media_info),
+        &data);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
+            "ngx_kmp_in_media_info: copy header failed");
+        return rc;
     }
 
     if (media_info->timescale <= 0) {
@@ -251,17 +309,6 @@ ngx_kmp_in_media_info(ngx_kmp_in_ctx_t *ctx)
         return NGX_KMP_IN_BAD_REQUEST;
     }
 
-    if (ctx->packet_header.header_size > sizeof(kmp_media_info_packet_t)) {
-
-        if (ngx_buf_chain_skip(&data, ctx->packet_header.header_size -
-            sizeof(kmp_media_info_packet_t)) != NGX_OK)
-        {
-            ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
-                "ngx_kmp_in_media_info: skip failed");
-            return NGX_KMP_IN_INTERNAL_SERVER_ERROR;
-        }
-    }
-
     evt.extra_data = data;
     evt.extra_data_size = ctx->packet_header.data_size;
 
@@ -269,6 +316,11 @@ ngx_kmp_in_media_info(ngx_kmp_in_ctx_t *ctx)
     switch (rc) {
 
     case NGX_OK:
+        /* ownership of data chains passed to handler */
+        ctx->packet_data_last = NULL;
+        break;
+
+    case NGX_DONE:
         break;
 
     case NGX_ABORT:
@@ -295,16 +347,15 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
     uint64_t                 frame_id;
     ngx_int_t                rc;
     kmp_frame_t             *frame;
-    ngx_buf_chain_t         *cur;
     ngx_buf_chain_t         *data;
     ngx_kmp_in_evt_frame_t   evt;
 
-    /* get the frame metadata */
-    if (ctx->packet_header.header_size < sizeof(kmp_frame_packet_t)) {
-        ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
-            "ngx_kmp_in_frame: invalid header size %uD",
-            ctx->packet_header.header_size);
-        return NGX_KMP_IN_BAD_REQUEST;
+    frame = &evt.frame;
+    rc = ngx_kmp_in_copy_packet_header(ctx, frame, sizeof(*frame), &data);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
+            "ngx_kmp_in_frame: copy header failed");
+        return rc;
     }
 
     frame_id = ctx->cur_frame_id;
@@ -338,15 +389,6 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
         goto done;
     }
 
-    frame = &evt.frame;
-    data = ctx->packet_data_first;
-
-    if (ngx_buf_chain_copy(&data, frame, sizeof(*frame)) == NULL) {
-        ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
-            "ngx_kmp_in_frame: read header failed");
-        return NGX_KMP_IN_INTERNAL_SERVER_ERROR;
-    }
-
     if (ctx->wait_key) {
 
         /* ignore frames that arrive before the first key */
@@ -360,17 +402,6 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
         }
 
         ctx->wait_key = 0;
-    }
-
-    if (ctx->packet_header.header_size > sizeof(kmp_frame_packet_t)) {
-
-        if (ngx_buf_chain_skip(&data, ctx->packet_header.header_size -
-            sizeof(kmp_frame_packet_t)) != NGX_OK)
-        {
-            ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
-                "ngx_kmp_in_frame: skip failed");
-            return NGX_KMP_IN_INTERNAL_SERVER_ERROR;
-        }
     }
 
     ctx->received_frames++;
@@ -417,10 +448,12 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
     switch (rc) {
 
     case NGX_OK:
+        /* ownership of data chains passed to handler */
+        ctx->packet_data_last = NULL;
         break;
 
     case NGX_DONE:
-        goto done;
+        break;
 
     case NGX_ABORT:
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
@@ -431,18 +464,6 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
         ngx_log_error(NGX_LOG_NOTICE, ctx->log, 0,
             "ngx_kmp_in_frame: add frame failed");
         return NGX_KMP_IN_BAD_REQUEST;
-    }
-
-    /* ownership of data .. packet_data_last chains passed to add handler */
-    if (ctx->packet_data_first != data) {
-        for (cur = ctx->packet_data_first; cur->next != data; cur = cur->next);
-
-        cur->next = NULL;
-
-        ctx->packet_data_last = cur;
-
-    } else {
-        ctx->packet_data_last = NULL;
     }
 
 done:

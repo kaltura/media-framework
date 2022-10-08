@@ -672,7 +672,7 @@ ngx_rtmp_cmd_fcpublish(ngx_rtmp_session_t *s, ngx_rtmp_fcpublish_t *vv)
 
         { NGX_RTMP_AMF_STRING,
           ngx_string("description"),
-          &v.name, sizeof(v.name) },
+          &v.name, 0 },
     };
 
     static ngx_rtmp_amf_elt_t       out_elts[] = {

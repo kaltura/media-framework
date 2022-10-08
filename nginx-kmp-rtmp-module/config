@@ -18,35 +18,72 @@ else
     fi
 fi
 
+# version
+#
+KMP_RTMP_DEFAULT_VERSION=0.1
+KMP_RTMP_VERSION=${KMP_RTMP_VERSION:-`git --git-dir=$ngx_addon_dir/.git describe 2>/dev/null`}
+KMP_RTMP_VERSION=${KMP_RTMP_VERSION:-$KMP_RTMP_DEFAULT_VERSION}
+echo "#define NGX_KMP_RTMP_VERSION \""$KMP_RTMP_VERSION"\"" > $NGX_OBJS/ngx_kmp_rtmp_version.h
+
 # source
 #
-KMP_RTMP_STREAM_MODULES="                                     \
-    ngx_stream_kmp_rtmp_module                                \
-    ngx_stream_preread_str_module                             \
+KMP_RTMP_STREAM_MODULES="                                       \
+    ngx_stream_kmp_rtmp_module                                  \
     "
 
-KMP_RTMP_HTTP_MODULES="                                       \
+KMP_RTMP_HTTP_MODULES="                                         \
+    ngx_http_kmp_rtmp_api_module                                \
     "
 
-KMP_RTMP_STREAM_SRCS="                                        \
-    $ngx_addon_dir/src/ngx_stream_kmp_rtmp_module.c           \
-    $ngx_addon_dir/src/ngx_kmp_rtmp_build.c                   \
-    $ngx_addon_dir/src/ngx_stream_preread_str_module.c        \
+KMP_RTMP_CORE_SRCS="                                            \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_amf.c                       \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_encoder.c                   \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_handshake.c                 \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_stream.c                    \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_track.c                     \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_upstream.c                  \
     "
 
-KMP_RTMP_HTTP_SRCS="                                          \
+KMP_RTMP_STREAM_SRCS="                                          \
+    $ngx_addon_dir/src/ngx_stream_kmp_rtmp_module.c             \
+    "
+
+KMP_RTMP_HTTP_SRCS="                                            \
+    $ngx_addon_dir/src/ngx_http_kmp_rtmp_api_module.c           \
+    "
+
+KMP_RTMP_DEPS="                                                 \
+    $ngx_addon_dir/src/ngx_http_kmp_rtmp_api_json.h             \
+    $ngx_addon_dir/src/ngx_http_kmp_rtmp_api_routes.h           \
+    $ngx_addon_dir/src/ngx_kmp_rtmp.h                           \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_amf.h                       \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_encoder.h                   \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_handshake.h                 \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_stream.h                    \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_stream_json.h               \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_track.h                     \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_track_json.h                \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_upstream.h                  \
+    $ngx_addon_dir/src/ngx_kmp_rtmp_upstream_json.h             \
     "
 
 if [ -f auto/module ] ; then
     ngx_module_incs=$ngx_addon_dir
+    ngx_module_deps=$KMP_RTMP_DEPS
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="$KMP_RTMP_STREAM_MODULES $KMP_RTMP_HTTP_MODULES"
-        ngx_module_srcs="$KMP_RTMP_STREAM_SRCS $KMP_RTMP_HTTP_SRCS"
+        ngx_module_srcs="$KMP_RTMP_CORE_SRCS $KMP_RTMP_STREAM_SRCS $KMP_RTMP_HTTP_SRCS"
 
         . auto/module
 
     else
+        ngx_module_type=CORE
+        ngx_module_name=
+        ngx_module_srcs=$KMP_RTMP_CORE_SRCS
+
+        . auto/module
+
         ngx_module_type=STREAM
         ngx_module_name=$KMP_RTMP_STREAM_MODULES
         ngx_module_srcs=$KMP_RTMP_STREAM_SRCS
@@ -64,7 +101,8 @@ else
     STREAM_MODULES="$STREAM_MODULES $KMP_RTMP_STREAM_MODULES"
     HTTP_MODULES="$HTTP_MODULES $KMP_RTMP_HTTP_MODULES"
 
-    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $KMP_RTMP_STREAM_SRCS $KMP_RTMP_HTTP_SRCS"
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $KMP_RTMP_DEPS"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $KMP_RTMP_CORE_SRCS $KMP_RTMP_STREAM_SRCS $KMP_RTMP_HTTP_SRCS"
 
     CFLAGS="$CFLAGS -I$ngx_addon_dir"
 fi

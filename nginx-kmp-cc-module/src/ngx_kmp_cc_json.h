@@ -4,6 +4,10 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
+#ifndef ngx_copy_str
+#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
+#endif
+
 /* ngx_kmp_cc_service_publish_json writer */
 
 static size_t
@@ -111,8 +115,7 @@ ngx_kmp_cc_json_write(u_char *p, ngx_kmp_cc_ctx_t *obj)
     {
         cur = ngx_queue_data(q, ngx_kmp_cc_service_t, queue);
 
-        if (q != ngx_queue_head(&obj->services.queue))
-        {
+        if (p[-1] != '{') {
             *p++ = ',';
         }
 

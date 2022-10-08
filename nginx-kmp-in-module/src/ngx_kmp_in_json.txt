@@ -11,10 +11,16 @@ out ngx_kmp_in_stats_skip_json ngx_kmp_in_stats_skip_t
     no_media_info %ui
     no_key %ui
 
+out noobject ngx_kmp_in_assoc_json ngx_kmp_in_ctx_t
+    - %return !obj->track_id.s.len
+    channel_id %jV
+    track_id %jV
+
 out nostatic ngx_kmp_in_json ngx_kmp_in_ctx_t
     - %return-null !obj
     connection %uA obj->connection->number
     remote_addr %jV
+    - %func-ngx_kmp_in_assoc_json obj
     uptime %T (ngx_time() - obj->start_sec)
     received_bytes %uz
     received_data_bytes %uz

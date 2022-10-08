@@ -42,6 +42,16 @@ typedef ngx_int_t (*ngx_http_api_args_handler_pt)(ngx_http_request_t *r,
     void *data, ngx_str_t *key, ngx_str_t *value);
 
 
+typedef size_t (*ngx_http_api_json_writer_get_size_pt)(void *obj);
+typedef u_char *(*ngx_http_api_json_writer_write_pt)(u_char *p, void *obj);
+
+
+typedef struct {
+    ngx_http_api_json_writer_get_size_pt  get_size;
+    ngx_http_api_json_writer_write_pt     write;
+} ngx_http_api_json_writer_t;
+
+
 ngx_int_t ngx_http_api_handler(ngx_http_request_t *r,
     ngx_http_api_route_node_t *root);
 
@@ -54,5 +64,9 @@ char *ngx_http_api_parse_options(ngx_conf_t *cf,
 
 ngx_int_t ngx_http_api_parse_args(ngx_http_request_t *r,
     ngx_http_api_args_handler_pt handler, void *data);
+
+
+ngx_int_t ngx_http_api_build_json(ngx_http_request_t *r,
+    ngx_http_api_json_writer_t *writer, void *obj, ngx_str_t *response);
 
 #endif /* _NGX_HTTP_API_H_INCLUDED_ */

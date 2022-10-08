@@ -59,7 +59,7 @@ ngx_buf_queue_delete(ngx_buf_queue_t *buf_queue)
     buf_queue->used_tail = &buf_queue->used_head;
 
     if (buf_queue->mem_left != NULL) {
-        *buf_queue->mem_left += buf_queue->alloc_size * buf_queue->nbuffers;
+        *buf_queue->mem_left += ngx_buf_queue_mem_used(buf_queue);
     }
 
     buf_queue->nbuffers = 0;

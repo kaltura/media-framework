@@ -348,7 +348,7 @@ ngx_kmp_out_track_json_write(u_char *p, ngx_kmp_out_track_t *obj)
     {
         cur = ngx_queue_data(q, ngx_kmp_out_upstream_t, queue);
 
-        if (q != ngx_queue_head(&obj->upstreams)) {
+        if (p[-1] != '[') {
             *p++ = ',';
         }
 

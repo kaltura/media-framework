@@ -82,20 +82,16 @@ typedef ngx_int_t (*ngx_kmp_in_connect_data_pt)(ngx_kmp_in_ctx_t *ctx,
     ngx_kmp_in_evt_connect_data_t *evt);
 
 /*
+ * NGX_OK - handled successfully, the handler takes ownership of
+ *      the ngx_buf_chain_t's of the extra data / frame data
+ * NGX_DONE - the ngx_buf_chain_t's of the extra data / frame data should be
+ *      freed by nginx-kmp-in-module.
  * NGX_ABORT - fatal error (e.g. memory)
  * NGX_ERROR - other error
  */
 typedef ngx_int_t  (*ngx_kmp_in_media_info_pt)(void *data,
     ngx_kmp_in_evt_media_info_t *evt);
 
-/*
- * NGX_OK - frame handled successfully, the frame handler takes ownership of
- *      the ngx_buf_chain_t's of the frame data
- * NGX_DONE - frame skipped, the ngx_buf_chain_t's of the frame data will be
- *      freed by nginx-kmp-in-module.
- * NGX_ABORT - fatal error (e.g. memory)
- * NGX_ERROR - other error
- */
 typedef ngx_int_t  (*ngx_kmp_in_frame_pt)(void *data,
     ngx_kmp_in_evt_frame_t *evt);
 

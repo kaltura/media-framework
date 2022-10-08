@@ -104,6 +104,40 @@ static ngx_http_api_method_t  methods[] = {
 };
 
 
+ngx_int_t
+ngx_http_api_build_json(ngx_http_request_t *r,
+    ngx_http_api_json_writer_t *writer, void *obj, ngx_str_t *response)
+{
+    u_char  *p;
+    size_t   size;
+
+    size = writer->get_size(obj);
+
+    p = ngx_pnalloc(r->pool, size);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+            "ngx_http_api_build_json: alloc failed, size: %uz", size);
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    response->data = p;
+
+    p = writer->write(p, obj);
+
+    response->len = p - response->data;
+
+    if (response->len > size) {
+        ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+            "ngx_http_api_build_json: "
+            "result length %uz greater than allocated length %uz",
+            response->len, size);
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
 static ngx_int_t
 ngx_http_api_append_buf(ngx_http_request_t *r, ngx_str_t *buf, ngx_flag_t last)
 {

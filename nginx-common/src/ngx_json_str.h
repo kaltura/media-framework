@@ -6,6 +6,8 @@
 #include <ngx_core.h>
 
 
+#define ngx_json_string(str)          { ngx_string(str), 0 }
+
 #define ngx_json_str_get_size(js)     ((js)->s.len + (js)->escape)
 
 #define ngx_json_str_set_escape(js)                                          \

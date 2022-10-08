@@ -44,7 +44,7 @@ static ngx_command_t  ngx_http_kmp_cc_api_commands[] = {
       ngx_http_kmp_cc_api,
       0,
       0,
-      NULL},
+      NULL },
 
       ngx_null_command
 };
