@@ -17,8 +17,8 @@ ngx_ts_kmp_track_mpegts_json_get_size(ngx_ts_kmp_publish_t *obj,
     size_t  result;
 
     result =
-        sizeof("{\"stream_id\":\"") - 1 + obj->stream_id.len +
-            ngx_escape_json(NULL, obj->stream_id.data, obj->stream_id.len) +
+        sizeof("{\"stream_id\":\"") - 1 +
+            ngx_json_str_get_size(&obj->stream_id) +
         sizeof("\",\"pid\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"index\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"prog_num\":") - 1 + NGX_INT32_LEN +
@@ -36,7 +36,7 @@ ngx_ts_kmp_track_mpegts_json_write(u_char *p, ngx_ts_kmp_publish_t *obj,
     ngx_connection_t *c)
 {
     p = ngx_copy_fix(p, "{\"stream_id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->stream_id.data, obj->stream_id.len);
+    p = ngx_json_str_write(p, &obj->stream_id);
     p = ngx_copy_fix(p, "\",\"pid\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->pid);
     p = ngx_copy_fix(p, ",\"index\":");
