@@ -712,8 +712,7 @@ ngx_rtmp_kmp_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 
     if (ngx_http_call_create(&ci) == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, c->log, 0,
-            "ngx_rtmp_kmp_connect: http call to \"%V\" failed",
-            &url->url);
+            "ngx_rtmp_kmp_connect: http call to \"%V\" failed", &url->url);
         return NGX_ERROR;
     }
 
@@ -805,7 +804,7 @@ ngx_rtmp_kmp_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     ngx_log_error(NGX_LOG_INFO, c->log, 0,
         "ngx_rtmp_kmp_publish: called, name: %V, args: %V, type: %V",
-        &sctx->publish.name, &sctx->publish.args, &sctx->publish.type);
+        &sctx->publish.name.s, &sctx->publish.args.s, &sctx->publish.type.s);
 
 next:
 
@@ -847,7 +846,7 @@ ngx_rtmp_kmp_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
         "ngx_rtmp_kmp_close_stream: called, name: %V, args: %V, type: %V",
-        &sctx->publish.name, &sctx->publish.args, &sctx->publish.type);
+        &sctx->publish.name.s, &sctx->publish.args.s, &sctx->publish.type.s);
 
     ngx_memzero(&sctx->publish, sizeof(sctx->publish));
 
