@@ -41,13 +41,11 @@ ngx_ts_kmp_api_session_json_get_size(ngx_ts_kmp_ctx_t *obj)
     ngx_ts_kmp_track_t  *cur;
 
     result =
-        sizeof("{\"remote_addr\":\"") - 1 + obj->remote_addr.len +
-            ngx_escape_json(NULL, obj->remote_addr.data, obj->remote_addr.len)
-            +
+        sizeof("{\"remote_addr\":\"") - 1 +
+            ngx_json_str_get_size(&obj->remote_addr) +
         sizeof("\",\"connection\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"uptime\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"stream_id\":\"") - 1 + obj->header.len +
-            ngx_escape_json(NULL, obj->header.data, obj->header.len) +
+        sizeof(",\"stream_id\":\"") - 1 + ngx_json_str_get_size(&obj->header) +
         sizeof("\",\"tracks\":[") - 1 +
         sizeof("]}") - 1;
 
@@ -70,15 +68,14 @@ ngx_ts_kmp_api_session_json_write(u_char *p, ngx_ts_kmp_ctx_t *obj)
     ngx_ts_kmp_track_t  *cur;
 
     p = ngx_copy_fix(p, "{\"remote_addr\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->remote_addr.data,
-        obj->remote_addr.len);
+    p = ngx_json_str_write(p, &obj->remote_addr);
     p = ngx_copy_fix(p, "\",\"connection\":");
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->connection->number);
     p = ngx_copy_fix(p, ",\"uptime\":");
     p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - obj->start_msec)
         / 1000);
     p = ngx_copy_fix(p, ",\"stream_id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->header.data, obj->header.len);
+    p = ngx_json_str_write(p, &obj->header);
     p = ngx_copy_fix(p, "\",\"tracks\":[");
 
     for (q = ngx_queue_head(&obj->tracks);

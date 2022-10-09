@@ -1,6 +1,6 @@
 
 out ngx_ts_kmp_track_mpegts_json ngx_ts_kmp_publish_t ngx_connection_t *c
-    stream_id %V
+    stream_id %jV
     pid %uD
     index %uD
     prog_num %uD

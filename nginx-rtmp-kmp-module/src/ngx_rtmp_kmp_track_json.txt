@@ -8,9 +8,9 @@ out ngx_rtmp_kmp_track_rtmp_json ngx_rtmp_session_t ngx_rtmp_kmp_publish_t *pi
     addr %V obj->connection->addr_text
     connection %uA obj->connection->number
 
-    name %V pi->
-    type %V pi->
-    args %V pi->
+    name %jV pi->
+    type %jV pi->
+    args %jV pi->
 
 out noobject ngx_rtmp_kmp_track_json ngx_rtmp_session_t ngx_rtmp_kmp_publish_t *pi
     input_type rtmp

@@ -244,9 +244,11 @@ ngx_kmp_out_track_media_info_json_write(u_char *p,
 void
 ngx_kmp_out_track_set_error_reason(ngx_kmp_out_track_t *track, char *code)
 {
-    if (track->unpublish_reason.len == 0) {
-        track->unpublish_reason.data = (u_char *) code;
-        track->unpublish_reason.len = ngx_strlen(code);
+    if (track->unpublish_reason.s.len == 0) {
+        track->unpublish_reason.s.data = (u_char *) code;
+        track->unpublish_reason.s.len = ngx_strlen(code);
+
+        ngx_json_str_set_escape(&track->unpublish_reason);
     }
 }
 
@@ -315,10 +317,15 @@ ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
     ngx_memcpy(header->track_id, track_id.data, track_id.len);
     header->flags = KMP_CONNECT_FLAG_CONSISTENT;
 
-    track->channel_id.data = header->channel_id;
-    track->channel_id.len = channel_id.len;
-    track->track_id.data = header->track_id;
-    track->track_id.len = track_id.len;
+    track->channel_id.s.data = header->channel_id;
+    track->channel_id.s.len = channel_id.len;
+
+    ngx_json_str_set_escape(&track->channel_id);
+
+    track->track_id.s.data = header->track_id;
+    track->track_id.s.len = track_id.len;
+
+    ngx_json_str_set_escape(&track->track_id);
 
     /* create the upstreams */
     if (upstreams->count == 0) {
@@ -1122,7 +1129,7 @@ ngx_kmp_out_track_write_frame(ngx_kmp_out_track_t *track,
         ngx_log_debug6(NGX_LOG_DEBUG_KMP, &track->log, 0,
             "ngx_kmp_out_track_write_frame: input: %V, created: %L, "
             "size: %uD, dts: %L, flags: %uD, ptsDelay: %uD",
-            &track->input_id, frame->f.created, frame->header.data_size,
+            &track->input_id.s, frame->f.created, frame->header.data_size,
             frame->f.dts, frame->f.flags, frame->f.pts_delay);
     }
 
@@ -1236,7 +1243,7 @@ ngx_kmp_out_track_write_frame_end(ngx_kmp_out_track_t *track,
         ngx_log_debug6(NGX_LOG_DEBUG_KMP, &track->log, 0,
             "ngx_kmp_out_track_write_frame_end: input: %V, created: %L, "
             "size: %uD, dts: %L, flags: %uD, ptsDelay: %uD",
-            &track->input_id, frame->f.created, frame->header.data_size,
+            &track->input_id.s, frame->f.created, frame->header.data_size,
             frame->f.dts, frame->f.flags, frame->f.pts_delay);
     }
 
@@ -1301,8 +1308,8 @@ ngx_kmp_out_track_log_error(ngx_log_t *log, u_char *buf, size_t len)
     track = log->data;
 
     if (track != NULL) {
-        if (track->input_id.len) {
-            p = ngx_snprintf(buf, len, ", input: %V", &track->input_id);
+        if (track->input_id.s.len) {
+            p = ngx_snprintf(buf, len, ", input: %V", &track->input_id.s);
             len -= p - buf;
             buf = p;
         }

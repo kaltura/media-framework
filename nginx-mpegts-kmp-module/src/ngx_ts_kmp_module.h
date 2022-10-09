@@ -6,6 +6,7 @@
 
 #include <ngx_ts_stream.h>
 #include <ngx_live_kmp.h>
+#include <ngx_json_str.h>
 
 #include "ngx_kmp_out_track.h"
 
@@ -26,8 +27,8 @@ typedef struct {
     ngx_queue_t                 tracks;
     uint32_t                    track_index[KMP_MEDIA_COUNT];
     ngx_msec_t                  start_msec;
-    ngx_str_t                   header;
-    ngx_str_t                   remote_addr;
+    ngx_json_str_t              header;
+    ngx_json_str_t              remote_addr;
     u_char                      remote_addr_buf[NGX_SOCKADDR_STRLEN];
     unsigned                    error:1;
 } ngx_ts_kmp_ctx_t;

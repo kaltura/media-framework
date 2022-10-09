@@ -36,7 +36,7 @@
 
 
 typedef struct {
-    ngx_str_t                stream_id;
+    ngx_json_str_t           stream_id;
     uint32_t                 pid;
     uint32_t                 index;
     uint32_t                 prog_num;
@@ -854,15 +854,17 @@ ngx_ts_kmp_track_init_input_id(ngx_kmp_out_track_t *track,
 {
     u_char  *p;
 
-    p = ngx_pnalloc(track->pool, publish->stream_id.len + 1 + NGX_INT32_LEN);
+    p = ngx_pnalloc(track->pool, publish->stream_id.s.len + 1 + NGX_INT32_LEN);
     if (p == NULL) {
         return NGX_ERROR;
     }
 
-    track->input_id.data = p;
-    p = ngx_copy(p, publish->stream_id.data, publish->stream_id.len);
+    track->input_id.s.data = p;
+    p = ngx_copy(p, publish->stream_id.s.data, publish->stream_id.s.len);
     p = ngx_sprintf(p, "_%uD", publish->pid);
-    track->input_id.len = p - track->input_id.data;
+    track->input_id.s.len = p - track->input_id.s.data;
+
+    ngx_json_str_set_escape(&track->input_id);
 
     return NGX_OK;
 }
@@ -990,7 +992,9 @@ ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
         track->log.connection = ctx->connection->number;
         ctx->track_index[media_type]++;
 
-        publish.stream_id = ts->header;
+        publish.stream_id.s = ts->header;
+        ngx_json_str_set_escape(&publish.stream_id);
+
         publish.pid = es->pid;
         publish.prog_num = prog->number;
         publish.index = ctx->track_index[media_type];

@@ -2,10 +2,10 @@ out noobject ngx_ts_kmp_api_track_json ngx_ts_kmp_track_t
     - %func-ngx_kmp_out_track_json obj->track
 
 out ngx_ts_kmp_api_session_json ngx_ts_kmp_ctx_t
-    remote_addr %V
+    remote_addr %jV
     connection %uA obj->connection->number
     uptime %i (ngx_current_msec - obj->start_msec) / 1000
-    stream_id %V obj->header
+    stream_id %jV obj->header
 
     tracks %queue-ngx_ts_kmp_api_track_json,ngx_ts_kmp_track_t,queue obj->
 

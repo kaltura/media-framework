@@ -1,10 +1,10 @@
 
 out ngx_rtmp_kmp_connect_rtmp_json ngx_rtmp_kmp_connect_t ngx_rtmp_session_t *s
-    app %V
-    flashver %V
-    swf_url %V
-    tc_url %V
-    page_url %V
+    app %jV
+    flashver %jV
+    swf_url %jV
+    tc_url %jV
+    page_url %jV
     addr %V s->connection->addr_text
     connection %uA s->connection->number
 

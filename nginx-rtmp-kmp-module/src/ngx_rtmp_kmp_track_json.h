@@ -31,12 +31,9 @@ ngx_rtmp_kmp_track_rtmp_json_get_size(ngx_rtmp_session_t *obj,
             ngx_escape_json(NULL, obj->connection->addr_text.data,
             obj->connection->addr_text.len) +
         sizeof("\",\"connection\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"name\":\"") - 1 + pi->name.len + ngx_escape_json(NULL,
-            pi->name.data, pi->name.len) +
-        sizeof("\",\"type\":\"") - 1 + pi->type.len + ngx_escape_json(NULL,
-            pi->type.data, pi->type.len) +
-        sizeof("\",\"args\":\"") - 1 + pi->args.len + ngx_escape_json(NULL,
-            pi->args.data, pi->args.len) +
+        sizeof(",\"name\":\"") - 1 + ngx_json_str_get_size(&pi->name) +
+        sizeof("\",\"type\":\"") - 1 + ngx_json_str_get_size(&pi->type) +
+        sizeof("\",\"args\":\"") - 1 + ngx_json_str_get_size(&pi->args) +
         sizeof("\"}") - 1;
 
     return result;
@@ -63,11 +60,11 @@ ngx_rtmp_kmp_track_rtmp_json_write(u_char *p, ngx_rtmp_session_t *obj,
     p = ngx_copy_fix(p, "\",\"connection\":");
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->connection->number);
     p = ngx_copy_fix(p, ",\"name\":\"");
-    p = (u_char *) ngx_escape_json(p, pi->name.data, pi->name.len);
+    p = ngx_json_str_write(p, &pi->name);
     p = ngx_copy_fix(p, "\",\"type\":\"");
-    p = (u_char *) ngx_escape_json(p, pi->type.data, pi->type.len);
+    p = ngx_json_str_write(p, &pi->type);
     p = ngx_copy_fix(p, "\",\"args\":\"");
-    p = (u_char *) ngx_escape_json(p, pi->args.data, pi->args.len);
+    p = ngx_json_str_write(p, &pi->args);
     p = ngx_copy_fix(p, "\"}");
 
     return p;

@@ -32,20 +32,20 @@ out noobject ngx_kmp_out_track_subtitle_json ngx_kmp_out_track_t
 
 out noobject ngx_kmp_out_track_publish_json ngx_kmp_out_track_t
     event_type publish
-    input_id %V
+    input_id %jV
 
 out noobject ngx_kmp_out_track_unpublish_json ngx_kmp_out_track_t
     event_type unpublish
-    input_id %V
-    reason %V obj->unpublish_reason
+    input_id %jV
+    reason %jV obj->unpublish_reason
 
 
 out nostatic ngx_kmp_out_track_json ngx_kmp_out_track_t
     - %return-null !obj
 
-    input_id %V
-    channel_id %V
-    track_id %V
+    input_id %jV
+    channel_id %jV
+    track_id %jV
     mem_left %uz
     mem_limit %uz
 

@@ -7,15 +7,15 @@ in ngx_kmp_out_upstream_json
 
 out noobject ngx_kmp_out_upstream_republish_json ngx_kmp_out_upstream_t
     event_type republish
-    id %V
-    input_id %V obj->track->
-    channel_id %V obj->track->
-    track_id %V obj->track->
+    id %jV
+    input_id %jV obj->track->
+    channel_id %jV obj->track->
+    track_id %jV obj->track->
 
 out nostatic ngx_kmp_out_upstream_json ngx_kmp_out_upstream_t
-    id %V
-    remote_addr %V
-    local_addr %V
+    id %jV
+    remote_addr %jV
+    local_addr %jV
     connection %uA obj->log.
     auto_ack %b
 

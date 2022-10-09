@@ -84,7 +84,7 @@ ngx_kmp_out_upstream_create(ngx_kmp_out_track_t *track, ngx_str_t *id)
 
     ngx_memzero(u, sizeof(*u));
 
-    u->id.data = (void *) (u + 1);
+    u->id.s.data = (void *) (u + 1);
 
     u->pool = pool;
     u->log = *log;
@@ -92,8 +92,10 @@ ngx_kmp_out_upstream_create(ngx_kmp_out_track_t *track, ngx_str_t *id)
     u->log.data = u;
     u->log.action = NULL;
 
-    u->id.len = id->len;
-    ngx_memcpy(u->id.data, id->data, id->len);
+    u->id.s.len = id->len;
+    ngx_memcpy(u->id.s.data, id->data, id->len);
+
+    ngx_json_str_set_escape(&u->id);
 
     u->track = track;
     u->timeout = track->conf->timeout;
@@ -186,15 +188,17 @@ ngx_kmp_out_upstream_connect(ngx_kmp_out_upstream_t *u, ngx_addr_t *addr)
         return NGX_ERROR;
     }
 
-    u->remote_addr.data = u->remote_addr_buf;
-    u->remote_addr.len = ngx_sock_ntop(addr->sockaddr, addr->socklen,
+    u->remote_addr.s.data = u->remote_addr_buf;
+    u->remote_addr.s.len = ngx_sock_ntop(addr->sockaddr, addr->socklen,
         u->remote_addr_buf, sizeof(u->remote_addr_buf), 1);
+
+    ngx_json_str_set_escape(&u->remote_addr);
 
     u->peer.socklen = addr->socklen;
     u->peer.sockaddr = (void *) u->sockaddr_buf;
     ngx_memcpy(u->peer.sockaddr, addr->sockaddr, u->peer.socklen);
 
-    u->peer.name = &u->remote_addr;
+    u->peer.name = &u->remote_addr.s;
     u->peer.get = ngx_event_get_peer;
     u->peer.log = &u->log;
     u->peer.log_error = NGX_ERROR_ERR;
@@ -203,7 +207,7 @@ ngx_kmp_out_upstream_connect(ngx_kmp_out_upstream_t *u, ngx_addr_t *addr)
     if (rc != NGX_OK && rc != NGX_AGAIN) {
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
             "ngx_kmp_out_upstream_connect: connect failed %i, addr: %V",
-            rc, &u->remote_addr);
+            rc, &u->remote_addr.s);
         return NGX_ERROR;
     }
 
@@ -211,7 +215,7 @@ ngx_kmp_out_upstream_connect(ngx_kmp_out_upstream_t *u, ngx_addr_t *addr)
     c->data = u;
     c->pool = u->pool;
 
-    c->addr_text = u->remote_addr;
+    c->addr_text = u->remote_addr.s;
 
     c->log->connection = c->number;
 
@@ -223,7 +227,7 @@ ngx_kmp_out_upstream_connect(ngx_kmp_out_upstream_t *u, ngx_addr_t *addr)
     u->recv_pos = (void *) &u->ack_frames;
 
     ngx_log_error(NGX_LOG_INFO, &u->log, 0,
-        "ngx_kmp_out_upstream_connect: connecting to %V", &u->remote_addr);
+        "ngx_kmp_out_upstream_connect: connecting to %V", &u->remote_addr.s);
 
     if (rc == NGX_OK) {
         ngx_kmp_out_upstream_write_handler(c->write);
@@ -568,8 +572,8 @@ ngx_kmp_out_upstream_republish(ngx_kmp_out_upstream_t *u)
     u->log.connection = 0;
     ngx_close_connection(u->peer.connection);
     u->peer.connection = NULL;
-    u->remote_addr.len = 0;
-    u->local_addr.len = 0;
+    ngx_memzero(&u->remote_addr, sizeof(u->remote_addr));
+    ngx_memzero(&u->local_addr, sizeof(u->local_addr));
 
     u->last = NULL;
 
@@ -1038,12 +1042,14 @@ ngx_kmp_out_upstream_send_buffered(ngx_kmp_out_upstream_t *u)
 
     u->last = &u->busy;
 
-    u->local_addr.len = NGX_SOCKADDR_STRLEN;
-    u->local_addr.data = u->local_addr_buf;
+    u->local_addr.s.len = NGX_SOCKADDR_STRLEN;
+    u->local_addr.s.data = u->local_addr_buf;
 
-    if (ngx_connection_local_sockaddr(c, &u->local_addr, 1) != NGX_OK) {
-        u->local_addr.len = 0;
+    if (ngx_connection_local_sockaddr(c, &u->local_addr.s, 1) != NGX_OK) {
+        u->local_addr.s.len = 0;
     }
+
+    ngx_json_str_set_escape(&u->local_addr);
 
     /* connect header */
     u->connect = u->track->connect;

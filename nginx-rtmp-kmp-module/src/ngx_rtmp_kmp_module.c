@@ -15,9 +15,10 @@
 #include "ngx_rtmp_kmp_module.h"
 
 
-#define ngx_str_from_c(dst, src) {                                           \
-        dst.data = src;                                                      \
-        dst.len = ngx_strlen(dst.data);                                      \
+#define ngx_json_str_from_c(dst, src) {                                      \
+        dst.s.data = src;                                                    \
+        dst.s.len = ngx_strlen(dst.s.data);                                  \
+        ngx_json_str_set_escape(&dst);                                       \
     }
 
 
@@ -28,18 +29,18 @@ static ngx_rtmp_disconnect_pt    next_disconnect;
 
 
 typedef struct {
-    ngx_msec_t   idle_timeout;
+    ngx_msec_t      idle_timeout;
 } ngx_rtmp_kmp_srv_conf_t;
 
 
-/* Note: an ngx_str_t version of ngx_rtmp_connect_t */
+/* Note: an ngx_json_str_t version of ngx_rtmp_connect_t */
 typedef struct {
-    ngx_str_t    app;
-    ngx_str_t    args;
-    ngx_str_t    flashver;
-    ngx_str_t    swf_url;
-    ngx_str_t    tc_url;
-    ngx_str_t    page_url;
+    ngx_json_str_t  app;
+    ngx_json_str_t  args;
+    ngx_json_str_t  flashver;
+    ngx_json_str_t  swf_url;
+    ngx_json_str_t  tc_url;
+    ngx_json_str_t  page_url;
 } ngx_rtmp_kmp_connect_t;
 
 #include "ngx_rtmp_kmp_json.h"
@@ -349,9 +350,9 @@ static void
 ngx_rtmp_kmp_get_publish_info(ngx_rtmp_kmp_publish_t *kp,
     ngx_rtmp_publish_t *v)
 {
-    ngx_str_from_c(kp->name, v->name);
-    ngx_str_from_c(kp->args, v->args);
-    ngx_str_from_c(kp->type, v->type);
+    ngx_json_str_from_c(kp->name, v->name);
+    ngx_json_str_from_c(kp->args, v->args);
+    ngx_json_str_from_c(kp->type, v->type);
 }
 
 
@@ -359,12 +360,12 @@ static void
 ngx_rtmp_kmp_get_connect_info(ngx_rtmp_kmp_connect_t *kc,
     ngx_rtmp_connect_t *v)
 {
-    ngx_str_from_c(kc->app, v->app);
-    ngx_str_from_c(kc->args, v->args);
-    ngx_str_from_c(kc->flashver, v->flashver);
-    ngx_str_from_c(kc->swf_url, v->swf_url);
-    ngx_str_from_c(kc->tc_url, v->tc_url);
-    ngx_str_from_c(kc->page_url, v->page_url);
+    ngx_json_str_from_c(kc->app, v->app);
+    ngx_json_str_from_c(kc->args, v->args);
+    ngx_json_str_from_c(kc->flashver, v->flashver);
+    ngx_json_str_from_c(kc->swf_url, v->swf_url);
+    ngx_json_str_from_c(kc->tc_url, v->tc_url);
+    ngx_json_str_from_c(kc->page_url, v->page_url);
 }
 
 
@@ -414,12 +415,14 @@ ngx_rtmp_kmp_socket_connect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ctx->s = s;
 
     /* get the address name with port */
-    ctx->remote_addr.data = ctx->remote_addr_buf;
-    ctx->remote_addr.len = ngx_sock_ntop(c->sockaddr, c->socklen,
+    ctx->remote_addr.s.data = ctx->remote_addr_buf;
+    ctx->remote_addr.s.len = ngx_sock_ntop(c->sockaddr, c->socklen,
         ctx->remote_addr_buf, NGX_SOCKADDR_STRLEN, 1);
-    if (ctx->remote_addr.len == 0) {
-        ctx->remote_addr = c->addr_text;
+    if (ctx->remote_addr.s.len == 0) {
+        ctx->remote_addr.s = c->addr_text;
     }
+
+    ngx_json_str_set_escape(&ctx->remote_addr);
 
     /* start the idle timeout */
     ctx->idle_timeout = kscf->idle_timeout;
@@ -663,7 +666,9 @@ ngx_rtmp_kmp_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 #if (nginx_version >= 1017006)
         p = ngx_sprintf(p, ":%uD", (uint32_t) pp->src_port);
 #endif
-        ctx->remote_addr.len = p - ctx->remote_addr_buf;
+        ctx->remote_addr.s.len = p - ctx->remote_addr_buf;
+
+        ngx_json_str_set_escape(&ctx->remote_addr);
     }
 
     kacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_kmp_module);
@@ -707,8 +712,7 @@ ngx_rtmp_kmp_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 
     if (ngx_http_call_create(&ci) == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, c->log, 0,
-            "ngx_rtmp_kmp_connect: http call to \"%V\" failed",
-            &url->url);
+            "ngx_rtmp_kmp_connect: http call to \"%V\" failed", &url->url);
         return NGX_ERROR;
     }
 
@@ -800,7 +804,7 @@ ngx_rtmp_kmp_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     ngx_log_error(NGX_LOG_INFO, c->log, 0,
         "ngx_rtmp_kmp_publish: called, name: %V, args: %V, type: %V",
-        &sctx->publish.name, &sctx->publish.args, &sctx->publish.type);
+        &sctx->publish.name.s, &sctx->publish.args.s, &sctx->publish.type.s);
 
 next:
 
@@ -842,7 +846,7 @@ ngx_rtmp_kmp_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
         "ngx_rtmp_kmp_close_stream: called, name: %V, args: %V, type: %V",
-        &sctx->publish.name, &sctx->publish.args, &sctx->publish.type);
+        &sctx->publish.name.s, &sctx->publish.args.s, &sctx->publish.type.s);
 
     ngx_memzero(&sctx->publish, sizeof(sctx->publish));
 

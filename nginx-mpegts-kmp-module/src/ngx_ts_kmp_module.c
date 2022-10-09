@@ -18,7 +18,7 @@ typedef struct {
 
 
 typedef struct {
-    ngx_str_t          stream_id;
+    ngx_json_str_t     stream_id;
 } ngx_ts_kmp_connect_t;
 
 
@@ -39,7 +39,9 @@ ngx_ts_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
     ctx = cctx->ctx;
     conf = ctx->conf;
 
-    connect.stream_id = cctx->stream_id;
+    connect.stream_id.s = cctx->stream_id;
+    ngx_json_str_set_escape(&connect.stream_id);
+
     size = ngx_ts_kmp_connect_json_get_size(&connect, ctx->connection);
     cl = ngx_kmp_out_alloc_chain_temp_buf(pool, size);
     if (cl == NULL) {
@@ -126,7 +128,9 @@ ngx_ts_kmp_connect(ngx_ts_handler_data_t *hd)
         return NGX_OK;
     }
 
-    ctx->header = ts->header;
+    ctx->header.s = ts->header;
+    ngx_json_str_set_escape(&ctx->header);
+
     create_ctx.ctx = ctx;
     create_ctx.stream_id = ts->header;
     create_ctx.retries_left = conf->t.ctrl_retries;
@@ -264,22 +268,24 @@ ngx_ts_kmp_init_handler(ngx_ts_stream_t *ts, void *data)
     ngx_rbtree_init(&ctx->rbtree, &ctx->sentinel, ngx_rbtree_insert_value);
     ngx_queue_init(&ctx->tracks);
 
-    ctx->remote_addr.data = ctx->remote_addr_buf;
+    ctx->remote_addr.s.data = ctx->remote_addr_buf;
     pp = c->proxy_protocol;
     if (pp && pp->src_addr.len < NGX_SOCKADDR_STRLEN - (sizeof(":65535") - 1)) {
         p = ngx_copy(ctx->remote_addr_buf, pp->src_addr.data, pp->src_addr.len);
 #if (nginx_version >= 1017006)
         p = ngx_sprintf(p, ":%uD", (uint32_t) pp->src_port);
 #endif
-        ctx->remote_addr.len = p - ctx->remote_addr_buf;
+        ctx->remote_addr.s.len = p - ctx->remote_addr_buf;
 
     } else {
-        ctx->remote_addr.len = ngx_sock_ntop(c->sockaddr, c->socklen,
+        ctx->remote_addr.s.len = ngx_sock_ntop(c->sockaddr, c->socklen,
         ctx->remote_addr_buf, NGX_SOCKADDR_STRLEN, 1);
-        if (ctx->remote_addr.len == 0) {
-            ctx->remote_addr = c->addr_text;
+        if (ctx->remote_addr.s.len == 0) {
+            ctx->remote_addr.s = c->addr_text;
         }
     }
+
+    ngx_json_str_set_escape(&ctx->remote_addr);
 
     cln->handler = ngx_ts_kmp_cleanup;
     cln->data = ctx;

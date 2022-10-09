@@ -17,15 +17,12 @@ ngx_rtmp_kmp_api_stream_json_get_size(ngx_rtmp_kmp_stream_ctx_t *obj,
     size_t  result;
 
     result =
-        sizeof("{\"name\":\"") - 1 + obj->publish.name.len +
-            ngx_escape_json(NULL, obj->publish.name.data,
-            obj->publish.name.len) +
-        sizeof("\",\"args\":\"") - 1 + obj->publish.args.len +
-            ngx_escape_json(NULL, obj->publish.args.data,
-            obj->publish.args.len) +
-        sizeof("\",\"type\":\"") - 1 + obj->publish.type.len +
-            ngx_escape_json(NULL, obj->publish.type.data,
-            obj->publish.type.len) +
+        sizeof("{\"name\":\"") - 1 + ngx_json_str_get_size(&obj->publish.name)
+            +
+        sizeof("\",\"args\":\"") - 1 +
+            ngx_json_str_get_size(&obj->publish.args) +
+        sizeof("\",\"type\":\"") - 1 +
+            ngx_json_str_get_size(&obj->publish.type) +
         sizeof("\",\"bw_in\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"bytes_in\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"bw_in_audio\":") - 1 + NGX_INT64_LEN +
@@ -48,14 +45,11 @@ ngx_rtmp_kmp_api_stream_json_write(u_char *p, ngx_rtmp_kmp_stream_ctx_t *obj,
     ngx_rtmp_live_stream_t *stream)
 {
     p = ngx_copy_fix(p, "{\"name\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->publish.name.data,
-        obj->publish.name.len);
+    p = ngx_json_str_write(p, &obj->publish.name);
     p = ngx_copy_fix(p, "\",\"args\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->publish.args.data,
-        obj->publish.args.len);
+    p = ngx_json_str_write(p, &obj->publish.args);
     p = ngx_copy_fix(p, "\",\"type\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->publish.type.data,
-        obj->publish.type.len);
+    p = ngx_json_str_write(p, &obj->publish.type);
     p = ngx_copy_fix(p, "\",\"bw_in\":");
     p = ngx_sprintf(p, "%uL", (uint64_t) (stream->bw_in.bandwidth * 8));
     p = ngx_copy_fix(p, ",\"bytes_in\":");
@@ -103,9 +97,8 @@ ngx_rtmp_kmp_api_session_json_get_size(ngx_rtmp_kmp_ctx_t *obj)
             ngx_escape_json(NULL, s->page_url.data, s->page_url.len) +
         sizeof("\",\"type3_ext_ts\":\"") - 1 +
             ngx_rtmp_type3_ext_ts_str[s->type3_ext_ts].len +
-        sizeof("\",\"remote_addr\":\"") - 1 + obj->remote_addr.len +
-            ngx_escape_json(NULL, obj->remote_addr.data, obj->remote_addr.len)
-            +
+        sizeof("\",\"remote_addr\":\"") - 1 +
+            ngx_json_str_get_size(&obj->remote_addr) +
         sizeof("\",\"uptime\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"connection\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"streams\":[") - 1 +
@@ -133,8 +126,7 @@ ngx_rtmp_kmp_api_session_json_write(u_char *p, ngx_rtmp_kmp_ctx_t *obj)
     p = ngx_copy_fix(p, "\",\"type3_ext_ts\":\"");
     p = ngx_sprintf(p, "%V", &ngx_rtmp_type3_ext_ts_str[s->type3_ext_ts]);
     p = ngx_copy_fix(p, "\",\"remote_addr\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->remote_addr.data,
-        obj->remote_addr.len);
+    p = ngx_json_str_write(p, &obj->remote_addr);
     p = ngx_copy_fix(p, "\",\"uptime\":");
     p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_current_msec - s->epoch) / 1000);
     p = ngx_copy_fix(p, ",\"connection\":");

@@ -11,6 +11,8 @@
 #include <ngx_http_call.h>
 #include <ngx_buf_queue.h>
 #include <ngx_buf_queue_stream.h>
+#include <ngx_json_str.h>
+
 #include "ngx_kmp_out_track.h"
 
 
@@ -56,7 +58,7 @@ struct ngx_kmp_out_track_s {
     ngx_log_t                      log;
 
     ngx_kmp_out_track_conf_t      *conf;
-    ngx_str_t                      input_id;
+    ngx_json_str_t                 input_id;
     ngx_str_t                      json_info;
 
     ngx_kmp_out_track_state_e      state;
@@ -68,8 +70,8 @@ struct ngx_kmp_out_track_s {
     ngx_http_call_ctx_t           *publish_call;
 
     kmp_connect_packet_t           connect;
-    ngx_str_t                      channel_id;
-    ngx_str_t                      track_id;
+    ngx_json_str_t                 channel_id;
+    ngx_json_str_t                 track_id;
 
     ngx_buf_queue_t                buf_queue;
     ngx_buf_t                      active_buf;
@@ -86,7 +88,7 @@ struct ngx_kmp_out_track_s {
     void                          *ctx;
     ngx_kmp_out_track_handler_pt   handler;
 
-    ngx_str_t                      unpublish_reason;
+    ngx_json_str_t                 unpublish_reason;
 
     unsigned                       detached:1;
     unsigned                       write_error:1;
