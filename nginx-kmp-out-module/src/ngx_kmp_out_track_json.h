@@ -272,10 +272,10 @@ ngx_kmp_out_track_json_get_size(ngx_kmp_out_track_t *obj)
     result =
         sizeof("{\"input_id\":\"") - 1 + ngx_json_str_get_size(&obj->input_id)
             +
-        sizeof("\",\"channel_id\":\"") - 1 + obj->channel_id.len +
-            ngx_escape_json(NULL, obj->channel_id.data, obj->channel_id.len) +
-        sizeof("\",\"track_id\":\"") - 1 + obj->track_id.len +
-            ngx_escape_json(NULL, obj->track_id.data, obj->track_id.len) +
+        sizeof("\",\"channel_id\":\"") - 1 +
+            ngx_json_str_get_size(&obj->channel_id) +
+        sizeof("\",\"track_id\":\"") - 1 +
+            ngx_json_str_get_size(&obj->track_id) +
         sizeof("\",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"last_timestamp\":") - 1 + NGX_INT64_LEN +
@@ -316,10 +316,9 @@ ngx_kmp_out_track_json_write(u_char *p, ngx_kmp_out_track_t *obj)
     p = ngx_copy_fix(p, "{\"input_id\":\"");
     p = ngx_json_str_write(p, &obj->input_id);
     p = ngx_copy_fix(p, "\",\"channel_id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->channel_id.data,
-        obj->channel_id.len);
+    p = ngx_json_str_write(p, &obj->channel_id);
     p = ngx_copy_fix(p, "\",\"track_id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->track_id.data, obj->track_id.len);
+    p = ngx_json_str_write(p, &obj->track_id);
     p = ngx_copy_fix(p, "\",\"mem_left\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_left);
     p = ngx_copy_fix(p, ",\"mem_limit\":");

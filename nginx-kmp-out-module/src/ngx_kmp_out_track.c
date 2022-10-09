@@ -315,10 +315,15 @@ ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
     ngx_memcpy(header->track_id, track_id.data, track_id.len);
     header->flags = KMP_CONNECT_FLAG_CONSISTENT;
 
-    track->channel_id.data = header->channel_id;
-    track->channel_id.len = channel_id.len;
-    track->track_id.data = header->track_id;
-    track->track_id.len = track_id.len;
+    track->channel_id.s.data = header->channel_id;
+    track->channel_id.s.len = channel_id.len;
+
+    ngx_json_str_set_escape(&track->channel_id);
+
+    track->track_id.s.data = header->track_id;
+    track->track_id.s.len = track_id.len;
+
+    ngx_json_str_set_escape(&track->track_id);
 
     /* create the upstreams */
     if (upstreams->count == 0) {

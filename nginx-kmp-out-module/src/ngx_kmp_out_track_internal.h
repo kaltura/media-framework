@@ -70,8 +70,8 @@ struct ngx_kmp_out_track_s {
     ngx_http_call_ctx_t           *publish_call;
 
     kmp_connect_packet_t           connect;
-    ngx_str_t                      channel_id;
-    ngx_str_t                      track_id;
+    ngx_json_str_t                 channel_id;
+    ngx_json_str_t                 track_id;
 
     ngx_buf_queue_t                buf_queue;
     ngx_buf_t                      active_buf;

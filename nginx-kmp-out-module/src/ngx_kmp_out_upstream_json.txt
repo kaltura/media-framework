@@ -9,8 +9,8 @@ out noobject ngx_kmp_out_upstream_republish_json ngx_kmp_out_upstream_t
     event_type republish
     id %V
     input_id %jV obj->track->
-    channel_id %V obj->track->
-    track_id %V obj->track->
+    channel_id %jV obj->track->
+    track_id %jV obj->track->
 
 out nostatic ngx_kmp_out_upstream_json ngx_kmp_out_upstream_t
     id %V

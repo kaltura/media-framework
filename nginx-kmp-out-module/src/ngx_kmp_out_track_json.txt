@@ -44,8 +44,8 @@ out nostatic ngx_kmp_out_track_json ngx_kmp_out_track_t
     - %return-null !obj
 
     input_id %jV
-    channel_id %V
-    track_id %V
+    channel_id %jV
+    track_id %jV
     mem_left %uz
     mem_limit %uz
 
