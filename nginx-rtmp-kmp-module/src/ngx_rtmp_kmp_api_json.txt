@@ -1,8 +1,8 @@
 
 out ngx_rtmp_kmp_api_stream_json ngx_rtmp_kmp_stream_ctx_t ngx_rtmp_live_stream_t *stream
-    name %V obj->publish.
-    args %V obj->publish.
-    type %V obj->publish.
+    name %jV obj->publish.
+    args %jV obj->publish.
+    type %jV obj->publish.
 
     bw_in %uL (stream->bw_in.bandwidth * 8)
     bytes_in %uL stream->bw_in.bytes
@@ -24,7 +24,7 @@ out ngx_rtmp_kmp_api_session_json ngx_rtmp_kmp_ctx_t
     tc_url %V s->
     page_url %V s->
     type3_ext_ts %enum-ngx_rtmp_type3_ext_ts_str s->
-    remote_addr %V
+    remote_addr %jV
     uptime %i (ngx_current_msec - s->epoch) / 1000
     connection %uA s->connection->number
     streams %arrFunc-ngx_rtmp_kmp_api_streams_json s

@@ -453,7 +453,7 @@ ngx_rtmp_kmp_track_create(ngx_kmp_out_track_conf_t *conf,
     track->log.connection = s->connection->number;
 
     media_type_str = ngx_rtmp_kmp_media_types[media_type];
-    input_id_len = s->tc_url.len + publish->name.len +
+    input_id_len = s->tc_url.len + publish->name.s.len +
         media_type_str.len + sizeof("//") - 1;
 
     json_len = ngx_rtmp_kmp_track_json_get_size(s, publish);
@@ -479,7 +479,7 @@ ngx_rtmp_kmp_track_create(ngx_kmp_out_track_conf_t *conf,
     track->input_id.s.data = p;
     p = ngx_copy_str(p, s->tc_url);
     *p++ = '/';
-    p = ngx_copy_str(p, publish->name);
+    p = ngx_copy_str(p, publish->name.s);
     *p++ = '/';
     p = ngx_copy_str(p, media_type_str);
     track->input_id.s.len = p - track->input_id.s.data;

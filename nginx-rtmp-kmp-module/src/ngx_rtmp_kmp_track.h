@@ -6,6 +6,7 @@
 #include <ngx_core.h>
 #include <ngx_rtmp.h>
 #include <ngx_rtmp_codec_module.h>
+#include <ngx_json_str.h>
 #include "ngx_kmp_out_track.h"
 
 
@@ -14,9 +15,9 @@
 
 /* Note: an ngx_str_t version of ngx_rtmp_publish_t */
 typedef struct {
-    ngx_str_t                name;
-    ngx_str_t                args;
-    ngx_str_t                type;
+    ngx_json_str_t           name;
+    ngx_json_str_t           args;
+    ngx_json_str_t           type;
 } ngx_rtmp_kmp_publish_t;
 
 

@@ -17,16 +17,14 @@ ngx_rtmp_kmp_connect_rtmp_json_get_size(ngx_rtmp_kmp_connect_t *obj,
     size_t  result;
 
     result =
-        sizeof("{\"app\":\"") - 1 + obj->app.len + ngx_escape_json(NULL,
-            obj->app.data, obj->app.len) +
-        sizeof("\",\"flashver\":\"") - 1 + obj->flashver.len +
-            ngx_escape_json(NULL, obj->flashver.data, obj->flashver.len) +
-        sizeof("\",\"swf_url\":\"") - 1 + obj->swf_url.len +
-            ngx_escape_json(NULL, obj->swf_url.data, obj->swf_url.len) +
-        sizeof("\",\"tc_url\":\"") - 1 + obj->tc_url.len +
-            ngx_escape_json(NULL, obj->tc_url.data, obj->tc_url.len) +
-        sizeof("\",\"page_url\":\"") - 1 + obj->page_url.len +
-            ngx_escape_json(NULL, obj->page_url.data, obj->page_url.len) +
+        sizeof("{\"app\":\"") - 1 + ngx_json_str_get_size(&obj->app) +
+        sizeof("\",\"flashver\":\"") - 1 +
+            ngx_json_str_get_size(&obj->flashver) +
+        sizeof("\",\"swf_url\":\"") - 1 + ngx_json_str_get_size(&obj->swf_url)
+            +
+        sizeof("\",\"tc_url\":\"") - 1 + ngx_json_str_get_size(&obj->tc_url) +
+        sizeof("\",\"page_url\":\"") - 1 +
+            ngx_json_str_get_size(&obj->page_url) +
         sizeof("\",\"addr\":\"") - 1 + s->connection->addr_text.len +
             ngx_escape_json(NULL, s->connection->addr_text.data,
             s->connection->addr_text.len) +
@@ -42,15 +40,15 @@ ngx_rtmp_kmp_connect_rtmp_json_write(u_char *p, ngx_rtmp_kmp_connect_t *obj,
     ngx_rtmp_session_t *s)
 {
     p = ngx_copy_fix(p, "{\"app\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->app.data, obj->app.len);
+    p = ngx_json_str_write(p, &obj->app);
     p = ngx_copy_fix(p, "\",\"flashver\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->flashver.data, obj->flashver.len);
+    p = ngx_json_str_write(p, &obj->flashver);
     p = ngx_copy_fix(p, "\",\"swf_url\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->swf_url.data, obj->swf_url.len);
+    p = ngx_json_str_write(p, &obj->swf_url);
     p = ngx_copy_fix(p, "\",\"tc_url\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->tc_url.data, obj->tc_url.len);
+    p = ngx_json_str_write(p, &obj->tc_url);
     p = ngx_copy_fix(p, "\",\"page_url\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->page_url.data, obj->page_url.len);
+    p = ngx_json_str_write(p, &obj->page_url);
     p = ngx_copy_fix(p, "\",\"addr\":\"");
     p = (u_char *) ngx_escape_json(p, s->connection->addr_text.data,
         s->connection->addr_text.len);
