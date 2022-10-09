@@ -244,9 +244,11 @@ ngx_kmp_out_track_media_info_json_write(u_char *p,
 void
 ngx_kmp_out_track_set_error_reason(ngx_kmp_out_track_t *track, char *code)
 {
-    if (track->unpublish_reason.len == 0) {
-        track->unpublish_reason.data = (u_char *) code;
-        track->unpublish_reason.len = ngx_strlen(code);
+    if (track->unpublish_reason.s.len == 0) {
+        track->unpublish_reason.s.data = (u_char *) code;
+        track->unpublish_reason.s.len = ngx_strlen(code);
+
+        ngx_json_str_set_escape(&track->unpublish_reason);
     }
 }
 

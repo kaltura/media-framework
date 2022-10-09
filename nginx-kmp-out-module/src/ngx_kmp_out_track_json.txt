@@ -37,7 +37,7 @@ out noobject ngx_kmp_out_track_publish_json ngx_kmp_out_track_t
 out noobject ngx_kmp_out_track_unpublish_json ngx_kmp_out_track_t
     event_type unpublish
     input_id %jV
-    reason %V obj->unpublish_reason
+    reason %jV obj->unpublish_reason
 
 
 out nostatic ngx_kmp_out_track_json ngx_kmp_out_track_t

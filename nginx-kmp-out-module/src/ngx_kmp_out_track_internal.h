@@ -88,7 +88,7 @@ struct ngx_kmp_out_track_s {
     void                          *ctx;
     ngx_kmp_out_track_handler_pt   handler;
 
-    ngx_str_t                      unpublish_reason;
+    ngx_json_str_t                 unpublish_reason;
 
     unsigned                       detached:1;
     unsigned                       write_error:1;
