@@ -859,10 +859,12 @@ ngx_ts_kmp_track_init_input_id(ngx_kmp_out_track_t *track,
         return NGX_ERROR;
     }
 
-    track->input_id.data = p;
+    track->input_id.s.data = p;
     p = ngx_copy(p, publish->stream_id.data, publish->stream_id.len);
     p = ngx_sprintf(p, "_%uD", publish->pid);
-    track->input_id.len = p - track->input_id.data;
+    track->input_id.s.len = p - track->input_id.s.data;
+
+    ngx_json_str_set_escape(&track->input_id);
 
     return NGX_OK;
 }

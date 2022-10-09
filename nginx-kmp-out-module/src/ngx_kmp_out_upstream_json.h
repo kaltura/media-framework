@@ -8,6 +8,10 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
+#ifndef ngx_copy_str
+#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
+#endif
+
 /* ngx_kmp_out_upstream_json reader */
 
 typedef struct {
@@ -81,9 +85,8 @@ ngx_kmp_out_upstream_republish_json_get_size(ngx_kmp_out_upstream_t *obj)
     result =
         sizeof("\"event_type\":\"republish\",\"id\":\"") - 1 + obj->id.len +
             ngx_escape_json(NULL, obj->id.data, obj->id.len) +
-        sizeof("\",\"input_id\":\"") - 1 + obj->track->input_id.len +
-            ngx_escape_json(NULL, obj->track->input_id.data,
-            obj->track->input_id.len) +
+        sizeof("\",\"input_id\":\"") - 1 +
+            ngx_json_str_get_size(&obj->track->input_id) +
         sizeof("\",\"channel_id\":\"") - 1 + obj->track->channel_id.len +
             ngx_escape_json(NULL, obj->track->channel_id.data,
             obj->track->channel_id.len) +
@@ -103,8 +106,7 @@ ngx_kmp_out_upstream_republish_json_write(u_char *p, ngx_kmp_out_upstream_t
     p = ngx_copy_fix(p, "\"event_type\":\"republish\",\"id\":\"");
     p = (u_char *) ngx_escape_json(p, obj->id.data, obj->id.len);
     p = ngx_copy_fix(p, "\",\"input_id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->track->input_id.data,
-        obj->track->input_id.len);
+    p = ngx_json_str_write(p, &obj->track->input_id);
     p = ngx_copy_fix(p, "\",\"channel_id\":\"");
     p = (u_char *) ngx_escape_json(p, obj->track->channel_id.data,
         obj->track->channel_id.len);

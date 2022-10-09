@@ -328,14 +328,16 @@ ngx_kmp_cc_service_track_create(ngx_kmp_cc_service_t *svc,
         return NGX_ABORT;
     }
 
-    track->input_id.data = p;
+    track->input_id.s.data = p;
     p = ngx_copy_fix(p, NGX_KMP_CC_SERVICE_INPUT_ID_PREFIX);
     p = ngx_copy_str(p, ctx->input.channel_id.s);
     *p++ = '/';
     p = ngx_copy_str(p, ctx->input.track_id.s);
     *p++ = '/';
     p = ngx_copy_str(p, svc->id.s);
-    track->input_id.len = p - track->input_id.data;
+    track->input_id.s.len = p - track->input_id.s.data;
+
+    ngx_json_str_set_escape(&track->input_id);
 
     track->json_info.data = p;
     p = ngx_copy_fix(p, NGX_KMP_CC_SERVICE_TRACK_INFO_HEADER);

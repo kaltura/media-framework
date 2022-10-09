@@ -8,6 +8,10 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
+#ifndef ngx_copy_str
+#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
+#endif
+
 /* ngx_kmp_out_track_json reader */
 
 typedef struct {
@@ -201,8 +205,7 @@ ngx_kmp_out_track_publish_json_get_size(ngx_kmp_out_track_t *obj)
 
     result =
         sizeof("\"event_type\":\"publish\",\"input_id\":\"") - 1 +
-            obj->input_id.len + ngx_escape_json(NULL, obj->input_id.data,
-            obj->input_id.len) +
+            ngx_json_str_get_size(&obj->input_id) +
         sizeof("\"") - 1;
 
     return result;
@@ -213,7 +216,7 @@ static u_char *
 ngx_kmp_out_track_publish_json_write(u_char *p, ngx_kmp_out_track_t *obj)
 {
     p = ngx_copy_fix(p, "\"event_type\":\"publish\",\"input_id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->input_id.data, obj->input_id.len);
+    p = ngx_json_str_write(p, &obj->input_id);
     *p++ = '\"';
 
     return p;
@@ -229,8 +232,7 @@ ngx_kmp_out_track_unpublish_json_get_size(ngx_kmp_out_track_t *obj)
 
     result =
         sizeof("\"event_type\":\"unpublish\",\"input_id\":\"") - 1 +
-            obj->input_id.len + ngx_escape_json(NULL, obj->input_id.data,
-            obj->input_id.len) +
+            ngx_json_str_get_size(&obj->input_id) +
         sizeof("\",\"reason\":\"") - 1 + obj->unpublish_reason.len +
             ngx_escape_json(NULL, obj->unpublish_reason.data,
             obj->unpublish_reason.len) +
@@ -244,7 +246,7 @@ static u_char *
 ngx_kmp_out_track_unpublish_json_write(u_char *p, ngx_kmp_out_track_t *obj)
 {
     p = ngx_copy_fix(p, "\"event_type\":\"unpublish\",\"input_id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->input_id.data, obj->input_id.len);
+    p = ngx_json_str_write(p, &obj->input_id);
     p = ngx_copy_fix(p, "\",\"reason\":\"");
     p = (u_char *) ngx_escape_json(p, obj->unpublish_reason.data,
         obj->unpublish_reason.len);
@@ -268,8 +270,8 @@ ngx_kmp_out_track_json_get_size(ngx_kmp_out_track_t *obj)
     }
 
     result =
-        sizeof("{\"input_id\":\"") - 1 + obj->input_id.len +
-            ngx_escape_json(NULL, obj->input_id.data, obj->input_id.len) +
+        sizeof("{\"input_id\":\"") - 1 + ngx_json_str_get_size(&obj->input_id)
+            +
         sizeof("\",\"channel_id\":\"") - 1 + obj->channel_id.len +
             ngx_escape_json(NULL, obj->channel_id.data, obj->channel_id.len) +
         sizeof("\",\"track_id\":\"") - 1 + obj->track_id.len +
@@ -312,7 +314,7 @@ ngx_kmp_out_track_json_write(u_char *p, ngx_kmp_out_track_t *obj)
     }
 
     p = ngx_copy_fix(p, "{\"input_id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->input_id.data, obj->input_id.len);
+    p = ngx_json_str_write(p, &obj->input_id);
     p = ngx_copy_fix(p, "\",\"channel_id\":\"");
     p = (u_char *) ngx_escape_json(p, obj->channel_id.data,
         obj->channel_id.len);

@@ -11,6 +11,8 @@
 #include <ngx_http_call.h>
 #include <ngx_buf_queue.h>
 #include <ngx_buf_queue_stream.h>
+#include <ngx_json_str.h>
+
 #include "ngx_kmp_out_track.h"
 
 
@@ -56,7 +58,7 @@ struct ngx_kmp_out_track_s {
     ngx_log_t                      log;
 
     ngx_kmp_out_track_conf_t      *conf;
-    ngx_str_t                      input_id;
+    ngx_json_str_t                 input_id;
     ngx_str_t                      json_info;
 
     ngx_kmp_out_track_state_e      state;

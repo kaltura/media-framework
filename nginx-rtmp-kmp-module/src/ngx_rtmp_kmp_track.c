@@ -476,13 +476,15 @@ ngx_rtmp_kmp_track_create(ngx_kmp_out_track_conf_t *conf,
     p = (void *) (ctx + 1);
 
     /* set the input id */
-    track->input_id.data = p;
-    p = ngx_copy_str(track->input_id.data, s->tc_url);
+    track->input_id.s.data = p;
+    p = ngx_copy_str(p, s->tc_url);
     *p++ = '/';
     p = ngx_copy_str(p, publish->name);
     *p++ = '/';
     p = ngx_copy_str(p, media_type_str);
-    track->input_id.len = p - track->input_id.data;
+    track->input_id.s.len = p - track->input_id.s.data;
+
+    ngx_json_str_set_escape(&track->input_id);
 
     /* build the json info */
     track->json_info.data = p;
