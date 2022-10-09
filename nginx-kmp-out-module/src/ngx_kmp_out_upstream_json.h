@@ -83,8 +83,8 @@ ngx_kmp_out_upstream_republish_json_get_size(ngx_kmp_out_upstream_t *obj)
     size_t  result;
 
     result =
-        sizeof("\"event_type\":\"republish\",\"id\":\"") - 1 + obj->id.len +
-            ngx_escape_json(NULL, obj->id.data, obj->id.len) +
+        sizeof("\"event_type\":\"republish\",\"id\":\"") - 1 +
+            ngx_json_str_get_size(&obj->id) +
         sizeof("\",\"input_id\":\"") - 1 +
             ngx_json_str_get_size(&obj->track->input_id) +
         sizeof("\",\"channel_id\":\"") - 1 +
@@ -102,7 +102,7 @@ ngx_kmp_out_upstream_republish_json_write(u_char *p, ngx_kmp_out_upstream_t
     *obj)
 {
     p = ngx_copy_fix(p, "\"event_type\":\"republish\",\"id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->id.data, obj->id.len);
+    p = ngx_json_str_write(p, &obj->id);
     p = ngx_copy_fix(p, "\",\"input_id\":\"");
     p = ngx_json_str_write(p, &obj->track->input_id);
     p = ngx_copy_fix(p, "\",\"channel_id\":\"");
@@ -123,13 +123,11 @@ ngx_kmp_out_upstream_json_get_size(ngx_kmp_out_upstream_t *obj)
     size_t  result;
 
     result =
-        sizeof("{\"id\":\"") - 1 + obj->id.len + ngx_escape_json(NULL,
-            obj->id.data, obj->id.len) +
-        sizeof("\",\"remote_addr\":\"") - 1 + obj->remote_addr.len +
-            ngx_escape_json(NULL, obj->remote_addr.data, obj->remote_addr.len)
-            +
-        sizeof("\",\"local_addr\":\"") - 1 + obj->local_addr.len +
-            ngx_escape_json(NULL, obj->local_addr.data, obj->local_addr.len) +
+        sizeof("{\"id\":\"") - 1 + ngx_json_str_get_size(&obj->id) +
+        sizeof("\",\"remote_addr\":\"") - 1 +
+            ngx_json_str_get_size(&obj->remote_addr) +
+        sizeof("\",\"local_addr\":\"") - 1 +
+            ngx_json_str_get_size(&obj->local_addr) +
         sizeof("\",\"connection\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"auto_ack\":") - 1 + sizeof("false") - 1 +
         sizeof(",\"sent_bytes\":") - 1 + NGX_OFF_T_LEN +
@@ -147,13 +145,11 @@ u_char *
 ngx_kmp_out_upstream_json_write(u_char *p, ngx_kmp_out_upstream_t *obj)
 {
     p = ngx_copy_fix(p, "{\"id\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->id.data, obj->id.len);
+    p = ngx_json_str_write(p, &obj->id);
     p = ngx_copy_fix(p, "\",\"remote_addr\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->remote_addr.data,
-        obj->remote_addr.len);
+    p = ngx_json_str_write(p, &obj->remote_addr);
     p = ngx_copy_fix(p, "\",\"local_addr\":\"");
-    p = (u_char *) ngx_escape_json(p, obj->local_addr.data,
-        obj->local_addr.len);
+    p = ngx_json_str_write(p, &obj->local_addr);
     p = ngx_copy_fix(p, "\",\"connection\":");
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->log.connection);
     p = ngx_copy_fix(p, ",\"auto_ack\":");

@@ -15,12 +15,12 @@ typedef struct {
     u_char                     sockaddr_buf[NGX_SOCKADDRLEN];
 
     u_char                     remote_addr_buf[NGX_SOCKADDR_STRLEN];
-    ngx_str_t                  remote_addr;
+    ngx_json_str_t             remote_addr;
 
     u_char                     local_addr_buf[NGX_SOCKADDR_STRLEN];
-    ngx_str_t                  local_addr;
+    ngx_json_str_t             local_addr;
 
-    ngx_str_t                  id;
+    ngx_json_str_t             id;
     ngx_queue_t                queue;
     ngx_kmp_out_track_t       *track;
 
