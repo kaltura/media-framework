@@ -76,6 +76,7 @@ struct ngx_kmp_out_track_s {
     ngx_buf_queue_t                buf_queue;
     ngx_buf_t                      active_buf;
     ngx_event_t                    flush;
+    ngx_event_t                    keepalive;
 
     kmp_media_info_t               media_info;
     ngx_str_t                      extra_data;

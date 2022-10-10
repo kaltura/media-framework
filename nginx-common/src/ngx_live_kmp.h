@@ -53,6 +53,7 @@ enum {
     KMP_PACKET_CONNECT              = 0x74636e63,   /* cnct */
     KMP_PACKET_MEDIA_INFO           = 0x666e696d,   /* minf */
     KMP_PACKET_FRAME                = 0x6d617266,   /* fram */
+    KMP_PACKET_NULL                 = 0x6c6c756e,   /* null */
     KMP_PACKET_END_OF_STREAM        = 0x74736f65,   /* eost */
 
     /* server -> client */

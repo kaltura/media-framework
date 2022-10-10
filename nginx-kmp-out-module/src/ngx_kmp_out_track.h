@@ -32,6 +32,7 @@ typedef struct {
     ngx_lba_t       *lba[KMP_MEDIA_COUNT];
 
     ngx_msec_t       flush_timeout;
+    ngx_msec_t       keepalive_interval;
     ngx_flag_t       log_frames;
 
     time_t           republish_interval;
