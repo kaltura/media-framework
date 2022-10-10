@@ -278,6 +278,13 @@ static ngx_command_t  ngx_stream_kmp_cc_commands[] = {
       offsetof(ngx_stream_kmp_cc_srv_conf_t, out.flush_timeout),
       NULL },
 
+    { ngx_string("kmp_cc_out_keepalive_interval"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_kmp_cc_srv_conf_t, out.keepalive_interval),
+      NULL },
+
     { ngx_string("kmp_cc_out_log_frames"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_flag_slot,
@@ -825,6 +832,10 @@ ngx_stream_kmp_cc_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->in_lba == NULL) {
         return NGX_CONF_ERROR;
     }
+
+    /* override the 'no keepalive' default of kmp-out */
+    ngx_conf_merge_msec_value(conf->out.keepalive_interval,
+                              conf->out.keepalive_interval, 10 * 1000);
 
     if (ngx_kmp_out_track_merge_conf(cf, &conf->out, &prev->out) != NGX_OK) {
         return NGX_CONF_ERROR;

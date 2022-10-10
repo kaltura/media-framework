@@ -79,6 +79,7 @@ ngx_kmp_out_track_init_conf(ngx_kmp_out_track_conf_t *conf)
     conf->mem_high_watermark = NGX_CONF_UNSET_UINT;
     conf->mem_low_watermark = NGX_CONF_UNSET_UINT;
     conf->flush_timeout = NGX_CONF_UNSET_MSEC;
+    conf->keepalive_interval = NGX_CONF_UNSET_MSEC;
     conf->log_frames = NGX_CONF_UNSET;
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
@@ -152,6 +153,9 @@ ngx_kmp_out_track_merge_conf(ngx_conf_t *cf, ngx_kmp_out_track_conf_t *conf,
     }
 
     ngx_conf_merge_msec_value(conf->flush_timeout, prev->flush_timeout, 1000);
+
+    ngx_conf_merge_msec_value(conf->keepalive_interval,
+                              prev->keepalive_interval, 0);
 
     ngx_conf_merge_value(conf->log_frames, prev->log_frames, 0);
 
@@ -353,6 +357,10 @@ ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
             ngx_kmp_out_track_error(track, "create_upstream_failed");
             return NGX_OK;
         }
+    }
+
+    if (track->conf->keepalive_interval > 0) {
+        ngx_add_timer(&track->keepalive, track->conf->keepalive_interval);
     }
 
     track->state = NGX_KMP_TRACK_ACTIVE;
@@ -600,6 +608,10 @@ ngx_kmp_out_track_cleanup(ngx_kmp_out_track_t *track)
 {
     if (track->flush.timer_set) {
         ngx_del_timer(&track->flush);
+    }
+
+    if (track->keepalive.timer_set) {
+        ngx_del_timer(&track->keepalive);
     }
 
     if (!ngx_queue_empty(&track->upstreams)) {
@@ -1297,6 +1309,32 @@ ngx_kmp_out_track_send_end_of_stream(ngx_kmp_out_track_t *track)
 }
 
 
+static void
+ngx_kmp_out_track_keepalive_handler(ngx_event_t *ev)
+{
+    ngx_kmp_out_track_t  *track;
+    kmp_packet_header_t   packet;
+
+    track = ev->data;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_KMP, &track->log, 0,
+        "ngx_kmp_out_track_keepalive_handler: called");
+
+    packet.packet_type = KMP_PACKET_NULL;
+    packet.header_size = sizeof(packet);
+    packet.data_size = 0;
+    packet.reserved = 0;
+
+    if (ngx_kmp_out_track_write(track, (u_char *) &packet, sizeof(packet))
+        != NGX_OK)
+    {
+        ngx_kmp_out_track_error(track, "unexpected");
+    }
+
+    ngx_add_timer(ev, track->conf->keepalive_interval);
+}
+
+
 static u_char *
 ngx_kmp_out_track_log_error(ngx_log_t *log, u_char *buf, size_t len)
 {
@@ -1379,6 +1417,10 @@ ngx_kmp_out_track_create(ngx_kmp_out_track_conf_t *conf,
     track->flush.handler = ngx_kmp_out_track_flush_handler;
     track->flush.data = track;
     track->flush.log = &track->log;
+
+    track->keepalive.handler = ngx_kmp_out_track_keepalive_handler;
+    track->keepalive.data = track;
+    track->keepalive.log = &track->log;
 
     return track;
 }

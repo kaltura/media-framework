@@ -517,6 +517,7 @@ ngx_kmp_in_process_buffer(ngx_kmp_in_ctx_t *ctx)
             case KMP_PACKET_CONNECT:
             case KMP_PACKET_MEDIA_INFO:
             case KMP_PACKET_FRAME:
+            case KMP_PACKET_NULL:
             case KMP_PACKET_END_OF_STREAM:
                 break;
 
@@ -623,6 +624,10 @@ ngx_kmp_in_process_buffer(ngx_kmp_in_ctx_t *ctx)
 
         case KMP_PACKET_FRAME:
             rc = ngx_kmp_in_frame(ctx);
+            break;
+
+        case KMP_PACKET_NULL:
+            rc = NGX_OK;
             break;
 
         case KMP_PACKET_END_OF_STREAM:

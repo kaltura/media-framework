@@ -683,6 +683,9 @@ ngx_kmp_out_upstream_ack_packet(ngx_kmp_out_upstream_t *u,
         u->acked_frame_id++;
         break;
 
+    case KMP_PACKET_NULL:
+        break;
+
     case KMP_PACKET_END_OF_STREAM:      /* can happen in case of auto push */
         return NGX_DONE;
 
