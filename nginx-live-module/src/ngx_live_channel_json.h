@@ -4,6 +4,10 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
+#ifndef ngx_copy_str
+#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
+#endif
+
 /* ngx_live_track_json writer */
 
 static size_t
@@ -96,8 +100,7 @@ ngx_live_tracks_json_write(u_char *p, ngx_live_channel_t *obj)
     {
         cur = ngx_queue_data(q, ngx_live_track_t, queue);
 
-        if (q != ngx_queue_head(&obj->tracks.queue))
-        {
+        if (p[-1] != '{') {
             *p++ = ',';
         }
 
@@ -153,8 +156,7 @@ ngx_live_track_ids_json_write(u_char *p, ngx_live_channel_t *obj)
     {
         cur = ngx_queue_data(q, ngx_live_track_t, queue);
 
-        if (q != ngx_queue_head(&obj->tracks.queue))
-        {
+        if (p[-1] != '[') {
             *p++ = ',';
         }
 
@@ -268,8 +270,7 @@ ngx_live_variants_json_write(u_char *p, ngx_live_channel_t *obj)
     {
         cur = ngx_queue_data(q, ngx_live_variant_t, queue);
 
-        if (q != ngx_queue_head(&obj->variants.queue))
-        {
+        if (p[-1] != '{') {
             *p++ = ',';
         }
 
@@ -325,8 +326,7 @@ ngx_live_variant_ids_json_write(u_char *p, ngx_live_channel_t *obj)
     {
         cur = ngx_queue_data(q, ngx_live_variant_t, queue);
 
-        if (q != ngx_queue_head(&obj->variants.queue))
-        {
+        if (p[-1] != '[') {
             *p++ = ',';
         }
 
@@ -517,8 +517,7 @@ ngx_live_channels_json_write(u_char *p, void *obj)
     {
         cur = ngx_queue_data(q, ngx_live_channel_t, queue);
 
-        if (q != ngx_queue_head(&ngx_live_channels.queue))
-        {
+        if (p[-1] != '{') {
             *p++ = ',';
         }
 
@@ -574,8 +573,7 @@ ngx_live_channel_ids_json_write(u_char *p, void *obj)
     {
         cur = ngx_queue_data(q, ngx_live_channel_t, queue);
 
-        if (q != ngx_queue_head(&ngx_live_channels.queue))
-        {
+        if (p[-1] != '[') {
             *p++ = ',';
         }
 
