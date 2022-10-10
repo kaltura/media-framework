@@ -4,6 +4,10 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
+#ifndef ngx_copy_str
+#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
+#endif
+
 /* ngx_live_dynamic_var_json writer */
 
 static size_t
@@ -72,8 +76,7 @@ ngx_live_dynamic_vars_json_write(u_char *p, ngx_live_dynamic_var_channel_ctx_t
     {
         cur = ngx_queue_data(q, ngx_live_dynamic_var_t, queue);
 
-        if (q != ngx_queue_head(&obj->queue))
-        {
+        if (p[-1] != '{') {
             *p++ = ',';
         }
 

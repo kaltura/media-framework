@@ -4,6 +4,10 @@
 #define ngx_copy_fix(dst, src)   ngx_copy(dst, (src), sizeof(src) - 1)
 #endif
 
+#ifndef ngx_copy_str
+#define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
+#endif
+
 /* ngx_live_period_json writer */
 
 static size_t
@@ -207,8 +211,7 @@ ngx_live_timelines_json_write(u_char *p, ngx_live_timeline_channel_ctx_t *obj)
     {
         cur = ngx_queue_data(q, ngx_live_timeline_t, queue);
 
-        if (q != ngx_queue_head(&obj->queue))
-        {
+        if (p[-1] != '{') {
             *p++ = ',';
         }
 
@@ -268,8 +271,7 @@ ngx_live_timeline_ids_json_write(u_char *p, ngx_live_channel_t *obj)
     {
         cur = ngx_queue_data(q, ngx_live_timeline_t, queue);
 
-        if (q != ngx_queue_head(&cctx->queue))
-        {
+        if (p[-1] != '[') {
             *p++ = ',';
         }
 
