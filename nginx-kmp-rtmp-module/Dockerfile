@@ -16,6 +16,7 @@ RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
 COPY nginx-common nginx-common
 COPY nginx-kmp-rtmp-module nginx-kmp-rtmp-module
 COPY nginx-kmp-in-module nginx-kmp-in-module
+RUN git clone https://github.com/kaltura/nginx-stream-preread-str-module
 
 ARG APP_VERSION="0.1"
 ARG LIVE_VERSION="${APP_VERSION}"
@@ -28,6 +29,7 @@ RUN cd /tmp/build/nginx && \
             --add-module=/tmp/build/nginx-common \
             --add-module=/tmp/build/nginx-kmp-in-module \
             --add-module=/tmp/build/nginx-kmp-rtmp-module \
+            --add-module=/tmp/build/nginx-stream-preread-str-module \
             --with-stream \
             --with-stream_ssl_module \
             --with-cc-opt="-O2" \
