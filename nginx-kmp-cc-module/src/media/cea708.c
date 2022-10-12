@@ -363,15 +363,15 @@ typedef struct
     cea708_wa_direction_e scroll_direction;
     cea708_wa_direction_e effect_direction;
 
-    cea708_wa_effect_e display_effect;
-
     uint8_t b_word_wrap;
+
+    cea708_wa_effect_e display_effect;
 
     uint8_t effect_speed;
     uint8_t fill_color;
-    uint8_t border_color;
     cea708_opacity_e fill_opacity;
     cea708_edge_e border_type;
+    uint8_t border_color;
 } cea708_window_style_t;
 
 typedef uint8_t cea708_text_char_t[4];
