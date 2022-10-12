@@ -24,7 +24,8 @@ class TaskEventsHandler:
 class TranscoderTask:
     def __init__(self, handler: TaskEventsHandler, spec: dict):
         id = spec.get('act')
-        spec["config"]['logger']['id'] = id
+        spec["config"]['logger']['contextId'] = id
+        spec["config"]['logger']['channelId'] = spec.get('channelId');
         self.handler = handler
         trans_id = f"{pod_name}:{spec.get('channelId')}:{spec.get('inputIndex')}{ 'v' if 0 == spec.get('trackType') else 'a'}@{'b' if spec.get('sessionType') else 'p'}:{id}"
         self.desc = {"id": trans_id,
