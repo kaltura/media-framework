@@ -1363,7 +1363,7 @@ hevc_parser_parse_extra_data(
 
     if (min_packet_size != NULL)
     {
-        *min_packet_size = *nal_packet_size_length + HEVC_NAL_HEADER_SIZE;
+        *min_packet_size = cfg.nal_unit_size + HEVC_NAL_HEADER_SIZE;
     }
 
     end_pos = extra_data->data + extra_data->len;

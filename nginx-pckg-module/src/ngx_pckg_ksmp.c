@@ -909,6 +909,77 @@ ngx_pckg_ksmp_parse_avc_extra_data(ngx_pckg_channel_t *channel,
 }
 
 
+static ngx_int_t
+ngx_pckg_ksmp_parse_hevc_transfer_char(ngx_pckg_channel_t *channel,
+    media_info_t *mi)
+{
+    void               *parser_ctx;
+    vod_status_t        rc;
+    request_context_t   request_context;
+
+    ngx_memzero(&request_context, sizeof(request_context));
+    request_context.pool = channel->pool;
+    request_context.log = channel->log;
+
+    rc = avc_hevc_parser_init_ctx(&request_context, &parser_ctx);
+    if (rc != VOD_OK) {
+        return NGX_ERROR;
+    }
+
+    rc = hevc_parser_parse_extra_data(parser_ctx, &mi->extra_data,
+        NULL, NULL);
+    if (rc != VOD_OK) {
+        return rc == VOD_BAD_DATA ? NGX_BAD_DATA : NGX_ERROR;
+    }
+
+    mi->u.video.transfer_characteristics =
+        hevc_parser_get_transfer_characteristics(parser_ctx);
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_pckg_ksmp_parse_hevc_extra_data(ngx_pckg_channel_t *channel,
+    media_info_t *mi)
+{
+    u_char  *p;
+    size_t   size;
+
+    size = codec_config_hvcc_nal_units_get_size(channel->log, &mi->extra_data);
+    if (size <= 0) {
+        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
+            "ngx_pckg_ksmp_parse_hevc_extra_data: parse failed");
+        return NGX_BAD_DATA;
+    }
+
+    p = ngx_pnalloc(channel->pool, size);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
+            "ngx_pckg_ksmp_parse_hevc_extra_data: alloc failed");
+        return NGX_ERROR;
+    }
+
+    mi->parsed_extra_data.data = p;
+    p = codec_config_hvcc_nal_units_write(p, &mi->extra_data);
+    mi->parsed_extra_data.len = p - mi->parsed_extra_data.data;
+
+    if (mi->parsed_extra_data.len != size) {
+        ngx_log_error(NGX_LOG_ALERT, channel->log, 0,
+            "ngx_pckg_ksmp_parse_hevc_extra_data: "
+            "actual extra data size %uz different from calculated %uz",
+            mi->parsed_extra_data.len, size);
+        return NGX_ERROR;
+    }
+
+    vod_log_buffer(VOD_LOG_DEBUG_LEVEL, channel->log, 0,
+        "ngx_pckg_ksmp_parse_hevc_extra_data: parsed extra data ",
+        mi->parsed_extra_data.data, mi->parsed_extra_data.len);
+
+    return NGX_OK;
+}
+
+
 ngx_int_t
 ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
     ngx_pckg_media_info_t *node)
@@ -924,7 +995,57 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
 
     case KMP_MEDIA_VIDEO:
 
-        if (src->codec_id != KMP_CODEC_VIDEO_H264) {
+        switch (src->codec_id) {
+
+        case KMP_CODEC_VIDEO_H264:
+            dest->u.video.nal_packet_size_length =
+                codec_config_avcc_get_nal_length_size(channel->log,
+                    &dest->extra_data);
+            if (dest->u.video.nal_packet_size_length == 0) {
+                return NGX_BAD_DATA;
+            }
+
+            if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_TRANSFER_CHAR) {
+                /* ignore errors - if we fail, just assume no transfer char */
+                (void) ngx_pckg_ksmp_parse_avc_transfer_char(channel, dest);
+            }
+
+            if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_EXTRA_DATA) {
+                rc = ngx_pckg_ksmp_parse_avc_extra_data(channel, dest);
+                if (rc != NGX_OK) {
+                    return rc;
+                }
+            }
+
+            dest->codec_id = VOD_CODEC_ID_AVC;
+            dest->format = FORMAT_AVC1;
+            break;
+
+        case KMP_CODEC_VIDEO_H265:
+            dest->u.video.nal_packet_size_length =
+                codec_config_hvcc_get_nal_length_size(channel->log,
+                    &dest->extra_data);
+            if (dest->u.video.nal_packet_size_length == 0) {
+                return NGX_BAD_DATA;
+            }
+
+            if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_TRANSFER_CHAR) {
+                /* ignore errors - if we fail, just assume no transfer char */
+                (void) ngx_pckg_ksmp_parse_hevc_transfer_char(channel, dest);
+            }
+
+            if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_EXTRA_DATA) {
+                rc = ngx_pckg_ksmp_parse_hevc_extra_data(channel, dest);
+                if (rc != NGX_OK) {
+                    return rc;
+                }
+            }
+
+            dest->codec_id = VOD_CODEC_ID_HEVC;
+            dest->format = FORMAT_HVC1;
+            break;
+
+        default:
             ngx_log_error(NGX_LOG_ERR, channel->log, 0,
                 "ngx_pckg_ksmp_parse_media_info: invalid video codec id %uD",
                 src->codec_id);
@@ -941,28 +1062,7 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
             return NGX_BAD_DATA;
         }
 
-        dest->u.video.nal_packet_size_length =
-            codec_config_avcc_get_nal_length_size(channel->log,
-                &dest->extra_data);
-        if (dest->u.video.nal_packet_size_length == 0) {
-            return NGX_BAD_DATA;
-        }
-
-        if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_TRANSFER_CHAR) {
-            /* ignore errors - if we fail, just assume no transfer char */
-            (void) ngx_pckg_ksmp_parse_avc_transfer_char(channel, dest);
-        }
-
-        if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_EXTRA_DATA) {
-            rc = ngx_pckg_ksmp_parse_avc_extra_data(channel, dest);
-            if (rc != NGX_OK) {
-                return rc;
-            }
-        }
-
         dest->media_type = MEDIA_TYPE_VIDEO;
-        dest->codec_id = VOD_CODEC_ID_AVC;
-        dest->format = FORMAT_AVC1;
 
         dest->u.video.width = src->u.video.width;
         dest->u.video.height = src->u.video.height;
@@ -978,6 +1078,7 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
                 "failed to get video codec name");
             return NGX_BAD_DATA;
         }
+
         break;
 
     case KMP_MEDIA_AUDIO:
@@ -1030,6 +1131,7 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
                 "failed to get audio codec name");
             return NGX_BAD_DATA;
         }
+
         break;
 
     case KMP_MEDIA_SUBTITLE:

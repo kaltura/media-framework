@@ -130,8 +130,6 @@ ngx_http_pckg_webvtt_parse_request(ngx_http_request_t *r, u_char *start_pos,
     result->flags = NGX_KSMP_FLAG_MEDIA | NGX_KSMP_FLAG_MEDIA_INFO
         | NGX_KSMP_FLAG_SEGMENT_TIME;
 
-    result->parse_flags = NGX_PCKG_KSMP_PARSE_FLAG_EXTRA_DATA;
-
     result->media_type_mask = 1 << KMP_MEDIA_SUBTITLE;
     result->media_type_count = 1;
 

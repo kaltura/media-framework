@@ -23,6 +23,8 @@
 #define NGX_TS_VIDEO_MPEG2     0x02 /* ISO/IEC 13818-2, MPEG-2 Video */
 #define NGX_TS_VIDEO_MPEG4     0x10 /* ISO/IEC 14496-2, MPEG-4 Video */
 #define NGX_TS_VIDEO_AVC       0x1b /* ISO/IEC 14496-10, AVC */
+#define NGX_TS_VIDEO_HEVC      0x24
+
 
 #define NGX_TS_AUDIO_MPEG1     0x03 /* ISO/IEC 11172-3, MPEG-1 Audio */
 #define NGX_TS_AUDIO_MPEG2     0x04 /* ISO/IEC 13818-3, MPEG-2 Audio */

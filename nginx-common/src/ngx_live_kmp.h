@@ -81,6 +81,8 @@ enum {
     KMP_CODEC_VIDEO_SCREEN2         = 6,
     KMP_CODEC_VIDEO_H264            = 7,
 
+    KMP_CODEC_VIDEO_H265            = 8,
+
     /* NGX_RTMP_AUDIO_XXX + 1000 */
     KMP_CODEC_AUDIO_BASE            = 1000,
     KMP_CODEC_AUDIO_UNCOMPRESSED    = 1016,
