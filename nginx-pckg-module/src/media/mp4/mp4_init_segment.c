@@ -449,12 +449,24 @@ mp4_init_segment_write_avcc_atom(u_char* p, media_info_t* media_info)
 
 
 static u_char*
+mp4_init_segment_write_hvcc_atom(u_char* p, media_info_t* media_info)
+{
+    size_t atom_size = ATOM_HEADER_SIZE + media_info->extra_data.len;
+
+    write_atom_header(p, atom_size, 'h', 'v', 'c', 'C');
+    p = vod_copy(p, media_info->extra_data.data, media_info->extra_data.len);
+    return p;
+}
+
+
+static u_char*
 mp4_init_segment_write_stsd_video_entry(u_char* p, media_info_t* media_info)
 {
     size_t atom_size = ATOM_HEADER_SIZE + sizeof(sample_entry_t) + sizeof(stsd_video_t) +
         ATOM_HEADER_SIZE + media_info->extra_data.len;
 
-    write_atom_header(p, atom_size, 'a', 'v', 'c', '1');
+    write_be32(p, atom_size);
+    p = ngx_copy(p, &media_info->format, sizeof(media_info->format));
 
     // sample_entry_t
     write_be32(p, 0);        // reserved
@@ -478,7 +490,16 @@ mp4_init_segment_write_stsd_video_entry(u_char* p, media_info_t* media_info)
     write_be16(p, 0x18);    // depth
     write_be16(p, 0xffff);    // pre defined
 
-    p = mp4_init_segment_write_avcc_atom(p, media_info);
+    switch (media_info->codec_id)
+    {
+    case VOD_CODEC_ID_AVC:
+        p = mp4_init_segment_write_avcc_atom(p, media_info);
+        break;
+
+    case VOD_CODEC_ID_HEVC:
+        p = mp4_init_segment_write_hvcc_atom(p, media_info);
+        break;
+    }
 
     return p;
 }

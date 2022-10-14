@@ -731,13 +731,16 @@ ngx_ts_read_pmt(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_header_t *h,
         es->pid = pid;
         es->cont = NGX_TS_CC_UNSET;
 
-        if (type == NGX_TS_VIDEO_MPEG1
-            || type == NGX_TS_VIDEO_MPEG2
-            || type == NGX_TS_VIDEO_MPEG4
-            || type == NGX_TS_VIDEO_AVC)
-        {
+        switch (type) {
+
+        case NGX_TS_VIDEO_MPEG1:
+        case NGX_TS_VIDEO_MPEG2:
+        case NGX_TS_VIDEO_MPEG4:
+        case NGX_TS_VIDEO_AVC:
+        case NGX_TS_VIDEO_HEVC:
             es->video = 1;
             prog->video = 1;
+            break;
         }
 
         ngx_ts_bufs_init(es->bufs);
