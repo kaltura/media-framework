@@ -19,6 +19,11 @@
 #define NGX_KMP_CC_SERVICE_TRACK_INFO_HEADER  "\"input_type\":\"cc\",\"cc\":"
 
 #define NGX_KMP_CC_AVC_NAL_SEI               6
+
+#define NGX_KMP_CC_HVCC_HEADER_SIZE          22
+#define NGX_KMP_CC_HEVC_NAL_SEI_PREFIX       39
+#define NGX_KMP_CC_HEVC_NAL_SEI_SUFFIX       40
+
 #define NGX_KMP_CC_SEI_USER_DATA_REGISTERED  4
 
 #define NGX_KMP_CC_ATOM_HEADER_SIZE    8
@@ -117,7 +122,11 @@ struct ngx_kmp_cc_ctx_s {
     ngx_kmp_cc_services_t        services;
 
     uint32_t                     timescale;
-    uint32_t                     avc_nal_bytes;
+    u_char                       nal_size_bytes;
+    u_char                       nal_header_size;
+    u_char                       nal_type_shift;
+    u_char                       nal_type_mask;
+    uint64_t                     sei_nal_mask;
 
     int64_t                      pts;
     int64_t                      max_pts;
@@ -1024,12 +1033,7 @@ ngx_kmp_cc_process_udr_sei(ngx_kmp_cc_ctx_t *ctx,
         return NGX_DECLINED;
     }
 
-    if (b != 0xff) {
-        ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
-            "ngx_kmp_cc_process_udr_sei: unexpected em_data value 0x%uxD",
-            (uint32_t) b);
-        return NGX_DECLINED;
-    }
+    /* cc_data_pkt */
 
     pkt = ngx_kmp_cc_packet_alloc(ctx);
     if (pkt == NULL) {
@@ -1125,51 +1129,44 @@ static ngx_int_t
 ngx_kmp_cc_process_frame(ngx_kmp_cc_ctx_t *ctx, ngx_buf_chain_t *in)
 {
     u_char                      nal_type;
+    u_char                      nal_header[2];
     u_char                     *nalp;
     uint32_t                    size;
     ngx_int_t                   rc;
     ngx_buf_chain_t             reader;
     ngx_buf_chain_reader_ep_t   nal_reader;
 
-    if (!ctx->avc_nal_bytes) {
+    if (!ctx->nal_size_bytes) {
         ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
-            "ngx_kmp_cc_process_frame: avc_nal_bytes not set");
+            "ngx_kmp_cc_process_frame: nal_size_bytes not set");
         return NGX_DECLINED;
     }
 
     reader = *in;
 
-    nalp = (u_char *) &size + sizeof(size) - ctx->avc_nal_bytes;
+    nalp = (u_char *) &size + sizeof(size) - ctx->nal_size_bytes;
 
     for ( ;; ) {
 
         /* nal unit */
         size = 0;
 
-        if (ngx_buf_chain_reader_read(&reader, nalp, ctx->avc_nal_bytes)
+        if (ngx_buf_chain_reader_read(&reader, nalp, ctx->nal_size_bytes)
             != NGX_OK)
         {
             break;
         }
 
         size = htonl(size);
-        if (size <= 0) {
+        if (size < ctx->nal_header_size) {
             ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
-                "ngx_kmp_cc_process_frame: zero size nal");
+                "ngx_kmp_cc_process_frame: nal size %uD too small", size);
             return NGX_DECLINED;
         }
-
-        if (ngx_buf_chain_reader_read(&reader, &nal_type, sizeof(nal_type))
-            != NGX_OK)
-        {
-            ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
-                "ngx_kmp_cc_process_frame: read nal type failed");
-            return NGX_DECLINED;
-        }
-
-        size--;
 
         ngx_buf_chain_reader_ep_init(&nal_reader, &reader);
+
+        nal_reader.left = size;
 
         if (ngx_buf_chain_reader_skip(&reader, size) != NGX_OK) {
             ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
@@ -1178,11 +1175,18 @@ ngx_kmp_cc_process_frame(ngx_kmp_cc_ctx_t *ctx, ngx_buf_chain_t *in)
             return NGX_DECLINED;
         }
 
-        if ((nal_type & 0x1f) != NGX_KMP_CC_AVC_NAL_SEI) {
-            continue;
+        if (ngx_buf_chain_reader_ep_read(&nal_reader, nal_header,
+            ctx->nal_header_size) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+                "ngx_kmp_cc_process_frame: read nal header failed");
+            return NGX_DECLINED;
         }
 
-        nal_reader.left = size;
+        nal_type = (nal_header[0] >> ctx->nal_type_shift) & ctx->nal_type_mask;
+        if (!(ctx->sei_nal_mask & (1ULL << nal_type))) {
+            continue;
+        }
 
         rc = ngx_kmp_cc_process_sei_nal(ctx, &nal_reader);
         if (rc != NGX_OK && rc != NGX_DECLINED) {
@@ -1224,12 +1228,78 @@ ngx_kmp_cc_add_frame(ngx_kmp_cc_ctx_t *ctx, ngx_kmp_in_evt_frame_t *evt)
 }
 
 
+static ngx_int_t
+ngx_kmp_cc_add_media_info_avc(ngx_kmp_cc_ctx_t *ctx,
+    ngx_kmp_in_evt_media_info_t *evt)
+{
+    ngx_kmp_cc_avcc_config_t  avcc;
+
+    if (evt->extra_data_size < sizeof(avcc)) {
+        ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
+            "ngx_kmp_cc_add_media_info_avc: invalid extra data size %uD",
+            evt->extra_data_size);
+        ctx->error = NGX_KMP_CC_ERR_BAD_MEDIA_INFO;
+        return NGX_ERROR;
+    }
+
+    if (ngx_buf_chain_copy(&evt->extra_data, &avcc, sizeof(avcc)) == NULL) {
+        ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
+            "ngx_kmp_cc_add_media_info_avc: copy failed");
+        ctx->error = NGX_KMP_CC_ERR_INTERNAL_ERROR;
+        return NGX_ABORT;
+    }
+
+    ctx->nal_size_bytes = (avcc.nula_length_size & 0x3) + 1;
+    ctx->nal_header_size = 1;
+    ctx->nal_type_shift = 0;
+    ctx->nal_type_mask = 0x1f;
+    ctx->sei_nal_mask = 1 << NGX_KMP_CC_AVC_NAL_SEI;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_kmp_cc_add_media_info_hevc(ngx_kmp_cc_ctx_t *ctx,
+    ngx_kmp_in_evt_media_info_t *evt)
+{
+    u_char  hvcc_header[NGX_KMP_CC_HVCC_HEADER_SIZE];
+
+    if (evt->extra_data_size < sizeof(hvcc_header)) {
+        ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
+            "ngx_kmp_cc_add_media_info_hevc: invalid extra data size %uD",
+            evt->extra_data_size);
+        ctx->error = NGX_KMP_CC_ERR_BAD_MEDIA_INFO;
+        return NGX_ERROR;
+    }
+
+    if (ngx_buf_chain_copy(&evt->extra_data, hvcc_header, sizeof(hvcc_header))
+        == NULL)
+    {
+        ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
+            "ngx_kmp_cc_add_media_info_hevc: copy failed");
+        ctx->error = NGX_KMP_CC_ERR_INTERNAL_ERROR;
+        return NGX_ABORT;
+    }
+
+    ctx->nal_size_bytes = (hvcc_header[21] & 0x3) + 1;
+    ctx->nal_header_size = 2;
+    ctx->nal_type_shift = 1;
+    ctx->nal_type_mask = 0x3f;
+    ctx->sei_nal_mask =
+          (1ULL << NGX_KMP_CC_HEVC_NAL_SEI_PREFIX)
+        | (1ULL << NGX_KMP_CC_HEVC_NAL_SEI_SUFFIX);
+
+    return NGX_OK;
+}
+
+
 ngx_int_t
 ngx_kmp_cc_add_media_info(ngx_kmp_cc_ctx_t *ctx,
     ngx_kmp_in_evt_media_info_t *evt)
 {
-    kmp_media_info_t          *media_info;
-    ngx_kmp_cc_avcc_config_t   avcc;
+    ngx_int_t          rc;
+    kmp_media_info_t  *media_info;
 
     media_info = &evt->media_info;
 
@@ -1241,7 +1311,17 @@ ngx_kmp_cc_add_media_info(ngx_kmp_cc_ctx_t *ctx,
         return NGX_ERROR;
     }
 
-    if (media_info->codec_id != KMP_CODEC_VIDEO_H264) {
+    switch (media_info->codec_id) {
+
+    case KMP_CODEC_VIDEO_H264:
+        rc = ngx_kmp_cc_add_media_info_avc(ctx, evt);
+        break;
+
+    case KMP_CODEC_VIDEO_H265:
+        rc = ngx_kmp_cc_add_media_info_hevc(ctx, evt);
+        break;
+
+    default:
         ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
             "ngx_kmp_cc_add_media_info: unsupported codec id %uD",
             media_info->codec_id);
@@ -1249,22 +1329,10 @@ ngx_kmp_cc_add_media_info(ngx_kmp_cc_ctx_t *ctx,
         return NGX_ERROR;
     }
 
-    if (evt->extra_data_size < sizeof(avcc)) {
-        ngx_log_error(NGX_LOG_ERR, ctx->log, 0,
-            "ngx_kmp_cc_add_media_info: invalid extra data size %uD",
-            evt->extra_data_size);
-        ctx->error = NGX_KMP_CC_ERR_BAD_MEDIA_INFO;
-        return NGX_ERROR;
+    if (rc != NGX_OK) {
+        return rc;
     }
 
-    if (ngx_buf_chain_copy(&evt->extra_data, &avcc, sizeof(avcc)) == NULL) {
-        ngx_log_error(NGX_LOG_ALERT, ctx->log, 0,
-            "ngx_kmp_cc_add_media_info: copy failed");
-        ctx->error = NGX_KMP_CC_ERR_INTERNAL_ERROR;
-        return NGX_ABORT;
-    }
-
-    ctx->avc_nal_bytes = (avcc.nula_length_size & 0x3) + 1;
     ctx->timescale = media_info->timescale;
 
     return NGX_DONE;
