@@ -418,7 +418,7 @@ ngx_ts_kmp_track_heavc_handle_nalu(ngx_ts_kmp_track_t *ts_track,
         && ts_track->caption_tries > 0)
     {
         track = ts_track->track;
-        if (ngx_ts_avc_sei_detect_cea(&track->log, nalu->cl, nalu->pos,
+        if (ngx_ts_heavc_sei_detect_cea(&track->log, nalu->cl, nalu->pos,
             nalu->size, heavc->nal_header_size))
         {
             track->media_info.u.video.cea_captions = 1;

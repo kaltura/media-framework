@@ -94,7 +94,7 @@ ngx_ts_hevc_update_ptl(ngx_ts_hevc_ctx_t *ctx, ngx_ts_hevc_ptl_t *ptl)
 
 
 static void
-ngx_ts_hevc_parse_ptl(ngx_ts_avc_reader_t *br, ngx_ts_hevc_ctx_t *ctx,
+ngx_ts_hevc_parse_ptl(ngx_ts_heavc_reader_t *br, ngx_ts_hevc_ctx_t *ctx,
     ngx_uint_t max_sub_layers_minus1)
 {
     uint32_t           sub_layer_profile_present_flags;
@@ -102,15 +102,17 @@ ngx_ts_hevc_parse_ptl(ngx_ts_avc_reader_t *br, ngx_ts_hevc_ctx_t *ctx,
     ngx_uint_t         i;
     ngx_ts_hevc_ptl_t  general_ptl;
 
-    general_ptl.profile_space = ngx_ts_avc_read_u(br, 2,
+    general_ptl.profile_space = ngx_ts_heavc_read_u(br, 2,
         "general_profile_space");
-    general_ptl.tier_flag = ngx_ts_avc_read_u1(br, "general_tier_flag");
-    general_ptl.profile_idc = ngx_ts_avc_read_u(br, 5, "general_profile_idc");
-    general_ptl.profile_compatibility_flags = ngx_ts_avc_read_u(br, 32,
+    general_ptl.tier_flag = ngx_ts_heavc_read_u1(br,
+        "general_tier_flag");
+    general_ptl.profile_idc = ngx_ts_heavc_read_u(br, 5,
+        "general_profile_idc");
+    general_ptl.profile_compatibility_flags = ngx_ts_heavc_read_u(br, 32,
         "general_profile_compatibility_flag");
-    general_ptl.constraint_indicator_flags = ngx_ts_avc_read_u(br, 48,
+    general_ptl.constraint_indicator_flags = ngx_ts_heavc_read_u(br, 48,
         "general_progressive_source_flag...");
-    general_ptl.level_idc = ngx_ts_avc_read_u(br, 8, "general_level_idc");
+    general_ptl.level_idc = ngx_ts_heavc_read_u(br, 8, "general_level_idc");
 
     if (ctx != NULL) {
         ngx_ts_hevc_update_ptl(ctx, &general_ptl);
@@ -120,47 +122,47 @@ ngx_ts_hevc_parse_ptl(ngx_ts_avc_reader_t *br, ngx_ts_hevc_ctx_t *ctx,
     sub_layer_level_present_flags = 0;
 
     for (i = 0; i < max_sub_layers_minus1; i++) {
-        sub_layer_profile_present_flags |= ngx_ts_avc_read_u1(br,
+        sub_layer_profile_present_flags |= ngx_ts_heavc_read_u1(br,
             "sub_layer_profile_present_flag") << i;
-        sub_layer_level_present_flags |= ngx_ts_avc_read_u1(br,
+        sub_layer_level_present_flags |= ngx_ts_heavc_read_u1(br,
             "sub_layer_level_present_flag") << i;
     }
 
     if (max_sub_layers_minus1 > 0) {
         for (i = max_sub_layers_minus1; i < 8; i++) {
-            ngx_ts_avc_skip_u(br, 2, "reserved_zero_2bits");
+            ngx_ts_heavc_skip_u(br, 2, "reserved_zero_2bits");
         }
     }
 
     for (i = 0; i < max_sub_layers_minus1; i++) {
         if (sub_layer_profile_present_flags & (1 << i)) {
-            ngx_ts_avc_skip_u(br, 40, "sub_layer_profile_space...");
-            ngx_ts_avc_skip_u(br, 48, "sub_layer_progressive_source_flag...");
+            ngx_ts_heavc_skip_u(br, 40, "sub_layer_profile_space...");
+            ngx_ts_heavc_skip_u(br, 48, "sub_layer_progressive_source_flag...");
         }
 
         if (sub_layer_level_present_flags & (1 << i)) {
-            ngx_ts_avc_skip_u(br, 8, "sub_layer_level_idc");
+            ngx_ts_heavc_skip_u(br, 8, "sub_layer_level_idc");
         }
     }
 }
 
 
 static ngx_int_t
-ngx_ts_hevc_hvcc_parse_vps(ngx_ts_avc_reader_t *br, ngx_ts_hevc_ctx_t *ctx)
+ngx_ts_hevc_hvcc_parse_vps(ngx_ts_heavc_reader_t *br, ngx_ts_hevc_ctx_t *ctx)
 {
     ngx_uint_t  vps_max_sub_layers_minus1;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, br->log, 0, "--- ts hevc vps ---");
 
-    ngx_ts_avc_skip_u(br, 12, "vps_video_parameter_set_id...");
+    ngx_ts_heavc_skip_u(br, 12, "vps_video_parameter_set_id...");
 
-    vps_max_sub_layers_minus1 = ngx_ts_avc_read_u(br, 3,
+    vps_max_sub_layers_minus1 = ngx_ts_heavc_read_u(br, 3,
         "vps_max_sub_layers_minus1");
 
     ctx->num_temporal_layers = ngx_max(ctx->num_temporal_layers,
         vps_max_sub_layers_minus1 + 1);
 
-    ngx_ts_avc_skip_u(br, 17, "vps_temporal_id_nesting_flag...");
+    ngx_ts_heavc_skip_u(br, 17, "vps_temporal_id_nesting_flag...");
 
     ngx_ts_hevc_parse_ptl(br, ctx, vps_max_sub_layers_minus1);
 
@@ -169,27 +171,27 @@ ngx_ts_hevc_hvcc_parse_vps(ngx_ts_avc_reader_t *br, ngx_ts_hevc_ctx_t *ctx)
 
 
 static void
-ngx_ts_hevc_skip_sub_layer_hrd_params(ngx_ts_avc_reader_t *br,
+ngx_ts_hevc_skip_sub_layer_hrd_params(ngx_ts_heavc_reader_t *br,
     ngx_uint_t cpb_cnt_minus1, u_char sub_pic_hrd_params_present_flag)
 {
     ngx_uint_t  i;
 
     for (i = 0; i <= cpb_cnt_minus1; i++) {
-        ngx_ts_avc_read_ue(br, "bit_rate_value_minus1");
-        ngx_ts_avc_read_ue(br, "cpb_size_value_minus1");
+        ngx_ts_heavc_read_ue(br, "bit_rate_value_minus1");
+        ngx_ts_heavc_read_ue(br, "cpb_size_value_minus1");
 
         if (sub_pic_hrd_params_present_flag) {
-            ngx_ts_avc_read_ue(br, "cpb_size_du_value_minus1");
-            ngx_ts_avc_read_ue(br, "bit_rate_du_value_minus1");
+            ngx_ts_heavc_read_ue(br, "cpb_size_du_value_minus1");
+            ngx_ts_heavc_read_ue(br, "bit_rate_du_value_minus1");
         }
 
-        ngx_ts_avc_skip_u1(br, "cbr_flag");
+        ngx_ts_heavc_skip_u1(br, "cbr_flag");
     }
 }
 
 
 static ngx_int_t
-ngx_ts_hevc_skip_hrd_params(ngx_ts_avc_reader_t *br,
+ngx_ts_hevc_skip_hrd_params(ngx_ts_heavc_reader_t *br,
     u_char common_inf_present_flag, ngx_uint_t max_sub_layers_minus1)
 {
     u_char      low_delay_hrd_flag;
@@ -206,53 +208,54 @@ ngx_ts_hevc_skip_hrd_params(ngx_ts_avc_reader_t *br,
     sub_pic_hrd_params_present_flag = 0;
 
     if (common_inf_present_flag) {
-        nal_hrd_parameters_present_flag = ngx_ts_avc_read_u1(br,
+        nal_hrd_parameters_present_flag = ngx_ts_heavc_read_u1(br,
             "nal_hrd_parameters_present_flag");
-        vcl_hrd_parameters_present_flag = ngx_ts_avc_read_u1(br,
+        vcl_hrd_parameters_present_flag = ngx_ts_heavc_read_u1(br,
             "vcl_hrd_parameters_present_flag");
 
         if (nal_hrd_parameters_present_flag
             || vcl_hrd_parameters_present_flag)
         {
-            sub_pic_hrd_params_present_flag = ngx_ts_avc_read_u1(br,
+            sub_pic_hrd_params_present_flag = ngx_ts_heavc_read_u1(br,
                 "sub_pic_hrd_params_present_flag");
 
             if (sub_pic_hrd_params_present_flag) {
-                ngx_ts_avc_skip_u(br, 19, "tick_divisor_minus2...");
+                ngx_ts_heavc_skip_u(br, 19, "tick_divisor_minus2...");
             }
 
-            ngx_ts_avc_skip_u(br, 8, "bit_rate_scale...");
+            ngx_ts_heavc_skip_u(br, 8, "bit_rate_scale...");
 
             if (sub_pic_hrd_params_present_flag) {
-                ngx_ts_avc_skip_u(br, 4, "cpb_size_du_scale");
+                ngx_ts_heavc_skip_u(br, 4, "cpb_size_du_scale");
             }
 
-            ngx_ts_avc_skip_u(br, 15,
+            ngx_ts_heavc_skip_u(br, 15,
                 "initial_cpb_removal_delay_length_minus1...");
         }
     }
 
     for (i = 0; i <= max_sub_layers_minus1; i++) {
-        fixed_pic_rate_general_flag = ngx_ts_avc_read_u1(br,
+        fixed_pic_rate_general_flag = ngx_ts_heavc_read_u1(br,
             "fixed_pic_rate_general_flag");
 
         fixed_pic_rate_within_cvs_flag = 0;
         if (!fixed_pic_rate_general_flag) {
-            fixed_pic_rate_within_cvs_flag = ngx_ts_avc_read_u1(br,
+            fixed_pic_rate_within_cvs_flag = ngx_ts_heavc_read_u1(br,
                 "fixed_pic_rate_within_cvs_flag");
         }
 
         low_delay_hrd_flag = 0;
         if (fixed_pic_rate_within_cvs_flag) {
-            ngx_ts_avc_read_ue(br, "elemental_duration_in_tc_minus1");
+            ngx_ts_heavc_read_ue(br, "elemental_duration_in_tc_minus1");
 
         } else {
-            low_delay_hrd_flag = ngx_ts_avc_read_u1(br, "low_delay_hrd_flag");
+            low_delay_hrd_flag = ngx_ts_heavc_read_u1(br,
+                "low_delay_hrd_flag");
         }
 
         cpb_cnt_minus1 = 0;
         if (!low_delay_hrd_flag) {
-            cpb_cnt_minus1 = ngx_ts_avc_read_ue(br, "cpb_cnt_minus1");
+            cpb_cnt_minus1 = ngx_ts_heavc_read_ue(br, "cpb_cnt_minus1");
             if (cpb_cnt_minus1 > 31) {
                 ngx_log_error(NGX_LOG_ERR, br->log, 0,
                     "ngx_ts_hevc_skip_hrd_params: "
@@ -277,78 +280,78 @@ ngx_ts_hevc_skip_hrd_params(ngx_ts_avc_reader_t *br,
 
 
 static void
-ngx_ts_hevc_hvcc_parse_vui(ngx_ts_avc_reader_t *br, ngx_ts_hevc_ctx_t *ctx,
+ngx_ts_hevc_hvcc_parse_vui(ngx_ts_heavc_reader_t *br, ngx_ts_hevc_ctx_t *ctx,
     ngx_uint_t max_sub_layers_minus1)
 {
     ngx_uint_t  min_spatial_segmentation_idc;
 
-    if (ngx_ts_avc_read_u1(br, "aspect_ratio_info_present_flag")) {
-        if (ngx_ts_avc_read_u(br, 8, "aspect_ratio_idc")
+    if (ngx_ts_heavc_read_u1(br, "aspect_ratio_info_present_flag")) {
+        if (ngx_ts_heavc_read_u(br, 8, "aspect_ratio_idc")
             == HEVC_EXTENDED_SAR)
         {
-            ngx_ts_avc_skip_u(br, 32, "sar_width...");
+            ngx_ts_heavc_skip_u(br, 32, "sar_width...");
         }
     }
 
-    if (ngx_ts_avc_read_u1(br, "overscan_info_present_flag")) {
-        ngx_ts_avc_skip_u1(br, "overscan_appropriate_flag");
+    if (ngx_ts_heavc_read_u1(br, "overscan_info_present_flag")) {
+        ngx_ts_heavc_skip_u1(br, "overscan_appropriate_flag");
     }
 
-    if (ngx_ts_avc_read_u1(br, "video_signal_type_present_flag")) {
-        ngx_ts_avc_skip_u(br, 4, "video_format...");
+    if (ngx_ts_heavc_read_u1(br, "video_signal_type_present_flag")) {
+        ngx_ts_heavc_skip_u(br, 4, "video_format...");
 
-        if (ngx_ts_avc_read_u1(br, "colour_description_present_flag")) {
-            ngx_ts_avc_skip_u(br, 24, "colour_primaries...");
+        if (ngx_ts_heavc_read_u1(br, "colour_description_present_flag")) {
+            ngx_ts_heavc_skip_u(br, 24, "colour_primaries...");
         }
     }
 
-    if (ngx_ts_avc_read_u1(br, "chroma_loc_info_present_flag")) {
-        ngx_ts_avc_read_ue(br, "chroma_sample_loc_type_top_field");
-        ngx_ts_avc_read_ue(br, "chroma_sample_loc_type_bottom_field");
+    if (ngx_ts_heavc_read_u1(br, "chroma_loc_info_present_flag")) {
+        ngx_ts_heavc_read_ue(br, "chroma_sample_loc_type_top_field");
+        ngx_ts_heavc_read_ue(br, "chroma_sample_loc_type_bottom_field");
     }
 
-    ngx_ts_avc_skip_u(br, 3, "neutral_chroma_indication_flag...");
+    ngx_ts_heavc_skip_u(br, 3, "neutral_chroma_indication_flag...");
 
-    if (ngx_ts_avc_read_u1(br, "default_display_window_flag")) {
-        ngx_ts_avc_read_ue(br, "def_disp_win_left_offset");
-        ngx_ts_avc_read_ue(br, "def_disp_win_right_offset");
-        ngx_ts_avc_read_ue(br, "def_disp_win_top_offset");
-        ngx_ts_avc_read_ue(br, "def_disp_win_bottom_offset");
+    if (ngx_ts_heavc_read_u1(br, "default_display_window_flag")) {
+        ngx_ts_heavc_read_ue(br, "def_disp_win_left_offset");
+        ngx_ts_heavc_read_ue(br, "def_disp_win_right_offset");
+        ngx_ts_heavc_read_ue(br, "def_disp_win_top_offset");
+        ngx_ts_heavc_read_ue(br, "def_disp_win_bottom_offset");
     }
 
-    if (ngx_ts_avc_read_u1(br, "vui_timing_info_present_flag")) {
-        ngx_ts_avc_skip_u(br, 32, "vps_num_units_in_tick");
-        ngx_ts_avc_skip_u(br, 32, "vps_time_scale");
+    if (ngx_ts_heavc_read_u1(br, "vui_timing_info_present_flag")) {
+        ngx_ts_heavc_skip_u(br, 32, "vps_num_units_in_tick");
+        ngx_ts_heavc_skip_u(br, 32, "vps_time_scale");
 
-        if (ngx_ts_avc_read_u1(br, "vps_poc_proportional_to_timing_flag")) {
-            ngx_ts_avc_read_ue(br, "vps_num_ticks_poc_diff_one_minus1");
+        if (ngx_ts_heavc_read_u1(br, "vps_poc_proportional_to_timing_flag")) {
+            ngx_ts_heavc_read_ue(br, "vps_num_ticks_poc_diff_one_minus1");
         }
 
-        if (ngx_ts_avc_read_u1(br, "vui_hrd_parameters_present_flag")) {
+        if (ngx_ts_heavc_read_u1(br, "vui_hrd_parameters_present_flag")) {
             ngx_ts_hevc_skip_hrd_params(br, 1, max_sub_layers_minus1);
         }
     }
 
-    if (ngx_ts_avc_read_u1(br, "bitstream_restriction_flag")) {
-        ngx_ts_avc_skip_u(br, 3, "tiles_fixed_structure_flag...");
+    if (ngx_ts_heavc_read_u1(br, "bitstream_restriction_flag")) {
+        ngx_ts_heavc_skip_u(br, 3, "tiles_fixed_structure_flag...");
 
-        min_spatial_segmentation_idc = ngx_ts_avc_read_ue(br,
+        min_spatial_segmentation_idc = ngx_ts_heavc_read_ue(br,
             "min_spatial_segmentation_idc");
 
         ctx->min_spatial_segmentation_idc = ngx_min(
             ctx->min_spatial_segmentation_idc,
             min_spatial_segmentation_idc);
 
-        ngx_ts_avc_read_ue(br, "max_bytes_per_pic_denom");
-        ngx_ts_avc_read_ue(br, "max_bits_per_min_cu_denom");
-        ngx_ts_avc_read_ue(br, "log2_max_mv_length_horizontal");
-        ngx_ts_avc_read_ue(br, "log2_max_mv_length_vertical");
+        ngx_ts_heavc_read_ue(br, "max_bytes_per_pic_denom");
+        ngx_ts_heavc_read_ue(br, "max_bits_per_min_cu_denom");
+        ngx_ts_heavc_read_ue(br, "log2_max_mv_length_horizontal");
+        ngx_ts_heavc_read_ue(br, "log2_max_mv_length_vertical");
     }
 }
 
 
 static void
-ngx_ts_hevc_skip_scaling_list_data(ngx_ts_avc_reader_t *br)
+ngx_ts_hevc_skip_scaling_list_data(ngx_ts_heavc_reader_t *br)
 {
     ngx_int_t  i;
     ngx_int_t  size_id;
@@ -358,18 +361,18 @@ ngx_ts_hevc_skip_scaling_list_data(ngx_ts_avc_reader_t *br)
     for (size_id = 0; size_id < 4; size_id++) {
         for (matrix_id = 0; matrix_id < (size_id == 3 ? 2 : 6); matrix_id++) {
 
-            if (!ngx_ts_avc_read_u1(br, "scaling_list_pred_mode_flag")) {
-                ngx_ts_avc_read_ue(br, "scaling_list_pred_matrix_id_delta");
+            if (!ngx_ts_heavc_read_u1(br, "scaling_list_pred_mode_flag")) {
+                ngx_ts_heavc_read_ue(br, "scaling_list_pred_matrix_id_delta");
 
             } else {
                 coef_num = ngx_min(64, 1 << (4 + (size_id << 1)));
 
                 if (size_id > 1) {
-                    ngx_ts_avc_read_se(br, "scaling_list_dc_coef_minus8");
+                    ngx_ts_heavc_read_se(br, "scaling_list_dc_coef_minus8");
                 }
 
                 for (i = 0; i < coef_num; i++) {
-                    ngx_ts_avc_read_se(br, "scaling_list_delta_coef");
+                    ngx_ts_heavc_read_se(br, "scaling_list_delta_coef");
                 }
             }
         }
@@ -378,7 +381,7 @@ ngx_ts_hevc_skip_scaling_list_data(ngx_ts_avc_reader_t *br)
 
 
 static ngx_int_t
-ngx_ts_hevc_parse_rps(ngx_ts_avc_reader_t *br, ngx_uint_t rps_idx,
+ngx_ts_hevc_parse_rps(ngx_ts_heavc_reader_t *br, ngx_uint_t rps_idx,
     ngx_uint_t num_rps, ngx_uint_t *num_delta_pocs)
 {
     u_char      use_delta_flag;
@@ -387,7 +390,7 @@ ngx_ts_hevc_parse_rps(ngx_ts_avc_reader_t *br, ngx_uint_t rps_idx,
     ngx_uint_t  num_negative_pics;
     ngx_uint_t  num_positive_pics;
 
-    if (rps_idx && ngx_ts_avc_read_u1(br,
+    if (rps_idx && ngx_ts_heavc_read_u1(br,
         "inter_ref_pic_set_prediction_flag"))
     {
         if (rps_idx >= num_rps) {
@@ -397,18 +400,18 @@ ngx_ts_hevc_parse_rps(ngx_ts_avc_reader_t *br, ngx_uint_t rps_idx,
             return NGX_ERROR;
         }
 
-        ngx_ts_avc_skip_u1(br, "delta_rps_sign");
-        ngx_ts_avc_read_ue(br, "abs_delta_rps_minus1");
+        ngx_ts_heavc_skip_u1(br, "delta_rps_sign");
+        ngx_ts_heavc_read_ue(br, "abs_delta_rps_minus1");
 
         num_delta_pocs[rps_idx] = 0;
 
         for (i = 0; i <= num_delta_pocs[rps_idx - 1]; i++) {
-            used_by_curr_pic_flag = ngx_ts_avc_read_u1(br,
+            used_by_curr_pic_flag = ngx_ts_heavc_read_u1(br,
                 "used_by_curr_pic_flag");
 
             use_delta_flag = 0;
             if (!used_by_curr_pic_flag) {
-                use_delta_flag = ngx_ts_avc_read_u1(br, "use_delta_flag");
+                use_delta_flag = ngx_ts_heavc_read_u1(br, "use_delta_flag");
             }
 
             if (used_by_curr_pic_flag || use_delta_flag) {
@@ -417,14 +420,14 @@ ngx_ts_hevc_parse_rps(ngx_ts_avc_reader_t *br, ngx_uint_t rps_idx,
         }
 
     } else {
-        num_negative_pics = ngx_ts_avc_read_ue(br, "num_negative_pics");
-        num_positive_pics = ngx_ts_avc_read_ue(br, "num_positive_pics");
+        num_negative_pics = ngx_ts_heavc_read_ue(br, "num_negative_pics");
+        num_positive_pics = ngx_ts_heavc_read_ue(br, "num_positive_pics");
 
         num_delta_pocs[rps_idx] = num_negative_pics + num_positive_pics;
 
         for (i = 0; i < num_negative_pics; i++) {
-            ngx_ts_avc_read_ue(br, "delta_poc_s0_minus1");
-            ngx_ts_avc_skip_u1(br, "used_by_curr_pic_s0_flag");
+            ngx_ts_heavc_read_ue(br, "delta_poc_s0_minus1");
+            ngx_ts_heavc_skip_u1(br, "used_by_curr_pic_s0_flag");
 
             if (br->err) {
                 ngx_log_error(NGX_LOG_ERR, br->log, 0,
@@ -434,8 +437,8 @@ ngx_ts_hevc_parse_rps(ngx_ts_avc_reader_t *br, ngx_uint_t rps_idx,
         }
 
         for (i = 0; i < num_positive_pics; i++) {
-            ngx_ts_avc_read_ue(br, "delta_poc_s1_minus1");
-            ngx_ts_avc_skip_u1(br, "used_by_curr_pic_s1_flag");
+            ngx_ts_heavc_read_ue(br, "delta_poc_s1_minus1");
+            ngx_ts_heavc_skip_u1(br, "used_by_curr_pic_s1_flag");
 
             if (br->err) {
                 ngx_log_error(NGX_LOG_ERR, br->log, 0,
@@ -450,7 +453,7 @@ ngx_ts_hevc_parse_rps(ngx_ts_avc_reader_t *br, ngx_uint_t rps_idx,
 
 
 static ngx_int_t
-ngx_ts_hevc_hvcc_parse_sps(ngx_ts_avc_reader_t *br, ngx_ts_hevc_ctx_t *ctx)
+ngx_ts_hevc_hvcc_parse_sps(ngx_ts_heavc_reader_t *br, ngx_ts_hevc_ctx_t *ctx)
 {
     ngx_uint_t  i;
     ngx_uint_t  len;
@@ -462,82 +465,83 @@ ngx_ts_hevc_hvcc_parse_sps(ngx_ts_avc_reader_t *br, ngx_ts_hevc_ctx_t *ctx)
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, br->log, 0, "--- ts hevc sps ---");
 
-    ngx_ts_avc_skip_u(br, 4, "sps_video_parameter_set_id");
+    ngx_ts_heavc_skip_u(br, 4, "sps_video_parameter_set_id");
 
-    sps_max_sub_layers_minus1 = ngx_ts_avc_read_u(br, 3,
+    sps_max_sub_layers_minus1 = ngx_ts_heavc_read_u(br, 3,
         "sps_max_sub_layers_minus1");
 
     ctx->num_temporal_layers = ngx_max(ctx->num_temporal_layers,
         sps_max_sub_layers_minus1 + 1);
 
-    ctx->sps_temporal_id_nesting_flag = ngx_ts_avc_read_u1(br,
+    ctx->sps_temporal_id_nesting_flag = ngx_ts_heavc_read_u1(br,
         "sps_temporal_id_nesting_flag");
 
     ngx_ts_hevc_parse_ptl(br, ctx, sps_max_sub_layers_minus1);
 
-    ngx_ts_avc_read_ue(br, "sps_seq_parameter_set_id");
+    ngx_ts_heavc_read_ue(br, "sps_seq_parameter_set_id");
 
-    ctx->chroma_format_idc = ngx_ts_avc_read_ue(br, "chroma_format_idc");
+    ctx->chroma_format_idc = ngx_ts_heavc_read_ue(br, "chroma_format_idc");
 
     if (ctx->chroma_format_idc == 3) {
-        ctx->separate_colour_plane_flag = ngx_ts_avc_read_u1(br,
+        ctx->separate_colour_plane_flag = ngx_ts_heavc_read_u1(br,
             "separate_colour_plane_flag");
     }
 
-    ctx->pic_width_in_luma_samples = ngx_ts_avc_read_ue(br,
+    ctx->pic_width_in_luma_samples = ngx_ts_heavc_read_ue(br,
         "pic_width_in_luma_samples");
-    ctx->pic_height_in_luma_samples = ngx_ts_avc_read_ue(br,
+    ctx->pic_height_in_luma_samples = ngx_ts_heavc_read_ue(br,
         "pic_height_in_luma_samples");
 
-    if (ngx_ts_avc_read_u1(br, "conformance_window_flag")) {
-        ctx->conf_win_left_offset = ngx_ts_avc_read_ue(br,
+    if (ngx_ts_heavc_read_u1(br, "conformance_window_flag")) {
+        ctx->conf_win_left_offset = ngx_ts_heavc_read_ue(br,
             "conf_win_left_offset");
-        ctx->conf_win_right_offset = ngx_ts_avc_read_ue(br,
+        ctx->conf_win_right_offset = ngx_ts_heavc_read_ue(br,
             "conf_win_right_offset");
-        ctx->conf_win_top_offset = ngx_ts_avc_read_ue(br,
+        ctx->conf_win_top_offset = ngx_ts_heavc_read_ue(br,
             "conf_win_top_offset");
-        ctx->conf_win_bottom_offset = ngx_ts_avc_read_ue(br,
+        ctx->conf_win_bottom_offset = ngx_ts_heavc_read_ue(br,
             "conf_win_bottom_offset");
     }
 
-    ctx->bit_depth_luma_minus8 = ngx_ts_avc_read_ue(br,
+    ctx->bit_depth_luma_minus8 = ngx_ts_heavc_read_ue(br,
         "bit_depth_luma_minus8");
-    ctx->bit_depth_chroma_minus8 = ngx_ts_avc_read_ue(br,
+    ctx->bit_depth_chroma_minus8 = ngx_ts_heavc_read_ue(br,
         "bit_depth_chroma_minus8");
-    log2_max_pic_order_cnt_lsb_minus4 = ngx_ts_avc_read_ue(br,
+    log2_max_pic_order_cnt_lsb_minus4 = ngx_ts_heavc_read_ue(br,
         "log2_max_pic_order_cnt_lsb_minus4");
 
-    i = ngx_ts_avc_read_u1(br, "sps_sub_layer_ordering_info_present_flag")
+    i = ngx_ts_heavc_read_u1(br, "sps_sub_layer_ordering_info_present_flag")
         ? 0 : sps_max_sub_layers_minus1;
     for (; i <= sps_max_sub_layers_minus1; i++) {
-        ngx_ts_avc_read_ue(br, "sps_max_dec_pic_buffering_minus1");
-        ngx_ts_avc_read_ue(br, "sps_max_num_reorder_pics");
-        ngx_ts_avc_read_ue(br, "sps_max_latency_increase_plus1");
+        ngx_ts_heavc_read_ue(br, "sps_max_dec_pic_buffering_minus1");
+        ngx_ts_heavc_read_ue(br, "sps_max_num_reorder_pics");
+        ngx_ts_heavc_read_ue(br, "sps_max_latency_increase_plus1");
     }
 
-    ngx_ts_avc_read_ue(br, "log2_min_luma_coding_block_size_minus3");
-    ngx_ts_avc_read_ue(br, "log2_diff_max_min_luma_coding_block_size");
-    ngx_ts_avc_read_ue(br, "log2_min_luma_transform_block_size_minus2");
-    ngx_ts_avc_read_ue(br, "log2_diff_max_min_luma_transform_block_size");
-    ngx_ts_avc_read_ue(br, "max_transform_hierarchy_depth_inter");
-    ngx_ts_avc_read_ue(br, "max_transform_hierarchy_depth_intra");
+    ngx_ts_heavc_read_ue(br, "log2_min_luma_coding_block_size_minus3");
+    ngx_ts_heavc_read_ue(br, "log2_diff_max_min_luma_coding_block_size");
+    ngx_ts_heavc_read_ue(br, "log2_min_luma_transform_block_size_minus2");
+    ngx_ts_heavc_read_ue(br, "log2_diff_max_min_luma_transform_block_size");
+    ngx_ts_heavc_read_ue(br, "max_transform_hierarchy_depth_inter");
+    ngx_ts_heavc_read_ue(br, "max_transform_hierarchy_depth_intra");
 
-    if (ngx_ts_avc_read_u1(br, "scaling_list_enabled_flag") &&
-        ngx_ts_avc_read_u1(br, "sps_scaling_list_data_present_flag"))
+    if (ngx_ts_heavc_read_u1(br, "scaling_list_enabled_flag") &&
+        ngx_ts_heavc_read_u1(br, "sps_scaling_list_data_present_flag"))
     {
         ngx_ts_hevc_skip_scaling_list_data(br);
     }
 
-    ngx_ts_avc_skip_u(br, 2, "amp_enabled_flag...");
+    ngx_ts_heavc_skip_u(br, 2, "amp_enabled_flag...");
 
-    if (ngx_ts_avc_read_u1(br, "pcm_enabled_flag")) {
-        ngx_ts_avc_skip_u(br, 8, "pcm_sample_bit_depth_luma_minus1...");
-        ngx_ts_avc_read_ue(br, "log2_min_pcm_luma_coding_block_size_minus3");
-        ngx_ts_avc_read_ue(br, "log2_diff_max_min_pcm_luma_coding_block_size");
-        ngx_ts_avc_skip_u1(br, "pcm_loop_filter_disabled_flag");
+    if (ngx_ts_heavc_read_u1(br, "pcm_enabled_flag")) {
+        ngx_ts_heavc_skip_u(br, 8, "pcm_sample_bit_depth_luma_minus1...");
+        ngx_ts_heavc_read_ue(br, "log2_min_pcm_luma_coding_block_size_minus3");
+        ngx_ts_heavc_read_ue(br,
+            "log2_diff_max_min_pcm_luma_coding_block_size");
+        ngx_ts_heavc_skip_u1(br, "pcm_loop_filter_disabled_flag");
     }
 
-    num_short_term_ref_pic_sets = ngx_ts_avc_read_ue(br,
+    num_short_term_ref_pic_sets = ngx_ts_heavc_read_ue(br,
         "num_short_term_ref_pic_sets");
     if (num_short_term_ref_pic_sets > HEVC_MAX_SHORT_TERM_REF_PIC_SETS) {
         ngx_log_error(NGX_LOG_ERR, br->log, 0,
@@ -555,8 +559,8 @@ ngx_ts_hevc_hvcc_parse_sps(ngx_ts_avc_reader_t *br, ngx_ts_hevc_ctx_t *ctx)
         }
     }
 
-    if (ngx_ts_avc_read_u1(br, "long_term_ref_pics_present_flag")) {
-        num_long_term_ref_pics_sps = ngx_ts_avc_read_ue(br,
+    if (ngx_ts_heavc_read_u1(br, "long_term_ref_pics_present_flag")) {
+        num_long_term_ref_pics_sps = ngx_ts_heavc_read_ue(br,
             "num_long_term_ref_pics_sps");
         if (num_long_term_ref_pics_sps > 31) {
             ngx_log_error(NGX_LOG_ERR, br->log, 0,
@@ -568,14 +572,14 @@ ngx_ts_hevc_hvcc_parse_sps(ngx_ts_avc_reader_t *br, ngx_ts_hevc_ctx_t *ctx)
 
         for (i = 0; i < num_long_term_ref_pics_sps; i++) {
             len = ngx_min(log2_max_pic_order_cnt_lsb_minus4 + 4, 16);
-            ngx_ts_avc_skip_u(br, len, "lt_ref_pic_poc_lsb_sps");
-            ngx_ts_avc_skip_u1(br, "used_by_curr_pic_lt_sps_flag");
+            ngx_ts_heavc_skip_u(br, len, "lt_ref_pic_poc_lsb_sps");
+            ngx_ts_heavc_skip_u1(br, "used_by_curr_pic_lt_sps_flag");
         }
     }
 
-    ngx_ts_avc_skip_u(br, 2, "sps_temporal_mvp_enabled_flag...");
+    ngx_ts_heavc_skip_u(br, 2, "sps_temporal_mvp_enabled_flag...");
 
-    if (ngx_ts_avc_read_u1(br, "vui_parameters_present_flag")) {
+    if (ngx_ts_heavc_read_u1(br, "vui_parameters_present_flag")) {
         ngx_ts_hevc_hvcc_parse_vui(br, ctx, sps_max_sub_layers_minus1);
     }
 
@@ -584,35 +588,35 @@ ngx_ts_hevc_hvcc_parse_sps(ngx_ts_avc_reader_t *br, ngx_ts_hevc_ctx_t *ctx)
 
 
 static ngx_int_t
-ngx_ts_hevc_hvcc_parse_pps(ngx_ts_avc_reader_t *br, ngx_ts_hevc_ctx_t *ctx)
+ngx_ts_hevc_hvcc_parse_pps(ngx_ts_heavc_reader_t *br, ngx_ts_hevc_ctx_t *ctx)
 {
     u_char  tiles_enabled_flag;
     u_char  entropy_coding_sync_enabled_flag;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, br->log, 0, "--- ts hevc pps ---");
 
-    ngx_ts_avc_read_ue(br, "pps_pic_parameter_set_id");
-    ngx_ts_avc_read_ue(br, "pps_seq_parameter_set_id");
+    ngx_ts_heavc_read_ue(br, "pps_pic_parameter_set_id");
+    ngx_ts_heavc_read_ue(br, "pps_seq_parameter_set_id");
 
-    ngx_ts_avc_skip_u(br, 7, "dependent_slice_segments_enabled_flag...");
+    ngx_ts_heavc_skip_u(br, 7, "dependent_slice_segments_enabled_flag...");
 
-    ngx_ts_avc_read_ue(br, "num_ref_idx_l0_default_active_minus1");
-    ngx_ts_avc_read_ue(br, "num_ref_idx_l1_default_active_minus1");
-    ngx_ts_avc_read_se(br, "init_qp_minus26");
+    ngx_ts_heavc_read_ue(br, "num_ref_idx_l0_default_active_minus1");
+    ngx_ts_heavc_read_ue(br, "num_ref_idx_l1_default_active_minus1");
+    ngx_ts_heavc_read_se(br, "init_qp_minus26");
 
-    ngx_ts_avc_skip_u(br, 2, "constrained_intra_pred_flag...");
+    ngx_ts_heavc_skip_u(br, 2, "constrained_intra_pred_flag...");
 
-    if (ngx_ts_avc_read_u1(br, "cu_qp_delta_enabled_flag")) {
-        ngx_ts_avc_read_ue(br, "diff_cu_qp_delta_depth");
+    if (ngx_ts_heavc_read_u1(br, "cu_qp_delta_enabled_flag")) {
+        ngx_ts_heavc_read_ue(br, "diff_cu_qp_delta_depth");
     }
 
-    ngx_ts_avc_read_se(br, "pps_cb_qp_offset");
-    ngx_ts_avc_read_se(br, "pps_cr_qp_offset");
+    ngx_ts_heavc_read_se(br, "pps_cb_qp_offset");
+    ngx_ts_heavc_read_se(br, "pps_cr_qp_offset");
 
-    ngx_ts_avc_skip_u(br, 4, "pps_slice_chroma_qp_offsets_present_flag...");
+    ngx_ts_heavc_skip_u(br, 4, "pps_slice_chroma_qp_offsets_present_flag...");
 
-    tiles_enabled_flag = ngx_ts_avc_read_u1(br, "tiles_enabled_flag");
-    entropy_coding_sync_enabled_flag = ngx_ts_avc_read_u1(br,
+    tiles_enabled_flag = ngx_ts_heavc_read_u1(br, "tiles_enabled_flag");
+    entropy_coding_sync_enabled_flag = ngx_ts_heavc_read_u1(br,
         "entropy_coding_sync_enabled_flag");
 
     if (entropy_coding_sync_enabled_flag && tiles_enabled_flag) {
@@ -648,12 +652,12 @@ static ngx_int_t
 ngx_ts_hevc_parse_nalus(ngx_ts_hevc_ctx_t *ctx, ngx_log_t *log,
     ngx_ts_hevc_nalu_array_t *nalus)
 {
-    u_char                type;
-    size_t                size;
-    ngx_int_t             rc;
-    ngx_buf_t            *cur;
-    ngx_uint_t            i;
-    ngx_ts_avc_reader_t   br;
+    u_char                  type;
+    size_t                  size;
+    ngx_int_t               rc;
+    ngx_buf_t              *cur;
+    ngx_uint_t              i;
+    ngx_ts_heavc_reader_t   br;
 
     for (i = 0; i < nalus->nelts; i++) {
         cur = &nalus->elts[i];
@@ -663,7 +667,7 @@ ngx_ts_hevc_parse_nalus(ngx_ts_hevc_ctx_t *ctx, ngx_log_t *log,
             continue;
         }
 
-        ngx_ts_avc_init_reader(&br, cur->pos + HEVC_NALU_HEADER_SIZE,
+        ngx_ts_heavc_init_reader(&br, cur->pos + HEVC_NALU_HEADER_SIZE,
             size - HEVC_NALU_HEADER_SIZE, log, "hevc");
 
         type = ngx_ts_hevc_get_nal_type(cur->pos);
@@ -919,11 +923,11 @@ ngx_ts_hevc_hvcc_write(u_char *p, ngx_log_t *log,
 ngx_int_t
 ngx_ts_hevc_get_ps_id(ngx_buf_t *b, ngx_log_t *log, uint32_t *idp)
 {
-    u_char               type;
-    size_t               size;
-    uint32_t             id;
-    ngx_uint_t           sps_max_sub_layers_minus1;
-    ngx_ts_avc_reader_t  br;
+    u_char                 type;
+    size_t                 size;
+    uint32_t               id;
+    ngx_uint_t             sps_max_sub_layers_minus1;
+    ngx_ts_heavc_reader_t  br;
 
     size = b->last - b->pos;
     if (size < HEVC_NALU_HEADER_SIZE) {
@@ -932,31 +936,31 @@ ngx_ts_hevc_get_ps_id(ngx_buf_t *b, ngx_log_t *log, uint32_t *idp)
         return NGX_ERROR;
     }
 
-    ngx_ts_avc_init_reader(&br, b->pos + HEVC_NALU_HEADER_SIZE,
+    ngx_ts_heavc_init_reader(&br, b->pos + HEVC_NALU_HEADER_SIZE,
         size - HEVC_NALU_HEADER_SIZE, log, "hevc");
 
     type = ngx_ts_hevc_get_nal_type(b->pos);
     switch (type) {
 
     case NGX_TS_HEVC_NAL_VPS:
-        id = ngx_ts_avc_read_u(&br, 4, "vps_video_parameter_set_id");
+        id = ngx_ts_heavc_read_u(&br, 4, "vps_video_parameter_set_id");
         break;
 
     case NGX_TS_HEVC_NAL_SPS:
-        ngx_ts_avc_skip_u(&br, 4, "sps_video_parameter_set_id");
+        ngx_ts_heavc_skip_u(&br, 4, "sps_video_parameter_set_id");
 
-        sps_max_sub_layers_minus1 = ngx_ts_avc_read_u(&br, 3,
+        sps_max_sub_layers_minus1 = ngx_ts_heavc_read_u(&br, 3,
             "sps_max_sub_layers_minus1");
 
-        ngx_ts_avc_skip_u1(&br, "sps_temporal_id_nesting_flag");
+        ngx_ts_heavc_skip_u1(&br, "sps_temporal_id_nesting_flag");
 
         ngx_ts_hevc_parse_ptl(&br, NULL, sps_max_sub_layers_minus1);
 
-        id = ngx_ts_avc_read_ue(&br, "sps_seq_parameter_set_id");
+        id = ngx_ts_heavc_read_ue(&br, "sps_seq_parameter_set_id");
         break;
 
     case NGX_TS_HEVC_NAL_PPS:
-        id = ngx_ts_avc_read_ue(&br, "pps_pic_parameter_set_id");
+        id = ngx_ts_heavc_read_ue(&br, "pps_pic_parameter_set_id");
         break;
 
     default:

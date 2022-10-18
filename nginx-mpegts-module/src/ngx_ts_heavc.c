@@ -5,21 +5,21 @@
 
 
 typedef struct {
-    ngx_chain_t                *cl;
-    ngx_buf_t                  *buf;
-    u_char                     *pos;
-} ngx_ts_avc_chain_reader_t;
+    ngx_chain_t                  *cl;
+    ngx_buf_t                    *buf;
+    u_char                       *pos;
+} ngx_ts_heavc_chain_reader_t;
 
 
 typedef struct {
-    ngx_ts_avc_chain_reader_t   base;
-    uint32_t                    last_three;
-    size_t                      left;
-} ngx_ts_avc_chain_reader_ep_t;
+    ngx_ts_heavc_chain_reader_t   base;
+    uint32_t                      last_three;
+    size_t                        left;
+} ngx_ts_heavc_chain_reader_ep_t;
 
 
 /* user_data_registered_itu_t_t35 */
-static u_char  ngx_ts_avc_cea_header[] = {
+static u_char  ngx_ts_heavc_cea_header[] = {
     0xb5,    /* itu_t_t35_country_code   */
     0x00,    /* Itu_t_t35_provider_code  */
     0x31,
@@ -31,10 +31,10 @@ static u_char  ngx_ts_avc_cea_header[] = {
 
 
 void
-ngx_ts_avc_init_reader(ngx_ts_avc_reader_t *br, u_char *buf, size_t len,
+ngx_ts_heavc_init_reader(ngx_ts_heavc_reader_t *br, u_char *buf, size_t len,
     ngx_log_t *log, char *codec)
 {
-    ngx_memzero(br, sizeof(ngx_ts_avc_reader_t));
+    ngx_memzero(br, sizeof(ngx_ts_heavc_reader_t));
 
     br->pos = buf;
     br->last = buf + len;
@@ -49,7 +49,7 @@ ngx_ts_avc_init_reader(ngx_ts_avc_reader_t *br, u_char *buf, size_t len,
 
 
 static ngx_inline void
-ngx_ts_avc_next_byte(ngx_ts_avc_reader_t *br)
+ngx_ts_heavc_next_byte(ngx_ts_heavc_reader_t *br)
 {
     for ( ;; ) {
         br->pos++;
@@ -71,7 +71,7 @@ ngx_ts_avc_next_byte(ngx_ts_avc_reader_t *br)
 
 
 uint32_t
-ngx_ts_avc_read_one(ngx_ts_avc_reader_t *br)
+ngx_ts_heavc_read_one(ngx_ts_heavc_reader_t *br)
 {
     uint32_t  v;
 
@@ -88,7 +88,7 @@ ngx_ts_avc_read_one(ngx_ts_avc_reader_t *br)
 
     br->shift++;
     if (br->shift >= 8) {
-        ngx_ts_avc_next_byte(br);
+        ngx_ts_heavc_next_byte(br);
     }
 
     return v;
@@ -96,7 +96,7 @@ ngx_ts_avc_read_one(ngx_ts_avc_reader_t *br)
 
 
 uint64_t
-ngx_ts_avc_read(ngx_ts_avc_reader_t *br, ngx_uint_t bits)
+ngx_ts_heavc_read(ngx_ts_heavc_reader_t *br, ngx_uint_t bits)
 {
     uint64_t    v;
     ngx_uint_t  k, n;
@@ -130,7 +130,7 @@ ngx_ts_avc_read(ngx_ts_avc_reader_t *br, ngx_uint_t bits)
             break;
         }
 
-        ngx_ts_avc_next_byte(br);
+        ngx_ts_heavc_next_byte(br);
     }
 
     return v;
@@ -138,7 +138,7 @@ ngx_ts_avc_read(ngx_ts_avc_reader_t *br, ngx_uint_t bits)
 
 
 uint64_t
-ngx_ts_avc_read_golomb_unsigned(ngx_ts_avc_reader_t *br)
+ngx_ts_heavc_read_golomb_unsigned(ngx_ts_heavc_reader_t *br)
 {
     /*
      * ISO/IEC 14496-10:2004(E)
@@ -154,7 +154,7 @@ ngx_ts_avc_read_golomb_unsigned(ngx_ts_avc_reader_t *br)
 
     n = 0;
 
-    while (ngx_ts_avc_read_one(br) == 0) {
+    while (ngx_ts_heavc_read_one(br) == 0) {
         if (br->err) {
             return 0;
         }
@@ -162,18 +162,18 @@ ngx_ts_avc_read_golomb_unsigned(ngx_ts_avc_reader_t *br)
         n++;
     }
 
-    v = ((uint64_t) 1 << n) - 1 + ngx_ts_avc_read(br, n);
+    v = ((uint64_t) 1 << n) - 1 + ngx_ts_heavc_read(br, n);
 
     return v;
 }
 
 
 int64_t
-ngx_ts_avc_read_golomb_signed(ngx_ts_avc_reader_t *br)
+ngx_ts_heavc_read_golomb_signed(ngx_ts_heavc_reader_t *br)
 {
     int64_t  value;
 
-    value = ngx_ts_avc_read_golomb_unsigned(br);
+    value = ngx_ts_heavc_read_golomb_unsigned(br);
     if (value > 0) {
         if (value & 1) {        /* positive */
             value = (value + 1) / 2;
@@ -188,7 +188,7 @@ ngx_ts_avc_read_golomb_signed(ngx_ts_avc_reader_t *br)
 
 
 ngx_flag_t
-ngx_ts_avc_rbsp_trailing_bits(ngx_ts_avc_reader_t *br)
+ngx_ts_heavc_rbsp_trailing_bits(ngx_ts_heavc_reader_t *br)
 {
     uint32_t one_bit;
 
@@ -196,13 +196,13 @@ ngx_ts_avc_rbsp_trailing_bits(ngx_ts_avc_reader_t *br)
         return 0;
     }
 
-    one_bit = ngx_ts_avc_read_one(br);
+    one_bit = ngx_ts_heavc_read_one(br);
     if (one_bit != 1) {
         return 0;
     }
 
     while (!br->err) {
-        if (ngx_ts_avc_read_one(br) != 0) {
+        if (ngx_ts_heavc_read_one(br) != 0) {
             return 0;
         }
     }
@@ -212,7 +212,7 @@ ngx_ts_avc_rbsp_trailing_bits(ngx_ts_avc_reader_t *br)
 
 
 static ngx_int_t
-ngx_ts_avc_chain_reader_ep_read(ngx_ts_avc_chain_reader_ep_t *reader,
+ngx_ts_heavc_chain_reader_ep_read(ngx_ts_heavc_chain_reader_ep_t *reader,
     u_char *dst, size_t size)
 {
     u_char   b;
@@ -261,7 +261,7 @@ ngx_ts_avc_chain_reader_ep_read(ngx_ts_avc_chain_reader_ep_t *reader,
 
 
 ngx_int_t
-ngx_ts_avc_chain_reader_ep_skip(ngx_ts_avc_chain_reader_ep_t *reader,
+ngx_ts_heavc_chain_reader_ep_skip(ngx_ts_heavc_chain_reader_ep_t *reader,
     size_t size)
 {
     u_char  b;
@@ -309,15 +309,15 @@ ngx_ts_avc_chain_reader_ep_skip(ngx_ts_avc_chain_reader_ep_t *reader,
 
 
 ngx_flag_t
-ngx_ts_avc_sei_detect_cea(ngx_log_t *log, ngx_chain_t *in, u_char *pos,
+ngx_ts_heavc_sei_detect_cea(ngx_log_t *log, ngx_chain_t *in, u_char *pos,
     size_t size, size_t nal_header_size)
 {
-    u_char                        b;
-    u_char                        buf[sizeof(ngx_ts_avc_cea_header)];
-    uint32_t                      payload_type;
-    uint32_t                      payload_size;
-    ngx_ts_avc_chain_reader_ep_t  payload;
-    ngx_ts_avc_chain_reader_ep_t  reader;
+    u_char                          b;
+    u_char                          buf[sizeof(ngx_ts_heavc_cea_header)];
+    uint32_t                        payload_type;
+    uint32_t                        payload_size;
+    ngx_ts_heavc_chain_reader_ep_t  payload;
+    ngx_ts_heavc_chain_reader_ep_t  reader;
 
     reader.base.cl = in;
     reader.base.buf = in->buf;
@@ -325,9 +325,11 @@ ngx_ts_avc_sei_detect_cea(ngx_log_t *log, ngx_chain_t *in, u_char *pos,
     reader.left = size;
     reader.last_three = 1;
 
-    if (ngx_ts_avc_chain_reader_ep_skip(&reader, nal_header_size) != NGX_OK) {
+    if (ngx_ts_heavc_chain_reader_ep_skip(&reader, nal_header_size)
+        != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_WARN, log, 0,
-            "ngx_ts_avc_sei_detect_cea: skip nal header failed");
+            "ngx_ts_heavc_sei_detect_cea: skip nal header failed");
         return 0;
     }
 
@@ -335,11 +337,11 @@ ngx_ts_avc_sei_detect_cea(ngx_log_t *log, ngx_chain_t *in, u_char *pos,
 
         payload_type = 0;
         do {
-            if (ngx_ts_avc_chain_reader_ep_read(&reader, &b, sizeof(b))
+            if (ngx_ts_heavc_chain_reader_ep_read(&reader, &b, sizeof(b))
                 != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_WARN, log, 0,
-                    "ngx_ts_avc_sei_detect_cea: read payload type failed");
+                    "ngx_ts_heavc_sei_detect_cea: read payload type failed");
                 return 0;
             }
 
@@ -348,11 +350,11 @@ ngx_ts_avc_sei_detect_cea(ngx_log_t *log, ngx_chain_t *in, u_char *pos,
 
         payload_size = 0;
         do {
-            if (ngx_ts_avc_chain_reader_ep_read(&reader, &b, sizeof(b))
+            if (ngx_ts_heavc_chain_reader_ep_read(&reader, &b, sizeof(b))
                 != NGX_OK)
             {
                 ngx_log_error(NGX_LOG_WARN, log, 0,
-                    "ngx_ts_avc_sei_detect_cea: read payload size failed");
+                    "ngx_ts_heavc_sei_detect_cea: read payload size failed");
                 return 0;
             }
 
@@ -361,9 +363,11 @@ ngx_ts_avc_sei_detect_cea(ngx_log_t *log, ngx_chain_t *in, u_char *pos,
 
         payload = reader;
 
-        if (ngx_ts_avc_chain_reader_ep_skip(&reader, payload_size) != NGX_OK) {
+        if (ngx_ts_heavc_chain_reader_ep_skip(&reader, payload_size)
+            != NGX_OK)
+        {
             ngx_log_error(NGX_LOG_WARN, log, 0,
-                "ngx_ts_avc_sei_detect_cea: skip payload failed");
+                "ngx_ts_heavc_sei_detect_cea: skip payload failed");
             return 0;
         }
 
@@ -373,15 +377,15 @@ ngx_ts_avc_sei_detect_cea(ngx_log_t *log, ngx_chain_t *in, u_char *pos,
 
         payload.left = payload_size;
 
-        if (ngx_ts_avc_chain_reader_ep_read(&payload, buf, sizeof(buf))
+        if (ngx_ts_heavc_chain_reader_ep_read(&payload, buf, sizeof(buf))
             != NGX_OK)
         {
             continue;
         }
 
-        if (ngx_memcmp(buf, ngx_ts_avc_cea_header, sizeof(buf)) == 0) {
+        if (ngx_memcmp(buf, ngx_ts_heavc_cea_header, sizeof(buf)) == 0) {
             ngx_log_error(NGX_LOG_INFO, log, 0,
-                "ngx_ts_avc_sei_detect_cea: cea captions detected");
+                "ngx_ts_heavc_sei_detect_cea: cea captions detected");
             return 1;
         }
     }
