@@ -30,6 +30,7 @@ typedef struct {
     ngx_ts_stream_t  *ts;
     u_char           *buf;
     ngx_fd_t          dump_fd;
+    unsigned          dump_input:1;
 } ngx_stream_ts_ctx_t;
 
 
@@ -123,10 +124,6 @@ ngx_stream_ts_open_dump_file(ngx_stream_session_t *s)
 
     tscf = ngx_stream_get_module_srv_conf(s, ngx_stream_ts_module);
 
-    if (tscf->dump_folder.len == 0) {
-        return NGX_INVALID_FILE;
-    }
-
     c = s->connection;
 
     cln = ngx_pool_cleanup_add(c->pool, sizeof(ngx_pool_cleanup_file_t));
@@ -161,6 +158,29 @@ ngx_stream_ts_open_dump_file(ngx_stream_session_t *s)
     clnf->log = c->log;
 
     return fd;
+}
+
+
+static void
+ngx_stream_ts_dump(ngx_stream_session_t *s, void *buf, size_t size)
+{
+    ngx_stream_ts_ctx_t  *ctx;
+
+    ctx = ngx_stream_get_module_ctx(s, ngx_stream_ts_module);
+
+    if (ctx->dump_fd == NGX_INVALID_FILE) {
+        ctx->dump_fd = ngx_stream_ts_open_dump_file(s);
+        if (ctx->dump_fd == NGX_INVALID_FILE) {
+            ctx->dump_input = 0;
+            return;
+        }
+    }
+
+    if (ngx_write_fd(ctx->dump_fd, buf, size) == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
+            "ngx_stream_ts_dump: write failed");
+        ctx->dump_input = 0;
+    }
 }
 
 
@@ -209,7 +229,8 @@ ngx_stream_ts_handler(ngx_stream_session_t *s)
 
     ctx->ts = ts;
 
-    ctx->dump_fd = ngx_stream_ts_open_dump_file(s);
+    ctx->dump_fd = NGX_INVALID_FILE;
+    ctx->dump_input = tscf->dump_folder.len != 0;
 
     /* XXX */
     ngx_str_set(&name, "foo");
@@ -282,13 +303,8 @@ ngx_stream_ts_header_handler(ngx_event_t *rev)
 
     ctx = ngx_stream_get_module_ctx(s, ngx_stream_ts_module);
 
-    if (ctx->dump_fd != NGX_INVALID_FILE) {
-        if (ngx_write_fd(ctx->dump_fd, buf, n) == NGX_ERROR) {
-            ngx_log_error(NGX_LOG_ERR, c->log, ngx_errno,
-                "failed to write to dump file");
-            ngx_close_file(ctx->dump_fd);
-            ctx->dump_fd = NGX_INVALID_FILE;
-        }
+    if (ctx->dump_input) {
+        ngx_stream_ts_dump(s, buf, n);
     }
 
     if (rev->timer_set) {
@@ -381,13 +397,8 @@ ngx_stream_ts_read_handler(ngx_event_t *rev)
             break;
         }
 
-        if (ctx->dump_fd != NGX_INVALID_FILE) {
-            if (ngx_write_fd(ctx->dump_fd, ctx->buf, n) == NGX_ERROR) {
-                ngx_log_error(NGX_LOG_ERR, c->log, ngx_errno,
-                    "failed to write to dump file");
-                ngx_close_file(ctx->dump_fd);
-                ctx->dump_fd = NGX_INVALID_FILE;
-            }
+        if (ctx->dump_input) {
+            ngx_stream_ts_dump(s, ctx->buf, n);
         }
 
         b.pos = ctx->buf;

@@ -12,6 +12,9 @@
 #include <openssl/sha.h>
 
 
+#define NGX_RTMP_ISO8601_DATE_LEN  (sizeof("yyyy-mm-dd") - 1)
+
+
 static void ngx_rtmp_handshake_send(ngx_event_t *wev);
 static void ngx_rtmp_handshake_recv(ngx_event_t *rev);
 static void ngx_rtmp_handshake_done(ngx_rtmp_session_t *s);
@@ -392,6 +395,59 @@ ngx_rtmp_handshake_done(ngx_rtmp_session_t *s)
 }
 
 
+static ngx_fd_t
+ngx_rtmp_open_dump_file(ngx_rtmp_session_t *s)
+{
+    ngx_fd_t                   fd;
+    ngx_str_t                  name;
+    ngx_rtmp_core_srv_conf_t  *cscf;
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    name.len = cscf->dump_folder.len + sizeof("/ngx_rtmp_dump___.dat") +
+        NGX_RTMP_ISO8601_DATE_LEN + NGX_INT64_LEN + NGX_ATOMIC_T_LEN;
+    name.data = ngx_alloc(name.len, s->connection->log);
+    if (name.data == NULL) {
+        return NGX_INVALID_FILE;
+    }
+
+    ngx_sprintf(name.data, "%V/ngx_rtmp_dump_%*s_%P_%uA.dat%Z",
+        &cscf->dump_folder, NGX_RTMP_ISO8601_DATE_LEN,
+        ngx_cached_http_log_iso8601.data, ngx_pid, s->connection->number);
+
+    fd = ngx_open_file((char *) name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
+        NGX_FILE_DEFAULT_ACCESS);
+    if (fd == NGX_INVALID_FILE) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
+            ngx_open_file_n " \"%s\" failed", name.data);
+        ngx_free(name.data);
+        return NGX_INVALID_FILE;
+    }
+
+    ngx_free(name.data);
+    return fd;
+}
+
+
+static void
+ngx_rtmp_handshake_dump(ngx_rtmp_session_t *s, void *buf, size_t size)
+{
+    if (s->dump_fd == NGX_INVALID_FILE) {
+        s->dump_fd = ngx_rtmp_open_dump_file(s);
+        if (s->dump_fd == NGX_INVALID_FILE) {
+            s->dump_input = 0;
+            return;
+        }
+    }
+
+    if (ngx_write_fd(s->dump_fd, buf, size) == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
+            "ngx_rtmp_handshake_dump: write failed");
+        s->dump_input = 0;
+    }
+}
+
+
 static void
 ngx_rtmp_handshake_recv(ngx_event_t *rev)
 {
@@ -438,13 +494,8 @@ ngx_rtmp_handshake_recv(ngx_event_t *rev)
             return;
         }
 
-        if (s->dump_fd != NGX_INVALID_FILE) {
-            if (ngx_write_fd(s->dump_fd, b->last, n) == NGX_ERROR) {
-                ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
-                              "failed to write to rtmp dump file");
-                ngx_close_file(s->dump_fd);
-                s->dump_fd = NGX_INVALID_FILE;
-            }
+        if (s->dump_input) {
+            ngx_rtmp_handshake_dump(s, b->last, n);
         }
 
         b->last += n;
