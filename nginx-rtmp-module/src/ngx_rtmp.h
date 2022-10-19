@@ -283,6 +283,7 @@ typedef struct {
 
     ngx_connection_t       *connection;
     ngx_fd_t                dump_fd;
+    unsigned                dump_input:1;
 
     /* circular buffer of RTMP message pointers */
     ngx_msec_t              timeout;
