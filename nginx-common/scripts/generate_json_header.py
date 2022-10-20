@@ -452,6 +452,13 @@ for (n = 0; n < %s.nelts; n++) {
                 addVarDef(varDefs, objectType, 'cur')
                 valueSize = ''
                 skipCond = ''
+            elif format.startswith('jV-'):
+                escField = format[len('jV-'):]
+                fixed += '"'
+                nextFixed = '"'
+                valueWrite = ('p = ngx_json_str_write_escape(p, &%s, %s);' %
+                    (expr, escField))
+                valueSize = '%s.len + %s' % (expr, escField)
             elif format == 'jV':
                 fixed += '"'
                 nextFixed = '"'

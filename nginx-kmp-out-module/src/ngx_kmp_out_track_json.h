@@ -254,38 +254,18 @@ ngx_kmp_out_track_unpublish_json_write(u_char *p, ngx_kmp_out_track_t *obj)
 }
 
 
-/* ngx_kmp_out_track_json writer */
+/* ngx_kmp_out_track_upstreams_json writer */
 
 size_t
-ngx_kmp_out_track_json_get_size(ngx_kmp_out_track_t *obj)
+ngx_kmp_out_track_upstreams_json_get_size(ngx_kmp_out_track_t *obj)
 {
     size_t                   result;
     ngx_queue_t             *q;
     ngx_kmp_out_upstream_t  *cur;
 
-    if (!obj) {
-        return sizeof("null") - 1;
-    }
-
     result =
-        sizeof("{\"input_id\":\"") - 1 + ngx_json_str_get_size(&obj->input_id)
-            +
-        sizeof("\",\"channel_id\":\"") - 1 +
-            ngx_json_str_get_size(&obj->channel_id) +
-        sizeof("\",\"track_id\":\"") - 1 +
-            ngx_json_str_get_size(&obj->track_id) +
-        sizeof("\",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
-        sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
-        sizeof(",\"last_timestamp\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"last_created\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"sent_frames\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"sent_key_frames\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"written\":") - 1 + NGX_SIZE_T_LEN +
-        sizeof(",\"bitrate\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"frame_rate\":") - 1 + NGX_INT32_LEN + 1 +
-        sizeof(",") - 1 + ngx_kmp_out_track_media_info_json_get_size(obj) +
-        sizeof(",\"upstreams\":[") - 1 +
-        sizeof("]}") - 1;
+        sizeof("[") - 1 +
+        sizeof("]") - 1;
 
     for (q = ngx_queue_head(&obj->upstreams);
         q != ngx_queue_sentinel(&obj->upstreams);
@@ -300,18 +280,122 @@ ngx_kmp_out_track_json_get_size(ngx_kmp_out_track_t *obj)
 
 
 u_char *
-ngx_kmp_out_track_json_write(u_char *p, ngx_kmp_out_track_t *obj)
+ngx_kmp_out_track_upstreams_json_write(u_char *p, ngx_kmp_out_track_t *obj)
 {
-    u_char                  *next;
     ngx_queue_t             *q;
     ngx_kmp_out_upstream_t  *cur;
 
-    if (!obj) {
-        p = ngx_copy_fix(p, "null");
-        return p;
+    *p++ = '[';
+
+    for (q = ngx_queue_head(&obj->upstreams);
+        q != ngx_queue_sentinel(&obj->upstreams);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_kmp_out_upstream_t, queue);
+
+        if (p[-1] != '[') {
+            *p++ = ',';
+        }
+
+        p = ngx_kmp_out_upstream_json_write(p, cur);
     }
 
-    p = ngx_copy_fix(p, "{\"input_id\":\"");
+    *p++ = ']';
+
+    return p;
+}
+
+
+/* ngx_kmp_out_track_upstream_ids_json writer */
+
+size_t
+ngx_kmp_out_track_upstream_ids_json_get_size(ngx_kmp_out_track_t *obj)
+{
+    size_t                   result;
+    ngx_queue_t             *q;
+    ngx_kmp_out_upstream_t  *cur;
+
+    result =
+        sizeof("[") - 1 +
+        sizeof("]") - 1;
+
+    for (q = ngx_queue_head(&obj->upstreams);
+        q != ngx_queue_sentinel(&obj->upstreams);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_kmp_out_upstream_t, queue);
+        result += cur->id.s.len + cur->id.escape + sizeof(",\"\"") - 1;
+    }
+
+    return result;
+}
+
+
+u_char *
+ngx_kmp_out_track_upstream_ids_json_write(u_char *p, ngx_kmp_out_track_t *obj)
+{
+    ngx_queue_t             *q;
+    ngx_kmp_out_upstream_t  *cur;
+
+    *p++ = '[';
+
+    for (q = ngx_queue_head(&obj->upstreams);
+        q != ngx_queue_sentinel(&obj->upstreams);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_kmp_out_upstream_t, queue);
+
+        if (p[-1] != '[') {
+            *p++ = ',';
+        }
+
+        *p++ = '"';
+        p = ngx_json_str_write_escape(p, &cur->id.s, cur->id.escape);
+        *p++ = '"';
+    }
+
+    *p++ = ']';
+
+    return p;
+}
+
+
+/* ngx_kmp_out_track_fields_json writer */
+
+static size_t
+ngx_kmp_out_track_fields_json_get_size(ngx_kmp_out_track_t *obj)
+{
+    size_t  result;
+
+    result =
+        sizeof("\"input_id\":\"") - 1 + ngx_json_str_get_size(&obj->input_id) +
+        sizeof("\",\"channel_id\":\"") - 1 +
+            ngx_json_str_get_size(&obj->channel_id) +
+        sizeof("\",\"track_id\":\"") - 1 +
+            ngx_json_str_get_size(&obj->track_id) +
+        sizeof("\",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"last_timestamp\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"last_created\":") - 1 + NGX_INT64_LEN +
+        sizeof(",\"sent_frames\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"sent_key_frames\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"written\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"bitrate\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"frame_rate\":") - 1 + NGX_INT32_LEN + 1 +
+        sizeof(",") - 1 + ngx_kmp_out_track_media_info_json_get_size(obj) +
+        sizeof(",\"upstreams\":") - 1 +
+            ngx_kmp_out_track_upstreams_json_get_size(obj);
+
+    return result;
+}
+
+
+static u_char *
+ngx_kmp_out_track_fields_json_write(u_char *p, ngx_kmp_out_track_t *obj)
+{
+    u_char  *next;
+
+    p = ngx_copy_fix(p, "\"input_id\":\"");
     p = ngx_json_str_write(p, &obj->input_id);
     p = ngx_copy_fix(p, "\",\"channel_id\":\"");
     p = ngx_json_str_write(p, &obj->channel_id);
@@ -339,22 +423,187 @@ ngx_kmp_out_track_json_write(u_char *p, ngx_kmp_out_track_t *obj)
     *p++ = ',';
     next = ngx_kmp_out_track_media_info_json_write(p, obj);
     p = next == p ? p - 1 : next;
-    p = ngx_copy_fix(p, ",\"upstreams\":[");
+    p = ngx_copy_fix(p, ",\"upstreams\":");
+    p = ngx_kmp_out_track_upstreams_json_write(p, obj);
 
-    for (q = ngx_queue_head(&obj->upstreams);
-        q != ngx_queue_sentinel(&obj->upstreams);
+    return p;
+}
+
+
+/* ngx_kmp_out_track_json writer */
+
+size_t
+ngx_kmp_out_track_json_get_size(ngx_kmp_out_track_t *obj)
+{
+    size_t  result;
+
+    if (!obj) {
+        return sizeof("null") - 1;
+    }
+
+    result =
+        sizeof("{\"kmp_out_id\":\"") - 1 + obj->sn.str.len + obj->id_escape +
+        sizeof("\",") - 1 + ngx_kmp_out_track_fields_json_get_size(obj) +
+        sizeof("}") - 1;
+
+    return result;
+}
+
+
+u_char *
+ngx_kmp_out_track_json_write(u_char *p, ngx_kmp_out_track_t *obj)
+{
+    u_char  *next;
+
+    if (!obj) {
+        p = ngx_copy_fix(p, "null");
+        return p;
+    }
+
+    p = ngx_copy_fix(p, "{\"kmp_out_id\":\"");
+    p = ngx_json_str_write_escape(p, &obj->sn.str, obj->id_escape);
+    p = ngx_copy_fix(p, "\",");
+    next = ngx_kmp_out_track_fields_json_write(p, obj);
+    p = next == p ? p - 1 : next;
+    *p++ = '}';
+
+    return p;
+}
+
+
+/* ngx_kmp_out_track_int_json writer */
+
+static size_t
+ngx_kmp_out_track_int_json_get_size(ngx_kmp_out_track_t *obj)
+{
+    size_t  result;
+
+    result =
+        sizeof("{") - 1 + ngx_kmp_out_track_fields_json_get_size(obj) +
+        sizeof("}") - 1;
+
+    return result;
+}
+
+
+static u_char *
+ngx_kmp_out_track_int_json_write(u_char *p, ngx_kmp_out_track_t *obj)
+{
+    *p++ = '{';
+    p = ngx_kmp_out_track_fields_json_write(p, obj);
+    *p++ = '}';
+
+    return p;
+}
+
+
+/* ngx_kmp_out_tracks_json writer */
+
+size_t
+ngx_kmp_out_tracks_json_get_size(void *obj)
+{
+    size_t                result;
+    ngx_queue_t          *q;
+    ngx_kmp_out_track_t  *cur;
+
+    result =
+        sizeof("{") - 1 +
+        sizeof("}") - 1;
+
+    for (q = ngx_queue_head(&ngx_kmp_out_tracks.queue);
+        q != ngx_queue_sentinel(&ngx_kmp_out_tracks.queue);
         q = ngx_queue_next(q))
     {
-        cur = ngx_queue_data(q, ngx_kmp_out_upstream_t, queue);
+        cur = ngx_queue_data(q, ngx_kmp_out_track_t, queue);
+        result += cur->sn.str.len + cur->id_escape;
+        result += ngx_kmp_out_track_int_json_get_size(cur) + sizeof(",\"\":")
+            - 1;
+    }
+
+    return result;
+}
+
+
+u_char *
+ngx_kmp_out_tracks_json_write(u_char *p, void *obj)
+{
+    ngx_queue_t          *q;
+    ngx_kmp_out_track_t  *cur;
+
+    *p++ = '{';
+
+    for (q = ngx_queue_head(&ngx_kmp_out_tracks.queue);
+        q != ngx_queue_sentinel(&ngx_kmp_out_tracks.queue);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_kmp_out_track_t, queue);
+
+        if (p[-1] != '{') {
+            *p++ = ',';
+        }
+
+        *p++ = '"';
+        p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
+        *p++ = '"';
+        *p++ = ':';
+        p = ngx_kmp_out_track_int_json_write(p, cur);
+    }
+
+    *p++ = '}';
+
+    return p;
+}
+
+
+/* ngx_kmp_out_track_ids_json writer */
+
+size_t
+ngx_kmp_out_track_ids_json_get_size(void *obj)
+{
+    size_t                result;
+    ngx_queue_t          *q;
+    ngx_kmp_out_track_t  *cur;
+
+    result =
+        sizeof("[") - 1 +
+        sizeof("]") - 1;
+
+    for (q = ngx_queue_head(&ngx_kmp_out_tracks.queue);
+        q != ngx_queue_sentinel(&ngx_kmp_out_tracks.queue);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_kmp_out_track_t, queue);
+        result += cur->sn.str.len + cur->id_escape + sizeof(",\"\"") - 1;
+    }
+
+    return result;
+}
+
+
+u_char *
+ngx_kmp_out_track_ids_json_write(u_char *p, void *obj)
+{
+    ngx_queue_t          *q;
+    ngx_kmp_out_track_t  *cur;
+
+    *p++ = '[';
+
+    for (q = ngx_queue_head(&ngx_kmp_out_tracks.queue);
+        q != ngx_queue_sentinel(&ngx_kmp_out_tracks.queue);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_kmp_out_track_t, queue);
 
         if (p[-1] != '[') {
             *p++ = ',';
         }
 
-        p = ngx_kmp_out_upstream_json_write(p, cur);
+        *p++ = '"';
+        p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
+        *p++ = '"';
     }
 
-    p = ngx_copy_fix(p, "]}");
+    *p++ = ']';
 
     return p;
 }

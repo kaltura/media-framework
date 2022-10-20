@@ -21,29 +21,14 @@ static char *ngx_http_live_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static ngx_int_t ngx_http_live_api_channel_update(ngx_http_request_t *r);
 
 
-static ngx_json_str_t  ngx_http_live_version = {
-    ngx_string(NGX_LIVE_VERSION),
-    0
-};
-
-
-static ngx_json_str_t  ngx_http_live_nginx_version = {
-    ngx_string(NGINX_VERSION),
-    0
-};
-
-
-static ngx_json_str_t  ngx_http_live_compiler = {
-    ngx_string(NGX_COMPILER),
-    0
-};
-
-
-static ngx_json_str_t  ngx_http_live_built = {
-    ngx_string(__DATE__ " " __TIME__),
-    0
-};
-
+static ngx_json_str_t  ngx_http_live_version =
+    ngx_json_string(NGX_LIVE_VERSION);
+static ngx_json_str_t  ngx_http_live_nginx_version =
+    ngx_json_string(NGINX_VERSION);
+static ngx_json_str_t  ngx_http_live_compiler =
+    ngx_json_string(NGX_COMPILER);
+static ngx_json_str_t  ngx_http_live_built =
+    ngx_json_string(__DATE__ " " __TIME__);
 
 static time_t          ngx_http_live_start_time = 0;
 

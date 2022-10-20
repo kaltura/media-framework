@@ -1,0 +1,12 @@
+
+in ngx_http_kmp_out_api_upstream_json
+    src_id %V
+
+out ngx_http_kmp_out_api_json void
+    version %jV ngx_kmp_out_version
+    nginx_version %jV ngx_kmp_out_nginx_version
+    compiler %jV ngx_kmp_out_compiler
+    built %jV ngx_kmp_out_built
+    pid %ui ngx_getpid()
+    uptime %i (ngx_cached_time->sec - ngx_kmp_out_start_time)
+    tracks %func-ngx_kmp_out_tracks_json obj

@@ -50,6 +50,10 @@ ngx_kmp_out_upstream_log_error(ngx_log_t *log, u_char *buf, size_t len)
     len -= p - buf;
     buf = p;
 
+    p = ngx_snprintf(buf, len, ", upstream: %V", &u->id.s);
+    len -= p - buf;
+    buf = p;
+
     if (u->peer.name) {
         p = ngx_snprintf(buf, len, ", peer: %V", u->peer.name);
         len -= p - buf;
@@ -60,8 +64,68 @@ ngx_kmp_out_upstream_log_error(ngx_log_t *log, u_char *buf, size_t len)
 }
 
 
+static ngx_int_t
+ngx_kmp_out_upstream_realloc_buf(ngx_kmp_out_upstream_t *u, ngx_buf_t *b,
+    size_t size)
+{
+    u_char  *p;
+    size_t   alloc_size;
+
+    alloc_size = b->end - b->start;
+    if (alloc_size >= size) {
+        return NGX_OK;
+    }
+
+    alloc_size *= 2;
+    if (alloc_size < size) {
+        alloc_size = size;
+    }
+
+    p = ngx_pnalloc(u->pool, alloc_size);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+            "ngx_kmp_out_upstream_realloc_buf: alloc failed %uz", alloc_size);
+        return NGX_ERROR;
+    }
+
+    b->start = b->pos = b->last = p;
+    b->end = p + alloc_size;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_kmp_out_upstream_copy(ngx_kmp_out_upstream_t *dst,
+    ngx_kmp_out_upstream_t *src)
+{
+    size_t      size;
+    ngx_buf_t  *src_mi, *dst_mi;
+
+    src_mi = &src->acked_media_info;
+    dst_mi = &dst->acked_media_info;
+
+    size = src_mi->last - src_mi->pos;
+    if (ngx_kmp_out_upstream_realloc_buf(dst, dst_mi, size) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &dst->log, 0,
+            "ngx_kmp_out_upstream_copy: alloc failed");
+        return NGX_ERROR;
+    }
+
+    dst_mi->last = ngx_copy(dst_mi->start, src_mi->pos, size);
+
+    dst->acked_reader = src->acked_reader;
+    dst->acked_frame_id = src->acked_frame_id;
+    dst->acked_upstream_frame_id = src->acked_upstream_frame_id;
+    dst->acked_offset = src->acked_offset;
+
+    return NGX_OK;
+}
+
+
 static ngx_kmp_out_upstream_t *
-ngx_kmp_out_upstream_create(ngx_kmp_out_track_t *track, ngx_str_t *id)
+ngx_kmp_out_upstream_create(ngx_kmp_out_track_t *track, ngx_str_t *id,
+    ngx_kmp_out_upstream_t *src)
 {
     ngx_log_t               *log = &track->log;
     ngx_pool_t              *pool;
@@ -100,44 +164,26 @@ ngx_kmp_out_upstream_create(ngx_kmp_out_track_t *track, ngx_str_t *id)
     u->track = track;
     u->timeout = track->conf->timeout;
 
-    ngx_buf_queue_stream_init_head(&u->acked_reader, &track->buf_queue);
-    u->acked_frame_id = track->connect.initial_frame_id;
-    u->acked_upstream_frame_id = track->connect.initial_upstream_frame_id;
+    if (src != NULL) {
+        if (ngx_kmp_out_upstream_copy(u, src) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "ngx_kmp_out_upstream_create: copy failed");
+            ngx_destroy_pool(pool);
+            return NULL;
+        }
+
+    } else {
+        ngx_buf_queue_stream_init_head(&u->acked_reader, &track->buf_queue);
+        u->acked_frame_id = track->connect.initial_frame_id;
+        u->acked_upstream_frame_id = track->connect.initial_upstream_frame_id;
+    }
 
     ngx_queue_insert_tail(&track->upstreams, &u->queue);
 
+    ngx_log_error(NGX_LOG_INFO, &u->log, 0,
+        "ngx_kmp_out_upstream_create: created %p", u);
+
     return u;
-}
-
-
-static ngx_int_t
-ngx_kmp_out_upstream_realloc_buf(ngx_kmp_out_upstream_t *u, ngx_buf_t *b,
-    size_t size)
-{
-    u_char  *p;
-    size_t   alloc_size;
-
-    alloc_size = b->end - b->start;
-    if (alloc_size >= size) {
-        return NGX_OK;
-    }
-
-    alloc_size *= 2;
-    if (alloc_size < size) {
-        alloc_size = size;
-    }
-
-    p = ngx_pnalloc(u->pool, alloc_size);
-    if (p == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
-            "ngx_kmp_out_upstream_realloc_buf: alloc failed %uz", alloc_size);
-        return NGX_ERROR;
-    }
-
-    b->start = b->pos = b->last = p;
-    b->end = p + alloc_size;
-
-    return NGX_OK;
 }
 
 
@@ -285,6 +331,9 @@ ngx_kmp_out_upstream_free(ngx_kmp_out_upstream_t *u)
 {
     ngx_pool_t  *pool = u->pool;
 
+    ngx_log_error(NGX_LOG_INFO, &u->log, 0,
+        "ngx_kmp_out_upstream_free: freeing %p", u);
+
     if (u->peer.connection) {
         ngx_close_connection(u->peer.connection);
     }
@@ -312,7 +361,8 @@ ngx_kmp_out_upstream_free_notify(ngx_kmp_out_upstream_t *u)
 
 ngx_int_t
 ngx_kmp_out_upstream_from_json(ngx_pool_t *temp_pool,
-    ngx_kmp_out_track_t *track, ngx_json_object_t *obj)
+    ngx_kmp_out_track_t *track, ngx_kmp_out_upstream_t *src,
+    ngx_json_object_t *obj)
 {
     ngx_url_t                     url;
     ngx_kmp_out_upstream_t       *u;
@@ -340,11 +390,11 @@ ngx_kmp_out_upstream_from_json(ngx_pool_t *temp_pool,
         json.id.len = 0;
     }
 
-    u = ngx_kmp_out_upstream_create(track, &json.id);
+    u = ngx_kmp_out_upstream_create(track, &json.id, src);
     if (u == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
             "ngx_kmp_out_upstream_from_json: create failed");
-        return NGX_ERROR;
+        return NGX_ABORT;
     }
 
     if (ngx_kmp_out_upstream_set_connect_data(u, &json.connect_data)
@@ -353,14 +403,14 @@ ngx_kmp_out_upstream_from_json(ngx_pool_t *temp_pool,
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
             "ngx_kmp_out_upstream_from_json: set connect data failed");
         ngx_kmp_out_upstream_free(u);
-        return NGX_ERROR;
+        return NGX_ABORT;
     }
 
     if (ngx_kmp_out_upstream_connect(u, &url.addrs[0]) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
             "ngx_kmp_out_upstream_from_json: connect failed");
         ngx_kmp_out_upstream_free(u);
-        return NGX_ERROR;
+        return NGX_ABORT;
     }
 
     if (json.auto_ack != NGX_CONF_UNSET && json.auto_ack) {

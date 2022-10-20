@@ -9,10 +9,17 @@
 #include "ngx_kmp_out_utils.h"
 #include "ngx_kmp_out_track_internal.h"
 #include "ngx_kmp_out_upstream.h"
-#include "ngx_kmp_out_track_json.h"
 
 
 #define NGX_KMP_OUT_TRACK_STAT_PERIOD  10  /* sec */
+
+
+typedef struct {
+    ngx_rbtree_t          rbtree;
+    ngx_rbtree_node_t     sentinel;
+    ngx_queue_t           queue;
+    ngx_uint_t            counter;
+} ngx_kmp_out_tracks_t;
 
 
 typedef struct {
@@ -44,6 +51,25 @@ static size_t  ngx_kmp_out_track_default_mem_limit[KMP_MEDIA_COUNT] = {
     1 * 1024 * 1024,
     128 * 1024,
 };
+
+
+static ngx_kmp_out_tracks_t  ngx_kmp_out_tracks;
+
+
+#include "ngx_kmp_out_track_json.h"
+
+
+ngx_int_t
+ngx_kmp_out_track_init_process(ngx_cycle_t *cycle)
+{
+    ngx_rbtree_init(&ngx_kmp_out_tracks.rbtree, &ngx_kmp_out_tracks.sentinel,
+        ngx_str_rbtree_insert_value);
+    ngx_queue_init(&ngx_kmp_out_tracks.queue);
+
+    ngx_kmp_out_tracks.counter = 1;
+
+    return NGX_OK;
+}
 
 
 int64_t
@@ -261,13 +287,13 @@ ngx_int_t
 ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
     ngx_json_object_t *obj, ngx_pool_t *temp_pool)
 {
-    ngx_str_t                        track_id;
-    ngx_str_t                        channel_id;
-    ngx_array_part_t                *part;
-    ngx_json_array_t                *upstreams;
-    ngx_json_object_t               *cur;
-    kmp_connect_packet_t            *header;
-    ngx_kmp_out_track_json_t         json;
+    ngx_str_t                  track_id;
+    ngx_str_t                  channel_id;
+    ngx_array_part_t          *part;
+    ngx_json_array_t          *upstreams;
+    ngx_json_object_t         *cur;
+    kmp_connect_packet_t      *header;
+    ngx_kmp_out_track_json_t   json;
 
     ngx_memset(&json, 0xff, sizeof(json));
 
@@ -351,7 +377,9 @@ ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
             cur = part->first;
         }
 
-        if (ngx_kmp_out_upstream_from_json(temp_pool, track, cur) != NGX_OK) {
+        if (ngx_kmp_out_upstream_from_json(temp_pool, track, NULL, cur)
+            != NGX_OK)
+        {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_kmp_out_track_publish_json: failed to create upstream");
             ngx_kmp_out_track_error(track, "create_upstream_failed");
@@ -624,7 +652,13 @@ ngx_kmp_out_track_cleanup(ngx_kmp_out_track_t *track)
         return;
     }
 
+    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+        "ngx_kmp_out_track_cleanup: freeing %p", track);
+
     ngx_kmp_out_track_unpublish(track);
+
+    ngx_queue_remove(&track->queue);
+    ngx_rbtree_delete(&ngx_kmp_out_tracks.rbtree, &track->sn.node);
 
     ngx_destroy_pool(track->pool);
 }
@@ -841,6 +875,86 @@ ngx_kmp_out_track_min_acked_upstream(ngx_kmp_out_track_t *track)
     }
 
     return min;
+}
+
+
+static ngx_kmp_out_upstream_t *
+ngx_kmp_out_track_get_upstream(ngx_kmp_out_track_t *track, ngx_str_t *id)
+{
+    ngx_queue_t             *q;
+    ngx_kmp_out_upstream_t  *u;
+
+    for (q = ngx_queue_head(&track->upstreams);
+        q != ngx_queue_sentinel(&track->upstreams);
+        q = ngx_queue_next(q))
+    {
+        u = ngx_queue_data(q, ngx_kmp_out_upstream_t, queue);
+
+        if (u->id.s.len == id->len
+            && ngx_strncmp(u->id.s.data, id->data, id->len) == 0)
+        {
+            return u;
+        }
+    }
+
+    return NULL;
+}
+
+
+ngx_int_t
+ngx_kmp_out_track_add_upstream(ngx_pool_t *temp_pool,
+    ngx_kmp_out_track_t *track, ngx_str_t *src_id, ngx_json_object_t *obj)
+{
+    ngx_kmp_out_upstream_t  *src;
+
+    if (src_id != NULL) {
+        src = ngx_kmp_out_track_get_upstream(track, src_id);
+        if (src == NULL) {
+            ngx_log_error(NGX_LOG_ERR, temp_pool->log, 0,
+                "ngx_kmp_out_track_add_upstream: "
+                "unknown upstream \"%V\" in track \"%V\"",
+                src_id, &track->sn.str);
+            return NGX_DECLINED;
+        }
+
+    } else {
+        src = ngx_kmp_out_track_min_acked_upstream(track);
+        if (src == NULL) {
+            ngx_log_error(NGX_LOG_ERR, temp_pool->log, 0,
+                "ngx_kmp_out_track_add_upstream: "
+                "track \"%V\" has no upstreams", &track->sn.str);
+            return NGX_DECLINED;
+        }
+    }
+
+    return ngx_kmp_out_upstream_from_json(temp_pool, track, src, obj);
+}
+
+
+ngx_int_t
+ngx_kmp_out_track_del_upstream(ngx_kmp_out_track_t *track, ngx_str_t *id,
+    ngx_log_t *log)
+{
+    ngx_kmp_out_upstream_t  *u;
+
+    u = ngx_kmp_out_track_get_upstream(track, id);
+    if (u == NULL) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_kmp_out_track_del_upstream: "
+            "unknown upstream \"%V\" in track \"%V\"", id, &track->sn.str);
+        return NGX_DECLINED;
+    }
+
+    ngx_kmp_out_upstream_free(u);
+
+    if (ngx_queue_empty(&track->upstreams)) {
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+            "ngx_kmp_out_track_del_upstream: no upstreams");
+        track->state = NGX_KMP_TRACK_INACTIVE;
+        ngx_kmp_out_track_cleanup(track);
+    }
+
+    return NGX_OK;
 }
 
 
@@ -1346,6 +1460,10 @@ ngx_kmp_out_track_log_error(ngx_log_t *log, u_char *buf, size_t len)
     track = log->data;
 
     if (track != NULL) {
+        p = ngx_snprintf(buf, len, ", track: %V", &track->sn.str);
+        len -= p - buf;
+        buf = p;
+
         if (track->input_id.s.len) {
             p = ngx_snprintf(buf, len, ", input: %V", &track->input_id.s);
             len -= p - buf;
@@ -1358,9 +1476,23 @@ ngx_kmp_out_track_log_error(ngx_log_t *log, u_char *buf, size_t len)
 
 
 ngx_kmp_out_track_t *
+ngx_kmp_out_track_get(ngx_str_t *id)
+{
+    uint32_t  hash;
+
+    hash = ngx_crc32_short(id->data, id->len);
+
+    return (ngx_kmp_out_track_t *) ngx_str_rbtree_lookup(
+        &ngx_kmp_out_tracks.rbtree, id, hash);
+}
+
+
+ngx_kmp_out_track_t *
 ngx_kmp_out_track_create(ngx_kmp_out_track_conf_t *conf,
     ngx_uint_t media_type)
 {
+    u_char               *p;
+    uint32_t              hash;
     ngx_lba_t            *lba;
     ngx_log_t            *log = ngx_cycle->log;
     ngx_pool_t           *pool;
@@ -1421,6 +1553,21 @@ ngx_kmp_out_track_create(ngx_kmp_out_track_conf_t *conf,
     track->keepalive.handler = ngx_kmp_out_track_keepalive_handler;
     track->keepalive.data = track;
     track->keepalive.log = &track->log;
+
+    p = track->id_buf;
+    track->sn.str.data = p;
+    p = ngx_sprintf(p, "%ui", ngx_kmp_out_tracks.counter++);
+    track->sn.str.len = p - track->id_buf;
+    track->id_escape = 0;
+
+    hash = ngx_crc32_short(track->sn.str.data, track->sn.str.len);
+    track->sn.node.key = hash;
+
+    ngx_rbtree_insert(&ngx_kmp_out_tracks.rbtree, &track->sn.node);
+    ngx_queue_insert_tail(&ngx_kmp_out_tracks.queue, &track->queue);
+
+    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+        "ngx_kmp_out_track_create: created %p", track);
 
     return track;
 }

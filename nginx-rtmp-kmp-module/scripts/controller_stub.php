@@ -104,7 +104,7 @@ function getCCDecodeUpstream($publishUrl, $channelId, $ccConf)
     global $ccPublishUrl, $ccOutputAll;
 
     $upstream = array(
-        'id' => 'cc',
+        'id' => 'cc-vid',
         'url' => $ccPublishUrl,
     );
 
@@ -117,7 +117,10 @@ function getCCDecodeUpstream($publishUrl, $channelId, $ccConf)
                 'channel_id' => $channelId,
                 'track_id' => $id,
                 "upstreams" => array(
-                    array('url' => $publishUrl),
+                    array(
+                        'id' => 'cc-sub',
+                        'url' => $publishUrl
+                    ),
                 )
             );
         }
@@ -193,7 +196,10 @@ else
     outputJson(array(
         'channel_id' => $channelId,
         'track_id' => $trackId,
-        'upstreams' => array(array('url' => $publishUrl)),
+        'upstreams' => array(array(
+            'id' => 'cc-sub',
+            'url' => $publishUrl
+        )),
     ));
 }
 
@@ -207,7 +213,10 @@ $trackId = $mediaType[0] . $variantId;
 setupPackager($controlUrl, $channelId, 'main', $variantId, $trackId, $mediaType);
 
 $upstreams = array(
-    array('url' => $publishUrl),
+    array(
+        'id' => 'main',
+        'url' => $publishUrl
+    ),
 );
 
 if ($mediaType == 'video' && $ccConf !== false)

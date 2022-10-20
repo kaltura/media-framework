@@ -58,8 +58,13 @@ typedef struct {
 } ngx_kmp_out_upstream_t;
 
 
+/*
+ * NGX_ERROR - bad json
+ * NGX_ABORT - memory error
+ */
 ngx_int_t ngx_kmp_out_upstream_from_json(ngx_pool_t *temp_pool,
-    ngx_kmp_out_track_t *track, ngx_json_object_t *json);
+    ngx_kmp_out_track_t *track, ngx_kmp_out_upstream_t *src,
+    ngx_json_object_t *obj);
 
 ngx_int_t ngx_kmp_out_upstream_send(ngx_kmp_out_upstream_t *u);
 

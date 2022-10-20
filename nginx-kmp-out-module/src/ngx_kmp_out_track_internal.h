@@ -54,6 +54,11 @@ typedef struct {
 
 
 struct ngx_kmp_out_track_s {
+    ngx_str_node_t                 sn;
+    ngx_queue_t                    queue;
+    u_char                         id_buf[NGX_INT_T_LEN];
+    uintptr_t                      id_escape;
+
     ngx_pool_t                    *pool;
     ngx_log_t                      log;
 
@@ -94,6 +99,9 @@ struct ngx_kmp_out_track_s {
     unsigned                       detached:1;
     unsigned                       write_error:1;
 };
+
+
+ngx_int_t ngx_kmp_out_track_init_process(ngx_cycle_t *cycle);
 
 
 int64_t ngx_kmp_out_track_get_time(ngx_kmp_out_track_t *track);
