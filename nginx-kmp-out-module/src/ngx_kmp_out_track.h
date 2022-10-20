@@ -46,21 +46,41 @@ ngx_int_t ngx_kmp_out_track_merge_conf(ngx_conf_t *cf,
     ngx_kmp_out_track_conf_t *conf, ngx_kmp_out_track_conf_t *prev);
 
 
+ngx_kmp_out_track_t *ngx_kmp_out_track_get(ngx_str_t *id);
 ngx_kmp_out_track_t *ngx_kmp_out_track_create(
     ngx_kmp_out_track_conf_t *conf, ngx_uint_t media_type);
 
 ngx_int_t ngx_kmp_out_track_publish(ngx_kmp_out_track_t *track);
-
 ngx_int_t ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
     ngx_json_object_t *obj, ngx_pool_t *temp_pool);
-
 void ngx_kmp_out_track_detach(ngx_kmp_out_track_t *track, char *reason);
-
 void ngx_kmp_out_track_error(ngx_kmp_out_track_t *track, char *code);
 
+/*
+ * NGX_DECLINED - failed to get source upstream
+ * NGX_ERROR - bad json
+ * NGX_ABORT - memory error
+ */
+ngx_int_t ngx_kmp_out_track_add_upstream(ngx_pool_t *temp_pool,
+    ngx_kmp_out_track_t *track, ngx_str_t *src_id, ngx_json_object_t *obj);
+ngx_int_t ngx_kmp_out_track_del_upstream(ngx_kmp_out_track_t *track,
+    ngx_str_t *id, ngx_log_t *log);
+
+size_t ngx_kmp_out_track_upstreams_json_get_size(ngx_kmp_out_track_t *obj);
+u_char *ngx_kmp_out_track_upstreams_json_write(u_char *p,
+    ngx_kmp_out_track_t *obj);
+
+size_t ngx_kmp_out_track_upstream_ids_json_get_size(ngx_kmp_out_track_t *obj);
+u_char *ngx_kmp_out_track_upstream_ids_json_write(u_char *p,
+    ngx_kmp_out_track_t *obj);
 
 size_t ngx_kmp_out_track_json_get_size(ngx_kmp_out_track_t *obj);
-
 u_char *ngx_kmp_out_track_json_write(u_char *p, ngx_kmp_out_track_t *obj);
+
+size_t ngx_kmp_out_tracks_json_get_size(void *obj);
+u_char *ngx_kmp_out_tracks_json_write(u_char *p, void *obj);
+
+size_t ngx_kmp_out_track_ids_json_get_size(void *obj);
+u_char *ngx_kmp_out_track_ids_json_write(u_char *p, void *obj);
 
 #endif /* _NGX_KMP_OUT_TRACK_H_INCLUDED_ */
