@@ -45,6 +45,9 @@ struct ngx_kmp_rtmp_upstream_s {
     ngx_json_str_t                  header;
     ngx_str_t                       opaque;
 
+    ngx_resolver_ctx_t             *resolve_ctx;
+    in_port_t                       port;
+
     ngx_peer_connection_t           peer;
     u_char                          sockaddr_buf[NGX_SOCKADDRLEN];
 

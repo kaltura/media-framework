@@ -16,21 +16,24 @@ typedef struct ngx_kmp_rtmp_upstream_s  ngx_kmp_rtmp_upstream_t;
 
 
 typedef struct {
-    ngx_lba_t   *lba;
-    size_t       mem_limit;
-    ngx_uint_t   max_free_buffers;
+    ngx_resolver_t  *resolver;
+    ngx_msec_t       resolver_timeout;
 
-    ngx_msec_t   timeout;
-    ngx_msec_t   flush_timeout;
+    ngx_lba_t       *lba;
+    size_t           mem_limit;
+    ngx_uint_t       max_free_buffers;
 
-    ngx_str_t    flash_ver;
-    size_t       chunk_size;
-    ngx_msec_t   write_meta_timeout;
-    ngx_msec_t   min_process_delay;
-    ngx_msec_t   max_process_delay;
-    ngx_msec_t   onfi_period;
+    ngx_msec_t       timeout;
+    ngx_msec_t       flush_timeout;
 
-    ngx_str_t    dump_folder;
+    ngx_str_t        flash_ver;
+    size_t           chunk_size;
+    ngx_msec_t       write_meta_timeout;
+    ngx_msec_t       min_process_delay;
+    ngx_msec_t       max_process_delay;
+    ngx_msec_t       onfi_period;
+
+    ngx_str_t        dump_folder;
 } ngx_kmp_rtmp_upstream_conf_t;
 
 

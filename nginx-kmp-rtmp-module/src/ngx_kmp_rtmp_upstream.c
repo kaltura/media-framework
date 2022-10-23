@@ -732,14 +732,16 @@ ngx_kmp_rtmp_upstream_connect(ngx_kmp_rtmp_upstream_t *u, ngx_addr_t *addr)
         return NGX_ERROR;
     }
 
-    u->remote_addr.s.data = u->remote_addr_buf;
-    u->remote_addr.s.len = ngx_sock_ntop(addr->sockaddr, addr->socklen,
-        u->remote_addr_buf, sizeof(u->remote_addr_buf), 1);
-    ngx_json_str_set_escape(&u->remote_addr);
-
     u->peer.socklen = addr->socklen;
     u->peer.sockaddr = (void *) u->sockaddr_buf;
     ngx_memcpy(u->peer.sockaddr, addr->sockaddr, u->peer.socklen);
+
+    ngx_inet_set_port(u->peer.sockaddr, u->port);
+
+    u->remote_addr.s.data = u->remote_addr_buf;
+    u->remote_addr.s.len = ngx_sock_ntop(u->peer.sockaddr, u->peer.socklen,
+        u->remote_addr_buf, sizeof(u->remote_addr_buf), 1);
+    ngx_json_str_set_escape(&u->remote_addr);
 
     u->peer.name = &u->remote_addr.s;
     u->peer.get = ngx_event_get_peer;
@@ -784,6 +786,111 @@ ngx_kmp_rtmp_upstream_connect(ngx_kmp_rtmp_upstream_t *u, ngx_addr_t *addr)
     if (ngx_kmp_rtmp_handshake_client(hs, rc == NGX_AGAIN) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
             "ngx_kmp_rtmp_upstream_connect: start handshake failed");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static void
+ngx_kmp_rtmp_upstream_resolve_handler(ngx_resolver_ctx_t *ctx)
+{
+    ngx_addr_t                addr;
+    ngx_kmp_rtmp_upstream_t  *u;
+
+    u = ctx->data;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_STREAM, &u->log, 0,
+        "ngx_kmp_rtmp_upstream_resolve_handler: called");
+
+    if (ctx->state) {
+        ngx_log_error(NGX_LOG_ERR, &u->log, 0,
+            "ngx_kmp_rtmp_upstream_resolve_handler: "
+            "%V could not be resolved (%i: %s)",
+            &ctx->name, ctx->state,
+            ngx_resolver_strerror(ctx->state));
+        goto failed;
+    }
+
+#if (NGX_DEBUG)
+    {
+        u_char      text[NGX_SOCKADDR_STRLEN];
+        ngx_str_t   saddr;
+        ngx_uint_t  i;
+
+        saddr.data = text;
+
+        for (i = 0; i < ctx->naddrs; i++) {
+            saddr.len = ngx_sock_ntop(ctx->addrs[i].sockaddr,
+                ctx->addrs[i].socklen, text, NGX_SOCKADDR_STRLEN, 0);
+
+            ngx_log_debug1(NGX_LOG_DEBUG_STREAM, &u->log, 0,
+                "ngx_kmp_rtmp_upstream_resolve_handler: "
+                "name was resolved to %V", &saddr);
+        }
+    }
+#endif
+
+    addr.sockaddr = ctx->addrs[0].sockaddr;
+    addr.socklen = ctx->addrs[0].socklen;
+
+    ngx_memzero(&addr.name, sizeof(addr.name));
+
+    if (ngx_kmp_rtmp_upstream_connect(u, &addr) != NGX_OK) {
+        goto failed;
+    }
+
+    ngx_resolve_name_done(ctx);
+    u->resolve_ctx = NULL;
+
+    return;
+
+failed:
+
+    ngx_kmp_rtmp_upstream_finalize(u);
+}
+
+
+static ngx_int_t
+ngx_kmp_rtmp_upstream_resolve(ngx_kmp_rtmp_upstream_t *u, ngx_str_t *name)
+{
+    ngx_str_t            host;
+    ngx_resolver_ctx_t  *ctx;
+
+    host.len = name->len;
+    host.data = ngx_pstrdup(u->pool, name);
+    if (host.data == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+            "ngx_kmp_rtmp_upstream_resolve: strdup failed");
+        return NGX_ERROR;
+    }
+
+    ctx = ngx_resolve_start(u->conf.resolver, NULL);
+    if (ctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+            "ngx_kmp_rtmp_upstream_resolve: start failed");
+        return NGX_ERROR;
+    }
+
+    if (ctx == NGX_NO_RESOLVER) {
+        ngx_log_error(NGX_LOG_ERR, &u->log, 0,
+            "ngx_kmp_rtmp_upstream_resolve: "
+            "no resolver defined to resolve %V", &host);
+        return NGX_ERROR;
+    }
+
+    ctx->name = host;
+    ctx->handler = ngx_kmp_rtmp_upstream_resolve_handler;
+    ctx->data = u;
+    ctx->timeout = u->conf.resolver_timeout;
+
+    u->resolve_ctx = ctx;
+
+    if (ngx_resolve_name(ctx) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+            "ngx_kmp_rtmp_upstream_resolve: resolve failed");
+        u->resolve_ctx = NULL;
         return NGX_ERROR;
     }
 
@@ -950,6 +1057,10 @@ ngx_kmp_rtmp_upstream_free(ngx_kmp_rtmp_upstream_t *u)
         ngx_kmp_rtmp_handshake_free(u->hs);
     }
 
+    if (u->resolve_ctx) {
+        ngx_resolve_name_done(u->resolve_ctx);
+    }
+
     if (u->dump_fd != NGX_INVALID_FILE) {
         ngx_close_file(u->dump_fd);
     }
@@ -1029,8 +1140,8 @@ ngx_kmp_rtmp_upstream_write_connect(ngx_kmp_rtmp_upstream_t *u,
 
 static ngx_kmp_rtmp_upstream_t *
 ngx_kmp_rtmp_upstream_from_json(ngx_kmp_rtmp_upstream_conf_t *conf,
-    ngx_kmp_rtmp_connect_data_json_t *json,
-    ngx_kmp_rtmp_connect_t *connect, ngx_addr_t *addr)
+    ngx_kmp_rtmp_connect_data_json_t *json, ngx_kmp_rtmp_connect_t *connect,
+    ngx_url_t *url)
 {
     u_char                   *p;
     ngx_kmp_rtmp_upstream_t  *u;
@@ -1062,10 +1173,6 @@ ngx_kmp_rtmp_upstream_from_json(ngx_kmp_rtmp_upstream_conf_t *conf,
     u->opaque.data = p;
     p = ngx_copy(p, json->opaque.data, u->opaque.len);
 
-
-    if (ngx_kmp_rtmp_upstream_connect(u, addr) != NGX_OK) {
-        goto failed;
-    }
 
     if (json->app.data != NGX_JSON_UNSET_PTR) {
         connect->app = json->app;
@@ -1101,6 +1208,20 @@ ngx_kmp_rtmp_upstream_from_json(ngx_kmp_rtmp_upstream_conf_t *conf,
 
     if (ngx_kmp_rtmp_upstream_write_connect(u, connect) != NGX_OK) {
         goto failed;
+    }
+
+
+    u->port = url->port;
+
+    if (url->naddrs > 0) {
+        if (ngx_kmp_rtmp_upstream_connect(u, &url->addrs[0]) != NGX_OK) {
+            goto failed;
+        }
+
+    } else {
+        if (ngx_kmp_rtmp_upstream_resolve(u, &url->host) != NGX_OK) {
+            goto failed;
+        }
     }
 
     return u;
@@ -1196,13 +1317,6 @@ ngx_kmp_rtmp_upstream_parse_url(ngx_pool_t *pool, ngx_str_t *url_str,
         return NGX_ERROR;
     }
 
-    if (url->naddrs == 0) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_kmp_rtmp_upstream_parse_url: "
-            "no addresses in \"%V\"", &url->url);
-        return NGX_ERROR;
-    }
-
     return NGX_OK;
 }
 
@@ -1268,7 +1382,7 @@ ngx_kmp_rtmp_upstream_get_or_create(ngx_pool_t *temp_pool,
         return NGX_OK;
     }
 
-    u = ngx_kmp_rtmp_upstream_from_json(conf, &json, &connect, &url.addrs[0]);
+    u = ngx_kmp_rtmp_upstream_from_json(conf, &json, &connect, &url);
     if (u == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
             "ngx_kmp_rtmp_upstream_get_or_create: failed to create upstream");
