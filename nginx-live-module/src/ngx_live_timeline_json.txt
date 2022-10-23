@@ -35,7 +35,7 @@ out noobject ngx_live_timelines_json ngx_live_timeline_channel_ctx_t
 out nostatic noobject ngx_live_timeline_ids_json ngx_live_channel_t
     - %var ngx_live_timeline_channel_ctx_t *cctx
     - %code cctx = ngx_live_get_module_ctx(obj, ngx_live_timeline_module);
-    - %objQueueIds-ngx_live_timeline_t,queue,sn.str,id_escape cctx->queue
+    - %queueIds-ngx_live_timeline_t,queue,sn.str,id_escape cctx->queue
 
 out noobject ngx_live_timelines_module_json ngx_live_timeline_channel_ctx_t
     timelines %func-ngx_live_timelines_json obj

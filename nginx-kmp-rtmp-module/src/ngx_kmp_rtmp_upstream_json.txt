@@ -29,4 +29,4 @@ out nostatic noobject ngx_kmp_rtmp_upstreams_json void
     - %objQueue-ngx_kmp_rtmp_upstream_json,ngx_kmp_rtmp_upstream_t,queue,sn.str,id_escape ngx_kmp_rtmp_upstreams.queue
 
 out nostatic noobject ngx_kmp_rtmp_upstream_ids_json void
-    - %objQueueIds-ngx_kmp_rtmp_upstream_t,queue,sn.str,id_escape ngx_kmp_rtmp_upstreams.queue
+    - %queueIds-ngx_kmp_rtmp_upstream_t,queue,sn.str,id_escape ngx_kmp_rtmp_upstreams.queue
