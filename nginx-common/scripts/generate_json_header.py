@@ -321,8 +321,8 @@ for (q = ngx_queue_head(&%s);
                 addVarDef(varDefs, 'ngx_queue_t', '*q')
                 addVarDef(varDefs, objectType, '*cur')
                 valueSize = ''
-            elif format.startswith('objQueueIds-'):
-                params = format[len('objQueueIds-'):].split(',')
+            elif format.startswith('queueIds-'):
+                params = format[len('queueIds-'):].split(',')
                 objectType, queueNode, idField, escField = params
                 fixed += '['
                 nextFixed = ']'

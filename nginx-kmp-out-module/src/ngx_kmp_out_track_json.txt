@@ -44,7 +44,7 @@ out nostatic noobject ngx_kmp_out_track_upstreams_json ngx_kmp_out_track_t
     - %queue-ngx_kmp_out_upstream_json,ngx_kmp_out_upstream_t,queue obj->upstreams
 
 out nostatic noobject ngx_kmp_out_track_upstream_ids_json ngx_kmp_out_track_t
-    - %objQueueIds-ngx_kmp_out_upstream_t,queue,id.s,id.escape obj->upstreams
+    - %queueIds-ngx_kmp_out_upstream_t,queue,id.s,id.escape obj->upstreams
 
 out noobject ngx_kmp_out_track_fields_json ngx_kmp_out_track_t
     input_id %jV
@@ -77,4 +77,4 @@ out nostatic noobject ngx_kmp_out_tracks_json void
     - %objQueue-ngx_kmp_out_track_int_json,ngx_kmp_out_track_t,queue,sn.str,id_escape ngx_kmp_out_tracks.queue
 
 out nostatic noobject ngx_kmp_out_track_ids_json void
-    - %objQueueIds-ngx_kmp_out_track_t,queue,sn.str,id_escape ngx_kmp_out_tracks.queue
+    - %queueIds-ngx_kmp_out_track_t,queue,sn.str,id_escape ngx_kmp_out_tracks.queue

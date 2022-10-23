@@ -12,7 +12,7 @@ out nostatic noobject ngx_live_tracks_json ngx_live_channel_t
     - %objQueue-ngx_live_track_json,ngx_live_track_t,queue,sn.str,id_escape obj->tracks.queue
 
 out nostatic noobject ngx_live_track_ids_json ngx_live_channel_t
-    - %objQueueIds-ngx_live_track_t,queue,sn.str,id_escape obj->tracks.queue
+    - %queueIds-ngx_live_track_t,queue,sn.str,id_escape obj->tracks.queue
 
 out ngx_live_variant_json ngx_live_variant_t
     track_ids %objFunc-ngx_live_variant_json_track_ids obj
@@ -27,7 +27,7 @@ out nostatic noobject ngx_live_variants_json ngx_live_channel_t
     - %objQueue-ngx_live_variant_json,ngx_live_variant_t,queue,sn.str,id_escape obj->variants.queue
 
 out nostatic noobject ngx_live_variant_ids_json ngx_live_channel_t
-    - %objQueueIds-ngx_live_variant_t,queue,sn.str,id_escape obj->variants.queue
+    - %queueIds-ngx_live_variant_t,queue,sn.str,id_escape obj->variants.queue
 
 out ngx_live_channel_blocked_json ngx_live_channel_t
     - %var ngx_live_core_preset_conf_t *cpcf
@@ -66,4 +66,4 @@ out nostatic noobject ngx_live_channels_json void
     - %objQueue-ngx_live_channel_json,ngx_live_channel_t,queue,sn.str,id_escape ngx_live_channels.queue
 
 out nostatic noobject ngx_live_channel_ids_json void
-    - %objQueueIds-ngx_live_channel_t,queue,sn.str,id_escape ngx_live_channels.queue
+    - %queueIds-ngx_live_channel_t,queue,sn.str,id_escape ngx_live_channels.queue
