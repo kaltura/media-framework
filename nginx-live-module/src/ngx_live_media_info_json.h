@@ -119,7 +119,6 @@ static u_char *
 ngx_live_media_info_json_video_write(u_char *p, ngx_live_media_info_node_t
     *obj)
 {
-    u_char                 *next;
     uint32_t                n, d;
     ngx_live_media_info_t  *mi;
 
@@ -150,8 +149,7 @@ ngx_live_media_info_json_video_write(u_char *p, ngx_live_media_info_node_t
     }
 
     *p++ = ',';
-    next = ngx_live_media_info_json_stats_write(p, obj);
-    p = next == p ? p - 1 : next;
+    p = ngx_live_media_info_json_stats_write(p, obj);
     *p++ = '}';
 
     return p;
@@ -182,7 +180,6 @@ static u_char *
 ngx_live_media_info_json_audio_write(u_char *p, ngx_live_media_info_node_t
     *obj)
 {
-    u_char                 *next;
     ngx_live_media_info_t  *mi;
 
     mi = &obj->media_info;
@@ -197,8 +194,7 @@ ngx_live_media_info_json_audio_write(u_char *p, ngx_live_media_info_node_t
     p = ngx_copy_fix(p, ",\"sample_rate\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) mi->info.u.audio.sample_rate);
     *p++ = ',';
-    next = ngx_live_media_info_json_stats_write(p, obj);
-    p = next == p ? p - 1 : next;
+    p = ngx_live_media_info_json_stats_write(p, obj);
     *p++ = '}';
 
     return p;
@@ -225,13 +221,10 @@ static u_char *
 ngx_live_media_info_json_subtitle_write(u_char *p, ngx_live_media_info_node_t
     *obj)
 {
-    u_char  *next;
-
     *p++ = '{';
     p = ngx_live_media_info_json_base_write(p, obj);
     *p++ = ',';
-    next = ngx_live_media_info_json_stats_write(p, obj);
-    p = next == p ? p - 1 : next;
+    p = ngx_live_media_info_json_stats_write(p, obj);
     *p++ = '}';
 
     return p;

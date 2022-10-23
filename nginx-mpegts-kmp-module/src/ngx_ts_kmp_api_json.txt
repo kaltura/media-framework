@@ -1,5 +1,5 @@
 out noobject ngx_ts_kmp_api_track_json ngx_ts_kmp_track_t
-    - %func-ngx_kmp_out_track_json obj->track
+    - %neFunc-ngx_kmp_out_track_json obj->track
 
 out ngx_ts_kmp_api_session_json ngx_ts_kmp_ctx_t
     remote_addr %jV

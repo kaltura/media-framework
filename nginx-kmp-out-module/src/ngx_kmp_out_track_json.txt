@@ -61,17 +61,17 @@ out noobject ngx_kmp_out_track_fields_json ngx_kmp_out_track_t
     bitrate %ui obj->stats.
     frame_rate %.2uD obj->stats.
 
-    - %func-ngx_kmp_out_track_media_info_json obj
+    - %neFunc-ngx_kmp_out_track_media_info_json obj
 
     upstreams %func-ngx_kmp_out_track_upstreams_json obj
 
 out nostatic ngx_kmp_out_track_json ngx_kmp_out_track_t
     - %return-null !obj
     kmp_out_id %jV-obj->id_escape obj->sn.str
-    - %func-ngx_kmp_out_track_fields_json obj
+    - %neFunc-ngx_kmp_out_track_fields_json obj
 
 out ngx_kmp_out_track_int_json ngx_kmp_out_track_t
-    - %func-ngx_kmp_out_track_fields_json obj
+    - %neFunc-ngx_kmp_out_track_fields_json obj
 
 out nostatic noobject ngx_kmp_out_tracks_json void
     - %objQueue-ngx_kmp_out_track_int_json,ngx_kmp_out_track_t,queue,sn.str,id_escape ngx_kmp_out_tracks.queue
