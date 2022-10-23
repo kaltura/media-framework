@@ -21,7 +21,7 @@ out ngx_kmp_rtmp_upstream_json ngx_kmp_rtmp_upstream_t
     mem_limit %uz
     mem_left %uz
     written_bytes %uz
-    sent_bytes %O obj->peer.connection->sent
+    sent_bytes %O (obj->peer.connection ? obj->peer.connection->sent : 0)
     received_bytes %uz
     streams %objQueue-ngx_kmp_rtmp_stream_json,ngx_kmp_rtmp_stream_t,queue,sn.str,id_escape obj->streams.queue
 

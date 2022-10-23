@@ -223,7 +223,8 @@ ngx_kmp_rtmp_upstream_json_write(u_char *p, ngx_kmp_rtmp_upstream_t *obj)
     p = ngx_copy_fix(p, ",\"written_bytes\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->written_bytes);
     p = ngx_copy_fix(p, ",\"sent_bytes\":");
-    p = ngx_sprintf(p, "%O", (off_t) obj->peer.connection->sent);
+    p = ngx_sprintf(p, "%O", (off_t) (obj->peer.connection ?
+        obj->peer.connection->sent : 0));
     p = ngx_copy_fix(p, ",\"received_bytes\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->received_bytes);
     p = ngx_copy_fix(p, ",\"streams\":{");

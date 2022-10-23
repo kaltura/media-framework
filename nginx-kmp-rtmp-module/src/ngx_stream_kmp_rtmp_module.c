@@ -619,6 +619,7 @@ ngx_stream_kmp_rtmp_create_srv_conf(ngx_conf_t *cf)
 static char *
 ngx_stream_kmp_rtmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 {
+    ngx_stream_core_srv_conf_t      *cscf;
     ngx_stream_kmp_rtmp_srv_conf_t  *prev = parent;
     ngx_stream_kmp_rtmp_srv_conf_t  *conf = child;
 
@@ -659,6 +660,11 @@ ngx_stream_kmp_rtmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->out.lba == NULL) {
         return NGX_CONF_ERROR;
     }
+
+    cscf = ngx_stream_conf_get_module_srv_conf(cf, ngx_stream_core_module);
+
+    conf->out.resolver = cscf->resolver;
+    conf->out.resolver_timeout = cscf->resolver_timeout;
 
     return NGX_CONF_OK;
 }
