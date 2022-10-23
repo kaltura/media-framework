@@ -393,8 +393,6 @@ ngx_kmp_out_track_fields_json_get_size(ngx_kmp_out_track_t *obj)
 static u_char *
 ngx_kmp_out_track_fields_json_write(u_char *p, ngx_kmp_out_track_t *obj)
 {
-    u_char  *next;
-
     p = ngx_copy_fix(p, "\"input_id\":\"");
     p = ngx_json_str_write(p, &obj->input_id);
     p = ngx_copy_fix(p, "\",\"channel_id\":\"");
@@ -421,8 +419,7 @@ ngx_kmp_out_track_fields_json_write(u_char *p, ngx_kmp_out_track_t *obj)
     p = ngx_sprintf(p, "%uD.%02uD", (uint32_t) (obj->stats.frame_rate / 100),
         (uint32_t) (obj->stats.frame_rate % 100));
     *p++ = ',';
-    next = ngx_kmp_out_track_media_info_json_write(p, obj);
-    p = next == p ? p - 1 : next;
+    p = ngx_kmp_out_track_media_info_json_write(p, obj);
     p = ngx_copy_fix(p, ",\"upstreams\":");
     p = ngx_kmp_out_track_upstreams_json_write(p, obj);
 
@@ -453,8 +450,6 @@ ngx_kmp_out_track_json_get_size(ngx_kmp_out_track_t *obj)
 u_char *
 ngx_kmp_out_track_json_write(u_char *p, ngx_kmp_out_track_t *obj)
 {
-    u_char  *next;
-
     if (!obj) {
         p = ngx_copy_fix(p, "null");
         return p;
@@ -463,8 +458,7 @@ ngx_kmp_out_track_json_write(u_char *p, ngx_kmp_out_track_t *obj)
     p = ngx_copy_fix(p, "{\"kmp_out_id\":\"");
     p = ngx_json_str_write_escape(p, &obj->sn.str, obj->id_escape);
     p = ngx_copy_fix(p, "\",");
-    next = ngx_kmp_out_track_fields_json_write(p, obj);
-    p = next == p ? p - 1 : next;
+    p = ngx_kmp_out_track_fields_json_write(p, obj);
     *p++ = '}';
 
     return p;

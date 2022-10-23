@@ -259,8 +259,8 @@ def getObjectWriter(objectInfo, properties):
 
         if format.startswith('%'):
             format = format[1:]
-            if (format.startswith('func-') or format.startswith('objFunc-') or
-                format.startswith('arrFunc-')):
+            if (format.startswith('func-') or format.startswith('neFunc-') or
+                format.startswith('objFunc-') or format.startswith('arrFunc-')):
                 baseFunc = format.split('-', 1)[1]
 
                 if format.startswith('objFunc-'):
@@ -273,7 +273,7 @@ def getObjectWriter(objectInfo, properties):
                 if len(expr) > 0:
                     expr = ', %s' % expr
 
-                if fixed.endswith(','):
+                if fixed.endswith(',') and not format.startswith('neFunc-'):
                     addVarDef(writeVarDefs, 'u_char', '*next')
                     valueWrite = 'next = %s_write(p%s);' % (baseFunc, expr)
                     valueWrite += '\n' + 'p = next == p ? p - 1 : next;'
