@@ -4,6 +4,8 @@
 #include <ngx_ts_avc.h>
 #include <ngx_ts_hevc.h>
 #include <ngx_ts_heavc.h>
+#include <ngx_ts_ac3.h>
+
 #include <ngx_kmp_out_track.h>
 #include <ngx_kmp_out_track_internal.h>
 #include <ngx_kmp_out_utils.h>
@@ -1114,6 +1116,78 @@ ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
 }
 
 
+static ngx_int_t
+ngx_ts_kmp_track_ac3_pes_handler(ngx_ts_kmp_track_t *ts_track,
+    ngx_ts_handler_data_t *hd)
+{
+    int64_t               pts;
+    ngx_buf_t            *buf;
+    ngx_str_t             extra_data;
+    ngx_chain_t          *cl;
+    kmp_media_info_t     *media_info;
+    kmp_frame_packet_t    frame;
+    ngx_ts_ac3_params_t   params;
+    ngx_kmp_out_track_t  *track = ts_track->track;
+    u_char                extra_data_buf[NGX_TS_AC3_MAX_EXTRA_DATA_LEN];
+
+    pts = hd->es->pts;
+
+    ngx_ts_kmp_track_init_frame(ts_track, &frame, 0, pts, pts);
+
+    for (cl = hd->bufs; cl; cl = cl->next) {
+        buf = cl->buf;
+        frame.header.data_size += buf->last - buf->pos;
+    }
+
+    if (frame.header.data_size <= 0) {
+        return NGX_OK;
+    }
+
+    if (!ts_track->media_info_sent) {
+        extra_data.data = extra_data_buf;
+        extra_data.len = sizeof(extra_data_buf);
+
+        if (ngx_ts_ac3_ec3_parse(&track->log, hd->bufs, &params, &extra_data)
+            != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &ts_track->track->log, 0,
+                "ngx_ts_kmp_track_ac3_pes_handler: "
+                "parse extra data failed");
+            return NGX_ERROR;
+        }
+
+        media_info = &track->media_info;
+
+        media_info->bitrate = params.bitrate;
+        media_info->u.audio.sample_rate = params.sample_rate;
+        media_info->u.audio.bits_per_sample = params.bits_per_sample;
+        media_info->u.audio.channels = params.channels;
+        media_info->u.audio.channel_layout = params.channel_layout;
+
+        if (ngx_kmp_out_track_alloc_extra_data(track, extra_data.len)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+
+        track->extra_data.len = extra_data.len;
+        ngx_memcpy(track->extra_data.data, extra_data.data, extra_data.len);
+
+        if (ngx_ts_kmp_track_handle_media_info(ts_track) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &ts_track->track->log, 0,
+                "ngx_ts_kmp_track_ac3_pes_handler: "
+                "handle media info failed");
+            return NGX_ERROR;
+        }
+    }
+
+    cl = hd->bufs;
+    buf = cl->buf;
+
+    return ngx_kmp_out_track_write_frame(track, &frame, cl, buf->pos);
+}
+
+
 /* main */
 
 static ngx_int_t
@@ -1202,6 +1276,12 @@ ngx_ts_kmp_track_get_codec(u_char type)
 
     case NGX_TS_AUDIO_AAC:
         return KMP_CODEC_AUDIO_AAC;
+
+    case NGX_TS_AUDIO_AC3:
+        return KMP_CODEC_AUDIO_AC3;
+
+    case NGX_TS_AUDIO_EC3:
+        return KMP_CODEC_AUDIO_EC3;
 
     default:
         return NGX_ERROR;
@@ -1355,7 +1435,15 @@ ngx_ts_kmp_track_pes_handler(ngx_ts_kmp_track_t *ts_track,
         return ngx_ts_kmp_track_heavc_pes_handler(ts_track, hd);
 
     case KMP_MEDIA_AUDIO:
-        return ngx_ts_kmp_track_aac_pes_handler(ts_track, hd);
+        switch (track->media_info.codec_id) {
+
+        case KMP_CODEC_AUDIO_AAC:
+            return ngx_ts_kmp_track_aac_pes_handler(ts_track, hd);
+
+        case KMP_CODEC_AUDIO_AC3:
+        case KMP_CODEC_AUDIO_EC3:
+            return ngx_ts_kmp_track_ac3_pes_handler(ts_track, hd);
+        }
     }
 
     return NGX_ERROR;
