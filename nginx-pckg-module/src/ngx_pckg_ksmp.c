@@ -1110,6 +1110,16 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
                 0x6B : 0x69;
             break;
 
+        case KMP_CODEC_AUDIO_AC3:
+            dest->codec_id = VOD_CODEC_ID_AC3;
+            dest->format = FORMAT_AC3;
+            break;
+
+        case KMP_CODEC_AUDIO_EC3:
+            dest->codec_id = VOD_CODEC_ID_EAC3;
+            dest->format = FORMAT_EAC3;
+            break;
+
         default:
             ngx_log_error(NGX_LOG_ERR, channel->log, 0,
                 "ngx_pckg_ksmp_parse_media_info: invalid audio codec id %uD",

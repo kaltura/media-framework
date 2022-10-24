@@ -29,6 +29,8 @@
 #define NGX_TS_AUDIO_MPEG1     0x03 /* ISO/IEC 11172-3, MPEG-1 Audio */
 #define NGX_TS_AUDIO_MPEG2     0x04 /* ISO/IEC 13818-3, MPEG-2 Audio */
 #define NGX_TS_AUDIO_AAC       0x0f /* ISO/IEC 13818-7, MPEG-2 AAC ADTS Audio */
+#define NGX_TS_AUDIO_AC3       0x81
+#define NGX_TS_AUDIO_EC3       0x87
 
 
 typedef enum {
