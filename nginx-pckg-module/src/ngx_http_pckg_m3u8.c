@@ -156,6 +156,7 @@ typedef struct {
     ngx_flag_t                      mux_segments;
     ngx_flag_t                      parts;
     ngx_flag_t                      rendition_reports;
+    ngx_flag_t                      program_date_time;
     ngx_http_pckg_m3u8_ctl_conf_t   ctl;
     ngx_http_pckg_m3u8_enc_conf_t   enc;
 } ngx_http_pckg_m3u8_loc_conf_t;
@@ -223,6 +224,13 @@ static ngx_command_t  ngx_http_pckg_m3u8_commands[] = {
       ngx_conf_set_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_m3u8_loc_conf_t, rendition_reports),
+      NULL },
+
+    { ngx_string("pckg_m3u8_program_date_time"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_m3u8_loc_conf_t, program_date_time),
       NULL },
 
     { ngx_string("pckg_m3u8_ctl_block_reload"),
@@ -2135,7 +2143,11 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r, ngx_str_t *result)
         ngx_http_pckg_prefix_seg.len + sizeof("-") - 1 +
         segment_index_size + seg_suffix.len;
 
-    period_size = sizeof(M3U8_DISCONTINUITY) - 1 + M3U8_PROGRAM_DATE_TIME_LEN;
+    period_size = sizeof(M3U8_DISCONTINUITY) - 1;
+
+    if (mlcf->program_date_time) {
+        period_size += M3U8_PROGRAM_DATE_TIME_LEN;
+    }
 
     if (container->init_file_ext) {
         period_size +=
@@ -2276,12 +2288,14 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r, ngx_str_t *result)
             last_map_index = map_index;
         }
 
-        ngx_gmtime(ph->time / timescale, &gmt);
+        if (mlcf->program_date_time) {
+            ngx_gmtime(ph->time / timescale, &gmt);
 
-        p = ngx_sprintf(p, M3U8_PROGRAM_DATE_TIME,
-            gmt.ngx_tm_year, gmt.ngx_tm_mon, gmt.ngx_tm_mday,
-            gmt.ngx_tm_hour, gmt.ngx_tm_min, gmt.ngx_tm_sec,
-            (int) ((ph->time / milliscale) % 1000));
+            p = ngx_sprintf(p, M3U8_PROGRAM_DATE_TIME,
+                gmt.ngx_tm_year, gmt.ngx_tm_mon, gmt.ngx_tm_mday,
+                gmt.ngx_tm_hour, gmt.ngx_tm_min, gmt.ngx_tm_sec,
+                (int) ((ph->time / milliscale) % 1000));
+        }
 
         p = ngx_http_pckg_m3u8_write_period_segments(p, period,
             &seg_suffix, milliscale, bi);
@@ -2592,6 +2606,7 @@ ngx_http_pckg_m3u8_create_loc_conf(ngx_conf_t *cf)
     conf->mux_segments = NGX_CONF_UNSET;
     conf->parts = NGX_CONF_UNSET;
     conf->rendition_reports = NGX_CONF_UNSET;
+    conf->program_date_time = NGX_CONF_UNSET;
 
     conf->enc.output_iv = NGX_CONF_UNSET;
 
@@ -2621,6 +2636,9 @@ ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_value(conf->rendition_reports,
                          prev->rendition_reports, 0);
+
+    ngx_conf_merge_value(conf->program_date_time,
+                         prev->program_date_time, 1);
 
 
     if (conf->ctl.block_reload == NULL) {
