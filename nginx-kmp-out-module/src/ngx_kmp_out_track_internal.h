@@ -98,6 +98,7 @@ struct ngx_kmp_out_track_s {
 
     unsigned                       detached:1;
     unsigned                       write_error:1;
+    unsigned                       send_pending:1;
 };
 
 
