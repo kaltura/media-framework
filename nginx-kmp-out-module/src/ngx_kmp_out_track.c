@@ -735,7 +735,7 @@ ngx_kmp_out_track_detach(ngx_kmp_out_track_t *track, char *reason)
 
 
 static ngx_int_t
-ngx_kmp_out_track_append_all(ngx_kmp_out_track_t *track, ngx_flag_t *send)
+ngx_kmp_out_track_append_all(ngx_kmp_out_track_t *track)
 {
     u_char                  *min_used_ptr;
     uint64_t                 min_acked_frame_id;
@@ -770,7 +770,7 @@ ngx_kmp_out_track_append_all(ngx_kmp_out_track_t *track, ngx_flag_t *send)
         }
 
         if (u->peer.connection && u->peer.connection->write->ready) {
-            *send = 1;
+            track->send_pending = 1;
         }
     }
 
@@ -791,9 +791,11 @@ ngx_kmp_out_track_send_all(ngx_kmp_out_track_t *track)
     ngx_queue_t             *q;
     ngx_kmp_out_upstream_t  *u;
 
-    if (track->send_blocked) {
+    if (!track->send_pending || track->send_blocked) {
         return NGX_OK;
     }
+
+    track->send_pending = 0;
 
     for (q = ngx_queue_head(&track->upstreams);
         q != ngx_queue_sentinel(&track->upstreams);
@@ -817,16 +819,10 @@ ngx_kmp_out_track_send_all(ngx_kmp_out_track_t *track)
 static ngx_int_t
 ngx_kmp_out_track_flush(ngx_kmp_out_track_t *track)
 {
-    ngx_flag_t  send = 0;
-
-    if (ngx_kmp_out_track_append_all(track, &send) != NGX_OK) {
+    if (ngx_kmp_out_track_append_all(track) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_kmp_out_track_flush: append failed");
         return NGX_ERROR;
-    }
-
-    if (!send) {
-        return NGX_OK;
     }
 
     if (ngx_kmp_out_track_send_all(track) != NGX_OK) {
@@ -1047,7 +1043,6 @@ ngx_kmp_out_track_write_chain(ngx_kmp_out_track_t *track, ngx_chain_t *in,
     size_t       size;
     ngx_int_t    rc;
     ngx_buf_t   *active_buf = &track->active_buf;
-    ngx_flag_t   send = 0;
     ngx_flag_t   appended = 0;
 
     if (track->mem_left < track->mem_high_watermark) {
@@ -1064,13 +1059,10 @@ ngx_kmp_out_track_write_chain(ngx_kmp_out_track_t *track, ngx_chain_t *in,
             in = in->next;
             if (in == NULL) {
 
-                if (send) {
-
-                    if (ngx_kmp_out_track_send_all(track) != NGX_OK) {
-                        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                            "ngx_kmp_out_track_write_chain: send failed");
-                        goto error;
-                    }
+                if (ngx_kmp_out_track_send_all(track) != NGX_OK) {
+                    ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                        "ngx_kmp_out_track_write_chain: send failed");
+                    goto error;
                 }
 
                 if (!track->flush.timer_set || appended) {
@@ -1099,7 +1091,7 @@ ngx_kmp_out_track_write_chain(ngx_kmp_out_track_t *track, ngx_chain_t *in,
 
             appended = 1;
 
-            if (ngx_kmp_out_track_append_all(track, &send) != NGX_OK) {
+            if (ngx_kmp_out_track_append_all(track) != NGX_OK) {
                 ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                     "ngx_kmp_out_track_write_chain: append failed");
                 goto error;
