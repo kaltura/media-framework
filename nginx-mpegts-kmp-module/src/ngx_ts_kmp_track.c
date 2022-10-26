@@ -103,6 +103,9 @@ typedef struct {
 #include "ngx_ts_kmp_track_json.h"
 
 
+static ngx_str_t  ngx_ts_kmp_input_id_scheme = ngx_string("mpegts://");
+
+
 static int
 ngx_ts_kmp_compare_chain(u_char *ref, ngx_chain_t *cl, u_char *src_pos,
     size_t size)
@@ -1218,13 +1221,15 @@ ngx_ts_kmp_track_init_input_id(ngx_kmp_out_track_t *track,
 {
     u_char  *p;
 
-    p = ngx_pnalloc(track->pool, publish->stream_id.s.len + 1 + NGX_INT32_LEN);
+    p = ngx_pnalloc(track->pool, ngx_ts_kmp_input_id_scheme.len
+        + publish->stream_id.s.len + 1 + NGX_INT32_LEN);
     if (p == NULL) {
         return NGX_ERROR;
     }
 
     track->input_id.s.data = p;
-    p = ngx_copy(p, publish->stream_id.s.data, publish->stream_id.s.len);
+    p = ngx_copy_str(p, ngx_ts_kmp_input_id_scheme);
+    p = ngx_copy_str(p, publish->stream_id.s);
     p = ngx_sprintf(p, "_%uD", publish->pid);
     track->input_id.s.len = p - track->input_id.s.data;
 
