@@ -106,6 +106,35 @@ typedef struct {
 static ngx_str_t  ngx_ts_kmp_input_id_scheme = ngx_string("mpegts://");
 
 
+static uint16_t  ngx_ts_kmp_track_mp3_bitrates[2][3][15] = {
+    {
+        /* V1, L3 */
+      { 0, 32, 40, 48,  56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320 },
+
+        /* V1, L2 */
+      { 0, 32, 48, 56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320, 384 },
+
+        /* V1, L1 */
+      { 0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448 },
+    },
+    {
+        /* V2, L3 */
+      { 0,  8, 16, 24,  32,  40,  48,  56,  64,  80,  96, 112, 128, 144, 160 },
+
+        /* V2, L2 */
+      { 0,  8, 16, 24,  32,  40,  48,  56,  64,  80,  96, 112, 128, 144, 160 },
+
+        /* V2, L1 */
+      { 0, 32, 48, 56,  64,  80,  96, 112, 128, 144, 160, 176, 192, 224, 256 },
+    }
+};
+
+
+static uint16_t  ngx_ts_kmp_track_mp3_sample_rates[3] = {
+    44100, 48000, 32000
+};
+
+
 static int
 ngx_ts_kmp_compare_chain(u_char *ref, ngx_chain_t *cl, u_char *src_pos,
     size_t size)
@@ -311,6 +340,22 @@ ngx_ts_kmp_track_init_frame(ngx_ts_kmp_track_t *ts_track,
 }
 
 
+static size_t
+ngx_ts_kmp_track_get_chain_size(ngx_chain_t *cl)
+{
+    size_t      size;
+    ngx_buf_t  *buf;
+
+    size = 0;
+    for (; cl; cl = cl->next) {
+        buf = cl->buf;
+        size += buf->last - buf->pos;
+    }
+
+    return size;
+}
+
+
 /* hevc / avc */
 
 static ngx_int_t
@@ -347,12 +392,14 @@ ngx_ts_kmp_track_heavc_save_nalu(ngx_ts_kmp_track_t *ts_track,
     uint32_t                        id;
     ngx_uint_t                      i;
     ngx_ts_kmp_heavc_t             *heavc;
+    ngx_kmp_out_track_t            *track;
     ngx_ts_kmp_heavc_saved_nalu_t  *sn;
 
     if (ngx_ts_kmp_track_heavc_get_ps_id(ts_track, nalu, &id) != NGX_OK) {
         return NGX_ERROR;
     }
 
+    track = ts_track->track;
     heavc = ts_track->codec;
 
     for (i = 0; i < heavc->nalus.nelts; i++) {
@@ -365,35 +412,35 @@ ngx_ts_kmp_track_heavc_save_nalu(ngx_ts_kmp_track_t *ts_track,
             && ngx_ts_kmp_compare_chain(sn->buf.pos, nalu->cl, nalu->pos,
                 nalu->size) == 0)
         {
-            ngx_log_debug2(NGX_LOG_DEBUG_CORE, &ts_track->track->log, 0,
+            ngx_log_debug2(NGX_LOG_DEBUG_CORE, &track->log, 0,
                 "ngx_ts_kmp_track_heavc_save_nalu: "
                 "no change in nalu, id: 0x%uxD, index: %ui", id, i);
             return NGX_OK;
         }
 
-        ngx_log_error(NGX_LOG_INFO, &ts_track->track->log, 0,
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
             "ngx_ts_kmp_track_heavc_save_nalu: "
             "updating nalu, id: 0x%uxD, index: %ui, size: %uD",
             id, i, nalu->size);
 
         ts_track->media_info_sent = 0;
 
-        return ngx_ts_kmp_save_chain(ts_track->track->pool, &sn->buf, nalu->cl,
+        return ngx_ts_kmp_save_chain(track->pool, &sn->buf, nalu->cl,
             nalu->pos, nalu->size);
     }
 
     if (i >= NGX_TS_KMP_TRACK_MAX_NALUS) {
-        ngx_log_error(NGX_LOG_ERR, &ts_track->track->log, 0,
+        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_ts_kmp_track_heavc_save_nalu: saved nalus overflow");
         return NGX_ERROR;
     }
 
-    ngx_log_error(NGX_LOG_INFO, &ts_track->track->log, 0,
+    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
         "ngx_ts_kmp_track_heavc_save_nalu: "
         "storing nalu, id: 0x%uxD, index: %ui, size: %uD", id, i, nalu->size);
 
     sn = &heavc->nalus.elts[i];
-    if (ngx_ts_kmp_save_chain(ts_track->track->pool, &sn->buf, nalu->cl,
+    if (ngx_ts_kmp_save_chain(track->pool, &sn->buf, nalu->cl,
         nalu->pos, nalu->size) != NGX_OK)
     {
         return NGX_ERROR;
@@ -930,7 +977,7 @@ ngx_ts_kmp_track_aac_update_media_info(ngx_ts_kmp_track_t *ts_track,
     media_info->u.audio.channel_layout = aac_params.chan == 1 ?
         KMP_CH_LAYOUT_MONO : KMP_CH_LAYOUT_STEREO;
 
-    extra_data = &ts_track->track->extra_data;
+    extra_data = &track->extra_data;
     extra_data->len = 2;
 
     if (ngx_kmp_out_track_alloc_extra_data(track, extra_data->len) != NGX_OK) {
@@ -1124,7 +1171,6 @@ ngx_ts_kmp_track_ac3_pes_handler(ngx_ts_kmp_track_t *ts_track,
     ngx_ts_handler_data_t *hd)
 {
     int64_t               pts;
-    ngx_buf_t            *buf;
     ngx_str_t             extra_data;
     ngx_chain_t          *cl;
     kmp_media_info_t     *media_info;
@@ -1137,11 +1183,9 @@ ngx_ts_kmp_track_ac3_pes_handler(ngx_ts_kmp_track_t *ts_track,
 
     ngx_ts_kmp_track_init_frame(ts_track, &frame, 0, pts, pts);
 
-    for (cl = hd->bufs; cl; cl = cl->next) {
-        buf = cl->buf;
-        frame.header.data_size += buf->last - buf->pos;
-    }
+    cl = hd->bufs;
 
+    frame.header.data_size = ngx_ts_kmp_track_get_chain_size(cl);
     if (frame.header.data_size <= 0) {
         return NGX_OK;
     }
@@ -1150,10 +1194,10 @@ ngx_ts_kmp_track_ac3_pes_handler(ngx_ts_kmp_track_t *ts_track,
         extra_data.data = extra_data_buf;
         extra_data.len = sizeof(extra_data_buf);
 
-        if (ngx_ts_ac3_ec3_parse(&track->log, hd->bufs, &params, &extra_data)
+        if (ngx_ts_ac3_ec3_parse(&track->log, cl, &params, &extra_data)
             != NGX_OK)
         {
-            ngx_log_error(NGX_LOG_NOTICE, &ts_track->track->log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_ts_kmp_track_ac3_pes_handler: "
                 "parse extra data failed");
             return NGX_ERROR;
@@ -1177,15 +1221,176 @@ ngx_ts_kmp_track_ac3_pes_handler(ngx_ts_kmp_track_t *ts_track,
         ngx_memcpy(track->extra_data.data, extra_data.data, extra_data.len);
 
         if (ngx_ts_kmp_track_handle_media_info(ts_track) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &ts_track->track->log, 0,
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_ts_kmp_track_ac3_pes_handler: "
                 "handle media info failed");
             return NGX_ERROR;
         }
     }
 
+    return ngx_kmp_out_track_write_frame(track, &frame, cl, cl->buf->pos);
+}
+
+
+static ngx_int_t
+ngx_ts_kmp_track_mp3_parse_header(ngx_log_t *log, uint32_t header,
+    kmp_media_info_t *media_info)
+{
+    u_char    ver;
+    u_char    layer;
+    u_char    ch_mode;
+    u_char    sr_shift;
+    u_char    sr_index;
+    u_char    bitrate_index;
+    uint16_t  frame_size;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_CORE, log, 0,
+        "ngx_ts_kmp_track_mp3_parse_header: 0x%uxD", header);
+
+    /* syncword */
+
+    if ((header >> 21) != 0x7ff) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_ts_kmp_track_mp3_parse_header: "
+            "invalid syncword, header: 0x%uxD", header);
+        return NGX_ERROR;
+    }
+
+    /* version */
+
+    switch ((header >> 19) & 0x3) {
+
+    case 0:     /* version 2.5 */
+        ver = 1;
+        sr_shift = 2;
+        break;
+
+    case 1:
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_ts_kmp_track_mp3_parse_header: "
+            "invalid version, header: 0x%uxD", header);
+        return NGX_ERROR;
+
+    case 2:     /* version 2 */
+        ver = 1;
+        sr_shift = 1;
+        break;
+
+    case 3:     /* version 1 */
+        ver = 0;
+        sr_shift = 0;
+        break;
+    }
+
+    /* layer */
+
+    layer = (header >> 17) & 0x3;
+    if (layer <= 0) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_ts_kmp_track_mp3_parse_header: "
+            "invalid layer, header: 0x%uxD", header);
+        return NGX_ERROR;
+    }
+
+    /* bitrate */
+
+    bitrate_index = (header >> 12) & 0xf;
+    if (bitrate_index >= 0xf) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_ts_kmp_track_mp3_parse_header: "
+            "invalid bitrate, header: 0x%uxD", header);
+        return NGX_ERROR;
+    }
+
+    /* sample rate */
+
+    sr_index = (header >> 10) & 0x3;
+    if (sr_index >= 0x3) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_ts_kmp_track_mp3_parse_header: "
+            "invalid sample rate, header: 0x%uxD", header);
+        return NGX_ERROR;
+    }
+
+    /* channel mode */
+
+    ch_mode = (header >> 6) & 0x3;
+
+    /* set output fields */
+
+    if (ch_mode == 3) {
+        media_info->u.audio.channels = 1;
+        media_info->u.audio.channel_layout = KMP_CH_LAYOUT_MONO;
+
+    } else {
+        media_info->u.audio.channels = 2;
+        media_info->u.audio.channel_layout = KMP_CH_LAYOUT_STEREO;
+    }
+
+    media_info->u.audio.bits_per_sample = 16;
+
+    media_info->u.audio.sample_rate =
+        ngx_ts_kmp_track_mp3_sample_rates[sr_index] >> sr_shift;
+
+    if (bitrate_index <= 0) {
+        ngx_log_error(NGX_LOG_WARN, log, 0,
+            "ngx_ts_kmp_track_mp3_parse_header: "
+            "bitrate not specified, header: 0x%uxD", header);
+        return NGX_OK;
+    }
+
+    frame_size = ngx_ts_kmp_track_mp3_bitrates[ver][layer - 1][bitrate_index];
+    media_info->bitrate = frame_size * 1000;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_ts_kmp_track_mp3_pes_handler(ngx_ts_kmp_track_t *ts_track,
+    ngx_ts_handler_data_t *hd)
+{
+    int64_t               pts;
+    uint32_t              header;
+    u_char               *p;
+    ngx_buf_t            *buf;
+    ngx_chain_t          *cl;
+    kmp_frame_packet_t    frame;
+    ngx_kmp_out_track_t  *track = ts_track->track;
+
+    pts = hd->es->pts;
+
+    ngx_ts_kmp_track_init_frame(ts_track, &frame, 0, pts, pts);
+
     cl = hd->bufs;
     buf = cl->buf;
+
+    frame.header.data_size = ngx_ts_kmp_track_get_chain_size(cl);
+    if (frame.header.data_size <= 0) {
+        return NGX_OK;
+    }
+
+    if (!ts_track->media_info_sent) {
+        p = buf->pos;
+
+        header = (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
+
+        if (ngx_ts_kmp_track_mp3_parse_header(&track->log, header,
+            &track->media_info) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_ts_kmp_track_mp3_pes_handler: "
+                "parse header failed");
+            return NGX_ERROR;
+        }
+
+        if (ngx_ts_kmp_track_handle_media_info(ts_track) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_ts_kmp_track_mp3_pes_handler: "
+                "handle media info failed");
+            return NGX_ERROR;
+        }
+    }
 
     return ngx_kmp_out_track_write_frame(track, &frame, cl, buf->pos);
 }
@@ -1287,6 +1492,10 @@ ngx_ts_kmp_track_get_codec(u_char type)
 
     case NGX_TS_AUDIO_EC3:
         return KMP_CODEC_AUDIO_EC3;
+
+    case NGX_TS_AUDIO_MPEG1:
+    case NGX_TS_AUDIO_MPEG2:
+        return KMP_CODEC_AUDIO_MP3;
 
     default:
         return NGX_ERROR;
@@ -1448,6 +1657,9 @@ ngx_ts_kmp_track_pes_handler(ngx_ts_kmp_track_t *ts_track,
         case KMP_CODEC_AUDIO_AC3:
         case KMP_CODEC_AUDIO_EC3:
             return ngx_ts_kmp_track_ac3_pes_handler(ts_track, hd);
+
+        case KMP_CODEC_AUDIO_MP3:
+            return ngx_ts_kmp_track_mp3_pes_handler(ts_track, hd);
         }
     }
 
