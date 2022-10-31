@@ -171,7 +171,7 @@ ngx_module_t  ngx_live_filler_module = {
 };
 
 
-static ngx_live_json_cmd_t  ngx_live_filler_dyn_cmds[] = {
+static ngx_live_json_cmd_t  ngx_live_filler_json_cmds[] = {
 
     { ngx_string("filler"), NGX_JSON_OBJECT,
       ngx_live_filler_set_channel },
@@ -3212,7 +3212,7 @@ ngx_live_filler_channel_json_write(u_char *p, void *obj)
 static ngx_int_t
 ngx_live_filler_preconfiguration(ngx_conf_t *cf)
 {
-    if (ngx_live_json_cmds_add_multi(cf, ngx_live_filler_dyn_cmds,
+    if (ngx_live_json_cmds_add_multi(cf, ngx_live_filler_json_cmds,
         NGX_LIVE_JSON_CTX_CHANNEL) != NGX_OK)
     {
         return NGX_ERROR;

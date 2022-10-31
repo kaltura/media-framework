@@ -101,7 +101,7 @@ static ngx_live_variable_t  ngx_live_dynamic_var_vars[] = {
 };
 
 
-static ngx_live_json_cmd_t  ngx_live_dynamic_var_dyn_cmds[] = {
+static ngx_live_json_cmd_t  ngx_live_dynamic_var_json_cmds[] = {
 
     { ngx_string("vars"), NGX_JSON_OBJECT,
       ngx_live_dynamic_var_set_vars },
@@ -470,14 +470,14 @@ ngx_live_dynamic_var_preconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    if (ngx_live_json_cmds_add_multi(cf, ngx_live_dynamic_var_dyn_cmds,
+    if (ngx_live_json_cmds_add_multi(cf, ngx_live_dynamic_var_json_cmds,
         NGX_LIVE_JSON_CTX_CHANNEL) != NGX_OK)
     {
         return NGX_ERROR;
     }
 
     /* required for supporting dynamic vars as part of the persist path */
-    if (ngx_live_json_cmds_add_multi(cf, ngx_live_dynamic_var_dyn_cmds,
+    if (ngx_live_json_cmds_add_multi(cf, ngx_live_dynamic_var_json_cmds,
         NGX_LIVE_JSON_CTX_PRE_CHANNEL) != NGX_OK)
     {
         return NGX_ERROR;
