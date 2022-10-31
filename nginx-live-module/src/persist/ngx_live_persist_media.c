@@ -1165,6 +1165,12 @@ ngx_live_persist_media_write_file(ngx_live_channel_t *channel,
     ngx_live_persist_media_preset_conf_t  *pmpcf;
     ngx_live_persist_media_channel_ctx_t  *cctx;
 
+    pmpcf = ngx_live_get_module_preset_conf(channel,
+        ngx_live_persist_media_module);
+
+    ctx.scope.min_index = bucket_id * pmpcf->bucket_size;
+    ctx.scope.max_index = ctx.scope.min_index + pmpcf->bucket_size;
+
     if (channel->mem_left < channel->mem_high_watermark) {
         ngx_log_error(NGX_LOG_ERR, &channel->log, 0,
             "ngx_live_persist_media_write_file: "
@@ -1174,15 +1180,10 @@ ngx_live_persist_media_write_file(ngx_live_channel_t *channel,
         goto error;
     }
 
-    pmpcf = ngx_live_get_module_preset_conf(channel,
-        ngx_live_persist_media_module);
-
     ctx.cln = NULL;
 
     ctx.scope.base.file = NGX_LIVE_PERSIST_FILE_MEDIA;
     ctx.scope.bucket_id = bucket_id;
-    ctx.scope.min_index = bucket_id * pmpcf->bucket_size;
-    ctx.scope.max_index = ctx.scope.min_index + pmpcf->bucket_size;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_media_module);
 
