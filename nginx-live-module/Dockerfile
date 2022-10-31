@@ -8,6 +8,7 @@ WORKDIR /tmp/build
 ARG NGINX_VERSION=1.21.0
 ARG NGX_DEVEL_KIT_VERSION=v0.3.1
 ARG SET_MISC_NGINX_MODULE_VERSION=v0.32
+ARG SET_AWS_AUTH_MODULE_VERSION=master
 
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     tar -zxvf nginx-${NGINX_VERSION}.tar.gz && \
@@ -17,6 +18,7 @@ RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
 
 RUN git clone --branch ${NGX_DEVEL_KIT_VERSION} https://github.com/simplresty/ngx_devel_kit
 RUN git clone --branch ${SET_MISC_NGINX_MODULE_VERSION} https://github.com/kaltura/set-misc-nginx-module
+RUN git clone --branch ${SET_AWS_AUTH_MODULE_VERSION} https://github.com/kaltura/nginx-aws-auth-module
 
 COPY nginx-live-module nginx-live-module
 COPY nginx-pckg-module nginx-pckg-module
@@ -37,6 +39,7 @@ RUN cd /tmp/build/nginx && \
             --add-module=/tmp/build/nginx-pckg-module \
             --add-module=/tmp/build/ngx_devel_kit \
             --add-module=/tmp/build/set-misc-nginx-module \
+            --add-module=/tmp/build/nginx-aws-auth-module \
             --with-file-aio \
             --with-http_dav_module \
             --with-stream \
