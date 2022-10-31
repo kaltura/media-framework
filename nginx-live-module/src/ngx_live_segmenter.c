@@ -3667,6 +3667,51 @@ ngx_live_segmenter_channel_read(ngx_live_channel_t *channel, void *ectx)
 }
 
 
+static ngx_int_t
+ngx_live_segmenter_channel_watermark(ngx_live_channel_t *channel, void *ectx)
+{
+    int64_t                            now;
+    int64_t                            created;
+    ngx_msec_t                         input_delay;
+    ngx_live_segmenter_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
+    if (cctx == NULL) {
+        return NGX_OK;
+    }
+
+    if (channel->mem_left >= channel->mem_low_watermark
+        || channel->conf.input_delay <= 0 || !cctx->create.timer_set
+        || cctx->create.timer.key <= ngx_current_msec + NGX_TIMER_LAZY_DELAY)
+    {
+        return NGX_OK;
+    }
+
+    created = cctx->create.timer.key - channel->conf.input_delay;
+    now = ngx_current_msec;
+
+    if (now <= created) {
+        return NGX_OK;
+    }
+
+    input_delay = (now - created) * 3 / 4;
+    if (channel->conf.input_delay <= input_delay) {
+        return NGX_OK;
+    }
+
+    ngx_log_error(NGX_LOG_WARN, &channel->log, 0,
+        "ngx_live_segmenter_channel_watermark: "
+        "reducing input delay from %M to %M",
+        channel->conf.input_delay, input_delay);
+
+    channel->conf.input_delay = input_delay;
+
+    ngx_add_timer(&cctx->create, 0);
+
+    return NGX_OK;
+}
+
+
 static size_t
 ngx_live_segmenter_track_json_get_size(void *obj)
 {
@@ -3726,6 +3771,7 @@ static ngx_live_channel_event_t    ngx_live_segmenter_channel_events[] = {
     { ngx_live_segmenter_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
     { ngx_live_segmenter_channel_free, NGX_LIVE_EVENT_CHANNEL_FREE },
     { ngx_live_segmenter_channel_read, NGX_LIVE_EVENT_CHANNEL_READ },
+    { ngx_live_segmenter_channel_watermark, NGX_LIVE_EVENT_CHANNEL_WATERMARK },
     { ngx_live_segmenter_channel_conf_changed,
       NGX_LIVE_EVENT_CHANNEL_CONF_CHANGED },
 

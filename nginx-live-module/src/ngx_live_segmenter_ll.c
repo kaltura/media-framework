@@ -3168,6 +3168,51 @@ ngx_live_lls_channel_read(ngx_live_channel_t *channel, void *ectx)
 }
 
 
+static ngx_int_t
+ngx_live_lls_channel_watermark(ngx_live_channel_t *channel, void *ectx)
+{
+    int64_t                      now;
+    int64_t                      created;
+    ngx_msec_t                   input_delay;
+    ngx_live_lls_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
+    if (cctx == NULL) {
+        return NGX_OK;
+    }
+
+    if (channel->mem_left >= channel->mem_low_watermark
+        || channel->conf.input_delay <= 0 || !cctx->process.timer_set
+        || cctx->process.timer.key <= ngx_current_msec + NGX_TIMER_LAZY_DELAY)
+    {
+        return NGX_OK;
+    }
+
+    created = cctx->process.timer.key - channel->conf.input_delay;
+    now = ngx_current_msec;
+
+    if (now <= created) {
+        return NGX_OK;
+    }
+
+    input_delay = (now - created) * 3 / 4;
+    if (channel->conf.input_delay <= input_delay) {
+        return NGX_OK;
+    }
+
+    ngx_log_error(NGX_LOG_WARN, &channel->log, 0,
+        "ngx_live_lls_channel_watermark: "
+        "reducing input delay from %M to %M",
+        channel->conf.input_delay, input_delay);
+
+    channel->conf.input_delay = input_delay;
+
+    ngx_add_timer(&cctx->process, 0);
+
+    return NGX_OK;
+}
+
+
 static size_t
 ngx_live_lls_track_json_get_size(void *obj)
 {
@@ -3240,6 +3285,7 @@ static ngx_live_channel_event_t    ngx_live_lls_channel_events[] = {
     { ngx_live_lls_channel_read, NGX_LIVE_EVENT_CHANNEL_READ },
     { ngx_live_lls_channel_conf_changed,
         NGX_LIVE_EVENT_CHANNEL_CONF_CHANGED },
+    { ngx_live_lls_channel_watermark, NGX_LIVE_EVENT_CHANNEL_WATERMARK },
 
       ngx_live_null_event
 };
