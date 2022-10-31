@@ -8,7 +8,7 @@ WORKDIR /tmp/build
 ARG NGINX_VERSION=1.21.0
 ARG NGX_DEVEL_KIT_VERSION=v0.3.1
 ARG SET_MISC_NGINX_MODULE_VERSION=v0.32
-ARG SET_AWS_AUTH_MODULE_VERSION=master
+ARG SET_AWS_AUTH_MODULE_VERSION=1.1
 
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     tar -zxvf nginx-${NGINX_VERSION}.tar.gz && \
