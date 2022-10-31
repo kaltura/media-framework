@@ -129,7 +129,7 @@ ngx_module_t  ngx_live_media_info_module = {
 };
 
 
-static ngx_live_json_cmd_t  ngx_live_media_info_dyn_cmds[] = {
+static ngx_live_json_cmd_t  ngx_live_media_info_json_cmds[] = {
 
     { ngx_string("group_id"), NGX_JSON_STRING,
       ngx_live_media_info_set_group_id },
@@ -2434,7 +2434,7 @@ ngx_live_media_info_preconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    if (ngx_live_json_cmds_add_multi(cf, ngx_live_media_info_dyn_cmds,
+    if (ngx_live_json_cmds_add_multi(cf, ngx_live_media_info_json_cmds,
         NGX_LIVE_JSON_CTX_TRACK) != NGX_OK)
     {
         return NGX_ERROR;

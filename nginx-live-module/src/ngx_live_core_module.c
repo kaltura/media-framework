@@ -169,7 +169,7 @@ ngx_module_t  ngx_live_core_module = {
 };
 
 
-static ngx_live_json_cmd_t  ngx_live_core_dyn_cmds[] = {
+static ngx_live_json_cmd_t  ngx_live_core_json_cmds[] = {
 
     { ngx_string("mem_limit"), NGX_JSON_INT, ngx_live_core_set_mem_limit },
 
@@ -631,7 +631,7 @@ ngx_live_core_preconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    if (ngx_live_json_cmds_add_multi(cf, ngx_live_core_dyn_cmds,
+    if (ngx_live_json_cmds_add_multi(cf, ngx_live_core_json_cmds,
         NGX_LIVE_JSON_CTX_CHANNEL) != NGX_OK)
     {
         return NGX_ERROR;
