@@ -1362,6 +1362,7 @@ ngx_http_pckg_media_init_segment(ngx_http_request_t *r,
 {
     ngx_uint_t                   i, n;
     ngx_pckg_track_t            *tracks;
+    ngx_pckg_variant_t          *variant;
     ngx_pckg_channel_t          *channel;
     ngx_http_pckg_core_ctx_t    *ctx;
     media_init_segment_track_t  *dst_track;
@@ -1377,6 +1378,9 @@ ngx_http_pckg_media_init_segment(ngx_http_request_t *r,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
+    variant = channel->variants.elts;
+
+    dst->lang = variant->lang;
     dst->first = dst_track;
 
     tracks = channel->tracks.elts;
