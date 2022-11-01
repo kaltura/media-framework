@@ -21,6 +21,12 @@ typedef struct {
 } ngx_live_segment_cache_track_ctx_t;
 
 
+typedef struct {
+    ngx_uint_t              read_count;
+    size_t                  read_size;
+} ngx_live_segment_cache_channel_ctx_t;
+
+
 static ngx_int_t ngx_live_segment_cache_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_live_segment_cache_postconfiguration(ngx_conf_t *cf);
 
@@ -1259,19 +1265,20 @@ ngx_live_segment_cache_write(ngx_persist_write_ctx_t *write_ctx,
 static ngx_int_t
 ngx_live_segment_cache_serve(ngx_live_segment_serve_req_t *req)
 {
-    uint32_t                       ignore;
-    uint32_t                       part_index;
-    uint32_t                       segment_index;
-    ngx_pool_t                    *pool;
-    ngx_live_channel_t            *channel;
-    ngx_live_segment_t            *segment;
-    ngx_live_track_ref_t          *cur, *last;
-    ngx_live_segment_part_t       *parts;
-    ngx_persist_write_ctx_t       *write_ctx;
-    ngx_live_segment_index_t      *index;
-    ngx_live_segment_cleanup_t    *cln;
-    ngx_live_segment_write_ctx_t   sctx;
-    ngx_live_persist_main_conf_t  *pmcf;
+    uint32_t                               ignore;
+    uint32_t                               part_index;
+    uint32_t                               segment_index;
+    ngx_pool_t                            *pool;
+    ngx_live_channel_t                    *channel;
+    ngx_live_segment_t                    *segment;
+    ngx_live_track_ref_t                  *cur, *last;
+    ngx_live_segment_part_t               *parts;
+    ngx_persist_write_ctx_t               *write_ctx;
+    ngx_live_segment_index_t              *index;
+    ngx_live_segment_cleanup_t            *cln;
+    ngx_live_segment_write_ctx_t           sctx;
+    ngx_live_persist_main_conf_t          *pmcf;
+    ngx_live_segment_cache_channel_ctx_t  *cctx;
 
     pool = req->pool;
     channel = req->channel;
@@ -1389,6 +1396,12 @@ ngx_live_segment_cache_serve(ngx_live_segment_serve_req_t *req)
     }
 
     req->source = ngx_live_segment_cache_source_name;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_cache_module);
+
+    cctx->read_count++;
+    cctx->read_size += req->size;
+
     return NGX_OK;
 }
 
@@ -1436,6 +1449,53 @@ ngx_live_segment_cache_track_json_write(u_char *p, void *obj)
     *p++ = '}';
 
     return p;
+}
+
+
+static size_t
+ngx_live_segment_cache_channel_json_get_size(void *obj)
+{
+    return sizeof("\"segment_cache\":{\"read_count\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"read_size\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof("}") - 1;
+}
+
+
+static u_char *
+ngx_live_segment_cache_channel_json_write(u_char *p, void *obj)
+{
+    ngx_live_channel_t                    *channel = obj;
+    ngx_live_segment_cache_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_segment_cache_module);
+
+    p = ngx_copy_fix(p, "\"segment_cache\":{\"read_count\":");
+    p = ngx_sprintf(p, "%ui", cctx->read_count);
+
+    p = ngx_copy_fix(p, ",\"read_size\":");
+    p = ngx_sprintf(p, "%uz", cctx->read_size);
+
+    *p++ = '}';
+
+    return p;
+}
+
+
+static ngx_int_t
+ngx_live_segment_cache_channel_init(ngx_live_channel_t *channel, void *ectx)
+{
+    ngx_live_segment_cache_channel_ctx_t  *cctx;
+
+    cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
+    if (cctx == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_media_channel_init: alloc failed");
+        return NGX_ERROR;
+    }
+
+    ngx_live_set_ctx(channel, cctx, ngx_live_segment_cache_module);
+
+    return NGX_OK;
 }
 
 
@@ -1558,6 +1618,13 @@ ngx_live_segment_cache_preconfiguration(ngx_conf_t *cf)
 }
 
 
+static ngx_live_channel_event_t    ngx_live_segment_cache_channel_events[] = {
+    { ngx_live_segment_cache_channel_init, NGX_LIVE_EVENT_CHANNEL_INIT },
+
+      ngx_live_null_event
+};
+
+
 static ngx_live_track_event_t      ngx_live_segment_cache_track_events[] = {
     { ngx_live_segment_cache_track_init, NGX_LIVE_EVENT_TRACK_INIT },
     { ngx_live_segment_cache_track_free, NGX_LIVE_EVENT_TRACK_FREE },
@@ -1569,6 +1636,10 @@ static ngx_live_track_event_t      ngx_live_segment_cache_track_events[] = {
 
 
 static ngx_live_json_writer_def_t  ngx_live_segment_cache_json_writers[] = {
+    { { ngx_live_segment_cache_channel_json_get_size,
+        ngx_live_segment_cache_channel_json_write },
+      NGX_LIVE_JSON_CTX_CHANNEL },
+
     { { ngx_live_segment_cache_track_json_get_size,
         ngx_live_segment_cache_track_json_write },
       NGX_LIVE_JSON_CTX_TRACK },
@@ -1580,6 +1651,12 @@ static ngx_live_json_writer_def_t  ngx_live_segment_cache_json_writers[] = {
 static ngx_int_t
 ngx_live_segment_cache_postconfiguration(ngx_conf_t *cf)
 {
+    if (ngx_live_core_channel_events_add(cf,
+        ngx_live_segment_cache_channel_events) != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
     if (ngx_live_core_track_events_add(cf,
         ngx_live_segment_cache_track_events) != NGX_OK)
     {
