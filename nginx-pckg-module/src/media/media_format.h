@@ -146,6 +146,7 @@ typedef struct {
     media_init_segment_track_t* first;
     media_init_segment_track_t* last;
     uint32_t count;
+    vod_str_t lang;
 } media_init_segment_t;
 
 typedef struct {

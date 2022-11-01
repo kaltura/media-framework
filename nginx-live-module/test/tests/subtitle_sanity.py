@@ -9,8 +9,8 @@ def test(channelId=CHANNEL_ID):
     nl = setupChannelTimeline(channelId)
 
     sv, sa = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
-    ssEn = createSubtitleVariant(nl, 'sub1', 's1', 'English', 'en')
-    ssEs = createSubtitleVariant(nl, 'sub2', 's2', 'Spanish', 'es')
+    ssEn = createSubtitleVariant(nl, 'sub1', 's1', 'English', 'eng')
+    ssEs = createSubtitleVariant(nl, 'sub2', 's2', 'Spanish', 'spa')
 
     # to test live DASH, add realtime=1 to kmpSendStreams & uncomment this:
     # st.created = int(time.time() * 90000)

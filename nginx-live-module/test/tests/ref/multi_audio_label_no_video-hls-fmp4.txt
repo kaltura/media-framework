@@ -101,7 +101,7 @@ seg-8-salt1-a.m4s
 
 URL: /init-1-salt1-a.mp4
 HEADERS: 200 audio/mp4
-BODY: SIZE: 599, MD5: 002d769ce65c7fed4e7c6f3a1f2d97af
+BODY: SIZE: 599, MD5: 46decb091f6ec6603970896b86d0929a
 
 URL: /seg-1-salt1-a.m4s
 HEADERS: 200 audio/mp4
@@ -137,7 +137,7 @@ BODY: SIZE: 4972, MD5: fa73f99190d6b2c225b4176a07c334b5
 
 URL: /init-1-salt2-a.mp4
 HEADERS: 200 audio/mp4
-BODY: SIZE: 596, MD5: 8b521c381718612fe6650c876dd2cc25
+BODY: SIZE: 596, MD5: 15d007b2f338176e18c908f5deccf1c1
 
 URL: /seg-1-salt2-a.m4s
 HEADERS: 200 audio/mp4

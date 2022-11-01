@@ -404,7 +404,40 @@ mp4_init_segment_write_tkhd64_atom(
 
 
 static u_char*
-mp4_init_segment_write_mdhd_atom(u_char* p, uint32_t timescale, uint32_t duration)
+mp4_init_segment_write_mdhd_lang(u_char* p, vod_str_t* lang)
+{
+    uint32_t i;
+    uint16_t code;
+    u_char ch;
+
+    if (lang->len != 3)
+    {
+        goto und;
+    }
+
+    code = 0;
+    for (i = 0; i < 3; i++)
+    {
+        ch = lang->data[i];
+        if (ch < 'a' || ch > 'z')
+        {
+            goto und;
+        }
+
+        code = (code << 5) | (ch - 0x60);
+    }
+
+    write_be16(p, code);
+    return p;
+
+und:
+    write_be16(p, 0x55c4);
+    return p;
+}
+
+
+static u_char*
+mp4_init_segment_write_mdhd_atom(u_char* p, uint32_t timescale, uint32_t duration, vod_str_t* lang)
 {
     size_t atom_size = ATOM_HEADER_SIZE + sizeof(mdhd_atom_t);
 
@@ -414,14 +447,14 @@ mp4_init_segment_write_mdhd_atom(u_char* p, uint32_t timescale, uint32_t duratio
     write_be32(p, 0);                // modification time
     write_be32(p, timescale);        // timescale
     write_be32(p, duration);         // duration
-    write_be16(p, 0x55c4);           // language (und)
+    p = mp4_init_segment_write_mdhd_lang(p, lang); // language
     write_be16(p, 0);                // reserved
     return p;
 }
 
 
 static u_char*
-mp4_init_segment_write_mdhd64_atom(u_char* p, uint32_t timescale, uint64_t duration)
+mp4_init_segment_write_mdhd64_atom(u_char* p, uint32_t timescale, uint64_t duration, vod_str_t* lang)
 {
     size_t atom_size = ATOM_HEADER_SIZE + sizeof(mdhd64_atom_t);
 
@@ -431,7 +464,7 @@ mp4_init_segment_write_mdhd64_atom(u_char* p, uint32_t timescale, uint64_t durat
     write_be64(p, 0LL);              // modification time
     write_be32(p, timescale);        // timescale
     write_be64(p, duration);         // duration
-    write_be16(p, 0x55c4);           // language (und)
+    p = mp4_init_segment_write_mdhd_lang(p, lang); // language
     write_be16(p, 0);                // reserved
     return p;
 }
@@ -806,11 +839,11 @@ mp4_init_segment_write(
         // moov.trak.mdia.mdhd
         if (duration > UINT_MAX)
         {
-            p = mp4_init_segment_write_mdhd64_atom(p, timescale, duration);
+            p = mp4_init_segment_write_mdhd64_atom(p, timescale, duration, &segment->lang);
         }
         else
         {
-            p = mp4_init_segment_write_mdhd_atom(p, timescale, duration);
+            p = mp4_init_segment_write_mdhd_atom(p, timescale, duration, &segment->lang);
         }
 
         // moov.trak.mdia.hdlr
