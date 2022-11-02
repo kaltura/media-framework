@@ -229,7 +229,7 @@ ngx_http_pckg_enc_json_parse_systems(ngx_http_request_t *r,
             return NGX_ERROR;
         }
 
-        if (ngx_http_pckg_parse_guid(&elt->key, sys->id) != NGX_OK) {
+        if (ngx_pckg_parse_guid(&elt->key, sys->id) != NGX_OK) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "ngx_http_pckg_enc_json_parse_systems: "
                 "failed to parse guid \"%V\"", &elt->key);
@@ -254,8 +254,7 @@ ngx_http_pckg_enc_json_parse_systems(ngx_http_request_t *r,
             sys->base64_data = elt->value.v.str.s;
         }
 
-        rc = ngx_http_pckg_parse_base64(r->pool, &sys->base64_data,
-            &sys->data);
+        rc = ngx_pckg_parse_base64(r->pool, &sys->base64_data, &sys->data);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "ngx_http_pckg_enc_json_parse_systems: "
@@ -298,8 +297,8 @@ ngx_http_pckg_enc_json_parse(ngx_http_request_t *r, ngx_json_value_t *value,
         return NGX_BAD_DATA;
     }
 
-    if (ngx_http_pckg_parse_base64_fixed(&json.key,
-        enc->key, sizeof(enc->key)) != NGX_OK)
+    if (ngx_pckg_parse_base64_fixed(&json.key, enc->key, sizeof(enc->key))
+        != NGX_OK)
     {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_pckg_enc_json_parse: invalid key \"%V\"", &json.key);
@@ -307,7 +306,7 @@ ngx_http_pckg_enc_json_parse(ngx_http_request_t *r, ngx_json_value_t *value,
     }
 
     if (json.key_id.data != NGX_JSON_UNSET_PTR) {
-        if (ngx_http_pckg_parse_base64_fixed(&json.key_id,
+        if (ngx_pckg_parse_base64_fixed(&json.key_id,
             enc->key_id, sizeof(enc->key_id)) != NGX_OK)
         {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -320,8 +319,8 @@ ngx_http_pckg_enc_json_parse(ngx_http_request_t *r, ngx_json_value_t *value,
     }
 
     if (json.iv.data != NGX_JSON_UNSET_PTR) {
-        if (ngx_http_pckg_parse_base64_fixed(&json.iv,
-            enc->iv, sizeof(enc->iv)) != NGX_OK)
+        if (ngx_pckg_parse_base64_fixed(&json.iv, enc->iv, sizeof(enc->iv))
+            != NGX_OK)
         {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "ngx_http_pckg_enc_json_parse: invalid iv \"%V\"", &json.iv);
@@ -620,7 +619,7 @@ ngx_http_pckg_enc_key_uri_get_size(ngx_uint_t scope,
 
     case NGX_HTTP_PCKG_ENC_SCOPE_VARIANT:
     case NGX_HTTP_PCKG_ENC_SCOPE_TRACK:
-        size += ngx_http_pckg_selector_get_size(&variant->id);
+        size += ngx_pckg_sep_selector_get_size(&variant->id);
         break;
     }
 
@@ -640,15 +639,16 @@ ngx_http_pckg_enc_key_uri_write(u_char *p, ngx_uint_t scope,
         break;
 
     case NGX_HTTP_PCKG_ENC_SCOPE_MEDIA_TYPE:
-        p = ngx_http_pckg_write_media_type_mask(p, media_types);
+        p = ngx_pckg_write_media_type_mask(p, media_types);
         break;
 
     case NGX_HTTP_PCKG_ENC_SCOPE_VARIANT:
-        p = ngx_http_pckg_selector_write(p, &variant->id, KMP_MEDIA_TYPE_MASK);
+        p = ngx_pckg_sep_selector_write(p, &variant->id,
+            KMP_MEDIA_TYPE_MASK);
         break;
 
     case NGX_HTTP_PCKG_ENC_SCOPE_TRACK:
-        p = ngx_http_pckg_selector_write(p, &variant->id, media_types);
+        p = ngx_pckg_sep_selector_write(p, &variant->id, media_types);
         break;
     }
 

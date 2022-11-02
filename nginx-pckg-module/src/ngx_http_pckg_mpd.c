@@ -81,9 +81,11 @@ static char *ngx_http_pckg_mpd_merge_loc_conf(ngx_conf_t *cf, void *parent,
     "      <Accessibility schemeIdUri=\"urn:scte:dash:cc:cea-708:2015\"\n"   \
     "          value=\"%V\"/>\n"
 
-#define MPD_REPRESENTATION_VIDEO                                             \
+#define MPD_REPRESENTATION_ID                                                \
     "      <Representation\n"                                                \
-    "          id=\"s%V-v\"\n"                                               \
+    "          id=\""
+
+#define MPD_REPRESENTATION_VIDEO  "\"\n"                                     \
     "          bandwidth=\"%uD\"\n"                                          \
     "          width=\"%uD\"\n"                                              \
     "          height=\"%uD\"\n"                                             \
@@ -119,9 +121,7 @@ static char *ngx_http_pckg_mpd_merge_loc_conf(ngx_conf_t *cf, void *parent,
                                 "audio_channel_configuration:2011\"\n"       \
     "          value=\"%uxD\"/>\n"
 
-#define MPD_REPRESENTATION_AUDIO                                             \
-    "      <Representation\n"                                                \
-    "          id=\"s%V-a\"\n"                                               \
+#define MPD_REPRESENTATION_AUDIO  "\"\n"                                     \
     "          bandwidth=\"%uD\"\n"                                          \
     "          audioSamplingRate=\"%uD\"\n"                                  \
     "          mimeType=\"%V\"\n"                                            \
@@ -141,9 +141,7 @@ static char *ngx_http_pckg_mpd_merge_loc_conf(ngx_conf_t *cf, void *parent,
     "        lang=\"%V\"\n"                                                  \
     "        segmentAlignment=\"true\">\n"
 
-#define MPD_REPRESENTATION_SUBTITLE                                          \
-    "      <Representation\n"                                                \
-    "          id=\"s%V-t-%V\"\n"                                            \
+#define MPD_REPRESENTATION_SUBTITLE  "\"\n"                                  \
     "          bandwidth=\"%uD\"\n"                                          \
     "          mimeType=\"%V\"\n"                                            \
     "          codecs=\"%V\"\n"                                              \
@@ -801,7 +799,7 @@ ngx_http_pckg_mpd_init_video_params(ngx_pckg_adapt_set_t *set,
 }
 
 
-/* Note: the size of the variant ids must be added outside this function */
+/* Note: the size of the selectors must be added outside this function */
 static size_t
 ngx_http_pckg_mpd_video_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
     ngx_pckg_period_t *period)
@@ -823,7 +821,8 @@ ngx_http_pckg_mpd_video_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
         + sizeof(MPD_ACCESSIBILITY_CEA_708_VALUE) - 1
             + MPD_ACCESSIBILITY_CEA_708_MAX_LEN
         + ngx_http_pckg_seg_tmpl_get_size(period, container)
-        + set->variants.nelts * (sizeof(MPD_REPRESENTATION_VIDEO) - 1
+        + set->variants.nelts * (sizeof(MPD_REPRESENTATION_ID) - 1
+            + sizeof(MPD_REPRESENTATION_VIDEO) - 1
             + content_type.len + MAX_CODEC_NAME_SIZE + NGX_INT32_LEN * 5)
         + ngx_http_pckg_mpd_cont_prot_get_size(track)
         + sizeof(MPD_ADAPTATION_FOOTER) - 1;
@@ -896,8 +895,11 @@ ngx_http_pckg_mpd_video_adapt_set_write(u_char *p, ngx_http_request_t *r,
         bitrate = ngx_http_pckg_estimate_max_bitrate(r, container,
             &media_info, 1, segment_duration);
 
+        p = ngx_copy_fix(p, MPD_REPRESENTATION_ID);
+
+        p = ngx_pckg_selector_write(p, &variant->id, 1 << KMP_MEDIA_VIDEO);
+
         p = ngx_sprintf(p, MPD_REPRESENTATION_VIDEO,
-            &variant->id,
             bitrate,
             (uint32_t) media_info->u.video.width,
             (uint32_t) media_info->u.video.height,
@@ -916,7 +918,7 @@ ngx_http_pckg_mpd_video_adapt_set_write(u_char *p, ngx_http_request_t *r,
 }
 
 
-/* Note: the size of the variant ids must be added outside this function */
+/* Note: the size of the selectors must be added outside this function */
 static size_t
 ngx_http_pckg_mpd_audio_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
     ngx_pckg_period_t *period)
@@ -937,7 +939,8 @@ ngx_http_pckg_mpd_audio_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
             + variants[0]->lang.len
         + sizeof(MPD_ADAPTATION_LABEL) - 1 + variants[0]->label.len
         + ngx_http_pckg_seg_tmpl_get_size(period, container)
-        + set->variants.nelts * (sizeof(MPD_REPRESENTATION_AUDIO) - 1
+        + set->variants.nelts * (sizeof(MPD_REPRESENTATION_ID) - 1
+            + sizeof(MPD_REPRESENTATION_AUDIO) - 1
             + NGX_INT32_LEN * 2 + content_type.len + MAX_CODEC_NAME_SIZE)
         + ngx_http_pckg_mpd_cont_prot_get_size(track)
         + sizeof(MPD_ADAPTATION_FOOTER) - 1;
@@ -1021,8 +1024,11 @@ ngx_http_pckg_mpd_audio_adapt_set_write(u_char *p, ngx_http_request_t *r,
         bitrate = ngx_http_pckg_estimate_max_bitrate(r, container,
             &media_info, 1, segment_duration);
 
+        p = ngx_copy_fix(p, MPD_REPRESENTATION_ID);
+
+        p = ngx_pckg_selector_write(p, &variant->id, 1 << KMP_MEDIA_AUDIO);
+
         p = ngx_sprintf(p, MPD_REPRESENTATION_AUDIO,
-            &variant->id,
             bitrate,
             media_info->u.audio.sample_rate,
             &content_type,
@@ -1038,7 +1044,7 @@ ngx_http_pckg_mpd_audio_adapt_set_write(u_char *p, ngx_http_request_t *r,
 }
 
 
-/* Note: the size of the variant ids must be added outside this function */
+/* Note: the size of the selectors must be added outside this function */
 static size_t
 ngx_http_pckg_mpd_subtitle_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
     ngx_pckg_period_t *period)
@@ -1059,9 +1065,10 @@ ngx_http_pckg_mpd_subtitle_adapt_set_get_size(ngx_pckg_adapt_set_t *set,
             + variants[0]->lang.len
         + sizeof(MPD_ADAPTATION_LABEL) - 1 + variants[0]->label.len
         + ngx_http_pckg_seg_tmpl_get_size(period, container)
-        + set->variants.nelts * (sizeof(MPD_REPRESENTATION_SUBTITLE) - 1
-            + MPD_SUBTITLE_CODEC_MAX_LEN * 2 + NGX_INT32_LEN
-            + content_type.len)
+        + set->variants.nelts * (sizeof(MPD_REPRESENTATION_ID) - 1
+            + sizeof("-") - 1 + MPD_SUBTITLE_CODEC_MAX_LEN
+            + sizeof(MPD_REPRESENTATION_SUBTITLE) - 1
+            + NGX_INT32_LEN + content_type.len + MPD_SUBTITLE_CODEC_MAX_LEN)
         + ngx_http_pckg_mpd_cont_prot_get_size(track)
         + sizeof(MPD_ADAPTATION_FOOTER) - 1;
 
@@ -1126,8 +1133,14 @@ ngx_http_pckg_mpd_subtitle_adapt_set_write(u_char *p, ngx_http_request_t *r,
 
         codec = &ngx_http_pckg_mpd_subtitle_codecs[mlcf->subtitle_format];
 
+        p = ngx_copy_fix(p, MPD_REPRESENTATION_ID);
+
+        p = ngx_pckg_selector_write(p, &variant->id, 1 << KMP_MEDIA_SUBTITLE);
+        *p++ = '-';
+        p = ngx_copy_str(p, *codec);
+
         p = ngx_sprintf(p, MPD_REPRESENTATION_SUBTITLE,
-            &variant->id, codec, bitrate, &content_type, codec);
+            bitrate, &content_type, codec);
     }
 
     track = variants[0]->tracks[KMP_MEDIA_SUBTITLE];
@@ -1319,7 +1332,7 @@ ngx_http_pckg_mpd_build(ngx_http_request_t *r, ngx_pckg_channel_t *channel,
 {
     u_char                        *p;
     size_t                         size;
-    size_t                         variant_ids_size;
+    size_t                         selectors_size;
     int64_t                        availability_start_time;
     int64_t                        end;
     int64_t                        start;
@@ -1366,11 +1379,11 @@ ngx_http_pckg_mpd_build(ngx_http_request_t *r, ngx_pckg_channel_t *channel,
     n = timeline->periods.nelts;
 
     /* get size */
-    variant_ids_size = ngx_pckg_adapt_sets_get_variant_ids_size(&sets);
+    selectors_size = ngx_pckg_adapt_sets_get_selectors_size(&sets);
 
     size = ngx_http_pckg_mpd_header_get_size(&profiles)
         + n * (sizeof(MPD_PERIOD_HEADER_START_DURATION) - 1 + NGX_INT32_LEN * 5
-            + variant_ids_size
+            + selectors_size
             + sizeof(MPD_PERIOD_FOOTER) - 1)
         + sizeof(MPD_UTC_TIMING) - 1 + MPD_DATE_TIME_LEN
         + sizeof(MPD_FOOTER) - 1;

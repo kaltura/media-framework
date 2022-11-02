@@ -1763,16 +1763,17 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
     timeline_escape = ngx_escape_uri(NULL, req->timeline_id.data,
         req->timeline_id.len, NGX_ESCAPE_ARGS);
 
-    size = sizeof("channel_id=") - 1 + req->channel_id.len + channel_escape +
-        sizeof("&timeline_id=") - 1 + req->timeline_id.len + timeline_escape +
-        sizeof("&flags=") - 1 + NGX_INT32_HEX_LEN;
+    size = sizeof("channel_id=") - 1 + req->channel_id.len + 2 * channel_escape
+        + sizeof("&timeline_id=") - 1 + req->timeline_id.len
+            + 2 * timeline_escape
+        + sizeof("&flags=") - 1 + NGX_INT32_HEX_LEN;
 
     if (req->variant_ids.data != NULL) {
         variants_escape = ngx_escape_uri(NULL, req->variant_ids.data,
             req->variant_ids.len, NGX_ESCAPE_ARGS);
 
-        size += sizeof("&variant_ids=") - 1 + req->variant_ids.len +
-            variants_escape;
+        size += sizeof("&variant_ids=") - 1 + req->variant_ids.len
+            + 2 * variants_escape;
 
     } else {
         variants_escape = 0;    /* suppress warning */

@@ -258,7 +258,9 @@ ngx_http_pckg_capture_parse_uri(ngx_http_request_t *r,
     cur += 2;   /* skip the -s */
 
     cur = ngx_http_pckg_extract_string(cur, end, &result->variant_ids);
-    if (ngx_strlchr(result->variant_ids.data, cur, ',') != NULL) {
+    if (ngx_strlchr(result->variant_ids.data, cur, NGX_KSMP_VARIANT_IDS_DELIM)
+        != NULL)
+    {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_pckg_capture_parse_uri: invalid variant id \"%V\"",
             &result->variant_ids);
