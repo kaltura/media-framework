@@ -88,6 +88,8 @@
 #define NGX_KSMP_MIN_PADDING                sizeof(ngx_persist_block_hdr_t)
 #define NGX_KSMP_MAX_PADDING                128
 
+#define NGX_KSMP_VARIANT_IDS_DELIM          '-'
+
 
 /* Note: ordered by desc prio */
 enum {

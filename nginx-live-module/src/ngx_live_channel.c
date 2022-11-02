@@ -488,6 +488,37 @@ ngx_live_variant_get(ngx_live_channel_t *channel, ngx_str_t *id)
 }
 
 
+static ngx_int_t
+ngx_live_variant_validate_id(ngx_str_t *id, ngx_log_t *log)
+{
+    size_t  i;
+    u_char  ch;
+
+    if (id->len > NGX_LIVE_VARIANT_MAX_ID_LEN) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_live_variant_validate_id: variant id \"%V\" too long", id);
+        return NGX_ERROR;
+    }
+
+    for (i = 0; i < id->len; i++) {
+
+        ch = id->data[i];
+        switch (ch) {
+
+        case '/':   /* delimits path params in live api */
+        case '-':   /* delimits variant ids in ksmp requests
+                        + uri file name params on the packager */
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "ngx_live_variant_validate_id: "
+                "invalid variant id \"%V\", must not contain \"%c\"", id, ch);
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
+
 ngx_int_t
 ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
     ngx_live_variant_conf_t *conf, ngx_log_t *log, ngx_live_variant_t **result)
@@ -495,9 +526,7 @@ ngx_live_variant_create(ngx_live_channel_t *channel, ngx_str_t *id,
     uint32_t             hash;
     ngx_live_variant_t  *variant;
 
-    if (id->len > sizeof(variant->id_buf)) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_live_variant_create: variant id \"%V\" too long", id);
+    if (ngx_live_variant_validate_id(id, log) != NGX_OK) {
         return NGX_INVALID_ARG;
     }
 

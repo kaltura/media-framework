@@ -819,7 +819,7 @@ ngx_http_pckg_m3u8_media_group_get_size(ngx_pckg_media_group_t *group,
         sizeof(M3U8_MEDIA_DEFAULT) - 1 +
         sizeof(M3U8_MEDIA_URI) - 1 +
         ngx_http_pckg_prefix_index.len +
-        sizeof("-s-v\"\n") - 1 +
+        sizeof("\"\n") - 1 +
         ngx_http_pckg_m3u8_ext.len;
 
     if (media_type == KMP_MEDIA_AUDIO) {
@@ -837,7 +837,8 @@ ngx_http_pckg_m3u8_media_group_get_size(ngx_pckg_media_group_t *group,
         label = variant->label.len > 0 ? &variant->label :
             &ngx_http_pckg_m3u8_default_label;
 
-        result += label->len + variant->lang.len + variant->id.len;
+        result += label->len + variant->lang.len
+            + ngx_pckg_sep_selector_get_size(&variant->id);
     }
 
     return result;
@@ -892,9 +893,9 @@ ngx_http_pckg_m3u8_media_group_write(u_char *p, ngx_pckg_media_group_t *group,
 
         p = ngx_copy_fix(p, M3U8_MEDIA_URI);
 
-        p = ngx_sprintf(p, "%V-s%V-%c%V", &ngx_http_pckg_prefix_index,
-            &variant->id, ngx_http_pckg_media_type_code[media_type],
-            &ngx_http_pckg_m3u8_ext);
+        p = ngx_copy_str(p, ngx_http_pckg_prefix_index);
+        p = ngx_pckg_sep_selector_write(p, &variant->id, 1 << media_type);
+        p = ngx_copy_str(p, ngx_http_pckg_m3u8_ext);
 
         *p++ = '"';
         *p++ = '\n';
@@ -1087,7 +1088,7 @@ ngx_http_pckg_m3u8_streams_get_size(ngx_array_t *streams)
 
     cur = streams->elts;
     for (last = cur + streams->nelts; cur < last; cur++) {
-        result += ngx_http_pckg_selector_get_size(&cur->variant->id);
+        result += ngx_pckg_sep_selector_get_size(&cur->variant->id);
 
         if (cur->groups[KMP_MEDIA_AUDIO] != NULL) {
             result += sizeof(M3U8_STREAM_TAG_AUDIO) - 1
@@ -1277,7 +1278,7 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
         *p++ = '\n';
 
         p = ngx_copy_str(p, ngx_http_pckg_prefix_index);
-        p = ngx_http_pckg_selector_write(p, &variant->id, cur->media_types);
+        p = ngx_pckg_sep_selector_write(p, &variant->id, cur->media_types);
         p = ngx_copy_str(p, ngx_http_pckg_m3u8_ext);
         *p++ = '\n';
     }
@@ -1861,7 +1862,7 @@ ngx_http_pckg_m3u8_get_selector(ngx_http_request_t *r,
 
     variant = channel->variants.elts;
 
-    size = ngx_http_pckg_selector_get_size(&variant->id);
+    size = ngx_pckg_sep_selector_get_size(&variant->id);
 
     p = ngx_pnalloc(r->pool, size);
     if (p == NULL) {
@@ -1871,7 +1872,7 @@ ngx_http_pckg_m3u8_get_selector(ngx_http_request_t *r,
     }
 
     result->data = p;
-    p = ngx_http_pckg_selector_write(p, &variant->id, channel->media_types);
+    p = ngx_pckg_sep_selector_write(p, &variant->id, channel->media_types);
     result->len = p - result->data;
 
     return NGX_OK;
@@ -2005,7 +2006,7 @@ ngx_http_pckg_m3u8_redition_reports_get_size(ngx_pckg_channel_t *channel)
 
         size += (sizeof(M3U8_RENDITION_REPORT_URI) - 1
             + ngx_http_pckg_prefix_index.len
-            + ngx_http_pckg_selector_get_size(&variant_rr->variant_id)
+            + ngx_pckg_sep_selector_get_size(&variant_rr->variant_id)
             + ngx_http_pckg_m3u8_ext.len
             + sizeof(M3U8_RENDITION_REPORT_ATTRS) - 1 + 2 * NGX_INT32_LEN)
             * variant_rr->nelts;
@@ -2033,7 +2034,7 @@ ngx_http_pckg_m3u8_redition_reports_write(u_char *p,
 
             p = ngx_copy_fix(p, M3U8_RENDITION_REPORT_URI);
             p = ngx_copy_str(p, ngx_http_pckg_prefix_index);
-            p = ngx_http_pckg_selector_write(p, &variant_rr->variant_id,
+            p = ngx_pckg_sep_selector_write(p, &variant_rr->variant_id,
                 1 << track_rr->media_type);
             p = ngx_copy_str(p, ngx_http_pckg_m3u8_ext);
             p = ngx_sprintf(p, M3U8_RENDITION_REPORT_ATTRS,

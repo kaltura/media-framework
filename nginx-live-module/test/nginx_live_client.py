@@ -1,4 +1,8 @@
 import requests
+try:
+    from urllib.parse import quote  # python 3
+except ImportError:
+    from urllib import quote        # python 2
 
 class NginxLiveNull:
     pass
@@ -45,9 +49,15 @@ class NginxLive:
             return None
         return req.json()
 
+    def getPath(self, *params):
+        params = map(lambda x: quote(x, safe=''), params)
+        return '/' + '/'.join(params)
+
     def setChannelId(self, id):
         self.channelId = id
-        self.channelBasePath = '/channels/%s' % id
+
+    def getChannelPath(self, *params):
+        return self.getPath('channels', self.channelId, *params)
 
 class NginxLiveChannel:
     def __init__(self, id=None, preset=None, opaque=None, segment_duration=None, input_delay=None, filler=None, read=None, vars=None, initial_segment_index=None, mem_limit=None):
@@ -75,24 +85,24 @@ class NginxLiveChannelService:
 
     def getAll(self):
         return self.base.get(
-            '/channels')
+            self.base.getPath('channels'))
 
     def get(self, id):
         return self.base.get(
-            '/channels/%s' % id)
+            self.base.getPath('channels', id))
 
     def delete(self, id):
         return self.base.delete(
-            '/channels/%s' % id)
+            self.base.getPath('channels', id))
 
     def create(self, channel):
         return self.base.post(
-            '/channels',
+            self.base.getPath('channels'),
             channel.__dict__)
 
     def update(self, channel):
         return self.base.put(
-            '/channels/%s' % channel.id,
+            self.base.getPath('channels', channel.id),
             channel.__dict__)
 
 class NginxLiveVariant:
@@ -111,20 +121,20 @@ class NginxLiveVariantService:
 
     def getAll(self):
         return self.base.get(
-            self.base.channelBasePath + '/variants')
+            self.base.getChannelPath('variants'))
 
     def delete(self, id):
         return self.base.delete(
-            self.base.channelBasePath + '/variants/%s' % id)
+            self.base.getChannelPath('variants', id))
 
     def create(self, variant):
         return self.base.post(
-            self.base.channelBasePath + '/variants',
+            self.base.getChannelPath('variants'),
             variant.__dict__)
 
     def addTrack(self, variantId, trackId):
         return self.base.post(
-            self.base.channelBasePath + '/variants/%s/tracks' % variantId,
+            self.base.getChannelPath('variants', variantId, 'tracks'),
             {'id': trackId})
 
 class NginxLiveTrack:
@@ -140,20 +150,20 @@ class NginxLiveTrackService:
 
     def getAll(self):
         return self.base.get(
-            self.base.channelBasePath + '/tracks')
+            self.base.getChannelPath('tracks'))
 
     def delete(self, id):
         return self.base.delete(
-            self.base.channelBasePath + '/tracks/%s' % id)
+            self.base.getChannelPath('tracks', id))
 
     def create(self, track):
         return self.base.post(
-            self.base.channelBasePath + '/tracks',
+            self.base.getChannelPath('tracks'),
             track.__dict__)
 
     def update(self, track):
         return self.base.put(
-            self.base.channelBasePath + '/tracks/%s' % track.id,
+            self.base.getChannelPath('tracks', track.id),
             track.__dict__)
 
 class NginxLiveTimeline:
@@ -185,22 +195,22 @@ class NginxLiveTimelineService:
 
     def getAll(self):
         return self.base.get(
-            self.base.channelBasePath + '/timelines')
+            self.base.getChannelPath('timelines'))
 
     def get(self, id):
         return self.base.get(
-            self.base.channelBasePath + '/timelines/%s' % id)
+            self.base.getChannelPath('timelines', id))
 
     def delete(self, id):
         return self.base.delete(
-            self.base.channelBasePath + '/timelines/%s' % id)
+            self.base.getChannelPath('timelines', id))
 
     def create(self, timeline):
         return self.base.post(
-            self.base.channelBasePath + '/timelines',
+            self.base.getChannelPath('timelines'),
             timeline.__dict__)
 
     def update(self, timeline):
         return self.base.put(
-            self.base.channelBasePath + '/timelines/%s' % timeline.id,
+            self.base.getChannelPath('timelines', timeline.id),
             timeline.__dict__)

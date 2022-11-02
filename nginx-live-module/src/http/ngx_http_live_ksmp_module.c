@@ -1056,7 +1056,8 @@ ngx_http_live_ksmp_init_track(ngx_http_request_t *r)
 
     params = &ctx->params;
     if (params->variant_ids.data == NULL
-        || memchr(params->variant_ids.data, ',', params->variant_ids.len))
+        || memchr(params->variant_ids.data, NGX_KSMP_VARIANT_IDS_DELIM,
+            params->variant_ids.len))
     {
         /* no variant ids / multiple variant ids */
         return NGX_OK;
@@ -1410,7 +1411,7 @@ ngx_http_live_ksmp_add_variants(ngx_http_request_t *r,
 
 
 static ngx_uint_t
-ngx_http_live_ksmp_value_count(ngx_str_t *value)
+ngx_http_live_ksmp_variant_ids_count(ngx_str_t *value)
 {
     u_char      *p, *last;
     ngx_uint_t   n;
@@ -1419,7 +1420,7 @@ ngx_http_live_ksmp_value_count(ngx_str_t *value)
     last = p + value->len;
 
     for (n = 1; p < last; p++) {
-        if (*p == ',') {
+        if (*p == NGX_KSMP_VARIANT_IDS_DELIM) {
             n++;
         }
     }
@@ -1440,7 +1441,7 @@ ngx_http_live_ksmp_parse_variant_ids(ngx_http_request_t *r,
     ngx_live_variant_t   *variant;
     ngx_live_variant_t  **dst;
 
-    variant_count = ngx_http_live_ksmp_value_count(&params->variant_ids);
+    variant_count = ngx_http_live_ksmp_variant_ids_count(&params->variant_ids);
 
     dst = ngx_palloc(r->pool, sizeof(dst[0]) * variant_count);
     if (dst == NULL) {
@@ -1456,7 +1457,7 @@ ngx_http_live_ksmp_parse_variant_ids(ngx_http_request_t *r,
     last = p + params->variant_ids.len;
 
     for ( ;; ) {
-        next = ngx_strlchr(p, last, ',');
+        next = ngx_strlchr(p, last, NGX_KSMP_VARIANT_IDS_DELIM);
 
         cur.data = p;
         cur.len = next != NULL ? next - p : last - p;

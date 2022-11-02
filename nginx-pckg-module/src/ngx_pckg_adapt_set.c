@@ -1,6 +1,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "ngx_pckg_adapt_set.h"
+#include "ngx_pckg_utils.h"
 
 
 static ngx_flag_t
@@ -208,7 +209,7 @@ ngx_pckg_adapt_sets_init(ngx_pckg_adapt_sets_t *sets)
 
 
 static size_t
-ngx_pckg_adapt_set_get_variant_ids_size(ngx_pckg_adapt_set_t *set)
+ngx_pckg_adapt_set_get_selectors_size(ngx_pckg_adapt_set_t *set)
 {
     size_t                size;
     ngx_uint_t            i, n;
@@ -219,7 +220,7 @@ ngx_pckg_adapt_set_get_variant_ids_size(ngx_pckg_adapt_set_t *set)
 
     size = 0;
     for (i = 0; i < n; i++) {
-        size += variants[i]->id.len;
+        size += ngx_pckg_selector_get_size(&variants[i]->id);
     }
 
     return size;
@@ -227,7 +228,7 @@ ngx_pckg_adapt_set_get_variant_ids_size(ngx_pckg_adapt_set_t *set)
 
 
 size_t
-ngx_pckg_adapt_sets_get_variant_ids_size(ngx_pckg_adapt_sets_t *sets)
+ngx_pckg_adapt_sets_get_selectors_size(ngx_pckg_adapt_sets_t *sets)
 {
     size_t                 size;
     uint32_t               media_type;
@@ -243,7 +244,7 @@ ngx_pckg_adapt_sets_get_variant_ids_size(ngx_pckg_adapt_sets_t *sets)
         {
             set = ngx_queue_data(q, ngx_pckg_adapt_set_t, queue);
 
-            size += ngx_pckg_adapt_set_get_variant_ids_size(set);
+            size += ngx_pckg_adapt_set_get_selectors_size(set);
         }
     }
 

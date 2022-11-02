@@ -47,10 +47,10 @@ def updateConf(conf):
 
     if BLOCKING_SEGMENT_REQUEST:
         preset = getConfBlock(conf, ['live', 'preset main'])
-        preset.append(['segmenter_duration','10s'])
+        preset.append(['segmenter_duration', '10s'])
 
         http = getConfBlock(conf, ['http'])
-        http.append(['client_max_body_size','64m'])
+        http.append(['client_max_body_size', '64m'])
 
 class KmpMemorySender(object):
     def __init__(self):
