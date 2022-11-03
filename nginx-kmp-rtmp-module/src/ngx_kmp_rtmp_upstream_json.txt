@@ -25,6 +25,14 @@ out ngx_kmp_rtmp_upstream_json ngx_kmp_rtmp_upstream_t
     received_bytes %uz
     streams %objQueue-ngx_kmp_rtmp_stream_json,ngx_kmp_rtmp_stream_t,queue,sn.str,id_escape obj->streams.queue
 
+out ngx_kmp_rtmp_upstream_free_json ngx_kmp_rtmp_upstream_t
+    event_type rtmp_close
+    reason %jV obj->free_reason
+    upstream_id %jV-obj->id_escape obj->sn.str
+    url %jV
+    header %jV
+    opaque %rV
+
 out nostatic noobject ngx_kmp_rtmp_upstreams_json void
     - %objQueue-ngx_kmp_rtmp_upstream_json,ngx_kmp_rtmp_upstream_t,queue,sn.str,id_escape ngx_kmp_rtmp_upstreams.queue
 

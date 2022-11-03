@@ -128,7 +128,7 @@ ngx_http_kmp_rtmp_api_upstream_delete(ngx_http_request_t *r,
         return NGX_HTTP_NOT_FOUND;
     }
 
-    ngx_kmp_rtmp_upstream_free(u);
+    ngx_kmp_rtmp_upstream_free(u, "api_delete");
 
     return NGX_OK;
 }

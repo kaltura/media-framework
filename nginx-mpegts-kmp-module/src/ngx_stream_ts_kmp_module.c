@@ -1,8 +1,9 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_stream.h>
-#include <ngx_kmp_out_utils.h>
+
 #include <ngx_ts_stream.h>
+#include <ngx_http_call.h>
 #include <ngx_stream_ts_module.h>
 
 #include "ngx_ts_kmp_module.h"
@@ -31,28 +32,28 @@ static ngx_command_t  ngx_stream_ts_kmp_commands[] = {
 
     { ngx_string("ts_kmp_ctrl_connect_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.ctrl_connect_url),
       NULL },
 
     { ngx_string("ts_kmp_ctrl_publish_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.t.ctrl_publish_url),
       NULL },
 
     { ngx_string("ts_kmp_ctrl_unpublish_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.t.ctrl_unpublish_url),
       NULL },
 
     { ngx_string("ts_kmp_ctrl_republish_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.t.ctrl_republish_url),
       NULL },

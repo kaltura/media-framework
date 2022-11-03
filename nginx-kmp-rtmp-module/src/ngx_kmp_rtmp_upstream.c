@@ -2,6 +2,7 @@
 #include <ngx_core.h>
 
 #include <ngx_json_parser.h>
+#include <ngx_http_call.h>
 
 #include "ngx_kmp_rtmp_track.h"
 #include "ngx_kmp_rtmp_stream.h"
@@ -75,7 +76,7 @@ ngx_kmp_rtmp_upstream_alloc_chain(ngx_kmp_rtmp_upstream_t *u)
 
 failed:
 
-    ngx_kmp_rtmp_upstream_finalize(u);
+    ngx_kmp_rtmp_upstream_finalize(u, "alloc_chain_failed");
     return NULL;
 }
 
@@ -162,7 +163,7 @@ ngx_kmp_rtmp_upstream_send(ngx_kmp_rtmp_upstream_t *u)
         if (ngx_queue_empty(&u->streams.queue)
             && u->active_buf.last <= u->active_buf.pos)
         {
-            ngx_kmp_rtmp_upstream_finalize(u);
+            ngx_kmp_rtmp_upstream_finalize(u, "done");
         }
 
         return NGX_OK;
@@ -430,7 +431,7 @@ ngx_kmp_rtmp_upstream_flush_handler(ngx_event_t *ev)
         "ngx_kmp_rtmp_upstream_flush_handler: called");
 
     if (ngx_kmp_rtmp_upstream_flush(u) != NGX_OK) {
-        ngx_kmp_rtmp_upstream_free(u);
+        ngx_kmp_rtmp_upstream_free(u, "flush_failed");
     }
 }
 
@@ -523,7 +524,7 @@ ngx_kmp_rtmp_upstream_process_handler(ngx_event_t *ev)
         "ngx_kmp_rtmp_upstream_process_handler: called");
 
     if (ngx_kmp_rtmp_upstream_process(u) != NGX_OK) {
-        ngx_kmp_rtmp_upstream_free(u);
+        ngx_kmp_rtmp_upstream_free(u, "process_frame_failed");
     }
 }
 
@@ -534,7 +535,7 @@ ngx_kmp_rtmp_upstream_stream_removed(ngx_kmp_rtmp_upstream_t *u)
     if (ngx_queue_empty(&u->streams.queue) && !u->busy
         && u->active_buf.last <= u->active_buf.pos)
     {
-        ngx_kmp_rtmp_upstream_finalize(u);
+        ngx_kmp_rtmp_upstream_finalize(u, "done");
     }
 }
 
@@ -590,7 +591,7 @@ ngx_kmp_rtmp_upstream_read_handler(ngx_event_t *rev)
 
     ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
         "ngx_kmp_rtmp_upstream_read_handler: upstream closed connection");
-    ngx_kmp_rtmp_upstream_free(u);
+    ngx_kmp_rtmp_upstream_free(u, "recv_failed");
 }
 
 
@@ -631,7 +632,7 @@ ngx_kmp_rtmp_upstream_write_handler(ngx_event_t *wev)
 
 failed:
 
-    ngx_kmp_rtmp_upstream_free(u);
+    ngx_kmp_rtmp_upstream_free(u, "send_failed");
 }
 
 
@@ -647,7 +648,7 @@ ngx_kmp_rtmp_upstream_handshake_handler(ngx_kmp_rtmp_handshake_t *hs,
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
             "ngx_kmp_rtmp_upstream_handshake_handler: handshake failed");
-        ngx_kmp_rtmp_upstream_finalize(u);
+        ngx_kmp_rtmp_upstream_finalize(u, "handshake_failed");
         return;
     }
 
@@ -681,7 +682,7 @@ ngx_kmp_rtmp_upstream_handshake_handler(ngx_kmp_rtmp_handshake_t *hs,
 
     rc = ngx_kmp_rtmp_upstream_send(u);
     if (rc != NGX_OK && rc != NGX_AGAIN) {
-        ngx_kmp_rtmp_upstream_finalize(u);
+        ngx_kmp_rtmp_upstream_finalize(u, "send_failed");
         return;
     }
 
@@ -796,6 +797,7 @@ ngx_kmp_rtmp_upstream_connect(ngx_kmp_rtmp_upstream_t *u, ngx_addr_t *addr)
 static void
 ngx_kmp_rtmp_upstream_resolve_handler(ngx_resolver_ctx_t *ctx)
 {
+    char                     *reason;
     ngx_addr_t                addr;
     ngx_kmp_rtmp_upstream_t  *u;
 
@@ -810,6 +812,7 @@ ngx_kmp_rtmp_upstream_resolve_handler(ngx_resolver_ctx_t *ctx)
             "%V could not be resolved (%i: %s)",
             &ctx->name, ctx->state,
             ngx_resolver_strerror(ctx->state));
+        reason = "resolve_failed";
         goto failed;
     }
 
@@ -838,6 +841,7 @@ ngx_kmp_rtmp_upstream_resolve_handler(ngx_resolver_ctx_t *ctx)
     ngx_memzero(&addr.name, sizeof(addr.name));
 
     if (ngx_kmp_rtmp_upstream_connect(u, &addr) != NGX_OK) {
+        reason = "start_connect_failed";
         goto failed;
     }
 
@@ -848,7 +852,7 @@ ngx_kmp_rtmp_upstream_resolve_handler(ngx_resolver_ctx_t *ctx)
 
 failed:
 
-    ngx_kmp_rtmp_upstream_finalize(u);
+    ngx_kmp_rtmp_upstream_finalize(u, reason);
 }
 
 
@@ -1011,8 +1015,95 @@ ngx_kmp_rtmp_upstream_create(ngx_kmp_rtmp_upstream_conf_t *conf,
 }
 
 
+static void
+ngx_kmp_rtmp_upstream_free_set_reason(ngx_kmp_rtmp_upstream_t *u, char *reason)
+{
+    if (u->free_reason.s.data != NULL || reason == NULL) {
+        return;
+    }
+
+    u->free_reason.s.data = (u_char *) reason;
+    u->free_reason.s.len = ngx_strlen(u->free_reason.s.data);
+    ngx_json_str_set_escape(&u->free_reason);
+}
+
+
+static ngx_chain_t *
+ngx_kmp_rtmp_upstream_free_notify_create(void *arg, ngx_pool_t *pool,
+    ngx_chain_t **body)
+{
+    size_t                    size;
+    u_char                   *p;
+    ngx_buf_t                *b;
+    ngx_chain_t              *pl;
+    ngx_kmp_rtmp_upstream_t  *u;
+
+    u = arg;
+
+    size = ngx_kmp_rtmp_upstream_free_json_get_size(u);
+
+    pl = ngx_http_call_alloc_chain_temp_buf(pool, size);
+    if (pl == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_kmp_rtmp_upstream_free_notify_create: "
+            "alloc chain buf failed");
+        return NULL;
+    }
+
+    b = pl->buf;
+    p = b->last;
+
+    p = ngx_kmp_rtmp_upstream_free_json_write(p, u);
+
+    if ((size_t) (p - b->pos) > size) {
+        ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
+            "ngx_kmp_rtmp_upstream_free_notify_create: "
+            "result length %uz greater than allocated length %uz",
+            (size_t) (p - b->pos), size);
+        return NULL;
+    }
+
+    b->last = p;
+
+    return ngx_http_call_format_json_post(pool, &u->conf.notif_url->host,
+        &u->conf.notif_url->uri, u->conf.notif_headers, pl);
+}
+
+
+static void
+ngx_kmp_rtmp_upstream_free_notify(ngx_kmp_rtmp_upstream_t *u)
+{
+    ngx_url_t             *url;
+    ngx_http_call_init_t   ci;
+
+    url = u->conf.notif_url;
+    if (url == NULL) {
+        return;
+    }
+
+    ngx_memzero(&ci, sizeof(ci));
+
+    ci.url = url;
+    ci.create = ngx_kmp_rtmp_upstream_free_notify_create;
+    ci.arg = u;
+
+    ci.timeout = u->conf.notif_timeout;
+    ci.read_timeout = u->conf.notif_read_timeout;
+    ci.buffer_size = u->conf.notif_buffer_size;
+
+    ngx_log_error(NGX_LOG_INFO, &u->log, 0,
+        "ngx_kmp_rtmp_upstream_free_notify: sending request to \"%V\"",
+        &url->url);
+
+    if (ngx_http_call_create(&ci) == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+            "ngx_kmp_rtmp_upstream_free_notify: http call create failed");
+    }
+}
+
+
 void
-ngx_kmp_rtmp_upstream_free(ngx_kmp_rtmp_upstream_t *u)
+ngx_kmp_rtmp_upstream_free(ngx_kmp_rtmp_upstream_t *u, char *reason)
 {
     ngx_queue_t            *q;
     ngx_connection_t       *c;
@@ -1026,6 +1117,10 @@ ngx_kmp_rtmp_upstream_free(ngx_kmp_rtmp_upstream_t *u)
         "ngx_kmp_rtmp_upstream_free: freeing %p", u);
 
     u->freed = 1;
+
+    ngx_kmp_rtmp_upstream_free_set_reason(u, reason);
+
+    ngx_kmp_rtmp_upstream_free_notify(u);
 
     for (q = ngx_queue_head(&u->streams.queue);
         q != ngx_queue_sentinel(&u->streams.queue); )
@@ -1081,14 +1176,16 @@ ngx_kmp_rtmp_upstream_close_handler(ngx_event_t *ev)
 
     u = ev->data;
 
-    ngx_kmp_rtmp_upstream_free(u);
+    ngx_kmp_rtmp_upstream_free(u, NULL);
 }
 
 
 void
-ngx_kmp_rtmp_upstream_finalize(ngx_kmp_rtmp_upstream_t *u)
+ngx_kmp_rtmp_upstream_finalize(ngx_kmp_rtmp_upstream_t *u, char *reason)
 {
     ngx_event_t  *e;
+
+    ngx_kmp_rtmp_upstream_free_set_reason(u, reason);
 
     e = &u->close;
 
@@ -1143,6 +1240,7 @@ ngx_kmp_rtmp_upstream_from_json(ngx_kmp_rtmp_upstream_conf_t *conf,
     ngx_kmp_rtmp_connect_data_json_t *json, ngx_kmp_rtmp_connect_t *connect,
     ngx_url_t *url)
 {
+    char                     *reason;
     u_char                   *p;
     ngx_kmp_rtmp_upstream_t  *u;
 
@@ -1159,6 +1257,7 @@ ngx_kmp_rtmp_upstream_from_json(ngx_kmp_rtmp_upstream_conf_t *conf,
 
     p = ngx_pnalloc(u->pool, u->url.s.len + u->header.s.len + u->opaque.len);
     if (p == NULL) {
+        reason = "alloc_failed";
         goto failed;
     }
 
@@ -1207,6 +1306,7 @@ ngx_kmp_rtmp_upstream_from_json(ngx_kmp_rtmp_upstream_conf_t *conf,
     connect->base.tx_id = ++u->tx_id;
 
     if (ngx_kmp_rtmp_upstream_write_connect(u, connect) != NGX_OK) {
+        reason = "write_connect_failed";
         goto failed;
     }
 
@@ -1215,11 +1315,13 @@ ngx_kmp_rtmp_upstream_from_json(ngx_kmp_rtmp_upstream_conf_t *conf,
 
     if (url->naddrs > 0) {
         if (ngx_kmp_rtmp_upstream_connect(u, &url->addrs[0]) != NGX_OK) {
+            reason = "start_connect_failed";
             goto failed;
         }
 
     } else {
         if (ngx_kmp_rtmp_upstream_resolve(u, &url->host) != NGX_OK) {
+            reason = "start_resolve_failed";
             goto failed;
         }
     }
@@ -1228,7 +1330,7 @@ ngx_kmp_rtmp_upstream_from_json(ngx_kmp_rtmp_upstream_conf_t *conf,
 
 failed:
 
-    ngx_kmp_rtmp_upstream_free(u);
+    ngx_kmp_rtmp_upstream_free(u, reason);
     return NULL;
 }
 
@@ -1419,6 +1521,11 @@ ngx_kmp_rtmp_upstream_init_flash_ver(ngx_conf_t *cf, ngx_str_t *flash_ver)
 void
 ngx_kmp_rtmp_upstream_conf_init(ngx_kmp_rtmp_upstream_conf_t *conf)
 {
+    conf->notif_url = NGX_CONF_UNSET_PTR;
+    conf->notif_timeout = NGX_CONF_UNSET_MSEC;
+    conf->notif_read_timeout = NGX_CONF_UNSET_MSEC;
+    conf->notif_buffer_size = NGX_CONF_UNSET_SIZE;
+
     conf->mem_limit = NGX_CONF_UNSET_SIZE;
     conf->max_free_buffers = NGX_CONF_UNSET_UINT;
 
@@ -1437,6 +1544,22 @@ ngx_int_t
 ngx_kmp_rtmp_upstream_conf_merge(ngx_conf_t *cf,
     ngx_kmp_rtmp_upstream_conf_t *prev, ngx_kmp_rtmp_upstream_conf_t *conf)
 {
+    ngx_conf_merge_ptr_value(conf->notif_url,
+                             prev->notif_url, NULL);
+
+    ngx_conf_merge_msec_value(conf->notif_timeout,
+                              prev->notif_timeout, 2000);
+
+    ngx_conf_merge_msec_value(conf->notif_read_timeout,
+                              prev->notif_read_timeout, 20000);
+
+    ngx_conf_merge_size_value(conf->notif_buffer_size,
+                              prev->notif_buffer_size, 4 * 1024);
+
+    if (conf->notif_headers == NULL) {
+        conf->notif_headers = prev->notif_headers;
+    }
+
     ngx_conf_merge_size_value(conf->mem_limit,
                               prev->mem_limit, 16 * 1024 * 1024);
 

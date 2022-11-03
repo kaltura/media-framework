@@ -19,6 +19,12 @@ typedef struct {
     ngx_resolver_t  *resolver;
     ngx_msec_t       resolver_timeout;
 
+    ngx_url_t       *notif_url;
+    ngx_array_t     *notif_headers;
+    ngx_msec_t       notif_timeout;
+    ngx_msec_t       notif_read_timeout;
+    size_t           notif_buffer_size;
+
     ngx_lba_t       *lba;
     size_t           mem_limit;
     ngx_uint_t       max_free_buffers;
@@ -44,7 +50,7 @@ ngx_int_t ngx_kmp_rtmp_upstream_conf_merge(ngx_conf_t *cf,
     ngx_kmp_rtmp_upstream_conf_t *prev, ngx_kmp_rtmp_upstream_conf_t *conf);
 
 ngx_kmp_rtmp_upstream_t *ngx_kmp_rtmp_upstream_get(ngx_str_t *id);
-void ngx_kmp_rtmp_upstream_free(ngx_kmp_rtmp_upstream_t *u);
+void ngx_kmp_rtmp_upstream_free(ngx_kmp_rtmp_upstream_t *u, char *reason);
 
 size_t ngx_kmp_rtmp_upstreams_json_get_size(void *obj);
 u_char *ngx_kmp_rtmp_upstreams_json_write(u_char *p, void *obj);

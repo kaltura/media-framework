@@ -76,28 +76,28 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
 
     { ngx_string("kmp_ctrl_connect_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, ctrl_connect_url),
       NULL },
 
     { ngx_string("kmp_ctrl_publish_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_publish_url),
       NULL },
 
     { ngx_string("kmp_ctrl_unpublish_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_unpublish_url),
       NULL },
 
     { ngx_string("kmp_ctrl_republish_url"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.ctrl_republish_url),
       NULL },
@@ -551,7 +551,7 @@ ngx_rtmp_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
 
     size = ngx_rtmp_kmp_connect_json_get_size(&connect, s);
 
-    cl = ngx_kmp_out_alloc_chain_temp_buf(pool, size);
+    cl = ngx_http_call_alloc_chain_temp_buf(pool, size);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_rtmp_kmp_connect_create: alloc chain buf failed");
@@ -571,7 +571,7 @@ ngx_rtmp_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
     }
 
     kacf = ctx->kacf;
-    return ngx_kmp_out_format_json_http_request(pool,
+    return ngx_http_call_format_json_post(pool,
         &kacf->ctrl_connect_url->host, &kacf->ctrl_connect_url->uri,
         kacf->t.ctrl_headers, cl);
 }

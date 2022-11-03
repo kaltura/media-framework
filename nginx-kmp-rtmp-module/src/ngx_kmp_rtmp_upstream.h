@@ -82,6 +82,7 @@ struct ngx_kmp_rtmp_upstream_s {
     size_t                          received_bytes;
 
     ngx_event_t                     close;
+    ngx_json_str_t                  free_reason;
 
     ngx_fd_t                        dump_fd;
 
@@ -94,7 +95,7 @@ ngx_int_t ngx_kmp_rtmp_upstream_get_or_create(ngx_pool_t *temp_pool,
     ngx_kmp_rtmp_upstream_conf_t *conf, ngx_json_value_t *value,
     ngx_kmp_rtmp_upstream_t **upstream, ngx_str_t *stream_name);
 
-void ngx_kmp_rtmp_upstream_finalize(ngx_kmp_rtmp_upstream_t *u);
+void ngx_kmp_rtmp_upstream_finalize(ngx_kmp_rtmp_upstream_t *u, char *reason);
 
 ngx_buf_chain_t *ngx_kmp_rtmp_upstream_alloc_chain(ngx_kmp_rtmp_upstream_t *u);
 void ngx_kmp_rtmp_upstream_free_chain_list(ngx_kmp_rtmp_upstream_t *u,

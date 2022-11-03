@@ -252,6 +252,46 @@ ngx_kmp_rtmp_upstream_json_write(u_char *p, ngx_kmp_rtmp_upstream_t *obj)
 }
 
 
+/* ngx_kmp_rtmp_upstream_free_json writer */
+
+static size_t
+ngx_kmp_rtmp_upstream_free_json_get_size(ngx_kmp_rtmp_upstream_t *obj)
+{
+    size_t  result;
+
+    result =
+        sizeof("{\"event_type\":\"rtmp_close\",\"reason\":\"") - 1 +
+            ngx_json_str_get_size(&obj->free_reason) +
+        sizeof("\",\"upstream_id\":\"") - 1 + obj->sn.str.len + obj->id_escape
+            +
+        sizeof("\",\"url\":\"") - 1 + ngx_json_str_get_size(&obj->url) +
+        sizeof("\",\"header\":\"") - 1 + ngx_json_str_get_size(&obj->header) +
+        sizeof("\",\"opaque\":\"") - 1 + obj->opaque.len +
+        sizeof("\"}") - 1;
+
+    return result;
+}
+
+
+static u_char *
+ngx_kmp_rtmp_upstream_free_json_write(u_char *p, ngx_kmp_rtmp_upstream_t *obj)
+{
+    p = ngx_copy_fix(p, "{\"event_type\":\"rtmp_close\",\"reason\":\"");
+    p = ngx_json_str_write(p, &obj->free_reason);
+    p = ngx_copy_fix(p, "\",\"upstream_id\":\"");
+    p = ngx_json_str_write_escape(p, &obj->sn.str, obj->id_escape);
+    p = ngx_copy_fix(p, "\",\"url\":\"");
+    p = ngx_json_str_write(p, &obj->url);
+    p = ngx_copy_fix(p, "\",\"header\":\"");
+    p = ngx_json_str_write(p, &obj->header);
+    p = ngx_copy_fix(p, "\",\"opaque\":\"");
+    p = ngx_copy_str(p, obj->opaque);
+    p = ngx_copy_fix(p, "\"}");
+
+    return p;
+}
+
+
 /* ngx_kmp_rtmp_upstreams_json writer */
 
 size_t

@@ -442,7 +442,7 @@ ngx_kmp_out_upstream_republish_create(void *arg, ngx_pool_t *pool,
         track->json_info.len +
         ngx_kmp_out_track_media_info_json_get_size(track);
 
-    cl = ngx_kmp_out_alloc_chain_temp_buf(pool, size);
+    cl = ngx_http_call_alloc_chain_temp_buf(pool, size);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_kmp_out_upstream_republish_create: alloc chain buf failed");
@@ -475,7 +475,7 @@ ngx_kmp_out_upstream_republish_create(void *arg, ngx_pool_t *pool,
 
     conf = track->conf;
 
-    return ngx_kmp_out_format_json_http_request(pool,
+    return ngx_http_call_format_json_post(pool,
         &conf->ctrl_republish_url->host, &conf->ctrl_republish_url->uri,
         conf->ctrl_headers, cl);
 }
