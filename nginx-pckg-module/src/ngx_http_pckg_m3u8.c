@@ -36,10 +36,10 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 
 #define M3U8_MASTER_HEADER           "#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n"
 
-#define M3U8_SESSION_DATA_ID         "#EXT-X-SESSION-DATA:DATA-ID=\"%V\""
-#define M3U8_SESSION_DATA_VALUE      ",VALUE=\"%V\""
-#define M3U8_SESSION_DATA_URI        ",URI=\"%V\""
-#define M3U8_SESSION_DATA_LANG       ",LANGUAGE=\"%V\""
+#define M3U8_SESSION_DATA_ID         "#EXT-X-SESSION-DATA:DATA-ID=\""
+#define M3U8_SESSION_DATA_VALUE      ",VALUE=\""
+#define M3U8_SESSION_DATA_URI        ",URI=\""
+#define M3U8_SESSION_DATA_LANG       ",LANGUAGE=\""
 
 #define M3U8_STREAM_BASE             "#EXT-X-STREAM-INF:PROGRAM-ID=1"        \
     ",BANDWIDTH=%uD"
@@ -56,14 +56,15 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 #define M3U8_STREAM_TAG_NO_CC        ",CLOSED-CAPTIONS=NONE"
 
 #define M3U8_MEDIA_BASE              "#EXT-X-MEDIA:TYPE=%V"                  \
-    ",GROUP-ID=\"%V%uD\",NAME=\"%V\""
-#define M3U8_MEDIA_LANG              ",LANGUAGE=\"%V\""
+    ",GROUP-ID=\"%V%uD\",NAME=\""
+#define M3U8_MEDIA_LANG              ",LANGUAGE=\""
 #define M3U8_MEDIA_DEFAULT           ",AUTOSELECT=YES,DEFAULT=YES"
 #define M3U8_MEDIA_NON_DEFAULT       ",AUTOSELECT=NO,DEFAULT=NO"
 #define M3U8_MEDIA_CHANNELS          ",CHANNELS=\"%uD\""
 #define M3U8_MEDIA_URI               ",URI=\""
-#define M3U8_MEDIA_CC                "#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS"     \
-    ",GROUP-ID=\"CC\",NAME=\"%V\",INSTREAM-ID=\"%V\""
+#define M3U8_MEDIA_CC1               "#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS"     \
+    ",GROUP-ID=\"CC\",NAME=\""
+#define M3U8_MEDIA_CC2               "\",INSTREAM-ID=\"%V\""
 
 /* index playlist */
 #define M3U8_INDEX_HEADER            "#EXTM3U\n#EXT-X-TARGETDURATION:%uD\n"  \
@@ -344,6 +345,35 @@ static ngx_str_t  ngx_http_pckg_m3u8_default_label = ngx_string("default");
 
 /* shared */
 
+static u_char *
+ngx_http_pckg_m3u8_quoted_str_write(u_char *dst, ngx_str_t *str)
+{
+    u_char       ch;
+    u_char      *src;
+    ngx_uint_t   n;
+
+    src = str->data;
+    n = str->len;
+
+    while (n) {
+        ch = *src++;
+        n--;
+
+        switch (ch) {
+
+        case '"':
+        case '\n':
+        case '\r':
+            continue;
+        }
+
+        *dst++ = ch;
+    }
+
+    return dst;
+}
+
+
 static ngx_http_pckg_container_t *
 ngx_http_pckg_m3u8_get_container(ngx_http_request_t *r,
     ngx_pckg_variant_t *variant)
@@ -555,7 +585,7 @@ ngx_http_pckg_m3u8_enc_key_write(u_char *p, ngx_http_request_t *r,
     /* uri */
     p = ngx_copy_fix(p, M3U8_ENC_KEY_URI);
     if (ctx != NULL) {
-        p = ngx_copy_str(p, ctx->key_uri);
+        p = ngx_http_pckg_m3u8_quoted_str_write(p, &ctx->key_uri);
 
     } else if (elcf->scheme == NGX_HTTP_PCKG_ENC_CENC) {
         p = ngx_copy_fix(p, M3U8_URI_BASE64_DATA);
@@ -579,14 +609,15 @@ ngx_http_pckg_m3u8_enc_key_write(u_char *p, ngx_http_request_t *r,
     /* keyformat */
     if (mlcf->enc.key_format.len != 0) {
         p = ngx_copy_fix(p, M3U8_ENC_KEY_KEY_FORMAT);
-        p = ngx_copy_str(p, mlcf->enc.key_format);
+        p = ngx_http_pckg_m3u8_quoted_str_write(p, &mlcf->enc.key_format);
         *p++ = '"';
     }
 
     /* keyformatversions */
     if (mlcf->enc.key_format_versions.len != 0) {
         p = ngx_copy_fix(p, M3U8_ENC_KEY_KEY_FORMAT_VER);
-        p = ngx_copy_str(p, mlcf->enc.key_format_versions);
+        p = ngx_http_pckg_m3u8_quoted_str_write(p,
+            &mlcf->enc.key_format_versions);
         *p++ = '"';
     }
 
@@ -819,7 +850,7 @@ ngx_http_pckg_m3u8_media_group_get_size(ngx_pckg_media_group_t *group,
         sizeof(M3U8_MEDIA_DEFAULT) - 1 +
         sizeof(M3U8_MEDIA_URI) - 1 +
         ngx_http_pckg_prefix_index.len +
-        sizeof("\"\n") - 1 +
+        sizeof("\"\"\"\n") - 1 +
         ngx_http_pckg_m3u8_ext.len;
 
     if (media_type == KMP_MEDIA_AUDIO) {
@@ -872,11 +903,15 @@ ngx_http_pckg_m3u8_media_group_write(u_char *p, ngx_pckg_media_group_t *group,
         p = ngx_sprintf(p, M3U8_MEDIA_BASE,
             &ngx_http_pckg_m3u8_media_type_name[media_type],
             &ngx_http_pckg_m3u8_media_group_id[media_type],
-            media_info->codec_id,
-            label);
+            media_info->codec_id);
+
+        p = ngx_http_pckg_m3u8_quoted_str_write(p, label);
+        *p++ = '"';
 
         if (variant->lang.len) {
-            p = ngx_sprintf(p, M3U8_MEDIA_LANG, &variant->lang);
+            p = ngx_copy_fix(p, M3U8_MEDIA_LANG);
+            p = ngx_http_pckg_m3u8_quoted_str_write(p, &variant->lang);
+            *p++ = '"';
         }
 
         if (variant->header.is_default) {
@@ -932,8 +967,9 @@ ngx_http_pckg_m3u8_closed_captions_get_size(ngx_pckg_channel_t *channel)
     css = channel->css.elts;
     n = channel->css.nelts;
 
-    size = sizeof("\n") - 1 + (sizeof(M3U8_MEDIA_CC) - 1
-        + sizeof(M3U8_MEDIA_LANG) - 1 + sizeof("\n") - 1) * n;
+    size = sizeof("\n") - 1 + (sizeof(M3U8_MEDIA_CC1) - 1
+        + sizeof(M3U8_MEDIA_CC2) - 1 + sizeof(M3U8_MEDIA_LANG) - 1
+        + sizeof("\"\n") - 1) * n;
 
     for (i = 0; i < n; i++) {
         cs = &css[i];
@@ -969,10 +1005,14 @@ ngx_http_pckg_m3u8_closed_captions_write(u_char *p,
 
         ngx_http_pckg_m3u8_upper(&cs->id);
 
-        p = ngx_sprintf(p, M3U8_MEDIA_CC, &cs->label, &cs->id);
+        p = ngx_copy_fix(p, M3U8_MEDIA_CC1);
+        p = ngx_http_pckg_m3u8_quoted_str_write(p, &cs->label);
+        p = ngx_sprintf(p, M3U8_MEDIA_CC2, &cs->id);
 
         if (cs->lang.len) {
-            p = ngx_sprintf(p, M3U8_MEDIA_LANG, &cs->lang);
+            p = ngx_copy_fix(p, M3U8_MEDIA_LANG);
+            p = ngx_http_pckg_m3u8_quoted_str_write(p, &cs->lang);
+            *p++ = '"';
         }
 
         if (cs->is_default) {
@@ -999,7 +1039,8 @@ ngx_http_pckg_m3u8_session_data_get_size(ngx_array_t *arr)
     size = sizeof("\n") - 1 + (sizeof(M3U8_SESSION_DATA_ID) - 1
         + sizeof(M3U8_SESSION_DATA_VALUE) - 1
         + sizeof(M3U8_SESSION_DATA_URI) - 1
-        + sizeof(M3U8_SESSION_DATA_LANG) - 1 + sizeof("\n") - 1) * n;
+        + sizeof(M3U8_SESSION_DATA_LANG) - 1
+        + sizeof("\"\"\"\"\n") - 1) * n;
 
     for (i = 0; i < n; i++) {
         dv = &dvs[i];
@@ -1028,18 +1069,26 @@ ngx_http_pckg_m3u8_session_data_write(u_char *p, ngx_array_t *arr)
     for (i = 0; i < n; i++) {
         dv = &dvs[i];
 
-        p = ngx_sprintf(p, M3U8_SESSION_DATA_ID, &dv->id);
+        p = ngx_copy_fix(p, M3U8_SESSION_DATA_ID);
+        p = ngx_http_pckg_m3u8_quoted_str_write(p, &dv->id);
+        *p++ = '"';
 
         if (dv->value.len > 0) {
-            p = ngx_sprintf(p, M3U8_SESSION_DATA_VALUE, &dv->value);
+            p = ngx_copy_fix(p, M3U8_SESSION_DATA_VALUE);
+            p = ngx_http_pckg_m3u8_quoted_str_write(p, &dv->value);
+            *p++ = '"';
         }
 
         if (dv->uri.len > 0) {
-            p = ngx_sprintf(p, M3U8_SESSION_DATA_URI, &dv->uri);
+            p = ngx_copy_fix(p, M3U8_SESSION_DATA_URI);
+            p = ngx_http_pckg_m3u8_quoted_str_write(p, &dv->uri);
+            *p++ = '"';
         }
 
         if (dv->lang.len > 0) {
-            p = ngx_sprintf(p, M3U8_SESSION_DATA_LANG, &dv->lang);
+            p = ngx_copy_fix(p, M3U8_SESSION_DATA_LANG);
+            p = ngx_http_pckg_m3u8_quoted_str_write(p, &dv->lang);
+            *p++ = '"';
         }
 
         *p++ = '\n';
