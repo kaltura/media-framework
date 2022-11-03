@@ -1489,7 +1489,7 @@ ngx_live_segment_cache_channel_init(ngx_live_channel_t *channel, void *ectx)
     cctx = ngx_pcalloc(channel->pool, sizeof(*cctx));
     if (cctx == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_persist_media_channel_init: alloc failed");
+            "ngx_live_segment_cache_channel_init: alloc failed");
         return NGX_ERROR;
     }
 

@@ -3,9 +3,9 @@
 #include <ngx_stream.h>
 
 #include <ngx_buf_queue.h>
+#include <ngx_http_call.h>
 #include <ngx_kmp_in.h>
 #include <ngx_kmp_out_track.h>
-#include <ngx_kmp_out_utils.h>
 
 #include "ngx_kmp_cc.h"
 
@@ -135,21 +135,21 @@ static ngx_command_t  ngx_stream_kmp_cc_commands[] = {
 
     { ngx_string("kmp_cc_out_ctrl_publish_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_kmp_cc_srv_conf_t, out.ctrl_publish_url),
       NULL },
 
     { ngx_string("kmp_cc_out_ctrl_unpublish_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_kmp_cc_srv_conf_t, out.ctrl_unpublish_url),
       NULL },
 
     { ngx_string("kmp_cc_out_ctrl_republish_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_kmp_cc_srv_conf_t, out.ctrl_republish_url),
       NULL },

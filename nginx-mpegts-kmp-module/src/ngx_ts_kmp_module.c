@@ -43,7 +43,7 @@ ngx_ts_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
     ngx_json_str_set_escape(&connect.stream_id);
 
     size = ngx_ts_kmp_connect_json_get_size(&connect, ctx->connection);
-    cl = ngx_kmp_out_alloc_chain_temp_buf(pool, size);
+    cl = ngx_http_call_alloc_chain_temp_buf(pool, size);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_ts_kmp_connect_create: alloc chain buf failed");
@@ -62,7 +62,7 @@ ngx_ts_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
         return NULL;
     }
 
-    return ngx_kmp_out_format_json_http_request(pool,
+    return ngx_http_call_format_json_post(pool,
         &conf->ctrl_connect_url->host, &conf->ctrl_connect_url->uri,
         conf->t.ctrl_headers, cl);
 }

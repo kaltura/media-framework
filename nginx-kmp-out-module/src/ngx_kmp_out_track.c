@@ -416,7 +416,7 @@ ngx_kmp_out_track_publish_create(void *arg, ngx_pool_t *pool,
         track->json_info.len +
         ngx_kmp_out_track_media_info_json_get_size(track);
 
-    cl = ngx_kmp_out_alloc_chain_temp_buf(pool, size);
+    cl = ngx_http_call_alloc_chain_temp_buf(pool, size);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_kmp_out_track_publish_create: alloc chain buf failed");
@@ -449,7 +449,7 @@ ngx_kmp_out_track_publish_create(void *arg, ngx_pool_t *pool,
 
     conf = ctx->track->conf;
 
-    return ngx_kmp_out_format_json_http_request(pool,
+    return ngx_http_call_format_json_post(pool,
         &conf->ctrl_publish_url->host, &conf->ctrl_publish_url->uri,
         conf->ctrl_headers, cl);
 }
@@ -560,7 +560,7 @@ ngx_kmp_out_unpublish_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
         ngx_kmp_out_track_unpublish_json_get_size(track) +
         track->json_info.len;
 
-    pl = ngx_kmp_out_alloc_chain_temp_buf(pool, size);
+    pl = ngx_http_call_alloc_chain_temp_buf(pool, size);
     if (pl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
             "ngx_kmp_out_unpublish_create: alloc chain buf failed");
@@ -591,7 +591,7 @@ ngx_kmp_out_unpublish_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
 
     conf = ctx->track->conf;
 
-    return ngx_kmp_out_format_json_http_request(pool,
+    return ngx_http_call_format_json_post(pool,
         &conf->ctrl_unpublish_url->host, &conf->ctrl_unpublish_url->uri,
         conf->ctrl_headers, pl);
 }

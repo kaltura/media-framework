@@ -76,6 +76,10 @@ static ngx_int_t ngx_http_call_process_body(ngx_http_call_ctx_t *ctx);
 static u_char *ngx_http_call_log_error(ngx_log_t *log, u_char *buf,
     size_t len);
 
+
+static ngx_str_t  ngx_http_call_json_type = ngx_string("application/json");
+
+
 ngx_http_call_ctx_t *
 ngx_http_call_create(ngx_http_call_init_t *ci)
 {
@@ -1317,4 +1321,176 @@ ngx_http_call_log_error(ngx_log_t *log, u_char *buf, size_t len)
     }
 
     return p;
+}
+
+
+ngx_chain_t *
+ngx_http_call_alloc_chain_temp_buf(ngx_pool_t *pool, size_t size)
+{
+    ngx_buf_t    *b;
+    ngx_chain_t  *cl;
+
+    cl = ngx_alloc_chain_link(pool);
+    if (cl == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_http_call_alloc_chain_temp_buf: ngx_alloc_chain_link failed");
+        return NULL;
+    }
+
+    b = ngx_create_temp_buf(pool, size);
+    if (b == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_http_call_alloc_chain_temp_buf: "
+            "ngx_create_temp_buf failed, size: %uz", size);
+        return NULL;
+    }
+
+    cl->buf = b;
+    cl->next = NULL;
+
+    return cl;
+}
+
+
+ngx_chain_t *
+ngx_http_call_format_json_post(ngx_pool_t *pool, ngx_str_t *host,
+    ngx_str_t *uri, ngx_array_t *headers, ngx_chain_t *body)
+{
+    size_t         alloc_size;
+    size_t         content_length;
+    u_char        *p;
+    ngx_buf_t     *b;
+    ngx_str_t      buf;
+    ngx_uint_t     i;
+    ngx_chain_t   *cl;
+    ngx_keyval_t  *kv;
+
+    static const char  rq_tmpl[] = "POST %V HTTP/1.0\r\n"
+        "Host: %V\r\n"
+        "Content-Type: %V\r\n"
+        "Connection: Close\r\n"
+        "Content-Length: %uz\r\n";
+
+    content_length = 0;
+    for (cl = body; cl; cl = cl->next) {
+        buf.data = cl->buf->pos;
+        buf.len = cl->buf->last - cl->buf->pos;
+
+        ngx_log_error(NGX_LOG_INFO, pool->log, 0,
+            "ngx_http_call_format_json_post: pool: %p, body: %V",
+            pool, &buf);
+
+        content_length += buf.len;
+    }
+
+    alloc_size = sizeof(rq_tmpl) + uri->len + host->len +
+        ngx_http_call_json_type.len + NGX_SIZE_T_LEN + sizeof(CRLF) - 1;
+
+    if (headers) {
+        kv = headers->elts;
+        for (i = 0; i < headers->nelts; i++) {
+
+            alloc_size += kv[i].key.len + sizeof(": ") - 1 + kv[i].value.len
+                + sizeof(CRLF) - 1;
+        }
+    }
+
+    cl = ngx_http_call_alloc_chain_temp_buf(pool, alloc_size);
+    if (cl == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_http_call_format_json_post: "
+            "alloc buf failed");
+        return NULL;
+    }
+
+    b = cl->buf;
+    p = b->last;
+
+    p = ngx_sprintf(p, rq_tmpl, uri, host, &ngx_http_call_json_type,
+        content_length);
+
+    if (headers) {
+        kv = headers->elts;
+        for (i = 0; i < headers->nelts; i++) {
+
+            p = ngx_copy(p, kv[i].key.data, kv[i].key.len);
+            *p++ = ':'; *p++ = ' ';
+
+            p = ngx_copy(p, kv[i].value.data, kv[i].value.len);
+            *p++ = CR; *p++ = LF;
+        }
+    }
+
+    *p++ = CR; *p++ = LF;
+
+    if ((size_t) (p - b->pos) > alloc_size) {
+        ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
+            "ngx_http_call_format_json_post: "
+            "result length %uz greater than allocated length %uz",
+            (size_t) (p - b->pos), alloc_size);
+        return NULL;
+    }
+
+    b->last = p;
+
+    cl->next = body;
+
+    return cl;
+}
+
+
+static ngx_url_t *
+ngx_http_call_parse_url(ngx_conf_t *cf, ngx_str_t *url)
+{
+    size_t      add;
+    ngx_url_t  *u;
+
+    u = ngx_pcalloc(cf->pool, sizeof(ngx_url_t));
+    if (u == NULL) {
+        return NULL;
+    }
+
+    add = 0;
+    if (ngx_strncasecmp(url->data, (u_char *) "http://", 7) == 0) {
+        add = 7;
+    }
+
+    u->url.len = url->len - add;
+    u->url.data = url->data + add;
+    u->default_port = 80;
+    u->uri_part = 1;
+
+    if (ngx_parse_url(cf->pool, u) != NGX_OK) {
+        if (u->err) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                "%s in url \"%V\"", u->err, &u->url);
+        }
+        return NULL;
+    }
+
+    return u;
+}
+
+
+char *
+ngx_http_call_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    char  *p = conf;
+
+    ngx_str_t   *value;
+    ngx_url_t  **u;
+
+    u = (ngx_url_t **) (p + cmd->offset);
+    if (*u != NGX_CONF_UNSET_PTR) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    *u = ngx_http_call_parse_url(cf, &value[1]);
+    if (*u == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
 }

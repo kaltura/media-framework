@@ -44,4 +44,13 @@ ngx_http_call_ctx_t *ngx_http_call_create(ngx_http_call_init_t *ci);
 
 void ngx_http_call_cancel(ngx_http_call_ctx_t *ctx);
 
+
+ngx_chain_t *ngx_http_call_alloc_chain_temp_buf(ngx_pool_t *pool, size_t size);
+
+ngx_chain_t *ngx_http_call_format_json_post(ngx_pool_t *pool,
+    ngx_str_t *host, ngx_str_t *uri, ngx_array_t *headers, ngx_chain_t *body);
+
+
+char *ngx_http_call_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+
 #endif /* _NGX_HTTP_CALL_H_INCLUDED_ */

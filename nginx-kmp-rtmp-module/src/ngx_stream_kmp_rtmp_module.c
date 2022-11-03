@@ -3,6 +3,7 @@
 #include <ngx_stream.h>
 
 #include <ngx_buf_queue.h>
+#include <ngx_http_call.h>
 #include <ngx_kmp_in.h>
 
 #include "ngx_kmp_rtmp_track.h"
@@ -116,6 +117,42 @@ static ngx_command_t  ngx_stream_kmp_rtmp_commands[] = {
       ngx_conf_set_num_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_kmp_rtmp_srv_conf_t, in_max_free_buffers),
+      NULL },
+
+
+    { ngx_string("kmp_rtmp_out_notif_url"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_http_call_url_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_kmp_rtmp_srv_conf_t, out.notif_url),
+      NULL },
+
+    { ngx_string("kmp_rtmp_out_notif_add_header"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE2,
+      ngx_conf_set_keyval_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_kmp_rtmp_srv_conf_t, out.notif_headers),
+      NULL },
+
+    { ngx_string("kmp_rtmp_out_notif_timeout"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_kmp_rtmp_srv_conf_t, out.notif_timeout),
+      NULL },
+
+    { ngx_string("kmp_rtmp_out_notif_read_timeout"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_kmp_rtmp_srv_conf_t, out.notif_read_timeout),
+      NULL },
+
+    { ngx_string("kmp_rtmp_out_notif_buffer_size"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_kmp_rtmp_srv_conf_t, out.notif_buffer_size),
       NULL },
 
 
