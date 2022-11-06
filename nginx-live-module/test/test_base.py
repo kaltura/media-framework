@@ -191,13 +191,20 @@ def delConfParam(c, key):
         if c[i][0] == key:
             c.pop(i)
 
+def normalizeStreamInfo(info):
+    info = info.replace('\r\n', '\n')
+    info = re.sub('(schemeIdUri="urn:mpeg:dash:utc:direct:2014"\s*value=")[^"]+("/>)', r'\1\2', info)
+    info = re.sub('(suggestedPresentationDelay=")[^"]+(">)', r'\1\2', info)
+    return info
+
 def testStream(url, basePath, streamName):
     splittedPath = os.path.split(basePath)
     fileName = os.path.splitext(splittedPath[1])[0] + '-%s.txt' % streamName
     filePath = os.path.join(splittedPath[0], 'ref', fileName)
 
     info = manifest_utils.getStreamInfo(url)
-    info = info.replace('\r\n', '\n')
+    info = normalizeStreamInfo(info)
+
     if not os.path.isfile(filePath):
         print('Info: saving stream, url: %s, file: %s' % (url, filePath))
         open(filePath, 'w').write(info)
