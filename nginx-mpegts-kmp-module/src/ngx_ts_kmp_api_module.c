@@ -16,16 +16,6 @@
 #include "ngx_ts_kmp_track.h"
 
 
-/* routes */
-static ngx_int_t ngx_ts_kmp_api_get(ngx_http_request_t *r, ngx_str_t *params,
-    ngx_str_t *response);
-
-static ngx_int_t ngx_ts_kmp_api_session_delete(ngx_http_request_t *r,
-    ngx_str_t *params, ngx_str_t *response);
-
-#include "ngx_ts_kmp_api_routes.h"
-
-
 static ngx_json_str_t  ngx_ts_kmp_version =
     ngx_json_string(NGX_MPEGTS_KMP_VERSION);
 static ngx_json_str_t  ngx_ts_kmp_nginx_version =
@@ -215,6 +205,9 @@ ngx_ts_kmp_api_session_delete(ngx_http_request_t *r, ngx_str_t *params,
 
     return NGX_OK;
 }
+
+
+#include "ngx_ts_kmp_api_routes.h"
 
 
 static ngx_int_t
