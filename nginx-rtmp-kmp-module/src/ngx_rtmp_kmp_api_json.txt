@@ -39,21 +39,8 @@ out ngx_rtmp_kmp_api_application_json ngx_rtmp_core_app_conf_t
 out ngx_rtmp_kmp_api_server_json ngx_rtmp_core_srv_conf_t
     applications %array-ngx_rtmp_kmp_api_application_json,ngx_rtmp_core_app_conf_t*
 
-out ngx_rtmp_kmp_api_json void
+out nostatic noobject ngx_rtmp_kmp_api_servers_json void
     - %var ngx_rtmp_core_main_conf_t *cmcf
     - %code cmcf = ngx_rtmp_core_main_conf;
-    version %jV ngx_rtmp_kmp_version
-    nginx_version %jV ngx_rtmp_kmp_nginx_version
-    rtmp_version %jV ngx_rtmp_kmp_rtmp_version
-    compiler %jV ngx_rtmp_kmp_compiler
-    built %jV ngx_rtmp_kmp_built
-    pid %ui ngx_getpid()
-    uptime %i (ngx_cached_time->sec - ngx_rtmp_kmp_start_time)
-    naccepted %ui ngx_rtmp_naccepted
-
-    bw_in %uL (ngx_rtmp_bw_in.bandwidth * 8)
-    bytes_in %uL ngx_rtmp_bw_in.bytes
-    bw_out %uL (ngx_rtmp_bw_out.bandwidth * 8)
-    bytes_out %uL ngx_rtmp_bw_out.bytes
-
-    servers %array-ngx_rtmp_kmp_api_server_json,ngx_rtmp_core_srv_conf_t* cmcf->
+    - %return-null !cmcf
+    - %array-ngx_rtmp_kmp_api_server_json,ngx_rtmp_core_srv_conf_t* cmcf->servers
