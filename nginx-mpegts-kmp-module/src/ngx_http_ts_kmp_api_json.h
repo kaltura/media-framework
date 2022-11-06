@@ -8,22 +8,22 @@
 #define ngx_copy_str(dst, src)   ngx_copy(dst, (src).data, (src).len)
 #endif
 
-/* ngx_ts_kmp_api_json writer */
+/* ngx_http_ts_kmp_api_json writer */
 
 static size_t
-ngx_ts_kmp_api_json_get_size(void *obj)
+ngx_http_ts_kmp_api_json_get_size(void *obj)
 {
     size_t  result;
 
     result =
         sizeof("{\"version\":\"") - 1 +
-            ngx_json_str_get_size(&ngx_ts_kmp_version) +
+            ngx_json_str_get_size(&ngx_http_ts_kmp_version) +
         sizeof("\",\"nginx_version\":\"") - 1 +
-            ngx_json_str_get_size(&ngx_ts_kmp_nginx_version) +
+            ngx_json_str_get_size(&ngx_http_ts_kmp_nginx_version) +
         sizeof("\",\"compiler\":\"") - 1 +
-            ngx_json_str_get_size(&ngx_ts_kmp_compiler) +
+            ngx_json_str_get_size(&ngx_http_ts_kmp_compiler) +
         sizeof("\",\"built\":\"") - 1 +
-            ngx_json_str_get_size(&ngx_ts_kmp_built) +
+            ngx_json_str_get_size(&ngx_http_ts_kmp_built) +
         sizeof("\",\"pid\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"uptime\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"stream\":") - 1 +
@@ -35,21 +35,21 @@ ngx_ts_kmp_api_json_get_size(void *obj)
 
 
 static u_char *
-ngx_ts_kmp_api_json_write(u_char *p, void *obj)
+ngx_http_ts_kmp_api_json_write(u_char *p, void *obj)
 {
     p = ngx_copy_fix(p, "{\"version\":\"");
-    p = ngx_json_str_write(p, &ngx_ts_kmp_version);
+    p = ngx_json_str_write(p, &ngx_http_ts_kmp_version);
     p = ngx_copy_fix(p, "\",\"nginx_version\":\"");
-    p = ngx_json_str_write(p, &ngx_ts_kmp_nginx_version);
+    p = ngx_json_str_write(p, &ngx_http_ts_kmp_nginx_version);
     p = ngx_copy_fix(p, "\",\"compiler\":\"");
-    p = ngx_json_str_write(p, &ngx_ts_kmp_compiler);
+    p = ngx_json_str_write(p, &ngx_http_ts_kmp_compiler);
     p = ngx_copy_fix(p, "\",\"built\":\"");
-    p = ngx_json_str_write(p, &ngx_ts_kmp_built);
+    p = ngx_json_str_write(p, &ngx_http_ts_kmp_built);
     p = ngx_copy_fix(p, "\",\"pid\":");
     p = ngx_sprintf(p, "%ui", (ngx_uint_t) ngx_getpid());
     p = ngx_copy_fix(p, ",\"uptime\":");
     p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_cached_time->sec -
-        ngx_ts_kmp_start_time));
+        ngx_http_ts_kmp_start_time));
     p = ngx_copy_fix(p, ",\"stream\":");
     p = ngx_stream_ts_kmp_stream_json_write(p, obj);
     *p++ = '}';
