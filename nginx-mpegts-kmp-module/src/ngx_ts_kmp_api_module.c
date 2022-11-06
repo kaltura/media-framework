@@ -1,19 +1,13 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_stream.h>
 #include <ngx_http.h>
 #include <nginx.h>
+
 #include <ngx_http_api.h>
-
-#include <ngx_live_kmp.h>
 #include <ngx_json_str.h>
-#include <ngx_kmp_out_track.h>
-#include <ngx_kmp_out_upstream.h>
 
-#include "ngx_ts_kmp_module.h"
 #include "ngx_stream_ts_kmp_module.h"
 #include "ngx_ts_kmp_version.h"
-#include "ngx_ts_kmp_track.h"
 
 
 static ngx_json_str_t  ngx_ts_kmp_version =
@@ -81,98 +75,16 @@ ngx_module_t ngx_ts_kmp_api_module = {
 };
 
 
-static ngx_stream_core_main_conf_t *
-ngx_ts_kmp_api_get_stream_core_main_conf(ngx_log_t *log)
-{
-    ngx_stream_conf_ctx_t        *stream_ctx;
-    ngx_stream_core_main_conf_t  *cmcf;
-
-    stream_ctx = (ngx_stream_conf_ctx_t *) ngx_get_conf(ngx_cycle->conf_ctx,
-        ngx_stream_module);
-    if (stream_ctx == NULL) {
-        ngx_log_error(NGX_LOG_CRIT, log, 0,
-            "ngx_ts_kmp_api_get_stream_core_main_conf: no stream conf");
-        return NULL;
-    }
-
-    cmcf = ngx_stream_get_module_main_conf(stream_ctx, ngx_stream_core_module);
-    if (cmcf == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_ts_kmp_api_get_stream_core_main_conf: "
-            "no stream core main conf");
-        return NULL;
-    }
-
-    return cmcf;
-}
-
-
 static ngx_int_t
 ngx_ts_kmp_api_get(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
 {
-    ngx_stream_core_main_conf_t  *cmcf;
-
     static ngx_http_api_json_writer_t  writer = {
         ngx_ts_kmp_api_json_get_size,
         ngx_ts_kmp_api_json_write,
     };
 
-    cmcf = ngx_ts_kmp_api_get_stream_core_main_conf(r->connection->log);
-    if (cmcf == NULL) {
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    return ngx_http_api_build_json(r, &writer, cmcf, response);
-}
-
-
-static ngx_stream_session_t *
-ngx_ts_kmp_api_server_get_session(ngx_uint_t connection,
-    ngx_ts_kmp_conf_t *tscf)
-{
-    ngx_queue_t       *q;
-    ngx_ts_kmp_ctx_t  *cur;
-
-    for (q = ngx_queue_head(&tscf->sessions);
-        q != ngx_queue_sentinel(&tscf->sessions);
-        q = ngx_queue_next(q))
-    {
-        cur = ngx_queue_data(q, ngx_ts_kmp_ctx_t, queue);
-
-        if (cur->connection->number == connection) {
-            return cur->connection->data;
-        }
-    }
-
-    return NULL;
-}
-
-
-static ngx_stream_session_t *
-ngx_ts_kmp_api_get_session(ngx_uint_t connection, ngx_log_t *log)
-{
-    ngx_uint_t                     n;
-    ngx_ts_kmp_conf_t             *tscf;
-    ngx_stream_session_t          *s;
-    ngx_stream_core_srv_conf_t   **cscfp;
-    ngx_stream_core_main_conf_t   *cmcf;
-
-    cmcf = ngx_ts_kmp_api_get_stream_core_main_conf(log);
-    if (cmcf == NULL) {
-        return NULL;
-    }
-
-    cscfp = cmcf->servers.elts;
-    for (n = 0; n < cmcf->servers.nelts; n++) {
-        tscf = ngx_stream_ts_get_ts_kmp_conf(cscfp[n]->ctx);
-        s = ngx_ts_kmp_api_server_get_session(connection, tscf);
-        if (s != NULL) {
-            return s;
-        }
-    }
-
-    return NULL;
+    return ngx_http_api_build_json(r, &writer, NULL, response);
 }
 
 
@@ -180,8 +92,8 @@ static ngx_int_t
 ngx_ts_kmp_api_session_delete(ngx_http_request_t *r, ngx_str_t *params,
     ngx_str_t *response)
 {
-    ngx_int_t              connection;
-    ngx_stream_session_t  *s;
+    ngx_int_t  rc;
+    ngx_int_t  connection;
 
     connection = ngx_atoi(params[0].data, params[0].len);
     if (connection == NGX_ERROR) {
@@ -191,17 +103,18 @@ ngx_ts_kmp_api_session_delete(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_BAD_REQUEST;
     }
 
-    s = ngx_ts_kmp_api_get_session((ngx_uint_t) connection, r->connection->log);
-    if (s == NULL) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_ts_kmp_api_session_delete: connection %ui not found",
-            connection);
-        return NGX_HTTP_NOT_FOUND;
-    }
+    rc = ngx_stream_ts_kmp_finalize_session(connection, r->connection->log);
+    switch (rc) {
 
-    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
-        "ngx_ts_kmp_api_session_delete: dropping connection %ui", connection);
-    ngx_stream_finalize_session(s, NGX_STREAM_INTERNAL_SERVER_ERROR);
+    case NGX_OK:
+        break;
+
+    case NGX_DECLINED:
+        return NGX_HTTP_NOT_FOUND;
+
+    default:
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
 
     return NGX_OK;
 }
