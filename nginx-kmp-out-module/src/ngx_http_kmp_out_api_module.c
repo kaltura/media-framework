@@ -247,7 +247,7 @@ ngx_http_kmp_out_api_upstreams_post(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    return NGX_OK;
+    return NGX_HTTP_CREATED;
 }
 
 
