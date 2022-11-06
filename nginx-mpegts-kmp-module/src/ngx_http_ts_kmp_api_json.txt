@@ -1,0 +1,9 @@
+
+out ngx_http_ts_kmp_api_json void
+    version %jV ngx_http_ts_kmp_version
+    nginx_version %jV ngx_http_ts_kmp_nginx_version
+    compiler %jV ngx_http_ts_kmp_compiler
+    built %jV ngx_http_ts_kmp_built
+    pid %ui ngx_getpid()
+    uptime %i (ngx_cached_time->sec - ngx_http_ts_kmp_start_time)
+    stream %func-ngx_stream_ts_kmp_stream_json obj
