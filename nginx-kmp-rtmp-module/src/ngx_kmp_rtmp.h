@@ -52,6 +52,20 @@ ngx_int_t ngx_kmp_rtmp_upstream_conf_merge(ngx_conf_t *cf,
 ngx_kmp_rtmp_upstream_t *ngx_kmp_rtmp_upstream_get(ngx_str_t *id);
 void ngx_kmp_rtmp_upstream_free(ngx_kmp_rtmp_upstream_t *u, char *reason);
 
+size_t ngx_kmp_rtmp_upstream_streams_json_get_size(
+    ngx_kmp_rtmp_upstream_t *obj);
+u_char *ngx_kmp_rtmp_upstream_streams_json_write(u_char *p,
+    ngx_kmp_rtmp_upstream_t *obj);
+
+size_t ngx_kmp_rtmp_upstream_stream_ids_json_get_size(
+    ngx_kmp_rtmp_upstream_t *obj);
+u_char *ngx_kmp_rtmp_upstream_stream_ids_json_write(u_char *p,
+    ngx_kmp_rtmp_upstream_t *obj);
+
+size_t ngx_kmp_rtmp_upstream_json_get_size(ngx_kmp_rtmp_upstream_t *obj);
+u_char *ngx_kmp_rtmp_upstream_json_write(u_char *p,
+    ngx_kmp_rtmp_upstream_t *obj);
+
 size_t ngx_kmp_rtmp_upstreams_json_get_size(void *obj);
 u_char *ngx_kmp_rtmp_upstreams_json_write(u_char *p, void *obj);
 

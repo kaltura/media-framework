@@ -4,6 +4,18 @@
 #define _NGX_HTTP_KMP_RTMP_API_ROUTES_H_INCLUDED_
 
 static ngx_http_api_route_node_t
+    ngx_http_kmp_rtmp_api_route_upstreams_param_streams =
+{
+    NULL,
+    &ngx_http_kmp_rtmp_api_streams_get,
+    &ngx_http_kmp_rtmp_api_streams_list,
+    NULL,
+    NULL,
+    NULL,
+};
+
+
+static ngx_http_api_route_node_t
     ngx_http_kmp_rtmp_api_route_upstreams_param_tracks_param =
 {
     NULL,
@@ -39,6 +51,8 @@ static ngx_http_api_route_node_t
 static ngx_http_api_route_child_t
     ngx_http_kmp_rtmp_api_route_upstreams_param_children[] =
 {
+    { ngx_string("streams"),
+        &ngx_http_kmp_rtmp_api_route_upstreams_param_streams },
     { ngx_string("tracks"),
         &ngx_http_kmp_rtmp_api_route_upstreams_param_tracks },
     { ngx_null_string, NULL },
@@ -48,7 +62,7 @@ static ngx_http_api_route_child_t
 static ngx_int_t ngx_http_kmp_rtmp_api_upstreams_param_list(ngx_http_request_t
     *r, ngx_str_t *params, ngx_str_t *response)
 {
-    ngx_str_set(response, "[\"tracks\"]");
+    ngx_str_set(response, "[\"streams\",\"tracks\"]");
     return NGX_OK;
 }
 
@@ -56,7 +70,7 @@ static ngx_int_t ngx_http_kmp_rtmp_api_upstreams_param_list(ngx_http_request_t
 static ngx_http_api_route_node_t  ngx_http_kmp_rtmp_api_route_upstreams_param =
 {
     ngx_http_kmp_rtmp_api_route_upstreams_param_children,
-    NULL,
+    &ngx_http_kmp_rtmp_api_upstream_get,
     &ngx_http_kmp_rtmp_api_upstreams_param_list,
     &ngx_http_kmp_rtmp_api_upstream_delete,
     NULL,
