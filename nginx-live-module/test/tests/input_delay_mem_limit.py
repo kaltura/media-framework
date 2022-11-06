@@ -19,7 +19,7 @@ def test(channelId=CHANNEL_ID):
     time.sleep(5)
 
     nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
-    
+
     # Note: not comparing the full stream due to the use of a real 'created' value
     res = requests.get(url=getStreamUrl(channelId, 'hls-ts', 'index-svar1.m3u8'))
     assertEndsWith(res.content.rstrip(), b'seg-5-svar1.ts\n#EXT-X-ENDLIST')

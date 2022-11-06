@@ -25,7 +25,7 @@ def test(channelId=CHANNEL_ID):
         { 'id': 'i"\r\n1', 'value': 'v"\r\n1', 'lang': 'l"\r\n1' },
         { 'id': 'i"\r\n2', 'uri': 'v"\r\n2' }
     ]
-    
+
     nl.channel.update(NginxLiveChannel(id=channelId, vars={'closed_captions': json.dumps(cc), 'session_data': json.dumps(sd)}))
 
     nl.variant.create(NginxLiveVariant(id='main', track_ids={'video': 'v1', 'audio': 'a1'}))
