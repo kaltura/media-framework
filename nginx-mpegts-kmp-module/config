@@ -27,23 +27,25 @@ echo "#define NGX_MPEGTS_KMP_VERSION \""$MPEGTS_KMP_VERSION"\"" > $NGX_OBJS/ngx_
 
 # source
 #
-MPEGTS_KMP_SRCS="                                   \
-    $ngx_addon_dir/src/ngx_ts_kmp_module.c          \
-    $ngx_addon_dir/src/ngx_ts_kmp_track.c           \
-    $ngx_addon_dir/src/ngx_stream_ts_kmp_module.c   \
+MPEGTS_KMP_SRCS="                                       \
+    $ngx_addon_dir/src/ngx_ts_kmp_module.c              \
+    $ngx_addon_dir/src/ngx_ts_kmp_track.c               \
+    $ngx_addon_dir/src/ngx_stream_ts_kmp_module.c       \
     "
 
-MPEGTS_KMP_HTTP_SRCS="                              \
-    $ngx_addon_dir/src/ngx_ts_kmp_api_module.c      \
+MPEGTS_KMP_HTTP_SRCS="                                  \
+    $ngx_addon_dir/src/ngx_ts_kmp_api_module.c          \
     "
 
-MPEGTS_KMP_DEPS="                                   \
-    $ngx_addon_dir/src/ngx_ts_kmp_api_json.h        \
-    $ngx_addon_dir/src/ngx_ts_kmp_api_routes.h      \
-    $ngx_addon_dir/src/ngx_ts_kmp_json.h            \
-    $ngx_addon_dir/src/ngx_ts_kmp_module.h          \
-    $ngx_addon_dir/src/ngx_ts_kmp_track.h           \
-    $ngx_addon_dir/src/ngx_ts_kmp_track_json.h      \
+MPEGTS_KMP_DEPS="                                       \
+    $ngx_addon_dir/src/ngx_ts_kmp_api_json.h            \
+    $ngx_addon_dir/src/ngx_ts_kmp_api_routes.h          \
+    $ngx_addon_dir/src/ngx_ts_kmp_json.h                \
+    $ngx_addon_dir/src/ngx_ts_kmp_module.h              \
+    $ngx_addon_dir/src/ngx_ts_kmp_track.h               \
+    $ngx_addon_dir/src/ngx_ts_kmp_track_json.h          \
+    $ngx_addon_dir/src/ngx_stream_ts_kmp_module.h       \
+    $ngx_addon_dir/src/ngx_stream_ts_kmp_module_json.h  \
     "
 
 if [ -f auto/module ] ; then

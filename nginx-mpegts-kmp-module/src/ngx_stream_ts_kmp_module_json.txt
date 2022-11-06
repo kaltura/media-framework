@@ -1,0 +1,22 @@
+
+out noobject ngx_stream_ts_kmp_track_json ngx_ts_kmp_track_t
+    - %neFunc-ngx_kmp_out_track_json obj->track
+
+out ngx_stream_ts_kmp_session_json ngx_ts_kmp_ctx_t
+    remote_addr %jV
+    connection %uA obj->connection->number
+    uptime %i (ngx_current_msec - obj->start_msec) / 1000
+    stream_id %jV obj->header
+
+    tracks %queue-ngx_stream_ts_kmp_track_json,ngx_ts_kmp_track_t,queue obj->
+
+out ngx_stream_ts_kmp_server_json ngx_stream_core_srv_conf_t
+    - %var ngx_stream_ts_kmp_srv_conf_t *tscf
+    - %code tscf = ngx_stream_get_module_srv_conf(obj->ctx, ngx_stream_ts_kmp_module);
+    sessions %queue-ngx_stream_ts_kmp_session_json,ngx_ts_kmp_ctx_t,queue tscf->kmp.
+
+out nostatic ngx_stream_ts_kmp_stream_json void
+    - %var ngx_stream_core_main_conf_t *cmcf
+    - %code cmcf = ngx_stream_ts_kmp_get_core_main_conf();
+    - %return-null !cmcf
+    servers %array-ngx_stream_ts_kmp_server_json,ngx_stream_core_srv_conf_t* cmcf->
