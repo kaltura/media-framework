@@ -113,7 +113,7 @@ ngx_http_kmp_rtmp_api_upstreams_list(ngx_http_request_t *r, ngx_str_t *params,
 
 static ngx_int_t
 ngx_http_kmp_rtmp_api_upstream_json(ngx_http_request_t *r,
-    ngx_str_t *params, ngx_http_api_json_writer_t* writer, ngx_str_t *response)
+    ngx_str_t *params, ngx_http_api_json_writer_t *writer, ngx_str_t *response)
 {
     ngx_str_t                 upstream_id;
     ngx_kmp_rtmp_upstream_t  *u;

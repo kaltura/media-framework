@@ -10,6 +10,11 @@
 #include "ngx_ts_kmp_version.h"
 
 
+static ngx_int_t ngx_ts_kmp_api_postconfiguration(ngx_conf_t *cf);
+
+static char *ngx_ts_kmp_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+
+
 static ngx_json_str_t  ngx_ts_kmp_version =
     ngx_json_string(NGX_MPEGTS_KMP_VERSION);
 static ngx_json_str_t  ngx_ts_kmp_nginx_version =
@@ -23,12 +28,6 @@ static time_t     ngx_ts_kmp_start_time = 0;
 
 
 #include "ngx_ts_kmp_api_json.h"
-
-
-/* module */
-static ngx_int_t ngx_ts_kmp_api_postconfiguration(ngx_conf_t *cf);
-
-static char *ngx_ts_kmp_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 
 static ngx_command_t  ngx_ts_kmp_api_commands[] = {
