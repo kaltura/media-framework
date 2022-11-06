@@ -88,6 +88,7 @@ if [ $ngx_found = yes ]; then
         "
     PCKG_DEPS="$PCKG_DEPS                                     \
         $ngx_addon_dir/src/ngx_http_pckg_enc.h                \
+        $ngx_addon_dir/src/ngx_http_pckg_enc_json.h           \
         "
 fi
 
