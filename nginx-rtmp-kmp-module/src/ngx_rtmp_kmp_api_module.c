@@ -14,14 +14,6 @@
 #include "ngx_kmp_out_upstream.h"
 #include "ngx_rtmp_kmp_version.h"
 
-/* routes */
-static ngx_int_t ngx_rtmp_kmp_api_get(ngx_http_request_t *r, ngx_str_t *params,
-    ngx_str_t *response);
-
-static ngx_int_t ngx_rtmp_kmp_api_session_delete(ngx_http_request_t *r,
-    ngx_str_t *params, ngx_str_t *response);
-
-#include "ngx_rtmp_kmp_api_routes.h"
 
 /* json */
 static size_t ngx_rtmp_kmp_api_streams_json_get_size(ngx_rtmp_session_t *s);
@@ -354,6 +346,9 @@ ngx_rtmp_kmp_api_session_delete(ngx_http_request_t *r, ngx_str_t *params,
 
     return NGX_OK;
 }
+
+
+#include "ngx_rtmp_kmp_api_routes.h"
 
 
 static ngx_int_t
