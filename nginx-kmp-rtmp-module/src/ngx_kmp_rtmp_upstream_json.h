@@ -158,31 +158,18 @@ static ngx_json_prop_t  *ngx_kmp_rtmp_connect_data_json[] = {
 };
 
 
-/* ngx_kmp_rtmp_upstream_json writer */
+/* ngx_kmp_rtmp_upstream_streams_json writer */
 
-static size_t
-ngx_kmp_rtmp_upstream_json_get_size(ngx_kmp_rtmp_upstream_t *obj)
+size_t
+ngx_kmp_rtmp_upstream_streams_json_get_size(ngx_kmp_rtmp_upstream_t *obj)
 {
     size_t                  result;
     ngx_queue_t            *q;
     ngx_kmp_rtmp_stream_t  *cur;
 
     result =
-        sizeof("{\"url\":\"") - 1 + ngx_json_str_get_size(&obj->url) +
-        sizeof("\",\"header\":\"") - 1 + ngx_json_str_get_size(&obj->header) +
-        sizeof("\",\"opaque\":\"") - 1 + obj->opaque.len +
-        sizeof("\",\"remote_addr\":\"") - 1 +
-            ngx_json_str_get_size(&obj->remote_addr) +
-        sizeof("\",\"local_addr\":\"") - 1 +
-            ngx_json_str_get_size(&obj->local_addr) +
-        sizeof("\",\"connection\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
-        sizeof(",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
-        sizeof(",\"written_bytes\":") - 1 + NGX_SIZE_T_LEN +
-        sizeof(",\"sent_bytes\":") - 1 + NGX_OFF_T_LEN +
-        sizeof(",\"received_bytes\":") - 1 + NGX_SIZE_T_LEN +
-        sizeof(",\"streams\":{") - 1 +
-        sizeof("}}") - 1;
+        sizeof("{") - 1 +
+        sizeof("}") - 1;
 
     for (q = ngx_queue_head(&obj->streams.queue);
         q != ngx_queue_sentinel(&obj->streams.queue);
@@ -198,12 +185,125 @@ ngx_kmp_rtmp_upstream_json_get_size(ngx_kmp_rtmp_upstream_t *obj)
 }
 
 
-static u_char *
-ngx_kmp_rtmp_upstream_json_write(u_char *p, ngx_kmp_rtmp_upstream_t *obj)
+u_char *
+ngx_kmp_rtmp_upstream_streams_json_write(u_char *p, ngx_kmp_rtmp_upstream_t
+    *obj)
 {
     ngx_queue_t            *q;
     ngx_kmp_rtmp_stream_t  *cur;
 
+    *p++ = '{';
+
+    for (q = ngx_queue_head(&obj->streams.queue);
+        q != ngx_queue_sentinel(&obj->streams.queue);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_kmp_rtmp_stream_t, queue);
+
+        if (p[-1] != '{') {
+            *p++ = ',';
+        }
+
+        *p++ = '"';
+        p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
+        *p++ = '"';
+        *p++ = ':';
+        p = ngx_kmp_rtmp_stream_json_write(p, cur);
+    }
+
+    *p++ = '}';
+
+    return p;
+}
+
+
+/* ngx_kmp_rtmp_upstream_stream_ids_json writer */
+
+size_t
+ngx_kmp_rtmp_upstream_stream_ids_json_get_size(ngx_kmp_rtmp_upstream_t *obj)
+{
+    size_t                  result;
+    ngx_queue_t            *q;
+    ngx_kmp_rtmp_stream_t  *cur;
+
+    result =
+        sizeof("[") - 1 +
+        sizeof("]") - 1;
+
+    for (q = ngx_queue_head(&obj->streams.queue);
+        q != ngx_queue_sentinel(&obj->streams.queue);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_kmp_rtmp_stream_t, queue);
+        result += cur->sn.str.len + cur->id_escape + sizeof(",\"\"") - 1;
+    }
+
+    return result;
+}
+
+
+u_char *
+ngx_kmp_rtmp_upstream_stream_ids_json_write(u_char *p, ngx_kmp_rtmp_upstream_t
+    *obj)
+{
+    ngx_queue_t            *q;
+    ngx_kmp_rtmp_stream_t  *cur;
+
+    *p++ = '[';
+
+    for (q = ngx_queue_head(&obj->streams.queue);
+        q != ngx_queue_sentinel(&obj->streams.queue);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_kmp_rtmp_stream_t, queue);
+
+        if (p[-1] != '[') {
+            *p++ = ',';
+        }
+
+        *p++ = '"';
+        p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
+        *p++ = '"';
+    }
+
+    *p++ = ']';
+
+    return p;
+}
+
+
+/* ngx_kmp_rtmp_upstream_json writer */
+
+size_t
+ngx_kmp_rtmp_upstream_json_get_size(ngx_kmp_rtmp_upstream_t *obj)
+{
+    size_t  result;
+
+    result =
+        sizeof("{\"url\":\"") - 1 + ngx_json_str_get_size(&obj->url) +
+        sizeof("\",\"header\":\"") - 1 + ngx_json_str_get_size(&obj->header) +
+        sizeof("\",\"opaque\":\"") - 1 + obj->opaque.len +
+        sizeof("\",\"remote_addr\":\"") - 1 +
+            ngx_json_str_get_size(&obj->remote_addr) +
+        sizeof("\",\"local_addr\":\"") - 1 +
+            ngx_json_str_get_size(&obj->local_addr) +
+        sizeof("\",\"connection\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"written_bytes\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"sent_bytes\":") - 1 + NGX_OFF_T_LEN +
+        sizeof(",\"received_bytes\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"streams\":") - 1 +
+            ngx_kmp_rtmp_upstream_streams_json_get_size(obj) +
+        sizeof("}") - 1;
+
+    return result;
+}
+
+
+u_char *
+ngx_kmp_rtmp_upstream_json_write(u_char *p, ngx_kmp_rtmp_upstream_t *obj)
+{
     p = ngx_copy_fix(p, "{\"url\":\"");
     p = ngx_json_str_write(p, &obj->url);
     p = ngx_copy_fix(p, "\",\"header\":\"");
@@ -227,26 +327,9 @@ ngx_kmp_rtmp_upstream_json_write(u_char *p, ngx_kmp_rtmp_upstream_t *obj)
         obj->peer.connection->sent : 0));
     p = ngx_copy_fix(p, ",\"received_bytes\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->received_bytes);
-    p = ngx_copy_fix(p, ",\"streams\":{");
-
-    for (q = ngx_queue_head(&obj->streams.queue);
-        q != ngx_queue_sentinel(&obj->streams.queue);
-        q = ngx_queue_next(q))
-    {
-        cur = ngx_queue_data(q, ngx_kmp_rtmp_stream_t, queue);
-
-        if (p[-1] != '{') {
-            *p++ = ',';
-        }
-
-        *p++ = '"';
-        p = ngx_json_str_write_escape(p, &cur->sn.str, cur->id_escape);
-        *p++ = '"';
-        *p++ = ':';
-        p = ngx_kmp_rtmp_stream_json_write(p, cur);
-    }
-
-    p = ngx_copy_fix(p, "}}");
+    p = ngx_copy_fix(p, ",\"streams\":");
+    p = ngx_kmp_rtmp_upstream_streams_json_write(p, obj);
+    *p++ = '}';
 
     return p;
 }
