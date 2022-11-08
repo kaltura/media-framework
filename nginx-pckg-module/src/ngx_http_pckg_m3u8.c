@@ -1302,6 +1302,12 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
 
             p = ngx_sprintf(p, M3U8_STREAM_CODECS, &audio->codec_name);
 
+            if (subtitle_group != NULL
+                && mlcf->subtitle_format == NGX_HTTP_PCKG_M3U8_SUBTITLE_IMSC)
+            {
+                p = ngx_copy_fix(p, M3U8_STREAM_CODEC_STPP);
+            }
+
             *p++ = '\"';
 
         } else {
