@@ -1314,13 +1314,13 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
                 audio->codec_id);
         }
 
-        if (tracks[KMP_MEDIA_VIDEO] != NULL) {
-            if (subtitle_group != NULL) {
-                p = ngx_sprintf(p, M3U8_STREAM_TAG_SUBTITLE,
-                    &ngx_http_pckg_m3u8_media_group_id[KMP_MEDIA_SUBTITLE],
-                    subtitle_group->media_info->codec_id);
-            }
+        if (subtitle_group != NULL) {
+            p = ngx_sprintf(p, M3U8_STREAM_TAG_SUBTITLE,
+                &ngx_http_pckg_m3u8_media_group_id[KMP_MEDIA_SUBTITLE],
+                subtitle_group->media_info->codec_id);
+        }
 
+        if (tracks[KMP_MEDIA_VIDEO] != NULL) {
             p = ngx_copy_str(p, cc_group);
         }
 
