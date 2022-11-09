@@ -154,7 +154,7 @@ typedef struct {
     ngx_uint_t                      version;
     ngx_uint_t                      container;
     ngx_uint_t                      subtitle_format;
-    ngx_flag_t                      mux_segments;
+    ngx_http_complex_value_t       *mux_segments;
     ngx_flag_t                      parts;
     ngx_flag_t                      rendition_reports;
     ngx_http_complex_value_t       *program_date_time;
@@ -208,7 +208,7 @@ static ngx_command_t  ngx_http_pckg_m3u8_commands[] = {
 
     { ngx_string("pckg_m3u8_mux_segments"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_flag_slot,
+      ngx_http_set_complex_value_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_m3u8_loc_conf_t, mux_segments),
       NULL },
@@ -1373,7 +1373,7 @@ ngx_http_pckg_m3u8_master_build(ngx_http_request_t *r,
     groups.channel = channel;
 
     groups.flags = 0;
-    if (mlcf->mux_segments) {
+    if (ngx_http_complex_value_flag(r, mlcf->mux_segments, 1)) {
         groups.flags |= NGX_PCKG_MEDIA_GROUP_MUX_SEGMENTS;
     }
 
@@ -2607,7 +2607,7 @@ ngx_http_pckg_m3u8_low_latency(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     value = cf->args->elts;
 
     if (ngx_strcasecmp(value[1].data, (u_char *) "on") == 0) {
-        ngx_conf_init_value(mlcf->mux_segments, 0);
+        ngx_conf_init_complex_int_value(mlcf->mux_segments, 0);
         ngx_conf_init_value(mlcf->parts, 1);
         ngx_conf_init_value(mlcf->rendition_reports, 1);
 
@@ -2616,7 +2616,7 @@ ngx_http_pckg_m3u8_low_latency(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         ngx_conf_init_complex_int_value(mlcf->ctl.part_hold_back_percent, 300);
 
     } else if (ngx_strcasecmp(value[1].data, (u_char *) "off") == 0) {
-        ngx_conf_init_value(mlcf->mux_segments, 1);
+        ngx_conf_init_complex_int_value(mlcf->mux_segments, 1);
         ngx_conf_init_value(mlcf->parts, 0);
         ngx_conf_init_value(mlcf->rendition_reports, 0);
 
@@ -2663,7 +2663,6 @@ ngx_http_pckg_m3u8_create_loc_conf(ngx_conf_t *cf)
 
     conf->container = NGX_CONF_UNSET_UINT;
     conf->subtitle_format = NGX_CONF_UNSET_UINT;
-    conf->mux_segments = NGX_CONF_UNSET;
     conf->parts = NGX_CONF_UNSET;
     conf->rendition_reports = NGX_CONF_UNSET;
 
@@ -2687,8 +2686,9 @@ ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
                               prev->subtitle_format,
                               NGX_HTTP_PCKG_M3U8_SUBTITLE_WEBVTT);
 
-    ngx_conf_merge_value(conf->mux_segments,
-                         prev->mux_segments, 1);
+    if (conf->mux_segments == NULL) {
+        conf->mux_segments = prev->mux_segments;
+    }
 
     ngx_conf_merge_value(conf->parts,
                          prev->parts, 0);
