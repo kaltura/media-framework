@@ -10,10 +10,13 @@
 #include "ngx_ts_stream.h"
 
 
-#define NGX_TS_PACKET_SIZE  188
-#define NGX_TS_CC_UNSET     ((u_char) -1)
+#define NGX_TS_PACKET_SIZE       188
+#define NGX_TS_CC_UNSET          ((u_char) -1)
 
-#define ngx_ts_bufs_init(bufs)  (bufs).tail = &(bufs).head
+#define NGX_TS_ISO8601_DATE_LEN  (sizeof("yyyy-mm-dd") - 1)
+
+
+#define ngx_ts_bufs_init(bufs)   (bufs).tail = &(bufs).head
 
 
 typedef struct {
@@ -242,23 +245,95 @@ ngx_ts_byte_read16(ngx_ts_byte_read_t *br, uint16_t *v)
 
 
 ngx_ts_stream_t *
-ngx_ts_stream_create(ngx_connection_t *c, size_t mem_limit)
+ngx_ts_stream_create(ngx_connection_t *c, ngx_pool_t *pool,
+    ngx_ts_stream_conf_t *conf)
 {
     ngx_ts_stream_t  *ts;
 
-    ts = ngx_pcalloc(c->pool, sizeof(ngx_ts_stream_t));
+    ts = ngx_pcalloc(pool, sizeof(ngx_ts_stream_t));
     if (ts == NULL) {
         return NULL;
     }
 
     ts->connection = c;
-    ts->pool = c->pool;
+    ts->stream_id = conf->stream_id;
+
+    ts->pool = pool;
     ts->log = c->log;
-    ts->mem_left = mem_limit;
+    ts->mem_left = conf->mem_limit;
+
+    ts->dump_folder = conf->dump_folder;
+    ts->dump_fd = NGX_INVALID_FILE;
+    ts->dump_input = conf->dump_folder.len != 0;
 
     ngx_ts_bufs_init(ts->bufs);
 
     return ts;
+}
+
+
+static ngx_fd_t
+ngx_ts_open_dump_file(ngx_ts_stream_t *ts)
+{
+    ngx_fd_t                  fd;
+    ngx_str_t                 name;
+    ngx_connection_t         *c;
+    ngx_pool_cleanup_t       *cln;
+    ngx_pool_cleanup_file_t  *clnf;
+
+    c = ts->connection;
+
+    cln = ngx_pool_cleanup_add(ts->pool, sizeof(ngx_pool_cleanup_file_t));
+    if (cln == NULL) {
+        return NGX_INVALID_FILE;
+    }
+
+    name.len = ts->dump_folder.len + sizeof("/ngx_ts_dump___.dat") +
+        NGX_TS_ISO8601_DATE_LEN + NGX_INT64_LEN + NGX_ATOMIC_T_LEN;
+    name.data = ngx_pnalloc(ts->pool, name.len);
+    if (name.data == NULL) {
+        return NGX_INVALID_FILE;
+    }
+
+    ngx_sprintf(name.data, "%V/ngx_ts_dump_%*s_%P_%uA.dat%Z",
+        &ts->dump_folder, NGX_TS_ISO8601_DATE_LEN,
+        ngx_cached_http_log_iso8601.data, ngx_pid, c->number);
+
+    fd = ngx_open_file((char *) name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
+        NGX_FILE_DEFAULT_ACCESS);
+    if (fd == NGX_INVALID_FILE) {
+        ngx_log_error(NGX_LOG_ERR, ts->log, ngx_errno,
+            ngx_open_file_n " \"%s\" failed", name.data);
+        return NGX_INVALID_FILE;
+    }
+
+    cln->handler = ngx_pool_cleanup_file;
+    clnf = cln->data;
+
+    clnf->fd = fd;
+    clnf->name = name.data;
+    clnf->log = ts->log;
+
+    return fd;
+}
+
+
+static void
+ngx_ts_dump(ngx_ts_stream_t *ts, void *buf, size_t size)
+{
+    if (ts->dump_fd == NGX_INVALID_FILE) {
+        ts->dump_fd = ngx_ts_open_dump_file(ts);
+        if (ts->dump_fd == NGX_INVALID_FILE) {
+            ts->dump_input = 0;
+            return;
+        }
+    }
+
+    if (ngx_write_fd(ts->dump_fd, buf, size) == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ERR, ts->log, ngx_errno,
+            "ngx_ts_dump: write failed");
+        ts->dump_input = 0;
+    }
 }
 
 
@@ -272,6 +347,10 @@ ngx_ts_read(ngx_ts_stream_t *ts, ngx_chain_t *in)
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, ts->log, 0, "ts read");
 
     for (/* void */; in; in = in->next) {
+
+        if (ts->dump_input) {
+            ngx_ts_dump(ts, in->buf->pos, in->buf->last - in->buf->pos);
+        }
 
         while (in->buf->pos != in->buf->last) {
             b = ts->buf;

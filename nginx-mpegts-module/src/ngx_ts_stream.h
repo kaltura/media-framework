@@ -85,9 +85,20 @@ typedef struct {
     ngx_ts_bufs_t                 bufs;  /* PAT */
     ngx_ts_handler_t             *handlers;
     void                         *data;
-    ngx_str_t                     header;
+    ngx_str_t                     stream_id;
     size_t                        mem_left;
+
+    ngx_str_t                     dump_folder;
+    ngx_fd_t                      dump_fd;
+    unsigned                      dump_input:1;
 } ngx_ts_stream_t;
+
+
+typedef struct {
+    size_t                        mem_limit;
+    ngx_str_t                     stream_id;
+    ngx_str_t                     dump_folder;
+} ngx_ts_stream_conf_t;
 
 
 typedef struct {
@@ -117,7 +128,8 @@ struct ngx_ts_handler_s {
 };
 
 
-ngx_ts_stream_t *ngx_ts_stream_create(ngx_connection_t *c, size_t mem_limit);
+ngx_ts_stream_t *ngx_ts_stream_create(ngx_connection_t *c, ngx_pool_t *pool,
+    ngx_ts_stream_conf_t *conf);
 ngx_int_t ngx_ts_add_handler(ngx_ts_stream_t *ts, ngx_ts_handler_pt handler,
     void *data);
 ngx_int_t ngx_ts_read(ngx_ts_stream_t *ts, ngx_chain_t *in);

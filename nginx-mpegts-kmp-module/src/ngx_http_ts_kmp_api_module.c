@@ -6,7 +6,7 @@
 #include <ngx_http_api.h>
 #include <ngx_json_str.h>
 
-#include "ngx_stream_ts_kmp_module.h"
+#include "ngx_ts_kmp_module.h"
 #include "ngx_ts_kmp_version.h"
 
 
@@ -103,7 +103,7 @@ ngx_http_ts_kmp_api_session_delete(ngx_http_request_t *r, ngx_str_t *params,
         return NGX_HTTP_BAD_REQUEST;
     }
 
-    rc = ngx_stream_ts_kmp_finalize_session(connection, r->connection->log);
+    rc = ngx_ts_kmp_finalize_session(connection, r->connection->log);
     switch (rc) {
 
     case NGX_OK:

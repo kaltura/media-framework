@@ -7,20 +7,22 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include "ngx_http_ts_module.h"
 
 #include "ngx_ts_stream.h"
-#include "ngx_ts_hls.h"
-#include "ngx_ts_dash.h"
 
 
 typedef struct {
-    ngx_ts_hls_conf_t   *hls;
-    ngx_ts_dash_conf_t  *dash;
+    ngx_array_t               *handlers;  /* ngx_ts_init_handler_t */
+    ngx_http_complex_value_t  *stream_id;
+
+    size_t                     mem_limit;
+    ngx_str_t                  dump_folder;
 } ngx_http_ts_loc_conf_t;
 
 
 typedef struct {
-    ngx_ts_stream_t     *ts;
+    ngx_ts_stream_t           *ts;
 } ngx_http_ts_ctx_t;
 
 
@@ -42,18 +44,25 @@ static ngx_command_t  ngx_http_ts_commands[] = {
       0,
       NULL },
 
-    { ngx_string("ts_hls"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
-      ngx_ts_hls_set_slot,
+    { ngx_string("ts_stream_id"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_set_complex_value_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_ts_loc_conf_t, hls),
+      offsetof(ngx_http_ts_loc_conf_t, stream_id),
       NULL },
 
-    { ngx_string("ts_dash"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
-      ngx_ts_dash_set_slot,
+    { ngx_string("ts_mem_limit"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_ts_loc_conf_t, dash),
+      offsetof(ngx_http_ts_loc_conf_t, mem_limit),
+      NULL },
+
+    { ngx_string("ts_dump_folder"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_ts_loc_conf_t, dump_folder),
       NULL },
 
       ngx_null_command
@@ -91,13 +100,25 @@ ngx_module_t  ngx_http_ts_module = {
 };
 
 
+ngx_int_t
+ngx_http_ts_add_init_handler(ngx_conf_t *cf,
+    ngx_ts_init_handler_pt handler, void *data)
+{
+    ngx_http_ts_loc_conf_t  *tlcf;
+
+    tlcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_ts_module);
+
+    return ngx_ts_add_init_handler(cf, &tlcf->handlers, handler, data);
+}
+
+
 static ngx_int_t
 ngx_http_ts_handler(ngx_http_request_t *r)
 {
     ngx_int_t                rc;
-    ngx_str_t                name;
-    ngx_uint_t               n;
+    ngx_ts_stream_t         *ts;
     ngx_http_ts_ctx_t       *ctx;
+    ngx_ts_stream_conf_t     conf;
     ngx_http_ts_loc_conf_t  *tlcf;
 
     ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_ts_ctx_t));
@@ -105,40 +126,34 @@ ngx_http_ts_handler(ngx_http_request_t *r)
         return NGX_ERROR;
     }
 
-    ctx->ts = ngx_pcalloc(r->pool, sizeof(ngx_ts_stream_t));
-    if (ctx->ts == NULL) {
+    tlcf = ngx_http_get_module_loc_conf(r, ngx_http_ts_module);
+
+    if (tlcf->stream_id) {
+        if (ngx_http_complex_value(r, tlcf->stream_id, &conf.stream_id)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+
+    } else {
+        conf.stream_id.len = 0;
+    }
+
+    conf.mem_limit = tlcf->mem_limit;
+    conf.dump_folder = tlcf->dump_folder;
+
+    ts = ngx_ts_stream_create(r->connection, r->pool, &conf);
+    if (ts == NULL) {
         return NGX_ERROR;
     }
 
-    ctx->ts->pool = r->pool;
-    ctx->ts->log = r->connection->log;
-
-    for (n = 0; n < r->uri.len; n++) {
-        if (r->uri.data[r->uri.len - 1 - n] == '/') {
-            break;
-        }
-    }
-
-    name.data = &r->uri.data[r->uri.len - n];
-    name.len = n;
-
-    /* XXX detect streams with the same name, add shared zone */
-
-    tlcf = ngx_http_get_module_loc_conf(r, ngx_http_ts_module);
-
-    if (tlcf->hls) {
-        if (ngx_ts_hls_create(tlcf->hls, ctx->ts, &name) == NULL) {
-            return  NGX_ERROR;
-        }
-    }
-
-    if (tlcf->dash) {
-        if (ngx_ts_dash_create(tlcf->dash, ctx->ts, &name) == NULL) {
-            return NGX_ERROR;
-        }
-    }
+    ctx->ts = ts;
 
     ngx_http_set_ctx(r, ctx, ngx_http_ts_module);
+
+    if (ngx_ts_init_handlers(tlcf->handlers, ts) != NGX_OK) {
+        return NGX_ERROR;
+    }
 
     r->request_body_no_buffering = 1;
 
@@ -243,8 +258,9 @@ ngx_http_ts_create_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    conf->hls = NGX_CONF_UNSET_PTR;
-    conf->dash = NGX_CONF_UNSET_PTR;
+    conf->handlers = NGX_CONF_UNSET_PTR;
+
+    conf->mem_limit = NGX_CONF_UNSET_SIZE;
 
     return conf;
 }
@@ -253,11 +269,18 @@ ngx_http_ts_create_conf(ngx_conf_t *cf)
 static char *
 ngx_http_ts_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    ngx_http_ts_loc_conf_t *prev = parent;
-    ngx_http_ts_loc_conf_t *conf = child;
+    ngx_http_ts_loc_conf_t  *prev = parent;
+    ngx_http_ts_loc_conf_t  *conf = child;
 
-    ngx_conf_merge_ptr_value(conf->hls, prev->hls, NULL);
-    ngx_conf_merge_ptr_value(conf->dash, prev->dash, NULL);
+    ngx_conf_merge_ptr_value(conf->handlers, prev->handlers, NULL);
+
+    if (conf->stream_id == NULL) {
+        conf->stream_id = prev->stream_id;
+    }
+
+    ngx_conf_merge_size_value(conf->mem_limit, prev->mem_limit,
+        5 * 1024 * 1024);
+    ngx_conf_merge_str_value(conf->dump_folder, prev->dump_folder, "");
 
     return NGX_CONF_OK;
 }
