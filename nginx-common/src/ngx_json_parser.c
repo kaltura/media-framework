@@ -810,6 +810,23 @@ ngx_json_decode_string(ngx_str_t *dest, ngx_str_t *src)
 
 
 ngx_json_status_t
+ngx_json_get_string(ngx_str_t *dst, ngx_json_esc_str_t *src)
+{
+    if (src->escape) {
+        dst->data = src->s.data;
+        dst->len = 0;
+
+        return ngx_json_decode_string(dst, &src->s);
+
+    } else {
+        *dst = src->s;
+    }
+
+    return NGX_JSON_OK;
+}
+
+
+ngx_json_status_t
 ngx_json_object_parse(ngx_pool_t *pool, ngx_json_object_t *object,
     ngx_json_prop_t **hash, ngx_uint_t size, void *dest)
 {
@@ -902,19 +919,11 @@ ngx_json_set_str_slot(ngx_pool_t *pool, ngx_json_value_t *value,
         return NGX_JSON_BAD_DATA;
     }
 
-    if (value->v.str.escape) {
-        sp->data = value->v.str.s.data;
-        sp->len = 0;
-
-        if (ngx_json_decode_string(sp, &value->v.str.s) != NGX_JSON_OK) {
-            ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-                "ngx_json_set_str_slot: failed to decode string \"%V\"",
-                &value->v.str.s);
-            return NGX_JSON_BAD_DATA;
-        }
-
-    } else {
-        *sp = value->v.str.s;
+    if (ngx_json_get_string(sp, &value->v.str) != NGX_JSON_OK) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_json_set_str_slot: failed to decode string \"%V\"",
+            &value->v.str.s);
+        return NGX_JSON_BAD_DATA;
     }
 
     return NGX_JSON_OK;

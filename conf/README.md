@@ -12,7 +12,7 @@ This sample assumes all the media-framework components are deployed on a single 
 
 ## Build
 
-Compile nginx with the following options:
+Configure nginx with the following options:
 ```
 --with-stream
 --with-threads
