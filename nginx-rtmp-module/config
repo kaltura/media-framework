@@ -45,10 +45,12 @@ RTMP_CORE_SRCS="                                    \
     $ngx_addon_dir/src/ngx_rtmp_proxy_protocol.c    \
     "
 
+RTMP_INCS="$ngx_addon_dir/src"
 
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir/src
     ngx_module_deps=$RTMP_DEPS
+    ngx_module_incs=$RTMP_INCS
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="$RTMP_CORE_MODULES"
@@ -70,8 +72,7 @@ else
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $RTMP_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $RTMP_CORE_SRCS"
 
-    CFLAGS="$CFLAGS -I$ngx_addon_dir/src"
+    CFLAGS="$CFLAGS -I$RTMP_INCS"
 fi
 
 USE_OPENSSL=YES
-

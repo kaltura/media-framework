@@ -148,8 +148,9 @@ LIVE_DEPS="$LIVE_DEPS                                         \
     "
 
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir
     ngx_module_deps=$LIVE_DEPS
+    ngx_module_incs=
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="$LIVE_CORE_MODULES $LIVE_STREAM_MODULES $LIVE_HTTP_MODULES"
@@ -163,6 +164,8 @@ if [ -f auto/module ] ; then
         ngx_module_srcs=$LIVE_CORE_SRCS
 
         . auto/module
+
+        ngx_module_deps=
 
         ngx_module_type=STREAM
         ngx_module_name=$LIVE_STREAM_MODULES
@@ -184,6 +187,4 @@ else
 
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $LIVE_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $LIVE_CORE_SRCS $LIVE_STREAM_SRCS $LIVE_HTTP_SRCS"
-
-    CFLAGS="$CFLAGS -I$ngx_addon_dir"
 fi

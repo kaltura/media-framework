@@ -41,11 +41,10 @@ LIVE_COMMON_DEPS="                                  \
 
 LIVE_COMMON_INCS="$ngx_addon_dir/src"
 
-HTTP_INCS="$HTTP_INCS $ngx_addon_dir/src"
-
 if test -n "$ngx_module_link"; then
-    ngx_module_incs="$LIVE_COMMON_INCS"
     ngx_module_deps="$LIVE_COMMON_DEPS"
+    ngx_module_incs="$LIVE_COMMON_INCS"
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="ngx_http_api_module"
@@ -60,11 +59,11 @@ if test -n "$ngx_module_link"; then
 
         . auto/module
 
+        ngx_module_deps=
+        ngx_module_incs=
 
         ngx_module_type=HTTP
         ngx_module_name=ngx_http_api_module
-        ngx_module_incs=
-        ngx_module_deps=
         ngx_module_srcs=$LIVE_COMMON_HTTP_SRCS
 
         . auto/module
@@ -75,6 +74,8 @@ else
 
     NGX_ADDON_DEPS="$NGX_ADDON_SRCS $LIVE_COMMON_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $LIVE_COMMON_CORE_SRCS $LIVE_COMMON_HTTP_SRCS"
+
+    CFLAGS="$CFLAGS -I$LIVE_COMMON_INCS"
 fi
 
 have=LIVE_COMMON . auto/have

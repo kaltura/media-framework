@@ -30,9 +30,12 @@ KMP_IN_DEPS="                                       \
     $ngx_addon_dir/src/ngx_kmp_in_json.h            \
     "
 
+KMP_IN_INCS="$ngx_addon_dir/src"
+
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir/src
     ngx_module_deps=$KMP_IN_DEPS
+    ngx_module_incs=$KMP_IN_INCS
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="ngx_kmp_in_module"
@@ -54,5 +57,5 @@ else
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $KMP_IN_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $KMP_IN_CORE_SRCS"
 
-    CFLAGS="$CFLAGS -I$ngx_addon_dir"
+    CFLAGS="$CFLAGS -I$KMP_IN_INCS"
 fi

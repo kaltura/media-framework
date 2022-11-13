@@ -60,9 +60,12 @@ KMP_OUT_DEPS="                                       \
     $ngx_addon_dir/src/ngx_kmp_out_utils.h           \
     "
 
+KMP_OUT_INCS="$ngx_addon_dir/src"
+
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir/src
     ngx_module_deps=$KMP_OUT_DEPS
+    ngx_module_incs=$KMP_OUT_INCS
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="$KMP_OUT_CORE_MODULES $KMP_OUT_HTTP_MODULES"
@@ -76,6 +79,9 @@ if [ -f auto/module ] ; then
         ngx_module_srcs=$KMP_OUT_CORE_SRCS
 
         . auto/module
+
+        ngx_module_deps=
+        ngx_module_incs=
 
         ngx_module_type=HTTP
         ngx_module_name=$KMP_OUT_HTTP_MODULES
@@ -91,5 +97,5 @@ else
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $KMP_OUT_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $KMP_OUT_CORE_SRCS $KMP_OUT_HTTP_SRCS"
 
-    CFLAGS="$CFLAGS -I$ngx_addon_dir"
+    CFLAGS="$CFLAGS -I$KMP_OUT_INCS"
 fi
