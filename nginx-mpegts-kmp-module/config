@@ -64,8 +64,9 @@ MPEGTS_KMP_DEPS="                                       \
     "
 
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir/src
     ngx_module_deps=$MPEGTS_KMP_DEPS
+    ngx_module_incs=
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="$MPEGTS_KMP_CORE_MODULES $MPEGTS_KMP_STREAM_MODULES $MPEGTS_KMP_HTTP_MODULES"
@@ -79,6 +80,8 @@ if [ -f auto/module ] ; then
         ngx_module_srcs=$MPEGTS_KMP_CORE_SRCS
 
         . auto/module
+
+        ngx_module_deps=
 
         ngx_module_type=STREAM
         ngx_module_name=$MPEGTS_KMP_STREAM_MODULES
@@ -100,6 +103,4 @@ else
 
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $MPEGTS_KMP_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $MPEGTS_KMP_CORE_SRCS $MPEGTS_KMP_STREAM_SRCS $MPEGTS_KMP_HTTP_SRCS"
-
-    CFLAGS="$CFLAGS -I$ngx_addon_dir"
 fi

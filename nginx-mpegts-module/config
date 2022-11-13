@@ -40,9 +40,12 @@ MPEGTS_DEPS="                                     \
     $ngx_addon_dir/src/ngx_ts_stream.h            \
     "
 
+MPEGTS_INCS="$ngx_addon_dir/src"
+
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir/src
     ngx_module_deps=$MPEGTS_DEPS
+    ngx_module_incs=$MPEGTS_INCS
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="$MPEGTS_STREAM_MODULES $MPEGTS_HTTP_MODULES"
@@ -56,6 +59,9 @@ if [ -f auto/module ] ; then
         ngx_module_srcs=$MPEGTS_CORE_SRCS
 
         . auto/module
+
+        ngx_module_deps=
+        ngx_module_incs=
 
         ngx_module_type=STREAM
         ngx_module_name=$MPEGTS_STREAM_MODULES
@@ -77,5 +83,5 @@ else
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $MPEGTS_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $MPEGTS_CORE_SRCS $MPEGTS_STREAM_SRCS $MPEGTS_HTTP_SRCS"
 
-    CFLAGS="$CFLAGS -I$ngx_addon_dir/src"
+    CFLAGS="$CFLAGS -I$MPEGTS_INCS"
 fi

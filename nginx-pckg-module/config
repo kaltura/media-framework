@@ -1,5 +1,7 @@
 ngx_addon_name="ngx_pckg_module"
 
+ngx_module_libs=
+
 # ngx_live_common dependency
 #
 if test -n "$ngx_module_link"; then
@@ -266,8 +268,8 @@ PCKG_DEPS="                                                   \
     "
 
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir
     ngx_module_deps=$PCKG_DEPS
+    ngx_module_incs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="$PCKG_HTTP_MODULES"
@@ -288,6 +290,4 @@ else
 
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $PCKG_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $PCKG_HTTP_SRCS"
-
-    CFLAGS="$CFLAGS -I$ngx_addon_dir"
 fi
