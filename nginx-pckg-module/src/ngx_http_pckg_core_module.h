@@ -90,6 +90,7 @@ typedef struct {
     ngx_uint_t                        media_type_selector;
     ngx_flag_t                        back_fill;
 
+    ngx_uint_t                        media_timestamps;
     ngx_flag_t                        empty_segments;
     buffer_pool_t                    *output_buffer_pool;
     ngx_http_complex_value_t         *segment_metadata;

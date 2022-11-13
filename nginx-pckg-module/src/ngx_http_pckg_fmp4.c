@@ -503,8 +503,7 @@ ngx_http_pckg_fmp4_parse_m4s_request(ngx_http_request_t *r, u_char *start_pos,
         return rc;
     }
 
-    result->flags = NGX_KSMP_FLAG_MEDIA | NGX_KSMP_FLAG_MEDIA_INFO
-        | NGX_KSMP_FLAG_RELATIVE_DTS;
+    result->flags = NGX_KSMP_FLAG_MEDIA | NGX_KSMP_FLAG_MEDIA_INFO;
 
     if (result->media_type_mask & (1 << KMP_MEDIA_SUBTITLE)) {
         result->flags |= NGX_KSMP_FLAG_SEGMENT_TIME;
