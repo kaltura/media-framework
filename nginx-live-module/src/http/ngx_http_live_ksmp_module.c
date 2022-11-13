@@ -394,6 +394,13 @@ ngx_http_live_ksmp_parse(ngx_http_request_t *r)
             return NGX_HTTP_BAD_REQUEST;
         }
 
+        if (params->flags & NGX_KSMP_FLAG_MEDIA_CLIP) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "ngx_http_live_ksmp_parse: "
+                "clip request without \"time\" arg");
+            return NGX_HTTP_BAD_REQUEST;
+        }
+
         if (params->flags & NGX_KSMP_FLAG_WAIT) {
             params->wait_sequence = params->segment_index;
             params->wait_part = params->part_index;
