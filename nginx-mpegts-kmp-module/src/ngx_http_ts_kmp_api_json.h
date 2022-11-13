@@ -26,8 +26,7 @@ ngx_http_ts_kmp_api_json_get_size(void *obj)
             ngx_json_str_get_size(&ngx_http_ts_kmp_built) +
         sizeof("\",\"pid\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"uptime\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"stream\":") - 1 +
-            ngx_stream_ts_kmp_stream_json_get_size(obj) +
+        sizeof(",\"sessions\":") - 1 + ngx_ts_kmp_sessions_json_get_size(obj) +
         sizeof("}") - 1;
 
     return result;
@@ -50,8 +49,8 @@ ngx_http_ts_kmp_api_json_write(u_char *p, void *obj)
     p = ngx_copy_fix(p, ",\"uptime\":");
     p = ngx_sprintf(p, "%i", (ngx_int_t) (ngx_cached_time->sec -
         ngx_http_ts_kmp_start_time));
-    p = ngx_copy_fix(p, ",\"stream\":");
-    p = ngx_stream_ts_kmp_stream_json_write(p, obj);
+    p = ngx_copy_fix(p, ",\"sessions\":");
+    p = ngx_ts_kmp_sessions_json_write(p, obj);
     *p++ = '}';
 
     return p;

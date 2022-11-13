@@ -10,8 +10,6 @@
 #include "ngx_ts_kmp_track.h"
 
 
-static ngx_stream_core_main_conf_t *ngx_stream_ts_kmp_get_core_main_conf(void);
-
 static void *ngx_stream_ts_kmp_create_srv_conf(ngx_conf_t *cf);
 static char *ngx_stream_ts_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent,
     void *child);
@@ -213,8 +211,10 @@ static ngx_command_t  ngx_stream_ts_kmp_commands[] = {
 static ngx_stream_module_t  ngx_stream_ts_kmp_module_ctx = {
     NULL,                                   /* preconfiguration */
     NULL,                                   /* postconfiguration */
+
     NULL,                                   /* create main configuration */
     NULL,                                   /* init main configuration */
+
     ngx_stream_ts_kmp_create_srv_conf,      /* create server configuration */
     ngx_stream_ts_kmp_merge_srv_conf        /* merge server configuration */
 };
@@ -236,108 +236,6 @@ ngx_module_t  ngx_stream_ts_kmp_module = {
 };
 
 
-#include "ngx_stream_ts_kmp_module_json.h"
-
-
-static ngx_stream_core_main_conf_t *
-ngx_stream_ts_kmp_get_core_main_conf(void)
-{
-    ngx_stream_conf_ctx_t        *stream_ctx;
-    ngx_stream_core_main_conf_t  *cmcf;
-
-    stream_ctx = (ngx_stream_conf_ctx_t *) ngx_get_conf(ngx_cycle->conf_ctx,
-        ngx_stream_module);
-    if (stream_ctx == NULL) {
-        return NULL;
-    }
-
-    cmcf = ngx_stream_get_module_main_conf(stream_ctx, ngx_stream_core_module);
-    if (cmcf == NULL) {
-        return NULL;
-    }
-
-    return cmcf;
-}
-
-
-static ngx_stream_session_t *
-ngx_stream_ts_kmp_server_get_session(ngx_stream_conf_ctx_t *conf,
-    ngx_uint_t connection)
-{
-    ngx_queue_t                   *q;
-    ngx_connection_t              *c;
-    ngx_ts_kmp_ctx_t              *cur;
-    ngx_stream_ts_kmp_srv_conf_t  *tscf;
-
-    tscf = ngx_stream_get_module_srv_conf(conf, ngx_stream_ts_kmp_module);
-
-    for (q = ngx_queue_head(&tscf->kmp.sessions);
-        q != ngx_queue_sentinel(&tscf->kmp.sessions);
-        q = ngx_queue_next(q))
-    {
-        cur = ngx_queue_data(q, ngx_ts_kmp_ctx_t, queue);
-
-        c = cur->connection;
-        if (c->number == connection) {
-            return c->data;
-        }
-    }
-
-    return NULL;
-}
-
-
-static ngx_stream_session_t *
-ngx_stream_ts_kmp_get_session(ngx_stream_core_main_conf_t *cmcf,
-    ngx_uint_t connection)
-{
-    ngx_uint_t                    n;
-    ngx_stream_session_t         *s;
-    ngx_stream_core_srv_conf_t  **cscfp;
-
-    cscfp = cmcf->servers.elts;
-    for (n = 0; n < cmcf->servers.nelts; n++) {
-        s = ngx_stream_ts_kmp_server_get_session(cscfp[n]->ctx, connection);
-        if (s != NULL) {
-            return s;
-        }
-    }
-
-    return NULL;
-}
-
-
-ngx_int_t
-ngx_stream_ts_kmp_finalize_session(ngx_uint_t connection, ngx_log_t *log)
-{
-    ngx_stream_session_t         *s;
-    ngx_stream_core_main_conf_t  *cmcf;
-
-    cmcf = ngx_stream_ts_kmp_get_core_main_conf();
-    if (cmcf == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_stream_ts_kmp_finalize_session: "
-            "failed to get stream conf");
-        return NGX_ERROR;
-    }
-
-    s = ngx_stream_ts_kmp_get_session(cmcf, connection);
-    if (s == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-            "ngx_stream_ts_kmp_finalize_session: "
-            "connection %ui not found", connection);
-        return NGX_DECLINED;
-    }
-
-    ngx_log_error(NGX_LOG_INFO, log, 0,
-        "ngx_stream_ts_kmp_finalize_session: "
-        "dropping connection %ui", connection);
-    ngx_stream_finalize_session(s, NGX_STREAM_INTERNAL_SERVER_ERROR);
-
-    return NGX_OK;
-}
-
-
 static char *
 ngx_stream_ts_kmp(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -345,13 +243,24 @@ ngx_stream_ts_kmp(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     kscf = ngx_stream_conf_get_module_srv_conf(cf, ngx_stream_ts_kmp_module);
 
-    if (ngx_stream_ts_add_init_handler(cf, ngx_ts_kmp_init_handler, kscf)
+    if (ngx_stream_ts_add_init_handler(cf, ngx_ts_kmp_init_handler, &kscf->kmp)
         != NGX_OK)
     {
         return NGX_CONF_ERROR;
     }
 
     return NGX_CONF_OK;
+}
+
+
+static void
+ngx_stream_ts_kmp_finalize(ngx_connection_t *c)
+{
+    ngx_stream_session_t  *s;
+
+    s = c->data;
+
+    ngx_stream_finalize_session(s, NGX_STREAM_INTERNAL_SERVER_ERROR);
 }
 
 
@@ -365,7 +274,6 @@ ngx_stream_ts_kmp_create_srv_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    ngx_queue_init(&conf->kmp.sessions);
     conf->kmp.ctrl_connect_url = NGX_CONF_UNSET_PTR;
     ngx_kmp_out_track_init_conf(&conf->kmp.t);
 
@@ -387,6 +295,8 @@ ngx_stream_ts_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     {
         return NGX_CONF_ERROR;
     }
+
+    conf->kmp.finalize = ngx_stream_ts_kmp_finalize;
 
     return NGX_CONF_OK;
 }

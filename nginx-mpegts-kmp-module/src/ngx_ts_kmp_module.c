@@ -22,7 +22,45 @@ typedef struct {
 } ngx_ts_kmp_connect_t;
 
 
-#include "ngx_ts_kmp_json.h"
+static ngx_int_t ngx_ts_kmp_init_process(ngx_cycle_t *cycle);
+
+
+static ngx_core_module_t  ngx_ts_kmp_module_ctx = {
+    ngx_string("ts_kmp"),
+    NULL,
+    NULL
+};
+
+
+ngx_module_t  ngx_ts_kmp_module = {
+    NGX_MODULE_V1,
+    &ngx_ts_kmp_module_ctx,                /* module context */
+    NULL,                                  /* module directives */
+    NGX_CORE_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    NULL,                                  /* init module */
+    ngx_ts_kmp_init_process,               /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
+};
+
+
+static ngx_queue_t  ngx_ts_kmp_sessions;
+
+
+#include "ngx_ts_kmp_module_json.h"
+
+
+static ngx_int_t
+ngx_ts_kmp_init_process(ngx_cycle_t *cycle)
+{
+    ngx_queue_init(&ngx_ts_kmp_sessions);
+
+    return NGX_OK;
+}
 
 
 static ngx_chain_t *
@@ -128,11 +166,11 @@ ngx_ts_kmp_connect(ngx_ts_handler_data_t *hd)
         return NGX_OK;
     }
 
-    ctx->header.s = ts->header;
-    ngx_json_str_set_escape(&ctx->header);
+    ctx->stream_id.s = ts->stream_id;
+    ngx_json_str_set_escape(&ctx->stream_id);
 
     create_ctx.ctx = ctx;
-    create_ctx.stream_id = ts->header;
+    create_ctx.stream_id = ts->stream_id;
     create_ctx.retries_left = conf->t.ctrl_retries;
 
     ngx_memzero(&ci, sizeof(ci));
@@ -261,12 +299,15 @@ ngx_ts_kmp_init_handler(ngx_ts_stream_t *ts, void *data)
     }
 
     c = ts->connection;
+
     ctx->connection = c;
     ctx->conf = data;
     ctx->start_msec = ngx_current_msec;
-    ngx_queue_insert_tail(&ctx->conf->sessions, &ctx->queue);
+
     ngx_rbtree_init(&ctx->rbtree, &ctx->sentinel, ngx_rbtree_insert_value);
     ngx_queue_init(&ctx->tracks);
+
+    ngx_queue_insert_tail(&ngx_ts_kmp_sessions, &ctx->queue);
 
     ctx->remote_addr.s.data = ctx->remote_addr_buf;
     pp = c->proxy_protocol;
@@ -287,8 +328,60 @@ ngx_ts_kmp_init_handler(ngx_ts_stream_t *ts, void *data)
 
     ngx_json_str_set_escape(&ctx->remote_addr);
 
+    ctx->local_addr.s.len = NGX_SOCKADDR_STRLEN;
+    ctx->local_addr.s.data = ctx->local_addr_buf;
+
+    if (ngx_connection_local_sockaddr(c, &ctx->local_addr.s, 1) != NGX_OK) {
+        ctx->local_addr.s.len = 0;
+    }
+
+    ngx_json_str_set_escape(&ctx->local_addr);
+
     cln->handler = ngx_ts_kmp_cleanup;
     cln->data = ctx;
 
     return ngx_ts_add_handler(ts, ngx_ts_kmp_handler, ctx);
+}
+
+
+static ngx_ts_kmp_ctx_t *
+ngx_ts_kmp_get_session(ngx_uint_t connection)
+{
+    ngx_queue_t       *q;
+    ngx_ts_kmp_ctx_t  *cur;
+
+    for (q = ngx_queue_head(&ngx_ts_kmp_sessions);
+        q != ngx_queue_sentinel(&ngx_ts_kmp_sessions);
+        q = ngx_queue_next(q))
+    {
+        cur = ngx_queue_data(q, ngx_ts_kmp_ctx_t, queue);
+
+        if (cur->connection->number == connection) {
+            return cur;
+        }
+    }
+
+    return NULL;
+}
+
+
+ngx_int_t
+ngx_ts_kmp_finalize_session(ngx_uint_t connection, ngx_log_t *log)
+{
+    ngx_ts_kmp_ctx_t  *ctx;
+
+    ctx = ngx_ts_kmp_get_session(connection);
+    if (ctx == NULL) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_ts_kmp_finalize_session: "
+            "connection %ui not found", connection);
+        return NGX_DECLINED;
+    }
+
+    ngx_log_error(NGX_LOG_INFO, log, 0,
+        "ngx_ts_kmp_finalize_session: "
+        "dropping connection %ui", connection);
+    ctx->conf->finalize(ctx->connection);
+
+    return NGX_OK;
 }

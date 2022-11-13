@@ -24,6 +24,7 @@ COPY nginx-mpegts-module nginx-mpegts-module
 COPY nginx-mpegts-kmp-module nginx-mpegts-kmp-module
 COPY nginx-kmp-cc-module nginx-kmp-cc-module
 RUN git clone https://github.com/kaltura/nginx-srt-module
+RUN git clone https://github.com/kaltura/nginx-stream-preread-str-module
 
 ARG APP_VERSION=1.0
 
@@ -45,6 +46,7 @@ RUN [ "${DEBUG_BUILD}" -eq "1" ] && debug_option=--with-debug; \
             --add-module=/tmp/build/nginx-mpegts-kmp-module \
             --add-module=/tmp/build/nginx-kmp-cc-module \
             --add-module=/tmp/build/nginx-srt-module \
+            --add-module=/tmp/build/nginx-stream-preread-str-module \
             --with-file-aio \
             --with-stream \
             --with-http_ssl_module \

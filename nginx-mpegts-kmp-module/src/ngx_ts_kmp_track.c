@@ -1579,7 +1579,7 @@ ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
         track->log.connection = ctx->connection->number;
         ctx->track_index[media_type]++;
 
-        publish.stream_id.s = ts->header;
+        publish.stream_id.s = ts->stream_id;
         ngx_json_str_set_escape(&publish.stream_id);
 
         publish.pid = es->pid;

@@ -8,7 +8,11 @@ This sample assumes all the media-framework components are deployed on a single 
 - nginx source code - version 1.9.0 or newer
 - PHP-FPM - used by the sample controller implementation
 - openssl - required for media encryption (e.g. HLS AES-128)
-- libsrt (https://github.com/Haivision/srt) - required for SRT input
+
+The following dependencies are required for SRT input:
+- nginx-stream-preread-str-module source code - https://github.com/kaltura/nginx-stream-preread-str-module
+- nginx-srt-module source code - https://github.com/kaltura/nginx-srt-module
+- libsrt - build & install (https://github.com/Haivision/srt)
 
 ## Build
 
@@ -18,6 +22,7 @@ Configure nginx with the following options:
 --with-threads
 --with-http_dav_module
 --add-module=/path/to/nginx-srt-module
+--add-module=/path/to/nginx-stream-preread-str-module
 --add-module=/path/to/media-framework/nginx-common
 --add-module=/path/to/media-framework/nginx-kmp-in-module
 --add-module=/path/to/media-framework/nginx-kmp-out-module
@@ -39,7 +44,7 @@ The sample commands below use the following parameters:
 - `{channel}` - a string (up to 32 chars) that identifies the video being published, for example, `all_hands_22`. To use the low-latency segmenter, prefix the channel name with `ll_`, for example, `ll_sports`.
 - `{stream}` - a string (up to 32 chars) that identifies the quality being published, for example, `hd` / `sd`.
 
-### RTMP
+### RTMP/TCP
 
 Sample ffmpeg command:
 `ffmpeg -re -i test.mp4 -c copy -f flv "rtmp://localhost:1935/live/{channel}_{stream}"`
@@ -48,10 +53,19 @@ Supported codecs:
 - Video: h264
 - Audio: aac, mp3
 
-### SRT
+### MPEGTS/SRT
 
 Sample ffmpeg command:
 `ffmpeg -re -i test.mp4 -c copy -f mpegts "srt://localhost:7045?streamid={channel}_{stream}"`
+
+Supported codecs:
+- Video: h264, h265
+- Audio: aac, mp3, ac3, e-ac3
+
+### MPEGTS/HTTP
+
+Sample ffmpeg command:
+`ffmpeg -re -i test.mp4 -c copy -f mpegts "http://127.0.0.1:80/publish/?streamid={channel}_{stream}"`
 
 Supported codecs:
 - Video: h264, h265
