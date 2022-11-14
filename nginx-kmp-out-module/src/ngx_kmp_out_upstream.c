@@ -338,6 +338,8 @@ ngx_kmp_out_upstream_free(ngx_kmp_out_upstream_t *u)
         ngx_close_connection(u->peer.connection);
     }
 
+    /* republish_call is cancelled automatically since the pool is destroyed */
+
     if (u->republish.timer_set) {
         ngx_del_timer(&u->republish);
     }
