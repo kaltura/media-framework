@@ -5,7 +5,7 @@ This sample assumes all the media-framework components are deployed on a single 
 
 ## Dependencies
 
-- nginx source code - version 1.9.0 or newer
+- nginx source code - version 1.17.0 or newer
 - PHP-FPM - used by the sample controller implementation
 - openssl - required for media encryption (e.g. HLS AES-128)
 
@@ -34,6 +34,69 @@ Configure nginx with the following options:
 --add-module=/path/to/media-framework/nginx-kmp-rtmp-module
 --add-module=/path/to/media-framework/nginx-live-module
 --add-module=/path/to/media-framework/nginx-pckg-module
+```
+
+## Step-by-step commands for Ubuntu 20
+
+```
+# install dependencies
+sudo apt update
+sudo apt-get install build-essential libpcre3-dev zlib1g-dev
+sudo apt-get install tclsh cmake libssl-dev
+sudo apt-get install php-fpm php-curl
+
+# clone repos
+cd /opt
+git clone https://github.com/nginx/nginx/
+git clone https://github.com/kaltura/media-framework/
+git clone https://github.com/Haivision/srt
+git clone https://github.com/kaltura/nginx-srt-module
+git clone https://github.com/kaltura/nginx-stream-preread-str-module
+
+# build libsrt
+cd /opt/srt
+./configure
+make
+sudo make install
+
+# build nginx
+cd /opt/nginx
+auto/configure                                                \
+    --with-stream                                             \
+    --with-threads                                            \
+    --with-http_dav_module                                    \
+    --add-module=/opt/nginx-srt-module                        \
+    --add-module=/opt/nginx-stream-preread-str-module         \
+    --add-module=/opt/media-framework/nginx-common            \
+    --add-module=/opt/media-framework/nginx-kmp-in-module     \
+    --add-module=/opt/media-framework/nginx-kmp-out-module    \
+    --add-module=/opt/media-framework/nginx-rtmp-module       \
+    --add-module=/opt/media-framework/nginx-rtmp-kmp-module   \
+    --add-module=/opt/media-framework/nginx-mpegts-module     \
+    --add-module=/opt/media-framework/nginx-mpegts-kmp-module \
+    --add-module=/opt/media-framework/nginx-kmp-cc-module     \
+    --add-module=/opt/media-framework/nginx-kmp-rtmp-module   \
+    --add-module=/opt/media-framework/nginx-live-module       \
+    --add-module=/opt/media-framework/nginx-pckg-module
+make
+sudo make install
+
+# setup nginx
+mv /usr/local/nginx/conf/nginx.conf /usr/local/nginx/conf/nginx.conf.orig
+ln -s /opt/media-framework/conf/nginx.conf /usr/local/nginx/conf/nginx.conf
+mkdir /var/log/nginx
+
+# start nginx
+sudo /usr/local/nginx/sbin/nginx
+
+# publish a test stream
+sudo apt-get install ffmpeg
+wget http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_w4l3m87h/flavorId/0_vsu1xutk/format/download/a.mp4
+ffmpeg -re -i a.mp4 -c copy -f flv "rtmp://localhost:1935/live/ch1_s1"
+
+# play
+# HLS - localhost/clear/ch/ch1/master.m3u8
+# DASH - localhost/clear/ch/ch1/manifest.mpd
 ```
 
 ## Publish

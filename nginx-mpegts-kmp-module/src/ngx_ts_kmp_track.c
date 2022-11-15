@@ -1260,7 +1260,7 @@ ngx_ts_kmp_track_mp3_parse_header(ngx_log_t *log, uint32_t header,
 
     switch ((header >> 19) & 0x3) {
 
-    case 0:     /* version 2.5 */
+    case 0:     /* 0 = version 2.5 */
         ver = 1;
         sr_shift = 2;
         break;
@@ -1271,12 +1271,12 @@ ngx_ts_kmp_track_mp3_parse_header(ngx_log_t *log, uint32_t header,
             "invalid version, header: 0x%uxD", header);
         return NGX_ERROR;
 
-    case 2:     /* version 2 */
+    case 2:     /* 2 = version 2 */
         ver = 1;
         sr_shift = 1;
         break;
 
-    case 3:     /* version 1 */
+    default:    /* 3 = version 1 */
         ver = 0;
         sr_shift = 0;
         break;
