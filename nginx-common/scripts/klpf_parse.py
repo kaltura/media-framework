@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import struct
+import json
 import zlib
 import sys
 import os
@@ -44,32 +45,30 @@ def print_hex_h264(data, start, end, pos_format, label, next_label, label_len):
             label_len)
         pos += 4 + size
 
+def add_block_specs(file_id, parent, result):
+    for block in parent['children']:
+        for type in ['header', 'data']:
+            fields = block[type]
+            if len(fields) == 0:
+                continue
+
+            # if fields contain a single 'u_char[max]' => assume binary data
+            if len(fields) == 1 and fields[0]['type'] == 'u_char' and fields[0]['count'] == 'max':
+                continue
+
+            key = '_'.join([file_id, block['id'], type])
+            result[key] = fields
+
+        add_block_specs(file_id, block, result)
 
 def parse_persist_spec(file_name):
-    stack = {}
     result = {}
-    for cur_line in open(file_name, 'rb'):
-        cur_line = cur_line.decode('utf8').rstrip()
-        if cur_line == '':
-            continue
-
-        if not cur_line.startswith('\t'):
-            key = cur_line.strip()
-            fields = []
-            result[key] = fields
-            stack[1] = fields
-            continue
-
-        sub_fields = []
-        field = cur_line.strip().split('\t')
-        field.append(sub_fields)
-
-        level = len(cur_line) - len(cur_line.lstrip('\t'))
-        stack[level].append(tuple(field))
-        stack[level + 1] = sub_fields
+    with open(file_name, 'rb') as f:
+        spec = json.load(f)
+        for ft in spec:
+            add_block_specs(ft['id'], ft, result)
 
     return result
-
 
 def parse_fields(fields, data, start, end, base_type, prefix, values, output):
     pos = start
@@ -77,7 +76,12 @@ def parse_fields(fields, data, start, end, base_type, prefix, values, output):
     max_bits = 0
     bit_field = 0
 
-    for type, name, count, sub_fields in fields:
+    for field in fields:
+        type = field['type'].split(' ')[0]
+        name = field['name']
+        count = field['count']
+        sub_fields = field['children']
+
         if base_type == 'union':
             max_pos = max(max_pos, pos)
             pos = start
