@@ -1573,6 +1573,10 @@ static ngx_persist_block_t  ngx_live_segment_cache_blocks[] = {
       NGX_PERSIST_FLAG_SINGLE,
       ngx_live_segment_cache_write_frame_list, NULL },
 
+    /*
+     * persist data:
+     *   u_char  data[];
+     */
     { NGX_KSMP_BLOCK_FRAME_DATA, NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_DATA,
       NGX_PERSIST_FLAG_SINGLE,
       ngx_live_segment_cache_write_frame_data, NULL },
