@@ -16,25 +16,11 @@ The following dependencies are required for SRT input:
 
 ## Build
 
-Configure nginx with the following options:
-```
---with-stream
---with-threads
---with-http_dav_module
---add-module=/path/to/nginx-srt-module
---add-module=/path/to/nginx-stream-preread-str-module
---add-module=/path/to/media-framework/nginx-common
---add-module=/path/to/media-framework/nginx-kmp-in-module
---add-module=/path/to/media-framework/nginx-kmp-out-module
---add-module=/path/to/media-framework/nginx-rtmp-module
---add-module=/path/to/media-framework/nginx-rtmp-kmp-module
---add-module=/path/to/media-framework/nginx-mpegts-module
---add-module=/path/to/media-framework/nginx-mpegts-kmp-module
---add-module=/path/to/media-framework/nginx-kmp-cc-module
---add-module=/path/to/media-framework/nginx-kmp-rtmp-module
---add-module=/path/to/media-framework/nginx-live-module
---add-module=/path/to/media-framework/nginx-pckg-module
-```
+1. Use [build.sh](build.sh) to configure nginx - from the nginx source root, execute -
+
+    `/path/to/media-framework/conf/build.sh /path/to/nginx-srt-module /path/to/nginx-stream-preread-str-module`
+
+2. Run: `make`
 
 ## Step-by-step commands for Ubuntu 20
 
@@ -61,23 +47,7 @@ sudo make install
 
 # build nginx
 cd /opt/nginx
-auto/configure                                                \
-    --with-stream                                             \
-    --with-threads                                            \
-    --with-http_dav_module                                    \
-    --add-module=/opt/nginx-srt-module                        \
-    --add-module=/opt/nginx-stream-preread-str-module         \
-    --add-module=/opt/media-framework/nginx-common            \
-    --add-module=/opt/media-framework/nginx-kmp-in-module     \
-    --add-module=/opt/media-framework/nginx-kmp-out-module    \
-    --add-module=/opt/media-framework/nginx-rtmp-module       \
-    --add-module=/opt/media-framework/nginx-rtmp-kmp-module   \
-    --add-module=/opt/media-framework/nginx-mpegts-module     \
-    --add-module=/opt/media-framework/nginx-mpegts-kmp-module \
-    --add-module=/opt/media-framework/nginx-kmp-cc-module     \
-    --add-module=/opt/media-framework/nginx-kmp-rtmp-module   \
-    --add-module=/opt/media-framework/nginx-live-module       \
-    --add-module=/opt/media-framework/nginx-pckg-module
+/opt/media-framework/conf/build.sh /opt/nginx-srt-module /opt/nginx-stream-preread-str-module
 make
 sudo make install
 
