@@ -342,6 +342,7 @@ def build_block_tree(file_type):
 def build_file_types():
     global specs
 
+    blocks_map = set([])
     file_types = {}
     for format, params, path, line_num in specs:
         block_id, ctx = params[:2]
@@ -366,6 +367,8 @@ def build_file_types():
         block = PersistBlock(get_hex_const_value(block_id),
             get_persist_block_name(block_id), parent_id, path, line_num)
 
+        blocks_map.add((block.id, block.name))
+
         parse_persist_spec(block, format)
 
         if block.name in file_type.blocks_by_name:
@@ -383,6 +386,11 @@ def build_file_types():
 
     for file_type in file_types.values():
         file_type.children = build_block_tree(file_type)
+
+    # make sure no more than one block name for a given id (or vice versa)
+    if (len(set(map(lambda x: x[0], blocks_map))) != len(blocks_map) or
+        len(set(map(lambda x: x[1], blocks_map))) != len(blocks_map)):
+        sys.stderr.write('Error: block id/name relation is not 1-1\n')
 
     return file_types
 
