@@ -616,8 +616,8 @@ static ngx_persist_block_t  ngx_pckg_ksmp_sgts_blocks[] = {
     { NGX_KSMP_BLOCK_SEGMENT, NGX_PCKG_KSMP_CTX_SGTS_MAIN, 0, NULL,
       ngx_pckg_ksmp_sgts_read_segment },
 
-    { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_PCKG_KSMP_CTX_SGTS_SEGMENT, 0, NULL,
-      ngx_pckg_ksmp_sgts_read_media_info },
+    { NGX_KSMP_BLOCK_SEGMENT_MEDIA_INFO, NGX_PCKG_KSMP_CTX_SGTS_SEGMENT, 0,
+      NULL, ngx_pckg_ksmp_sgts_read_media_info },
 
       ngx_null_persist_block
 };

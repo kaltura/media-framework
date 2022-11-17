@@ -20,6 +20,7 @@
 #define NGX_KSMP_BLOCK_SEGMENT_PARTS        (0x74727073)  /* sprt */
 #define NGX_KSMP_BLOCK_SEGMENT_INFO         (0x666e6773)  /* sgnf */
 #define NGX_KSMP_BLOCK_SEGMENT_INDEX        (0x78696773)  /* sgix */
+#define NGX_KSMP_BLOCK_SEGMENT_MEDIA_INFO   (0x696d6773)  /* sgmi */
 #define NGX_KSMP_BLOCK_SEGMENT              (0x746d6773)  /* sgmt */
 #define NGX_KSMP_BLOCK_RENDITION_REPORT     (0x74707272)  /* rrpt */
 #define NGX_KSMP_BLOCK_VARIANT_RR           (0x72767272)  /* rrvr */
