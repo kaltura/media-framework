@@ -2599,7 +2599,9 @@ ngx_live_filler_write_media_info(ngx_persist_write_ctx_t *write_ctx, void *obj)
         return NGX_ERROR;
     }
 
-    if (ngx_live_media_info_write(write_ctx, NULL, media_info) != NGX_OK) {
+    if (ngx_live_media_info_write(write_ctx, NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO,
+        NULL, media_info) != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
