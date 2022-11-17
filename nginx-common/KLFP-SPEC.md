@@ -1,5 +1,7 @@
 # Setup File (`setp`)
 ## Main Block (`klpf`)
+Children: [*Channel Block*](#channel-block-chnl)
+
 ### Block Header
 - uint32_t **uncomp_size**
 - uint32_t **version**
@@ -7,7 +9,9 @@
 - uint64_t **created**
 
 ## Channel Block (`chnl`)
-Context: *Main Block*
+Parent: [*Main Block*](#main-block-klpf)
+
+Children: [*Track Block*](#track-block-trak), [*Dynamic Var Block*](#dynamic-var-block-dynv), [*Filler Block*](#filler-block-fllr), [*Timeline Block*](#timeline-block-tmln), [*Variant Block*](#variant-block-vrnt)
 
 ### Block Header
 - struct ngx_str_t *id*
@@ -28,7 +32,9 @@ Context: *Main Block*
     - u_char **data**[*len*]
 
 ## Track Block (`trak`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl)
+
+Children: [*Media Info Setup Block*](#media-info-setup-block-misp)
 
 ### Block Header
 - struct ngx_str_t *id*
@@ -45,7 +51,7 @@ Context: *Channel Block*
     - u_char **data**[*len*]
 
 ## Media Info Setup Block (`misp`)
-Context: *Track Block*
+Parent: [*Track Block*](#track-block-trak)
 
 ### Block Data
 - struct ngx_str_t *group_id*
@@ -53,7 +59,7 @@ Context: *Track Block*
     - u_char **data**[*len*]
 
 ## Dynamic Var Block (`dynv`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl)
 
 ### Block Data
 - struct ngx_str_t *key*
@@ -64,7 +70,7 @@ Context: *Channel Block*
     - u_char **data**[*len*]
 
 ## Filler Block (`fllr`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl)
 
 ### Block Data
 - struct ngx_str_t *channel_id*
@@ -79,7 +85,7 @@ Context: *Channel Block*
 - uint32_t **filler_start_index**
 
 ## Timeline Block (`tmln`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl)
 
 ### Block Data
 - struct ngx_str_t *id*
@@ -104,7 +110,7 @@ Context: *Channel Block*
     - u_char **data**[*len*]
 
 ## Variant Block (`vrnt`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl)
 
 ### Block Data
 - struct ngx_str_t *id*
@@ -127,6 +133,8 @@ Context: *Channel Block*
 
 # Serve File (`serv`)
 ## Main Block (`klpf`)
+Children: [*Channel Block*](#channel-block-chnl-1), [*Segment Block*](#segment-block-sgmt), [*Error Block*](#error-block-errr)
+
 ### Block Header
 - uint32_t **uncomp_size**
 - uint32_t **version**
@@ -134,7 +142,9 @@ Context: *Channel Block*
 - uint64_t **created**
 
 ## Channel Block (`chnl`)
-Context: *Main Block*
+Parent: [*Main Block*](#main-block-klpf-1)
+
+Children: [*Timeline Block*](#timeline-block-tmln-1), [*Variant Block*](#variant-block-vrnt-1), [*Dynamic Var Block*](#dynamic-var-block-dynv-1), [*Segment Index Block*](#segment-index-block-sgix), [*Rendition Report Block*](#rendition-report-block-rrpt)
 
 ### Block Header
 - struct ngx_str_t *id*
@@ -151,7 +161,9 @@ Context: *Main Block*
     - int64_t **now**
 
 ## Timeline Block (`tmln`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-1)
+
+Children: [*Period Block*](#period-block-tprd)
 
 ### Block Header
 - struct ngx_str_t *id*
@@ -173,7 +185,7 @@ Context: *Channel Block*
     - uint32_t **reserved**
 
 ## Period Block (`tprd`)
-Context: *Timeline Block*
+Parent: [*Timeline Block*](#timeline-block-tmln-1)
 
 ### Block Header
 - struct ngx_ksmp_period_header_t *p*
@@ -187,7 +199,9 @@ Context: *Timeline Block*
     - uint32_t **duration**
 
 ## Variant Block (`vrnt`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-1)
+
+Children: [*Track Block*](#track-block-trak-1)
 
 ### Block Data
 - struct ngx_str_t *id*
@@ -205,7 +219,9 @@ Context: *Channel Block*
 - uint32_t **track_id**[*p.track_count*]
 
 ## Track Block (`trak`)
-Context: *Variant Block*
+Parent: [*Variant Block*](#variant-block-vrnt-1)
+
+Children: [*Media Info Queue Block*](#media-info-queue-block-miqu), [*Track Parts Block*](#track-parts-block-tprt), [*Segment Info Block*](#segment-info-block-sgnf)
 
 ### Block Header
 - struct ngx_ksmp_track_header_t *p*
@@ -213,21 +229,60 @@ Context: *Variant Block*
     - uint32_t **media_type**
 
 ## Media Info Queue Block (`miqu`)
-Context: *Track Block*
+Parent: [*Track Block*](#track-block-trak-1)
+
+Children: [*Media Info Block*](#media-info-block-minf)
 
 ### Block Header
 - struct ngx_ksmp_media_info_queue_header_t *p*
     - uint32_t **count**
 
+## Media Info Block (`minf`)
+Parent: [*Media Info Queue Block*](#media-info-queue-block-miqu)
+
+### Block Header
+- struct ngx_ksmp_media_info_header_t *p*
+    - uint32_t **track_id**
+    - uint32_t **segment_index**
+    - struct ngx_ksmp_media_info_stats_t *stats*
+        - uint64_t **bitrate_sum**
+        - uint32_t **bitrate_count**
+        - uint32_t **bitrate_max**
+        - uint64_t **duration**
+        - uint64_t **frame_count**
+        - uint32_t **frame_rate_min**
+        - uint32_t **frame_rate_max**
+- struct kmp_media_info_t *kmp*
+    - uint32_t **media_type**
+    - uint32_t **codec_id**
+    - uint32_t **timescale**
+    - uint32_t **bitrate**
+    - union kmp_media_info_union_t *u*
+        - struct kmp_video_media_info_t *video*
+            - uint16_t **width**
+            - uint16_t **height**
+            - struct kmp_rational_t *frame_rate*
+                - uint32_t **num**
+                - uint32_t **denom**
+            - uint32_t **cea_captions**
+        - struct kmp_audio_media_info_t *audio*
+            - uint16_t **channels**
+            - uint16_t **bits_per_sample**
+            - uint32_t **sample_rate**
+            - uint64_t **channel_layout**
+
+### Block Data
+- u_char **extra_data**[*max*]
+
 ## Track Parts Block (`tprt`)
-Context: *Track Block*
+Parent: [*Track Block*](#track-block-trak-1)
 
 ### Block Header
 - struct ngx_ksmp_track_parts_header_t *header*
     - uint32_t **count**
 
 ## Segment Info Block (`sgnf`)
-Context: *Track Block*
+Parent: [*Track Block*](#track-block-trak-1)
 
 ### Block Data
 - struct ngx_ksmp_segment_info_elt_t *info*[*max*]
@@ -235,7 +290,7 @@ Context: *Track Block*
     - uint32_t **bitrate**
 
 ## Dynamic Var Block (`dynv`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-1)
 
 ### Block Data
 - struct ngx_str_t *key*
@@ -246,7 +301,7 @@ Context: *Channel Block*
     - u_char **data**[*len*]
 
 ## Segment Index Block (`sgix`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-1)
 
 ### Block Data
 - struct ngx_ksmp_segment_index_t *p*
@@ -257,14 +312,16 @@ Context: *Channel Block*
     - int64_t **correction**
 
 ## Rendition Report Block (`rrpt`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-1)
 
 ### Block Header
 - struct ngx_ksmp_rendition_reports_header_t *header*
     - uint32_t **count**
 
 ## Segment Block (`sgmt`)
-Context: *Main Block*
+Parent: [*Main Block*](#main-block-klpf-1)
+
+Children: [*Frame List Block*](#frame-list-block-trun), [*Frame Data Block*](#frame-data-block-mdat), [*Segment Media Info Block*](#segment-media-info-block-sgmi)
 
 ### Block Header
 - struct ngx_ksmp_segment_header_t *header*
@@ -275,7 +332,7 @@ Context: *Main Block*
     - int64_t **start_dts**
 
 ## Frame List Block (`trun`)
-Context: *Segment Block*
+Parent: [*Segment Block*](#segment-block-sgmt)
 
 ### Block Data
 - struct ngx_ksmp_frame_t *frame*[*max*]
@@ -285,13 +342,13 @@ Context: *Segment Block*
     - uint32_t **pts_delay**
 
 ## Frame Data Block (`mdat`)
-Context: *Segment Block*
+Parent: [*Segment Block*](#segment-block-sgmt)
 
 ### Block Data
 - u_char **data**[*max*]
 
-## Media Info Block (`minf`)
-Context: *Segment Block*
+## Segment Media Info Block (`sgmi`)
+Parent: [*Segment Block*](#segment-block-sgmt)
 
 ### Block Header
 - struct kmp_media_info_t *kmp*
@@ -317,7 +374,7 @@ Context: *Segment Block*
 - u_char **extra_data**[*max*]
 
 ## Error Block (`errr`)
-Context: *Main Block*
+Parent: [*Main Block*](#main-block-klpf-1)
 
 ### Block Data
 - uint32_t **code**
@@ -327,6 +384,8 @@ Context: *Main Block*
 
 # Filler File (`fllr`)
 ## Main Block (`klpf`)
+Children: [*Channel Block*](#channel-block-chnl-2)
+
 ### Block Header
 - uint32_t **uncomp_size**
 - uint32_t **version**
@@ -334,7 +393,9 @@ Context: *Main Block*
 - uint64_t **created**
 
 ## Channel Block (`chnl`)
-Context: *Main Block*
+Parent: [*Main Block*](#main-block-klpf-2)
+
+Children: [*Track Block*](#track-block-trak-2), [*Timeline Block*](#timeline-block-tmln-2)
 
 ### Block Header
 - struct ngx_str_t *id*
@@ -345,7 +406,9 @@ Context: *Main Block*
     - u_char **data**[*len*]
 
 ## Track Block (`trak`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-2)
+
+Children: [*Segment Block*](#segment-block-sgmt-1), [*Media Info Block*](#media-info-block-minf-1)
 
 ### Block Header
 - struct ngx_str_t *id*
@@ -354,7 +417,9 @@ Context: *Channel Block*
 - uint32_t **media_type**
 
 ## Segment Block (`sgmt`)
-Context: *Track Block*
+Parent: [*Track Block*](#track-block-trak-2)
+
+Children: [*Frame List Block*](#frame-list-block-trun-1), [*Frame Data Block*](#frame-data-block-mdat-1)
 
 ### Block Header
 - struct ngx_ksmp_segment_header_t *sp*
@@ -365,7 +430,7 @@ Context: *Track Block*
     - int64_t **start_dts**
 
 ## Frame List Block (`trun`)
-Context: *Segment Block*
+Parent: [*Segment Block*](#segment-block-sgmt-1)
 
 ### Block Data
 - struct ngx_ksmp_frame_t *frame*[*max*]
@@ -375,13 +440,13 @@ Context: *Segment Block*
     - uint32_t **pts_delay**
 
 ## Frame Data Block (`mdat`)
-Context: *Segment Block*
+Parent: [*Segment Block*](#segment-block-sgmt-1)
 
 ### Block Data
 - u_char **data**[*max*]
 
 ## Media Info Block (`minf`)
-Context: *Track Block*
+Parent: [*Track Block*](#track-block-trak-2)
 
 ### Block Header
 - struct kmp_media_info_t *kmp*
@@ -407,7 +472,7 @@ Context: *Track Block*
 - u_char **extra_data**[*max*]
 
 ## Timeline Block (`tmln`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-2)
 
 ### Block Header
 - struct ngx_str_t *id*
@@ -420,6 +485,8 @@ Context: *Channel Block*
 
 # Index File (`sgix`)
 ## Main Block (`klpf`)
+Children: [*Channel Block*](#channel-block-chnl-3)
+
 ### Block Header
 - uint32_t **uncomp_size**
 - uint32_t **version**
@@ -427,7 +494,9 @@ Context: *Channel Block*
 - uint64_t **created**
 
 ## Channel Block (`chnl`)
-Context: *Main Block*
+Parent: [*Main Block*](#main-block-klpf-3)
+
+Children: [*Track Block*](#track-block-trak-3), [*Segment List Block*](#segment-list-block-slst), [*Timeline Block*](#timeline-block-tmln-3), [*Syncer Block*](#syncer-block-sync), [*Timeline Channel Block*](#timeline-channel-block-tlch), [*Variant Block*](#variant-block-vrnt-2)
 
 ### Block Header
 - struct ngx_str_t *id*
@@ -446,7 +515,9 @@ Context: *Main Block*
     - int64_t **last_modified**
 
 ## Track Block (`trak`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-3)
+
+Children: [*Media Info Queue Block*](#media-info-queue-block-miqu-1), [*Media Info Source Block*](#media-info-source-block-msrc), [*Segment Info Block*](#segment-info-block-sgnf-1), [*Syncer Track Block*](#syncer-track-block-synt)
 
 ### Block Header
 - struct ngx_str_t *id*
@@ -462,10 +533,12 @@ Context: *Channel Block*
     - uint64_t **next_frame_id**
 
 ## Media Info Queue Block (`miqu`)
-Context: *Track Block*
+Parent: [*Track Block*](#track-block-trak-3)
+
+Children: [*Media Info Block*](#media-info-block-minf-2)
 
 ## Media Info Block (`minf`)
-Context: *Media Info Queue Block*
+Parent: [*Media Info Queue Block*](#media-info-queue-block-miqu-1)
 
 ### Block Header
 - struct ngx_ksmp_media_info_header_t *p*
@@ -502,13 +575,13 @@ Context: *Media Info Queue Block*
 - u_char **extra_data**[*max*]
 
 ## Media Info Source Block (`msrc`)
-Context: *Track Block*
+Parent: [*Track Block*](#track-block-trak-3)
 
 ### Block Data
 - uint32_t **source_id**
 
 ## Segment Info Block (`sgnf`)
-Context: *Track Block*
+Parent: [*Track Block*](#track-block-trak-3)
 
 ### Block Data
 - struct ngx_ksmp_segment_info_elt_t *info*[*max*]
@@ -516,17 +589,19 @@ Context: *Track Block*
     - uint32_t **bitrate**
 
 ## Syncer Track Block (`synt`)
-Context: *Track Block*
+Parent: [*Track Block*](#track-block-trak-3)
 
 ### Block Data
 - struct ngx_live_syncer_persist_track_t *p*
     - int64_t **correction**
 
 ## Segment List Block (`slst`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-3)
+
+Children: [*Segment List Period Block*](#segment-list-period-block-slpd)
 
 ## Segment List Period Block (`slpd`)
-Context: *Segment List Block*
+Parent: [*Segment List Block*](#segment-list-block-slst)
 
 ### Block Header
 - struct ngx_live_segment_list_period_t *p*
@@ -540,7 +615,9 @@ Context: *Segment List Block*
     - uint32_t **duration**
 
 ## Timeline Block (`tmln`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-3)
+
+Children: [*Timeline Periods Block*](#timeline-periods-block-tlpd)
 
 ### Block Header
 - struct ngx_str_t *id*
@@ -563,7 +640,7 @@ Context: *Channel Block*
     - uint32_t **reserved**
 
 ## Timeline Periods Block (`tlpd`)
-Context: *Timeline Block*
+Parent: [*Timeline Block*](#timeline-block-tmln-3)
 
 ### Block Header
 - struct ngx_live_timeline_persist_periods_t *p*
@@ -578,14 +655,14 @@ Context: *Timeline Block*
     - int64_t **correction**
 
 ## Syncer Block (`sync`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-3)
 
 ### Block Data
 - struct ngx_live_syncer_persist_channel_t *p*
     - int64_t **correction**
 
 ## Timeline Channel Block (`tlch`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-3)
 
 ### Block Data
 - struct ngx_live_timeline_persist_channel_t *p*
@@ -594,7 +671,7 @@ Context: *Channel Block*
     - uint32_t **reserved**
 
 ## Variant Block (`vrnt`)
-Context: *Channel Block*
+Parent: [*Channel Block*](#channel-block-chnl-3)
 
 ### Block Header
 - struct ngx_str_t *id*
@@ -605,6 +682,8 @@ Context: *Channel Block*
 
 # Media File (`sgts`)
 ## Main Block (`klpf`)
+Children: [*Segment Block*](#segment-block-sgmt-2), [*Segment Table Block*](#segment-table-block-sntl)
+
 ### Block Header
 - uint32_t **uncomp_size**
 - uint32_t **version**
@@ -612,7 +691,9 @@ Context: *Channel Block*
 - uint64_t **created**
 
 ## Segment Block (`sgmt`)
-Context: *Main Block*
+Parent: [*Main Block*](#main-block-klpf-4)
+
+Children: [*Segment Media Info Block*](#segment-media-info-block-sgmi-1), [*Media Info Block*](#media-info-block-minf-3), [*Frame List Block*](#frame-list-block-trun-2), [*Frame Data Block*](#frame-data-block-mdat-2)
 
 ### Block Header
 - struct ngx_ksmp_segment_header_t *header*
@@ -622,8 +703,8 @@ Context: *Main Block*
     - uint32_t **part_sequence**
     - int64_t **start_dts**
 
-## Media Info Block (`minf`)
-Context: *Segment Block*
+## Segment Media Info Block (`sgmi`)
+Parent: [*Segment Block*](#segment-block-sgmt-2)
 
 ### Block Header
 - struct kmp_media_info_t *kmp*
@@ -648,8 +729,11 @@ Context: *Segment Block*
 ### Block Data
 - u_char **extra_data**[*max*]
 
+## Media Info Block (`minf`)
+Parent: [*Segment Block*](#segment-block-sgmt-2)
+
 ## Frame List Block (`trun`)
-Context: *Segment Block*
+Parent: [*Segment Block*](#segment-block-sgmt-2)
 
 ### Block Data
 - struct ngx_ksmp_frame_t *frame*[*max*]
@@ -659,13 +743,15 @@ Context: *Segment Block*
     - uint32_t **pts_delay**
 
 ## Frame Data Block (`mdat`)
-Context: *Segment Block*
+Parent: [*Segment Block*](#segment-block-sgmt-2)
 
 ### Block Data
 - u_char **data**[*max*]
 
 ## Segment Table Block (`sntl`)
-Context: *Main Block*
+Parent: [*Main Block*](#main-block-klpf-4)
+
+Children: [*Segment Table Entry Block*](#segment-table-entry-block-sntr)
 
 ### Block Header
 - struct ngx_str_t *channel_id*
@@ -677,7 +763,7 @@ Context: *Main Block*
 - uint64_t **uid**
 
 ## Segment Table Entry Block (`sntr`)
-Context: *Segment Table Block*
+Parent: [*Segment Table Block*](#segment-table-block-sntl)
 
 ### Block Header
 - struct ngx_live_persist_media_entry_t *entry*
