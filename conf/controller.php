@@ -255,7 +255,7 @@ function setupSegmenterTranscodedTracks($segmenterApiUrl, $channelId, $variants,
 function getTranscoderUpstream($conf, $outputTracks, $mediaType, $segmenterKmpPort)
 {
     // allocate ports
-    $port = rand(0, 999);    // TODO: implement some allocation logic that prevents collisions
+    $port = rand(0, 999);    // TODO: implement some allocation logic to prevents collisions
 
     $kmpPort = 16000 + $port;
     $ctrlPort = 17000 + $port;

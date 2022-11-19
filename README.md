@@ -29,7 +29,7 @@ the latest status and take actions. A sample controller implementation for an al
 
 ## Getting Started
 
-The [conf](conf/README.md) folder contains sample code and configuration for running an all-in-one server.
+The [conf](conf/) folder contains sample code and configuration for running an all-in-one server.
 
 ## Glossary
 
