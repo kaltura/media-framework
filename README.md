@@ -6,7 +6,7 @@ for a more optimal resource utilization. For example, the transcoder can utilize
 transcoders on GPU-enabled servers, while the other components would run on servers without GPU.
 
 Media is transmitted between the different components internally using custom protocols -
-1. *Kaltura Media Protocol* (KMP) - a TCP-based protocol for delivering streaming media, conceptually similar to a single track of fMP4/MPEG-TS
+1. *Kaltura Media Protocol* (KMP) - a TCP-based protocol for delivering streaming media, conceptually, similar to a single track of fMP4/MPEG-TS
 2. *Kaltura Segmented Media Protocol* (KSMP) - an HTTP-based protocol for delivering media in segments, conceptually, a super-set of LLHLS/DASH
 
 The orchestration of the different media components is performed by a "controller". The main responsibility of the controller is building
@@ -26,6 +26,10 @@ the latest status and take actions. A sample controller implementation for an al
 - Alternative audio
 - Media encryption and DRM
 - Video frame capture
+
+## Getting Started
+
+The [conf](conf/README.md) folder contains sample code and configuration for running an all-in-one server.
 
 ## Glossary
 
@@ -62,6 +66,13 @@ the latest status and take actions. A sample controller implementation for an al
 - **nginx-kmp-cc-module** - closed-captions decoder, input: *KMP video (h264/5)*, output: *KMP subtitle (WebVTT) x N*
 
 - **nginx-kmp-rtmp-module** - live media relay, input: *KMP x N*, output: *RTMP*
+
+**Important**: All stateful nginx-based components (=all except nginx-pckg-module), must be deployed on a single process nginx server (`worker_processes 1;`).
+    The module state is kept per process, and when multiple processes are used, it is not possible to control which process will get the request.
+    For example, the request to create a channel on the segmenter may arrive to worker 1, while the KMP connection with the actual media, will hit worker 2.
+    In deployments that use containers, this shouldn't be a problem - multiple containers can be deployed on a single server, instead of using multiple nginx processes.
+    Another possibility is to use a patch like arut's [per-worker listener](https://github.com/arut/nginx-patches/blob/master/per-worker-listener),
+    but it will probably need to be updated to apply to `stream` connections as well.
 
 ### Dependencies
 
