@@ -1,0 +1,76 @@
+{
+    "outputtracks": {
+        "video": [
+            {
+                "trackid": "vsrc"
+            },
+            {
+                "trackid": "v480p",
+                "passthrough": false,
+                "bitrate": 600000,
+                "codec": "h264",
+                "videoparams": {
+                    "preset": "a",
+                    "profile": "baseline",
+                    "height": 480
+                }
+            },
+            {
+                "trackid": "v540p",
+                "passthrough": false,
+                "bitrate": 900000,
+                "codec": "h264",
+                "videoparams": {
+                    "preset": "a",
+                    "profile": "main",
+                    "height": 540
+                }
+            }
+        ],
+        "audio": [
+            {
+                "trackid": "asrc"
+            },
+            {
+                "trackid": "a64k",
+                "passthrough": false,
+                "bitrate": 64000,
+                "codec": "aac",
+                "audioparams": {
+                    "samplingrate": 44100,
+                    "channels": 2
+                }
+            }
+        ]
+    },
+    "variants": {
+        "src": {
+            "video": "vsrc",
+            "audio": "asrc"
+        },
+        "540p": {
+            "video": "v540p",
+            "audio": "a64k"
+        },
+        "480p": {
+            "video": "v480p",
+            "audio": "a64k"
+        }
+    },
+    "engine": {
+        "encoders": {
+            "h264": [
+                "h264_nvenc",
+                "libx264",
+                "h264_videotoolbox"
+            ]
+        },
+        "presets": {
+            "a": {
+                "h264_videotoolbox": "default",
+                "libx264": "veryfast",
+                "h264_nvenc": "fast"
+            }
+        }
+    }
+}
