@@ -229,7 +229,7 @@ function setupSegmenterTranscodedTracks($segmenterApiUrl, $channelId, $variants,
 
     foreach ($tracks as $track)
     {
-        $curTrackId = $track['trackid'];
+        $curTrackId = $track['trackId'];
 
         $segmenterApi[] = segmenterTrackCreate($channelId, $curTrackId, $mediaType);
     }
@@ -272,7 +272,7 @@ function getTranscoderUpstream($conf, $outputTracks, $mediaType, $segmenterKmpPo
             'streamingUrl' => 'kmp://host.docker.internal:' . $segmenterKmpPort,
         ),
         'engine' => $conf['engine'],
-        'outputtracks' => $outputTracks,
+        'outputTracks' => $outputTracks,
     );
 
     $confJson = json_encode($conf, JSON_UNESCAPED_SLASHES);
@@ -398,7 +398,7 @@ $upstreams = array();
 if (isset($transConfFile))
 {
     $transConf = json_decode(file_get_contents($transConfFile), true);
-    $transOutputTracks = $transConf['outputtracks'];
+    $transOutputTracks = $transConf['outputTracks'];
 }
 
 if (isset($transOutputTracks[$mediaType]))

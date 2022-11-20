@@ -1,26 +1,26 @@
 {
-    "outputtracks": {
+    "outputTracks": {
         "video": [
             {
-                "trackid": "vsrc"
+                "trackId": "vsrc"
             },
             {
-                "trackid": "v480p",
+                "trackId": "v480p",
                 "passthrough": false,
                 "bitrate": 600000,
                 "codec": "h264",
-                "videoparams": {
+                "videoParams": {
                     "preset": "a",
                     "profile": "baseline",
                     "height": 480
                 }
             },
             {
-                "trackid": "v540p",
+                "trackId": "v540p",
                 "passthrough": false,
                 "bitrate": 900000,
                 "codec": "h264",
-                "videoparams": {
+                "videoParams": {
                     "preset": "a",
                     "profile": "main",
                     "height": 540
@@ -29,14 +29,14 @@
         ],
         "audio": [
             {
-                "trackid": "asrc"
+                "trackId": "asrc"
             },
             {
-                "trackid": "a64k",
+                "trackId": "a64k",
                 "passthrough": false,
                 "bitrate": 64000,
                 "codec": "aac",
-                "audioparams": {
+                "audioParams": {
                     "samplingrate": 44100,
                     "channels": 2
                 }
