@@ -264,13 +264,13 @@ void transcode_session_output_get_diagnostics(transcode_session_output_t *pOutpu
         sprintf(codecData,"%d",pOutput->actualAudioParams.samplingRate);
 
     JSON_SERIALIZE_SCOPE_BEGIN()
-    JSON_SERIALIZE_STRING("track_id",pOutput->track_id)
+    JSON_SERIALIZE_STRING("trackId",pOutput->track_id)
     JSON_SERIALIZE_INT64("totalFrames",pOutput->stats.totalFrames)
     JSON_SERIALIZE_DOUBLE("currentFrameRate",pOutput->stats.currentFrameRate)
     JSON_SERIALIZE_STRING("codecData",codecData)
     JSON_SERIALIZE_INT64("lastAck", pOutput->lastAck)
     JSON_SERIALIZE_INT64("lastDts",pOutput->stats.lastDts)
     JSON_SERIALIZE_INT("bitrate",pOutput->bitrate > 0 ? pOutput->bitrate : -1)
-    JSON_SERIALIZE_INT("currenBitrate",pOutput->stats.currentBitRate)
+    JSON_SERIALIZE_INT("currentBitrate",pOutput->stats.currentBitRate)
     JSON_SERIALIZE_END()
 }
