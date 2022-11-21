@@ -849,16 +849,16 @@ void transcode_session_get_diagnostics(transcode_session_t *ctx,json_writer_ctx_
             lastTimeStamp=output->stats.lastTimeStamp;
         }
         transcode_session_output_get_diagnostics(output,ctx->lastQueuedDts,ctx->processedStats.lastDts,js);
-       JSON_SERIALIZE_ARRAY_ITEM();
+        JSON_SERIALIZE_ARRAY_ITEM();
     }
     JSON_SERIALIZE_ARRAY_END()
 
-    JSON_SERIALIZE_INT64("lastIncommingDts",ctx->lastQueuedDts);
+    JSON_SERIALIZE_INT64("lastIncomingDts",ctx->lastQueuedDts);
     JSON_SERIALIZE_INT64("lastProcessedDts",ctx->processedStats.lastDts);
     JSON_SERIALIZE_INT64("minDts",lastDts);
     JSON_SERIALIZE_INT64("processTime",(ctx->lastInputDts-lastDts)/90);
     JSON_SERIALIZE_INT64("latency",(now-lastTimeStamp)/90);
-    JSON_SERIALIZE_INT("currentIncommingQueueLength",ctx->packetQueue.queue ? av_thread_message_queue_nb_elems(ctx->packetQueue.queue) : -1);
+    JSON_SERIALIZE_INT("currentIncomingQueueLength",ctx->packetQueue.queue ? av_thread_message_queue_nb_elems(ctx->packetQueue.queue) : -1);
 
     transcode_session_get_pipeline_diagnostics(ctx,js);
 }

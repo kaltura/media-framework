@@ -635,11 +635,9 @@ error:
 static ngx_int_t
 ngx_rtmp_kmp_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 {
-    u_char                           *p;
     ngx_url_t                        *url;
     ngx_connection_t                 *c;
     ngx_rtmp_kmp_ctx_t               *ctx;
-    ngx_proxy_protocol_t             *pp;
     ngx_http_call_init_t              ci;
     ngx_rtmp_kmp_app_conf_t          *kacf;
     ngx_rtmp_kmp_connect_call_ctx_t   create_ctx;
@@ -657,19 +655,22 @@ ngx_rtmp_kmp_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         return NGX_ERROR;
     }
 
+#if (nginx_version >= 1017006)
+    u_char                *p;
+    ngx_proxy_protocol_t  *pp;
+
     pp = c->proxy_protocol;
     if (pp && pp->src_addr.len <
         NGX_SOCKADDR_STRLEN - (sizeof(":65535") - 1))
     {
         p = ngx_copy(ctx->remote_addr_buf, pp->src_addr.data,
             pp->src_addr.len);
-#if (nginx_version >= 1017006)
         p = ngx_sprintf(p, ":%uD", (uint32_t) pp->src_port);
-#endif
         ctx->remote_addr.s.len = p - ctx->remote_addr_buf;
 
         ngx_json_str_set_escape(&ctx->remote_addr);
     }
+#endif
 
     kacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_kmp_module);
     if (kacf == NULL) {

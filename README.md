@@ -2,10 +2,11 @@
 
 A distributed framework for live video streaming. The system is composed of multiple components, each one responsible for a specific function.
 The components can be deployed on a single server for small scale deployments/testing, but it is recommended to deploy them separately
-for a more optimal resource utilization.
+for a more optimal resource utilization. For example, the transcoder can utilize the GPU, so it would be more cost efficient to deploy the
+transcoders on GPU-enabled servers, while the other components would run on servers without GPU.
 
 Media is transmitted between the different components internally using custom protocols -
-1. *Kaltura Media Protocol* (KMP) - a TCP-based protocol for delivering streaming media, conceptually similar to fMP4/MPEG-TS
+1. *Kaltura Media Protocol* (KMP) - a TCP-based protocol for delivering streaming media, conceptually, similar to a single track of fMP4/MPEG-TS
 2. *Kaltura Segmented Media Protocol* (KSMP) - an HTTP-based protocol for delivering media in segments, conceptually, a super-set of LLHLS/DASH
 
 The orchestration of the different media components is performed by a "controller". The main responsibility of the controller is building
@@ -25,6 +26,10 @@ the latest status and take actions. A sample controller implementation for an al
 - Alternative audio
 - Media encryption and DRM
 - Video frame capture
+
+## Getting Started
+
+The [conf](conf/) folder contains sample code and configuration for running an all-in-one server.
 
 ## Glossary
 
@@ -61,6 +66,13 @@ the latest status and take actions. A sample controller implementation for an al
 - **nginx-kmp-cc-module** - closed-captions decoder, input: *KMP video (h264/5)*, output: *KMP subtitle (WebVTT) x N*
 
 - **nginx-kmp-rtmp-module** - live media relay, input: *KMP x N*, output: *RTMP*
+
+**Important**: All stateful nginx-based components (=all except nginx-pckg-module), must be deployed on a single process nginx server (`worker_processes 1;`).
+    The module state is kept per process, and when multiple processes are used, it is not possible to control which process will get the request.
+    For example, the request to create a channel on the segmenter may arrive to worker 1, while the KMP connection with the actual media, will hit worker 2.
+    In deployments that use containers, this shouldn't be a problem - multiple containers can be deployed on a single server, instead of using multiple nginx processes.
+    Another possibility is to use a patch like arut's [per-worker listener](https://github.com/arut/nginx-patches/blob/master/per-worker-listener),
+    but it will probably need to be updated to apply to `stream` connections as well.
 
 ### Dependencies
 
@@ -136,7 +148,7 @@ A KSMP request is an HTTP GET request, the following query parameters are define
     (see the definition of the `CAN-SKIP-UNTIL` attribute in the HLS specification for more details)
 - `padding` - optional integer, adds additional zero bytes at the end of the response. Used to comply with ffmpeg's padding requirements without incurring additional copy operations.
 
-A KSMP response uses KLPF format (see below), with type `serv`.
+A KSMP response uses KLPF format (see below), with type *Serve* (`serv`).
 The KSMP-specific definitions can be found in [ngx_ksmp.h](nginx-common/src/ngx_ksmp.h)
 
 ## Kaltura Live Persist File (KLPF)
@@ -163,14 +175,16 @@ Following the generic block header fields (listed above), a KLPF file has the fo
 
 The following types of KLPF are currently defined -
 - *Serve* (`serv`) - a KSMP response, used in the communication between the packager and the segmenter.
-- *Setup* (`setp`) - contains all the objects of a channel that can be set using the segmenter API (tracks, variants, timelinese etc.). Used in segmenter persistence
+- *Setup* (`setp`) - contains all the objects of a channel that can be set using the segmenter API - tracks, variants, timelines etc. Used in segmenter persistence
 - *Segment index* (`sgix`) - an index of the segments of a channel, contains the duration of the segment, timeline association, bitrates etc. Used in segmenter persistence
 - *Segment media* (`sgts`) - holds the media (compressed video/audio frames) of a set of segments. Used in segmenter persistence
 
-To inspect the contents of KLPF objects/KSMP responses, use [parse_klpf.py](nginx-common/scripts/parse_klpf.py).
+For more details on the internal structure of KLPF blocks, see [KLFP-SPEC.md](nginx-common/KLFP-SPEC.md).
+
+To inspect the contents of KLPF objects/KSMP responses, use [klpf_parse.py](nginx-common/scripts/klpf_parse.py).
 The script can show the block structure without any additional info, however, in order to parse the fields inside the blocks:
 - run [generate_persist_spec.py](nginx-live-module/scripts/generate_persist_spec.py), and save the output to a file
-- provide the file name as an additional argument to parse_klpf.py
+- provide the file name as an additional argument to klpf_parse.py
 
 ### Copyright & License
 

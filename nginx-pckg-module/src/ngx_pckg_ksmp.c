@@ -526,7 +526,7 @@ ngx_pckg_ksmp_read_media_info_queue(ngx_persist_block_hdr_t *header,
     }
 
     rc = ngx_persist_conf_read_blocks(channel->persist,
-        NGX_PCKG_KSMP_CTX_MEDIA_INFO, rs, track);
+        NGX_PCKG_KSMP_CTX_MEDIA_INFO_QUEUE, rs, track);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_pckg_ksmp_read_media_info_queue: read blocks failed %i", rc);
@@ -1680,7 +1680,7 @@ static ngx_persist_block_t  ngx_pckg_ksmp_blocks[] = {
     { NGX_KSMP_BLOCK_MEDIA_INFO_QUEUE, NGX_PCKG_KSMP_CTX_TRACK, 0, NULL,
       ngx_pckg_ksmp_read_media_info_queue },
 
-    { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_PCKG_KSMP_CTX_MEDIA_INFO, 0, NULL,
+    { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_PCKG_KSMP_CTX_MEDIA_INFO_QUEUE, 0, NULL,
       ngx_pckg_ksmp_read_media_info },
 
     { NGX_KSMP_BLOCK_TRACK_PARTS, NGX_PCKG_KSMP_CTX_TRACK, 0, NULL,

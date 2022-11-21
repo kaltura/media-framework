@@ -280,11 +280,9 @@ ngx_ts_kmp_cleanup(void *data)
 ngx_int_t
 ngx_ts_kmp_init_handler(ngx_ts_stream_t *ts, void *data)
 {
-    u_char                *p;
-    ngx_ts_kmp_ctx_t      *ctx;
-    ngx_connection_t      *c;
-    ngx_pool_cleanup_t    *cln;
-    ngx_proxy_protocol_t  *pp;
+    ngx_ts_kmp_ctx_t    *ctx;
+    ngx_connection_t    *c;
+    ngx_pool_cleanup_t  *cln;
 
     ctx = ngx_pcalloc(ts->pool, sizeof(ngx_ts_kmp_ctx_t));
     if (ctx == NULL) {
@@ -310,21 +308,27 @@ ngx_ts_kmp_init_handler(ngx_ts_stream_t *ts, void *data)
     ngx_queue_insert_tail(&ngx_ts_kmp_sessions, &ctx->queue);
 
     ctx->remote_addr.s.data = ctx->remote_addr_buf;
+
+#if (nginx_version >= 1017006)
+    u_char                *p;
+    ngx_proxy_protocol_t  *pp;
+
     pp = c->proxy_protocol;
     if (pp && pp->src_addr.len < NGX_SOCKADDR_STRLEN - (sizeof(":65535") - 1)) {
         p = ngx_copy(ctx->remote_addr_buf, pp->src_addr.data, pp->src_addr.len);
-#if (nginx_version >= 1017006)
         p = ngx_sprintf(p, ":%uD", (uint32_t) pp->src_port);
-#endif
         ctx->remote_addr.s.len = p - ctx->remote_addr_buf;
 
     } else {
+#endif
         ctx->remote_addr.s.len = ngx_sock_ntop(c->sockaddr, c->socklen,
         ctx->remote_addr_buf, NGX_SOCKADDR_STRLEN, 1);
         if (ctx->remote_addr.s.len == 0) {
             ctx->remote_addr.s = c->addr_text;
         }
+#if (nginx_version >= 1017006)
     }
+#endif
 
     ngx_json_str_set_escape(&ctx->remote_addr);
 

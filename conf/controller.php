@@ -1,9 +1,11 @@
 <?php
 
 // params
+$segmenterKmpPort = 8003;
+$segmenterKmpUrl = 'kmp://127.0.0.1:' . $segmenterKmpPort;
 $segmenterApiUrl = 'http://127.0.0.1:8001/api/live';
-$segmenterKmpUrl = 'kmp://127.0.0.1:8003';
-$ccDecoderUrl = 'kmp://127.0.0.1:8004';
+
+//$transConfFile = dirname(__FILE__) . '/transcoder.json';
 
 /* closed captions decoder config -
  * false - don't send video to cc decoder
@@ -13,6 +15,7 @@ $ccDecoderUrl = 'kmp://127.0.0.1:8004';
 */
 $ccConf = null;
 $ccOutputAll = false;
+$ccDecoderUrl = 'kmp://127.0.0.1:8004';
 
 function outputJson($params)
 {
@@ -31,7 +34,18 @@ function outputError($message)
         'message' => $message));
 }
 
-function postJson($url, $fields)
+function httpGetJson($url)
+{
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    $output = curl_exec($ch);
+    curl_close($ch);
+
+    return json_decode($output, true);
+}
+
+function httpPostJson($url, $fields)
 {
     $headers = array('Content-Type:application/json');
     $payload = json_encode($fields);
@@ -59,7 +73,7 @@ function postMulti($url, $requests)
 {
     for ($i = 0; $i < 3; $i++)
     {
-        $res = postJson($url . '/multi', $requests);
+        $res = httpPostJson($url . '/multi', $requests);
 
         $res = json_decode($res, true);
         if (!is_array($res))
@@ -87,7 +101,7 @@ function postMulti($url, $requests)
     }
 }
 
-function setupSegmenter($segmenterApiUrl, $channelId, $preset, $variantId, $trackId, $mediaType)
+function segmenterChannelCreate($segmenterApiUrl, $channelId, $preset)
 {
     postMulti($segmenterApiUrl, array(
 
@@ -104,29 +118,51 @@ function setupSegmenter($segmenterApiUrl, $channelId, $preset, $variantId, $trac
             'method' => 'POST',
             'body' => array('id' => 'main', 'active' => true, 'max_segments' => 20, 'max_manifest_segments' => 10)
         ),
-
-        // create the variant
-        array(
-            'uri' => "/channels/$channelId/variants",
-            'method' => 'POST',
-            'body' => array('id' => $variantId)
-        ),
-
-        // create the track
-        array(
-            'uri' => "/channels/$channelId/tracks",
-            'method' => 'POST',
-            'body' => array('id' => $trackId, 'media_type' => $mediaType)
-        ),
-
-        // connect the track to the variant
-        array(
-            'uri' => "/channels/$channelId/variants/$variantId/tracks",
-            'method' => 'POST',
-            'body' => array('id' => $trackId)
-        ),
     ));
 }
+
+function segmenterTrackCreate($channelId, $trackId, $mediaType)
+{
+    return array(
+        'uri' => "/channels/$channelId/tracks",
+        'method' => 'POST',
+        'body' => array('id' => $trackId, 'media_type' => $mediaType)
+    );
+}
+
+function segmenterVariantCreate($channelId, $variantId, $trackIds=null, $role=null, $label=null, $lang=null)
+{
+    return array(
+        'uri' => "/channels/$channelId/variants",
+        'method' => 'POST',
+        'body' => array(
+            'id' => $variantId,
+            'track_ids' => $trackIds,
+            'role' => $role,
+            'label' => $label,
+            'lang' => $lang,
+        )
+    );
+}
+
+function segmenterVariantAddTrack($channelId, $variantId, $trackId)
+{
+    return array(
+        'uri' => "/channels/$channelId/variants/$variantId/tracks",
+        'method' => 'POST',
+        'body' => array('id' => $trackId)
+    );
+}
+
+function setupSegmenterTrack($segmenterApiUrl, $channelId, $variantId, $trackId, $mediaType)
+{
+    postMulti($segmenterApiUrl, array(
+        segmenterVariantCreate($channelId, $variantId),
+        segmenterTrackCreate($channelId, $trackId, $mediaType),
+        segmenterVariantAddTrack($channelId, $variantId, $trackId),
+    ));
+}
+
 
 function setupSegmenterCCTrack($segmenterApiUrl, $channelId, $trackId, $label=null, $lang=null)
 {
@@ -136,25 +172,8 @@ function setupSegmenterCCTrack($segmenterApiUrl, $channelId, $trackId, $label=nu
     }
 
     postMulti($segmenterApiUrl, array(
-        // create the track
-        array(
-            'uri' => "/channels/$channelId/tracks",
-            'method' => 'POST',
-            'body' => array('id' => $trackId, 'media_type' => 'subtitle')
-        ),
-
-        // create the variant
-        array(
-            'uri' => "/channels/$channelId/variants",
-            'method' => 'POST',
-            'body' => array(
-                'id' => $trackId,
-                'track_ids' => array('subtitle' => $trackId),
-                'role' => 'alternate',
-                'label' => $label,
-                'lang' => $lang,
-            )
-        ),
+        segmenterTrackCreate($channelId, $trackId, 'subtitle'),
+        segmenterVariantCreate($channelId, $trackId, array('subtitle' => $trackId), 'alternate', $label, $lang),
     ));
 }
 
@@ -203,6 +222,86 @@ function getCCDecodeUpstream($segmenterKmpUrl, $channelId, $ccConf)
     return $upstream;
 }
 
+
+function setupSegmenterTranscodedTracks($segmenterApiUrl, $channelId, $variants, $tracks, $mediaType)
+{
+    $segmenterApi = array();
+
+    foreach ($tracks as $track)
+    {
+        $curTrackId = $track['trackId'];
+
+        $segmenterApi[] = segmenterTrackCreate($channelId, $curTrackId, $mediaType);
+    }
+
+    foreach ($variants as $curVariantId => $variant)
+    {
+        if (!isset($variant[$mediaType]))
+        {
+            continue;
+        }
+
+        $curTrackId = $variant[$mediaType];
+
+        $segmenterApi = array_merge($segmenterApi, array(
+            segmenterVariantCreate($channelId, $curVariantId),
+            segmenterVariantAddTrack($channelId, $curVariantId, $curTrackId),
+        ));
+    }
+
+    postMulti($segmenterApiUrl, $segmenterApi);
+}
+
+function getTranscoderUpstream($conf, $outputTracks, $mediaType, $segmenterKmpPort)
+{
+    // allocate ports
+    $port = rand(0, 999);    // TODO: implement some allocation logic to prevents collisions
+
+    $kmpPort = 16000 + $port;
+    $ctrlPort = 17000 + $port;
+
+    // build transcoder conf
+    $conf = array(
+        'kmp' => array(
+            'listenPort' => $kmpPort,
+        ),
+        'control' => array(
+            'listenPort' => $ctrlPort,
+        ),
+        'output' => array(
+            'streamingUrl' => 'kmp://host.docker.internal:' . $segmenterKmpPort,
+        ),
+        'engine' => $conf['engine'],
+        'outputTracks' => $outputTracks,
+    );
+
+    $confJson = json_encode($conf, JSON_UNESCAPED_SLASHES);
+
+    // start transcoder
+    exec("docker run -p $kmpPort:$kmpPort -p $ctrlPort:$ctrlPort --add-host=host.docker.internal:host-gateway " .
+        "kaltura/transcoder-dev:latest /build/transcoder -c '$confJson'" .
+        " >> /var/log/transcoder/$mediaType.log 2>> /var/log/transcoder/$mediaType.err &");
+
+    // wait for transcoder to start
+    $start = time();
+    while (time() - $start < 10)
+    {
+        $res = httpGetJson("http://127.0.0.1:$ctrlPort/status");
+        if (isset($res['result']['state']) && $res['result']['state'] == 'ready')
+        {
+            break;
+        }
+
+        usleep(200000);
+    }
+
+    return array(
+        'id' => 'main',
+        'url' => 'kmp://127.0.0.1:' . $kmpPort
+    );
+}
+
+
 // get input params (support json post)
 $params = $_REQUEST;
 
@@ -233,6 +332,7 @@ case 'republish':
     $upstreamId = $params['id'];
     $channelId = $params['channel_id'];
 
+    // TODO: handle republish for transcoded streams
     $upstream = $upstreamId == 'cc' ?
         getCCDecodeUpstream($segmenterKmpUrl, $channelId, $ccConf) :
         array('url' => $segmenterKmpUrl);
@@ -282,7 +382,6 @@ $channelId = substr($streamName, 0, $undPos);
 $variantId = substr($streamName, $undPos + 1);
 
 $mediaType = $params['media_info']['media_type'];
-$trackId = $mediaType[0] . $variantId;
 
 // setup the segmenter
 $preset = 'main';
@@ -292,15 +391,40 @@ if (substr($channelId, 0, 3) == 'll_')
     $channelId = substr($channelId, 3);
 }
 
-setupSegmenter($segmenterApiUrl, $channelId, $preset, $variantId, $trackId, $mediaType);
+segmenterChannelCreate($segmenterApiUrl, $channelId, $preset);
 
-$upstreams = array(
-    array(
+$upstreams = array();
+
+if (isset($transConfFile))
+{
+    $transConf = json_decode(file_get_contents($transConfFile), true);
+    $transOutputTracks = $transConf['outputTracks'];
+}
+
+if (isset($transOutputTracks[$mediaType]))
+{
+    // transcode
+    $trackId = $mediaType[0] . 'src';
+
+    $transOutputTracks = $transOutputTracks[$mediaType];
+
+    setupSegmenterTranscodedTracks($segmenterApiUrl, $channelId, $transConf['variants'], $transOutputTracks, $mediaType);
+
+    $upstreams[] = getTranscoderUpstream($transConf, $transOutputTracks, $mediaType, $segmenterKmpPort);
+}
+else
+{
+    // passthrough
+    $trackId = $mediaType[0] . $variantId;
+    setupSegmenterTrack($segmenterApiUrl, $channelId, $variantId, $trackId, $mediaType);
+
+    $upstreams[] = array(
         'id' => 'main',
         'url' => $segmenterKmpUrl
-    ),
-);
+    );
+}
 
+// decode closed captions
 if ($mediaType == 'video' && $ccConf !== false)
 {
     if ($ccConf)

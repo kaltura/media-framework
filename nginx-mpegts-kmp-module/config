@@ -10,7 +10,7 @@ if test -n "$ngx_module_link"; then
         exit 1
     fi
 else
-    if echo $NGX_ADDON_SRCS | grep " ngx_kmp_out_module" > /dev/null; then
+    if echo $NGX_ADDON_SRCS | grep "ngx_kmp_out_module" > /dev/null; then
         echo "found ngx_kmp_out_module for $ngx_addon_name; looks good."
     else
         echo "error: ngx_kmp_out_module is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2

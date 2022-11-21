@@ -51,7 +51,8 @@ ngx_int_t ngx_live_media_info_queue_copy_last(ngx_live_track_t *dst,
     ngx_live_track_t *src, uint32_t segment_index);
 
 ngx_int_t ngx_live_media_info_write(ngx_persist_write_ctx_t *write_ctx,
-    ngx_live_media_info_persist_t *mp, ngx_live_media_info_t *media_info);
+    uint32_t block_id, ngx_live_media_info_persist_t *mp,
+    ngx_live_media_info_t *media_info);
 
 ngx_flag_t ngx_live_media_info_track_exists(ngx_live_timeline_t *timeline,
     ngx_live_track_t *track);

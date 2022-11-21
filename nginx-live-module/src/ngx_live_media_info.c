@@ -142,11 +142,10 @@ static ngx_live_json_cmd_t  ngx_live_media_info_json_cmds[] = {
 
 ngx_int_t
 ngx_live_media_info_write(ngx_persist_write_ctx_t *write_ctx,
-    ngx_live_media_info_persist_t *mp, ngx_live_media_info_t *media_info)
+    uint32_t block_id, ngx_live_media_info_persist_t *mp,
+    ngx_live_media_info_t *media_info)
 {
-    if (ngx_persist_write_block_open(write_ctx,
-            NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO) != NGX_OK)
-    {
+    if (ngx_persist_write_block_open(write_ctx, block_id) != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -391,7 +390,8 @@ ngx_live_media_info_node_write(ngx_persist_write_ctx_t *write_ctx,
     mp.segment_index = node->node.key;
     mp.stats = node->stats;
 
-    return ngx_live_media_info_write(write_ctx, &mp, &node->media_info);
+    return ngx_live_media_info_write(write_ctx,
+        NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO, &mp, &node->media_info);
 }
 
 
@@ -1964,7 +1964,7 @@ ngx_live_media_info_write_index_queue(ngx_persist_write_ctx_t *write_ctx,
     }
 
     return ngx_live_persist_write_blocks(track->channel, write_ctx,
-        NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO, track);
+        NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO_QUEUE, track);
 }
 
 
@@ -2011,7 +2011,7 @@ ngx_live_media_info_read_index_queue(ngx_persist_block_hdr_t *header,
     }
 
     rc = ngx_live_persist_read_blocks(track->channel,
-        NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO, rs, track);
+        NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO_QUEUE, rs, track);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_live_media_info_read_index_queue: read blocks failed");
@@ -2182,7 +2182,8 @@ ngx_live_media_info_write_media_segment(
 
     segment = ctx->segment;
 
-    return ngx_live_media_info_write(write_ctx, NULL, segment->media_info);
+    return ngx_live_media_info_write(write_ctx,
+        NGX_KSMP_BLOCK_SEGMENT_MEDIA_INFO, NULL, segment->media_info);
 }
 
 
@@ -2243,7 +2244,7 @@ ngx_live_media_info_write_serve_queue(ngx_persist_write_ctx_t *write_ctx,
         ngx_persist_write_reserve(write_ctx, sizeof(header), &marker)
             != NGX_OK ||
         ngx_live_persist_write_blocks(track->channel, write_ctx,
-            NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO, track) != NGX_OK)
+            NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO_QUEUE, track) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_media_info_write_serve_queue: write failed");
@@ -2375,9 +2376,12 @@ static ngx_persist_block_t  ngx_live_media_info_blocks[] = {
      * persist header:
      *   ngx_live_media_info_persist_t  p;
      *   kmp_media_info_t               kmp;
+     *
+     * persist data:
+     *   u_char                         extra_data[];
      */
     { NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO,
-      NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO, 0,
+      NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO_QUEUE, 0,
       ngx_live_media_info_write_index,
       ngx_live_media_info_read_index },
 
@@ -2393,15 +2397,28 @@ static ngx_persist_block_t  ngx_live_media_info_blocks[] = {
     /*
      * persist header:
      *   kmp_media_info_t  kmp;
+     *
+     * persist data:
+     *   u_char            extra_data[];
      */
-    { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER, 0,
-      NULL, ngx_live_media_info_read_media_segment },
+    { NGX_KSMP_BLOCK_SEGMENT_MEDIA_INFO,
+      NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER, 0, NULL,
+      ngx_live_media_info_read_media_segment },
+
+    /* TODO: remove this, for backward compatibility */
+    { NGX_KSMP_BLOCK_MEDIA_INFO,
+      NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER, 0, NULL,
+      ngx_live_media_info_read_media_segment },
 
     /*
      * persist header:
      *   kmp_media_info_t  kmp;
+     *
+     * persist data:
+     *   u_char            extra_data[];
      */
-    { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, 0,
+    { NGX_KSMP_BLOCK_SEGMENT_MEDIA_INFO,
+      NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, 0,
       ngx_live_media_info_write_media_segment, NULL },
 
     /*
@@ -2416,9 +2433,12 @@ static ngx_persist_block_t  ngx_live_media_info_blocks[] = {
      * persist header:
      *   ngx_ksmp_media_info_header_t  p;
      *   kmp_media_info_t              kmp;
+     *
+     * persist data:
+     *   u_char                        extra_data[];
      */
     { NGX_KSMP_BLOCK_MEDIA_INFO,
-      NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO, 0,
+      NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO_QUEUE, 0,
       ngx_live_media_info_write_serve, NULL },
 
       ngx_null_persist_block

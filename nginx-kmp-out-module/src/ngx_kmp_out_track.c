@@ -941,6 +941,10 @@ ngx_kmp_out_track_del_upstream(ngx_kmp_out_track_t *track, ngx_str_t *id,
         return NGX_DECLINED;
     }
 
+    ngx_log_error(NGX_LOG_INFO, log, 0,
+        "ngx_kmp_out_track_del_upstream: "
+        "deleting upstream \"%V\" in track \"%V\"", id, &track->sn.str);
+
     ngx_kmp_out_upstream_free(u);
 
     if (ngx_queue_empty(&track->upstreams)) {
