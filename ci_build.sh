@@ -71,3 +71,4 @@ done
         --with-cc-opt="-O3" \
         $MEDIA_FRAMEWORK_MODULE_ARGS
 make -j $(nproc)
+make install

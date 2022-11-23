@@ -35,9 +35,5 @@ jobs:
             libsrt-openssl-dev 
       - name : Build
         run: ./ci_build.sh ${{ matrix.confargs }}
-      - name : Install
-        run : |
-          cd /tmp/builddir/nginx
-          sudo make install
       - name : Nginx binary loads
         run : /sbin/nginx -V
