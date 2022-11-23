@@ -339,10 +339,10 @@ When set to `true`, no acks will be sent on the incoming KMP connection.
 Returns a fixed response:
 ```
 {
-	"uri": "/control/status",
-	"result": {
-		"state": "ready"
-	}
+    "uri": "/control/status",
+    "result": {
+        "state": "ready"
+    }
 }
 ```
 Can be used as a readiness probe.
@@ -354,52 +354,52 @@ Returns a JSON object with the latest diagnostics data that was collected.
 Sample response:
 ```
 {
-	"uri": "/control/diagnostics",
-	"result": {
-		"transcoder": {
-			"processed": {
-				"totalSamples": 1906,
-				"totalErrors": 0,
-				"bitrate": 434517,
-				"fps": 24.27,
-				"rate": 0.97,
-				"drift": -42,
-				"firstTimeStamp": "2022-11-20T07:41:14.98Z",
-				"lastTimeStamp": "2022-11-20T07:42:31.14Z",
-				"lastDts": 6860070
-			},
-			"outputs": [{
-				"track_id": "vsrc",
-				"totalFrames": 1906,
-				"currentFrameRate": 24.27,
-				"codecData": "480x256",
-				"lastAck": 150203706746277,
-				"lastDts": 6860070,
-				"bitrate": -1,
-				"currentBitrate": 434517
-			},
-			...
-			],
-			"lastIncomingDts": 0,
-			"lastProcessedDts": 6860070,
-			"minDts": 6813270,
-			"processTime": 520,
-			"latency": 1549,
-			"currentIncomingQueueLength": 0
-		},
-		"receiver": {
-			"totalSamples": 1906,
-			"totalErrors": 0,
-			"bitrate": 434517,
-			"fps": 24.27,
-			"rate": 0.97,
-			"drift": -42,
-			"firstTimeStamp": "2022-11-20T07:41:14.98Z",
-			"lastTimeStamp": "2022-11-20T07:42:31.14Z",
-			"lastDts": 6860070
-		},
-		"time": 1668930152
-	}
+    "uri": "/control/diagnostics",
+    "result": {
+        "transcoder": {
+            "processed": {
+                "totalSamples": 1906,
+                "totalErrors": 0,
+                "bitrate": 434517,
+                "fps": 24.27,
+                "rate": 0.97,
+                "drift": -42,
+                "firstTimeStamp": "2022-11-20T07:41:14.98Z",
+                "lastTimeStamp": "2022-11-20T07:42:31.14Z",
+                "lastDts": 6860070
+            },
+            "outputs": [{
+                "track_id": "vsrc",
+                "totalFrames": 1906,
+                "currentFrameRate": 24.27,
+                "codecData": "480x256",
+                "lastAck": 150203706746277,
+                "lastDts": 6860070,
+                "bitrate": -1,
+                "currentBitrate": 434517
+            },
+            ...
+            ],
+            "lastIncomingDts": 0,
+            "lastProcessedDts": 6860070,
+            "minDts": 6813270,
+            "processTime": 520,
+            "latency": 1549,
+            "currentIncomingQueueLength": 0
+        },
+        "receiver": {
+            "totalSamples": 1906,
+            "totalErrors": 0,
+            "bitrate": 434517,
+            "fps": 24.27,
+            "rate": 0.97,
+            "drift": -42,
+            "firstTimeStamp": "2022-11-20T07:41:14.98Z",
+            "lastTimeStamp": "2022-11-20T07:42:31.14Z",
+            "lastDts": 6860070
+        },
+        "time": 1668930152
+    }
 }
 ```
 
