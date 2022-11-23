@@ -1775,6 +1775,9 @@ ngx_live_timelines_add_segment(ngx_live_channel_t *channel,
             }
 
         } else {
+            /* suppress warning */
+            period = NULL;
+
             new_period = 1;
 
             timeline->first_period_initial_time = time;
