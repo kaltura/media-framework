@@ -1,5 +1,7 @@
 # Transcoder
 
+FFmpeg-based KMP video/audio transcoder.
+
 ## Build
 
 ```

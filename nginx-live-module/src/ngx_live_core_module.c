@@ -47,7 +47,7 @@ static ngx_command_t  ngx_live_core_commands[] = {
       NULL },
 
     { ngx_string("variables_hash_bucket_size"),
-      NGX_LIVE_MAIN_CONF |NGX_CONF_TAKE1,
+      NGX_LIVE_MAIN_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
       NGX_LIVE_MAIN_CONF_OFFSET,
       offsetof(ngx_live_core_main_conf_t, variables_hash_bucket_size),
