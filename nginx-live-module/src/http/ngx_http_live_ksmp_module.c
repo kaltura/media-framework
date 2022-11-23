@@ -1579,7 +1579,8 @@ ngx_http_live_ksmp_init_scope(ngx_http_request_t *r,
         if (ngx_live_timelines_get_segment_iter(channel,
             &iter, segment_index, &scope->si.start))
         {
-            return ngx_http_live_ksmp_output_error(r, code,
+            return ngx_http_live_ksmp_output_error(r,
+                NGX_KSMP_ERR_SEGMENT_NOT_FOUND,
                 "segment %uD does not exist, channel: %V",
                 segment_index, &channel->sn.str);
         }
