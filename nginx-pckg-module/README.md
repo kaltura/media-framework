@@ -126,6 +126,7 @@ http {
 
 The module parses the file name part of the URL (anything after the last `/`) in order to service the request.
 The file name has the following structure -
+
 `<prefix>[-<seg_index>[-<part_index>]][-<option1>[-<option2>...]].<extension>`
 
 The `prefix` part must have one of the following values -
@@ -149,16 +150,17 @@ The following options are supported -
     Certain types of requests (e.g. `manifest.mpd` / `master.m3u8`) support getting multiple variant options, while other requests (e.g. `index.m3u8` / `seg.ts`) require a single variant option.
 - `v` / `a` / `t` - choose a subset of the available media types. For example, `master-a.m3u8` returns an audio-only stream.
 
-Capture requests use a slightly different format:
+Capture requests use a slightly different structure -
+
 `frame-<timestamp>-s<variant_id>[-w<width>][-h<height>].jpg`
 
 By default, the `timestamp` parameter is an absolute timestamp.
-If the `timestamp` is prefixed with `-`, it is interpreted as an offset relative to the end of the timeline.
-If the `timestamp` is prefixed with `+`, it is interpreted as an offset relative to the start of the timeline.
+If the `timestamp` is prefixed with a minus (`-`), it is interpreted as an offset relative to the end of the timeline.
+If the `timestamp` is prefixed with a plus (`+`), it is interpreted as an offset relative to the start of the timeline.
 
 The `width` / `height` parameters can be used to scale the returned image.
 When these parameters are not supplied, no scaling will be performed - the returned image will use the original video dimensions.
-When only one of the parameters is specified, the other dimension is set to a value that retains the aspect ratio of the captured video frame.
+When only one of the parameters is specified, the other dimension is set to a value that retains the aspect ratio of the original video frame.
 
 ## Configuration Directives
 
@@ -179,7 +181,7 @@ Requests to this location will be parsed according the format explained in [URL 
 
 Sets the internal uri that should be used to query the segmenter.
 On every HLS/DASH request that the packager receives, it evaluates the provided expression, and creates an nginx subrequest with the value as its uri.
-The location referenced by the `pckg_uri` directive, should use the `proxy_pass` directive to relay the request to nginx-live-module.
+The location referenced by the `pckg_uri` directive, should use the `proxy_pass` directive to relay the request to *nginx-live-module*.
 The parameter value can contain variables.
 
 #### pckg_format
@@ -188,9 +190,9 @@ The parameter value can contain variables.
 * **context**: `http`, `server`, `location`
 
 Sets the format of the responses to the packager requests, the following values are supported -
-- `ksmp` - Kaltura Segmented Media Protocol, this is the format returned by nginx-live-module
-- `sgts` - the format nginx-live-module uses for persisting media. This format can be used for recovery purposes,
-    in order to convert persisted files directly to HLS/DASH, without the need to set up a channel using nginx-live-module APIs.
+- `ksmp` - Kaltura Segmented Media Protocol, this is the format returned by *nginx-live-module*
+- `sgts` - the format *nginx-live-module* uses for persisting media. This format can be used for recovery purposes,
+    in order to convert persisted files directly to HLS/DASH, without the need to set up a channel using *nginx-live-module* APIs.
 
 #### pckg_channel_id
 * **syntax**: `pckg_channel_id expr`
@@ -273,9 +275,9 @@ Sets the value of the `Last-Modified` response header for successful requests in
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
-Controls the status code that is returned when the HTTP request to nginx-live-module fails.
-When the value is `off`, any error status code returned from nginx-live-module will fail the packager request with 502.
-When the value is `any`, any error status code returned from nginx-live-module will propagate to the packager request.
+Controls the status code that is returned when the HTTP request to *nginx-live-module* fails.
+When the value is `off`, any error status code returned from *nginx-live-module* will fail the packager request with 502.
+When the value is `any`, any error status code returned from *nginx-live-module* will propagate to the packager request.
 Alternatively, a list of specific status codes can be specified, the supported status codes are: 400, 404, 410.
 
 #### pckg_active_policy
@@ -305,11 +307,13 @@ and it may return an audio selector (`a`) when the variant is audio-only.
 * **context**: `http`, `server`, `location`
 
 Enables or disables back-filling.
+
 Consider a channel with two variants, each with its own video track and audio track - `v1`/`a1`, `v2`/`a2`.
 In the first few segments, no media is received for `a2`, so the segments do not contain this track.
 Then, at some point, `a2` starts publishing. When `pckg_back_fill` is enabled, requests for segments that did not contain
 media for `a2`, will fill the gap by copying the respective media from `a1`. When `pckg_back_fill` is disabled,
 requests for segments that did not contain media for `a2`, will return only the video track - `v2`.
+
 An implication of back-filling is that responses for segment requests may change over time.
 
 #### pckg_empty_segments
@@ -319,6 +323,7 @@ An implication of back-filling is that responses for segment requests may change
 
 When enabled, requests for segments that do not exist on the specific variant/media type will return an empty segment.
 For example, when the container is MPEG-TS, the response will contain only a PAT and a PMT.
+
 When disabled, requests for segments that do not exist on the specific variant/media type will return a 404 error.
 
 #### pckg_output_buffer_pool
@@ -326,7 +331,7 @@ When disabled, requests for segments that do not exist on the specific variant/m
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
-Pre-allocates a set of buffers with the specified count and size for storing output media.
+Pre-allocates `count` buffers with the specified `size` for storing output media.
 The buffer pool can provide a slight performance optimization by avoiding the need to allocate/free the media buffers for every request.
 
 #### pckg_segment_metadata
@@ -335,10 +340,11 @@ The buffer pool can provide a slight performance optimization by avoiding the ne
 * **context**: `http`, `server`, `location`
 
 When the provided expression is evaluated to a non-empty string, it is returned as metadata on segment requests.
+The parameter value can contain variables.
+
 The metadata is encapsulated as an ID3 TEXT frame.
 When using fMP4 container, the ID3 frame is sent inside an `emsg` box with the scheme `https://developer.apple.com/streaming/emsg-id3`.
 When using MPEG-TS container, the ID3 frame is sent in a private stream (SID 0xbd).
-The parameter value can contain variables.
 
 ### M3u8 Directives (HLS)
 
@@ -348,6 +354,7 @@ The parameter value can contain variables.
 * **context**: `http`, `server`, `location`
 
 Enables or disables low-latency HLS features on the surrounding location.
+
 When set to `on`, this directive is an alias to the following:
 ```
 pckg_m3u8_mux_segments off;
@@ -376,6 +383,7 @@ pckg_m3u8_ctl_skip_boundary_percent 0;
 * **context**: `http`, `server`, `location`
 
 Sets the container used for media segments.
+
 When set to `auto`, MPEG-TS container is used by default, however, if any of the following conditions applies, fMP4 container is used instead -
 - The channel uses the low latency segmenter - in LLHLS, media is delivered in small parts, using MPEG-TS in this case, can result in a significant overhead in bandwidth.
 - Encryption using the `cenc` scheme is enabled - MPEG-TS does not support this scheme.
@@ -396,6 +404,7 @@ Sets the container used for delivering subtitles -
 * **context**: `http`, `server`, `location`
 
 When the provided expression evaluates to `on`, video and audio tracks are muxed together in the same segments.
+
 When the provided expression evaluates to `off`, video and audio tracks are delivered in separate segments.
 The master playlist uses `#EXT-X-MEDIA` to connect the video stream and the audio stream.
 The parameter value can contain variables.
@@ -405,14 +414,14 @@ The parameter value can contain variables.
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
-When enabled, the module will output parts in returned index playlists (using `#EXT-X-PART` / `#EXT-X-PRELOAD-HINT` tags).
+When enabled, the module outputs parts in index playlist responses (using `#EXT-X-PART` / `#EXT-X-PRELOAD-HINT` tags).
 
 #### pckg_m3u8_rendition_reports
 * **syntax**: `pckg_m3u8_rendition_reports on | off`
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
-When enabled, the module will output rendition reports in returned index playlists (using `#EXT-X-RENDITION-REPORT` tags).
+When enabled, the module outputs rendition reports in index playlist responses (using `#EXT-X-RENDITION-REPORT` tags).
 
 #### pckg_m3u8_program_date_time
 * **syntax**: `pckg_m3u8_program_date_time on | off | expr`
@@ -427,7 +436,7 @@ The parameter value can contain variables.
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
-When enabled, the module will include the `CAN-BLOCK-RELOAD=YES` attribute in the returned `#EXT-X-SERVER-CONTROL` tag.
+When enabled, the module includes the `CAN-BLOCK-RELOAD=YES` attribute in the returned `#EXT-X-SERVER-CONTROL` tag.
 The parameter value can contain variables.
 
 #### pckg_m3u8_ctl_part_hold_back_percent
@@ -462,8 +471,10 @@ When enabled, the module outputs the `IV` attribute in returned `#EXT-X-KEY` / `
 
 Sets the value of the `URI` attribute of the `#EXT-X-KEY` tag.
 The parameter value can contain variables.
+
 The provided expression may be evaluated multiple times, depending on the value of `pckg_enc_scope`.
 The variables `pckg_variant_id` / `pckg_media_type` can be used in the expression to produce different URLs, when the encryption scope is not `channel`.
+
 When encryption is enabled, and this directive is not used, a URI is generated automatically:
 - If `pckg_enc_scheme` is set to `cenc`, the URI will contain the PSSH boxes provided in `pckg_enc_json`, base64 encoded.
 - Otherwise, URI will return an `enc.key` URL, according to the the configured `pckg_enc_scope`.
@@ -508,6 +519,7 @@ Sets the container used for delivering subtitles -
 
 Sets the segment according to which the `suggestedPresentationDelay` attribute of the `MPD` element is set.
 The value is expressed as a number of segments, starting from the end of the timeline.
+
 For example, if the segments of the timeline are numbered as 1 .. N, when using the default value of 3,
 the suggested presentation delay will be: `now - segment_start_time[N - 2]`.
 
@@ -520,6 +532,7 @@ the suggested presentation delay will be: `now - segment_start_time[N - 2]`.
 
 When enabled, the MPEG-TS muxer interleaves frames of different streams (video / audio).
 When disabled, on every switch between audio / video the muxer flushes the MPEG TS packet.
+
 Enabling this setting can reduce the muxing overhead of the MPEG-TS packaging.
 
 #### pckg_mpegts_align_frames
@@ -528,6 +541,7 @@ Enabling this setting can reduce the muxing overhead of the MPEG-TS packaging.
 * **context**: `http`, `server`, `location`
 
 When enabled, every video / audio frame is aligned to MPEG-TS packet boundary, padding is added as needed.
+
 Disabling this setting can reduce the muxing overhead of the MPEG-TS packaging.
 
 ### Encryption Directives
@@ -538,6 +552,7 @@ Disabling this setting can reduce the muxing overhead of the MPEG-TS packaging.
 * **context**: `http`, `server`, `location`
 
 Sets the encryption scheme that is used to encrypt media segments.
+
 When using the MPEG-TS container:
 - the `cbcs` scheme follows the [HLS Sample Encryption](https://developer.apple.com/library/ios/documentation/AudioVideo/Conceptual/HLS_Sample_Encryption/) specification.
 - the `cenc` scheme is not supported.
@@ -548,8 +563,8 @@ When using the MPEG-TS container:
 * **context**: `http`, `server`, `location`
 
 Sets the scope of the encryption keys, the following values are supported:
-- `channel` - a single encryption key is used to encrypt all the tracks in the channel.
-- `media_type` - at most 2 encryption keys are used - one for video, one audio.
+- `channel` - a single encryption key is used to encrypt all the tracks of the channel.
+- `media_type` - at most 2 encryption keys are used - one for video, one for audio.
 - `variant` - an encryption key is assigned for each variant.
 - `track` - an encryption key is assigned for each track.
 
@@ -560,6 +575,7 @@ Sets the scope of the encryption keys, the following values are supported:
 
 Sets a seed that is used to generate encryption keys.
 The parameter value can contain variables.
+
 The provided expression may be evaluated multiple times, depending on the value of `pckg_enc_scope`.
 The variables `pckg_variant_id` / `pckg_media_type` can be used in the expression to produce multiple seeds, when the encryption scope is not `channel`.
 
@@ -570,10 +586,11 @@ The variables `pckg_variant_id` / `pckg_media_type` can be used in the expressio
 
 Sets a seed that is used to generate encryption initialization vectors (IVs).
 The parameter value can contain variables.
+
 The provided expression may be evaluated multiple times, depending on the value of `pckg_enc_scope`.
 The variables `pckg_variant_id` / `pckg_media_type` can be used in the expression to produce multiple seeds, when the encryption scope is not `channel`.
-If this directive is not set, the expression provided in `pckg_enc_key_seed` is used by default.
 
+If this directive is not set, the expression provided in `pckg_enc_key_seed` is used by default.
 
 #### pckg_enc_serve_key
 * **syntax**: `pckg_enc_serve_key on | off`
@@ -589,16 +606,18 @@ When enabled, the module serves the encryption keys in the clear, when getting `
 
 Sets the parameters used for encryption.
 The parameter value can contain variables.
+
 The provided expression may be evaluated multiple times, depending on the value of `pckg_enc_scope`.
 The variables `pckg_variant_id` / `pckg_media_type` can be used in the expression to map to the different JSONs, when the encryption scope is not `channel`.
+
 This directive is used mostly for enabling DRM, therefore, by default, it disables `pckg_enc_serve_key`
 (this behavior can be overridden by explicitly setting `pckg_enc_serve_key on;` before `pckg_enc_json` in the same configuration block)
 
 The provided expression must evaluate to a JSON object, containing the following fields:
-`key` - string, required, the encryption key (128 bit) in base64 encoding
-`key_id` - string, optional, the encryption key identifier (128 bit) in base64 encoding
-`iv` - string, optional, the encryption initialization vector (128 bit) in base64 encoding
-`systems` - object, optional, the keys are DRM system IDs (GUIDs), the values are strings containing base64 encoded PSSH (Protection System Specific Header).
+- `key` - string, required, the encryption key (128 bit) in base64 encoding
+- `key_id` - string, optional, the encryption key identifier (128 bit) in base64 encoding
+- `iv` - string, optional, the encryption initialization vector (128 bit) in base64 encoding
+- `systems` - object, optional, the keys are DRM system IDs (GUIDs), the values are strings containing base64 encoded PSSH (Protection System Specific Header).
 
 ### Capture Directives
 
@@ -608,6 +627,7 @@ The provided expression must evaluate to a JSON object, containing the following
 * **context**: `http`, `server`, `location`
 
 Enables / disables the capture functionality on the surrounding location.
+
 Capture requests are more CPU-intensive than requests for serving media, therefore, they are disabled by default.
 
 #### pckg_capture_redirect
@@ -615,20 +635,23 @@ Capture requests are more CPU-intensive than requests for serving media, therefo
 * **default**: `on`
 * **context**: `http`, `server`, `location`
 
-When enabled, capture requests that use relative timestamps, will redirect to a URL that uses the corresponding absolute timestamp.
+When enabled, capture requests that use relative timestamps, redirect to a URL that uses the corresponding absolute timestamp.
+
 Requests that use timestamps relative to the end of the live stream can return different images when the stream is live,
 while requests that use absolute timestamps return a static image. The use of redirect on relative requests enables the caching
-of the response (by a CDN / proxy).
+of the resulting images (by a CDN / proxy).
 
 #### pckg_capture_granularity
 * **syntax**: `pckg_capture_granularity frame | key`
 * **default**: `frame`
 * **context**: `http`, `server`, `location`
 
-When set to `frame`, capture requests will use the frame that is closest to the requested timestamp.
-When set to `key`, capture requests will use the keyframe that is closest to the requested timestamp.
+When set to `frame`, capture requests use the frame that is closest to the requested timestamp.
+
+When set to `key`, capture requests use the keyframe that is closest to the requested timestamp.
+
 This directive provides a trade-off between resource usage and capture accuracy -
-setting the value to `key` reduces CPU usage (only one frame is decoded) and internal bandwidth (nginx-live-module returns a single frame).
+setting the value to `key` reduces CPU usage (only one frame is decoded) and internal bandwidth (*nginx-live-module* returns a single frame).
 
 ### Closed Captions Directives
 
@@ -639,6 +662,7 @@ setting the value to `key` reduces CPU usage (only one frame is decoded) and int
 
 Sets the parameters of the closed captions embedded in the video tracks of the channel.
 The parameter value can contain variables.
+
 The provided expression must evaluate to a JSON object.
 The keys must be closed caption channel ids - `cc1` .. `cc4` for 608 captions, `service1` .. `service63` for 708 captions.
 The values must be objects containing the following fields:
@@ -655,6 +679,7 @@ The values must be objects containing the following fields:
 
 Sets the "session data" of the channel, returned as `#EXT-X-SESSION-DATA` tags in master playlist responses.
 The parameter value can contain variables.
+
 The provided expression must evaluate to a JSON array containing objects.
 Each object in the array, is rendered as an `#EXT-X-SESSION-DATA` tag, and contains the following fields:
 - `id` - string, required, sets the DATA-ID attribute.
@@ -666,21 +691,21 @@ The object must contain either `value` or `uri`, but not both.
 
 ## Embedded Variables
 
-The nginx-pckg-module supports the following embedded variables:
+This module supports the following embedded variables:
 - `$pckg_channel_id` - the channel id, as provided to the `pckg_channel_id` directive.
 - `$pckg_timeline_id` - the timeline id, as provided to the `pckg_timeline_id` directive.
 - `$pckg_variant_ids` - the variant ids supplied on the request URL, if multiple values are provided, they are delimited with an hyphen (`-`).
 - `$pckg_variant_id` - the id of the variant currently being initialized, intended for use in `pckg_m3u8_enc_key_uri`, `pckg_enc_key_seed`, `pckg_enc_iv_seed`, `pckg_enc_json`.
 - `$pckg_media_type` - the media type currently being initialized (`video` / `audio`), intended for use in `pckg_m3u8_enc_key_uri`, `pckg_enc_key_seed`, `pckg_enc_iv_seed`, `pckg_enc_json`.
-- `$pckg_err_code` - evaluates to the KSMP error code returned from nginx-live-module, the possible values are defined in [ngx_ksmp_errs_x.h](../nginx-common/src/ngx_ksmp_errs_x.h).
-- `$pckg_err_msg` - evaluates to the KSMP error message returned from nginx-live-module.
+- `$pckg_err_code` - evaluates to the KSMP error code returned from *nginx-live-module*, the possible values are defined in [ngx_ksmp_errs_x.h](../nginx-common/src/ngx_ksmp_errs_x.h).
+- `$pckg_err_msg` - evaluates to the KSMP error message returned from *nginx-live-module*.
 - `$pckg_part_duration` - when the channel uses the low latency segmenter, evaluates to the part duration in milliseconds. Evaluates to zero if the channel uses the default segmenter.
 - `$pckg_last_part` - the index of the last part returned in an index playlist request, uses the format `<segment_index>:<part_index>`.
 - `$pckg_segment_dts` - the initial timestamp (dts) of the segment in milliseconds. When the segment contains multiple tracks, returns the dts of the first track that contains frames.
-- `$pckg_var_{name}` - returns the value of the live channel variable `{name}`, as returned from nginx-live-module.
+- `$pckg_var_{name}` - returns the value of the live channel variable `{name}`, as returned from *nginx-live-module*.
 - `$pckg_upstream_{name}` - returns the value of the `$upstream_{name}` variable, when evaluated on the KSMP subrequest.
     For example:
-    - `$pckg_upstream_status` returns the status code of the HTTP request that was sent to nginx-live-module.
-    - `$pckg_upstream_http_block_duration` returns the value of the `Block-Duration` header returned from nginx-live-module.
+    - `$pckg_upstream_status` returns the status code of the HTTP request that was sent to *nginx-live-module*.
+    - `$pckg_upstream_http_block_duration` returns the value of the `Block-Duration` header returned from *nginx-live-module*.
 
     See the documentation of the nginx upstream module for the list of `upstream_` variables that can be used.
