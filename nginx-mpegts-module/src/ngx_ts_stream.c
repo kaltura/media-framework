@@ -696,6 +696,10 @@ ngx_ts_read_pmt(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_header_t *h,
     ngx_ts_es_t         *es;
     ngx_ts_byte_read_t   br, pr;
 
+    /* suppress warnings */
+    pid = 0;
+    pilen = 0;
+
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, ts->log, 0, "ts pmt");
 
     if (prog->nes) {
