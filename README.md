@@ -45,6 +45,103 @@ The [conf](conf/) folder contains sample code and configuration for running an a
     Timelines can be used, for example, in order to implement "preview mode" - the publisher consumes one timeline, while the viewers consume another.
     The timeline of the publisher is always `active`, while the timeline of the viewers is activated upon the publisher's discretion.
 
+## Sample Topologies
+
+The diagrams below demonstrate a few sample topologies that can be created using the Media-Framework components.
+
+### Simple RTMP Passthrough
+
+```mermaid
+flowchart LR;
+    enc(Encoder);
+    ingest(nginx-rtmp-kmp-module);
+    live(nginx-live-module);
+    pckg(nginx-pckg-module);
+    play(Player);
+    enc-->|RTMP|ingest;
+    ingest-->|KMP|live;
+    live-->|KSMP|pckg;
+    pckg-->|LLHLS/DASH|play;
+```
+
+### Passthrough + S3 Persistence
+
+```mermaid
+flowchart LR;
+    enc(Encoder);
+    ingest(nginx-rtmp-kmp-module);
+    live(nginx-live-module);
+    pckg(nginx-pckg-module);
+    s3(Amazon S3);
+    play(Player);
+    enc-->|RTMP|ingest;
+    ingest-->|KMP|live;
+    live-->|HTTP|s3;
+    s3-->|HTTP|live;
+    live-->|KSMP|pckg;
+    pckg-->|LLHLS/DASH|play;
+```
+
+### SRT Input + Video Transcoding
+
+```mermaid
+flowchart LR;
+    enc(Encoder);
+    ingest(nginx-mpegts-kmp-module);
+    srt(nginx-srt-module);
+    trans(transcoder);
+    live(nginx-live-module);
+    pckg(nginx-pckg-module);
+    play(Player);
+    enc-->|SRT|srt;
+    srt-->|MPEG-TS|ingest;
+    ingest-->|KMP video|trans;
+    trans-->|KMP video|live;
+    ingest-->|KMP audio|live;
+    live-->|KSMP|pckg;
+    pckg-->|LLHLS/DASH|play;
+```
+
+### Closed-captions Decoding
+
+```mermaid
+flowchart LR;
+    enc(Encoder);
+    ingest(nginx-rtmp-kmp-module);
+    cc(nginx-cc-module);
+    live(nginx-live-module);
+    pckg(nginx-pckg-module);
+    play(Player);
+    enc-->|RTMP|ingest;
+    ingest-->|KMP video|cc;
+    cc-->|KMP subtitle|live;
+    ingest-->|KMP video|live;
+    ingest-->|KMP audio|live;
+    live-->|KSMP|pckg;
+    pckg-->|LLHLS/DASH|play;
+```
+
+### Transcoding + RTMP Push
+
+```mermaid
+flowchart LR;
+    enc(Encoder);
+    ingest(nginx-mpegts-kmp-module);
+    trans(transcoder);
+    live(nginx-live-module);
+    pckg(nginx-pckg-module);
+    push(nginx-kmp-rtmp-module);
+    yt(YouTube);
+    play(Player);
+    enc-->|MPEG-TS/HTTP|ingest;
+    ingest-->|KMP|trans;
+    trans-->|KMP|live;
+    trans-->|KMP|push;
+    push-->|RTMP|yt;
+    live-->|KSMP|pckg;
+    pckg-->|LLHLS/DASH|play;
+```
+
 ## Components Overview
 
 ### Media components
