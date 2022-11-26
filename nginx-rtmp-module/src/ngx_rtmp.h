@@ -340,7 +340,6 @@ typedef struct ngx_rtmp_core_srv_conf_s {
     ngx_msec_t                 timeout;
     ngx_msec_t                 ping;
     ngx_msec_t                 ping_timeout;
-    ngx_flag_t                 so_keepalive;
     ngx_int_t                  max_streams;
 
     ngx_uint_t                 ack_window;
