@@ -15,6 +15,7 @@ rtmp {
 
         application live {
             live on;
+            sandbox on;
             deny play all;
 
             kmp_ctrl_connect_url http://controller/connect;

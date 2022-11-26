@@ -1,332 +1,329 @@
-# NGINX-based Media Streaming Server
-## nginx-rtmp-module
+# Nginx RTMP module
 
+A modified version of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
-### Project blog
+Several features were added on top of the original nginx-rtmp-module implementation:
+- Support for publishing multiple RTMP streams on a single connection
+- Support for additional encoders (automatic detection of ext-timestamp in type-3 packets, generation of onFCPublish messages)
+- Detection of embedded captions
 
-  http://nginx-rtmp.blogspot.com
+In the context of Media-Framework, this module is used only for receiving RTMP input.
+Therefore, several features that exist in the original nginx-rtmp-module were removed, including:
+- HLS/DASH output
+- Notifications
+- Relay
+- Auto push
+- RTMP playback
+- Recording
 
-### Wiki manual
+Used by: *nginx-rtmp-kmp-module*.
 
-  https://github.com/arut/nginx-rtmp-module/wiki/Directives
+## Configuration
 
-### Google group
+### Sample configuration
 
-  https://groups.google.com/group/nginx-rtmp
+See the sample provided in [nginx-rtmp-kmp-module](../nginx-rtmp-kmp-module/README.md#sample-configuration)
 
-  https://groups.google.com/group/nginx-rtmp-ru (Russian)
+### Core Directives
 
-### Donation page (Paypal etc)
+#### rtmp
+* **syntax**: `rtmp { ... }`
+* **default**: ``
+* **context**: `main`
 
-  http://arut.github.com/nginx-rtmp-module/
+Provides the configuration file context in which the RTMP server directives are specified.
 
-### Features
+#### server
+* **syntax**: `server { ... }`
+* **default**: ``
+* **context**: `rtmp`
 
-* RTMP/HLS/MPEG-DASH live streaming
+Sets the configuration for a server.
 
-* RTMP Video on demand FLV/MP4,
-  playing from local filesystem or HTTP
+#### listen
+* **syntax**: `listen  (addr[:port]|port|unix:path) [bind] [ipv6only=on|off] [so_keepalive=on|off|keepidle:keepintvl:keepcnt|proxy_protocol]`
+* **default**: ``
+* **context**: `server`
 
-* Stream relay support for distributed
-  streaming: push & pull models
+Sets the address and port for the socket on which the server will accept connections.
+See the documentation of the listen directive of the Nginx `stream` module for more details on the optional parameters supported by this directive.
 
-* Recording streams in multiple FLVs
+#### application
+* **syntax**: `application name { ... }`
+* **default**: ``
+* **context**: `server`
 
-* H264/AAC support
+Creates an RTMP application. Unlike the `location` directive in `http`, application names cannot use patterns.
 
-* Online transcoding with FFmpeg
+#### timeout
+* **syntax**: `timeout msec`
+* **default**: `1m`
+* **context**: `rtmp`, `server`
 
-* HTTP callbacks (publish/play/record/update etc)
+Socket timeout, this value is primarily used for writing. Most of the time, the RTMP module does not expect any activity on active connections, except for publishers.
+If you want broken socket to get quickly disconnected use active tools like keepalive or RTMP ping.
 
-* Running external programs on certain events (exec)
+#### ping
+* **syntax**: `ping msec`
+* **default**: `1m`
+* **context**: `rtmp`, `server`
 
-* HTTP control module for recording audio/video and dropping clients
+RTMP ping interval, zero disables pings. RTMP ping is a protocol feature for active connection check.
+A special packet is sent to the remote peer, and a reply is expected within the timeout specified using the `ping_timeout` directive.
+If a ping reply is not received within this time, the connection is closed.
 
-* Advanced buffering techniques
-  to keep memory allocations at a minimum
-  level for faster streaming and low
-  memory footprint
+#### ping_timeout
+* **syntax**: `ping_timeout msec`
+* **default**: `30s`
+* **context**: `rtmp`, `server`
 
-* Proved to work with Wirecast, FMS, Wowza,
-  JWPlayer, FlowPlayer, StrobeMediaPlayback,
-  ffmpeg, avconv, rtmpdump, flvstreamer
-  and many more
+See the description of `ping` above.
 
-* Statistics in XML/XSL in machine- & human-
-  readable form
+#### max_streams
+* **syntax**: `max_streams num`
+* **default**: `32`
+* **context**: `rtmp`, `server`
 
-* Linux/FreeBSD/MacOS/Windows
+Sets the maximum number of RTMP streams.
 
-### Build
+#### ack_window
+* **syntax**: `ack_window num`
+* **default**: `5000000`
+* **context**: `rtmp`, `server`
 
-cd to NGINX source directory & run this:
+Sets the RTMP acknowledge window size - the number of received bytes after which the peer should send an acknowledge packet.
 
-    ./configure --add-module=/path/to/nginx-rtmp-module
-    make
-    make install
+#### chunk_size
+* **syntax**: `chunk_size num`
+* **default**: `4096`
+* **context**: `rtmp`, `server`
 
-Several versions of nginx (1.3.14 - 1.5.0) require http_ssl_module to be
-added as well:
+Maximum chunk size for stream multiplexing. The bigger this value the lower CPU overhead. This value cannot be less than 128.
 
-    ./configure --add-module=/path/to/nginx-rtmp-module --with-http_ssl_module
+#### max_message
+* **syntax**: `max_message size`
+* **default**: `1m`
+* **context**: `rtmp`, `server`
 
-For building debug version of nginx add `--with-debug`
+Maximum size for input data messages. All input data is split into messages (and further in chunks).
+A partial message is kept in memory while waiting for it to complete. Therefore, large messages can compromise server stability.
 
-    ./configure --add-module=/path/to-nginx/rtmp-module --with-debug
+#### out_queue
+* **syntax**: `out_queue size`
+* **default**: `256`
+* **context**: `rtmp`, `server`
 
-[Read more about debug log](https://github.com/arut/nginx-rtmp-module/wiki/Debug-log)
+Sets the number of slots in the output queue. If the output queue becomes full, lower priority messages are dropped.
 
-### Windows limitations
+#### out_cork
+* **syntax**: `out_cork size`
+* **default**: `out_queue / 8`
+* **context**: `rtmp`, `server`
 
-Windows support is limited. These features are not supported
+Sets the number of pending slots in the output queue that are required in order to start sending data, when a send is not already active.
 
-* execs
-* static pulls
-* auto_push
+#### busy
+* **syntax**: `busy on | off`
+* **default**: `off`
+* **context**: `rtmp`, `server`
 
-### RTMP URL format
+When enabled, connections that have no send/recv activity between pings, are terminated.
 
-    rtmp://rtmp.example.com/app[/name]
+#### play_time_fix
+* **syntax**: `play_time_fix on | off`
+* **default**: `on`
+* **context**: `rtmp`, `server`, `application`
 
-app -  should match one of application {}
-         blocks in config
+When enabled, extended timestamps are sent on outgoing type 3 RTMP chunks.
 
-name - interpreted by each application
-         can be empty
+#### type3_ext_ts
+* **syntax**: `type3_ext_ts on | off | auto`
+* **default**: `auto`
+* **context**: `rtmp`, `server`, `application`
 
+When set to `auto`, the module automatically detects whether the remote peer is sending extended timestamps on type 3 chunks.
+When set to `on`, extended timestamps are expected on incoming type 3 chunks.
 
-### Multi-worker live streaming
+#### buflen
+* **syntax**: `buflen msec`
+* **default**: `1s`
+* **context**: `rtmp`, `server`
 
-Module supports multi-worker live
-streaming through automatic stream pushing
-to nginx workers. This option is toggled with
-rtmp_auto_push directive.
+Used by MP4/FLV modules.
+This parameter is not relevant in the context of Media-Framework.
 
+#### dump_folder
+* **syntax**: `dump_folder path`
+* **default**: ``
+* **context**: `rtmp`, `server`
 
-### Example nginx.conf
+When set to a non-empty string, the module saves all incoming RTMP data to files under the specified folder.
+The file names have the following structure: `ngx_rtmp_dump_{date}_{pid}_{connection}.dat`.
 
-    rtmp {
+### Live Directives
 
-        server {
+#### live
+* **syntax**: `live on | off`
+* **default**: `off`
+* **context**: `rtmp`, `server`, `application`
 
-            listen 1935;
+Enables/disables live mode, i.e. one-to-many broadcasting.
 
-            chunk_size 4000;
+#### sandbox
+* **syntax**: `sandbox on | off`
+* **default**: `off`
+* **context**: `rtmp`, `server`, `application`
 
-            # TV mode: one publisher, many subscribers
-            application mytv {
+When enabled, incoming publish/play streams are allocated a unique name.
+Enabling this setting, making it possible to have multiple publish requests with the same stream name.
 
-                # enable live streaming
-                live on;
+#### stream_buckets
+* **syntax**: `stream_buckets num`
+* **default**: `1024`
+* **context**: `rtmp`, `server`, `application`
 
-                # record first 1K of stream
-                record all;
-                record_path /tmp/av;
-                record_max_size 1K;
+Sets the number of buckets used for grouping streams by name.
+A higher number increases memory usage, but enables faster lookup of stream by name.
 
-                # append current timestamp to each flv
-                record_unique on;
+#### buffer
+* **syntax**: `buffer msec`
+* **default**: `0`
+* **context**: `rtmp`, `server`, `application`
 
-                # publish only from localhost
-                allow publish 127.0.0.1;
-                deny publish all;
+When set to non-zero, output messages are buffered in queue, until the number of buffers reaches the value set in `out_cork`.
 
-                #allow play all;
-            }
+#### sync
+* **syntax**: `sync msec`
+* **default**: `300ms`
+* **context**: `rtmp`, `server`, `application`
 
-            # Transcoding (ffmpeg needed)
-            application big {
-                live on;
+When set to a non-zero value, if the duration of dropped packets exceeds the configured value, the stream is resynched.
+This parameter is not relevant in the context of Media-Framework.
 
-                # On every pusblished stream run this command (ffmpeg)
-                # with substitutions: $app/${app}, $name/${name} for application & stream name.
-                #
-                # This ffmpeg call receives stream from this application &
-                # reduces the resolution down to 32x32. The stream is the published to
-                # 'small' application (see below) under the same name.
-                #
-                # ffmpeg can do anything with the stream like video/audio
-                # transcoding, resizing, altering container/codec params etc
-                #
-                # Multiple exec lines can be specified.
+#### interleave
+* **syntax**: `interleave on | off`
+* **default**: `off`
+* **context**: `rtmp`, `server`, `application`
 
-                exec ffmpeg -re -i rtmp://localhost:1935/$app/$name -vcodec flv -acodec copy -s 32x32
-                            -f flv rtmp://localhost:1935/small/${name};
-            }
+When enabled, audio and video data is transmitted on the same RTMP chunk stream.
+This parameter is not relevant in the context of Media-Framework.
 
-            application small {
-                live on;
-                # Video with reduced resolution comes here from ffmpeg
-            }
-
-            application webcam {
-                live on;
-
-                # Stream from local webcam
-                exec_static ffmpeg -f video4linux2 -i /dev/video0 -c:v libx264 -an
-                                   -f flv rtmp://localhost:1935/webcam/mystream;
-            }
-
-            application mypush {
-                live on;
-
-                # Every stream published here
-                # is automatically pushed to
-                # these two machines
-                push rtmp1.example.com;
-                push rtmp2.example.com:1934;
-            }
-
-            application mypull {
-                live on;
-
-                # Pull all streams from remote machine
-                # and play locally
-                pull rtmp://rtmp3.example.com pageUrl=www.example.com/index.html;
-            }
-
-            application mystaticpull {
-                live on;
-
-                # Static pull is started at nginx start
-                pull rtmp://rtmp4.example.com pageUrl=www.example.com/index.html name=mystream static;
-            }
-
-            # video on demand
-            application vod {
-                play /var/flvs;
-            }
-
-            application vod2 {
-                play /var/mp4s;
-            }
-
-            # Many publishers, many subscribers
-            # no checks, no recording
-            application videochat {
-
-                live on;
-
-                # The following notifications receive all
-                # the session variables as well as
-                # particular call arguments in HTTP POST
-                # request
-
-                # Make HTTP request & use HTTP retcode
-                # to decide whether to allow publishing
-                # from this connection or not
-                on_publish http://localhost:8080/publish;
-
-                # Same with playing
-                on_play http://localhost:8080/play;
-
-                # Publish/play end (repeats on disconnect)
-                on_done http://localhost:8080/done;
-
-                # All above mentioned notifications receive
-                # standard connect() arguments as well as
-                # play/publish ones. If any arguments are sent
-                # with GET-style syntax to play & publish
-                # these are also included.
-                # Example URL:
-                #   rtmp://localhost/myapp/mystream?a=b&c=d
-
-                # record 10 video keyframes (no audio) every 2 minutes
-                record keyframes;
-                record_path /tmp/vc;
-                record_max_frames 10;
-                record_interval 2m;
-
-                # Async notify about an flv recorded
-                on_record_done http://localhost:8080/record_done;
-
-            }
-
-
-            # HLS
-
-            # For HLS to work please create a directory in tmpfs (/tmp/hls here)
-            # for the fragments. The directory contents is served via HTTP (see
-            # http{} section in config)
-            #
-            # Incoming stream must be in H264/AAC. For iPhones use baseline H264
-            # profile (see ffmpeg example).
-            # This example creates RTMP stream from movie ready for HLS:
-            #
-            # ffmpeg -loglevel verbose -re -i movie.avi  -vcodec libx264
-            #    -vprofile baseline -acodec libmp3lame -ar 44100 -ac 1
-            #    -f flv rtmp://localhost:1935/hls/movie
-            #
-            # If you need to transcode live stream use 'exec' feature.
-            #
-            application hls {
-                live on;
-                hls on;
-                hls_path /tmp/hls;
-            }
-
-            # MPEG-DASH is similar to HLS
-
-            application dash {
-                live on;
-                dash on;
-                dash_path /tmp/dash;
-            }
-        }
-    }
-
-    # HTTP can be used for accessing RTMP stats
-    http {
-
-        server {
-
-            listen      8080;
-
-            # This URL provides RTMP statistics in XML
-            location /stat {
-                rtmp_stat all;
-
-                # Use this stylesheet to view XML as web page
-                # in browser
-                rtmp_stat_stylesheet stat.xsl;
-            }
-
-            location /stat.xsl {
-                # XML stylesheet to view RTMP stats.
-                # Copy stat.xsl wherever you want
-                # and put the full directory path here
-                root /path/to/stat.xsl/;
-            }
-
-            location /hls {
-                # Serve HLS fragments
-                types {
-                    application/vnd.apple.mpegurl m3u8;
-                    video/mp2t ts;
-                }
-                root /tmp;
-                add_header Cache-Control no-cache;
-            }
-
-            location /dash {
-                # Serve DASH fragments
-                root /tmp;
-                add_header Cache-Control no-cache;
-            }
-        }
-    }
-
-
-### Multi-worker streaming example
-
-    rtmp_auto_push on;
-
-    rtmp {
-        server {
-            listen 1935;
-
-            application mytv {
-                live on;
-            }
-        }
-    }
+#### wait_key
+* **syntax**: `wait_key on | off`
+* **default**: `off`
+* **context**: `rtmp`, `server`, `application`
+
+Makes video streams start with a key frame.
+This parameter is not relevant in the context of Media-Framework.
+
+#### wait_video
+* **syntax**: `wait_video on | off`
+* **default**: `off`
+* **context**: `rtmp`, `server`, `application`
+
+Disable audio until first video frame is sent. Can be combined with wait_key to make client receive video key frame with all other data following it.
+This parameter is not relevant in the context of Media-Framework.
+
+#### publish_notify
+* **syntax**: `publish_notify on | off`
+* **default**: `off`
+* **context**: `rtmp`, `server`, `application`
+
+Send `NetStream.Play.PublishNotify` and `NetStream.Play.UnpublishNotify` to subscribers.
+This parameter is not relevant in the context of Media-Framework.
+
+#### play_restart
+* **syntax**: `play_restart on | off`
+* **default**: `off`
+* **context**: `rtmp`, `server`, `application`
+
+If enabled, nginx-rtmp sends `NetStream.Play.Start` and `NetStream.Play.Stop` to each subscriber every time publisher starts or stops publishing.
+If disabled, each subscriber receives those notifications only at the start and end of playback.
+This parameter is not relevant in the context of Media-Framework.
+
+#### idle_streams
+* **syntax**: `idle_streams on | off`
+* **default**: `on`
+* **context**: `rtmp`, `server`, `application`
+
+If disabled nginx-rtmp prevents subscribers from connecting to idle/nonexistent live streams and disconnects all subscribers when stream publisher disconnects.
+
+#### drop_idle_publisher
+* **syntax**: `drop_idle_publisher msec`
+* **default**: `0`
+* **context**: `rtmp`, `server`, `application`
+
+Drop publisher connection which has been idle (no audio/video data) within the specified time.
+Note this only works when connection is in publish mode (after sending publish command).
+
+### Access Control Directives
+
+#### allow
+* **syntax**: `allow [play|publish] address|subnet|all`
+* **default**: ``
+* **context**: `rtmp`, `server`, `application`
+
+Allow publish/play from the specified addresses.
+The `allow` / `deny` directives are checked in order of appearance.
+
+#### deny
+* **syntax**: `deny [play|publish] address|subnet|all`
+* **default**: ``
+* **context**: `rtmp`, `server`, `application`
+
+Deny publish/play from the specified addresses.
+The `allow` / `deny` directives are checked in order of appearance.
+
+### Codec Directives
+
+#### meta
+* **syntax**: `meta on | copy | off`
+* **default**: `on`
+* **context**: `rtmp`, `server`, `application`
+
+Sets the metadata sending mode. When set to `on`, subscribers receive reconstructed metadata packets containing predefined fields such as: width, height etc.
+When set to `copy`, clients receive an exact copy of the publisher metadata block, including both standard and specific fields.
+When set to `off`, no metadata is sent to subscribers.
+This parameter is not relevant in the context of Media-Framework.
+
+### Access Log Directives
+
+#### access_log
+* **syntax**: `access_log off|path [format_name]`
+* **default**: ``
+* **context**: `rtmp`, `server`, `application`
+
+Sets access log parameters. Logging is turned on by default. To turn disable logging, use `access_log off`.
+By default, access logging is done to the same file as HTTP access logger (logs/access.log).
+
+The second argument can be used to specify the logging format by name.
+See the `log_format` directive for more details about formats.
+
+#### log_format
+* **syntax**: `log_format name format`
+* **default**: `combined ...`
+* **context**: `rtmp`, `server`, `application`
+
+Creates a named log format. Log formats look similarly to nginx's HTTP log formats.
+Several variables are supported in the log format:
+
+- `connection` - connection number
+- `remote_addr` - client address
+- `app` - application name
+- `name` - last stream name
+- `args` - last stream play/publish arguments
+- `flashver` - client flashVer
+- `swfurl` - client swfUrl
+- `tcurl` - client tcUrl
+- `pageurl` - client pageUrl
+- `command` - play/publish commands sent by client: `NONE`, `PLAY`, `PUBLISH`, `PLAY+PUBLISH`
+- `bytes_sent` - number of bytes sent to client
+- `bytes_received` - number of bytes received from client
+- `time_local` - local time at the end of client connection
+- `session_time` - connection duration in seconds
+- `session_readable_time` - connection duration in human-readable format
+- `msec` - current unix timestamp in `SEC.MSEC` format
+
+The default log format has the name `combined`, and uses the following structure:
+
+`$remote_addr [$time_local] $command "$app" "$name" "$args" - $bytes_received $bytes_sent "$pageurl" "$flashver" ($session_readable_time)`

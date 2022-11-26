@@ -29,12 +29,6 @@ static char *ngx_rtmp_core_application(ngx_conf_t *cf, ngx_command_t *cmd,
 ngx_rtmp_core_main_conf_t      *ngx_rtmp_core_main_conf;
 
 
-static ngx_conf_deprecated_t  ngx_conf_deprecated_so_keepalive = {
-    ngx_conf_deprecated, "so_keepalive",
-    "so_keepalive\" parameter of the \"listen"
-};
-
-
 static ngx_conf_enum_t  ngx_rtmp_type3_ext_ts[] = {
     { ngx_string("off"),  NGX_RTMP_TYPE3_EXT_TS_OFF },
     { ngx_string("on"),   NGX_RTMP_TYPE3_EXT_TS_ON },
@@ -65,13 +59,6 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
       NGX_RTMP_SRV_CONF_OFFSET,
       0,
       NULL },
-
-    { ngx_string("so_keepalive"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_CONF_FLAG,
-      ngx_conf_set_flag_slot,
-      NGX_RTMP_SRV_CONF_OFFSET,
-      offsetof(ngx_rtmp_core_srv_conf_t, so_keepalive),
-      &ngx_conf_deprecated_so_keepalive },
 
     { ngx_string("timeout"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_CONF_TAKE1,
@@ -253,7 +240,6 @@ ngx_rtmp_core_create_srv_conf(ngx_conf_t *cf)
     conf->timeout = NGX_CONF_UNSET_MSEC;
     conf->ping = NGX_CONF_UNSET_MSEC;
     conf->ping_timeout = NGX_CONF_UNSET_MSEC;
-    conf->so_keepalive = NGX_CONF_UNSET;
     conf->max_streams = NGX_CONF_UNSET;
     conf->chunk_size = NGX_CONF_UNSET;
     conf->ack_window = NGX_CONF_UNSET_UINT;
@@ -279,7 +265,6 @@ ngx_rtmp_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_msec_value(conf->ping, prev->ping, 60000);
     ngx_conf_merge_msec_value(conf->ping_timeout, prev->ping_timeout, 30000);
 
-    ngx_conf_merge_value(conf->so_keepalive, prev->so_keepalive, 0);
     ngx_conf_merge_value(conf->max_streams, prev->max_streams, 32);
     ngx_conf_merge_value(conf->chunk_size, prev->chunk_size, 4096);
     ngx_conf_merge_uint_value(conf->ack_window, prev->ack_window, 5000000);
