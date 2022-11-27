@@ -332,7 +332,7 @@ When set to `false`, the transcoder exits only on fatal errors.
 
 When set to `true`, no acks will be sent on the incoming KMP connection.
 
-## Control endpoints
+## Control Endpoints
 
 ### GET /control/status
 
@@ -403,8 +403,9 @@ Sample response:
 }
 ```
 
-## finding leaks with valgrind
+## Valgrind
 
+In order to find leaks with valgrind:
 1. Make sure you use the dev image, or alternatively, attach to a running container and run `apt-get install valgrind`.
 2. Modify command line to `valgrind --leak-check=<full|summary> <original command line>`. For example, `docker run -ti dev-transcoder:latest valgrind  --leak-check=full /build/transcoder -f jsonfile`
 3. Run the container, the more time the better.

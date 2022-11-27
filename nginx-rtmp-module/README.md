@@ -20,7 +20,7 @@ Used by: *nginx-rtmp-kmp-module*.
 
 ## Configuration
 
-### Sample configuration
+### Sample Configuration
 
 See the sample provided in [nginx-rtmp-kmp-module](../nginx-rtmp-kmp-module/README.md#sample-configuration)
 

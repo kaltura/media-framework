@@ -146,7 +146,7 @@ flowchart LR;
 
 ## Components Overview
 
-### Media components
+### Media Components
 
 - **nginx-rtmp-kmp-module** - live media ingestion, input: *RTMP*, output: *KMP x N*
 
@@ -192,7 +192,7 @@ When compiling nginx, the dependencies must be added (`--add-module`) before any
     - Removed features: hls/dash output, notifications, relay, auto push, rtmp playback etc.
 
 - **nginx-mpegts-module** - a modified version of [nginx-ts-module](https://github.com/arut/nginx-ts-module), used by: nginx-mpegts-kmp-module.
-    - Support for additional codecs: h265, AC-3, E-AC-3
+    - Support for additional codecs: h265, AC3, E-AC3
     - Removed features: hls/dash output
 
 ## Kaltura Media Protocol (KMP)
