@@ -6,7 +6,7 @@ Dependencies: *nginx-common*, *nginx-kmp-out-module*
 
 ## Configuration
 
-### Sample configuration
+### Sample Configuration
 
 ```
 # MPEG-TS/SRT input
@@ -65,7 +65,7 @@ http {
 }
 ```
 
-### Configuration directives
+### Configuration Directives
 
 #### ts_kmp
 * **syntax**: `ts_kmp`
@@ -326,7 +326,7 @@ Enables the API interface of this module in the surrounding location. Access to 
 The write parameter determines whether the API is read-only or read-write. By default, the API is read-only.
 
 
-## API endpoints
+## API Endpoints
 
 ### GET /
 

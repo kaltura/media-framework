@@ -122,7 +122,7 @@ http {
 }
 ```
 
-## URL structure
+## URL Structure
 
 The module parses the file name part of the URL (anything after the last `/`) in order to service the request.
 The file name has the following structure -

@@ -6,7 +6,7 @@ Dependencies: *nginx-common*, *nginx-kmp-out-module*
 
 ## Configuration
 
-### Sample configuration
+### Sample Configuration
 
 ```
 rtmp {
@@ -40,7 +40,7 @@ http {
 }
 ```
 
-### Configuration directives
+### Configuration Directives
 
 #### kmp_ctrl_connect_url
 * **syntax**: `kmp_ctrl_connect_url url`
@@ -287,7 +287,7 @@ Enables the API interface of this module in the surrounding location. Access to 
 The write parameter determines whether the API is read-only or read-write. By default, the API is read-only.
 
 
-## API endpoints
+## API Endpoints
 
 ### GET /
 

@@ -47,7 +47,7 @@ The following dependencies are required for SRT input:
 
 ## Step-by-step commands for Ubuntu 20
 
-### Passthrough streaming
+### Passthrough Streaming
 
 ```
 # install dependencies
@@ -139,8 +139,8 @@ Sample ffmpeg command:
 `ffmpeg -re -i test.mp4 -c copy -f flv "rtmp://localhost:1935/live/{channel}_{stream}"`
 
 Supported codecs:
-- Video: h264
-- Audio: aac, mp3
+- Video: *h264 / AVC*
+- Audio: *AAC*, *MP3*
 
 ### MPEGTS/SRT
 
@@ -148,8 +148,8 @@ Sample ffmpeg command:
 `ffmpeg -re -i test.mp4 -c copy -f mpegts "srt://localhost:7045?streamid={channel}_{stream}"`
 
 Supported codecs:
-- Video: h264, h265
-- Audio: aac, mp3, ac3, e-ac3
+- Video: *h264 / AVC*, *h265 / HEVC*
+- Audio: *AAC*, *MP3*, *AC3*, *E-AC3*
 
 ### MPEGTS/HTTP
 
@@ -157,8 +157,8 @@ Sample ffmpeg command:
 `ffmpeg -re -i test.mp4 -c copy -f mpegts "http://127.0.0.1:80/publish/?streamid={channel}_{stream}"`
 
 Supported codecs:
-- Video: h264, h265
-- Audio: aac, mp3, ac3, e-ac3
+- Video: *h264 / AVC*, *h265 / HEVC*
+- Audio: *AAC*, *MP3*, *AC3*, *E-AC3*
 
 ## Play
 
