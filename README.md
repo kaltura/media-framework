@@ -1,5 +1,7 @@
 # Kaltura Media Framework
 
+![Build Status](https://github.com/kaltura/media-framework/actions/workflows/ci.yml/badge.svg)
+
 A distributed framework for live video streaming. The system is composed of multiple components, each one responsible for a specific function.
 The components can be deployed on a single server for small scale deployments/testing, but it is recommended to deploy them separately
 for a more optimal resource utilization. For example, the transcoder can utilize the GPU, so it would be more cost efficient to deploy the
