@@ -660,8 +660,8 @@ ngx_kmp_cc_service_frame_end(void *data, vlc_tick_t start, vlc_tick_t end)
 
     /* close frame */
 
-    dts = ngx_kmp_cc_rescale_time(start, CLOCK_FREQ, ctx->timescale);
-    pts = ngx_kmp_cc_rescale_time(end, CLOCK_FREQ, ctx->timescale);
+    dts = ngx_kmp_cc_rescale_time(start, CLOCK_FREQ, ctx->oconf->timescale);
+    pts = ngx_kmp_cc_rescale_time(end, CLOCK_FREQ, ctx->oconf->timescale);
 
     ngx_memzero(&frame, sizeof(frame));
     frame.header.packet_type = KMP_PACKET_FRAME;

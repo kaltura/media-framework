@@ -1,4 +1,4 @@
-# Nginx Packager module
+# Nginx Packager Module
 
 Stateless live media packager.
 

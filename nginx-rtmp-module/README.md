@@ -1,4 +1,4 @@
-# Nginx RTMP module
+# Nginx RTMP Module
 
 A modified version of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
@@ -259,7 +259,7 @@ Note this only works when connection is in publish mode (after sending publish c
 ### Access Control Directives
 
 #### allow
-* **syntax**: `allow [play|publish] address|subnet|all`
+* **syntax**: `allow [play|publish] address | subnet | all`
 * **default**: ``
 * **context**: `rtmp`, `server`, `application`
 
@@ -267,7 +267,7 @@ Allow publish/play from the specified addresses.
 The `allow` / `deny` directives are checked in order of appearance.
 
 #### deny
-* **syntax**: `deny [play|publish] address|subnet|all`
+* **syntax**: `deny [play|publish] address | subnet | all`
 * **default**: ``
 * **context**: `rtmp`, `server`, `application`
 
@@ -289,7 +289,7 @@ This parameter is not relevant in the context of Media-Framework.
 ### Access Log Directives
 
 #### access_log
-* **syntax**: `access_log off|path [format_name]`
+* **syntax**: `access_log off | path [format_name]`
 * **default**: ``
 * **context**: `rtmp`, `server`, `application`
 
