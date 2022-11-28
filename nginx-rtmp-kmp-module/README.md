@@ -1,4 +1,4 @@
-# Nginx RTMP -> KMP module
+# Nginx RTMP -> KMP Module
 
 Publishes incoming RTMP streams to one or more destinations using the KMP (Kaltura Media Protocol) protocol.
 
@@ -118,15 +118,17 @@ See [Republish](../nginx-kmp-out-module/README.md#republish) for more details on
 * **default**: `none`
 * **context**: `rtmp`, `server`, `application`
 
-Adds a request header to all control requests (publish, unpublish etc.).
-There could be several `kmp_ctrl_add_header` directives. These directives are inherited from the previous level if and only if there are no `kmp_ctrl_add_header` directives defined on the current level.
+Adds a request header to all control requests (`publish`, `unpublish` etc.).
+There could be several `kmp_ctrl_add_header` directives.
+These directives are inherited from the previous level if and only if there are no `kmp_ctrl_add_header` directives defined on the current level.
 
 #### kmp_ctrl_timeout
 * **syntax**: `kmp_ctrl_timeout time`
 * **default**: `2s`
 * **context**: `rtmp`, `server`, `application`
 
-Sets a timeout for sending HTTP requests to the upstream server. The timeout includes both the connection establishment as well as the sending of the request.
+Sets a timeout for sending HTTP requests to the upstream server.
+The timeout includes both the connection establishment as well as the sending of the request.
 
 #### kmp_ctrl_read_timeout
 * **syntax**: `kmp_ctrl_read_timeout time`
@@ -140,7 +142,8 @@ Sets a timeout for reading the response of HTTP requests sent to the upstream se
 * **default**: `4k`
 * **context**: `rtmp`, `server`, `application`
 
-Sets the size of the buffer that holds the response of the HTTP requests. The buffer size should be large enough to hold the largest expected response.
+Sets the size of the buffer that holds the response of the HTTP requests.
+The buffer size should be large enough to hold the largest expected response.
 
 #### kmp_ctrl_retries
 * **syntax**: `kmp_ctrl_retries count`
@@ -178,7 +181,8 @@ Sets the timeout for sending data to the upstream KMP server.
 * **default**: `4`
 * **context**: `rtmp`, `server`, `application`
 
-Sets the maximum number of free buffers that are kept after receiving acks from the upstream server. A large value may save some memory alloc/free operations, but can also increase memory usage.
+Sets the maximum number of free buffers that are kept after receiving acks from the upstream server.
+A large value may save some memory alloc/free operations, but can also increase memory usage.
 
 #### kmp_buffer_bin_count
 * **syntax**: `kmp_buffer_bin_count num`
@@ -213,7 +217,8 @@ See the description of `kmp_mem_high_watermark` above.
 * **default**: `64k`
 * **context**: `rtmp`, `server`, `application`
 
-Sets the size of the buffers used to send video data to the upstream server. A large value can be more efficient, but increases the latency (a buffer is sent either when it's full or the flush timeout expires).
+Sets the size of the buffers used to send video data to the upstream server.
+A large value can be more efficient, but increases the latency (a buffer is sent either when it's full or the flush timeout expires).
 
 #### kmp_video_mem_limit
 * **syntax**: `kmp_video_mem_limit size`
@@ -227,7 +232,8 @@ Sets the maximum total size of the buffers used to send video data to the upstre
 * **default**: `4k`
 * **context**: `rtmp`, `server`, `application`
 
-Sets the size of the buffers used to send audio data to the upstream server. A large value can be more efficient, but increases the latency (a buffer is sent either when it's full or the flush timeout expires).
+Sets the size of the buffers used to send audio data to the upstream server.
+A large value can be more efficient, but increases the latency (a buffer is sent either when it's full or the flush timeout expires).
 
 #### kmp_audio_mem_limit
 * **syntax**: `kmp_audio_mem_limit size`
@@ -245,11 +251,11 @@ Sets the timeout for flushing buffered data to the upstream KMP server.
 KMP data is kept in buffers of size kmp_xxx_buffer_size, a buffer is sent when it becomes full, or when the flush timeout expires.
 
 #### kmp_log_frames
-* **syntax**: `kmp_log_frames on|off`
+* **syntax**: `kmp_log_frames on | off`
 * **default**: `off`
 * **context**: `rtmp`, `server`, `application`
 
-When enabled, the module will log the metadata of every frame that is sent -
+When enabled, the module logs the metadata of every frame that is sent -
 1. KMP frame header - created, dts, flags, pts delay
 2. Data size and MD5 hash
 
