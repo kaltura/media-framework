@@ -15,13 +15,13 @@ Dependencies: *nginx-common*, *nginx-kmp-in-module*, *nginx-kmp-out-module*
     - Codecs: *WebVTT*
 
 - Supported styles
-	- 608 - italics/underline, positioning, colors
-	- 708 - italics/underline
+    - 608 - italics/underline, positioning, colors
+    - 708 - italics/underline
 
 - Operation modes
-	- Pre-configured - the data of the KMP `connect` packet contains a JSON specifying which CC channels to extract and where to publish them to.
-	    See [Connect Data JSON](#connect-data-json) for more details on the JSON structure.
-	- On-demand - in this mode, the module sends a `publish` request for each CC channel that is received, in order to find where to publish it to.
+    - Pre-configured - the data of the KMP `connect` packet contains a JSON specifying which CC channels to extract and where to publish them to.
+        See [Connect Data JSON](#connect-data-json) for more details on the JSON structure.
+    - On-demand - in this mode, the module sends a `publish` request for each CC channel that is received, in order to find where to publish it to.
 
 - Management API
 
@@ -41,12 +41,12 @@ stream {
 
 http {
     server {
-        listen  8001;
+        listen 8001;
 
         location /api/kmp_cc/ {
             kmp_cc_api write=on;
         }
-	}
+    }
 }
 ```
 
@@ -57,7 +57,7 @@ http {
 * **default**: `none`
 * **context**: `location`
 
-Enables the API interface of this module in the surrounding location. Access to this location should be limited.
+Enables the API interface of this module in the surrounding location block. Access to this location should be limited.
 
 The write parameter determines whether the API is read-only or read-write. By default, the API is read-only.
 
@@ -66,7 +66,7 @@ The write parameter determines whether the API is read-only or read-write. By de
 * **default**: ``
 * **context**: `server`
 
-Enables the media interface of this module in the surrounding server.
+Enables the media interface of this module in the surrounding server block.
 
 #### kmp_cc_dump_folder
 * **syntax**: `kmp_cc_dump_folder path`
@@ -124,7 +124,8 @@ When enabled, the module logs the metadata of every video frame that is received
 * **default**: `16m`
 * **context**: `stream`, `server`
 
-Sets the maximum total size of the buffers used to receive video data from the client. If the limit is hit, the module drops the KMP connection.
+Sets the maximum total size of the buffers used to receive video data from the client.
+If the limit is hit, the module drops the KMP connection.
 
 #### kmp_cc_in_buffer_size
 * **syntax**: `kmp_cc_in_buffer_size size`
@@ -159,23 +160,23 @@ A large value may save some memory alloc/free operations, but can also increase 
 
 Sets the HTTP `publish` callback, called for CC channels that are published, and do not have a pre-configured destination in the connect data JSON.
 
-Sample request:
+Sample request body:
 ```
 {
-	"event_type": "publish",
-	"input_id": "kmp-cc://ch1/trk1/cc1",
-	"input_type": "cc",
-	"cc": {
-		"channel_id": "ch1",
-		"track_id": "trk1",
-		"service_id": "cc1"
-	},
-	"media_info": {
-		"media_type": "subtitle",
-		"bitrate": 0,
-		"codec_id": 2001,
-		"extra_data": "574542565454"
-	}
+    "event_type": "publish",
+    "input_id": "kmp-cc://ch1/trk1/cc1",
+    "input_type": "cc",
+    "cc": {
+        "channel_id": "ch1",
+        "track_id": "trk1",
+        "service_id": "cc1"
+    },
+    "media_info": {
+        "media_type": "subtitle",
+        "bitrate": 0,
+        "codec_id": 2001,
+        "extra_data": "574542565454"
+    }
 }
 ```
 
@@ -321,7 +322,8 @@ A large value can be more efficient, but increases the latency (a buffer is sent
 * **default**: `128k`
 * **context**: `stream`, `server`
 
-Sets the maximum total size of the buffers used to send subtitle data to the upstream server. If the limit is hit, the module drops the KMP connection.
+Sets the maximum total size of the buffers used to send subtitle data to the upstream server.
+If the limit is hit, the module drops the KMP connection.
 
 #### kmp_cc_out_flush_timeout
 * **syntax**: `kmp_cc_out_flush_timeout msec`
@@ -371,26 +373,26 @@ If more than `kmp_republish_interval` seconds passed since the last `republish`,
 
 ```
 {
-	"cc1": {
-		"channel_id": "ch1",
-		"track_id": "cc1",
-		"upstreams": [
-			{
-				"id": "cc-sub",
-				"url": "kmp://127.0.0.1:8003"
-			}
-		]
-	},
-	"service2": {
-		"channel_id": "ch1",
-		"track_id": "service2",
-		"upstreams": [
-			{
-				"id": "cc-sub",
-				"url": "kmp://127.0.0.1:8003"
-			}
-		]
-	}
+    "cc1": {
+        "channel_id": "ch1",
+        "track_id": "cc1",
+        "upstreams": [
+            {
+                "id": "cc-sub",
+                "url": "kmp://127.0.0.1:8003"
+            }
+        ]
+    },
+    "service2": {
+        "channel_id": "ch1",
+        "track_id": "service2",
+        "upstreams": [
+            {
+                "id": "cc-sub",
+                "url": "kmp://127.0.0.1:8003"
+            }
+        ]
+    }
 }
 ```
 
@@ -417,7 +419,7 @@ If the `connect` data is an object -
 
 ### GET /
 
-Return detailed information about all active sessions.
+Get the full status JSON.
 
 Possible status codes:
 - 200 - Success, returns a JSON object

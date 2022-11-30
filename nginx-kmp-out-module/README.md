@@ -90,7 +90,7 @@ For example, when used with nginx-mpegts-kmp-module, the `rtmp` block is replace
 }
 ```
 
-The `reason` field in the unpublish request can have the following values:
+The `reason` field in the request can have the following values:
 * `alloc_failed` - memory limit reached / out of memory
 * `append_failed` - failed to append data to an upstream (out of memory)
 * `create_publish_failed` - failed to create publish request (out of memory)
@@ -154,7 +154,7 @@ The `reason` field in the unpublish request can have the following values:
 * **default**: `none`
 * **context**: `location`
 
-Enables the API interface of this module in the surrounding location. Access to this location should be limited.
+Enables the API interface of this module in the surrounding location block. Access to this location should be limited.
 
 The write parameter determines whether the API is read-only or read-write. By default, the API is read-only.
 
@@ -162,28 +162,28 @@ The write parameter determines whether the API is read-only or read-write. By de
 
 ### GET /
 
-Get the full status JSON
+Get the full status JSON.
 
 Possible status codes:
 - 200 - Success, returns a JSON object
 
 ### GET /tracks
 
-Get the status of the active output tracks
+Get the status of the active output tracks.
 
 Possible status codes:
 - 200 - Success, returns a JSON object
 
 ### GET /tracks?list=1
 
-Get the ids of the active output tracks
+Get the ids of the active output tracks.
 
 Possible status codes:
 - 200 - Success, returns a JSON array of strings
 
 ### GET /tracks/{track_id}
 
-Get the status of the specified output track
+Get the status of the specified output track.
 
 Possible status codes:
 - 200 - Success, returns a JSON object
@@ -191,7 +191,7 @@ Possible status codes:
 
 ### GET /tracks/{track_id}/upstreams
 
-Get the status of the upstreams of the specified output track
+Get the status of the upstreams of the specified output track.
 
 Possible status codes:
 - 200 - Success, returns a JSON array of objects
@@ -199,7 +199,7 @@ Possible status codes:
 
 ### GET /tracks/{track_id}/upstreams?list=1
 
-Get the ids of the upstreams of the specified output track
+Get the ids of the upstreams of the specified output track.
 
 Possible status codes:
 - 200 - Success, returns a JSON array of strings
@@ -223,7 +223,7 @@ Possible status codes:
 
 ### DELETE /tracks/{track_id}/upstreams/{upstream_id}
 
-Remove the specified upstream from the specified track
+Remove the specified upstream from the specified track.
 
 Possible status codes:
 - 204 - Success, upstream was removed

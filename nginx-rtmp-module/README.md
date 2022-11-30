@@ -41,7 +41,7 @@ Provides the configuration file context in which the RTMP server directives are 
 Sets the configuration for a server.
 
 #### listen
-* **syntax**: `listen  (addr[:port]|port|unix:path) [bind] [ipv6only=on|off] [so_keepalive=on|off|keepidle:keepintvl:keepcnt|proxy_protocol]`
+* **syntax**: `listen (addr[:port]|port|unix:path) [bind] [ipv6only=on|off] [so_keepalive=on|off|keepidle:keepintvl:keepcnt|proxy_protocol]`
 * **default**: ``
 * **context**: `server`
 

@@ -28,12 +28,9 @@ rtmp {
 
 http {
     server {
-        listen 80;
+        listen 8001;
 
         location /rtmp_kmp_api/ {
-            allow 127.0.0.1/32;
-            deny all;
-
             rtmp_kmp_api write=on;
         }
     }
@@ -52,7 +49,7 @@ If the response includes a `code` field with a value of `ok`, command processing
 If the response does not include a `code` field or its value is not `ok`, the RTMP connection is dropped.
 In this case, the string in the `message` field is returned as the error description to the client.
 
-Sample request:
+Sample request body:
 ```
 {
     "event_type": "connect",
@@ -225,7 +222,8 @@ A large value can be more efficient, but increases the latency (a buffer is sent
 * **default**: `32m`
 * **context**: `rtmp`, `server`, `application`
 
-Sets the maximum total size of the buffers used to send video data to the upstream server. If the limit is hit, the module drops the RTMP connection.
+Sets the maximum total size of the buffers used to send video data to the upstream server.
+If the limit is hit, the module drops the RTMP connection.
 
 #### kmp_audio_buffer_size
 * **syntax**: `kmp_audio_buffer_size size`
@@ -240,7 +238,8 @@ A large value can be more efficient, but increases the latency (a buffer is sent
 * **default**: `1m`
 * **context**: `rtmp`, `server`, `application`
 
-Sets the maximum total size of the buffers used to send audio data to the upstream server. If the limit is hit, the module drops the RTMP connection.
+Sets the maximum total size of the buffers used to send audio data to the upstream server.
+If the limit is hit, the module drops the RTMP connection.
 
 #### kmp_flush_timeout
 * **syntax**: `kmp_flush_timeout time`
@@ -288,7 +287,7 @@ If the idle timer expires, the RTMP connection is dropped.
 * **default**: `none`
 * **context**: `location`
 
-Enables the API interface of this module in the surrounding location. Access to this location should be limited.
+Enables the API interface of this module in the surrounding location block. Access to this location should be limited.
 
 The write parameter determines whether the API is read-only or read-write. By default, the API is read-only.
 
@@ -297,7 +296,7 @@ The write parameter determines whether the API is read-only or read-write. By de
 
 ### GET /
 
-Return detailed information about all connected sessions and upstreams.
+Get the full status JSON.
 
 Possible status codes:
 - 200 - Success, returns a JSON object
