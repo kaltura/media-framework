@@ -30,7 +30,7 @@ See the sample provided in [nginx-mpegts-kmp-module](../nginx-mpegts-kmp-module/
 * **default**: `none`
 * **context**: `stream/server`, `location`
 
-Enables MPEG-TS input in the surrounding stream-server/location.
+Enables MPEG-TS input in the surrounding stream-server/location block.
 By default, HTTP request body size is limited in nginx. To enable live streaming without size limitation, use the directive `client_max_body_size 0`.
 
 #### ts_stream_id

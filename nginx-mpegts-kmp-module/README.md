@@ -72,7 +72,7 @@ http {
 * **default**: `none`
 * **context**: `stream/server`, `location`
 
-Enables the media interface of this module in the surrounding stream-server/location.
+Enables the media interface of this module in the surrounding stream-server/location block.
 The `ts;` directive of nginx-mpegts-module should also be used in the same context, otherwise this directive has no effect.
 
 #### ts_kmp_ctrl_connect_url
@@ -83,7 +83,7 @@ The `ts;` directive of nginx-mpegts-module should also be used in the same conte
 Sets the HTTP `connect` callback. When the first MPEG-TS PAT packet is received, an HTTP request is issued asynchronously.
 If the response does not include a `code` field with a value of `ok`, the HTTP/TCP connection is dropped.
 
-Sample request:
+Sample request body:
 ```
 {
     "event_type": "connect",
@@ -111,7 +111,7 @@ Sample response:
 
 Sets the HTTP `publish` callback, called for each track (audio/video) that is published to the server.
 
-Sample request:
+Sample request body:
 ```
 {
     "event_type": "publish",
@@ -273,7 +273,8 @@ A large value can be more efficient, but increases the latency (a buffer is sent
 * **default**: `32m`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
-Sets the maximum total size of the buffers used to send video data to the upstream server. If the limit is hit, the module drops the HTTP/TCP connection.
+Sets the maximum total size of the buffers used to send video data to the upstream server.
+If the limit is hit, the module drops the HTTP/TCP connection.
 
 #### ts_kmp_audio_buffer_size
 * **syntax**: `ts_kmp_audio_buffer_size size`
@@ -288,7 +289,8 @@ A large value can be more efficient, but increases the latency (a buffer is sent
 * **default**: `1m`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
-Sets the maximum total size of the buffers used to send audio data to the upstream server. If the limit is hit, the module drops the HTTP/TCP connection.
+Sets the maximum total size of the buffers used to send audio data to the upstream server.
+If the limit is hit, the module drops the HTTP/TCP connection.
 
 #### ts_kmp_flush_timeout
 * **syntax**: `ts_kmp_flush_timeout time`
@@ -327,7 +329,7 @@ If more than `ts_kmp_republish_interval` seconds passed since the last `republis
 * **default**: `none`
 * **context**: `location`
 
-Enables the API interface of this module in the surrounding location. Access to this location should be limited.
+Enables the API interface of this module in the surrounding location block. Access to this location should be limited.
 
 The write parameter determines whether the API is read-only or read-write. By default, the API is read-only.
 
@@ -336,7 +338,7 @@ The write parameter determines whether the API is read-only or read-write. By de
 
 ### GET /
 
-Return detailed information about all connected sessions and upstreams.
+Get the full status JSON.
 
 Possible status codes:
 - 200 - Success, returns a JSON object

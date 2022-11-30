@@ -44,8 +44,8 @@ http {
     }
 
     server {
-        listen       80;
-        server_name  _;
+        listen 80;
+        server_name _;
 
         # CORS headers
         add_header Access-Control-Allow-Headers 'Origin,Range,Accept-Encoding,Referer,Cache-Control';
@@ -171,7 +171,7 @@ When only one of the parameters is specified, the other dimension is set to a va
 * **default**: ``
 * **context**: `location`
 
-Enables the media packager in the surrounding location.
+Enables the media packager in the surrounding location block.
 Requests to this location will be parsed according the format explained in [URL structure](#url-structure).
 
 #### pckg_uri
@@ -353,7 +353,7 @@ When using MPEG-TS container, the ID3 frame is sent in a private stream (SID 0xb
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
-Enables or disables low-latency HLS features on the surrounding location.
+Enables or disables low-latency HLS features.
 
 When set to `on`, this directive is an alias to the following:
 ```
@@ -626,7 +626,7 @@ The provided expression must evaluate to a JSON object, containing the following
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
-Enables / disables the capture functionality on the surrounding location.
+Enables / disables the capture functionality.
 
 Capture requests are more CPU-intensive than requests for serving media, therefore, they are disabled by default.
 
