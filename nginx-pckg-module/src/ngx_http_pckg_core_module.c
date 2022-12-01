@@ -768,16 +768,18 @@ ngx_http_pckg_core_init_ctx(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
     plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
 
     /* get the channel id */
-    if (plcf->channel_id == NULL) {
+    if (plcf->channel_id != NULL) {
+        rc = ngx_http_complex_value(r, plcf->channel_id, &params->channel_id);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_pckg_core_init_ctx: complex value failed (1) %i",
+                rc);
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+    } else if (plcf->format != NGX_PCKG_PERSIST_TYPE_MEDIA) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_pckg_core_init_ctx: pckg_channel_id not set in conf");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    rc = ngx_http_complex_value(r, plcf->channel_id, &params->channel_id);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_pckg_core_init_ctx: complex value failed (1) %i", rc);
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
