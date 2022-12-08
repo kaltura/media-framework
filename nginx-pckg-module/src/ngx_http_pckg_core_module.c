@@ -122,6 +122,13 @@ static ngx_conf_enum_t  ngx_http_pckg_media_type_selector[] = {
 };
 
 
+static ngx_conf_enum_t  ngx_http_pckg_media_timestamps[] = {
+    { ngx_string("relative"), NGX_KSMP_FLAG_RELATIVE_DTS },
+    { ngx_string("absolute"), 0 },
+    { ngx_null_string, 0 }
+};
+
+
 static ngx_command_t  ngx_http_pckg_core_commands[] = {
 
     { ngx_string("pckg"),
@@ -247,6 +254,13 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, back_fill),
       NULL },
+
+    { ngx_string("pckg_media_timestamps"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_enum_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t, media_timestamps),
+      &ngx_http_pckg_media_timestamps },
 
     { ngx_string("pckg_empty_segments"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -2091,6 +2105,7 @@ ngx_http_pckg_core_create_loc_conf(ngx_conf_t *cf)
     conf->media_type_selector = NGX_CONF_UNSET_UINT;
     conf->back_fill = NGX_CONF_UNSET;
 
+    conf->media_timestamps = NGX_CONF_UNSET_UINT;
     conf->empty_segments = NGX_CONF_UNSET;
 
     return conf;
@@ -2152,6 +2167,10 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_value(conf->back_fill,
                          prev->back_fill, 0);
 
+    ngx_conf_merge_uint_value(conf->media_timestamps,
+                              prev->media_timestamps,
+                              NGX_KSMP_FLAG_RELATIVE_DTS);
+
     ngx_conf_merge_value(conf->empty_segments,
                          prev->empty_segments, 0);
 
@@ -2163,7 +2182,7 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
         conf->segment_metadata = prev->segment_metadata;
     }
 
-    conf->base_flags = NGX_KSMP_FLAG_DYNAMIC_VAR;
+    conf->base_flags = NGX_KSMP_FLAG_DYNAMIC_VAR | conf->media_timestamps;
     if (conf->back_fill) {
         conf->base_flags |= NGX_KSMP_FLAG_BACK_FILL;
     }
