@@ -59,7 +59,7 @@ http {
 
 Enables the API interface of this module in the surrounding location block. Access to this location should be limited.
 
-The write parameter determines whether the API is read-only or read-write. By default, the API is read-only.
+The optional `write` parameter determines whether the API is read-only or read-write. By default, the API is read-only.
 
 #### kmp_cc
 * **syntax**: `kmp_cc`

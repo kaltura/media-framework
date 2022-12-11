@@ -77,7 +77,7 @@ http {
 
 Enables the API interface of this module in the surrounding location block. Access to this location should be limited.
 
-The write parameter determines whether the API is read-only or read-write. By default, the API is read-only.
+The optional `write` parameter determines whether the API is read-only or read-write. By default, the API is read-only.
 
 #### kmp_rtmp
 * **syntax**: `kmp_rtmp`
@@ -429,6 +429,7 @@ Get the status of the specified upstream.
 
 Possible status codes:
 - 200 - Success, returns a JSON object
+- 404 - No upstream matching the provided id was found
 
 ### DELETE /upstreams/{upstream_id}
 
@@ -444,6 +445,7 @@ Get the status of the RTMP streams of the specified upstream.
 
 Possible status codes:
 - 200 - Success, returns a JSON object
+- 404 - No upstream matching the provided id was found
 
 ### GET /upstreams/{upstream_id}/streams?list=1
 
@@ -451,6 +453,7 @@ Get the ids of the RTMP streams of the specified upstream.
 
 Possible status codes:
 - 200 - Success, returns a JSON array of strings
+- 404 - No upstream matching the provided id was found
 
 ### DELETE /upstreams/{upstream_id}/tracks/{connection}
 

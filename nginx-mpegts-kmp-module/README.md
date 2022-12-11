@@ -131,7 +131,7 @@ Sample request body:
         "codec_id": 1010,
         "extra_data": "1210",
         "channels": 2,
-        "channel_layout": 3,
+        "channel_layout": "3",
         "bits_per_sample": 16,
         "sample_rate": 44100
     }
@@ -331,7 +331,7 @@ If more than `ts_kmp_republish_interval` seconds passed since the last `republis
 
 Enables the API interface of this module in the surrounding location block. Access to this location should be limited.
 
-The write parameter determines whether the API is read-only or read-write. By default, the API is read-only.
+The optional `write` parameter determines whether the API is read-only or read-write. By default, the API is read-only.
 
 
 ## API Endpoints

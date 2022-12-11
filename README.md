@@ -253,6 +253,7 @@ The KSMP-specific definitions can be found in [ngx_ksmp.h](nginx-common/src/ngx_
 ## Kaltura Live Persist File (KLPF)
 
 Kaltura Live Persist File is a serialization scheme that is used in KSMP responses and in the S3 objects created by nginx-live-module.
+
 A KLPF is composed of blocks, similar to MP4 atoms/boxes. Each block has the following header -
 - `id` - a four-character code identifying the block
 - `size` - uint32, the full size of the block (header & data)
@@ -269,14 +270,9 @@ Following the generic block header fields (listed above), a KLPF file has the fo
 - `version` - uint32, the version of the file format. The version used for new files is updated on every breaking change to the format, the code will be updated to either
    - support reading both the new format and the old format, or
    - ignore files that use the old format
-- `type` - a four-character code that identifies the type of data stored in the KLPF.
+- `type` - a four-character code that identifies the type of data stored in the KLPF. The type determines which block ids are supported, and their internal structure.
+    The type `serv` (*Serve*) is used for KSMP responses, in the communication between the packager and the segmenter. Additional types are used internally by the segmenter.
 - `created` - uint64, the unix timestamp when the KLPF was created
-
-The following types of KLPF are currently defined -
-- *Serve* (`serv`) - a KSMP response, used in the communication between the packager and the segmenter.
-- *Setup* (`setp`) - contains all the objects of a channel that can be set using the segmenter API - tracks, variants, timelines etc. Used in segmenter persistence
-- *Segment index* (`sgix`) - an index of the segments of a channel, contains the duration of the segment, timeline association, bitrates etc. Used in segmenter persistence
-- *Segment media* (`sgts`) - holds the media (compressed video/audio frames) of a set of segments. Used in segmenter persistence
 
 For more details on the internal structure of KLPF blocks, see [KLFP-SPEC.md](nginx-common/KLFP-SPEC.md).
 
