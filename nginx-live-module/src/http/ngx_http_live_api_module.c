@@ -1684,16 +1684,18 @@ ngx_http_live_api_timeline_get(ngx_http_request_t *r, ngx_str_t *params,
         (ngx_live_json_writer_write_pt) ngx_live_timeline_json_write,
     };
 
-    ngx_int_t             rc;
     ngx_str_t             channel_id;
     ngx_str_t             timeline_id;
     ngx_live_channel_t   *channel;
     ngx_live_timeline_t  *timeline;
 
     channel_id = params[0];
-    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
-    if (rc != NGX_OK) {
-        return rc;
+    channel = ngx_live_channel_get(&channel_id);
+    if (channel == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_api_timeline_get: unknown channel \"%V\"",
+            &channel_id);
+        return NGX_HTTP_NOT_FOUND;
     }
 
     timeline_id = params[1];

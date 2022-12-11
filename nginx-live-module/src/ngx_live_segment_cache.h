@@ -8,9 +8,6 @@
 #include "ngx_live.h"
 
 
-#define NGX_LIVE_READ_FLAG_LOCK_DATA  (0x01)
-
-
 struct ngx_live_segment_s {
     ngx_rbtree_node_t         node;
     ngx_queue_t               queue;
