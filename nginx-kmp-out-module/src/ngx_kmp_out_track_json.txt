@@ -20,7 +20,7 @@ out noobject ngx_kmp_out_track_audio_json ngx_kmp_out_track_t
     codec_id %uD obj->media_info.
     extra_data %xV
     channels %uD obj->media_info.u.audio.
-    channel_layout %uL obj->media_info.u.audio.
+    channel_layout %uxL obj->media_info.u.audio.
     bits_per_sample %uD obj->media_info.u.audio.
     sample_rate %uD obj->media_info.u.audio.
 

@@ -557,10 +557,10 @@ if (d) {
                 elif format == 'uL':
                     valueSize = 'NGX_INT64_LEN'
                     cast = 'uint64_t'
-                elif format == '016uxL':
+                elif format.endswith('uxL'):
                     fixed += '"'
                     nextFixed = '"'
-                    valueSize = '16'
+                    valueSize = 'sizeof(uint64_t) * 2'
                     cast = 'uint64_t'
                 elif format == 'uD':
                     valueSize = 'NGX_INT32_LEN'

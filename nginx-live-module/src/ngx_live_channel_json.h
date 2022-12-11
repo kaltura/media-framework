@@ -397,7 +397,7 @@ ngx_live_channel_json_get_size(ngx_live_channel_t *obj)
     }
 
     result =
-        sizeof("{\"blocked\":false,\"uid\":\"") - 1 + 16 +
+        sizeof("{\"blocked\":false,\"uid\":\"") - 1 + sizeof(uint64_t) * 2 +
         sizeof("\",\"uptime\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"read_time\":") - 1 + NGX_TIME_T_LEN +
         sizeof(",\"preset\":\"") - 1 + ngx_json_str_get_size(&cpcf->name) +
