@@ -12,8 +12,9 @@ Dependencies: *nginx-common*.
 - Notification on input end / upstream error (`unpublish` HTTP request)
 - Support for publishing a single track to multiple upstreams (replication)
 - Reconnect on upstream error, via the `republish` HTTP request
-- Handling of KMP acks - in case of `republish`, start sending from the first un-acked frame
-- Support for `auto_ack` for upstreams that do not support sending KMP acks
+- Configurable resume offset - in case of `republish`, can start sending frames from one of the following offsets -
+    - The frame after the last frame that was explicitly acked
+    - The frame after the last frame was sent successfully (can be used with upstreams that do not support sending KMP acks)
 - Memory usage enforcement
 - Protection against upstreams that do not return acks in a timely manner - free buffers when the memory usage percent exceeds a configured value
 - Management API
@@ -24,7 +25,7 @@ Dependencies: *nginx-common*.
 
 #### Sample request (RTMP publishing)
 
-```
+```json
 {
     "event_type": "publish",
     "input_id": "rtmp://testserver:1935/live?arg=value/streamname_1/video",
@@ -58,7 +59,7 @@ For example, when used with nginx-mpegts-kmp-module, the `rtmp` block is replace
 
 #### Sample response
 
-```
+```json
 {
     "channel_id": "somechannel",
     "track_id": "sometrack",
@@ -75,14 +76,17 @@ For example, when used with nginx-mpegts-kmp-module, the `rtmp` block is replace
 - `upstreams` - required, array of objects, each object can contain the following fields:
     - `url` - required, string, must include ip address and port (hostname is not supported), can optionally be prefixed with `kmp://`
     - `id` - optional, string, used for identifying the upstream in `republish` requests and in the management API
-    - `auto_ack` - optional, boolean, when set to `true`, the module does not wait for an explicit KMP ack packet - any frame that is sent to the upstream is automatically acked.
+    - `resume_from` - optional, string, sets the offset from which the module starts sending frames, if the upstream connection is re-established.
+        The following values are defined:
+        - `last_acked` - the frame after the last frame that was explicitly acked (this is the default)
+        - `last_sent` - the frame after the last frame that was successfully sent
     - `connect_data` - optional, string, base64 encoded, sent as the data of the KMP connect packet
 
 ### Unpublish
 
 #### Sample request (RTMP publishing)
 
-```
+```json
 {
     "event_type": "unpublish",
     "input_id": "rtmp://testserver:1935/live?arg=value/streamname_1/video"
@@ -102,7 +106,7 @@ The `reason` field in the request can have the following values:
 
 #### Sample request (RTMP publishing)
 
-```
+```json
 {
     "event_type": "republish",
     "id": "upstream_id",
@@ -136,7 +140,7 @@ The `reason` field in the request can have the following values:
 
 #### Sample response
 
-```
+```json
 {
     "url": "kmp://127.0.0.1:6543"
 }
@@ -213,7 +217,10 @@ The request body must be a JSON object, with the following fields:
 - `url` - required, string, must include ip address and port (hostname is not supported), can optionally be prefixed with `kmp://`
 - `id` - optional, string, used for identifying the upstream in `republish` requests and in the API
 - `src_id` - optional, string, if supplied, must contain the id of an existing upstream on the track to copy from
-- `auto_ack` - optional, boolean, when set to `true`, the module does not wait for an explicit KMP ack packet - any frame that is sent to the upstream is automatically acked
+- `resume_from` - optional, string, sets the offset from which the module starts sending frames, if the upstream connection is re-established.
+    The following values are defined:
+    - `last_acked` - the frame after the last frame that was explicitly acked (this is the default)
+    - `last_sent` - the frame after the last frame that was successfully sent
 - `connect_data` - optional, string, base64 encoded, sent as the data of the KMP connect packet
 
 Possible status codes:

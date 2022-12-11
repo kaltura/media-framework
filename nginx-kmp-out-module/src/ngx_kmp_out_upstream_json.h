@@ -17,7 +17,7 @@
 typedef struct {
     ngx_str_t   url;
     ngx_str_t   id;
-    ngx_flag_t  auto_ack;
+    ngx_uint_t  resume_from;
     ngx_str_t   connect_data;
 } ngx_kmp_out_upstream_json_t;
 
@@ -42,13 +42,13 @@ static ngx_json_prop_t  ngx_kmp_out_upstream_json_id = {
 };
 
 
-static ngx_json_prop_t  ngx_kmp_out_upstream_json_auto_ack = {
-    ngx_string("auto_ack"),
-    2775987918329ULL,
-    NGX_JSON_BOOL,
-    ngx_json_set_flag_slot,
-    offsetof(ngx_kmp_out_upstream_json_t, auto_ack),
-    NULL
+static ngx_json_prop_t  ngx_kmp_out_upstream_json_resume_from = {
+    ngx_string("resume_from"),
+    96209427719527548ULL,
+    NGX_JSON_STRING,
+    ngx_json_set_enum_slot,
+    offsetof(ngx_kmp_out_upstream_json_t, resume_from),
+    &ngx_kmp_out_resume_from_names
 };
 
 
@@ -63,15 +63,11 @@ static ngx_json_prop_t  ngx_kmp_out_upstream_json_connect_data = {
 
 
 static ngx_json_prop_t  *ngx_kmp_out_upstream_json[] = {
-    NULL,
-    NULL,
-    NULL,
+    &ngx_kmp_out_upstream_json_id,
     &ngx_kmp_out_upstream_json_connect_data,
     NULL,
-    &ngx_kmp_out_upstream_json_auto_ack,
+    &ngx_kmp_out_upstream_json_resume_from,
     &ngx_kmp_out_upstream_json_url,
-    &ngx_kmp_out_upstream_json_id,
-    NULL,
 };
 
 
@@ -129,8 +125,9 @@ ngx_kmp_out_upstream_json_get_size(ngx_kmp_out_upstream_t *obj)
         sizeof("\",\"local_addr\":\"") - 1 +
             ngx_json_str_get_size(&obj->local_addr) +
         sizeof("\",\"connection\":") - 1 + NGX_INT_T_LEN +
-        sizeof(",\"auto_ack\":") - 1 + sizeof("false") - 1 +
-        sizeof(",\"sent_bytes\":") - 1 + NGX_OFF_T_LEN +
+        sizeof(",\"resume_from\":\"") - 1 +
+            ngx_kmp_out_resume_from_names[obj->resume_from].len +
+        sizeof("\",\"sent_bytes\":") - 1 + NGX_OFF_T_LEN +
         sizeof(",\"position\":") - 1 + NGX_OFF_T_LEN +
         sizeof(",\"acked_frames\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"acked_bytes\":") - 1 + NGX_OFF_T_LEN +
@@ -152,15 +149,9 @@ ngx_kmp_out_upstream_json_write(u_char *p, ngx_kmp_out_upstream_t *obj)
     p = ngx_json_str_write(p, &obj->local_addr);
     p = ngx_copy_fix(p, "\",\"connection\":");
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) obj->log.connection);
-    p = ngx_copy_fix(p, ",\"auto_ack\":");
-    if (obj->auto_ack) {
-        p = ngx_copy_fix(p, "true");
-
-    } else {
-        p = ngx_copy_fix(p, "false");
-    }
-
-    p = ngx_copy_fix(p, ",\"sent_bytes\":");
+    p = ngx_copy_fix(p, ",\"resume_from\":\"");
+    p = ngx_sprintf(p, "%V", &ngx_kmp_out_resume_from_names[obj->resume_from]);
+    p = ngx_copy_fix(p, "\",\"sent_bytes\":");
     p = ngx_sprintf(p, "%O", (off_t) (obj->peer.connection ?
         obj->peer.connection->sent : 0));
     p = ngx_copy_fix(p, ",\"position\":");

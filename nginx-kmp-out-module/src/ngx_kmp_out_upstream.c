@@ -11,8 +11,6 @@
 #include "ngx_kmp_out_track_internal.h"
 #include "ngx_kmp_out_upstream.h"
 
-#include "ngx_kmp_out_upstream_json.h"
-
 
 static void ngx_kmp_out_upstream_read_handler(ngx_event_t *rev);
 static void ngx_kmp_out_upstream_write_handler(ngx_event_t *wev);
@@ -25,6 +23,16 @@ typedef struct {
 
 
 static ngx_str_t  kmp_url_prefix = ngx_string("kmp://");
+
+/* must match ngx_kmp_out_resume_from_xxx */
+ngx_str_t  ngx_kmp_out_resume_from_names[] = {
+    ngx_string("last_acked"),
+    ngx_string("last_sent"),
+    ngx_null_string
+};
+
+
+#include "ngx_kmp_out_upstream_json.h"
 
 
 static u_char *
@@ -415,9 +423,7 @@ ngx_kmp_out_upstream_from_json(ngx_pool_t *temp_pool,
         return NGX_ABORT;
     }
 
-    if (json.auto_ack != NGX_CONF_UNSET && json.auto_ack) {
-        u->auto_ack = 1;
-    }
+    ngx_json_set_uint_value(u->resume_from, json.resume_from);
 
     return NGX_OK;
 }
@@ -899,10 +905,10 @@ ngx_kmp_out_upstream_parse_ack_packet(ngx_kmp_out_upstream_t *u)
         return NGX_ERROR;
     }
 
-    if (u->auto_ack) {
+    if (u->resume_from != ngx_kmp_out_resume_from_last_acked) {
         ngx_log_error(NGX_LOG_WARN, &u->log, 0,
             "ngx_kmp_out_upstream_parse_ack_packet: "
-            "ack packet received in auto mode, ignoring");
+            "unexpected ack packet received, resume_from: %d", u->resume_from);
         return NGX_OK;
     }
 
@@ -1017,7 +1023,7 @@ ngx_kmp_out_upstream_send_chain(ngx_kmp_out_upstream_t *u)
         u->free = cl;
     }
 
-    if (u->auto_ack) {
+    if (u->resume_from != ngx_kmp_out_resume_from_last_acked) {
         if (ngx_kmp_out_upstream_auto_ack(u, NGX_MAX_SIZE_T_VALUE) < 0) {
             ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
                 "ngx_kmp_out_upstream_send_chain: auto ack failed");

@@ -192,6 +192,7 @@ function getCCDecodeUpstream($segmenterKmpUrl, $channelId, $ccConf)
     $upstream = array(
         'id' => 'cc-vid',
         'url' => $ccDecoderUrl,
+        'resume_from' => 'last_sent',
     );
 
     if ($ccConf)
