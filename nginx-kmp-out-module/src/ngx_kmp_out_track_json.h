@@ -131,8 +131,8 @@ ngx_kmp_out_track_audio_json_get_size(ngx_kmp_out_track_t *obj)
         sizeof(",\"codec_id\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"extra_data\":\"") - 1 + obj->extra_data.len * 2 +
         sizeof("\",\"channels\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"channel_layout\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"bits_per_sample\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"channel_layout\":\"") - 1 + sizeof(uint64_t) * 2 +
+        sizeof("\",\"bits_per_sample\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"sample_rate\":") - 1 + NGX_INT32_LEN;
 
     return result;
@@ -150,10 +150,10 @@ ngx_kmp_out_track_audio_json_write(u_char *p, ngx_kmp_out_track_t *obj)
     p = ngx_hex_dump(p, obj->extra_data.data, obj->extra_data.len);
     p = ngx_copy_fix(p, "\",\"channels\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) obj->media_info.u.audio.channels);
-    p = ngx_copy_fix(p, ",\"channel_layout\":");
-    p = ngx_sprintf(p, "%uL", (uint64_t)
+    p = ngx_copy_fix(p, ",\"channel_layout\":\"");
+    p = ngx_sprintf(p, "%uxL", (uint64_t)
         obj->media_info.u.audio.channel_layout);
-    p = ngx_copy_fix(p, ",\"bits_per_sample\":");
+    p = ngx_copy_fix(p, "\",\"bits_per_sample\":");
     p = ngx_sprintf(p, "%uD", (uint32_t)
         obj->media_info.u.audio.bits_per_sample);
     p = ngx_copy_fix(p, ",\"sample_rate\":");

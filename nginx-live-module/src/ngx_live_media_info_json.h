@@ -166,8 +166,8 @@ ngx_live_media_info_json_audio_get_size(ngx_live_media_info_node_t *obj)
     result =
         sizeof("{") - 1 + ngx_live_media_info_json_base_get_size(obj) +
         sizeof(",\"channels\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"channel_layout\":") - 1 + NGX_INT64_LEN +
-        sizeof(",\"bits_per_sample\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"channel_layout\":\"") - 1 + sizeof(uint64_t) * 2 +
+        sizeof("\",\"bits_per_sample\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"sample_rate\":") - 1 + NGX_INT32_LEN +
         sizeof(",") - 1 + ngx_live_media_info_json_stats_get_size(obj) +
         sizeof("}") - 1;
@@ -187,9 +187,9 @@ ngx_live_media_info_json_audio_write(u_char *p, ngx_live_media_info_node_t
     p = ngx_live_media_info_json_base_write(p, obj);
     p = ngx_copy_fix(p, ",\"channels\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) mi->info.u.audio.channels);
-    p = ngx_copy_fix(p, ",\"channel_layout\":");
-    p = ngx_sprintf(p, "%uL", (uint64_t) mi->info.u.audio.channel_layout);
-    p = ngx_copy_fix(p, ",\"bits_per_sample\":");
+    p = ngx_copy_fix(p, ",\"channel_layout\":\"");
+    p = ngx_sprintf(p, "%uxL", (uint64_t) mi->info.u.audio.channel_layout);
+    p = ngx_copy_fix(p, "\",\"bits_per_sample\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) mi->info.u.audio.bits_per_sample);
     p = ngx_copy_fix(p, ",\"sample_rate\":");
     p = ngx_sprintf(p, "%uD", (uint32_t) mi->info.u.audio.sample_rate);
