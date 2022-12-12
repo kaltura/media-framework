@@ -81,8 +81,9 @@ The `ts;` directive of nginx-mpegts-module should also be used in the same conte
 * **default**: `none`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
-Sets the URL of the HTTP `connect` callback. When the first MPEG-TS PAT packet is received, an HTTP request is issued asynchronously.
-If the response does not include a `code` field with a value of `ok`, the HTTP/TCP connection is dropped.
+Sets the URL of the HTTP `connect` callback. The request is issued asynchronously when the first MPEG-TS PAT packet is received.
+Sending of `publish` requests is delayed until the `connect` request completes, incoming video / audio frames are buffered during this time.
+If the `connect` response does not include a `code` field with a value of `ok`, the HTTP/TCP connection is dropped.
 
 Sample request body:
 ```json

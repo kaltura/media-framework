@@ -19,13 +19,20 @@ typedef struct {
 } ngx_ts_kmp_conf_t;
 
 
+typedef enum {
+    ngx_ts_kmp_state_initial,
+    ngx_ts_kmp_state_connect_done,
+    ngx_ts_kmp_state_error,
+} ngx_ts_kmp_state_e;
+
+
 typedef struct {
     ngx_queue_t                 queue;
     ngx_connection_t           *connection;
     ngx_ts_kmp_conf_t          *conf;
     ngx_rbtree_t                rbtree;
     ngx_rbtree_node_t           sentinel;
-    ngx_queue_t                 tracks;
+    ngx_queue_t                 tracks;     /* ngx_ts_kmp_track_t */
     uint32_t                    track_index[KMP_MEDIA_COUNT];
     ngx_msec_t                  start_msec;
     ngx_json_str_t              stream_id;
@@ -36,7 +43,7 @@ typedef struct {
     ngx_json_str_t              local_addr;
     u_char                      local_addr_buf[NGX_SOCKADDR_STRLEN];
 
-    unsigned                    error:1;
+    ngx_ts_kmp_state_e          state;
 } ngx_ts_kmp_ctx_t;
 
 
