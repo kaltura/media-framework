@@ -4,11 +4,12 @@ Publishes incoming MPEGTS streams to one or more destinations using the KMP (Kal
 
 Dependencies: *nginx-common*, *nginx-kmp-out-module*
 
+
 ## Configuration
 
 ### Sample Configuration
 
-```
+```nginx
 # MPEG-TS/SRT input
 srt {
     server {
@@ -80,11 +81,11 @@ The `ts;` directive of nginx-mpegts-module should also be used in the same conte
 * **default**: `none`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
-Sets the HTTP `connect` callback. When the first MPEG-TS PAT packet is received, an HTTP request is issued asynchronously.
+Sets the URL of the HTTP `connect` callback. When the first MPEG-TS PAT packet is received, an HTTP request is issued asynchronously.
 If the response does not include a `code` field with a value of `ok`, the HTTP/TCP connection is dropped.
 
 Sample request body:
-```
+```json
 {
     "event_type": "connect",
     "input_type": "mpegts",
@@ -97,7 +98,7 @@ Sample request body:
 ```
 
 Sample response:
-```
+```json
 {
     "code": "ok",
     "message": "Success"
@@ -109,10 +110,10 @@ Sample response:
 * **default**: `none`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
-Sets the HTTP `publish` callback, called for each track (audio/video) that is published to the server.
+Sets the URL of the HTTP `publish` callback, called for each track (audio/video) that is published to the server.
 
 Sample request body:
-```
+```json
 {
     "event_type": "publish",
     "input_id": "mpegts://ch1_st1_257",
@@ -145,7 +146,7 @@ See [Publish](../nginx-kmp-out-module/README.md#publish) for more details on the
 * **default**: `none`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
-Sets the HTTP `unpublish` callback, called whenever a track (audio/video) stops being published to the server, or some unrecoverable error occurs when sending to upstream.
+Sets the URL of the HTTP `unpublish` callback, called whenever a track (audio/video) stops being published to the server, or some unrecoverable error occurs when sending to upstream.
 The response of this notification is ignored, and no retries are performed in case of error.
 
 See [Unpublish](../nginx-kmp-out-module/README.md#unpublish) for more details on the `unpublish` request.
@@ -155,7 +156,7 @@ See [Unpublish](../nginx-kmp-out-module/README.md#unpublish) for more details on
 * **default**: `none`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
-Sets the HTTP `republish` callback, called in case of an error/disconnect on some upstream KMP connection.
+Sets the URL of the HTTP `republish` callback, called in case of an error/disconnect on some upstream KMP connection.
 The upstream server can use this event to provide the module with a new KMP endpoint to publish to.
 
 See [Republish](../nginx-kmp-out-module/README.md#republish) for more details on the `republish` request.
@@ -170,7 +171,7 @@ There could be several `ts_kmp_ctrl_add_header` directives.
 These directives are inherited from the previous level if and only if there are no `ts_kmp_ctrl_add_header` directives defined on the current level.
 
 #### ts_kmp_ctrl_timeout
-* **syntax**: `ts_kmp_ctrl_timeout time`
+* **syntax**: `ts_kmp_ctrl_timeout msec`
 * **default**: `2s`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -178,7 +179,7 @@ Sets a timeout for sending HTTP requests to the upstream server.
 The timeout includes both the connection establishment as well as the sending of the request.
 
 #### ts_kmp_ctrl_read_timeout
-* **syntax**: `ts_kmp_ctrl_read_timeout time`
+* **syntax**: `ts_kmp_ctrl_read_timeout msec`
 * **default**: `20s`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -193,7 +194,7 @@ Sets the size of the buffer that holds the response of the HTTP requests.
 The buffer size should be large enough to hold the largest expected response.
 
 #### ts_kmp_ctrl_retries
-* **syntax**: `ts_kmp_ctrl_retries count`
+* **syntax**: `ts_kmp_ctrl_retries num`
 * **default**: `5`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -203,14 +204,14 @@ Sets the number of retries for issuing HTTP requests. A request is considered as
 - The `code` field is missing/has a value other than `ok`
 
 #### ts_kmp_ctrl_retry_interval
-* **syntax**: `ts_kmp_ctrl_retry_interval time`
+* **syntax**: `ts_kmp_ctrl_retry_interval msec`
 * **default**: `2s`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
 Sets the time to wait before performing each retry attempt for HTTP requests.
 
 #### ts_kmp_timescale
-* **syntax**: `ts_kmp_timescale number`
+* **syntax**: `ts_kmp_timescale num`
 * **default**: `90000`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -218,7 +219,7 @@ Sets the timescale that is reported in the KMP media info packet.
 Timestamp scaling is currently not implemented, so this directive should not be changed from the default MPEG-TS timescale.
 
 #### ts_kmp_timeout
-* **syntax**: `ts_kmp_timeout time`
+* **syntax**: `ts_kmp_timeout msec`
 * **default**: `10s`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -293,7 +294,7 @@ Sets the maximum total size of the buffers used to send audio data to the upstre
 If the limit is hit, the module drops the HTTP/TCP connection.
 
 #### ts_kmp_flush_timeout
-* **syntax**: `ts_kmp_flush_timeout time`
+* **syntax**: `ts_kmp_flush_timeout msec`
 * **default**: `1s`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -301,7 +302,7 @@ Sets the timeout for flushing buffered data to the upstream KMP server.
 KMP data is kept in buffers of size ts_kmp_xxx_buffer_size, a buffer is sent when it becomes full, or when the flush timeout expires.
 
 #### ts_kmp_log_frames
-* **syntax**: `ts_kmp_log_frames on|off`
+* **syntax**: `ts_kmp_log_frames on | off`
 * **default**: `off`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -332,6 +333,30 @@ If more than `ts_kmp_republish_interval` seconds passed since the last `republis
 Enables the API interface of this module in the surrounding location block. Access to this location should be limited.
 
 The optional `write` parameter determines whether the API is read-only or read-write. By default, the API is read-only.
+
+
+## API Objects
+
+The sections below list the possible fields in each type of API object.
+
+### Global Scope
+
+- `version` - string, nginx-mpegts-kmp-module version
+- `nginx_version` - string, nginx version
+- `compiler` - string, the compiler used to build nginx-mpegts-kmp-module
+- `built` - string, the time nginx-mpegts-kmp-module was built
+- `pid` - integer, the nginx process id
+- `uptime` - integer, the time since the nginx worker was started, in seconds
+- `sessions` - array of objects, each object is a [Session Object](#session-object)
+
+### Session Object
+
+- `remote_addr` - string, the ip + port of the remote peer
+- `local_addr` - string, the local ip + port of the connection
+- `connection` - integer, the nginx connection identifier, unique per nginx worker process
+- `uptime` - integer, the time that passed since the connection was established, in seconds
+- `stream_id` - string, the value that was set using the `ts_stream_id` directive
+- `tracks` - array of objects, each object is a [Track Object](../nginx-kmp-out-module/README.md#track-object).
 
 
 ## API Endpoints

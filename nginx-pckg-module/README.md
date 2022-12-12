@@ -9,6 +9,7 @@ Optional dependencies:
 - *libavcodec* - required for video frame capture
 - *libswscale* - required for scaling captured video frames
 
+
 ## Features
 
 - Input protocol: *KSMP*
@@ -27,9 +28,10 @@ Optional dependencies:
 - Media encryption / DRM
 - Video frame capture
 
+
 ## Sample Configuration
 
-```
+```nginx
 http {
 
     # Capture channel / timeline ids from URI
@@ -122,6 +124,7 @@ http {
 }
 ```
 
+
 ## URL Structure
 
 The module parses the file name part of the URL (anything after the last `/`) in order to service the request.
@@ -161,6 +164,7 @@ If the `timestamp` is prefixed with a plus (`+`), it is interpreted as an offset
 The `width` / `height` parameters can be used to scale the returned image.
 When these parameters are not supplied, no scaling will be performed - the returned image will use the original video dimensions.
 When only one of the parameters is specified, the other dimension is set to a value that retains the aspect ratio of the original video frame.
+
 
 ## Configuration Directives
 
@@ -229,35 +233,35 @@ The parameter value can contain variables.
 Sets the maximum uncompressed size that is allowed when parsing compressed KLPF responses.
 
 #### pckg_expires_static
-* **syntax**: `pckg_expires_static secs`
+* **syntax**: `pckg_expires_static sec`
 * **default**: `100d`
 * **context**: `http`, `server`, `location`
 
 Sets the value of the `Expires` and `Cache-Control` response headers for successful requests in which the response is static (e.g. media segments and initialization segments).
 
 #### pckg_expires_index
-* **syntax**: `pckg_expires_index secs`
+* **syntax**: `pckg_expires_index sec`
 * **default**: `3s`
 * **context**: `http`, `server`, `location`
 
 Sets the value of the `Expires` and `Cache-Control` response headers for successful requests in which the response contains a list of segments, specifically: HLS index playlists and DASH manifests.
 
 #### pckg_expires_index_gone
-* **syntax**: `pckg_expires_index_gone secs`
+* **syntax**: `pckg_expires_index_gone sec`
 * **default**: `5s`
 * **context**: `http`, `server`, `location`
 
 Sets the value of the `Expires` and `Cache-Control` response headers for requests that return HTTP status 410 (Gone).
 
 #### pckg_expires_index_blocking
-* **syntax**: `pckg_expires_index_blocking secs`
+* **syntax**: `pckg_expires_index_blocking sec`
 * **default**: `30`
 * **context**: `http`, `server`, `location`
 
 Sets the value of the `Expires` and `Cache-Control` response headers for successful index playlist requests that use the `_HLS_msn` query parameter.
 
 #### pckg_expires_master
-* **syntax**: `pckg_expires_master secs`
+* **syntax**: `pckg_expires_master sec`
 * **default**: `30`
 * **context**: `http`, `server`, `location`
 
@@ -327,11 +331,11 @@ For example, when the container is MPEG-TS, the response will contain only a PAT
 When disabled, requests for segments that do not exist on the specific variant/media type will return a 404 error.
 
 #### pckg_output_buffer_pool
-* **syntax**: `pckg_output_buffer_pool size count`
+* **syntax**: `pckg_output_buffer_pool size num`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
-Pre-allocates `count` buffers with the specified `size` for storing output media.
+Pre-allocates `num` buffers with the specified `size` for storing output media.
 The buffer pool can provide a slight performance optimization by avoiding the need to allocate/free the media buffers for every request.
 
 #### pckg_segment_metadata
@@ -356,7 +360,7 @@ When using MPEG-TS container, the ID3 frame is sent in a private stream (SID 0xb
 Enables or disables low-latency HLS features.
 
 When set to `on`, this directive is an alias to the following:
-```
+```nginx
 pckg_m3u8_mux_segments off;
 pckg_m3u8_parts on;
 pckg_m3u8_rendition_reports on;
@@ -367,7 +371,7 @@ pckg_m3u8_ctl_skip_boundary_percent 600;
 ```
 
 When set to `off`, this directive is an alias to the following:
-```
+```nginx
 pckg_m3u8_mux_segments on;
 pckg_m3u8_parts off;
 pckg_m3u8_rendition_reports off;
@@ -487,7 +491,7 @@ When encryption is enabled, and this directive is not used, a URI is generated a
 Sets the value of the `KEYFORMAT` attribute of the `#EXT-X-KEY` tag.
 
 #### pckg_m3u8_enc_key_format_versions
-* **syntax**: `pckg_m3u8_enc_key_format_versions`
+* **syntax**: `pckg_m3u8_enc_key_format_versions str`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -688,6 +692,7 @@ Each object in the array, is rendered as an `#EXT-X-SESSION-DATA` tag, and conta
 - `lang` - string, optional, sets the LANGUAGE attribute.
 
 The object must contain either `value` or `uri`, but not both.
+
 
 ## Embedded Variables
 
