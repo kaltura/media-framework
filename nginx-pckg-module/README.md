@@ -2,7 +2,7 @@
 
 Stateless live media packager.
 
-Required dependencies: *nginx-common*
+Required dependencies: [nginx-common](../nginx-common/)
 
 Optional dependencies:
 - *openssl* - required for media encryption / DRM

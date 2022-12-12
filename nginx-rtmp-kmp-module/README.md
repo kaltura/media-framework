@@ -2,7 +2,7 @@
 
 Publishes incoming RTMP streams to one or more destinations using the KMP (Kaltura Media Protocol) protocol.
 
-Dependencies: *nginx-common*, *nginx-kmp-out-module*
+Dependencies: [nginx-common](../nginx-common/), [nginx-kmp-out-module](../nginx-kmp-out-module/), [nginx-rtmp-module](../nginx-rtmp-module/).
 
 
 ## Configuration

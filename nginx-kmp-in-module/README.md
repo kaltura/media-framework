@@ -2,9 +2,9 @@
 
 A utility module for parsing incoming KMP tracks.
 
-Used by: *nginx-live-module*, *nginx-kmp-cc-module*, *nginx-kmp-rtmp-module*.
+Used by: [nginx-live-module](../nginx-live-module/), [nginx-kmp-cc-module](../nginx-kmp-cc-module/), [nginx-kmp-rtmp-module](../nginx-kmp-rtmp-module/).
 
-Dependencies: *nginx-common*.
+Dependencies: [nginx-common](../nginx-common/).
 
 
 ## Features

@@ -15,7 +15,7 @@ Input codecs:
 - video: *h264 / AVC*, *h265 / HEVC*
 - audio: *AAC*, *MP3*, *AC3*, *E-AC3*
 
-Used by: *nginx-mpegts-kmp-module*.
+Used by: [nginx-mpegts-kmp-module](../nginx-mpegts-kmp-module/).
 
 
 ## Configuration

@@ -8,13 +8,13 @@ for a more optimal resource utilization. For example, the transcoder can utilize
 transcoders on GPU-enabled servers, while the other components would run on servers without GPU.
 
 Media is transmitted between the different components internally using custom protocols -
-1. *Kaltura Media Protocol* (KMP) - a TCP-based protocol for delivering streaming media, conceptually, similar to a single track of fMP4/MPEG-TS
-2. *Kaltura Segmented Media Protocol* (KSMP) - an HTTP-based protocol for delivering media in segments, conceptually, a super-set of LLHLS/DASH
+1. [Kaltura Media Protocol (KMP)](#kaltura-media-protocol-kmp) - a TCP-based protocol for delivering streaming media, conceptually, similar to a single track of fMP4/MPEG-TS
+2. [Kaltura Segmented Media Protocol (KSMP)](#kaltura-segmented-media-protocol-ksmp) - an HTTP-based protocol for delivering media in segments, conceptually, a super-set of LLHLS/DASH
 
 The orchestration of the different media components is performed by a "controller". The main responsibility of the controller is building
 the topology of the media pipeline, and updating it in case of failures. The controller gets JSON events from the media components sent
-as HTTP-POSTs. In addition, all the media processing components expose a JSON-based REST API, that is used by the controller to get
-the latest status and take actions. A sample controller implementation for an all-in-one server is provided under the `conf` folder.
+as HTTP-POSTs. In addition, all the media processing components expose a [JSON-based REST API](#api-overview), that is used by the controller to get
+the latest status and take actions. A sample controller implementation for an all-in-one server is provided in the [conf](conf/) folder.
 
 
 ## Main Features
@@ -153,23 +153,23 @@ flowchart LR;
 
 ### Media Components
 
-- **nginx-rtmp-kmp-module** - live media ingestion, input: *RTMP*, output: *KMP x N*
+- [nginx-rtmp-kmp-module](nginx-rtmp-kmp-module/) - live media ingestion, input: *RTMP*, output: *KMP x N*
 
-- **nginx-mpegts-kmp-module** - live media ingestion, input: *MPEG-TS over TCP/HTTP*, output: *KMP x N*
+- [nginx-mpegts-kmp-module](nginx-mpegts-kmp-module/) - live media ingestion, input: *MPEG-TS over TCP/HTTP*, output: *KMP x N*
 
-- **transcoder** - video/audio transcoding, input: *KMP*, output: *KMP x N*
+- [transcoder](transcoder/) - video/audio transcoding, input: *KMP*, output: *KMP x N*
 
-- **nginx-live-module** - live media segmenter, input: *KMP x N*, output: *KSMP*
+- [nginx-live-module](nginx-live-module/) - live media segmenter, input: *KMP x N*, output: *KSMP*
 
     *Additional features*: persistence, filler, timeline support.
 
-- **nginx-pckg-module** - live media packager (stateless), input: *KSMP*, output: *HLS/LLHLS, DASH*
+- [nginx-pckg-module](nginx-pckg-module/) - live media packager (stateless), input: *KSMP*, output: *HLS/LLHLS, DASH*
 
     *Additional features*: adaptive bitrate, subtitles, alternative audio, media encryption / DRM, video frame capture
 
-- **nginx-kmp-cc-module** - closed-captions decoder, input: *KMP video (h264/5)*, output: *KMP subtitle (WebVTT) x N*
+- [nginx-kmp-cc-module](nginx-kmp-cc-module/) - closed-captions decoder, input: *KMP video (h264/5)*, output: *KMP subtitle (WebVTT) x N*
 
-- **nginx-kmp-rtmp-module** - live media relay, input: *KMP x N*, output: *RTMP*
+- [nginx-kmp-rtmp-module](nginx-kmp-rtmp-module/) - live media relay, input: *KMP x N*, output: *RTMP*
 
 **Important**: All stateful nginx-based components (=all except nginx-pckg-module), must be deployed on a single process nginx server (`worker_processes 1;`).
     The module state is kept per process, and when multiple processes are used, it is not possible to control which process will get the request.
@@ -183,20 +183,20 @@ flowchart LR;
 The following modules are dependencies for building the media components listed above.
 When compiling nginx, the dependencies must be added (`--add-module`) before any module that requires them.
 
-- **nginx-common** - shared code for: exposing an HTTP API, sending HTTP events, parsing JSON, KMP/KSMP definitions, etc.,
+- [nginx-common](nginx-common/) - shared code for: exposing an HTTP API, sending HTTP events, parsing JSON, KMP/KSMP definitions, etc.,
     used by: most nginx modules.
 
-- **nginx-kmp-in-module** - a utility module for receiving KMP input, used by: nginx-live-module, nginx-kmp-cc-module, nginx-kmp-rtmp-module.
+- [nginx-kmp-in-module](nginx-kmp-in-module/) - a utility module for receiving KMP input, used by: nginx-live-module, nginx-kmp-cc-module, nginx-kmp-rtmp-module.
 
-- **nginx-kmp-out-module** - a utility module for sending KMP output, used by nginx-rtmp-kmp-module, nginx-mpegts-kmp-module, nginx-kmp-cc-module.
+- [nginx-kmp-out-module](nginx-kmp-out-module/) - a utility module for sending KMP output, used by nginx-rtmp-kmp-module, nginx-mpegts-kmp-module, nginx-kmp-cc-module.
 
-- **nginx-rtmp-module** - a modified version of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module), used by: nginx-rtmp-kmp-module.
+- [nginx-rtmp-module](nginx-rtmp-module/) - a modified version of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module), used by: nginx-rtmp-kmp-module.
     - Support for multiple RTMP streams on a single connection
     - Support for additional encoders (automatic detection of ext-timestamp in type-3 packets, generation of onFCPublish messages)
     - Detection of embedded captions
     - Removed features: hls/dash output, notifications, relay, auto push, rtmp playback etc.
 
-- **nginx-mpegts-module** - a modified version of [nginx-ts-module](https://github.com/arut/nginx-ts-module), used by: nginx-mpegts-kmp-module.
+- [nginx-mpegts-module](nginx-mpegts-module/) - a modified version of [nginx-ts-module](https://github.com/arut/nginx-ts-module), used by: nginx-mpegts-kmp-module.
     - Support for additional codecs: h265, AC3, E-AC3
     - Removed features: hls/dash output
 
