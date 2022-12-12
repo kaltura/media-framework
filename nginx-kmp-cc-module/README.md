@@ -2,7 +2,7 @@
 
 Decodes *EIA-608* / *CTA-708* closed captions embedded in video tracks.
 
-Dependencies: *nginx-common*, *nginx-kmp-in-module*, *nginx-kmp-out-module*
+Dependencies: [nginx-common](../nginx-common/), [nginx-kmp-in-module](../nginx-kmp-in-module/), [nginx-kmp-out-module](../nginx-kmp-out-module/).
 
 
 ## Features

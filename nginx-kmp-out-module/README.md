@@ -2,9 +2,9 @@
 
 A utility module for outputting KMP tracks.
 
-Used by: *nginx-rtmp-kmp-module*, *nginx-mpegts-kmp-module*, *nginx-kmp-cc-module*.
+Used by: [nginx-rtmp-kmp-module](../nginx-rtmp-kmp-module/), [nginx-mpegts-kmp-module](../nginx-mpegts-kmp-module/), [nginx-kmp-cc-module](../nginx-kmp-cc-module/).
 
-Dependencies: *nginx-common*.
+Dependencies: [nginx-common](../nginx-common/).
 
 
 ## Features

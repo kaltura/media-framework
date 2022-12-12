@@ -2,7 +2,7 @@
 
 Publishes incoming MPEGTS streams to one or more destinations using the KMP (Kaltura Media Protocol) protocol.
 
-Dependencies: *nginx-common*, *nginx-kmp-out-module*
+Dependencies: [nginx-common](../nginx-common/), [nginx-kmp-out-module](../nginx-kmp-out-module/), [nginx-mpegts-module](../nginx-mpegts-module/).
 
 
 ## Configuration

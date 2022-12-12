@@ -16,7 +16,7 @@ Therefore, several features that exist in the original nginx-rtmp-module were re
 - RTMP playback
 - Recording
 
-Used by: *nginx-rtmp-kmp-module*.
+Used by: [nginx-rtmp-kmp-module](../nginx-rtmp-kmp-module/).
 
 
 ## Configuration

@@ -3,7 +3,7 @@
 Partitions incoming media frames to aligned segments (stored in memory or in object storage), for delivery using HTTP-based streaming protocols (HLS / DASH).
 Acts as the "database" of the Media-Framework suite - stores the compressed media, the list of segments, the media info etc.
 
-Dependencies: *nginx-common*, *nginx-kmp-in-module*
+Dependencies: [nginx-common](../nginx-common/), [nginx-kmp-in-module](../nginx-kmp-in-module/).
 
 
 ## Features

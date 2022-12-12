@@ -2,7 +2,7 @@
 
 Publishes incoming KMP tracks to an upstream server using the RTMP protocol.
 
-Dependencies: *nginx-common*, *nginx-kmp-in-module*
+Dependencies: [nginx-common](../nginx-common/), [nginx-kmp-in-module](../nginx-kmp-in-module/).
 
 
 ## Features
