@@ -171,7 +171,7 @@ When only one of the parameters is specified, the other dimension is set to a va
 ### Core Directives
 
 #### pckg
-* **syntax**: `pckg`
+* **syntax**: `pckg;`
 * **default**: ``
 * **context**: `location`
 
@@ -179,7 +179,7 @@ Enables the media packager in the surrounding location block.
 Requests to this location will be parsed according the format explained in [URL structure](#url-structure).
 
 #### pckg_uri
-* **syntax**: `pckg_uri expr`
+* **syntax**: `pckg_uri expr;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -189,7 +189,7 @@ The location referenced by the `pckg_uri` directive, should use the `proxy_pass`
 The parameter value can contain variables.
 
 #### pckg_format
-* **syntax**: `pckg_format format`
+* **syntax**: `pckg_format format;`
 * **default**: `ksmp`
 * **context**: `http`, `server`, `location`
 
@@ -199,7 +199,7 @@ Sets the format of the responses to the packager requests, the following values 
     in order to convert persisted files directly to HLS/DASH, without the need to set up a channel using *nginx-live-module* APIs.
 
 #### pckg_channel_id
-* **syntax**: `pckg_channel_id expr`
+* **syntax**: `pckg_channel_id expr;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -208,7 +208,7 @@ The channel id is usually captured from the request uri using a regex location o
 The parameter value can contain variables.
 
 #### pckg_timeline_id
-* **syntax**: `pckg_timeline_id expr`
+* **syntax**: `pckg_timeline_id expr;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -217,7 +217,7 @@ The timeline id is usually captured from the request uri using a regex location 
 The parameter value can contain variables.
 
 #### pckg_max_segment_index
-* **syntax**: `pckg_max_segment_index expr`
+* **syntax**: `pckg_max_segment_index expr;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -226,56 +226,56 @@ This parameter can be used to create a live replay of persisted streams - the li
 The parameter value can contain variables.
 
 #### pckg_ksmp_max_uncomp_size
-* **syntax**: `pckg_ksmp_max_uncomp_size size`
+* **syntax**: `pckg_ksmp_max_uncomp_size size;`
 * **default**: `5m`
 * **context**: `http`, `server`, `location`
 
 Sets the maximum uncompressed size that is allowed when parsing compressed KLPF responses.
 
 #### pckg_expires_static
-* **syntax**: `pckg_expires_static sec`
+* **syntax**: `pckg_expires_static sec;`
 * **default**: `100d`
 * **context**: `http`, `server`, `location`
 
 Sets the value of the `Expires` and `Cache-Control` response headers for successful requests in which the response is static (e.g. media segments and initialization segments).
 
 #### pckg_expires_index
-* **syntax**: `pckg_expires_index sec`
+* **syntax**: `pckg_expires_index sec;`
 * **default**: `3s`
 * **context**: `http`, `server`, `location`
 
 Sets the value of the `Expires` and `Cache-Control` response headers for successful requests in which the response contains a list of segments, specifically: HLS index playlists and DASH manifests.
 
 #### pckg_expires_index_gone
-* **syntax**: `pckg_expires_index_gone sec`
+* **syntax**: `pckg_expires_index_gone sec;`
 * **default**: `5s`
 * **context**: `http`, `server`, `location`
 
 Sets the value of the `Expires` and `Cache-Control` response headers for requests that return HTTP status 410 (Gone).
 
 #### pckg_expires_index_blocking
-* **syntax**: `pckg_expires_index_blocking sec`
+* **syntax**: `pckg_expires_index_blocking sec;`
 * **default**: `30`
 * **context**: `http`, `server`, `location`
 
 Sets the value of the `Expires` and `Cache-Control` response headers for successful index playlist requests that use the `_HLS_msn` query parameter.
 
 #### pckg_expires_master
-* **syntax**: `pckg_expires_master sec`
+* **syntax**: `pckg_expires_master sec;`
 * **default**: `30`
 * **context**: `http`, `server`, `location`
 
 Sets the value of the `Expires` and `Cache-Control` response headers for successful master playlist requests.
 
 #### pckg_last_modified_static
-* **syntax**: `pckg_last_modified_static http_time`
+* **syntax**: `pckg_last_modified_static http_time;`
 * **default**: `Fri, 01 Jan 2010 00:00:00 GMT`
 * **context**: `http`, `server`, `location`
 
 Sets the value of the `Last-Modified` response header for successful requests in which the response is static (e.g. media segments and initialization segments).
 
 #### pckg_pass_codes
-* **syntax**: `pckg_pass_codes off | any | code...`
+* **syntax**: `pckg_pass_codes off | any | code...;`
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
@@ -285,7 +285,7 @@ When the value is `any`, any error status code returned from *nginx-live-module*
 Alternatively, a list of specific status codes can be specified, the supported status codes are: 400, 404, 410.
 
 #### pckg_active_policy
-* **syntax**: `pckg_active_policy last | any`
+* **syntax**: `pckg_active_policy last | any;`
 * **default**: `last`
 * **context**: `http`, `server`, `location`
 
@@ -294,7 +294,7 @@ When the value is `last`, only variants which contain the last segment in the ti
 When the value is `any`, variants which contain any segment in the timeline are considered active.
 
 #### pckg_media_type_selector
-* **syntax**: `pckg_media_type_selector request | actual`
+* **syntax**: `pckg_media_type_selector request | actual;`
 * **default**: `request`
 * **context**: `http`, `server`, `location`
 
@@ -306,7 +306,7 @@ For example, a request for `index.m3u8` may return a video selector (`v`) when t
 and it may return an audio selector (`a`) when the variant is audio-only.
 
 #### pckg_back_fill
-* **syntax**: `pckg_back_fill on | off`
+* **syntax**: `pckg_back_fill on | off;`
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
@@ -321,7 +321,7 @@ requests for segments that did not contain media for `a2`, will return only the 
 An implication of back-filling is that responses for segment requests may change over time.
 
 #### pckg_empty_segments
-* **syntax**: `pckg_empty_segments on | off`
+* **syntax**: `pckg_empty_segments on | off;`
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
@@ -331,7 +331,7 @@ For example, when the container is MPEG-TS, the response will contain only a PAT
 When disabled, requests for segments that do not exist on the specific variant/media type will return a 404 error.
 
 #### pckg_output_buffer_pool
-* **syntax**: `pckg_output_buffer_pool size num`
+* **syntax**: `pckg_output_buffer_pool size num;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -339,7 +339,7 @@ Pre-allocates `num` buffers with the specified `size` for storing output media.
 The buffer pool can provide a slight performance optimization by avoiding the need to allocate/free the media buffers for every request.
 
 #### pckg_segment_metadata
-* **syntax**: `pckg_segment_metadata expr`
+* **syntax**: `pckg_segment_metadata expr;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -353,7 +353,7 @@ When using MPEG-TS container, the ID3 frame is sent in a private stream (SID 0xb
 ### M3u8 Directives (HLS)
 
 #### pckg_m3u8_low_latency
-* **syntax**: `pckg_m3u8_low_latency on | off`
+* **syntax**: `pckg_m3u8_low_latency on | off;`
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
@@ -382,7 +382,7 @@ pckg_m3u8_ctl_skip_boundary_percent 0;
 ```
 
 #### pckg_m3u8_container
-* **syntax**: `pckg_m3u8_container auto | mpegts | fmp4`
+* **syntax**: `pckg_m3u8_container auto | mpegts | fmp4;`
 * **default**: `auto`
 * **context**: `http`, `server`, `location`
 
@@ -394,7 +394,7 @@ When set to `auto`, MPEG-TS container is used by default, however, if any of the
 - The variant contains an h265/HEVC video track - according to the HLS authoring specification, the container format for HEVC video must be fMP4.
 
 #### pckg_m3u8_subtitle_format
-* **syntax**: `pckg_m3u8_subtitle_format webvtt | imsc`
+* **syntax**: `pckg_m3u8_subtitle_format webvtt | imsc;`
 * **default**: `webvtt`
 * **context**: `http`, `server`, `location`
 
@@ -403,7 +403,7 @@ Sets the container used for delivering subtitles -
 - `imsc` - the segments are TTML sections, encapsulated in an fMP4 container.
 
 #### pckg_m3u8_mux_segments
-* **syntax**: `pckg_m3u8_mux_segments on | off | expr`
+* **syntax**: `pckg_m3u8_mux_segments on | off | expr;`
 * **default**: `on`
 * **context**: `http`, `server`, `location`
 
@@ -414,21 +414,21 @@ The master playlist uses `#EXT-X-MEDIA` to connect the video stream and the audi
 The parameter value can contain variables.
 
 #### pckg_m3u8_parts
-* **syntax**: `pckg_m3u8_parts on | off`
+* **syntax**: `pckg_m3u8_parts on | off;`
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
 When enabled, the module outputs parts in index playlist responses (using `#EXT-X-PART` / `#EXT-X-PRELOAD-HINT` tags).
 
 #### pckg_m3u8_rendition_reports
-* **syntax**: `pckg_m3u8_rendition_reports on | off`
+* **syntax**: `pckg_m3u8_rendition_reports on | off;`
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
 When enabled, the module outputs rendition reports in index playlist responses (using `#EXT-X-RENDITION-REPORT` tags).
 
 #### pckg_m3u8_program_date_time
-* **syntax**: `pckg_m3u8_program_date_time on | off | expr`
+* **syntax**: `pckg_m3u8_program_date_time on | off | expr;`
 * **default**: `on`
 * **context**: `http`, `server`, `location`
 
@@ -436,7 +436,7 @@ When enabled, the module output an `#EXT-X-PROGRAM-DATE-TIME` tag for each perio
 The parameter value can contain variables.
 
 #### pckg_m3u8_ctl_block_reload
-* **syntax**: `pckg_m3u8_ctl_block_reload on | off | expr`
+* **syntax**: `pckg_m3u8_ctl_block_reload on | off | expr;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -444,7 +444,7 @@ When enabled, the module includes the `CAN-BLOCK-RELOAD=YES` attribute in the re
 The parameter value can contain variables.
 
 #### pckg_m3u8_ctl_part_hold_back_percent
-* **syntax**: `pckg_m3u8_ctl_part_hold_back_percent num | expr`
+* **syntax**: `pckg_m3u8_ctl_part_hold_back_percent num | expr;`
 * **default**: `300`
 * **context**: `http`, `server`, `location`
 
@@ -453,7 +453,7 @@ The value is expressed as a percent of the part duration defined in the segmente
 The parameter value can contain variables.
 
 #### pckg_m3u8_ctl_skip_boundary_percent
-* **syntax**: `pckg_m3u8_ctl_skip_boundary_percent num | expr`
+* **syntax**: `pckg_m3u8_ctl_skip_boundary_percent num | expr;`
 * **default**: `0`
 * **context**: `http`, `server`, `location`
 
@@ -462,14 +462,14 @@ The value is expressed as a percent of the target duration of the timeline.
 The parameter value can contain variables.
 
 #### pckg_m3u8_enc_output_iv
-* **syntax**: `pckg_m3u8_enc_output_iv on | off`
+* **syntax**: `pckg_m3u8_enc_output_iv on | off;`
 * **default**: `on`
 * **context**: `http`, `server`, `location`
 
 When enabled, the module outputs the `IV` attribute in returned `#EXT-X-KEY` / `#EXT-X-SESSION-KEY` tags.
 
 #### pckg_m3u8_enc_key_uri
-* **syntax**: `pckg_m3u8_enc_key_uri expr`
+* **syntax**: `pckg_m3u8_enc_key_uri expr;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -484,14 +484,14 @@ When encryption is enabled, and this directive is not used, a URI is generated a
 - Otherwise, URI will return an `enc.key` URL, according to the the configured `pckg_enc_scope`.
 
 #### pckg_m3u8_enc_key_format
-* **syntax**: `pckg_m3u8_enc_key_format str`
+* **syntax**: `pckg_m3u8_enc_key_format str;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
 Sets the value of the `KEYFORMAT` attribute of the `#EXT-X-KEY` tag.
 
 #### pckg_m3u8_enc_key_format_versions
-* **syntax**: `pckg_m3u8_enc_key_format_versions str`
+* **syntax**: `pckg_m3u8_enc_key_format_versions str;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -500,7 +500,7 @@ Sets the value of the `KEYFORMATVERSIONS` attribute of the `#EXT-X-KEY` tag.
 ### MPD Directives (DASH)
 
 #### pckg_mpd_profiles
-* **syntax**: `pckg_mpd_profiles expr`
+* **syntax**: `pckg_mpd_profiles expr;`
 * **default**: `urn:mpeg:dash:profile:isoff-live:2011`
 * **context**: `http`, `server`, `location`
 
@@ -508,7 +508,7 @@ Sets the value of the `profiles` attribute of the `MPD` element.
 The parameter value can contain variables.
 
 #### pckg_mpd_subtitle_format
-* **syntax**: `pckg_mpd_subtitle_format wvtt | stpp`
+* **syntax**: `pckg_mpd_subtitle_format wvtt | stpp;`
 * **default**: `wvtt`
 * **context**: `http`, `server`, `location`
 
@@ -517,7 +517,7 @@ Sets the container used for delivering subtitles -
 - `stpp` - the segments are TTML sections, encapsulated in an fMP4 container.
 
 #### pckg_mpd_pres_delay_segments
-* **syntax**: `pckg_mpd_pres_delay_segments num`
+* **syntax**: `pckg_mpd_pres_delay_segments num;`
 * **default**: `3`
 * **context**: `http`, `server`, `location`
 
@@ -530,7 +530,7 @@ the suggested presentation delay will be: `now - segment_start_time[N - 2]`.
 ### MPEG-TS Directives
 
 #### pckg_mpegts_interleave_frames
-* **syntax**: `pckg_mpegts_interleave_frames on | off`
+* **syntax**: `pckg_mpegts_interleave_frames on | off;`
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
@@ -540,7 +540,7 @@ When disabled, on every switch between audio / video the muxer flushes the MPEG 
 Enabling this setting can reduce the muxing overhead of the MPEG-TS packaging.
 
 #### pckg_mpegts_align_frames
-* **syntax**: `pckg_mpegts_align_frames on | off`
+* **syntax**: `pckg_mpegts_align_frames on | off;`
 * **default**: `on`
 * **context**: `http`, `server`, `location`
 
@@ -551,7 +551,7 @@ Disabling this setting can reduce the muxing overhead of the MPEG-TS packaging.
 ### Encryption Directives
 
 #### pckg_enc_scheme
-* **syntax**: `pckg_enc_scheme none | aes-128 | cbcs | cenc`
+* **syntax**: `pckg_enc_scheme none | aes-128 | cbcs | cenc;`
 * **default**: `none`
 * **context**: `http`, `server`, `location`
 
@@ -562,7 +562,7 @@ When using the MPEG-TS container:
 - the `cenc` scheme is not supported.
 
 #### pckg_enc_scope
-* **syntax**: `pckg_enc_scope channel | media_type | variant | track`
+* **syntax**: `pckg_enc_scope channel | media_type | variant | track;`
 * **default**: `channel`
 * **context**: `http`, `server`, `location`
 
@@ -573,7 +573,7 @@ Sets the scope of the encryption keys, the following values are supported:
 - `track` - an encryption key is assigned for each track.
 
 #### pckg_enc_key_seed
-* **syntax**: `pckg_enc_key_seed expr`
+* **syntax**: `pckg_enc_key_seed expr;`
 * **default**: `$pckg_channel_id`
 * **context**: `http`, `server`, `location`
 
@@ -584,7 +584,7 @@ The provided expression may be evaluated multiple times, depending on the value 
 The variables `pckg_variant_id` / `pckg_media_type` can be used in the expression to produce multiple seeds, when the encryption scope is not `channel`.
 
 #### pckg_enc_iv_seed
-* **syntax**: `pckg_enc_iv_seed expr`
+* **syntax**: `pckg_enc_iv_seed expr;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -597,14 +597,14 @@ The variables `pckg_variant_id` / `pckg_media_type` can be used in the expressio
 If this directive is not set, the expression provided in `pckg_enc_key_seed` is used by default.
 
 #### pckg_enc_serve_key
-* **syntax**: `pckg_enc_serve_key on | off`
+* **syntax**: `pckg_enc_serve_key on | off;`
 * **default**: `on`
 * **context**: `http`, `server`, `location`
 
 When enabled, the module serves the encryption keys in the clear, when getting `enc.key` requests.
 
 #### pckg_enc_json
-* **syntax**: `pckg_enc_json expr`
+* **syntax**: `pckg_enc_json expr;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -626,7 +626,7 @@ The provided expression must evaluate to a JSON object, containing the following
 ### Capture Directives
 
 #### pckg_capture
-* **syntax**: `pckg_capture on | off`
+* **syntax**: `pckg_capture on | off;`
 * **default**: `off`
 * **context**: `http`, `server`, `location`
 
@@ -635,7 +635,7 @@ Enables / disables the capture functionality.
 Capture requests are more CPU-intensive than requests for serving media, therefore, they are disabled by default.
 
 #### pckg_capture_redirect
-* **syntax**: `pckg_capture_redirect on | off`
+* **syntax**: `pckg_capture_redirect on | off;`
 * **default**: `on`
 * **context**: `http`, `server`, `location`
 
@@ -646,7 +646,7 @@ while requests that use absolute timestamps return a static image. The use of re
 of the resulting images (by a CDN / proxy).
 
 #### pckg_capture_granularity
-* **syntax**: `pckg_capture_granularity frame | key`
+* **syntax**: `pckg_capture_granularity frame | key;`
 * **default**: `frame`
 * **context**: `http`, `server`, `location`
 
@@ -660,7 +660,7 @@ setting the value to `key` reduces CPU usage (only one frame is decoded) and int
 ### Closed Captions Directives
 
 #### pckg_captions_json
-* **syntax**: `pckg_captions_json expr`
+* **syntax**: `pckg_captions_json expr;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 
@@ -677,7 +677,7 @@ The values must be objects containing the following fields:
 ### Session Data Directives
 
 #### pckg_session_data_json
-* **syntax**: `pckg_session_data_json expr`
+* **syntax**: `pckg_session_data_json expr;`
 * **default**: ``
 * **context**: `http`, `server`, `location`
 

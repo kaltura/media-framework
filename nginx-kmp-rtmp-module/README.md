@@ -72,7 +72,7 @@ http {
 ### Configuration Directives
 
 #### kmp_rtmp_api
-* **syntax**: `kmp_rtmp_api [write=on|off]`
+* **syntax**: `kmp_rtmp_api [write=on|off];`
 * **default**: `none`
 * **context**: `location`
 
@@ -81,14 +81,14 @@ Enables the API interface of this module in the surrounding location block. Acce
 The optional `write` parameter determines whether the API is read-only or read-write. By default, the API is read-only.
 
 #### kmp_rtmp
-* **syntax**: `kmp_rtmp`
+* **syntax**: `kmp_rtmp;`
 * **default**: ``
 * **context**: `server`
 
 Enables the media interface of this module in the surrounding server block.
 
 #### kmp_rtmp_in_read_timeout
-* **syntax**: `kmp_rtmp_in_read_timeout msec`
+* **syntax**: `kmp_rtmp_in_read_timeout msec;`
 * **default**: `20s`
 * **context**: `stream`, `server`
 
@@ -97,7 +97,7 @@ The timeout is set only between two successive read operations, not for the tran
 If the client does not transmit anything within this time, the connection is closed.
 
 #### kmp_rtmp_in_send_timeout
-* **syntax**: `kmp_rtmp_in_send_timeout msec`
+* **syntax**: `kmp_rtmp_in_send_timeout msec;`
 * **default**: `10s`
 * **context**: `stream`, `server`
 
@@ -106,7 +106,7 @@ The timeout is set only between two successive write operations.
 If the client does not receive anything within this time, the connection is closed.
 
 #### kmp_rtmp_in_mem_limit
-* **syntax**: `kmp_rtmp_in_mem_limit size`
+* **syntax**: `kmp_rtmp_in_mem_limit size;`
 * **default**: `256k`
 * **context**: `stream`, `server`
 
@@ -117,14 +117,14 @@ at this point, the KMP connection is linked to an upstream object,
 and the memory usage tracking moves to the upstream level (`kmp_rtmp_out_mem_limit`)
 
 #### kmp_rtmp_in_buffer_size
-* **syntax**: `kmp_rtmp_in_buffer_size size`
+* **syntax**: `kmp_rtmp_in_buffer_size size;`
 * **default**: `64k`
 * **context**: `stream`, `server`
 
 Sets the size of the buffers used to read video / audio data from the client connection.
 
 #### kmp_rtmp_in_buffer_bin_count
-* **syntax**: `kmp_rtmp_in_buffer_bin_count num`
+* **syntax**: `kmp_rtmp_in_buffer_bin_count num;`
 * **default**: `8`
 * **context**: `stream`, `server`
 
@@ -135,7 +135,7 @@ This is done in order to concentrate the allocated blocks in fewer buffers, and 
 the allocator to free unused buffers.
 
 #### kmp_rtmp_in_max_free_buffers
-* **syntax**: `kmp_rtmp_in_max_free_buffers num`
+* **syntax**: `kmp_rtmp_in_max_free_buffers num;`
 * **default**: `4`
 * **context**: `stream`, `server`
 
@@ -143,7 +143,7 @@ Sets the maximum number of free input buffers that are kept after they are copie
 A large value may save some memory alloc/free operations, but can also increase memory usage.
 
 #### kmp_rtmp_in_log_frames
-* **syntax**: `kmp_rtmp_in_log_frames on | off`
+* **syntax**: `kmp_rtmp_in_log_frames on | off;`
 * **default**: `off`
 * **context**: `stream`, `server`
 
@@ -152,7 +152,7 @@ When enabled, the module logs the metadata of every video / audio frame that is 
 2. Data size and MD5 hash
 
 #### kmp_rtmp_in_dump_folder
-* **syntax**: `kmp_rtmp_in_dump_folder path`
+* **syntax**: `kmp_rtmp_in_dump_folder path;`
 * **default**: ``
 * **context**: `stream`, `server`
 
@@ -160,7 +160,7 @@ When set to a non-empty string, the module saves all incoming KMP data to files 
 The file names have the following structure: `ngx_live_kmp_dump_{date}_{pid}_{connection}.dat`.
 
 #### kmp_rtmp_out_notif_url
-* **syntax**: `kmp_rtmp_out_notif_url url`
+* **syntax**: `kmp_rtmp_out_notif_url url;`
 * **default**: ``
 * **context**: `stream`, `server`
 
@@ -206,7 +206,7 @@ The `reason` field in the request can have the following values -
 - `process_frame_failed` - error allocating output buffer / chain, possibly due to upstream memory limit
 
 #### kmp_rtmp_out_notif_add_header
-* **syntax**: `kmp_rtmp_out_notif_add_header name value`
+* **syntax**: `kmp_rtmp_out_notif_add_header name value;`
 * **default**: ``
 * **context**: `stream`, `server`
 
@@ -215,7 +215,7 @@ There could be several `kmp_rtmp_out_notif_add_header` directives.
 These directives are inherited from the previous level if and only if there are no `kmp_rtmp_out_notif_add_header` directives defined on the current level.
 
 #### kmp_rtmp_out_notif_timeout
-* **syntax**: `kmp_rtmp_out_notif_timeout msec`
+* **syntax**: `kmp_rtmp_out_notif_timeout msec;`
 * **default**: `2s`
 * **context**: `stream`, `server`
 
@@ -223,21 +223,21 @@ Sets a timeout for sending notification requests.
 The timeout includes both the connection establishment as well as the sending of the request.
 
 #### kmp_rtmp_out_notif_read_timeout
-* **syntax**: `kmp_rtmp_out_notif_read_timeout msec`
+* **syntax**: `kmp_rtmp_out_notif_read_timeout msec;`
 * **default**: `20s`
 * **context**: `stream`, `server`
 
 Sets a timeout for reading the response of notification requests.
 
 #### kmp_rtmp_out_notif_buffer_size
-* **syntax**: `kmp_rtmp_out_notif_buffer_size size`
+* **syntax**: `kmp_rtmp_out_notif_buffer_size size;`
 * **default**: `4k`
 * **context**: `stream`, `server`
 
 Sets the size of the buffer that holds the response of the notification requests.
 
 #### kmp_rtmp_out_mem_limit
-* **syntax**: `kmp_rtmp_out_mem_limit size`
+* **syntax**: `kmp_rtmp_out_mem_limit size;`
 * **default**: `16m`
 * **context**: `stream`, `server`
 
@@ -247,7 +247,7 @@ as well as the RTMP output buffers until they are sent.
 If the limit is hit, the module drops the upstream RTMP connection and all its input KMP connections.
 
 #### kmp_rtmp_out_max_free_buffers
-* **syntax**: `kmp_rtmp_out_max_free_buffers num`
+* **syntax**: `kmp_rtmp_out_max_free_buffers num;`
 * **default**: `4`
 * **context**: `stream`, `server`
 
@@ -255,7 +255,7 @@ Sets the maximum number of free output buffers that are kept after being sent to
 A large value may save some memory alloc/free operations, but can also increase memory usage.
 
 #### kmp_rtmp_out_timeout
-* **syntax**: `kmp_rtmp_out_timeout msec`
+* **syntax**: `kmp_rtmp_out_timeout msec;`
 * **default**: `10s`
 * **context**: `stream`, `server`
 
@@ -263,7 +263,7 @@ Sets the timeout for sending data to the upstream RTMP server.
 The timeout is set only between two successive write operations.
 
 #### kmp_rtmp_out_flush_timeout
-* **syntax**: `kmp_rtmp_out_flush_timeout msec`
+* **syntax**: `kmp_rtmp_out_flush_timeout msec;`
 * **default**: `500ms`
 * **context**: `stream`, `server`
 
@@ -271,7 +271,7 @@ Sets the timeout for flushing buffered data to the upstream RTMP server.
 RTMP output data is kept in buffers of size `kmp_rtmp_out_buffer_size`, a buffer is sent when it becomes full, or when the flush timeout expires.
 
 #### kmp_rtmp_out_buffer_size
-* **syntax**: `kmp_rtmp_out_buffer_size size`
+* **syntax**: `kmp_rtmp_out_buffer_size size;`
 * **default**: ``
 * **context**: `stream`, `server`
 
@@ -279,7 +279,7 @@ Sets the size of the buffers used to send data to the upstream server.
 A large value can be more efficient, but increases the latency (a buffer is sent either when it's full or the flush timeout expires).
 
 #### kmp_rtmp_out_buffer_bin_count
-* **syntax**: `kmp_rtmp_out_buffer_bin_count num`
+* **syntax**: `kmp_rtmp_out_buffer_bin_count num;`
 * **default**: ``
 * **context**: `stream`, `server`
 
@@ -290,7 +290,7 @@ This is done in order to concentrate the allocated blocks in fewer buffers, and 
 the allocator to free unused buffers.
 
 #### kmp_rtmp_out_flash_ver
-* **syntax**: `kmp_rtmp_out_flash_ver str`
+* **syntax**: `kmp_rtmp_out_flash_ver str;`
 * **default**: `FMLE/3.0 (compatible; KalturaLive/{version})`
 * **context**: `stream`, `server`
 
@@ -298,7 +298,7 @@ Sets the default `flashVer` value that is sent in the RTMP connect command.
 This default can be overridden per-upstream by supplying the `flash_ver` field in the connect data JSON.
 
 #### kmp_rtmp_out_chunk_size
-* **syntax**: `kmp_rtmp_out_chunk_size size`
+* **syntax**: `kmp_rtmp_out_chunk_size size;`
 * **default**: `64k`
 * **context**: `stream`, `server`
 
@@ -306,7 +306,7 @@ Sets the size of the RTMP chunks sent to the upstream server.
 The value must be in the range 128 .. 16777215.
 
 #### kmp_rtmp_out_write_meta_timeout
-* **syntax**: `kmp_rtmp_out_write_meta_timeout msec`
+* **syntax**: `kmp_rtmp_out_write_meta_timeout msec;`
 * **default**: `3s`
 * **context**: `stream`, `server`
 
@@ -317,7 +317,7 @@ However, if a stream gets only video data, for example, the module will wait, in
 If the audio arrives after the metadata was already sent, the module will reject the incoming KMP connection.
 
 #### kmp_rtmp_out_min_process_delay
-* **syntax**: `kmp_rtmp_out_min_process_delay msec`
+* **syntax**: `kmp_rtmp_out_min_process_delay msec;`
 * **default**: `500ms`
 * **context**: `stream`, `server`
 
@@ -329,7 +329,7 @@ To put it differently - the fact that video frame X has a timestamp lower than a
 doesn't necessarily mean that frame X will be read by this module before frame Y.
 
 #### kmp_rtmp_out_max_process_delay
-* **syntax**: `kmp_rtmp_out_max_process_delay msec`
+* **syntax**: `kmp_rtmp_out_max_process_delay msec;`
 * **default**: `1s`
 * **context**: `stream`, `server`
 
@@ -343,7 +343,7 @@ will exceed the max processing delay, and will be chosen. This enables the track
 and once that happens, processing will continue normally.
 
 #### kmp_rtmp_out_onfi_period
-* **syntax**: `kmp_rtmp_out_onfi_period msec`
+* **syntax**: `kmp_rtmp_out_onfi_period msec;`
 * **default**: `5s`
 * **context**: `stream`, `server`
 
@@ -352,7 +352,7 @@ This can be useful since RTMP timestamps wrap around every ~49 days.
 If the period is set to zero, no `onFI` messages are sent.
 
 #### kmp_rtmp_out_dump_folder
-* **syntax**: `kmp_rtmp_out_dump_folder path`
+* **syntax**: `kmp_rtmp_out_dump_folder path;`
 * **default**: ``
 * **context**: `stream`, `server`
 

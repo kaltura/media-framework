@@ -604,7 +604,7 @@ In addition to the standard nginx interfaces, the live core modules provide the 
 ### HTTP Directives
 
 #### live_api
-* **syntax**: `live_api [write=on|off] [upsert=on|off]`
+* **syntax**: `live_api [write=on|off] [upsert=on|off];`
 * **default**: `none`
 * **context**: `location`
 
@@ -617,7 +617,7 @@ The following optional parameters can be specified:
     When set to `on`, the existing object is updated with the values sent in the API request.
 
 #### live_ksmp
-* **syntax**: `live_ksmp`
+* **syntax**: `live_ksmp;`
 * **default**: ``
 * **context**: `location`
 
@@ -625,7 +625,7 @@ Enables the KSMP interface of this module in the surrounding location block.
 The packager (*nginx-pckg-module*) can be configured to pull from this location, in order to serve HLS / DASH streams to the player.
 
 #### live_ksmp_comp_level
-* **syntax**: `live_ksmp_comp_level level`
+* **syntax**: `live_ksmp_comp_level level;`
 * **default**: `6`
 * **context**: `http`, `server`, `location`
 
@@ -634,14 +634,14 @@ Sets a zlib compression level for the KSMP response buffer. Acceptable values ar
 ### Stream Directives
 
 #### live_kmp
-* **syntax**: `live_kmp`
+* **syntax**: `live_kmp;`
 * **default**: ``
 * **context**: `server`
 
 Enables the KMP interface of this module in the surrounding server block.
 
 #### live_kmp_read_timeout
-* **syntax**: `live_kmp_read_timeout msec`
+* **syntax**: `live_kmp_read_timeout msec;`
 * **default**: `20s`
 * **context**: `stream`, `server`
 
@@ -650,7 +650,7 @@ The timeout is set only between two successive read operations, not for the tran
 If the client does not transmit anything within this time, the connection is closed.
 
 #### live_kmp_send_timeout
-* **syntax**: `live_kmp_send_timeout msec`
+* **syntax**: `live_kmp_send_timeout msec;`
 * **default**: `10s`
 * **context**: `stream`, `server`
 
@@ -659,7 +659,7 @@ The timeout is set only between two successive write operations.
 If the client does not receive anything within this time, the connection is closed.
 
 #### live_kmp_log_frames
-* **syntax**: `live_kmp_log_frames on | off`
+* **syntax**: `live_kmp_log_frames on | off;`
 * **default**: `off`
 * **context**: `stream`, `server`
 
@@ -668,7 +668,7 @@ When enabled, the module logs the metadata of every video frame that is received
 2. Data size and MD5 hash
 
 #### live_kmp_dump_folder
-* **syntax**: `live_kmp_dump_folder path`
+* **syntax**: `live_kmp_dump_folder path;`
 * **default**: ``
 * **context**: `stream`, `server`
 
@@ -693,28 +693,28 @@ Defines a live preset. A live preset is a collection of configuration parameters
 When a channel is created via the API, the `prefix` field must point to some `preset` blocked defined in the configuration.
 
 #### variables_hash_max_size
-* **syntax**: `variables_hash_max_size size`
+* **syntax**: `variables_hash_max_size size;`
 * **default**: `1024`
 * **context**: `live`
 
 Sets the maximum size of the variables hash table.
 
 #### variables_hash_bucket_size
-* **syntax**: `variables_hash_bucket_size size`
+* **syntax**: `variables_hash_bucket_size size;`
 * **default**: `64`
 * **context**: `live`
 
 Sets the bucket size for the variables hash table.
 
 #### preset_names_hash_max_size
-* **syntax**: `preset_names_hash_max_size size`
+* **syntax**: `preset_names_hash_max_size size;`
 * **default**: `512`
 * **context**: `live`
 
 Sets the maximum size of the presets hash table.
 
 #### preset_names_hash_bucket_size
-* **syntax**: `preset_names_hash_bucket_size size`
+* **syntax**: `preset_names_hash_bucket_size size;`
 * **default**: `32|64|128`
 * **context**: `live`
 
@@ -722,7 +722,7 @@ Sets the bucket size for the presets hash table.
 The default value depends on the processor’s cache line size.
 
 #### mem_limit
-* **syntax**: `mem_limit size`
+* **syntax**: `mem_limit size;`
 * **default**: `64m`
 * **context**: `live`, `preset`
 
@@ -735,7 +735,7 @@ Media buffers are the largest consumer of memory.
 The memory limit should be set to a value high enough to keep several media segments, across all the tracks of the channel.
 
 #### mem_high_watermark
-* **syntax**: `mem_high_watermark percent`
+* **syntax**: `mem_high_watermark percent;`
 * **default**: `75`
 * **context**: `live`, `preset`
 
@@ -745,14 +745,14 @@ If the high watermark is reached, the module applies a few strategies in order t
 This process stops when the memory usage drops below the low watermark threshold.
 
 #### mem_low_watermark
-* **syntax**: `mem_low_watermark percent`
+* **syntax**: `mem_low_watermark percent;`
 * **default**: `50`
 * **context**: `live`, `preset`
 
 See the description of `mem_high_watermark` above.
 
 #### mem_block_sizes
-* **syntax**: `mem_block_sizes size1 [size2 [ ... ] ]`
+* **syntax**: `mem_block_sizes size1 [size2 [ ... ] ];`
 * **default**: `64 124 644 2240`
 * **context**: `live`, `preset`
 
@@ -763,7 +763,7 @@ Nearly all allocations are performed in sizes that are known in advance, and are
 Currently, the only exception is the allocation of the codec extra data - this is the only allocation affected by this setting.
 
 #### timescale
-* **syntax**: `timescale num`
+* **syntax**: `timescale num;`
 * **default**: `90000`
 * **context**: `live`, `preset`
 
@@ -771,7 +771,7 @@ Sets the timescale of the channel (in Hz) used for: frame timestamp, segment dur
 All incoming KMP tracks must conform to the timescale of the channel - re-scaling is currently not supported.
 
 #### segment_duration
-* **syntax**: `segment_duration msec`
+* **syntax**: `segment_duration msec;`
 * **default**: `6s`
 * **context**: `live`, `preset`
 
@@ -782,14 +782,14 @@ The actual duration of the segments may be different than the configured value, 
 For example, if the segment duration is set to the default 6 sec, but some input video track has a GOP of 8 sec, the segments will have a duration of 8 sec.
 
 #### part_duration
-* **syntax**: `part_duration msec`
+* **syntax**: `part_duration msec;`
 * **default**: `1s`
 * **context**: `live`, `preset`
 
 Sets the duration of partial segments, applies only when using the low-latency segmenter.
 
 #### input_delay
-* **syntax**: `input_delay msec`
+* **syntax**: `input_delay msec;`
 * **default**: `0`
 * **context**: `live`, `preset`
 
@@ -803,7 +803,7 @@ This behavior was chosen instead of using the clock, so that in case of a reconn
 frames that already waited long enough, will be processed immediately.
 
 #### input_delay_margin
-* **syntax**: `input_delay_margin msec`
+* **syntax**: `input_delay_margin msec;`
 * **default**: `1s`
 * **context**: `live`, `preset`
 
@@ -827,14 +827,14 @@ Creates a new variable whose value depends on values of one or more of the sourc
 See the documentation of the `map` directive of the nginx `stream` module for more details.
 
 #### map_hash_max_size
-* **syntax**: `map_hash_max_size size`
+* **syntax**: `map_hash_max_size size;`
 * **default**: `2048`
 * **context**: `live`
 
 Sets the maximum size of the map variables hash table.
 
 #### map_hash_bucket_size
-* **syntax**: `map_hash_bucket_size size`
+* **syntax**: `map_hash_bucket_size size;`
 * **default**: `32|64|128`
 * **context**: `live`
 
@@ -843,7 +843,7 @@ Sets the bucket size for the map variables hash table.
 ### Input Buffers Directives
 
 #### input_bufs_size
-* **syntax**: `input_bufs_size size`
+* **syntax**: `input_bufs_size size;`
 * **default**: `10k`
 * **context**: `live`, `preset`
 
@@ -851,7 +851,7 @@ Sets the size of the buffers used for reading from incoming KMP connections.
 The buffers are released only when the respective frames / segments are persisted / discarded.
 
 #### input_bufs_bin_count
-* **syntax**: `input_bufs_bin_count num`
+* **syntax**: `input_bufs_bin_count num;`
 * **default**: `8`
 * **context**: `live`, `preset`
 
@@ -862,7 +862,7 @@ This is done in order to concentrate the allocated blocks in fewer buffers, and 
 the allocator to free unused buffers.
 
 #### input_bufs_max_free
-* **syntax**: `input_bufs_max_free num`
+* **syntax**: `input_bufs_max_free num;`
 * **default**: `4`
 * **context**: `live`, `preset`
 
@@ -872,14 +872,14 @@ A large value may save some memory alloc / free operations, but can also increas
 ### Syncer Directives
 
 #### syncer
-* **syntax**: `syncer on | off`
+* **syntax**: `syncer on | off;`
 * **default**: `on`
 * **context**: `live`, `preset`
 
 Enables / disables timestamp synchronization.
 
 #### syncer_inter_jump_log_threshold
-* **syntax**: `syncer_inter_jump_log_threshold sec`
+* **syntax**: `syncer_inter_jump_log_threshold sec;`
 * **default**: `10s`
 * **context**: `live`, `preset`
 
@@ -888,7 +888,7 @@ Inter frame timestamps are expected to be close to the timestamp of the keyframe
 If they are too far, it could be due to some corruption in the stream or wrap around.
 
 #### syncer_inter_jump_threshold
-* **syntax**: `syncer_inter_jump_threshold sec`
+* **syntax**: `syncer_inter_jump_threshold sec;`
 * **default**: `100s`
 * **context**: `live`, `preset`
 
@@ -897,7 +897,7 @@ Normally, synchronization happens only on video keyframes and audio frames.
 A very large timestamp jump on an inter-frame is most likely an indication of a wrap around, so it triggers immediate synchronization, without waiting for the next keyframe.
 
 #### syncer_jump_sync_frames
-* **syntax**: `syncer_jump_sync_frames num`
+* **syntax**: `syncer_jump_sync_frames num;`
 * **default**: `10`
 * **context**: `live`, `preset`
 
@@ -908,7 +908,7 @@ This parameter gives the other tracks a "grace period" to perform synchronizatio
 a synchronization is forced.
 
 #### syncer_max_backward_drift
-* **syntax**: `syncer_max_backward_drift sec`
+* **syntax**: `syncer_max_backward_drift sec;`
 * **default**: `20s`
 * **context**: `live`, `preset`
 
@@ -916,7 +916,7 @@ The maximum deviation a corrected timestamp value is allowed to be below the `cr
 If the difference between the corrected timestamp and the `created` value exceeds the limit, a new correction value is set for the track.
 
 #### syncer_max_forward_drift
-* **syntax**: `syncer_max_forward_drift sec`
+* **syntax**: `syncer_max_forward_drift sec;`
 * **default**: `20s`
 * **context**: `live`, `preset`
 
@@ -924,7 +924,7 @@ The maximum deviation a corrected timestamp value is allowed to be above the `cr
 If the difference between the corrected timestamp and the `created` value exceeds the limit, a new correction value is set for the track.
 
 #### syncer_correction_reuse_threshold
-* **syntax**: `syncer_correction_reuse_threshold sec`
+* **syntax**: `syncer_correction_reuse_threshold sec;`
 * **default**: `10s`
 * **context**: `live`, `preset`
 
@@ -934,14 +934,14 @@ In other words, the channel correction is used only if adding it to the frame ti
 ### Segmenter Directives
 
 #### segmenter_min_duration
-* **syntax**: `segmenter_min_duration msec`
+* **syntax**: `segmenter_min_duration msec;`
 * **default**: `100ms`
 * **context**: `live`, `preset`
 
 The minimum segment duration that is allowed.
 
 #### segmenter_forward_skip_threshold
-* **syntax**: `segmenter_forward_skip_threshold msec`
+* **syntax**: `segmenter_forward_skip_threshold msec;`
 * **default**: `1s`
 * **context**: `live`, `preset`
 
@@ -951,7 +951,7 @@ If the min pts of the pending frames is greater than the end pts of the previous
 the start pts of the new segment is set according to the pts of the pending frames.
 
 #### segmenter_forward_jump_threshold
-* **syntax**: `segmenter_forward_jump_threshold msec`
+* **syntax**: `segmenter_forward_jump_threshold msec;`
 * **default**: `10s`
 * **context**: `live`, `preset`
 
@@ -960,7 +960,7 @@ The split flag is enabled on frames with a pts value that is larger than the pts
 Enabling the split flag forces the creation of a new period, when the frame is used in a segment.
 
 #### segmenter_backward_jump_threshold
-* **syntax**: `segmenter_backward_jump_threshold msec`
+* **syntax**: `segmenter_backward_jump_threshold msec;`
 * **default**: `0`
 * **context**: `live`, `preset`
 
@@ -969,14 +969,14 @@ The split flag is enabled on frames with a pts value that is smaller than the pt
 Enabling the split flag forces the creation of a new period, when the frame is used in a segment.
 
 #### segmenter_inactive_timeout
-* **syntax**: `segmenter_inactive_timeout msec`
+* **syntax**: `segmenter_inactive_timeout msec;`
 * **default**: `10s`
 * **context**: `live`, `preset`
 
 Sets the timeout after a frame is received, for considering the track as inactive.
 
 #### segmenter_start_truncate_limit
-* **syntax**: `segmenter_start_truncate_limit msec`
+* **syntax**: `segmenter_start_truncate_limit msec;`
 * **default**: `5s`
 * **context**: `live`, `preset`
 
@@ -984,7 +984,7 @@ When starting a new period, a track that starts after the start pts of the segme
 and does not make the segment dispose the segments of the other tracks in the channel.
 
 #### segmenter_track_add_snap_range
-* **syntax**: `segmenter_track_add_snap_range msec`
+* **syntax**: `segmenter_track_add_snap_range msec;`
 * **default**: `500ms`
 * **context**: `live`, `preset`
 
@@ -994,7 +994,7 @@ This parameter sets the threshold for postponing the addition of the track -
 if the start pts of the track is greater than target_pts - track_add_snap_range, the track is not included in the segment.
 
 #### segmenter_track_remove_snap_range
-* **syntax**: `segmenter_track_remove_snap_range msec`
+* **syntax**: `segmenter_track_remove_snap_range msec;`
 * **default**: `500ms`
 * **context**: `live`, `preset`
 
@@ -1004,7 +1004,7 @@ This parameter sets the threshold for flushing all the pending frames of the tra
 if the end pts of the track is less than target_pts + track_remove_snap_range, all the pending frames of the track are included in the segment.
 
 #### segmenter_split_snap_range
-* **syntax**: `segmenter_split_snap_range msec`
+* **syntax**: `segmenter_split_snap_range msec;`
 * **default**: `500ms`
 * **context**: `live`, `preset`
 
@@ -1014,7 +1014,7 @@ This parameter sets the threshold for flushing the frames up to the split frame 
 if the split pts is less than target_pts + split_snap_range, all the pending frames before the split frame are included in the segment.
 
 #### segmenter_candidate_margin
-* **syntax**: `segmenter_candidate_margin msec`
+* **syntax**: `segmenter_candidate_margin msec;`
 * **default**: `500ms`
 * **context**: `live`, `preset`
 
@@ -1023,7 +1023,7 @@ When collecting the candidates for the end pts of a segment, a candidate whose d
 tweaks the timestamp of the existing candidate instead of adding a new value to the candidate list.
 
 #### segmenter_keyframe_alignment_margin
-* **syntax**: `segmenter_keyframe_alignment_margin msec`
+* **syntax**: `segmenter_keyframe_alignment_margin msec;`
 * **default**: `500ms`
 * **context**: `live`, `preset`
 
@@ -1031,7 +1031,7 @@ Sets a margin around the minimum span for segment pts candidates.
 When choosing the end pts for a segment, candidates whose span is greater than the minimum span by more than the configured margin are disqualified.
 
 #### segmenter_ready_threshold
-* **syntax**: `segmenter_ready_threshold percent`
+* **syntax**: `segmenter_ready_threshold percent;`
 * **default**: `150`
 * **context**: `live`, `preset`
 
@@ -1039,7 +1039,7 @@ Sets the minimum duration of pending frames that is required to move a track to 
 The threshold is expressed as a percent of the segment duration, that is configured on the channel.
 
 #### segmenter_initial_ready_threshold
-* **syntax**: `segmenter_initial_ready_threshold percent`
+* **syntax**: `segmenter_initial_ready_threshold percent;`
 * **default**: `200`
 * **context**: `live`, `preset`
 
@@ -1047,7 +1047,7 @@ Sets the minimum duration of pending frames that is required to move a track to 
 The threshold is expressed as a percent of the segment duration, that is configured on the channel.
 
 #### segmenter_max_skip_frames
-* **syntax**: `segmenter_max_skip_frames num`
+* **syntax**: `segmenter_max_skip_frames num;`
 * **default**: `2000`
 * **context**: `live`, `preset`
 
@@ -1061,14 +1061,14 @@ If the difference is too large, the `initial_frame_id` value is considered inval
 ### Low-latency Segmenter Directives
 
 #### ll_segmenter
-* **syntax**: `ll_segmenter`
+* **syntax**: `ll_segmenter;`
 * **default**: ``
 * **context**: `live`, `preset`
 
 Enables the low-latency segmenter on the surrounding `preset`.
 
 #### ll_segmenter_max_pending_segments
-* **syntax**: `ll_segmenter_max_pending_segments num`
+* **syntax**: `ll_segmenter_max_pending_segments num;`
 * **default**: `5`
 * **context**: `live`, `preset`
 
@@ -1076,7 +1076,7 @@ The maximum number of pending segment indexes.
 If there is a need to start a segment index and there are no available slots, the oldest pending segment index is forcefully closed.
 
 #### ll_segmenter_min_part_duration
-* **syntax**: `ll_segmenter_min_part_duration msec`
+* **syntax**: `ll_segmenter_min_part_duration msec;`
 * **default**: `50ms`
 * **context**: `live`, `preset`
 
@@ -1084,14 +1084,14 @@ The minimum duration of a part.
 When a part is started, the segment duration is forced to be at least - part_duration * N + min_part_duration.
 
 #### ll_segmenter_inactive_timeout
-* **syntax**: `ll_segmenter_inactive_timeout msec`
+* **syntax**: `ll_segmenter_inactive_timeout msec;`
 * **default**: `2s`
 * **context**: `live`, `preset`
 
 Sets the timeout after a frame is received, for considering the track as inactive, and flushing the current segment.
 
 #### ll_segmenter_forward_jump_threshold
-* **syntax**: `ll_segmenter_forward_jump_threshold msec`
+* **syntax**: `ll_segmenter_forward_jump_threshold msec;`
 * **default**: `10s`
 * **context**: `live`, `preset`
 
@@ -1100,7 +1100,7 @@ The split flag is enabled on frames with a pts value that is larger than the pts
 Enabling the split flag can force the creation of a new period, when the frame is used in a segment.
 
 #### ll_segmenter_backward_jump_threshold
-* **syntax**: `ll_segmenter_backward_jump_threshold msec`
+* **syntax**: `ll_segmenter_backward_jump_threshold msec;`
 * **default**: `0`
 * **context**: `live`, `preset`
 
@@ -1109,7 +1109,7 @@ The split flag is enabled on frames with a pts value that is smaller than the pt
 Enabling the split flag can force the creation of a new period, when the frame is used in a segment.
 
 #### ll_segmenter_dispose_threshold
-* **syntax**: `ll_segmenter_dispose_threshold msec`
+* **syntax**: `ll_segmenter_dispose_threshold msec;`
 * **default**: `250ms`
 * **context**: `live`, `preset`
 
@@ -1117,7 +1117,7 @@ Sets a threshold for disposing frames that have a pts value that is smaller than
 If the pts of the frame is smaller than the pts of the previous segmenter by more than the configured threshold, the frame is disposed.
 
 #### ll_segmenter_start_period_threshold
-* **syntax**: `ll_segmenter_start_period_threshold msec`
+* **syntax**: `ll_segmenter_start_period_threshold msec;`
 * **default**: `500ms`
 * **context**: `live`, `preset`
 
@@ -1126,7 +1126,7 @@ When starting a new pending segment, if the pts of the frame is larger than the 
 by at least the configured threshold, the new segment will start a new period.
 
 #### ll_segmenter_frame_process_delay
-* **syntax**: `ll_segmenter_frame_process_delay msec`
+* **syntax**: `ll_segmenter_frame_process_delay msec;`
 * **default**: `100ms`
 * **context**: `live`, `preset`
 
@@ -1136,7 +1136,7 @@ This reduces, for example, the probability of dropping frames when the different
 The downside of a larger delay is, of course, higher latency.
 
 #### ll_segmenter_audio_process_delay
-* **syntax**: `ll_segmenter_audio_process_delay msec`
+* **syntax**: `ll_segmenter_audio_process_delay msec;`
 * **default**: `100ms`
 * **context**: `live`, `preset`
 
@@ -1146,7 +1146,7 @@ A larger value gives the video tracks a more significant boost, but it also incr
 Since the player tries to the play the video and audio in sync, a larger value increases the overall latency of the stream.
 
 #### ll_segmenter_wait_video_timeout
-* **syntax**: `ll_segmenter_wait_video_timeout msec`
+* **syntax**: `ll_segmenter_wait_video_timeout msec;`
 * **default**: `3s`
 * **context**: `live`, `preset`
 
@@ -1155,14 +1155,14 @@ The segmenter prefers to wait for video frames, so that it can choose a segment 
 A large value increases the latency of audio-only streams, if that is a concern, it may be best to use a separate `preset` for audio-only.
 
 #### ll_segmenter_close_segment_delay
-* **syntax**: `ll_segmenter_close_segment_delay msec`
+* **syntax**: `ll_segmenter_close_segment_delay msec;`
 * **default**: `5s`
 * **context**: `live`, `preset`
 
 The minimum delay for closing a segment, measured from the time the pending segment was initially added.
 
 #### ll_segmenter_segment_start_margin
-* **syntax**: `ll_segmenter_segment_start_margin percent`
+* **syntax**: `ll_segmenter_segment_start_margin percent;`
 * **default**: `15`
 * **context**: `live`, `preset`
 
@@ -1175,7 +1175,7 @@ a track may reuse the existing segment only if the pts of the frame is below `16
 If the frame has a pts value larger than 15.1, it will either use the next pending segment index (if already exists), or create a new one.
 
 #### ll_segmenter_video_end_segment_margin
-* **syntax**: `ll_segmenter_video_end_segment_margin percent`
+* **syntax**: `ll_segmenter_video_end_segment_margin percent;`
 * **default**: `15`
 * **context**: `live`, `preset`
 
@@ -1186,7 +1186,7 @@ For example, with the default value of 15, and the default segment duration of 6
 than the start pts of the segment by at least `6 * 0.85 = 5.1` sec, will close the existing segment, and start a new one.
 
 #### ll_segmenter_video_duration_margin
-* **syntax**: `ll_segmenter_video_duration_margin percent`
+* **syntax**: `ll_segmenter_video_duration_margin percent;`
 * **default**: `5`
 * **context**: `live`, `preset`
 
@@ -1194,7 +1194,7 @@ Sets a threshold for starting a new segment, when getting a video key frame that
 This threshold is used only when the duration of the pending segment is already finalized.
 
 #### ll_segmenter_max_skip_frames
-* **syntax**: `ll_segmenter_max_skip_frames num`
+* **syntax**: `ll_segmenter_max_skip_frames num;`
 * **default**: `2000`
 * **context**: `live`, `preset`
 
@@ -1208,28 +1208,28 @@ If the difference is too large, the `initial_frame_id` value is considered inval
 ### Segment Info Directives
 
 #### segment_info_gaps
-* **syntax**: `segment_info_gaps on | off`
+* **syntax**: `segment_info_gaps on | off;`
 * **default**: `on`
 * **context**: `live`, `preset`
 
 Enables / disables tracking of segment gaps.
 
 #### segment_info_bitrate
-* **syntax**: `segment_info_bitrate on | off`
+* **syntax**: `segment_info_bitrate on | off;`
 * **default**: `off`
 * **context**: `live`, `preset`
 
 Enables / disables tracking of segment bitrates.
 
 #### segment_info_bitrate_lower_bound
-* **syntax**: `segment_info_bitrate_lower_bound percent`
+* **syntax**: `segment_info_bitrate_lower_bound percent;`
 * **default**: `90`
 * **context**: `live`, `preset`
 
 The bitrate of a segment is stored if it is below `segment_info_bitrate_lower_bound` percent of the last stored bitrate, for the specific track.
 
 #### segment_info_bitrate_upper_bound
-* **syntax**: `segment_info_bitrate_upper_bound percent`
+* **syntax**: `segment_info_bitrate_upper_bound percent;`
 * **default**: `110`
 * **context**: `live`, `preset`
 
@@ -1238,7 +1238,7 @@ The bitrate of a segment is stored if it is above `segment_info_bitrate_upper_bo
 ### Persistence Directives
 
 #### persist_write
-* **syntax**: `persist_write on | off`
+* **syntax**: `persist_write on | off;`
 * **default**: `on`
 * **context**: `live`, `preset`
 
@@ -1246,7 +1246,7 @@ Enables / disables writing to the persistence files.
 This setting can be used to load a channel in "read-only" mode, without the risk of losing data.
 
 #### persist_comp_level
-* **syntax**: `persist_comp_level level`
+* **syntax**: `persist_comp_level level;`
 * **default**: `6`
 * **context**: `live`, `preset`
 
@@ -1254,7 +1254,7 @@ Sets a zlib compression level for the persisted index files. Acceptable values a
 Note that media files are never compressed using zlib.
 
 #### persist_opaque
-* **syntax**: `persist_opaque expr`
+* **syntax**: `persist_opaque expr;`
 * **default**: ``
 * **context**: `live`, `preset`
 
@@ -1264,7 +1264,7 @@ This setting can be used, for example, to save the name of the server which crea
 The parameter value can contain variables.
 
 #### persist_setup_path
-* **syntax**: `persist_setup_path expr`
+* **syntax**: `persist_setup_path expr;`
 * **default**: ``
 * **context**: `live`, `preset`
 
@@ -1275,7 +1275,7 @@ The parameter value can contain variables.
 The `$channel_id` variable should be used in order to save different channels to different files.
 
 #### persist_setup_max_size
-* **syntax**: `persist_setup_max_size size`
+* **syntax**: `persist_setup_max_size size;`
 * **default**: `5m`
 * **context**: `live`, `preset`
 
@@ -1283,7 +1283,7 @@ Sets the maximum uncompressed size of the setup file.
 If the size of a setup file exceeds the limit, it will be rejected, and the channel creation will fail.
 
 #### persist_index_path
-* **syntax**: `persist_index_path expr`
+* **syntax**: `persist_index_path expr;`
 * **default**: ``
 * **context**: `live`, `preset`
 
@@ -1294,7 +1294,7 @@ The parameter value can contain variables.
 The `$channel_id` variable should be used in order to save different channels to different files.
 
 #### persist_delta_path
-* **syntax**: `persist_delta_path expr`
+* **syntax**: `persist_delta_path expr;`
 * **default**: ``
 * **context**: `live`, `preset`
 
@@ -1305,7 +1305,7 @@ The parameter value can contain variables.
 The `$channel_id` variable should be used in order to save different channels to different files.
 
 #### persist_media_path
-* **syntax**: `persist_media_path expr`
+* **syntax**: `persist_media_path expr;`
 * **default**: ``
 * **context**: `live`, `preset`
 
@@ -1316,7 +1316,7 @@ The parameter value can contain variables.
 The `$channel_id` and `$persist_bucket_id` variables should be used in order to save different media buckets to different files.
 
 #### persist_filler_path
-* **syntax**: `persist_filler_path expr`
+* **syntax**: `persist_filler_path expr;`
 * **default**: ``
 * **context**: `live`, `preset`
 
@@ -1327,7 +1327,7 @@ The parameter value can contain variables.
 The `$channel_id` variable should be used in order to save different channels to different files.
 
 #### persist_cancel_read_if_empty
-* **syntax**: `persist_cancel_read_if_empty on | off`
+* **syntax**: `persist_cancel_read_if_empty on | off;`
 * **default**: `on`
 * **context**: `live`, `preset`
 
@@ -1336,7 +1336,7 @@ When there are no segments, previously created tracks / variants may be irreleva
 One possible cause for a channel to lose all its segments after being read, is due to the `max_duration` / `max_segments` settings on the timeline.
 
 #### persist_max_delta_segments
-* **syntax**: `persist_max_delta_segments num`
+* **syntax**: `persist_max_delta_segments num;`
 * **default**: `100`
 * **context**: `live`, `preset`
 
@@ -1345,14 +1345,14 @@ If the number of segments created since the last index save exceeds `persist_max
 For example, when using the default value of 100, a full index is saved only once every 100 segments.
 
 #### persist_bucket_size
-* **syntax**: `persist_bucket_size num`
+* **syntax**: `persist_bucket_size num;`
 * **default**: `2`
 * **context**: `live`, `preset`
 
 Sets the number of segment indexes in each media bucket.
 
 #### persist_media_initial_read_size
-* **syntax**: `persist_media_initial_read_size size`
+* **syntax**: `persist_media_initial_read_size size;`
 * **default**: `4k`
 * **context**: `live`, `preset`
 
@@ -1365,7 +1365,7 @@ Therefore, the default value of 4k, can handle files with at most `(4096 - 52) /
 With the default bucket size of 2 segments, there can be at most `168 / 2 = 84` active tracks.
 
 #### persist_bucket_time
-* **syntax**: `persist_bucket_time $variable format [gmt|local]`
+* **syntax**: `persist_bucket_time $variable format [gmt|local];`
 * **default**: ``
 * **context**: `live`
 
@@ -1375,7 +1375,7 @@ The format parameter specifies the time format using strptime syntax, for exampl
 The optional timezone parameter can be used to choose between `gmt` and `local`, the default is `local`.
 
 #### persist_setup_timeout
-* **syntax**: `persist_setup_timeout msec`
+* **syntax**: `persist_setup_timeout msec;`
 * **default**: `10s`
 * **context**: `live`, `preset`
 
@@ -1385,70 +1385,70 @@ Saving the setup file is delayed in order to reduce the number of times the file
 ### HTTP Storage Directives
 
 #### store_http_read_req_timeout
-* **syntax**: `store_http_read_req_timeout msec`
+* **syntax**: `store_http_read_req_timeout msec;`
 * **default**: `2s`
 * **context**: `live`, `preset`
 
 Sets the timeout for sending a request to read a file from storage.
 
 #### store_http_read_resp_timeout
-* **syntax**: `store_http_read_resp_timeout msec`
+* **syntax**: `store_http_read_resp_timeout msec;`
 * **default**: `10s`
 * **context**: `live`, `preset`
 
 Sets the timeout for getting the response of a request to read a file from storage.
 
 #### store_http_read_buffer_size
-* **syntax**: `store_http_read_buffer_size size`
+* **syntax**: `store_http_read_buffer_size size;`
 * **default**: `4k`
 * **context**: `live`, `preset`
 
 Sets the size allocated for reading the headers of read requests.
 
 #### store_http_read_retries
-* **syntax**: `store_http_read_retries num`
+* **syntax**: `store_http_read_retries num;`
 * **default**: `0`
 * **context**: `live`, `preset`
 
 Sets the number of retries on failed read requests.
 
 #### store_http_read_retry_interval
-* **syntax**: `store_http_read_retry_interval msec`
+* **syntax**: `store_http_read_retry_interval msec;`
 * **default**: `1s`
 * **context**: `live`, `preset`
 
 Sets the interval for retrying a read request after a read request fails.
 
 #### store_http_write_req_timeout
-* **syntax**: `store_http_write_req_timeout msec`
+* **syntax**: `store_http_write_req_timeout msec;`
 * **default**: `10s`
 * **context**: `live`, `preset`
 
 Sets the timeout for sending a request to write a file to storage.
 
 #### store_http_write_resp_timeout
-* **syntax**: `store_http_write_resp_timeout msec`
+* **syntax**: `store_http_write_resp_timeout msec;`
 * **default**: `10s`
 * **context**: `live`, `preset`
 
 Sets the timeout for getting the response of a request to write a file to storage.
 
 #### store_http_write_buffer_size
-* **syntax**: `store_http_write_buffer_size size`
+* **syntax**: `store_http_write_buffer_size size;`
 * **default**: `4k`
 * **context**: `live`, `preset`
 
 Sets the size allocated for reading the response of write requests.
 
 #### store_http_write_retries
-* **syntax**: `store_http_write_retries num`
+* **syntax**: `store_http_write_retries num;`
 * **default**: `5`
 * **context**: `live`, `preset`
 
 Sets the number of retries on failed write requests.
 
 #### store_http_write_retry_interval
-* **syntax**: `store_http_write_retry_interval msec`
+* **syntax**: `store_http_write_retry_interval msec;`
 * **default**: `2s`
 * **context**: `live`, `preset`
 
@@ -1464,7 +1464,7 @@ Sets the interval for retrying a write request after a write request fails.
 Defines the parameters of an S3 bucket used for persistence.
 
 #### store_s3
-* **syntax**: `store_s3 name`
+* **syntax**: `store_s3 name;`
 * **default**: ``
 * **context**: `live`, `preset`
 
@@ -1472,14 +1472,14 @@ Enables persistence using the specified S3 bucket.
 The name parameter must match some previously defined `store_s3_block` block.
 
 #### url
-* **syntax**: `url str`
+* **syntax**: `url str;`
 * **default**: ``
 * **context**: `store_s3_block`
 
 Sets the URL of the S3 bucket, usually in the format: `http://{bucket_name}.s3.amazonaws.com:80`.
 
 #### host
-* **syntax**: `host name`
+* **syntax**: `host name;`
 * **default**: ``
 * **context**: `store_s3_block`
 
@@ -1487,28 +1487,28 @@ Sets the value of the Host header in S3 requests.
 By default, if the `host` is not set explicitly, the host part of the `url` is used.
 
 #### access_key
-* **syntax**: `access_key key`
+* **syntax**: `access_key key;`
 * **default**: ``
 * **context**: `store_s3_block`
 
 Sets the AWS access key, e.g. `AKIAIOSFODNN7EXAMPLE`.
 
 #### secret_key
-* **syntax**: `secret_key key`
+* **syntax**: `secret_key key;`
 * **default**: ``
 * **context**: `store_s3_block`
 
 Sets the AWS secret key, e.g. `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`.
 
 #### service
-* **syntax**: `service name`
+* **syntax**: `service name;`
 * **default**: ``
 * **context**: `store_s3_block`
 
 The name of the AWS service, normally set to `s3`.
 
 #### region
-* **syntax**: `region name`
+* **syntax**: `region name;`
 * **default**: ``
 * **context**: `store_s3_block`
 
@@ -1517,7 +1517,7 @@ Sets the AWS region, e.g. `us-east-1`.
 ### Misc Directives
 
 #### force_memory_segments
-* **syntax**: `force_memory_segments num`
+* **syntax**: `force_memory_segments num;`
 * **default**: `6`
 * **context**: `live`, `preset`
 
@@ -1526,7 +1526,7 @@ A higher number increases the probability of a hit on the segment cache, avoidin
 However, the trade-off is that a higher number also increases the memory usage.
 
 #### dynamic_var_max_size
-* **syntax**: `dynamic_var_max_size size`
+* **syntax**: `dynamic_var_max_size size;`
 * **default**: `920`
 * **context**: `live`, `preset`
 
