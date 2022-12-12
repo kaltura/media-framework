@@ -69,7 +69,7 @@ http {
 ### Configuration Directives
 
 #### ts_kmp
-* **syntax**: `ts_kmp`
+* **syntax**: `ts_kmp;`
 * **default**: `none`
 * **context**: `stream/server`, `location`
 
@@ -77,7 +77,7 @@ Enables the media interface of this module in the surrounding stream-server/loca
 The `ts;` directive of nginx-mpegts-module should also be used in the same context, otherwise this directive has no effect.
 
 #### ts_kmp_ctrl_connect_url
-* **syntax**: `ts_kmp_ctrl_connect_url url`
+* **syntax**: `ts_kmp_ctrl_connect_url url;`
 * **default**: `none`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -106,7 +106,7 @@ Sample response:
 ```
 
 #### ts_kmp_ctrl_publish_url
-* **syntax**: `ts_kmp_ctrl_publish_url url`
+* **syntax**: `ts_kmp_ctrl_publish_url url;`
 * **default**: `none`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -142,7 +142,7 @@ Sample request body:
 See [Publish](../nginx-kmp-out-module/README.md#publish) for more details on the `publish` request.
 
 #### ts_kmp_ctrl_unpublish_url
-* **syntax**: `ts_kmp_ctrl_unpublish_url url`
+* **syntax**: `ts_kmp_ctrl_unpublish_url url;`
 * **default**: `none`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -152,7 +152,7 @@ The response of this notification is ignored, and no retries are performed in ca
 See [Unpublish](../nginx-kmp-out-module/README.md#unpublish) for more details on the `unpublish` request.
 
 #### ts_kmp_ctrl_republish_url
-* **syntax**: `ts_kmp_ctrl_republish_url url`
+* **syntax**: `ts_kmp_ctrl_republish_url url;`
 * **default**: `none`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -162,7 +162,7 @@ The upstream server can use this event to provide the module with a new KMP endp
 See [Republish](../nginx-kmp-out-module/README.md#republish) for more details on the `republish` request.
 
 #### ts_kmp_ctrl_add_header
-* **syntax**: `ts_kmp_ctrl_add_header name value`
+* **syntax**: `ts_kmp_ctrl_add_header name value;`
 * **default**: `none`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -171,7 +171,7 @@ There could be several `ts_kmp_ctrl_add_header` directives.
 These directives are inherited from the previous level if and only if there are no `ts_kmp_ctrl_add_header` directives defined on the current level.
 
 #### ts_kmp_ctrl_timeout
-* **syntax**: `ts_kmp_ctrl_timeout msec`
+* **syntax**: `ts_kmp_ctrl_timeout msec;`
 * **default**: `2s`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -179,14 +179,14 @@ Sets a timeout for sending HTTP requests to the upstream server.
 The timeout includes both the connection establishment as well as the sending of the request.
 
 #### ts_kmp_ctrl_read_timeout
-* **syntax**: `ts_kmp_ctrl_read_timeout msec`
+* **syntax**: `ts_kmp_ctrl_read_timeout msec;`
 * **default**: `20s`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
 Sets a timeout for reading the response of HTTP requests sent to the upstream server.
 
 #### ts_kmp_ctrl_buffer_size
-* **syntax**: `ts_kmp_ctrl_buffer_size size`
+* **syntax**: `ts_kmp_ctrl_buffer_size size;`
 * **default**: `4k`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -194,7 +194,7 @@ Sets the size of the buffer that holds the response of the HTTP requests.
 The buffer size should be large enough to hold the largest expected response.
 
 #### ts_kmp_ctrl_retries
-* **syntax**: `ts_kmp_ctrl_retries num`
+* **syntax**: `ts_kmp_ctrl_retries num;`
 * **default**: `5`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -204,14 +204,14 @@ Sets the number of retries for issuing HTTP requests. A request is considered as
 - The `code` field is missing/has a value other than `ok`
 
 #### ts_kmp_ctrl_retry_interval
-* **syntax**: `ts_kmp_ctrl_retry_interval msec`
+* **syntax**: `ts_kmp_ctrl_retry_interval msec;`
 * **default**: `2s`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
 Sets the time to wait before performing each retry attempt for HTTP requests.
 
 #### ts_kmp_timescale
-* **syntax**: `ts_kmp_timescale num`
+* **syntax**: `ts_kmp_timescale num;`
 * **default**: `90000`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -219,14 +219,14 @@ Sets the timescale that is reported in the KMP media info packet.
 Timestamp scaling is currently not implemented, so this directive should not be changed from the default MPEG-TS timescale.
 
 #### ts_kmp_timeout
-* **syntax**: `ts_kmp_timeout msec`
+* **syntax**: `ts_kmp_timeout msec;`
 * **default**: `10s`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
 Sets the timeout for sending data to the upstream KMP server.
 
 #### ts_kmp_max_free_buffers
-* **syntax**: `ts_kmp_max_free_buffers num`
+* **syntax**: `ts_kmp_max_free_buffers num;`
 * **default**: `4`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -234,7 +234,7 @@ Sets the maximum number of free buffers that are kept after receiving acks from 
 A large value may save some memory alloc/free operations, but can also increase memory usage.
 
 #### ts_kmp_buffer_bin_count
-* **syntax**: `ts_kmp_buffer_bin_count num`
+* **syntax**: `ts_kmp_buffer_bin_count num;`
 * **default**: `8`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -245,7 +245,7 @@ This is done in order to concentrate the allocated blocks in fewer buffers, and 
 the allocator to free unused buffers.
 
 #### ts_kmp_mem_high_watermark
-* **syntax**: `ts_kmp_mem_high_watermark percent`
+* **syntax**: `ts_kmp_mem_high_watermark percent;`
 * **default**: `75`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -255,14 +255,14 @@ of frames that were not acknowledged. The process stops when the memory usage
 drops below the low watermark threshold.
 
 #### ts_kmp_mem_low_watermark
-* **syntax**: `ts_kmp_mem_low_watermark percent`
+* **syntax**: `ts_kmp_mem_low_watermark percent;`
 * **default**: `50`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
 See the description of `ts_kmp_mem_high_watermark` above.
 
 #### ts_kmp_video_buffer_size
-* **syntax**: `ts_kmp_video_buffer_size size`
+* **syntax**: `ts_kmp_video_buffer_size size;`
 * **default**: `64k`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -270,7 +270,7 @@ Sets the size of the buffers used to send video data to the upstream server.
 A large value can be more efficient, but increases the latency (a buffer is sent either when it's full or the flush timeout expires).
 
 #### ts_kmp_video_mem_limit
-* **syntax**: `ts_kmp_video_mem_limit size`
+* **syntax**: `ts_kmp_video_mem_limit size;`
 * **default**: `32m`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -278,7 +278,7 @@ Sets the maximum total size of the buffers used to send video data to the upstre
 If the limit is hit, the module drops the HTTP/TCP connection.
 
 #### ts_kmp_audio_buffer_size
-* **syntax**: `ts_kmp_audio_buffer_size size`
+* **syntax**: `ts_kmp_audio_buffer_size size;`
 * **default**: `4k`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -286,7 +286,7 @@ Sets the size of the buffers used to send audio data to the upstream server.
 A large value can be more efficient, but increases the latency (a buffer is sent either when it's full or the flush timeout expires).
 
 #### ts_kmp_audio_mem_limit
-* **syntax**: `ts_kmp_audio_mem_limit size`
+* **syntax**: `ts_kmp_audio_mem_limit size;`
 * **default**: `1m`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -294,7 +294,7 @@ Sets the maximum total size of the buffers used to send audio data to the upstre
 If the limit is hit, the module drops the HTTP/TCP connection.
 
 #### ts_kmp_flush_timeout
-* **syntax**: `ts_kmp_flush_timeout msec`
+* **syntax**: `ts_kmp_flush_timeout msec;`
 * **default**: `1s`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -302,7 +302,7 @@ Sets the timeout for flushing buffered data to the upstream KMP server.
 KMP data is kept in buffers of size ts_kmp_xxx_buffer_size, a buffer is sent when it becomes full, or when the flush timeout expires.
 
 #### ts_kmp_log_frames
-* **syntax**: `ts_kmp_log_frames on | off`
+* **syntax**: `ts_kmp_log_frames on | off;`
 * **default**: `off`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -311,14 +311,14 @@ When enabled, the module logs the metadata of every frame that is sent -
 2. Data size and MD5 hash
 
 #### ts_kmp_republish_interval
-* **syntax**: `ts_kmp_republish_interval sec`
+* **syntax**: `ts_kmp_republish_interval sec;`
 * **default**: `1`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
 The minimum time that should pass between `republish` requests, in seconds.
 
 #### ts_kmp_max_republishes
-* **syntax**: `ts_kmp_max_republishes num`
+* **syntax**: `ts_kmp_max_republishes num;`
 * **default**: `10`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
@@ -326,7 +326,7 @@ The maximum number of consecutive `republish` requests that can be sent before g
 If more than `ts_kmp_republish_interval` seconds passed since the last `republish`, the counter is reset.
 
 #### ts_kmp_api
-* **syntax**: `ts_kmp_api [write=on|off]`
+* **syntax**: `ts_kmp_api [write=on|off];`
 * **default**: `none`
 * **context**: `location`
 

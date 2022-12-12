@@ -42,7 +42,7 @@ Provides the configuration file context in which the RTMP server directives are 
 Sets the configuration for a server.
 
 #### listen
-* **syntax**: `listen (addr[:port]|port|unix:path) [bind] [ipv6only=on|off] [so_keepalive=on|off|keepidle:keepintvl:keepcnt|proxy_protocol]`
+* **syntax**: `listen (addr[:port]|port|unix:path) [bind] [ipv6only=on|off] [so_keepalive=on|off|keepidle:keepintvl:keepcnt|proxy_protocol];`
 * **default**: ``
 * **context**: `server`
 
@@ -57,7 +57,7 @@ See the documentation of the listen directive of the Nginx `stream` module for m
 Creates an RTMP application. Unlike the `location` directive in `http`, application names cannot use patterns.
 
 #### timeout
-* **syntax**: `timeout msec`
+* **syntax**: `timeout msec;`
 * **default**: `1m`
 * **context**: `rtmp`, `server`
 
@@ -65,7 +65,7 @@ Socket timeout, this value is primarily used for writing. Most of the time, the 
 If you want broken socket to get quickly disconnected use active tools like keepalive or RTMP ping.
 
 #### ping
-* **syntax**: `ping msec`
+* **syntax**: `ping msec;`
 * **default**: `1m`
 * **context**: `rtmp`, `server`
 
@@ -74,35 +74,35 @@ A special packet is sent to the remote peer, and a reply is expected within the 
 If a ping reply is not received within this time, the connection is closed.
 
 #### ping_timeout
-* **syntax**: `ping_timeout msec`
+* **syntax**: `ping_timeout msec;`
 * **default**: `30s`
 * **context**: `rtmp`, `server`
 
 See the description of `ping` above.
 
 #### max_streams
-* **syntax**: `max_streams num`
+* **syntax**: `max_streams num;`
 * **default**: `32`
 * **context**: `rtmp`, `server`
 
 Sets the maximum number of RTMP streams.
 
 #### ack_window
-* **syntax**: `ack_window num`
+* **syntax**: `ack_window num;`
 * **default**: `5000000`
 * **context**: `rtmp`, `server`
 
 Sets the RTMP acknowledge window size - the number of received bytes after which the peer should send an acknowledge packet.
 
 #### chunk_size
-* **syntax**: `chunk_size num`
+* **syntax**: `chunk_size num;`
 * **default**: `4096`
 * **context**: `rtmp`, `server`
 
 Maximum chunk size for stream multiplexing. The bigger this value the lower CPU overhead. This value cannot be less than 128.
 
 #### max_message
-* **syntax**: `max_message size`
+* **syntax**: `max_message size;`
 * **default**: `1m`
 * **context**: `rtmp`, `server`
 
@@ -110,35 +110,35 @@ Maximum size for input data messages. All input data is split into messages (and
 A partial message is kept in memory while waiting for it to complete. Therefore, large messages can compromise server stability.
 
 #### out_queue
-* **syntax**: `out_queue size`
+* **syntax**: `out_queue size;`
 * **default**: `256`
 * **context**: `rtmp`, `server`
 
 Sets the number of slots in the output queue. If the output queue becomes full, lower priority messages are dropped.
 
 #### out_cork
-* **syntax**: `out_cork size`
+* **syntax**: `out_cork size;`
 * **default**: `out_queue / 8`
 * **context**: `rtmp`, `server`
 
 Sets the number of pending slots in the output queue that are required in order to start sending data, when a send is not already active.
 
 #### busy
-* **syntax**: `busy on | off`
+* **syntax**: `busy on | off;`
 * **default**: `off`
 * **context**: `rtmp`, `server`
 
 When enabled, connections that have no send/recv activity between pings, are terminated.
 
 #### play_time_fix
-* **syntax**: `play_time_fix on | off`
+* **syntax**: `play_time_fix on | off;`
 * **default**: `on`
 * **context**: `rtmp`, `server`, `application`
 
 When enabled, extended timestamps are sent on outgoing type 3 RTMP chunks.
 
 #### type3_ext_ts
-* **syntax**: `type3_ext_ts on | off | auto`
+* **syntax**: `type3_ext_ts on | off | auto;`
 * **default**: `auto`
 * **context**: `rtmp`, `server`, `application`
 
@@ -146,7 +146,7 @@ When set to `auto`, the module automatically detects whether the remote peer is 
 When set to `on`, extended timestamps are expected on incoming type 3 chunks.
 
 #### buflen
-* **syntax**: `buflen msec`
+* **syntax**: `buflen msec;`
 * **default**: `1s`
 * **context**: `rtmp`, `server`
 
@@ -154,7 +154,7 @@ Used by MP4/FLV modules.
 This parameter is not relevant in the context of Media-Framework.
 
 #### dump_folder
-* **syntax**: `dump_folder path`
+* **syntax**: `dump_folder path;`
 * **default**: ``
 * **context**: `rtmp`, `server`
 
@@ -164,14 +164,14 @@ The file names have the following structure: `ngx_rtmp_dump_{date}_{pid}_{connec
 ### Live Directives
 
 #### live
-* **syntax**: `live on | off`
+* **syntax**: `live on | off;`
 * **default**: `off`
 * **context**: `rtmp`, `server`, `application`
 
 Enables/disables live mode, i.e. one-to-many broadcasting.
 
 #### sandbox
-* **syntax**: `sandbox on | off`
+* **syntax**: `sandbox on | off;`
 * **default**: `off`
 * **context**: `rtmp`, `server`, `application`
 
@@ -179,7 +179,7 @@ When enabled, incoming publish/play streams are allocated a unique name.
 Enabling this setting, making it possible to have multiple publish requests with the same stream name.
 
 #### stream_buckets
-* **syntax**: `stream_buckets num`
+* **syntax**: `stream_buckets num;`
 * **default**: `1024`
 * **context**: `rtmp`, `server`, `application`
 
@@ -187,14 +187,14 @@ Sets the number of buckets used for grouping streams by name.
 A higher number increases memory usage, but enables faster lookup of stream by name.
 
 #### buffer
-* **syntax**: `buffer msec`
+* **syntax**: `buffer msec;`
 * **default**: `0`
 * **context**: `rtmp`, `server`, `application`
 
 When set to non-zero, output messages are buffered in queue, until the number of buffers reaches the value set in `out_cork`.
 
 #### sync
-* **syntax**: `sync msec`
+* **syntax**: `sync msec;`
 * **default**: `300ms`
 * **context**: `rtmp`, `server`, `application`
 
@@ -202,7 +202,7 @@ When set to a non-zero value, if the duration of dropped packets exceeds the con
 This parameter is not relevant in the context of Media-Framework.
 
 #### interleave
-* **syntax**: `interleave on | off`
+* **syntax**: `interleave on | off;`
 * **default**: `off`
 * **context**: `rtmp`, `server`, `application`
 
@@ -210,7 +210,7 @@ When enabled, audio and video data is transmitted on the same RTMP chunk stream.
 This parameter is not relevant in the context of Media-Framework.
 
 #### wait_key
-* **syntax**: `wait_key on | off`
+* **syntax**: `wait_key on | off;`
 * **default**: `off`
 * **context**: `rtmp`, `server`, `application`
 
@@ -218,7 +218,7 @@ Makes video streams start with a key frame.
 This parameter is not relevant in the context of Media-Framework.
 
 #### wait_video
-* **syntax**: `wait_video on | off`
+* **syntax**: `wait_video on | off;`
 * **default**: `off`
 * **context**: `rtmp`, `server`, `application`
 
@@ -226,7 +226,7 @@ Disable audio until first video frame is sent. Can be combined with wait_key to 
 This parameter is not relevant in the context of Media-Framework.
 
 #### publish_notify
-* **syntax**: `publish_notify on | off`
+* **syntax**: `publish_notify on | off;`
 * **default**: `off`
 * **context**: `rtmp`, `server`, `application`
 
@@ -234,7 +234,7 @@ Send `NetStream.Play.PublishNotify` and `NetStream.Play.UnpublishNotify` to subs
 This parameter is not relevant in the context of Media-Framework.
 
 #### play_restart
-* **syntax**: `play_restart on | off`
+* **syntax**: `play_restart on | off;`
 * **default**: `off`
 * **context**: `rtmp`, `server`, `application`
 
@@ -243,14 +243,14 @@ If disabled, each subscriber receives those notifications only at the start and 
 This parameter is not relevant in the context of Media-Framework.
 
 #### idle_streams
-* **syntax**: `idle_streams on | off`
+* **syntax**: `idle_streams on | off;`
 * **default**: `on`
 * **context**: `rtmp`, `server`, `application`
 
 If disabled nginx-rtmp prevents subscribers from connecting to idle/nonexistent live streams and disconnects all subscribers when stream publisher disconnects.
 
 #### drop_idle_publisher
-* **syntax**: `drop_idle_publisher msec`
+* **syntax**: `drop_idle_publisher msec;`
 * **default**: `0`
 * **context**: `rtmp`, `server`, `application`
 
@@ -260,7 +260,7 @@ Note this only works when connection is in publish mode (after sending publish c
 ### Access Control Directives
 
 #### allow
-* **syntax**: `allow [play|publish] address | subnet | all`
+* **syntax**: `allow [play|publish] address | subnet | all;`
 * **default**: ``
 * **context**: `rtmp`, `server`, `application`
 
@@ -268,7 +268,7 @@ Allow publish/play from the specified addresses.
 The `allow` / `deny` directives are checked in order of appearance.
 
 #### deny
-* **syntax**: `deny [play|publish] address | subnet | all`
+* **syntax**: `deny [play|publish] address | subnet | all;`
 * **default**: ``
 * **context**: `rtmp`, `server`, `application`
 
@@ -278,7 +278,7 @@ The `allow` / `deny` directives are checked in order of appearance.
 ### Codec Directives
 
 #### meta
-* **syntax**: `meta on | copy | off`
+* **syntax**: `meta on | copy | off;`
 * **default**: `on`
 * **context**: `rtmp`, `server`, `application`
 
@@ -290,7 +290,7 @@ This parameter is not relevant in the context of Media-Framework.
 ### Access Log Directives
 
 #### access_log
-* **syntax**: `access_log off | path [format_name]`
+* **syntax**: `access_log off | path [format_name];`
 * **default**: ``
 * **context**: `rtmp`, `server`, `application`
 
@@ -301,7 +301,7 @@ The second argument can be used to specify the logging format by name.
 See the `log_format` directive for more details about formats.
 
 #### log_format
-* **syntax**: `log_format name format`
+* **syntax**: `log_format name format;`
 * **default**: `combined ...`
 * **context**: `rtmp`, `server`, `application`
 

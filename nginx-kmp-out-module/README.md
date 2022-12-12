@@ -156,7 +156,7 @@ The `reason` field in the request can have the following values:
 ## Configuration Directives
 
 ### kmp_out_api
-* **syntax**: `kmp_out_api [write=on]`
+* **syntax**: `kmp_out_api [write=on];`
 * **default**: `none`
 * **context**: `location`
 
