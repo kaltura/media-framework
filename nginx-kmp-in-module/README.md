@@ -6,6 +6,7 @@ Used by: *nginx-live-module*, *nginx-kmp-cc-module*, *nginx-kmp-rtmp-module*.
 
 Dependencies: *nginx-common*.
 
+
 ## Features
 
 - Invoke callbacks on connection events (connect / disconnect)
@@ -25,7 +26,7 @@ Dependencies: *nginx-common*.
 - `remote_addr` - string, the ip + port of the remote peer
 - `channel_id` - string, the channel id
 - `track_id` - string, the track id
-- `uptime` - integer, the time passed since the connection was established, in seconds
+- `uptime` - integer, the time that passed since the connection was established, in seconds
 - `received_bytes` - integer, the total number of bytes received from the remote peer
 - `received_data_bytes` - integer, the sum of the data size of all the received frames
 - `received_frames` - integer, the total number of frames that were received

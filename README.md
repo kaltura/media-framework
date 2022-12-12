@@ -16,6 +16,7 @@ the topology of the media pipeline, and updating it in case of failures. The con
 as HTTP-POSTs. In addition, all the media processing components expose a JSON-based REST API, that is used by the controller to get
 the latest status and take actions. A sample controller implementation for an all-in-one server is provided under the `conf` folder.
 
+
 ## Main Features
 
 - Publishing protocols: RTMP, MPEGTS (over SRT/HTTP/TCP)
@@ -29,9 +30,11 @@ the latest status and take actions. A sample controller implementation for an al
 - Media encryption and DRM
 - Video frame capture
 
+
 ## Getting Started
 
 The [conf](conf/) folder contains sample code and configuration for running an all-in-one server.
+
 
 ## Glossary
 
@@ -46,6 +49,7 @@ The [conf](conf/) folder contains sample code and configuration for running an a
 - *Timeline* - a set of periods. Multiple timelines can be created, each with its own set of periods.
     Timelines can be used, for example, in order to implement "preview mode" - the publisher consumes one timeline, while the viewers consume another.
     The timeline of the publisher is always `active`, while the timeline of the viewers is activated upon the publisher's discretion.
+
 
 ## Sample Topologies
 
@@ -144,6 +148,7 @@ flowchart LR;
     pckg-->|LLHLS/DASH|play;
 ```
 
+
 ## Components Overview
 
 ### Media Components
@@ -195,6 +200,7 @@ When compiling nginx, the dependencies must be added (`--add-module`) before any
     - Support for additional codecs: h265, AC3, E-AC3
     - Removed features: hls/dash output
 
+
 ## Kaltura Media Protocol (KMP)
 
 Kaltura Media Protocol is a simple packet-based protocol for streaming media over TCP.
@@ -225,6 +231,7 @@ The following packet types can be sent by a KMP receiver:
 
 For additional details on the internal structure of each packet, refer to [ngx_live_kmp.h](nginx-common/src/ngx_live_kmp.h)
 
+
 ## Kaltura Segmented Media Protocol (KSMP)
 
 Kaltura Segmented Media Protocol is an HTTP-based protocol for delivering media in segments, similarly to HLS/DASH.
@@ -249,6 +256,7 @@ A KSMP request is an HTTP GET request, the following query parameters are define
 
 A KSMP response uses KLPF format (see below), with type *Serve* (`serv`).
 The KSMP-specific definitions can be found in [ngx_ksmp.h](nginx-common/src/ngx_ksmp.h)
+
 
 ## Kaltura Live Persist File (KLPF)
 
@@ -281,7 +289,73 @@ The script can show the block structure without any additional info, however, in
 - run [generate_persist_spec.py](nginx-live-module/scripts/generate_persist_spec.py), and save the output to a file
 - provide the file name as an additional argument to klpf_parse.py
 
-### Copyright & License
+
+## API Overview
+
+All the media processing components expose a JSON-based REST API.
+This section explains the general properties of the Media-Framework APIs.
+For a detailed reference of the available API endpoints, see the documentation of the specific modules.
+
+### Request Types
+
+The following HTTP verbs are used in the API:
+- `GET` - get the full status of the module, or a subset of it.
+- `GET` with `?list=1` - return the names of the "folders" under a certain path in the API. Can be used to walk the tree of possible API routes.
+- `POST` - create an object.
+- `PUT` - update an object, the id of the object to update is passed on the URI.
+- `DELETE` - delete an object, the id of the object to delete is passed on the URI.
+
+The request body in `POST` / `PUT` requests must be a JSON (usually an object), and the request must use the header `Content-Type: application/json`.
+
+When the size of the request body exceeds a certain threshold, nginx writes it to a temporary file.
+However, the implementation of the Media-Framework API requires that the request body of `POST` / `PUT` requests will be available in memory.
+If needed, the nginx `client_body_buffer_size` directive can be used to increase the size of the buffer allocated for the request body.
+
+The argument `?pretty=1` can be added to `GET` requests in order to return the response in a "pretty" / indented format.
+
+### Status Codes
+
+HTTP status codes are used to return the execution status of API requests.
+
+The following success codes are used:
+- `200` - a successful `GET` request, the response body is a JSON, usually a JSON object or array (the response includes the header `Content-Type: application/json`).
+- `201` - a successful `POST` request, that resulted in the creation of a new object.
+- `204` - a successful `POST` / `PUT` / `DELETE` request.
+    A `POST` request may return `204` when the object already existed, and `upsert` is enabled on the API location in nginx configuration.
+
+The following error codes are used:
+- `400` - invalid request, for example, the length of some input field exceeds the limit.
+- `403` - returned by nginx-live-module when getting a request to update a channel that is currently being read from storage.
+- `404` - some object referenced by the URI or request body was not found.
+- `409` - attempt to create an object that already exists, when `upsert` is not enabled on the API location in nginx configuration.
+- `415` - the request body is not a valid JSON, the type of the JSON is not expected (usually a JSON object is expected), or some required field is missing.
+- `500` - an unexpected error, for example, a memory allocation failure.
+
+### Multi Request
+
+Setting up a channel in nginx-live-module may require multiple API calls - create the channel, create a timeline, create a variant, etc.
+In order to avoid the penalty of multiple round trips, the API layer has support for "multi" requests.
+A multi request bundles together several API requests in a single HTTP request.
+
+Multi requests must use the `POST` verb, and their URI must be set to `/multi`.
+The request body must be a JSON array of objects, each object represents a single API request.
+
+The objects contains the following fields:
+- `uri` - string, required, the relative API path.
+- `method` - string, required, the HTTP verb of the request - `GET` / `POST` / `PUT` / `DELETE`.
+- `body` - any (usually object), optional, the body of `POST` / `PUT` requests.
+
+The response of multi requests is also a JSON array of objects.
+The number of elements in the response array always matches the number of elements in the request array,
+and the order of the objects in the response array matches the order in the request array.
+In other words, the N-th item of the response array, is the response of the N-th request in the request array.
+
+Each response object contains the following fields:
+- `code` - integer, required, the HTTP status code
+- `body` - any (usually object / array), optional, the response body
+
+
+## Copyright & License
 
 All code in this project is released under the [AGPLv3 license](http://www.gnu.org/licenses/agpl-3.0.html) unless a different license for a particular library is specified in the applicable library path.
 

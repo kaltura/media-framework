@@ -4,14 +4,14 @@ FFmpeg-based KMP video/audio transcoder.
 
 ## Build
 
-```
+```sh
 docker build -t kaltura/transcoder-dev -f Dockerfile.build ./
 docker build -t kaltura/transcoder-dev -f Dockerfile ./
 ```
 
 ## Run
 
-```
+```sh
 docker run -p 16543:16543 -p 18001:18001 --cap-add=SYS_PTRACE --security-opt seccomp=unconfined -it -v `pwd`/config.json:/data/config.json kaltura/transcoder-dev:latest /build/transcoder -f /data/config.json
 ```
 
@@ -337,7 +337,7 @@ When set to `true`, no acks will be sent on the incoming KMP connection.
 ### GET /control/status
 
 Returns a fixed response:
-```
+```json
 {
     "uri": "/control/status",
     "result": {
@@ -352,7 +352,7 @@ Can be used as a readiness probe.
 Returns a JSON object with the latest diagnostics data that was collected.
 
 Sample response:
-```
+```json
 {
     "uri": "/control/diagnostics",
     "result": {

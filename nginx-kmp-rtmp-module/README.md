@@ -4,6 +4,7 @@ Publishes incoming KMP tracks to an upstream server using the RTMP protocol.
 
 Dependencies: *nginx-common*, *nginx-kmp-in-module*
 
+
 ## Features
 
 - Input
@@ -46,7 +47,7 @@ If this assumption does not hold for the specific upstream server to which the s
 
 ### Sample Configuration
 
-```
+```nginx
 stream {
     server {
         listen 8005;
@@ -167,7 +168,7 @@ Sets an HTTP notification callback.
 The callback is invoked when the RTMP upstream is destroyed.
 
 Sample request body:
-```
+```json
 {
     "event_type": "rtmp_close",
     "reason": "done",
@@ -205,7 +206,7 @@ The `reason` field in the request can have the following values -
 - `process_frame_failed` - error allocating output buffer / chain, possibly due to upstream memory limit
 
 #### kmp_rtmp_out_notif_add_header
-* **syntax**: `kmp_rtmp_out_notif_add_header`
+* **syntax**: `kmp_rtmp_out_notif_add_header name value`
 * **default**: ``
 * **context**: `stream`, `server`
 
@@ -270,7 +271,7 @@ Sets the timeout for flushing buffered data to the upstream RTMP server.
 RTMP output data is kept in buffers of size `kmp_rtmp_out_buffer_size`, a buffer is sent when it becomes full, or when the flush timeout expires.
 
 #### kmp_rtmp_out_buffer_size
-* **syntax**: `kmp_rtmp_out_buffer_size`
+* **syntax**: `kmp_rtmp_out_buffer_size size`
 * **default**: ``
 * **context**: `stream`, `server`
 
@@ -278,7 +279,7 @@ Sets the size of the buffers used to send data to the upstream server.
 A large value can be more efficient, but increases the latency (a buffer is sent either when it's full or the flush timeout expires).
 
 #### kmp_rtmp_out_buffer_bin_count
-* **syntax**: `kmp_rtmp_out_buffer_bin_count`
+* **syntax**: `kmp_rtmp_out_buffer_bin_count num`
 * **default**: ``
 * **context**: `stream`, `server`
 
@@ -364,7 +365,7 @@ This can be used in order to inspect error messages returned from the upstream.
 
 ### Sample JSON
 
-```
+```json
 {
     "upstream_id": "ch1-twitch",
     "url": "rtmp://live.twitch.tv:1935/app/live_123456789_abcdefABCDEF12345",
@@ -398,6 +399,50 @@ If an upstream with the id `upstream_id` exists when the track is added, most of
 The only fields that are used in this case (other than `upstream_id`) are:
 - `name` - if specified, or -
 - `url` - if `name` is not specified (note that only the `{stream}` part of the `url` is used)
+
+
+## API Objects
+
+The sections below list the possible fields in each type of API object.
+
+### Global Scope
+
+- `version` - string, nginx-kmp-rtmp-module version
+- `nginx_version` - string, nginx version
+- `compiler` - string, the compiler used to build nginx-kmp-rtmp-module
+- `built` - string, the time nginx-kmp-rtmp-module was built
+- `pid` - integer, the nginx process id
+- `uptime` - integer, the time since the nginx worker was started, in seconds
+- `upstreams` - object, the keys are upstream ids, the values are [Upstream Objects](#upstream-object)
+
+### Upstream Object
+
+- `url` - string, the url of the upstream RTMP connection
+- `header` - string, the `header` value that was set on the connect data JSON
+- `opaque` - string, the `opaque` value that was set on the connect data JSON
+- `remote_addr` - string, the ip + port of the remote peer
+- `local_addr` - string, the local ip + port of the connection
+- `connection` - integer, the nginx connection identifier, unique per nginx worker process
+- `mem_limit` - integer, maximum number of memory bytes the upstream object is allowed to consume
+- `mem_left` - integer, number of memory bytes left out of the `mem_limit` quota
+- `written_bytes` - integer, the total number of bytes written to the output queue of the upstream
+- `sent_bytes` - integer, the total number of bytes that were sent to the RTMP upstream
+- `received_bytes` - integer, the total number of bytes that were received from the RTMP upstream
+- `streams` - object, the keys are RTMP stream names, the values are [Stream Objects](#stream-object)
+
+### Stream Object
+
+- `id` - integer, the RTMP message stream id (msid) of the stream
+- `uptime` - integer, the time that passed since the stream was created, in seconds
+- `tracks` - object, the keys hold the media type (`video` / `audio`), the values are [Track Objects](#track-object)
+
+### Track Object
+
+- `pending_frames` - integer, the number of frames in the pending queue of the track
+- `mem_used` - integer, the number of used bytes in the input buffer queue of the track
+- `input` - object | null, returns statistics about the KMP input currently connected to the track.
+    See [Input Object](../nginx-kmp-in-module/README.md#input-object) for more details.
+    `null` is returned if no input connection is currently connected to the track.
 
 
 ## API Endpoints

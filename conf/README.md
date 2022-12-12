@@ -49,7 +49,7 @@ The following dependencies are required for SRT input:
 
 ### Passthrough Streaming
 
-```
+```sh
 # install dependencies
 sudo apt update
 sudo apt-get install build-essential libpcre3-dev zlib1g-dev
@@ -96,7 +96,7 @@ ffmpeg -re -i a.mp4 -c copy -f flv "rtmp://localhost:1935/live/ch1_s1"
 
 ### Transcode Streaming
 
-```
+```sh
 # install docker engine (https://docs.docker.com/engine/install/ubuntu/)
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg

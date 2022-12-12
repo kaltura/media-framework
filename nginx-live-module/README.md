@@ -5,6 +5,7 @@ Acts as the "database" of the Media-Framework suite - stores the compressed medi
 
 Dependencies: *nginx-common*, *nginx-kmp-in-module*
 
+
 ## Features
 
 - Input
@@ -25,7 +26,7 @@ Dependencies: *nginx-common*, *nginx-kmp-in-module*
 
 ## Sample Configuration
 
-```
+```nginx
 live {
     # persistence
     store_s3_block my_bucket {
@@ -78,6 +79,7 @@ http {
     }
 }
 ```
+
 
 ## Architecture
 
@@ -1547,7 +1549,7 @@ The details provided for each field include -
 - `nginx_version` - string (R), nginx version
 - `compiler` - string (R), the compiler used to build nginx-live-module
 - `built` - string (R), the time nginx-live-module was built
-- `pid` - string (R), the nginx process id
+- `pid` - integer (R), the nginx process id
 - `time` - integer (R), the current unix timestamp
 - `uptime` - integer (R), the time since the nginx worker was started, in seconds
 - `channels` - object (R), the keys hold the channel id, while the values are [Channel Objects](#channel-object)
@@ -1555,9 +1557,9 @@ The details provided for each field include -
     Zombie buffers are created when the media buffers remain locked when a channel is freed.
     Normally, zombie buffers should not exist, since all save / serve requests that lock media buffers are canceled when the channel is freed.
     The object contains the following fields:
-    - `size` - integer (R), total size of memory occupied by zombie buffers
-    - `count` - integer (R), total number of zombie buffer queues
-    - `lock_count` - integer (R), total number of locks across all zombie buffers
+    - `size` - integer (R), the total size of memory occupied by zombie buffers
+    - `count` - integer (R), the total number of zombie buffer queues
+    - `lock_count` - integer (R), the total number of locks across all zombie buffers
 
 ### Channel Object
 
@@ -1601,8 +1603,8 @@ The details provided for each field include -
     - `pending` - integer (R), the number of requests that are currently in-progress
     - `error` - integer (R), the number of failed requests
     - `success` - integer (R), the number of successful requests
-    - `success_msec` - integer (R), total number of milliseconds consumed by successful requests
-    - `success_size` - integer (R), total number of bytes that were successfully written / read
+    - `success_msec` - integer (R), the total number of milliseconds consumed by successful requests
+    - `success_size` - integer (R), the total number of bytes that were successfully written / read
     - `version` - integer (R), the current "setup" version of the channel
     - `success_version` - integer (R), the last "setup" version that was successfully written
     - `success_index` - integer (R), the last segment index successfully written
@@ -1628,7 +1630,7 @@ The details provided for each field include -
 - `opaque` - string (CRU), can be used to store arbitrary data on the track object
 - `input` - object | null (R), returns statistics about the KMP input currently connected to the track.
     See [Input Object](../nginx-kmp-in-module/README.md#input-object) for more details.
-    `null` is returned if no input connection is currently connected with the track.
+    `null` is returned if no input connection is currently connected to the track.
 - `last_segment_bitrate` - integer (R), the bitrate of the last segment in bits per second.
     The value is 0, if the last segment does not exist on the track.
     The value is 1, if the bitrate of the last segment was not calculated, for example, if the segment is shorter than the configured threshold.
