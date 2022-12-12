@@ -113,15 +113,21 @@ ngx_ts_kmp_connect_handle(ngx_pool_t *temp_pool, void *arg,
     ngx_int_t                       rc;
     ngx_log_t                      *log;
     ngx_str_t                       desc;
+    ngx_ts_kmp_ctx_t               *ctx;
     ngx_ts_kmp_connect_call_ctx_t  *cctx = arg;
 
-    log = cctx->ctx->connection->log;
+    ctx = cctx->ctx;
+    log = ctx->connection->log;
 
     rc = ngx_kmp_out_connect_parse(temp_pool, log, code, content_type,
         body, &desc);
     switch (rc) {
 
     case NGX_OK:
+        if (ctx->state == ngx_ts_kmp_state_initial) {
+            ctx->state = ngx_ts_kmp_state_connect_done;
+        }
+
         break;
 
     case NGX_DECLINED:
@@ -143,7 +149,7 @@ error:
 
     ngx_log_error(NGX_LOG_NOTICE, log, 0,
         "ngx_ts_kmp_connect_handle: connect error \"%V\"", &desc);
-    cctx->ctx->error = 1;
+    ctx->state = ngx_ts_kmp_state_error;
 
     return NGX_OK;
 }
@@ -163,6 +169,7 @@ ngx_ts_kmp_connect(ngx_ts_handler_data_t *hd)
     if (url == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_KMP, ts->log, 0,
             "ngx_ts_kmp_connect: no connect url set in conf");
+        ctx->state = ngx_ts_kmp_state_connect_done;
         return NGX_OK;
     }
 
@@ -226,7 +233,7 @@ ngx_ts_kmp_handler(ngx_ts_handler_data_t *hd)
 {
     ngx_ts_kmp_ctx_t  *ctx = hd->data;
 
-    if (ctx->error) {
+    if (ctx->state == ngx_ts_kmp_state_error) {
         return NGX_ERROR;
     }
 

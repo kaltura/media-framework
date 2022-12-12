@@ -270,11 +270,13 @@ static ngx_int_t
 ngx_ts_kmp_track_handle_media_info(ngx_ts_kmp_track_t *ts_track)
 {
     ngx_int_t             rc;
+    ngx_ts_kmp_ctx_t     *ctx;
     ngx_kmp_out_track_t  *track;
 
-    if (!ts_track->media_info_sent) {
-        track = ts_track->track;
+    track = ts_track->track;
+    ctx = track->ctx;
 
+    if (!ts_track->media_info_sent) {
         rc = ngx_kmp_out_track_write_media_info(track);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
@@ -285,9 +287,7 @@ ngx_ts_kmp_track_handle_media_info(ngx_ts_kmp_track_t *ts_track)
         ts_track->media_info_sent = 1;
     }
 
-    if (!ts_track->published) {
-        track = ts_track->track;
-
+    if (!ts_track->published && ctx->state == ngx_ts_kmp_state_connect_done) {
         if (ngx_kmp_out_track_publish(track) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_ts_kmp_track_handle_media_info: publish failed");
@@ -673,13 +673,13 @@ ngx_ts_kmp_track_heavc_pes_handler(ngx_ts_kmp_track_t *ts_track,
         if (heavc->media_info_handler(ts_track, hd->ts) != NGX_OK) {
             return NGX_ERROR;
         }
+    }
 
-        if (ngx_ts_kmp_track_handle_media_info(ts_track) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &ts_track->track->log, 0,
-                "ngx_ts_kmp_track_heavc_pes_handler: "
-                "handle media info failed");
-            return NGX_ERROR;
-        }
+    if (ngx_ts_kmp_track_handle_media_info(ts_track) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &ts_track->track->log, 0,
+            "ngx_ts_kmp_track_heavc_pes_handler: "
+            "handle media info failed");
+        return NGX_ERROR;
     }
 
     is_key_frame = nalus.types & heavc->nal_idr_mask;
@@ -1025,6 +1025,7 @@ ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
     for ( ;; ) {
 
         /* adts header */
+
         for ( ;; ) {
 
             buf_left = buf->last - pos;
@@ -1109,6 +1110,7 @@ ngx_ts_kmp_track_aac_pes_handler(ngx_ts_kmp_track_t *ts_track,
         }
 
         /* aac data */
+
         for ( ;; ) {
 
             buf_left = buf->last - pos;
@@ -1219,13 +1221,13 @@ ngx_ts_kmp_track_ac3_pes_handler(ngx_ts_kmp_track_t *ts_track,
 
         track->extra_data.len = extra_data.len;
         ngx_memcpy(track->extra_data.data, extra_data.data, extra_data.len);
+    }
 
-        if (ngx_ts_kmp_track_handle_media_info(ts_track) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_ts_kmp_track_ac3_pes_handler: "
-                "handle media info failed");
-            return NGX_ERROR;
-        }
+    if (ngx_ts_kmp_track_handle_media_info(ts_track) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_ts_kmp_track_ac3_pes_handler: "
+            "handle media info failed");
+        return NGX_ERROR;
     }
 
     return ngx_kmp_out_track_write_frame(track, &frame, cl, cl->buf->pos);
@@ -1383,13 +1385,13 @@ ngx_ts_kmp_track_mp3_pes_handler(ngx_ts_kmp_track_t *ts_track,
                 "parse header failed");
             return NGX_ERROR;
         }
+    }
 
-        if (ngx_ts_kmp_track_handle_media_info(ts_track) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_ts_kmp_track_mp3_pes_handler: "
-                "handle media info failed");
-            return NGX_ERROR;
-        }
+    if (ngx_ts_kmp_track_handle_media_info(ts_track) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_ts_kmp_track_mp3_pes_handler: "
+            "handle media info failed");
+        return NGX_ERROR;
     }
 
     return ngx_kmp_out_track_write_frame(track, &frame, cl, buf->pos);
@@ -1510,7 +1512,7 @@ ngx_ts_kmp_track_error(void *arg)
 
     ngx_log_error(NGX_LOG_NOTICE, ctx->connection->log, 0,
         "ngx_ts_kmp_track_error: called");
-    ctx->error = 1;
+    ctx->state = ngx_ts_kmp_state_error;
 }
 
 
