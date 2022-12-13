@@ -386,13 +386,13 @@ The KMP connect data of incoming connections must be a JSON object containing th
     By default, the application name is extracted from the `url`.
 - `name` - string, optional, the RTMP stream name.
     By default, the stream name is extracted from the `url`.
-- `flash_ver` - string, optional, sets the the value of the `flashVer` field of the RTMP `connect` message.
+- `flash_ver` - string, optional, sets the value of the `flashVer` field of the RTMP `connect` message.
     By default, the module uses the value set using the `kmp_rtmp_out_flash_ver` directive.
-- `swf_url` - string, optional, sets the the value of the `swfUrl` field of the RTMP `connect` message.
+- `swf_url` - string, optional, sets the value of the `swfUrl` field of the RTMP `connect` message.
     By default, an empty string is sent.
-- `tc_url` - string, optional, sets the the value of the `tcUrl` field of the RTMP `connect` message.
+- `tc_url` - string, optional, sets the value of the `tcUrl` field of the RTMP `connect` message.
     By default, the module uses the value of `url`, excluding the stream name part (=up to the application name).
-- `page_url` - string, optional, sets the the value of the `pageUrl` field of the RTMP `connect` message.
+- `page_url` - string, optional, sets the value of the `pageUrl` field of the RTMP `connect` message.
     By default, an empty string is sent.
 
 If an upstream with the id `upstream_id` exists when the track is added, most of the fields listed above are ignored.

@@ -481,7 +481,7 @@ The variables `pckg_variant_id` / `pckg_media_type` can be used in the expressio
 
 When encryption is enabled, and this directive is not used, a URI is generated automatically:
 - If `pckg_enc_scheme` is set to `cenc`, the URI will contain the PSSH boxes provided in `pckg_enc_json`, base64 encoded.
-- Otherwise, URI will return an `enc.key` URL, according to the the configured `pckg_enc_scope`.
+- Otherwise, URI will return an `enc.key` URL, according to the configured `pckg_enc_scope`.
 
 #### pckg_m3u8_enc_key_format
 * **syntax**: `pckg_m3u8_enc_key_format str;`

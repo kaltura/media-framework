@@ -213,23 +213,139 @@ Each packet starts with a header that contains the following fields (32 bits eac
 - *Data size* - the size of the packet data, must be between 0 and 16MB.
 - *Reserved* - reserved for future use, must be set to 0.
 
-The following packet types can be sent by a KMP producer:
-- *Connect* (`cnct`) - sent upon the establishment of the TCP connection, identifies the track that is being sent.
-- *Media info* (`minf`) - contains the parameters of the media - media type (video/audio/subtitle), codec id, bitrate etc.
-    The data of the packet is the codec private/extra data, for example, for h264 video, it contains the data of the avcC MP4 box.
-    Parsers should handle media info changes, for example, a change to the video resolution.
-    However, the type of the media sent in a KMP connection (video/audio/subtitle), must not change.
-- *Frame* (`fram`) - a single video frame/audio frame/subtitle cue. Each frame has an implicit frame id that is used for acks -
-    the initial frame id is sent in the *Connect* packet, and it is incremented by one on each *Frame* packet.
-- *Null* (`null`) - sent in order to signal "liveness", and prevent idle timers from expiring. Parsers must ignore null packets.
-- *End of stream* (`eost`) - a graceful termination of the publishing session.
+The structures and constants used in KMP can be found in [ngx_live_kmp.h](nginx-common/src/ngx_live_kmp.h).
 
-The following packet types can be sent by a KMP receiver:
-- *Ack frames* (`ackf`) - acknowledge the receipt of frames. It is up to receiver to decide when to send the ack, for example,
-    when persistence is enabled, the segmenter sends an ack only after the frame is saved to storage.
-    Some receivers do not send acks at all, in this case the KMP producer must be configured to discard the frames right after they are sent (=auto ack)
+### KMP Frame Ids
 
-For additional details on the internal structure of each packet, refer to [ngx_live_kmp.h](nginx-common/src/ngx_live_kmp.h)
+A frame id is a 64-bit integer that uniquely identifies an input frame.
+The ingest modules (*nginx-rtmp-kmp-module* / *nginx-mpegts-kmp-module*) allocate the initial frame id according to the server clock (in timescale units),
+when an output track is created.
+In order to avoid the need to send the frame id on each frame that is being sent, the frame ids in KMP are sequential -
+the id of the N-th frame that is sent on a KMP connection is `initial_frame_id + N`.
+
+If the input connection (e.g. RTMP) drops and gets re-established, new KMP frame ids will be allocated.
+Since the default timescale is high (90kHz), and the frame rate is unlikely to exceed 60fps, even in case of a reconnect after a short period of streaming,
+the initial frame id will be significantly higher than the frame id that was last sent on the previous connection.
+So, it is extremely unlikely to have a conflict with any previously used frame ids due to reconnect.
+
+Frame ids are used:
+- To identify which frames are being acked in KMP ack packets
+- To skip previously handled frames if a KMP connection is re-established
+
+The transcoder adds a few complexities to the management of frame ids -
+- Since the transcoder may change the input frame rate or drop frames, the frame ids in the transcoder input,
+    are not necessarily the same as the frame ids in the transcoder output.
+	If the transcoder is restarted, it needs to know what value to send as the `initial_frame_id` of its upstream server (usually nginx-live-module).
+	The `upstream_frame_id` field is used for this purpose.
+- The transcoder may be configured to change the sampling rate of an audio track, and, in this case, the transcoded frames do not align with the input frames.
+	To handle this scenario, the transcoder needs to have the ability to acknowledge only a part of an input frame.
+	This is the purpose of the `offset` field - it can store, for example, the number of audio samples that should be acknowledged within the frame.
+	The exact meaning of the `offset` field is determined by the KMP receiver -
+	the receiver sets the `offset` in the ack frames it returns, and gets it back in the `initial_offset` field of the connect packet, in case of reconnect.
+
+### Publisher KMP Packets
+
+The sections below list the KMP packets that can be sent by a KMP publisher.
+
+#### Connect (`cnct`)
+
+Sent immediately after the KMP TCP connection is established.
+
+The header contains the following fields:
+- `channel_id` - string, the channel id that is being published. The maximum allowed length is 32 chars.
+- `track_id` - string, the track id that is being published. The maximum allowed length is 32 chars.
+- `initial_frame_id` - integer, the id of the first frame being sent.
+- `initial_upstream_frame_id` - integer, the initial frame id that should be sent to the upstream server (used by the transcoder)
+- `initial_offset` - integer, the offset to start from, within the initial frame.
+- `flags` - integer, a bit mask of flags, currently a single flag is defined -
+    `consistent` - this flag is set when the KMP publisher generates consistent (bit exact) output, given the same input.
+        *nginx-rtmp-kmp-module* and *nginx-mpegts-kmp-module* are examples of publishers that are consistent.
+        The *transcoder*, on the other hand, is not. The `consistent` flag is used by the LL segmenter in case of reconnect.
+        When the publisher is consistent, the LL segmenter can continue from the point it left off.
+        When the publisher is inconsistent, the LL segmenter can continue only from the next GOP -
+		it must not mix a partial GOP from before the disconnect, with the GOP received after the disconnect.
+
+The data of the connect packet is optional, the expected format of the data is defined by the specific KMP receiver.
+
+#### Media Info (`minf`)
+
+Contains the parameters of the media.
+Some of the fields in the header are shared by all media types, while the rest are defined only for a specific type (union).
+
+The shared header fields are:
+- `media_type` - integer, the type of media - `video` / `audio` / `subtitle`, uses the KMP_MEDIA_XXX constants.
+- `codec_id` - integer, the codec id, uses the KMP_CODEC_XXX constants.
+- `timescale` - integer, the units used in the `dts` / `pts_delay` / `created` fields of frame packets, in Hz.
+- `bitrate` - integer, the bitrate, in bits per second.
+
+The video-specific header fields are:
+- `width` - integer, the width of the video, in pixels.
+- `height` - integer, the height of the video, in pixels.
+- `frame_rate` - rational, the frame rate of the video, in frames per second.
+- `cea_captions` - boolean, set to `1` when the video track contains EIA-608 / CTA-708 captions.
+
+The audio-specific header fields are:
+- `channels` - integer, the number of audio channels.
+- `bits_per_sample` - integer, the size of the audio samples, in bits.
+- `sample_rate` - integer, the sampling rate of the audio, in samples per second.
+- `channel_layout` - integer, a bit mask of channel positions, uses the KMP_CH_XXX constants.
+
+The data of the media info packet holds the codec private/extra data.
+For example, when using the `h264` codec, the data contains the body of an `avcC` MP4 box.
+
+KMP receivers should handle media info changes, for example, a change to the video resolution.
+However, the type of the media (video/audio/subtitle) that is sent in a KMP connection, must not change.
+
+#### Frame (`fram`)
+
+Represents a single video frame / audio frame / subtitle cue.
+
+The frame header contains the following fields:
+- `created` - integer, the time in which the frame was received by the first Media-Framework module in the pipeline, in timescale units.
+- `dts` - integer, the decode timestamp of the frame, in timescale units.
+- `flags` - integer, currently only one flag is defined -
+    `key` - enabled on video keyframes.
+- `pts_delay` - integer, the difference between the presentation timestamp of the frame, and the decode timestamp, in timescale units.
+
+When the media type is video / audio, the data of the frame packet holds the compressed media.
+When the media type is subtitle and the codec is WebVTT, the data of the frame follows the WebVTT Sample Format, as specified in `ISO/IEC 14496-30`
+(usually, in this case, a sample is a `vttc` box, that contains a `payl` box).
+
+#### Null (`null`)
+
+Sent in order to signal "liveness", and prevent idle timers from expiring.
+Null packets do not carry any data other than the basic KMP header.
+Parsers must ignore null packets.
+
+#### End Of Stream (`eost`)
+
+Used to signal a graceful termination of the publishing session.
+End of stream packets do not carry any data other than the basic KMP header.
+
+### Receiver KMP Packets
+
+The sections below list the KMP packets that can be sent by a KMP receiver.
+
+#### Ack Frames (`ackf`)
+
+Acknowledge the receipt of frames.
+
+The KMP receiver decides on the appropriate time to send an ack packet.
+For example, when persistence is enabled, the segmenter sends an ack only after a segment that contains the frame is saved to storage.
+
+Some receivers do not send acks at all, in this case, the KMP producer must be configured to discard the frames after they are sent (using the `resume_from` setting)
+
+The packet header contains the following fields:
+- `frame_id` - integer, the id of the first frame that should be re-sent if the connection is dropped.
+    In other words, an ack frames packet, acknowledges all frames that have an id that is less `frame_id`.
+	If the KMP connection is re-established, this value will be sent in the `initial_frame_id` field.
+- `upstream_frame_id` - integer, the id of the frame that was sent to the upstream server.
+	If the KMP connection is re-established, this value will be sent in the `initial_upstream_frame_id` field.
+- `offset` - integer, the offset to acknowledge within the frame.
+	If the KMP connection is re-established, this value will be sent in the `initial_offset` field.
+- `padding` - integer, reserved for future use, must be set to zero.
+
+The data of the ack packets is not used.
 
 
 ## Kaltura Segmented Media Protocol (KSMP)
