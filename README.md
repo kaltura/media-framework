@@ -200,6 +200,16 @@ When compiling nginx, the dependencies must be added (`--add-module`) before any
     - Support for additional codecs: h265, AC3, E-AC3
     - Removed features: hls/dash output
 
+### Debug Options
+
+Some of the Media-Framework components support optional preprocessor macros for debugging purposes -
+- *NGX_LBA_SKIP* (nginx-common) - Skips the use of the "Large Buffer Array" (LBA) module. When enabled, LBA allocations are routed to ngx_alloc / ngx_free.
+- *NGX_RTMP_VERBOSE* (nginx-rtmp-module) - Enables additional debug log messages
+- *NGX_LIVE_VALIDATIONS* (nginx-live-module) - Enables runtime consistency checks on internal data structures, enabled by default when using `--with-debug`
+- *NGX_BLOCK_POOL_SKIP* (nginx-live-module) - Skips the use of block pools. When enabled, block pool allocations are routed to ngx_palloc / ngx_pfree.
+
+To test the modules with valgrind, it is recommended to the apply the [no-pool-nginx](https://github.com/openresty/no-pool-nginx) patch,
+and configure nginx with `--with-cc-opt="-O0 -DNGX_BLOCK_POOL_SKIP -DNGX_LBA_SKIP"` and `--with-debug`.
 
 ## Kaltura Media Protocol (KMP)
 
@@ -295,6 +305,8 @@ For example, when using the `h264` codec, the data contains the body of an `avcC
 
 KMP receivers should handle media info changes, for example, a change to the video resolution.
 However, the type of the media (video/audio/subtitle) that is sent in a KMP connection, must not change.
+
+KMP receivers should ignore media info packets, when they are identical to the previously received media info packet.
 
 #### Frame (`fram`)
 

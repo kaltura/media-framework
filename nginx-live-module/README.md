@@ -123,7 +123,14 @@ subset that is returned in the manifest.
 The manifest timeline is always a "suffix" of the main timeline - it contains the same segments as the main timeline,
 except for a certain number of segments removed from the beginning.
 The manifest timeline is, in fact, only a "pointer" to a segment contained in the main timeline.
-When a timeline is created, it is possible to specify, for example, the maximum duration of the main part vs the duration of the manifest part.
+When a timeline is created, it is possible to specify, for example, the maximum duration of the main part (`max_duration`) vs the duration of the manifest part (`manifest_max_duration`).
+
+Whenever a segment is added to a timeline, the total duration and the number of segments are checked against the `max_duration` / `max_segments` settings in the timeline configuration.
+If needed, segments are removed from the end of timeline, until the total duration and the number of segments drop below the configured limit.
+
+When a timeline is inactive, the `max_duration` / `max_segments` limits are applied while taking into account the time of inactivity -
+- `max_duration` - The time that passed since a segment was last added to the timeline is added to the total duration of the segments.
+- `max_segments` - The time that passed since a segment was last added to the timeline divided by the average segment duration is added to the total number of segments.
 
 ### Timestamp Alignment
 
@@ -195,6 +202,8 @@ A segment is created in the following steps:
     - Each candidate is evaluated by calculating its "span" - the actual slice pts is calculated for all tracks, assuming the specific candidate is chosen for the end pts of the segment.
         The "span" is defined as the difference between the max slice pts and the min slice pts of the tracks.
     - The candidate that is closest to the target segment duration, and has a span that is close enough to the minimum span of all candidates is chosen
+- Apply the input delay - if the difference between the server clock and the estimated KMP `created` value at the end of the segment, is lower than the configured `input_delay`,
+	the creation of the segment is delayed.
 - Calculate the copy / remove indexes for each track - the copy index is the number of frames that are copied to the newly created segment.
     The remove index is the number of frames that are removed from the pending frames list.
     In video / audio tracks, the copy index and the remove index always have the same value (aka "split index").
@@ -248,7 +257,7 @@ Therefore, a segment index has a "state" per-track, the following states are def
 - `end` - the segment was stopped, and the duration of the segment was decided. When a segment reaches this state, the full segment can be published in the playlist.
     Note that a segment cannot be started before the previous segment has ended, because the playlist cannot publish a part of segment N, without publishing the full duration of segment N-1.
 
-When getting a media playlist request for some track, it is possible that some of the segments in the timeline are pending on the requested track, or maybe even do not exist yet.
+When getting a media playlist request on a track, it is possible that some of the segments in the timeline are pending on the requested track, or maybe even do not exist yet.
 These segments are excluded from the timeline returned in the KSMP response.
 
 In addition to the per-track state, a segment index can be in one of two states on the channel level:
@@ -281,12 +290,18 @@ The low-latency segmenter has several limitations, when comparing it to the defa
     some other track has surely started handling the segment already. As explained in the first bullet, at this point it's too late to force a new period.
     For this reason, the gap-filling feature is not supported when using the low-latency segmenter.
 
-3. Muxed segments - in order to support muxed segments with low-latency, nginx-live-module would need to:
+3. Aligned keyframes - both the default segmenter and the low-latency segmenter require keyframes that are aligned across the different video tracks,
+	in order to generate aligned segments. If a video track has additional keyframes that do not exist in other tracks, the default segmenter will ignore them.
+	The low-latency segmenter, however, may try to use such a keyframe as a segment boundary. This can result in gaps or significant differences between
+	the segment duration that is reported in the manifest, and the actual duration of the media.
+
+4. Muxed segments - in order to support muxed segments with low-latency, nginx-live-module would need to:
     - Report only the subset of parts that exist in both video and audio tracks
     - Complete blocking requests only when the requested part exists in both video and audio
     - Take both tracks into account when generating rendition reports
 
     In order to avoid these complexities and more, the low-latency features are supported only with unmuxed video / audio segments.
+	The only LLHLS feature that is supported with muxed tracks is "Playlist Delta Updates".
 
 ### Media Info Queue
 
@@ -339,6 +354,11 @@ When a KSMP request for media is received, the module looks up the media info no
 (which is the media info node with the largest segment index, that is less than or equal to the requested segment index).
 The `track_id` field of this media info node, determines from which track the media segment is served.
 
+In addition to filling gaps in segments that are created, the module has support for "backfilling" segments when a track is added.
+When a track is added after the channel contains media, the module tries to find a suitable source track for the track that is being added.
+If a source track is found, its media info queue is copied to the new track.
+A request for an old segment on the newly added track will be served from the source track.
+
 ### Segment Cache
 
 The segment cache maintains a tree of segments per-track, each segment object in the cache has the following fields:
@@ -365,11 +385,14 @@ The data is stored in multiple [KLPF](../README.md#kaltura-live-persist-file-klp
 - *Segment media* (`sgts`) - holds the media (compressed video / audio frames) of a set of segments.
 - *Filler* (`fllr`) - stores media that is used to fill gaps in input tracks, for example, a slate video image, or silent audio frames.
 
-When a channel is read from storage, the files are read in the following order -
+When a channel is created, the files are read from storage in the following order -
 1. The Setup file
 2. The full index file
 3. The delta index file (See [Delta index](#delta-index) below)
 4. The filler file - only when the channel uses a filler, and the respective filler channel wasn't already loaded to memory
+
+The create channel API request is completed only when the process of reading the files from storage finishes.
+During this time, the channel is blocked for editing - no objects can be created / updated using the API, and no KMP connections are allowed to connect to the channel.
 
 Note that media segment files are not read when a channel is loaded.
 These files are read on-demand - only when getting a request for a segment that no longer exists in the memory segment cache.
@@ -398,7 +421,7 @@ the segments are stored in the file one after the other, in the same order they 
 Since reading / writing to object storage may be slow, all the read / write operations are performed asynchronously.
 The write operation does not block the nginx process, and additional segments may be created while a write operation is pending.
 
-This presents a challenge - when some segment is created, the module has to wait until the media of the segment is written,
+This presents a challenge - when a segment is created, the module has to wait until the media of the segment is written,
 before it can start writing an updated index file that references the segment.
 Otherwise, if the module is restarted, and it restores its state from storage, the index file may contain references to media files that do not exist in storage.
 
@@ -425,6 +448,30 @@ When a channel is read from storage, the module reads both the main file and the
 The delta file may not match the main index file, for example, when the segmenter is restarted immediately after it performed a full index save.
 In this case, the delta file is simply ignored.
 
+#### Write Triggers
+
+The triggers for writing the different files are -
+- *Setup* - saved X seconds after a change to a channel object (timeline, variant etc.) is performed via API.
+- *Segment media* - saved when the last segment in a media bucket is created, or the channel becomes inactive.
+	When a media bucket is saved due to inactivity, the `next_segment_index` is bumped to the first index of the next bucket,
+	so that future segments will not write to the same bucket.
+- *Segment index* - saved when a media bucket is persisted successfully.
+- *Filler* - saved only when getting an explicit channel update API request, with the `save` field set to `true`.
+
+#### Multiple Files Consistency
+
+Since the state of the module is partitioned across several different objects, it is possible, that the different objects will not be aligned with each other.
+
+For example, consider a case where a channel is read from storage, and the read operation is canceled (see `persist_cancel_read_if_empty`).
+The module then writes a new *Setup* file (overwriting the previous one), but gets restarted before it writes a new *Index* file.
+If the module tries to read the channel from storage at this point, it will read a new *Setup* file, with an old *Index* file.
+This mix of versions is likely to make the read operation fail, and consequently, fail the create channel API.
+
+To protect from this scenario, a random 64-bit `uid` is generated whenever a channel is created.
+This `uid` is stored in all persisted files.
+When a channel is read from storage, the *Setup* file is read first, and it sets the `uid` of the channel.
+As additional files are being read, the `uid` of the file is compared to the `uid` of the channel - if the uids do not match, the file is ignored.
+
 #### Versioning
 
 As new features are applied to this module, changes to the format of persisted files may be required.
@@ -443,20 +490,6 @@ The code is updated so that it can read both the new version, as well as the pre
 In order to avoid accumulating extra code for supporting old versions, some time after a breaking change is introduced, the support for the older version is removed.
 The extra code that was added to support reading the old versions is removed, and the min version value is updated accordingly.
 
-#### Multiple Files Consistency
-
-Since the state of the module is partitioned across several different objects, it is possible, that the different objects will not be aligned with each other.
-
-For example, consider a case where a channel is read from storage, and the read operation is canceled (see `persist_cancel_read_if_empty`).
-The module then writes a new *Setup* file (overwriting the previous one), but gets restarted before it writes a new *Index* file.
-If the module tries to read the channel from storage at this point, it will read a new *Setup* file, with an old *Index* file.
-This mix of versions is likely to make the read operation fail, and consequently, fail the create channel API.
-
-To protect from this scenario, a random 64-bit `uid` is generated whenever a channel is created.
-This `uid` is stored in all persisted files.
-When a channel is read from storage, the *Setup* file is read first, and it sets the `uid` of the channel.
-As additional files are being read, the `uid` of the file is compared to the `uid` of the channel - if the uids do not match, the file is ignored.
-
 #### Error Handling
 
 Requests to write / read from object storage can fail.
@@ -471,6 +504,87 @@ Assuming the segment cache is large enough to hold a few segments, a failure to 
 In other words, even in case of a complete outage of the storage service, playback near the live edge is expected to work flawlessly.
 
 Failures in saving setup / index files are ignored. Additional attempts to save the index file will be made, as more segments are being added to the channel.
+
+### Active Policy
+
+There are a few scenarios in which tracks may be added / removed while a channel is active, for example -
+1. Multi audio - an audio track with a new language is added to an existing stream
+2. A temporary issue in one of the tracks - the encoder didn't send any data, the transcoder is lagging etc.
+    After the glitch is over, the track may resume.
+3. Some encoders don't send any audio frames when the microphone is disconnected
+
+If a variant becomes inactive, the goal is to move players to other variants that are still active.
+Therefore, when a variant is inactive, it is removed from the master playlist, so that new players that join the stream will not use it.
+In addition, requests for the media playlist of the variant return HTTP error 410 (gone), in order to force existing players to move to other variants.
+
+The "main" track of the variant determines whether the variant is active or not -
+- A variant that has a video track is active if the video track is active.
+- A variant that has only an audio track is active if the audio track is active.
+
+The module supports two "policies" for determining which tracks are active -
+- `last` - a track is considered active if it participated in the last segment of the timeline.
+	This option is recommended for playback, in order to move players to active variants.
+- `any` - a track is considered active if it participated in any segment of the timeline.
+	This option is recommended for recording, in order to be able to pull all the variants that have content on the recording timeline, even if they were not included in the last segment.
+
+### Filler
+
+The filler feature enables the use of pre-ingested video / audio content for filling gaps in incoming media.
+
+#### Usage
+
+Setup:
+
+1. Create a channel and a timeline to hold the filler content, using the API
+2. Publish some video / audio tracks to the filler channel - either using one of the ingest modules (nginx-rtmp-kmp-module / nginx-mpegts-kmp-module) or using KMP directly (can use the file-to-kmp utility in the test folder)
+3. Optionally, save the filler to storage - by issuing a `PUT` request on the channel, with: `{"filler": {"save": "true", "timeline_id": "id"}}`
+
+Enable:
+
+- When creating a channel, add the `filler` property to the channel object.
+	The `filler` must be an object containing the fields: `channel_id`, `preset`, `timeline_id`.
+	A filler can also be added to an existing channel, using the channel update API.
+
+Additional guidelines:
+
+- The preset of the filler channel should not use any `persist_xxx_path` directives, other than `persist_filler_path`, so that the segments will not be removed from the memory cache.
+- The content of the filler channel should never be changed - it is recommended to use a versioning scheme on the filler channel name, and move to a new version if needed.
+	Replacing the video / audio content of the filler can cause playback interruptions in channels that use it.
+- Removing / changing the filler association of a channel is not supported.
+- It is recommended to use a small `segment_duration` on filler channels.
+- When a filler is enabled, `filler` tracks are created on the target channel, with the same names as the tracks on the filler channel.
+	Therefore, the names of the tracks on the filler channel, must not conflict with "regular" tracks used for streaming media.
+	It is recommended to use a naming convention that will ensure no conflict will occur.
+- It is recommended to use multiple renditions of video / audio in the filler channel, so that the filler could match the original media info of the track more closely.
+	For example, providing the video filler content in the most commonly used resolutions, can avoid a resolution change when the filler is used.
+- Avoid the use of B-frames in video filler content.
+- The timeline on the filler channel must be continuous - it must contain a single period.
+
+#### Implementation
+
+Setting up a filler on a channel involves the following steps:
+- If the filler channel does not exist, it is loaded from storage.
+	The target channel subscribes for a ready event on the filler channel, the filler setup continues only when the filler channel is ready.
+	The API request that was issued to enable the filler (channel create / update), is also blocked until the filler channel is ready.
+- The cycle duration of the filler content is calculated, as well as the duration of the filler segments.
+- Filler tracks are created on the target channel, with the same names as the original tracks on the filler channel.
+	For each track -
+	- The media info is copied
+	- Media segments are created
+	- A link to the original media buffers is created (the filler content is not duplicated, it exists only once in memory)
+
+As part of the setup of the filler, all the tracks are forced to have a duration that is identical to the cycle duration,
+some frames may be omitted / stretched, if needed.
+
+When the default segmenter creates a segment, and no video tracks are active, the exact duration of the segment is set according to the duration of the filler segments.
+
+The generation of media segments from filler content happens on-the-fly, only when the module gets a request for a segment that is missing.
+This makes it possible to add the filler retroactively to segments that were previously created.
+For example, a channel starts publishing video-only content, then, at some point, an audio track starts publishing.
+The audio of the previously created segments can be served from the filler.
+
+The filler content can be used to fill any duration that is needed, by looping the content in a "cycle".
+Conceptually, the filler creates an infinite stream that cycles from pts zero, portions of this stream are used when serving filler segments.
 
 ### Segment Info
 
@@ -505,6 +619,12 @@ depending on the size of the extra data, and the available block sizes.
 Blocks that are allocated are freed only when the channel is deleted. When a block is no longer required, it is added to a list of free blocks.
 Whenever there's a need to allocate a block, the free list is checked first. Additional memory is allocated only when the free list of the specific block size is empty.
 
+For certain types of block sizes, it is possible to control the actual size that is allocated.
+For example, some block sizes are used for the allocation of list parts (similarly to `ngx_list_t`),
+and the number of elements in each part can be selected.
+In these cases, an attempt was made to coalesce several different block types into one size.
+Using fewer block sizes, improves the memory utilization, since a freed block from one type, can be reallocated by another type.
+
 #### Media Buffers
 
 Media buffers are allocated in fixed-size blocks (see `input_bufs_size`), which are allocated in large buffers (512KB).
@@ -519,6 +639,11 @@ To avoid the need to copy, the module implements a locking mechanism on the inpu
 Media is received from a KMP connection, directly to a media buffer.
 When the media has to be served following a KSMP request, or needs to be saved to storage, a lock is created, to prevent the buffers from being freed.
 The lock is removed when the serve / save request completes.
+
+Each media buffer lock contains -
+- Reference count - multiple read / write requests may lock the same segment
+- A pointer to the data that is locked - on the queue of input buffers
+- Segment index - used to compare different locks to each other when freeing buffers, in order to find the minimal locked position
 
 #### Memory Limit
 
@@ -690,7 +815,7 @@ Provides the configuration file context in which the live `preset` directives ar
 * **context**: `live`
 
 Defines a live preset. A live preset is a collection of configuration parameters used by live channels.
-When a channel is created via the API, the `prefix` field must point to some `preset` blocked defined in the configuration.
+When a channel is created via the API, the `preset` field must point to a `preset` blocked defined in the configuration.
 
 #### variables_hash_max_size
 * **syntax**: `variables_hash_max_size size;`
@@ -1469,7 +1594,7 @@ Defines the parameters of an S3 bucket used for persistence.
 * **context**: `live`, `preset`
 
 Enables persistence using the specified S3 bucket.
-The name parameter must match some previously defined `store_s3_block` block.
+The name parameter must match the name of a previously defined `store_s3_block` block.
 
 #### url
 * **syntax**: `url str;`
@@ -1804,6 +1929,9 @@ Possible status codes:
 - 403 - A channel with the specified `id` exists and is currently blocked (a channel is blocked while its state is being read from storage)
 - 409 - A channel with the specified `id` already exists (only when the `upsert` setting it not enabled on the API)
 - 415 - Request body is not a valid JSON object, required fields are missing (`id` / `preset`), invalid `segment_duration` value etc.
+- 502 - A request to read one of the channel files failed with an unexpected error, for example, invalid status code
+- 503 - A file that was read from storage contained invalid data
+- 504 - Timeout while reading a file from storage
 
 ### GET /channels/{channel_id}
 

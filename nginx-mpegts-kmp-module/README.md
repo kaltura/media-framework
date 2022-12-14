@@ -147,7 +147,7 @@ See [Publish](../nginx-kmp-out-module/README.md#publish) for more details on the
 * **default**: `none`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
-Sets the URL of the HTTP `unpublish` callback, called whenever a track (audio/video) stops being published to the server, or some unrecoverable error occurs when sending to upstream.
+Sets the URL of the HTTP `unpublish` callback, called whenever a track (audio/video) stops being published to the server, or an unrecoverable error occurs when sending to upstream.
 The response of this notification is ignored, and no retries are performed in case of error.
 
 See [Unpublish](../nginx-kmp-out-module/README.md#unpublish) for more details on the `unpublish` request.
