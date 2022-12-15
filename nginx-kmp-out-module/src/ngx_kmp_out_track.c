@@ -621,7 +621,7 @@ ngx_kmp_out_track_unpublish(ngx_kmp_out_track_t *track)
     ngx_kmp_out_unpublish_call_ctx_t   ctx;
 
     url = track->conf->ctrl_unpublish_url;
-    if (url == NULL) {
+    if (url == NULL || track->state == NGX_KMP_TRACK_INITIAL) {
         return;
     }
 
