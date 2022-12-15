@@ -237,7 +237,7 @@ ngx_live_persist_serve_get_track_rr(ngx_live_timeline_t *timeline,
 
 static void
 ngx_live_persist_serve_get_variant_rrs(ngx_live_persist_variant_rr_t *var_rr,
-    ngx_live_timeline_t *timeline, ngx_ksmp_rendition_report_t *skip_rr)
+    ngx_live_timeline_t *timeline, ngx_live_track_t *skip_track)
 {
     ngx_uint_t                    media_type;
     ngx_live_track_t             *cur_track;
@@ -252,17 +252,11 @@ ngx_live_persist_serve_get_variant_rrs(ngx_live_persist_variant_rr_t *var_rr,
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
 
         cur_track = variant->tracks[media_type];
-        if (cur_track == NULL) {
+        if (cur_track == NULL || cur_track == skip_track) {
             continue;
         }
 
         if (!ngx_live_persist_serve_get_track_rr(timeline, cur_track, rr)) {
-            continue;
-        }
-
-        if (rr->last_sequence == skip_rr->last_sequence
-            && rr->last_part_index == skip_rr->last_part_index)
-        {
             continue;
         }
 
@@ -315,7 +309,7 @@ ngx_live_persist_serve_write_rrs(ngx_persist_write_ctx_t *write_ctx, void *obj)
     ngx_live_channel_t                   *channel = obj;
     ngx_live_timeline_t                  *timeline;
     ngx_persist_write_marker_t            marker;
-    ngx_ksmp_rendition_report_t           skip_rr;
+    ngx_ksmp_rendition_report_t           base_rr;
     ngx_live_persist_variant_rr_t         rr;
     ngx_live_persist_serve_scope_t       *scope;
     ngx_ksmp_rendition_reports_header_t   header;
@@ -328,13 +322,17 @@ ngx_live_persist_serve_write_rrs(ngx_persist_write_ctx_t *write_ctx, void *obj)
     timeline = scope->timeline;
     if (scope->track != NULL) {
         if (!ngx_live_persist_serve_get_track_rr(scope->timeline, scope->track,
-            &skip_rr))
+            &base_rr))
         {
             return NGX_OK;
         }
 
+        header.last_sequence = base_rr.last_sequence;
+        header.last_part_index = base_rr.last_part_index;
+
     } else {
-        ngx_memset(&skip_rr, 0xff, sizeof(skip_rr));
+        header.last_sequence = NGX_MAX_UINT32_VALUE;
+        header.last_part_index = NGX_MAX_UINT32_VALUE;
     }
 
     header.count = 0;
@@ -348,7 +346,7 @@ ngx_live_persist_serve_write_rrs(ngx_persist_write_ctx_t *write_ctx, void *obj)
             continue;
         }
 
-        ngx_live_persist_serve_get_variant_rrs(&rr, timeline, &skip_rr);
+        ngx_live_persist_serve_get_variant_rrs(&rr, timeline, scope->track);
         if (rr.nelts <= 0) {
             continue;
         }
