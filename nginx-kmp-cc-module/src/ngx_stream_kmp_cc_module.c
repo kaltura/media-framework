@@ -99,10 +99,10 @@ static ngx_command_t  ngx_stream_kmp_cc_commands[] = {
 
     { ngx_string("kmp_cc_in_log_frames"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_flag_slot,
+      ngx_conf_set_enum_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_kmp_cc_srv_conf_t, in.log_frames),
-      NULL },
+      &ngx_kmp_in_log_frames },
 
     { ngx_string("kmp_cc_in_mem_limit"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
@@ -287,10 +287,10 @@ static ngx_command_t  ngx_stream_kmp_cc_commands[] = {
 
     { ngx_string("kmp_cc_out_log_frames"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_flag_slot,
+      ngx_conf_set_enum_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_kmp_cc_srv_conf_t, out.log_frames),
-      NULL },
+      &ngx_kmp_out_log_frames },
 
     { ngx_string("kmp_cc_out_republish_interval"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,

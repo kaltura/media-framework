@@ -143,13 +143,15 @@ Sets the maximum number of free input buffers that are kept after they are copie
 A large value may save some memory alloc/free operations, but can also increase memory usage.
 
 #### kmp_rtmp_in_log_frames
-* **syntax**: `kmp_rtmp_in_log_frames on | off;`
+* **syntax**: `kmp_rtmp_in_log_frames all | key | off;`
 * **default**: `off`
 * **context**: `stream`, `server`
 
-When enabled, the module logs the metadata of every video / audio frame that is received -
+When enabled, the module logs the metadata of every frame that is received -
 1. KMP frame header - created, dts, flags, pts delay
 2. Data size and MD5 hash
+
+The value `key` can be used to log only the metadata of video keyframes.
 
 #### kmp_rtmp_in_dump_folder
 * **syntax**: `kmp_rtmp_in_dump_folder path;`

@@ -784,13 +784,15 @@ The timeout is set only between two successive write operations.
 If the client does not receive anything within this time, the connection is closed.
 
 #### live_kmp_log_frames
-* **syntax**: `live_kmp_log_frames on | off;`
+* **syntax**: `live_kmp_log_frames all | key | off;`
 * **default**: `off`
 * **context**: `stream`, `server`
 
-When enabled, the module logs the metadata of every video frame that is received -
+When enabled, the module logs the metadata of every frame that is received -
 1. KMP frame header - created, dts, flags, pts delay
 2. Data size and MD5 hash
+
+The value `key` can be used to log only the metadata of video keyframes.
 
 #### live_kmp_dump_folder
 * **syntax**: `live_kmp_dump_folder path;`

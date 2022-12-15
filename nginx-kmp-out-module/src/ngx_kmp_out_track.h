@@ -33,7 +33,7 @@ typedef struct {
 
     ngx_msec_t       flush_timeout;
     ngx_msec_t       keepalive_interval;
-    ngx_flag_t       log_frames;
+    ngx_uint_t       log_frames;
 
     time_t           republish_interval;
     ngx_uint_t       max_republishes;
@@ -82,5 +82,8 @@ u_char *ngx_kmp_out_tracks_json_write(u_char *p, void *obj);
 
 size_t ngx_kmp_out_track_ids_json_get_size(void *obj);
 u_char *ngx_kmp_out_track_ids_json_write(u_char *p, void *obj);
+
+
+extern ngx_conf_enum_t  ngx_kmp_out_log_frames[];
 
 #endif /* _NGX_KMP_OUT_TRACK_H_INCLUDED_ */

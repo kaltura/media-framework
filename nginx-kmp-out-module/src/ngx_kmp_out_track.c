@@ -14,6 +14,21 @@
 #define NGX_KMP_OUT_TRACK_STAT_PERIOD  10  /* sec */
 
 
+enum {
+    NGX_KMP_OUT_LOG_FRAMES_OFF,
+    NGX_KMP_OUT_LOG_FRAMES_ALL,
+    NGX_KMP_OUT_LOG_FRAMES_KEY,
+};
+
+
+ngx_conf_enum_t  ngx_kmp_out_log_frames[] = {
+    { ngx_string("off"), NGX_KMP_OUT_LOG_FRAMES_OFF },
+    { ngx_string("all"), NGX_KMP_OUT_LOG_FRAMES_ALL },
+    { ngx_string("key"), NGX_KMP_OUT_LOG_FRAMES_KEY },
+    { ngx_null_string, 0 }
+};
+
+
 typedef struct {
     ngx_rbtree_t          rbtree;
     ngx_rbtree_node_t     sentinel;
@@ -106,7 +121,7 @@ ngx_kmp_out_track_init_conf(ngx_kmp_out_track_conf_t *conf)
     conf->mem_low_watermark = NGX_CONF_UNSET_UINT;
     conf->flush_timeout = NGX_CONF_UNSET_MSEC;
     conf->keepalive_interval = NGX_CONF_UNSET_MSEC;
-    conf->log_frames = NGX_CONF_UNSET;
+    conf->log_frames = NGX_CONF_UNSET_UINT;
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
         conf->buffer_size[media_type] = NGX_CONF_UNSET_SIZE;
@@ -183,7 +198,8 @@ ngx_kmp_out_track_merge_conf(ngx_conf_t *cf, ngx_kmp_out_track_conf_t *conf,
     ngx_conf_merge_msec_value(conf->keepalive_interval,
                               prev->keepalive_interval, 0);
 
-    ngx_conf_merge_value(conf->log_frames, prev->log_frames, 0);
+    ngx_conf_merge_uint_value(conf->log_frames, prev->log_frames,
+                              NGX_KMP_OUT_LOG_FRAMES_OFF);
 
     ngx_conf_merge_value(conf->republish_interval,
                          prev->republish_interval, 1);
@@ -1235,10 +1251,17 @@ ngx_int_t
 ngx_kmp_out_track_write_frame(ngx_kmp_out_track_t *track,
     kmp_frame_packet_t *frame, ngx_chain_t *in, u_char *p)
 {
-    u_char     data_md5[32];
-    ngx_int_t  rc;
+    u_char      data_md5[32];
+    ngx_int_t   rc;
+    ngx_uint_t  log_frame;
 
-    if (track->conf->log_frames) {
+    log_frame = track->conf->log_frames;
+    if (log_frame == NGX_KMP_OUT_LOG_FRAMES_KEY) {
+        log_frame = track->media_info.media_type == KMP_MEDIA_VIDEO
+            && (frame->f.flags & KMP_FRAME_FLAG_KEY);
+    }
+
+    if (log_frame) {
         ngx_kmp_out_track_chain_md5_hex(data_md5, in, p);
 
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
@@ -1331,9 +1354,10 @@ ngx_int_t
 ngx_kmp_out_track_write_frame_end(ngx_kmp_out_track_t *track,
     kmp_frame_packet_t *frame)
 {
-    u_char     hash[16];
-    u_char     hash_hex[32];
-    ngx_int_t  rc;
+    u_char      hash[16];
+    u_char      hash_hex[32];
+    ngx_int_t   rc;
+    ngx_uint_t  log_frame;
 
     frame->header.data_size = ngx_kmp_out_track_marker_get_size(
         track, &track->cur_frame) - sizeof(*frame);
@@ -1344,7 +1368,13 @@ ngx_kmp_out_track_write_frame_end(ngx_kmp_out_track_t *track,
         return rc;
     }
 
-    if (track->conf->log_frames) {
+    log_frame = track->conf->log_frames;
+    if (log_frame == NGX_KMP_OUT_LOG_FRAMES_KEY) {
+        log_frame = track->media_info.media_type == KMP_MEDIA_VIDEO
+            && (frame->f.flags & KMP_FRAME_FLAG_KEY);
+    }
+
+    if (log_frame) {
         if (ngx_buf_queue_stream_md5(&track->cur_frame.reader,
             frame->header.data_size, hash) != NGX_OK)
         {

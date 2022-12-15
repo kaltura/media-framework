@@ -185,10 +185,10 @@ static ngx_command_t  ngx_stream_ts_kmp_commands[] = {
 
     { ngx_string("ts_kmp_log_frames"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_flag_slot,
+      ngx_conf_set_enum_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.t.log_frames),
-      NULL },
+      &ngx_kmp_out_log_frames },
 
     { ngx_string("ts_kmp_republish_interval"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
