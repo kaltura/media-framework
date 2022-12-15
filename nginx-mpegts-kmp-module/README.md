@@ -303,13 +303,15 @@ Sets the timeout for flushing buffered data to the upstream KMP server.
 KMP data is kept in buffers of size ts_kmp_xxx_buffer_size, a buffer is sent when it becomes full, or when the flush timeout expires.
 
 #### ts_kmp_log_frames
-* **syntax**: `ts_kmp_log_frames on | off;`
+* **syntax**: `ts_kmp_log_frames all | key | off;`
 * **default**: `off`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
 When enabled, the module logs the metadata of every frame that is sent -
 1. KMP frame header - created, dts, flags, pts delay
 2. Data size and MD5 hash
+
+The value `key` can be used to log only the metadata of video keyframes.
 
 #### ts_kmp_republish_interval
 * **syntax**: `ts_kmp_republish_interval sec;`

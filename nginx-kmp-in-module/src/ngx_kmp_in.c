@@ -15,6 +15,21 @@
 #define NGX_KMP_IN_ISO8601_DATE_LEN          (sizeof("yyyy-mm-dd") - 1)
 
 
+enum {
+    NGX_KMP_IN_LOG_FRAMES_OFF,
+    NGX_KMP_IN_LOG_FRAMES_ALL,
+    NGX_KMP_IN_LOG_FRAMES_KEY,
+};
+
+
+ngx_conf_enum_t  ngx_kmp_in_log_frames[] = {
+    { ngx_string("off"), NGX_KMP_IN_LOG_FRAMES_OFF },
+    { ngx_string("all"), NGX_KMP_IN_LOG_FRAMES_ALL },
+    { ngx_string("key"), NGX_KMP_IN_LOG_FRAMES_KEY },
+    { ngx_null_string, 0 }
+};
+
+
 #if (nginx_version < 1013006)
 static size_t
 ngx_kmp_in_strnlen(u_char *p, size_t n)
@@ -335,6 +350,7 @@ ngx_kmp_in_media_info(ngx_kmp_in_ctx_t *ctx)
     }
 
     ctx->timescale = media_info->timescale;
+    ctx->media_type = media_info->media_type;
     ctx->wait_key = media_info->media_type == KMP_MEDIA_VIDEO;
     return NGX_OK;
 }
@@ -346,6 +362,7 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
     u_char                   data_md5[32];
     uint64_t                 frame_id;
     ngx_int_t                rc;
+    ngx_uint_t               log_frame;
     kmp_frame_t             *frame;
     ngx_buf_chain_t         *data;
     ngx_kmp_in_evt_frame_t   evt;
@@ -412,7 +429,13 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
     ctx->received_data_bytes += ctx->packet_header.data_size;
     ctx->last_created = frame->created;
 
-    if (ctx->conf.log_frames) {
+    log_frame = ctx->conf.log_frames;
+    if (log_frame == NGX_KMP_IN_LOG_FRAMES_KEY) {
+        log_frame = ctx->media_type == KMP_MEDIA_VIDEO
+            && (frame->flags & KMP_FRAME_FLAG_KEY);
+    }
+
+    if (log_frame) {
         ngx_kmp_in_chain_md5_hex(data_md5, data);
 
         ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
@@ -1120,7 +1143,7 @@ ngx_kmp_in_init_conf(ngx_kmp_in_conf_t *conf)
 {
     conf->read_timeout = NGX_CONF_UNSET_MSEC;
     conf->send_timeout = NGX_CONF_UNSET_MSEC;
-    conf->log_frames = NGX_CONF_UNSET;
+    conf->log_frames = NGX_CONF_UNSET_UINT;
 }
 
 
@@ -1135,5 +1158,6 @@ ngx_kmp_in_merge_conf(ngx_kmp_in_conf_t *prev, ngx_kmp_in_conf_t *conf)
 
     ngx_conf_merge_str_value(conf->dump_folder, prev->dump_folder, "");
 
-    ngx_conf_merge_value(conf->log_frames, prev->log_frames, 0);
+    ngx_conf_merge_uint_value(conf->log_frames, prev->log_frames,
+                              NGX_KMP_IN_LOG_FRAMES_OFF);
 }

@@ -86,10 +86,10 @@ static ngx_command_t  ngx_stream_kmp_rtmp_commands[] = {
 
     { ngx_string("kmp_rtmp_in_log_frames"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_flag_slot,
+      ngx_conf_set_enum_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_kmp_rtmp_srv_conf_t, in.log_frames),
-      NULL },
+      &ngx_kmp_in_log_frames },
 
     { ngx_string("kmp_rtmp_in_mem_limit"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,

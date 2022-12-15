@@ -113,13 +113,15 @@ When set to a non-empty string, the module saves all incoming KMP data to files 
 The file names have the following structure: `ngx_live_kmp_dump_{date}_{pid}_{connection}.dat`.
 
 #### kmp_cc_in_log_frames
-* **syntax**: `kmp_cc_in_log_frames on | off;`
+* **syntax**: `kmp_cc_in_log_frames all | key | off;`
 * **default**: `off`
 * **context**: `stream`, `server`
 
-When enabled, the module logs the metadata of every video frame that is received -
+When enabled, the module logs the metadata of every frame that is received -
 1. KMP frame header - created, dts, flags, pts delay
 2. Data size and MD5 hash
+
+The value `key` can be used to log only the metadata of video keyframes.
 
 #### kmp_cc_in_mem_limit
 * **syntax**: `kmp_cc_in_mem_limit size;`
@@ -345,7 +347,7 @@ The `null` packets are sent in order to signal "liveness" to the upstream.
 They prevent it from closing the connection due to inactivity, during long periods of time without captions.
 
 #### kmp_cc_out_log_frames
-* **syntax**: `kmp_cc_out_log_frames on | off;`
+* **syntax**: `kmp_cc_out_log_frames all | off;`
 * **default**: `off`
 * **context**: `stream`, `server`
 

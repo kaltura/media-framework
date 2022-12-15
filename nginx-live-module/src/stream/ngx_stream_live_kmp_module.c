@@ -52,10 +52,10 @@ static ngx_command_t  ngx_stream_live_kmp_commands[] = {
 
     { ngx_string("live_kmp_log_frames"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_flag_slot,
+      ngx_conf_set_enum_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_live_kmp_srv_conf_t, in.log_frames),
-      NULL },
+      &ngx_kmp_in_log_frames },
 
       ngx_null_command
 };
