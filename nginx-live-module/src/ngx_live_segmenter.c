@@ -3288,7 +3288,7 @@ ngx_live_segmenter_start_stream(ngx_live_stream_stream_req_t *req)
 
     ngx_live_segmenter_remove_all_frames(track);
 
-    initial_frame_id = req->header->initial_frame_id;
+    initial_frame_id = req->header->c.initial_frame_id;
     if (track->next_frame_id > initial_frame_id) {
 
         spcf = ngx_live_get_module_preset_conf(track->channel,

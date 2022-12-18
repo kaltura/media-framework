@@ -82,6 +82,7 @@ For example, when used with nginx-mpegts-kmp-module, the `rtmp` block is replace
         The following values are defined:
         - `last_acked` - the frame after the last frame that was explicitly acked (this is the default)
         - `last_sent` - the frame after the last frame that was successfully sent
+        - `last_written` - the frame after the last frame that was written to the output buffer
     - `connect_data` - optional, string, base64 encoded, sent as the data of the KMP connect packet
 
 ### Unpublish
@@ -293,6 +294,7 @@ The request body must be a JSON object, with the following fields:
     The following values are defined:
     - `last_acked` - the frame after the last frame that was explicitly acked (this is the default)
     - `last_sent` - the frame after the last frame that was successfully sent
+    - `last_written` - the frame after the last frame that was written to the output buffer
 - `connect_data` - optional, string, base64 encoded, sent as the data of the KMP connect packet
 
 Possible status codes:

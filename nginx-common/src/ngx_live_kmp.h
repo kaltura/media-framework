@@ -115,6 +115,17 @@ enum {
 
 /* basic types */
 
+/* kmp header: KMP_PACKET_CONNECT */
+typedef struct {
+    u_char                  channel_id[KMP_MAX_CHANNEL_ID_LEN];
+    u_char                  track_id[KMP_MAX_TRACK_ID_LEN];
+    uint64_t                initial_frame_id;
+    uint64_t                initial_upstream_frame_id;
+    uint32_t                initial_offset;
+    uint32_t                flags;
+} kmp_connect_t;
+
+
 typedef struct {
     uint32_t                num;
     uint32_t                denom;
@@ -143,6 +154,7 @@ typedef union {
 } kmp_media_info_union_t;
 
 
+/* kmp header: KMP_PACKET_MEDIA_INFO */
 typedef struct {
     uint32_t                media_type;
     uint32_t                codec_id;
@@ -152,12 +164,22 @@ typedef struct {
 } kmp_media_info_t;
 
 
+/* kmp header: KMP_PACKET_FRAME */
 typedef struct {
     int64_t                 created;
     int64_t                 dts;
     uint32_t                flags;
     int32_t                 pts_delay;
 } kmp_frame_t;
+
+
+/* kmp header: KMP_PACKET_ACK_FRAMES */
+typedef struct {
+    uint64_t                frame_id;
+    uint64_t                upstream_frame_id;
+    uint32_t                offset;
+    uint32_t                padding;
+} kmp_ack_frames_t;
 
 
 /* packets */
@@ -172,12 +194,7 @@ typedef struct {
 
 typedef struct {
     kmp_packet_header_t     header;
-    u_char                  channel_id[KMP_MAX_CHANNEL_ID_LEN];
-    u_char                  track_id[KMP_MAX_TRACK_ID_LEN];
-    uint64_t                initial_frame_id;
-    uint64_t                initial_upstream_frame_id;
-    uint32_t                initial_offset;
-    uint32_t                flags;
+    kmp_connect_t           c;
 } kmp_connect_packet_t;
 
 
@@ -195,10 +212,7 @@ typedef struct {
 
 typedef struct {
     kmp_packet_header_t     header;
-    uint64_t                frame_id;
-    uint64_t                upstream_frame_id;
-    uint32_t                offset;
-    uint32_t                padding;
+    kmp_ack_frames_t        a;
 } kmp_ack_frames_packet_t;
 
 
