@@ -771,6 +771,9 @@ ngx_pckg_ksmp_read_rendition_reports(ngx_persist_block_hdr_t *header,
         return NGX_BAD_DATA;
     }
 
+    channel->rr_last_sequence = h.last_sequence;
+    channel->rr_last_part_index = h.last_part_index;
+
     return NGX_OK;
 }
 

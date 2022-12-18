@@ -222,6 +222,8 @@ typedef struct {
 
 typedef struct {
     uint32_t                     count;
+    uint32_t                     last_sequence;
+    uint32_t                     last_part_index;
 } ngx_ksmp_rendition_reports_header_t;
 
 

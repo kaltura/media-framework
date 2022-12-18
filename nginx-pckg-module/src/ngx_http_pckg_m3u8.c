@@ -113,7 +113,8 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 #define M3U8_SKIPPED_SEGMENTS        "#EXT-X-SKIP:SKIPPED-SEGMENTS=%uD\n"
 
 #define M3U8_RENDITION_REPORT_URI    "#EXT-X-RENDITION-REPORT:URI=\""
-#define M3U8_RENDITION_REPORT_ATTRS  "\",LAST-MSN=%uD,LAST-PART=%uD\n"
+#define M3U8_RENDITION_REPORT_MSN    ",LAST-MSN=%uD"
+#define M3U8_RENDITION_REPORT_PART   ",LAST-PART=%uD"
 
 
 #define M3U8_ARG_PREFIX              "_HLS_"
@@ -2063,7 +2064,9 @@ ngx_http_pckg_m3u8_redition_reports_get_size(ngx_pckg_channel_t *channel)
             + ngx_http_pckg_prefix_index.len
             + ngx_pckg_sep_selector_get_size(&variant_rr->variant_id)
             + ngx_http_pckg_m3u8_ext.len
-            + sizeof(M3U8_RENDITION_REPORT_ATTRS) - 1 + 2 * NGX_INT32_LEN)
+            + sizeof(M3U8_RENDITION_REPORT_MSN) - 1 + NGX_INT32_LEN
+            + sizeof(M3U8_RENDITION_REPORT_PART) - 1 + NGX_INT32_LEN
+            + sizeof("\"\n") - 1)
             * variant_rr->nelts;
     }
 
@@ -2092,8 +2095,19 @@ ngx_http_pckg_m3u8_redition_reports_write(u_char *p,
             p = ngx_pckg_sep_selector_write(p, &variant_rr->variant_id,
                 1 << track_rr->media_type);
             p = ngx_copy_str(p, ngx_http_pckg_m3u8_ext);
-            p = ngx_sprintf(p, M3U8_RENDITION_REPORT_ATTRS,
-                track_rr->last_sequence, track_rr->last_part_index);
+            *p++ = '"';
+
+            if (track_rr->last_sequence != channel->rr_last_sequence) {
+                p = ngx_sprintf(p, M3U8_RENDITION_REPORT_MSN,
+                    track_rr->last_sequence);
+            }
+
+            if (track_rr->last_part_index != channel->rr_last_part_index) {
+                p = ngx_sprintf(p, M3U8_RENDITION_REPORT_PART,
+                    track_rr->last_part_index);
+            }
+
+            *p++ = '\n';
         }
     }
 

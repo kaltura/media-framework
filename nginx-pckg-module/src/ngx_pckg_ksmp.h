@@ -196,11 +196,14 @@ struct ngx_pckg_channel_s {
     ngx_pckg_timeline_t            timeline;
     ngx_array_t                    variants;  /* ngx_pckg_variant_t */
     ngx_array_t                    tracks;    /* ngx_pckg_track_t */
-    ngx_array_t                    rrs;       /* ngx_pckg_rendition_report_t */
     ngx_array_t                    css;       /* ngx_pckg_captions_service_t */
     ngx_ksmp_segment_index_t      *segment_index;
     ngx_pckg_dynamic_vars_t        vars;
     uint32_t                       media_types;
+
+    ngx_array_t                    rrs;       /* ngx_pckg_rendition_report_t */
+    uint32_t                       rr_last_sequence;
+    uint32_t                       rr_last_part_index;
 
     uint32_t                       err_code;
     ngx_str_t                      err_msg;
