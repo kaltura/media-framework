@@ -415,7 +415,7 @@ For more details on the internal structure of KLPF blocks, see [KLFP-SPEC.md](ng
 To inspect the contents of KLPF objects/KSMP responses, use [klpf_parse.py](nginx-common/scripts/klpf_parse.py).
 The script can show the block structure without any additional info, however, in order to parse the fields inside the blocks:
 - run [generate_persist_spec.py](nginx-live-module/scripts/generate_persist_spec.py), and save the output to a file
-- provide the file name as an additional argument to klpf_parse.py
+- provide the file name to klpf_parse.py using the `-s / --spec-file` option
 
 
 ## API Overview

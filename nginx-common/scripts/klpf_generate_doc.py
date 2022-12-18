@@ -34,12 +34,12 @@ def print_blocks(parent, ctx=''):
         print('## %s (`%s`)' % (name, id))
         if ctx != '':
             print('Parent: %s' % ctx)
-            print()
+            print('')
 
         children = ', '.join(map(lambda x: x['link'], block['children']))
         if children != '':
             print('Children: %s' % children)
-            print()
+            print('')
 
         for field_type in ['header', 'data']:
             fields = block[field_type]
@@ -48,7 +48,7 @@ def print_blocks(parent, ctx=''):
 
             print('### Block %s' % format_name(field_type))
             print_fields(fields)
-            print()
+            print('')
 
         print_blocks(block, link)
 

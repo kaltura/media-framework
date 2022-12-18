@@ -31,6 +31,7 @@ Shared code used by the different nginx modules in the media-framework.
 ## Scripts
 
 - *generate_json_header* - generate code for reading/writing JSON objects
+- *generate_kmp_spec.py* - generate a specification JSON of the KMP format, for parsing with klpf_parse
 - *generate_routes_header* - generate code for routing HTTP requests
 - *klpf_generate_doc* - generate markdown documentation from a KLPF specification file
 - *klpf_parse* - parse a KLPF object
