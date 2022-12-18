@@ -245,13 +245,13 @@ Frame ids are used:
 The transcoder adds a few complexities to the management of frame ids -
 - Since the transcoder may change the input frame rate or drop frames, the frame ids in the transcoder input,
     are not necessarily the same as the frame ids in the transcoder output.
-	If the transcoder is restarted, it needs to know what value to send as the `initial_frame_id` of its upstream server (usually nginx-live-module).
-	The `upstream_frame_id` field is used for this purpose.
+    If the transcoder is restarted, it needs to know what value to send as the `initial_frame_id` of its upstream server (usually nginx-live-module).
+    The `upstream_frame_id` field is used for this purpose.
 - The transcoder may be configured to change the sampling rate of an audio track, and, in this case, the transcoded frames do not align with the input frames.
-	To handle this scenario, the transcoder needs to have the ability to acknowledge only a part of an input frame.
-	This is the purpose of the `offset` field - it can store, for example, the number of audio samples that should be acknowledged within the frame.
-	The exact meaning of the `offset` field is determined by the KMP receiver -
-	the receiver sets the `offset` in the ack frames it returns, and gets it back in the `initial_offset` field of the connect packet, in case of reconnect.
+    To handle this scenario, the transcoder needs to have the ability to acknowledge only a part of an input frame.
+    This is the purpose of the `offset` field - it can store, for example, the number of audio samples that should be acknowledged within the frame.
+    The exact meaning of the `offset` field is determined by the KMP receiver -
+    the receiver sets the `offset` in the ack frames it returns, and gets it back in the `initial_offset` field of the connect packet, in case of reconnect.
 
 ### Publisher KMP Packets
 
@@ -273,7 +273,7 @@ The header contains the following fields:
         The *transcoder*, on the other hand, is not. The `consistent` flag is used by the LL segmenter in case of reconnect.
         When the publisher is consistent, the LL segmenter can continue from the point it left off.
         When the publisher is inconsistent, the LL segmenter can continue only from the next GOP -
-		it must not mix a partial GOP from before the disconnect, with the GOP received after the disconnect.
+        it must not mix a partial GOP from before the disconnect, with the GOP received after the disconnect.
 
 The data of the connect packet is optional, the expected format of the data is defined by the specific KMP receiver.
 
@@ -350,11 +350,11 @@ Some receivers do not send acks at all, in this case, the KMP producer must be c
 The packet header contains the following fields:
 - `frame_id` - integer, the id of the first frame that should be re-sent if the connection is dropped.
     In other words, an ack frames packet, acknowledges all frames that have an id that is less `frame_id`.
-	If the KMP connection is re-established, this value will be sent in the `initial_frame_id` field.
+    If the KMP connection is re-established, this value will be sent in the `initial_frame_id` field.
 - `upstream_frame_id` - integer, the id of the frame that was sent to the upstream server.
-	If the KMP connection is re-established, this value will be sent in the `initial_upstream_frame_id` field.
+    If the KMP connection is re-established, this value will be sent in the `initial_upstream_frame_id` field.
 - `offset` - integer, the offset to acknowledge within the frame.
-	If the KMP connection is re-established, this value will be sent in the `initial_offset` field.
+    If the KMP connection is re-established, this value will be sent in the `initial_offset` field.
 - `padding` - integer, reserved for future use, must be set to zero.
 
 The data of the ack packets is not used.
