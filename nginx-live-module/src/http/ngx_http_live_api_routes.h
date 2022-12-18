@@ -67,11 +67,41 @@ static ngx_http_api_route_node_t
 
 
 static ngx_http_api_route_node_t
-    ngx_http_live_api_route_channels_param_tracks_param =
+    ngx_http_live_api_route_channels_param_tracks_param_input =
 {
     NULL,
     NULL,
     NULL,
+    &ngx_http_live_api_track_input_delete,
+    NULL,
+    NULL,
+};
+
+
+static ngx_http_api_route_child_t
+    ngx_http_live_api_route_channels_param_tracks_param_children[] =
+{
+    { ngx_string("input"),
+        &ngx_http_live_api_route_channels_param_tracks_param_input },
+    { ngx_null_string, NULL },
+};
+
+
+static ngx_int_t
+    ngx_http_live_api_channels_param_tracks_param_list(ngx_http_request_t *r,
+    ngx_str_t *params, ngx_str_t *response)
+{
+    ngx_str_set(response, "[\"input\"]");
+    return NGX_OK;
+}
+
+
+static ngx_http_api_route_node_t
+    ngx_http_live_api_route_channels_param_tracks_param =
+{
+    ngx_http_live_api_route_channels_param_tracks_param_children,
+    NULL,
+    &ngx_http_live_api_channels_param_tracks_param_list,
     &ngx_http_live_api_track_delete,
     NULL,
     &ngx_http_live_api_track_put,

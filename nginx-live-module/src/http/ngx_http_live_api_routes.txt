@@ -22,6 +22,8 @@ POST   /channels/%/tracks
 PUT    /channels/%/tracks/%
 DELETE /channels/%/tracks/%
 
+DELETE /channels/%/tracks/%/input
+
 POST   /channels/%/variants/%/tracks
 
 GET    /channels/%/timelines

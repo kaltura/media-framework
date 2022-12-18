@@ -2007,7 +2007,7 @@ Possible status codes:
 Delete the specified variant.
 
 Possible status codes:
-- 204 - The channel was deleted successfully
+- 204 - The variant was deleted successfully
 - 403 - The requested channel is currently blocked (a channel is blocked while its state is being read from storage)
 - 404 - No channel/variant matching the provided ids were found
 
@@ -2056,9 +2056,19 @@ Possible status codes:
 Delete the specified track.
 
 Possible status codes:
-- 204 - The channel was deleted successfully
+- 204 - The track was deleted successfully
 - 403 - The requested channel is currently blocked (a channel is blocked while its state is being read from storage)
 - 404 - No channel / track matching the provided ids were found
+
+### DELETE /channels/{channel_id}/tracks/{track_id}/input
+
+Drop the incoming KMP connection that is associated with the specified track.
+
+Possible status codes:
+- 204 - The connection was dropped successfully
+- 403 - The requested channel is currently blocked (a channel is blocked while its state is being read from storage)
+- 404 - No channel / track matching the provided ids were found
+- 409 - No KMP connection is associated with the specified track
 
 ### POST /channels/{channel_id}/variants/{variant_id}/tracks
 
@@ -2126,7 +2136,7 @@ Possible status codes:
 Delete the specified timeline.
 
 Possible status codes:
-- 204 - The channel was deleted successfully
+- 204 - The timeline was deleted successfully
 - 403 - The requested channel is currently blocked (a channel is blocked while its state is being read from storage)
 - 404 - No channel / timeline matching the provided ids were found
 
