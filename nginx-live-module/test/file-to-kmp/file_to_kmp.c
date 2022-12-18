@@ -385,8 +385,14 @@ kmp_get_mediainfo(AVStream *stream, kmp_media_info_t *media_info,
         }
         media_info->u.audio.bits_per_sample = codecpar->bits_per_coded_sample;
         media_info->u.audio.sample_rate = codecpar->sample_rate;
+
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 23, 100)
+        media_info->u.audio.channels = codecpar->ch_layout.nb_channels;
+        media_info->u.audio.channel_layout = codecpar->ch_layout.u.mask;
+#else
         media_info->u.audio.channels = codecpar->channels;
         media_info->u.audio.channel_layout = codecpar->channel_layout;
+#endif
         break;
 
     default:
@@ -522,7 +528,7 @@ main(int argc, char **argv)
     int                     status = 1;
     char                   *input_file;
     char                   *output_file;
-    AVPacket                pkt;
+    AVPacket               *pkt = NULL;
     AVStream               *stream;
     AVRational              output_timebase = { 1, OUTPUT_TIMESCALE };
     AVIOContext            *pb = NULL;
@@ -574,8 +580,6 @@ main(int argc, char **argv)
     input_file = argv[optind];
     output_file = argv[optind + 1];
 
-    av_register_all();
-
     /* open input file */
     ret = avformat_open_input(&fmt_ctx, input_file, NULL, NULL);
     if (ret < 0) {
@@ -609,21 +613,26 @@ main(int argc, char **argv)
     }
 
     /* write frames */
-    av_init_packet(&pkt);
-    pkt.data = NULL;
-    pkt.size = 0;
+    for ( ;; ) {
+        pkt = av_packet_alloc();
+        if (pkt == NULL) {
+            error(0, "failed to alloc packet");
+            goto done;
+        }
 
-    while (av_read_frame(fmt_ctx, &pkt) >= 0) {
+        if (av_read_frame(fmt_ctx, pkt) < 0) {
+            break;
+        }
 
-        if (pkt.stream_index == stream->index) {
-            av_packet_rescale_ts(&pkt, stream->time_base, output_timebase);
+        if (pkt->stream_index == stream->index) {
+            av_packet_rescale_ts(pkt, stream->time_base, output_timebase);
 
-            if (kmp_write_frame(pb, &pkt, &ctx) < 0) {
+            if (kmp_write_frame(pb, pkt, &ctx) < 0) {
                 goto done;
             }
         }
 
-        av_packet_unref(&pkt);
+        av_packet_free(&pkt);
     }
 
     avio_flush(pb);
@@ -634,6 +643,8 @@ main(int argc, char **argv)
     status = 0;
 
 done:
+
+    av_packet_free(&pkt);
 
     avio_close(pb);
 
