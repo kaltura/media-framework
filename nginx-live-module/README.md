@@ -203,7 +203,7 @@ A segment is created in the following steps:
         The "span" is defined as the difference between the max slice pts and the min slice pts of the tracks.
     - The candidate that is closest to the target segment duration, and has a span that is close enough to the minimum span of all candidates is chosen
 - Apply the input delay - if the difference between the server clock and the estimated KMP `created` value at the end of the segment, is lower than the configured `input_delay`,
-	the creation of the segment is delayed.
+    the creation of the segment is delayed.
 - Calculate the copy / remove indexes for each track - the copy index is the number of frames that are copied to the newly created segment.
     The remove index is the number of frames that are removed from the pending frames list.
     In video / audio tracks, the copy index and the remove index always have the same value (aka "split index").
@@ -291,9 +291,9 @@ The low-latency segmenter has several limitations, when comparing it to the defa
     For this reason, the gap-filling feature is not supported when using the low-latency segmenter.
 
 3. Aligned keyframes - both the default segmenter and the low-latency segmenter require keyframes that are aligned across the different video tracks,
-	in order to generate aligned segments. If a video track has additional keyframes that do not exist in other tracks, the default segmenter will ignore them.
-	The low-latency segmenter, however, may try to use such a keyframe as a segment boundary. This can result in gaps or significant differences between
-	the segment duration that is reported in the manifest, and the actual duration of the media.
+    in order to generate aligned segments. If a video track has additional keyframes that do not exist in other tracks, the default segmenter will ignore them.
+    The low-latency segmenter, however, may try to use such a keyframe as a segment boundary. This can result in gaps or significant differences between
+    the segment duration that is reported in the manifest, and the actual duration of the media.
 
 4. Muxed segments - in order to support muxed segments with low-latency, nginx-live-module would need to:
     - Report only the subset of parts that exist in both video and audio tracks
@@ -301,7 +301,7 @@ The low-latency segmenter has several limitations, when comparing it to the defa
     - Take both tracks into account when generating rendition reports
 
     In order to avoid these complexities and more, the low-latency features are supported only with unmuxed video / audio segments.
-	The only LLHLS feature that is supported with muxed tracks is "Playlist Delta Updates".
+    The only LLHLS feature that is supported with muxed tracks is "Playlist Delta Updates".
 
 ### Media Info Queue
 
@@ -453,8 +453,8 @@ In this case, the delta file is simply ignored.
 The triggers for writing the different files are -
 - *Setup* - saved X seconds after a change to a channel object (timeline, variant etc.) is performed via API.
 - *Segment media* - saved when the last segment in a media bucket is created, or the channel becomes inactive.
-	When a media bucket is saved due to inactivity, the `next_segment_index` is bumped to the first index of the next bucket,
-	so that future segments will not write to the same bucket.
+    When a media bucket is saved due to inactivity, the `next_segment_index` is bumped to the first index of the next bucket,
+    so that future segments will not write to the same bucket.
 - *Segment index* - saved when a media bucket is persisted successfully.
 - *Filler* - saved only when getting an explicit channel update API request, with the `save` field set to `true`.
 
@@ -523,9 +523,9 @@ The "main" track of the variant determines whether the variant is active or not 
 
 The module supports two "policies" for determining which tracks are active -
 - `last` - a track is considered active if it participated in the last segment of the timeline.
-	This option is recommended for playback, in order to move players to active variants.
+    This option is recommended for playback, in order to move players to active variants.
 - `any` - a track is considered active if it participated in any segment of the timeline.
-	This option is recommended for recording, in order to be able to pull all the variants that have content on the recording timeline, even if they were not included in the last segment.
+    This option is recommended for recording, in order to be able to pull all the variants that have content on the recording timeline, even if they were not included in the last segment.
 
 ### Filler
 
@@ -542,21 +542,21 @@ Setup:
 Enable:
 
 - When creating a channel, add the `filler` property to the channel object.
-	The `filler` must be an object containing the fields: `channel_id`, `preset`, `timeline_id`.
-	A filler can also be added to an existing channel, using the channel update API.
+    The `filler` must be an object containing the fields: `channel_id`, `preset`, `timeline_id`.
+    A filler can also be added to an existing channel, using the channel update API.
 
 Additional guidelines:
 
 - The preset of the filler channel should not use any `persist_xxx_path` directives, other than `persist_filler_path`, so that the segments will not be removed from the memory cache.
 - The content of the filler channel should never be changed - it is recommended to use a versioning scheme on the filler channel name, and move to a new version if needed.
-	Replacing the video / audio content of the filler can cause playback interruptions in channels that use it.
+    Replacing the video / audio content of the filler can cause playback interruptions in channels that use it.
 - Removing / changing the filler association of a channel is not supported.
 - It is recommended to use a small `segment_duration` on filler channels.
 - When a filler is enabled, `filler` tracks are created on the target channel, with the same names as the tracks on the filler channel.
-	Therefore, the names of the tracks on the filler channel, must not conflict with "regular" tracks used for streaming media.
-	It is recommended to use a naming convention that will ensure no conflict will occur.
+    Therefore, the names of the tracks on the filler channel, must not conflict with "regular" tracks used for streaming media.
+    It is recommended to use a naming convention that will ensure no conflict will occur.
 - It is recommended to use multiple renditions of video / audio in the filler channel, so that the filler could match the original media info of the track more closely.
-	For example, providing the video filler content in the most commonly used resolutions, can avoid a resolution change when the filler is used.
+    For example, providing the video filler content in the most commonly used resolutions, can avoid a resolution change when the filler is used.
 - Avoid the use of B-frames in video filler content.
 - The timeline on the filler channel must be continuous - it must contain a single period.
 
@@ -564,14 +564,14 @@ Additional guidelines:
 
 Setting up a filler on a channel involves the following steps:
 - If the filler channel does not exist, it is loaded from storage.
-	The target channel subscribes for a ready event on the filler channel, the filler setup continues only when the filler channel is ready.
-	The API request that was issued to enable the filler (channel create / update), is also blocked until the filler channel is ready.
+    The target channel subscribes for a ready event on the filler channel, the filler setup continues only when the filler channel is ready.
+    The API request that was issued to enable the filler (channel create / update), is also blocked until the filler channel is ready.
 - The cycle duration of the filler content is calculated, as well as the duration of the filler segments.
 - Filler tracks are created on the target channel, with the same names as the original tracks on the filler channel.
-	For each track -
-	- The media info is copied
-	- Media segments are created
-	- A link to the original media buffers is created (the filler content is not duplicated, it exists only once in memory)
+    For each track -
+    - The media info is copied
+    - Media segments are created
+    - A link to the original media buffers is created (the filler content is not duplicated, it exists only once in memory)
 
 As part of the setup of the filler, all the tracks are forced to have a duration that is identical to the cycle duration,
 some frames may be omitted / stretched, if needed.
