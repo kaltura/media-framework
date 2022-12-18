@@ -28,6 +28,7 @@ static ngx_str_t  kmp_url_prefix = ngx_string("kmp://");
 ngx_str_t  ngx_kmp_out_resume_from_names[] = {
     ngx_string("last_acked"),
     ngx_string("last_sent"),
+    ngx_string("last_written"),
     ngx_null_string
 };
 
@@ -182,8 +183,9 @@ ngx_kmp_out_upstream_create(ngx_kmp_out_track_t *track, ngx_str_t *id,
 
     } else {
         ngx_buf_queue_stream_init_head(&u->acked_reader, &track->buf_queue);
-        u->acked_frame_id = track->connect.initial_frame_id;
-        u->acked_upstream_frame_id = track->connect.initial_upstream_frame_id;
+        u->acked_frame_id = track->connect.c.initial_frame_id;
+        u->acked_upstream_frame_id =
+            track->connect.c.initial_upstream_frame_id;
     }
 
     ngx_queue_insert_tail(&track->upstreams, &u->queue);
@@ -646,6 +648,14 @@ ngx_kmp_out_upstream_republish(ngx_kmp_out_upstream_t *u)
     u->free = u->busy;
     u->busy = NULL;
 
+    if (u->resume_from == ngx_kmp_out_resume_from_last_written) {
+        if (ngx_kmp_out_upstream_auto_ack(u, NGX_MAX_SIZE_T_VALUE) < 0) {
+            ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+                "ngx_kmp_out_upstream_republish: auto ack failed");
+            return NGX_ERROR;
+        }
+    }
+
     if (ngx_time() >= u->republish_time) {
         u->republishes = 0;
         return ngx_kmp_out_upstream_republish_send(u);
@@ -762,23 +772,23 @@ ngx_kmp_out_upstream_ack_packet(ngx_kmp_out_upstream_t *u,
 ngx_int_t
 ngx_kmp_out_upstream_auto_ack(ngx_kmp_out_upstream_t *u, size_t left)
 {
-    off_t                   sent;
+    off_t                   limit;
     size_t                  size;
     ngx_int_t               rc;
     ngx_uint_t              count;
     kmp_packet_header_t     kmp_header;
     ngx_buf_queue_stream_t  reader;
 
-    if (u->peer.connection != NULL) {
-        sent = u->sent_base + u->peer.connection->sent;
+    if (u->last) {
+        limit = u->sent_base + u->peer.connection->sent;
 
     } else {
-        sent = NGX_MAX_OFF_T_VALUE;
+        limit = u->track->stats.written;
     }
 
     for (count = 0; ; count++) {
 
-        if (u->acked_bytes + (off_t) sizeof(kmp_header) > sent) {
+        if (u->acked_bytes + (off_t) sizeof(kmp_header) > limit) {
             break;
         }
 
@@ -793,7 +803,7 @@ ngx_kmp_out_upstream_auto_ack(ngx_kmp_out_upstream_t *u, size_t left)
         }
 
         size = kmp_header.header_size + kmp_header.data_size;
-        if (u->acked_bytes + (off_t) size > sent) {
+        if (u->acked_bytes + (off_t) size > limit) {
             u->acked_reader = reader;
             break;
         }
@@ -821,6 +831,11 @@ ngx_kmp_out_upstream_auto_ack(ngx_kmp_out_upstream_t *u, size_t left)
         left -= size;
     }
 
+    ngx_log_debug4(NGX_LOG_DEBUG_KMP, &u->log, 0,
+        "ngx_kmp_out_upstream_auto_ack: "
+        "acked %ui packets, connected: %d, acked_bytes: %O, limit: %O",
+        count, u->last != NULL, limit, u->acked_bytes);
+
     return count;
 }
 
@@ -835,7 +850,7 @@ ngx_kmp_out_upstream_ack_frames(ngx_kmp_out_upstream_t *u)
     kmp_packet_header_t  kmp_header;
 
     sent = u->sent_base + u->peer.connection->sent;
-    frame_id = u->ack_frames.frame_id;
+    frame_id = u->ack_frames.a.frame_id;
 
     while (u->acked_frame_id < frame_id) {
         if (u->acked_bytes + (off_t) sizeof(kmp_header) > sent) {
@@ -867,8 +882,8 @@ ngx_kmp_out_upstream_ack_frames(ngx_kmp_out_upstream_t *u)
         }
     }
 
-    u->acked_upstream_frame_id = u->ack_frames.upstream_frame_id;
-    u->acked_offset = u->ack_frames.offset;
+    u->acked_upstream_frame_id = u->ack_frames.a.upstream_frame_id;
+    u->acked_offset = u->ack_frames.a.offset;
 
     return NGX_OK;
 
@@ -915,7 +930,7 @@ ngx_kmp_out_upstream_parse_ack_packet(ngx_kmp_out_upstream_t *u)
     ngx_log_error(NGX_LOG_INFO, &u->log, 0,
         "ngx_kmp_out_upstream_parse_ack_packet: "
         "got ack packet for frame %uL",
-        u->ack_frames.frame_id);
+        u->ack_frames.a.frame_id);
 
     if (ngx_kmp_out_upstream_ack_frames(u) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
@@ -1115,9 +1130,9 @@ ngx_kmp_out_upstream_send_buffered(ngx_kmp_out_upstream_t *u)
     /* connect header */
     u->connect = u->track->connect;
     u->connect.header.data_size = u->connect_data.last - u->connect_data.start;
-    u->connect.initial_frame_id = u->acked_frame_id;
-    u->connect.initial_upstream_frame_id = u->acked_upstream_frame_id;
-    u->connect.initial_offset = u->acked_offset;
+    u->connect.c.initial_frame_id = u->acked_frame_id;
+    u->connect.c.initial_upstream_frame_id = u->acked_upstream_frame_id;
+    u->connect.c.initial_offset = u->acked_offset;
     cl = ngx_kmp_out_alloc_chain_buf(pool, &u->connect, &u->connect + 1);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
@@ -1256,6 +1271,14 @@ ngx_kmp_out_upstream_append_buffer(ngx_kmp_out_upstream_t *u,
     ngx_chain_t  *cl;
 
     if (!u->last) {
+
+        if (u->resume_from == ngx_kmp_out_resume_from_last_written) {
+            if (ngx_kmp_out_upstream_auto_ack(u, NGX_MAX_SIZE_T_VALUE) < 0) {
+                ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+                    "ngx_kmp_out_upstream_append_buffer: auto ack failed");
+                return NGX_ERROR;
+            }
+        }
 
         /* connect packet not sent */
         if (u->peer.connection == NULL &&

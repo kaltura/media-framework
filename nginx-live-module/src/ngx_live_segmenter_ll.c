@@ -2733,9 +2733,9 @@ ngx_live_lls_start_stream(ngx_live_stream_stream_req_t *req)
 
     ngx_log_error(NGX_LOG_INFO, &track->log, 0,
         "ngx_live_lls_start_stream: flags: 0x%uxD, pending_frames: %ui",
-        header->flags, ctx->frames.count);
+        header->c.flags, ctx->frames.count);
 
-    if (!(header->flags & KMP_CONNECT_FLAG_CONSISTENT)) {
+    if (!(header->c.flags & KMP_CONNECT_FLAG_CONSISTENT)) {
 
         rc = ngx_live_lls_track_flush_frames(track,
             NGX_LIVE_LLS_FLAG_FLUSH_PART);
@@ -2773,7 +2773,7 @@ ngx_live_lls_start_stream(ngx_live_stream_stream_req_t *req)
         next_frame_id = ctx->next_frame_id;
     }
 
-    initial_frame_id = header->initial_frame_id;
+    initial_frame_id = header->c.initial_frame_id;
     if (next_frame_id > initial_frame_id) {
         spcf = ngx_live_get_module_preset_conf(track->channel,
             ngx_live_lls_module);
@@ -2789,7 +2789,7 @@ ngx_live_lls_start_stream(ngx_live_stream_stream_req_t *req)
         }
     }
 
-    if ((header->flags & KMP_CONNECT_FLAG_CONSISTENT)
+    if ((header->c.flags & KMP_CONNECT_FLAG_CONSISTENT)
         && initial_frame_id + req->skip_count == next_frame_id
         && (ctx->frames.count > 0 || ctx->sstate == ngx_live_lls_ss_started))
     {

@@ -789,12 +789,12 @@ ngx_kmp_in_write_handler(ngx_kmp_in_ctx_t *ctx)
                 ngx_del_timer(wev);
             }
 
-            if (ctx->ack_packet.frame_id != ctx->acked_frame_id) {
+            if (ctx->ack_packet.a.frame_id != ctx->acked_frame_id) {
                 /* got another ack while sending */
                 ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
                     "ngx_kmp_in_write_handler: sending ack %uL",
                     ctx->acked_frame_id);
-                ctx->ack_packet.frame_id = ctx->acked_frame_id;
+                ctx->ack_packet.a.frame_id = ctx->acked_frame_id;
                 ctx->ack_packet_pos = (u_char *) &ctx->ack_packet;
                 continue;
             }
@@ -839,7 +839,7 @@ ngx_kmp_in_ack_frames(ngx_kmp_in_ctx_t *ctx, uint64_t next_frame_id)
     ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
         "ngx_kmp_in_ack_frames: sending ack %uL", ctx->acked_frame_id);
 
-    ctx->ack_packet.frame_id = ctx->acked_frame_id;
+    ctx->ack_packet.a.frame_id = ctx->acked_frame_id;
     ctx->ack_packet_pos = (u_char *) &ctx->ack_packet;
     ctx->writing = 1;
 
@@ -965,22 +965,22 @@ ngx_kmp_in_read_header(ngx_kmp_in_ctx_t *ctx)
         return NGX_KMP_IN_BAD_REQUEST;
     }
 
-    if (header->initial_frame_id >= KMP_INVALID_FRAME_ID) {
+    if (header->c.initial_frame_id >= KMP_INVALID_FRAME_ID) {
         ngx_log_error(NGX_LOG_ERR, c->log, 0,
             "ngx_kmp_in_read_header: invalid initial frame id %uL",
-            header->initial_frame_id);
+            header->c.initial_frame_id);
         return NGX_KMP_IN_BAD_REQUEST;
     }
 
     /* send connected event */
-    ctx->channel_id.s.data = header->channel_id;
-    ctx->channel_id.s.len = ngx_kmp_in_strnlen(header->channel_id,
-        sizeof(header->channel_id));
+    ctx->channel_id.s.data = header->c.channel_id;
+    ctx->channel_id.s.len = ngx_kmp_in_strnlen(header->c.channel_id,
+        sizeof(header->c.channel_id));
     ngx_json_str_set_escape(&ctx->channel_id);
 
-    ctx->track_id.s.data = header->track_id;
-    ctx->track_id.s.len = ngx_kmp_in_strnlen(header->track_id,
-        sizeof(header->track_id));
+    ctx->track_id.s.data = header->c.track_id;
+    ctx->track_id.s.len = ngx_kmp_in_strnlen(header->c.track_id,
+        sizeof(header->c.track_id));
     ngx_json_str_set_escape(&ctx->track_id);
 
     ngx_memzero(&evt, sizeof(evt));
@@ -1016,8 +1016,8 @@ ngx_kmp_in_read_header(ngx_kmp_in_ctx_t *ctx)
     /* initialize sender */
     ctx->ack_packet.header.packet_type = KMP_PACKET_ACK_FRAMES;
     ctx->ack_packet.header.header_size = sizeof(ctx->ack_packet);
-    ctx->cur_frame_id = header->initial_frame_id;
-    ctx->acked_frame_id = header->initial_frame_id;
+    ctx->cur_frame_id = header->c.initial_frame_id;
+    ctx->acked_frame_id = header->c.initial_frame_id;
 
     level = evt.skip_count > 0 ? NGX_LOG_NOTICE : NGX_LOG_INFO;
 

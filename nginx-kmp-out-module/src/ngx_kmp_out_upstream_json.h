@@ -159,7 +159,7 @@ ngx_kmp_out_upstream_json_write(u_char *p, ngx_kmp_out_upstream_t *obj)
         obj->peer.connection->sent : 0));
     p = ngx_copy_fix(p, ",\"acked_frames\":");
     p = ngx_sprintf(p, "%uL", (uint64_t) obj->acked_frame_id -
-        obj->track->connect.initial_frame_id);
+        obj->track->connect.c.initial_frame_id);
     p = ngx_copy_fix(p, ",\"acked_bytes\":");
     p = ngx_sprintf(p, "%O", (off_t) obj->acked_bytes);
     p = ngx_copy_fix(p, ",\"auto_acked_frames\":");

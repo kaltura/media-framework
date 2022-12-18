@@ -332,7 +332,7 @@ ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
     }
 
     channel_id = json.channel_id;
-    if (channel_id.len > sizeof(header->channel_id)) {
+    if (channel_id.len > sizeof(header->c.channel_id)) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_kmp_out_track_publish_json: channel id \"%V\" too long",
             &channel_id);
@@ -340,7 +340,7 @@ ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
     }
 
     track_id = json.track_id;
-    if (track_id.len > sizeof(header->track_id)) {
+    if (track_id.len > sizeof(header->c.track_id)) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_kmp_out_track_publish_json: track id \"%V\" too long",
             &track_id);
@@ -359,16 +359,16 @@ ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
     header = &track->connect;
     header->header.packet_type = KMP_PACKET_CONNECT;
     header->header.header_size = sizeof(*header);
-    ngx_memcpy(header->channel_id, channel_id.data, channel_id.len);
-    ngx_memcpy(header->track_id, track_id.data, track_id.len);
-    header->flags = KMP_CONNECT_FLAG_CONSISTENT;
+    ngx_memcpy(header->c.channel_id, channel_id.data, channel_id.len);
+    ngx_memcpy(header->c.track_id, track_id.data, track_id.len);
+    header->c.flags = KMP_CONNECT_FLAG_CONSISTENT;
 
-    track->channel_id.s.data = header->channel_id;
+    track->channel_id.s.data = header->c.channel_id;
     track->channel_id.s.len = channel_id.len;
 
     ngx_json_str_set_escape(&track->channel_id);
 
-    track->track_id.s.data = header->track_id;
+    track->track_id.s.data = header->c.track_id;
     track->track_id.s.len = track_id.len;
 
     ngx_json_str_set_escape(&track->track_id);
@@ -1570,7 +1570,7 @@ ngx_kmp_out_track_create(ngx_kmp_out_track_conf_t *conf,
     track->conf = conf;
     track->media_info.media_type = media_type;
     track->media_info.timescale = conf->timescale;
-    track->connect.initial_frame_id = ngx_kmp_out_track_get_time(track);
+    track->connect.c.initial_frame_id = ngx_kmp_out_track_get_time(track);
 
     track->flush.handler = ngx_kmp_out_track_flush_handler;
     track->flush.data = track;

@@ -13,6 +13,7 @@
 typedef enum {
     ngx_kmp_out_resume_from_last_acked,
     ngx_kmp_out_resume_from_last_sent,
+    ngx_kmp_out_resume_from_last_written
 } ngx_kmp_out_resume_from_e;
 
 
