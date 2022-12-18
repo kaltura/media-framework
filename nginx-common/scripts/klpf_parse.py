@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from optparse import OptionParser
 import struct
 import json
 import zlib
@@ -13,6 +14,8 @@ PERSIST_HEADER_FLAG_CONTAINER  = 0x10000000
 PERSIST_HEADER_FLAG_INDEX      = 0x20000000
 PERSIST_HEADER_FLAG_COMPRESSED = 0x40000000
 
+FORMAT_KMP = 'kmp'
+FORMAT_KLPF = 'klpf'
 
 def print_hex(data, start, end, pos_format, label, next_label, label_len):
     pos = start
@@ -105,7 +108,7 @@ def parse_fields(fields, data, start, end, base_type, prefix, values, output):
         if type == 'u_char':
             if count < 0:
                 count = end - pos
-            value = data[pos:(pos + count)].decode('utf8')
+            value = data[pos:(pos + count)].decode('utf8').rstrip('\0')
             pos += count
         elif ':' in key:
             split_key = key.split(':')
@@ -150,6 +153,9 @@ def parse_fields(fields, data, start, end, base_type, prefix, values, output):
             elif type == 'uint16_t':
                 value = struct.unpack('<H', data[pos:(pos + 2)])[0]
                 pos += 2
+            elif type == 'int32_t':
+                value = struct.unpack('<l', data[pos:(pos + 4)])[0]
+                pos += 4
             elif type == 'uint32_t':
                 value = struct.unpack('<L', data[pos:(pos + 4)])[0]
                 pos += 4
@@ -176,7 +182,7 @@ def print_fields(key, data, start, end, label_len):
     global last_codec_id
 
     if key.endswith('header'):
-        start += 12
+        start += BLOCK_HEADER_SIZE
 
     output = []
     end = parse_fields(spec[key], data, start, end, 'struct', '', {}, output)
@@ -223,12 +229,17 @@ def print_blocks(data, start, end, pos_format, indent):
 
     pos = start
     while pos < end:
-        if end - pos < 12:
+        if end - pos < BLOCK_HEADER_SIZE:
             print('Error: failed to read block header, pos: %s' % pos)
             return
 
         id = data[pos:(pos + 4)].decode('utf8')
-        size, header_size = struct.unpack('<LL', data[(pos + 4):(pos + 12)])
+        if options.format == FORMAT_KLPF:
+            size, header_size = struct.unpack('<LL', data[(pos + 4):(pos + 12)])
+        elif options.format == FORMAT_KMP:
+            header_size, data_size = struct.unpack('<LL', data[(pos + 4):(pos + 12)])
+            size = header_size + data_size
+
         if id == 'klpf':
             file_type = data[(pos + 20):(pos + 24)].decode('utf8')
 
@@ -238,7 +249,7 @@ def print_blocks(data, start, end, pos_format, indent):
         if header_flags & PERSIST_HEADER_FLAG_INDEX:
             header_size = size
 
-        if header_size < 12:
+        if header_size < BLOCK_HEADER_SIZE:
             print('Error: header size too small, pos: %s' % pos)
             return
 
@@ -276,17 +287,34 @@ def print_blocks(data, start, end, pos_format, indent):
         pos = next_pos
 
 
-if len(sys.argv) < 2:
-    print('Usage:\n\t%s <input file> [<persist spec>]' %
-        os.path.basename(sys.argv[0]))
-    sys.exit(1)
+parser = OptionParser(usage='%prog [OPTION]... INPUT_FILE',
+    add_help_option=False)
+parser.add_option('--help', help='display this help and exit', action='help')
 
-if len(sys.argv) > 2:
-    spec = parse_persist_spec(sys.argv[2])
+parser.add_option('-s', '--spec-file', dest='spec', default=None,
+    help='block specification file', metavar='SPEC_FILE')
+parser.add_option('-f', '--format', dest='format', default=FORMAT_KLPF,
+    help='input file format [default: %default]', metavar='FORMAT')
+
+(options, args) = parser.parse_args()
+
+if len(args) != 1:
+    parser.error('expecting one argument')
+
+if options.format == FORMAT_KLPF:
+    BLOCK_HEADER_SIZE = 12
+elif options.format == FORMAT_KMP:
+    BLOCK_HEADER_SIZE = 16
+    file_type = 'kmp'
+else:
+    parser.error('invalid format %s' % options.format)
+
+if options.spec is not None:
+    spec = parse_persist_spec(options.spec)
 else:
     spec = {}
 
-data = open(sys.argv[1], 'rb').read()
+data = open(args[0], 'rb').read()
 
 pos_chars = len('%x' % len(data))
 pos_chars = (pos_chars + 1) / 2 * 2

@@ -107,7 +107,7 @@ def testCycle(channelId, readers):
 
     print('any: ' + ','.join(actualAny))
     print('last: ' + ','.join(actualLast))
-    print()
+    print('')
     assert(expectedAny == actualAny)
     assert(expectedLast == actualLast)
 
