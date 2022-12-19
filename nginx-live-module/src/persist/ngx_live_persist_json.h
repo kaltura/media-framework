@@ -172,6 +172,7 @@ ngx_live_persist_media_obj_json_get_size(ngx_live_channel_t *obj)
     stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_MEDIA];
     result =
         sizeof("{") - 1 + ngx_live_persist_core_json_get_size(stats) +
+        sizeof(",") - 1 + ngx_live_persist_media_json_get_size(obj) +
         sizeof("}") - 1;
 
     return result;
@@ -188,6 +189,8 @@ ngx_live_persist_media_obj_json_write(u_char *p, ngx_live_channel_t *obj)
     stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_MEDIA];
     *p++ = '{';
     p = ngx_live_persist_core_json_write(p, stats);
+    *p++ = ',';
+    p = ngx_live_persist_media_json_write(p, obj);
     *p++ = '}';
 
     return p;

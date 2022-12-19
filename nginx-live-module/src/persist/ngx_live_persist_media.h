@@ -11,6 +11,12 @@ void ngx_live_persist_media_write_complete(
     ngx_live_persist_write_file_ctx_t *ctx, ngx_int_t rc);
 
 
+size_t ngx_live_persist_media_json_get_size(ngx_live_channel_t *channel);
+
+u_char *ngx_live_persist_media_json_write(u_char *p,
+    ngx_live_channel_t *channel);
+
+
 size_t ngx_live_persist_media_read_json_get_size(ngx_live_channel_t *channel);
 
 u_char *ngx_live_persist_media_read_json_write(u_char *p,
