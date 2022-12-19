@@ -79,7 +79,7 @@ ngx_int_t ngx_kmp_out_upstream_append_buffer(ngx_kmp_out_upstream_t *u,
     ngx_buf_t *buffer);
 
 ngx_int_t ngx_kmp_out_upstream_auto_ack(ngx_kmp_out_upstream_t *u,
-    size_t left);
+    size_t left, ngx_flag_t force);
 
 void ngx_kmp_out_upstream_free(ngx_kmp_out_upstream_t *u);
 
