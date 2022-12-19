@@ -39,6 +39,8 @@ typedef struct {
 
 typedef struct {
     size_t                         written;
+    size_t                         last_frame_written;
+
     int64_t                        last_timestamp;
     int64_t                        last_created;
     ngx_uint_t                     sent_frames;

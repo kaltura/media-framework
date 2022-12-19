@@ -1225,6 +1225,7 @@ ngx_kmp_out_track_update_frame_stats(ngx_kmp_out_track_stats_t *stats,
     }
 
     stats->last_created = frame->f.created;
+    stats->last_frame_written = stats->written;
 
     if (ngx_cached_time->sec < stats->period_end) {
         return;
