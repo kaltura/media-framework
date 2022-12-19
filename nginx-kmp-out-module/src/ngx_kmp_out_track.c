@@ -1003,7 +1003,7 @@ ngx_kmp_out_track_mem_watermark(ngx_kmp_out_track_t *track)
         }
 
         rc = ngx_kmp_out_upstream_auto_ack(u,
-            track->mem_low_watermark - track->mem_left);
+            track->mem_low_watermark - track->mem_left, 1);
         if (rc <= 0) {
             return rc;
         }
