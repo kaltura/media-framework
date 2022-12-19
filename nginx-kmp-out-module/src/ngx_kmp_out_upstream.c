@@ -783,7 +783,7 @@ ngx_kmp_out_upstream_auto_ack(ngx_kmp_out_upstream_t *u, size_t left)
         limit = u->sent_base + u->peer.connection->sent;
 
     } else {
-        limit = u->track->stats.written;
+        limit = u->track->stats.last_frame_written;
     }
 
     for (count = 0; ; count++) {
