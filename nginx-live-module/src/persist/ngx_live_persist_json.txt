@@ -36,6 +36,7 @@ out ngx_live_persist_media_obj_json ngx_live_channel_t
     - %code cctx = ngx_live_get_module_ctx(obj, ngx_live_persist_core_module);
     - %code stats = &cctx->stats[NGX_LIVE_PERSIST_FILE_MEDIA];
     - %neFunc-ngx_live_persist_core_json stats
+    - %neFunc-ngx_live_persist_media_json obj
 
 out key(persist) ngx_live_persist_channel_json void
     setup %neFunc-ngx_live_persist_setup_obj_json obj

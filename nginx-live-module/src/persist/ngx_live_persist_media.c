@@ -49,6 +49,7 @@ typedef struct {
 typedef struct {
     uint32_t                       last_bucket_id;
     uint32_t                       bucket_id;
+    uint32_t                       success_index;
 
     ngx_queue_t                    reads;
     ngx_live_persist_file_stats_t  read_stats;
@@ -1115,8 +1116,10 @@ void
 ngx_live_persist_media_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
     ngx_int_t rc)
 {
-    ngx_live_channel_t              *channel;
-    ngx_live_persist_media_scope_t  *sp, scope;
+    uint32_t                               max_index;
+    ngx_live_channel_t                    *channel;
+    ngx_live_persist_media_scope_t        *sp, scope;
+    ngx_live_persist_media_channel_ctx_t  *cctx;
 
     channel = ctx->channel;
     sp = (void *) ctx->scope;
@@ -1131,6 +1134,13 @@ ngx_live_persist_media_write_complete(ngx_live_persist_write_file_ctx_t *ctx,
         ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
             "ngx_live_persist_media_write_complete: "
             "write success, bucket_id: %uD", scope.bucket_id);
+
+        cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_media_module);
+
+        max_index = scope.max_index - 1;
+        if (cctx->success_index < max_index) {
+            cctx->success_index = max_index;
+        }
     }
 
     ngx_live_persist_write_file_destroy(ctx);
@@ -1457,6 +1467,30 @@ ngx_live_persist_media_bucket_time(ngx_conf_t *cf, ngx_command_t *cmd,
     var->data = (uintptr_t) ctx;
 
     return NGX_CONF_OK;
+}
+
+
+size_t
+ngx_live_persist_media_json_get_size(ngx_live_channel_t *channel)
+{
+    size_t  result =
+        sizeof("\"success_index\":") - 1 + NGX_INT32_LEN;
+
+    return result;
+}
+
+
+u_char *
+ngx_live_persist_media_json_write(u_char *p, ngx_live_channel_t *channel)
+{
+    ngx_live_persist_media_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_persist_media_module);
+
+    p = ngx_copy_fix(p, "\"success_index\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) cctx->success_index);
+
+    return p;
 }
 
 
