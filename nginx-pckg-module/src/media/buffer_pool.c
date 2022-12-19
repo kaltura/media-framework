@@ -21,7 +21,7 @@ buffer_pool_create(vod_pool_t* pool, vod_log_t* log, size_t buffer_size, size_t 
     u_char* cur_buffer;
     void* head;
 
-    if ((buffer_size & 0x0F) != 0)
+    if ((buffer_size & 0x0f) != 0)
     {
         vod_log_error(VOD_LOG_ERR, log, 0,
             "buffer_pool_create: invalid size %uz must be a multiple of 16", buffer_size);

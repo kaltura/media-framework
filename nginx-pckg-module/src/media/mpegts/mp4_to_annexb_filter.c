@@ -84,14 +84,14 @@ mp4_to_annexb_set_media_info(
             return VOD_BAD_REQUEST;
         }
 
-        state->unit_type_mask = (0x3F << 1);
+        state->unit_type_mask = (0x3f << 1);
         state->aud_unit_type = (HEVC_NAL_AUD_NUT << 1);
         state->aud_nal_packet = hevc_aud_nal_packet;
         state->aud_nal_packet_size = sizeof(hevc_aud_nal_packet);
         break;
 
     default:        // AVC
-        state->unit_type_mask = 0x1F;
+        state->unit_type_mask = 0x1f;
         state->aud_unit_type = AVC_NAL_AUD;
         state->aud_nal_packet = avc_aud_nal_packet;
         state->aud_nal_packet_size = sizeof(avc_aud_nal_packet);

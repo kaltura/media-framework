@@ -379,7 +379,7 @@ codec_config_get_hevc_codec_name(vod_log_t* log, media_info_t* media_info)
         {
             break;
         }
-        p = vod_sprintf(p, ".%02xD", (uint32_t)((cfg.constraint_indicator_flags >> shift) & 0xFF));
+        p = vod_sprintf(p, ".%02xD", (uint32_t)((cfg.constraint_indicator_flags >> shift) & 0xff));
     }
     *p = '\0';
 
@@ -427,7 +427,7 @@ codec_config_get_mp4a_codec_name(vod_log_t* log, media_info_t* media_info)
             (size_t)sizeof(uint32_t),
             &media_info->format,
             (uint32_t)media_info->u.audio.object_type_id,
-            (uint32_t)(media_info->extra_data.data[0] & 0xF8) >> 3);
+            (uint32_t)(media_info->extra_data.data[0] & 0xf8) >> 3);
     }
     else
     {

@@ -1083,7 +1083,7 @@ void Eia608Parse(void *ctx, vlc_tick_t tick, uint8_t *p_data, size_t i_data)
             h->last.d1 = d1;
             h->last.d2 = d2;
         }
-        else if ((d1 >= 0x01 && d1 <= 0x0E) || d1 == 0x0F)
+        else if ((d1 >= 0x01 && d1 <= 0x0e) || d1 == 0x0f)
         {
             /* XDS block / End of XDS block */
         }
