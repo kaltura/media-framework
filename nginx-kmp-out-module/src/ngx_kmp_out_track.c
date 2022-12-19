@@ -690,7 +690,7 @@ ngx_kmp_out_track_error(ngx_kmp_out_track_t *track, char *code)
         NGX_LOG_NOTICE;
 
     ngx_log_error(level, &track->log, 0,
-        "ngx_kmp_out_track_error: called");
+        "ngx_kmp_out_track_error: called, code: %s", code);
 
     ngx_kmp_out_track_set_error_reason(track, code);
 
@@ -727,7 +727,7 @@ void
 ngx_kmp_out_track_detach(ngx_kmp_out_track_t *track, char *reason)
 {
     ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-        "ngx_kmp_out_track_detach: called");
+        "ngx_kmp_out_track_detach: called, reason: %s", reason);
 
     track->detached = 1;
 

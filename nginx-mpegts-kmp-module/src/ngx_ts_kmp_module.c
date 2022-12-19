@@ -278,6 +278,10 @@ ngx_ts_kmp_cleanup(void *data)
     ngx_ts_kmp_ctx_t  *ctx;
 
     ctx = data;
+
+    ngx_log_error(NGX_LOG_INFO, ctx->connection->log, 0,
+        "ngx_ts_kmp_cleanup: called");
+
     ngx_queue_remove(&ctx->queue);
 
     ngx_ts_kmp_detach_tracks(ctx, "");
