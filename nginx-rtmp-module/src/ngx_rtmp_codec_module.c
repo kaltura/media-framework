@@ -45,10 +45,10 @@ typedef struct {
 } ngx_rtmp_codec_app_conf_t;
 
 
-static ngx_conf_enum_t ngx_rtmp_codec_meta_slots[] = {
-    { ngx_string("off"),            NGX_RTMP_CODEC_META_OFF  },
+static ngx_conf_enum_t  ngx_rtmp_codec_meta_slots[] = {
     { ngx_string("on"),             NGX_RTMP_CODEC_META_ON   },
     { ngx_string("copy"),           NGX_RTMP_CODEC_META_COPY },
+    { ngx_string("off"),            NGX_RTMP_CODEC_META_OFF  },
     { ngx_null_string,              0 }
 };
 

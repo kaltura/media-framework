@@ -22,9 +22,9 @@ enum {
 
 
 ngx_conf_enum_t  ngx_kmp_out_log_frames[] = {
-    { ngx_string("off"), NGX_KMP_OUT_LOG_FRAMES_OFF },
     { ngx_string("all"), NGX_KMP_OUT_LOG_FRAMES_ALL },
     { ngx_string("key"), NGX_KMP_OUT_LOG_FRAMES_KEY },
+    { ngx_string("off"), NGX_KMP_OUT_LOG_FRAMES_OFF },
     { ngx_null_string, 0 }
 };
 

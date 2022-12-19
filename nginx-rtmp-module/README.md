@@ -138,7 +138,7 @@ When enabled, connections that have no send/recv activity between pings, are ter
 When enabled, extended timestamps are sent on outgoing type 3 RTMP chunks.
 
 #### type3_ext_ts
-* **syntax**: `type3_ext_ts on | off | auto;`
+* **syntax**: `type3_ext_ts auto | on | off;`
 * **default**: `auto`
 * **context**: `rtmp`, `server`, `application`
 
