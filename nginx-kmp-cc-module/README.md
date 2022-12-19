@@ -347,7 +347,7 @@ The `null` packets are sent in order to signal "liveness" to the upstream.
 They prevent it from closing the connection due to inactivity, during long periods of time without captions.
 
 #### kmp_cc_out_log_frames
-* **syntax**: `kmp_cc_out_log_frames all | off;`
+* **syntax**: `kmp_cc_out_log_frames all | key | off;`
 * **default**: `off`
 * **context**: `stream`, `server`
 

@@ -71,7 +71,7 @@ http {
 #### ts_kmp
 * **syntax**: `ts_kmp;`
 * **default**: `none`
-* **context**: `stream/server`, `location`
+* **context**: `location`, `stream/server`
 
 Enables the media interface of this module in the surrounding stream-server/location block.
 The `ts;` directive of nginx-mpegts-module should also be used in the same context, otherwise this directive has no effect.

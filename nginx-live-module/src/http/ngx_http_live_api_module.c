@@ -1386,7 +1386,7 @@ ngx_http_live_api_track_input_delete(ngx_http_request_t *r, ngx_str_t *params,
     track = ngx_live_track_get(channel, &track_id);
     if (track == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_live_api_track_delete: "
+            "ngx_http_live_api_track_input_delete: "
             "unknown track \"%V\" in channel \"%V\"",
             &track_id, &channel_id);
         return NGX_HTTP_NOT_FOUND;
@@ -1395,14 +1395,14 @@ ngx_http_live_api_track_input_delete(ngx_http_request_t *r, ngx_str_t *params,
     input = track->input;
     if (input == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-            "ngx_http_live_api_track_delete: "
+            "ngx_http_live_api_track_input_delete: "
             "no input connected to track \"%V\" in channel \"%V\"",
             &track_id, &channel_id);
         return NGX_HTTP_CONFLICT;
     }
 
     ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
-        "ngx_http_live_api_track_delete: "
+        "ngx_http_live_api_track_input_delete: "
         "disconnecting the input of track \"%V\" in channel \"%V\"",
         &track_id, &channel_id);
 

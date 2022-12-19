@@ -30,9 +30,9 @@ ngx_rtmp_core_main_conf_t      *ngx_rtmp_core_main_conf;
 
 
 static ngx_conf_enum_t  ngx_rtmp_type3_ext_ts[] = {
-    { ngx_string("off"),  NGX_RTMP_TYPE3_EXT_TS_OFF },
-    { ngx_string("on"),   NGX_RTMP_TYPE3_EXT_TS_ON },
     { ngx_string("auto"), NGX_RTMP_TYPE3_EXT_TS_AUTO },
+    { ngx_string("on"),   NGX_RTMP_TYPE3_EXT_TS_ON },
+    { ngx_string("off"),  NGX_RTMP_TYPE3_EXT_TS_OFF },
     { ngx_null_string, 0 }
 };
 

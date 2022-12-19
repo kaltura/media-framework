@@ -189,7 +189,7 @@ The location referenced by the `pckg_uri` directive, should use the `proxy_pass`
 The parameter value can contain variables.
 
 #### pckg_format
-* **syntax**: `pckg_format format;`
+* **syntax**: `pckg_format ksmp | sgts;`
 * **default**: `ksmp`
 * **context**: `http`, `server`, `location`
 
@@ -319,6 +319,14 @@ media for `a2`, will fill the gap by copying the respective media from `a1`. Whe
 requests for segments that did not contain media for `a2`, will return only the video track - `v2`.
 
 An implication of back-filling is that responses for segment requests may change over time.
+
+#### pckg_media_timestamps
+* **syntax**: `pckg_media_timestamps relative | absolute;`
+* **default**: `relative`
+* **context**: `http`, `server`, `location`
+
+When set to `relative`, the timestamps that are returned in media segments are relative to the start of the period.
+When set to `absolute`, the timestamps that are returned in media segments are relative to the epoch.
 
 #### pckg_empty_segments
 * **syntax**: `pckg_empty_segments on | off;`

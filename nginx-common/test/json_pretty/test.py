@@ -27,11 +27,11 @@ def get_random_element(depth):
         return {get_random_string(): get_random_element(depth + 1) for x in range(count)}
 
 def get_pretty_json(input_json):
-    cmdLine = ['./json_pretty']
+    cmd_line = ['./json_pretty']
     if VALGRIND:
-        cmdLine = ['valgrind', '-v', '--tool=memcheck', '--num-callers=128'] + cmdLine
+        cmd_line = ['valgrind', '-v', '--tool=memcheck', '--num-callers=128'] + cmd_line
 
-    output = subprocess.check_output(cmdLine + [input_json], stderr=file(VALGRIND_LOG, 'w'))
+    output = subprocess.check_output(cmd_line + [input_json], stderr=file(VALGRIND_LOG, 'w'))
 
     if VALGRIND:
         res = file(VALGRIND_LOG).read()
