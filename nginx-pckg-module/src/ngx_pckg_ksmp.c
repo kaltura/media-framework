@@ -1110,7 +1110,7 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
             dest->codec_id = VOD_CODEC_ID_MP3;
             dest->format = FORMAT_MP4A;
             dest->u.audio.object_type_id = src->u.audio.sample_rate > 24000 ?
-                0x6B : 0x69;
+                0x6b : 0x69;
             break;
 
         case KMP_CODEC_AUDIO_AC3:

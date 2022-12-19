@@ -390,7 +390,7 @@ typedef struct {
                                        void *conf);
 } ngx_rtmp_module_t;
 
-#define NGX_RTMP_MODULE                 0x504D5452     /* "RTMP" */
+#define NGX_RTMP_MODULE                 0x504d5452     /* "RTMP" */
 
 #define NGX_RTMP_MAIN_CONF              0x02000000
 #define NGX_RTMP_SRV_CONF               0x04000000

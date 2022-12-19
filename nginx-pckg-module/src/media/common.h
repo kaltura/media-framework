@@ -289,7 +289,7 @@ log_buffer(unsigned level, vod_log_t* log, int err, const char* prefix, const u_
     for (; size > 0; size--, buffer++)
     {
         *hex_pos++ = hex_chars[*buffer >> 4];
-        *hex_pos++ = hex_chars[*buffer & 0xF];
+        *hex_pos++ = hex_chars[*buffer & 0xf];
         *hex_pos++ = ' ';
     }
     *hex_pos = '\0';

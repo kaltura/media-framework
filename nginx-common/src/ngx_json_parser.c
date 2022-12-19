@@ -708,19 +708,19 @@ ngx_json_unicode_hex_to_utf8(u_char *dest, u_char *src)
         *dest++ = (u_char) ch;
 
     } else if (ch < 0x800) {
-        *dest++ = (ch >> 6) | 0xC0;
-        *dest++ = (ch & 0x3F) | 0x80;
+        *dest++ = (ch >> 6) | 0xc0;
+        *dest++ = (ch & 0x3f) | 0x80;
 
     } else if (ch < 0x10000) {
-        *dest++ = (ch >> 12) | 0xE0;
-        *dest++ = ((ch >> 6) & 0x3F) | 0x80;
-        *dest++ = (ch & 0x3F) | 0x80;
+        *dest++ = (ch >> 12) | 0xe0;
+        *dest++ = ((ch >> 6) & 0x3f) | 0x80;
+        *dest++ = (ch & 0x3f) | 0x80;
 
     } else if (ch < 0x110000) {
-        *dest++ = (ch >> 18) | 0xF0;
-        *dest++ = ((ch >> 12) & 0x3F) | 0x80;
-        *dest++ = ((ch >> 6) & 0x3F) | 0x80;
-        *dest++ = (ch & 0x3F) | 0x80;
+        *dest++ = (ch >> 18) | 0xf0;
+        *dest++ = ((ch >> 12) & 0x3f) | 0x80;
+        *dest++ = ((ch >> 6) & 0x3f) | 0x80;
+        *dest++ = (ch & 0x3f) | 0x80;
 
     } else {
         return NULL;

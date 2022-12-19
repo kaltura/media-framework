@@ -4,31 +4,31 @@
 // macros
 #define write_le32(p, dw)            \
     {                                \
-    *(p)++ = (dw)& 0xFF;            \
-    *(p)++ = ((dw) >> 8) & 0xFF;    \
-    *(p)++ = ((dw) >> 16) & 0xFF;    \
-    *(p)++ = ((dw) >> 24) & 0xFF;    \
+    *(p)++ = (dw)& 0xff;            \
+    *(p)++ = ((dw) >> 8) & 0xff;    \
+    *(p)++ = ((dw) >> 16) & 0xff;    \
+    *(p)++ = ((dw) >> 24) & 0xff;    \
     }
 
 #define write_be16(p, w)            \
     {                                \
-    *(p)++ = ((w) >> 8) & 0xFF;        \
-    *(p)++ = (w)& 0xFF;            \
+    *(p)++ = ((w) >> 8) & 0xff;        \
+    *(p)++ = (w)& 0xff;            \
     }
 
 #define write_be24(p, dw)            \
     {                                \
-    *(p)++ = ((dw) >> 16) & 0xFF;    \
-    *(p)++ = ((dw) >> 8) & 0xFF;    \
-    *(p)++ = (dw)& 0xFF;            \
+    *(p)++ = ((dw) >> 16) & 0xff;    \
+    *(p)++ = ((dw) >> 8) & 0xff;    \
+    *(p)++ = (dw)& 0xff;            \
     }
 
 #define write_be32(p, dw)            \
     {                                \
-    *(p)++ = ((dw) >> 24) & 0xFF;    \
-    *(p)++ = ((dw) >> 16) & 0xFF;    \
-    *(p)++ = ((dw) >> 8) & 0xFF;    \
-    *(p)++ = (dw)& 0xFF;            \
+    *(p)++ = ((dw) >> 24) & 0xff;    \
+    *(p)++ = ((dw) >> 16) & 0xff;    \
+    *(p)++ = ((dw) >> 8) & 0xff;    \
+    *(p)++ = (dw)& 0xff;            \
     }
 
 #define write_be64(p, qw)            \
