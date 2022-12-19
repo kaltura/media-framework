@@ -221,11 +221,15 @@ ngx_stream_ts_read_handler(ngx_event_t *rev)
     s = c->data;
 
     if (ngx_exiting || ngx_terminate) {
+        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+            "ngx_stream_ts_read_handler: worker terminating");
         ngx_stream_finalize_session(s, NGX_STREAM_OK);
         return;
     }
 
     if (rev->timedout) {
+        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+            "ngx_stream_ts_read_handler: read timed out");
         ngx_stream_finalize_session(s, NGX_STREAM_OK);
         return;
     }
@@ -242,6 +246,8 @@ ngx_stream_ts_read_handler(ngx_event_t *rev)
         n = c->recv(c, ctx->buf, tscf->buffer_size);
 
         if (n == NGX_ERROR || n == 0) {
+            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                "ngx_stream_ts_read_handler: recv returned %z", n);
             ngx_stream_finalize_session(s, NGX_STREAM_OK);
             return;
         }

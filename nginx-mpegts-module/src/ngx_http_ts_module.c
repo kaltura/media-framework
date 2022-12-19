@@ -201,6 +201,8 @@ ngx_http_ts_read_event_handler(ngx_http_request_t *r)
     ngx_http_request_body_t  *rb;
 
     if (ngx_exiting || ngx_terminate) {
+        ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+            "ngx_http_ts_read_event_handler: worker terminating");
         ngx_http_finalize_request(r, NGX_HTTP_CLOSE);
         return;
     }
@@ -213,6 +215,8 @@ ngx_http_ts_read_event_handler(ngx_http_request_t *r)
         rc = ngx_http_read_unbuffered_request_body(r);
 
         if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+            ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                "ngx_http_ts_read_event_handler: read returned %i", rc);
             ngx_http_finalize_request(r, rc);
             return;
         }
@@ -227,6 +231,8 @@ ngx_http_ts_read_event_handler(ngx_http_request_t *r)
         }
 
         if (rc == NGX_OK) {
+            ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                "ngx_http_ts_read_event_handler: finished reading body");
             ngx_http_finalize_request(r, NGX_HTTP_NO_CONTENT);
             return;
         }
