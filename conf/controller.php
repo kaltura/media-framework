@@ -334,9 +334,17 @@ case 'republish':
     $channelId = $params['channel_id'];
 
     // TODO: handle republish for transcoded streams
-    $upstream = $upstreamId == 'cc' ?
-        getCCDecodeUpstream($segmenterKmpUrl, $channelId, $ccConf) :
-        array('url' => $segmenterKmpUrl);
+    switch ($upstreamId)
+    {
+    case 'cc':
+        $upstream = getCCDecodeUpstream($segmenterKmpUrl, $channelId, $ccConf);
+        break;
+
+    default:
+        $upstream = array('url' => $segmenterKmpUrl);
+        break;
+    }
+
     outputJson($upstream);
     break;
 

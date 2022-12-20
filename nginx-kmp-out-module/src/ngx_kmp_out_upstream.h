@@ -60,6 +60,7 @@ typedef struct {
     ngx_uint_t                   auto_acked_frames;
     ngx_kmp_out_resume_from_e    resume_from;
 
+    unsigned                     required:1;
     unsigned                     sent_end:1;
     unsigned                     no_republish:1;
 } ngx_kmp_out_upstream_t;
