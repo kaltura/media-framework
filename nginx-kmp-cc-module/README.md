@@ -356,15 +356,15 @@ When enabled, the module logs the metadata of every subtitle frame that is sent 
 2. Data size and MD5 hash
 
 #### kmp_cc_out_republish_interval
-* **syntax**: `kmp_cc_out_republish_interval sec;`
-* **default**: `1`
+* **syntax**: `kmp_cc_out_republish_interval msec;`
+* **default**: `1s`
 * **context**: `stream`, `server`
 
-The minimum time that should pass between `republish` requests, in seconds.
+The minimum time that should pass between `republish` requests, in milliseconds.
 
 #### kmp_cc_out_max_republishes
 * **syntax**: `kmp_cc_out_max_republishes num;`
-* **default**: `10`
+* **default**: `15`
 * **context**: `stream`, `server`
 
 The maximum number of consecutive `republish` requests that can be sent before giving up.
