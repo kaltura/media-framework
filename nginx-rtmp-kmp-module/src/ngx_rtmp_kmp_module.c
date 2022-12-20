@@ -231,7 +231,7 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
 
     { ngx_string("kmp_republish_interval"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_sec_slot,
+      ngx_conf_set_msec_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_kmp_app_conf_t, t.republish_interval),
       NULL },
