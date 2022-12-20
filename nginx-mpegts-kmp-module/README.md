@@ -314,15 +314,15 @@ When enabled, the module logs the metadata of every frame that is sent -
 The value `key` can be used to log only the metadata of video keyframes.
 
 #### ts_kmp_republish_interval
-* **syntax**: `ts_kmp_republish_interval sec;`
-* **default**: `1`
+* **syntax**: `ts_kmp_republish_interval msec;`
+* **default**: `1s`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
-The minimum time that should pass between `republish` requests, in seconds.
+The minimum time that should pass between `republish` requests, in milliseconds.
 
 #### ts_kmp_max_republishes
 * **syntax**: `ts_kmp_max_republishes num;`
-* **default**: `10`
+* **default**: `15`
 * **context**: `http`, `server`, `location`, `stream`, `server`
 
 The maximum number of consecutive `republish` requests that can be sent before giving up.
