@@ -619,7 +619,7 @@ ngx_rtmp_codec_parse_avc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     ngx_rtmp_bit_read(&br, 16);
 
     /* nal type */
-    if (ngx_rtmp_bit_read_8(&br) != 0x67) {
+    if ((ngx_rtmp_bit_read_8(&br) & 0x1f) != 7) {
         return;
     }
 
