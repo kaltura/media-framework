@@ -78,6 +78,9 @@ For example, when used with nginx-mpegts-kmp-module, the `rtmp` block is replace
 - `upstreams` - required, array of objects, each object can contain the following fields:
     - `url` - required, string, must include ip address and port (hostname is not supported), can optionally be prefixed with `kmp://`
     - `id` - optional, string, used for identifying the upstream in `republish` requests and in the management API
+    - `required` - optional, boolean, when set to `true`, an error in the upstream frees the output track, and the input connection associated with it.
+        When set to `false`, an error in the upstream is ignored, unless the upstream is the last upstream on the output track.
+        The default value is `true`.
     - `resume_from` - optional, string, sets the offset from which the module starts sending frames, if the upstream connection is re-established.
         The following values are defined:
         - `last_acked` - the frame after the last frame that was explicitly acked (this is the default)
@@ -204,6 +207,7 @@ The sections below list the possible fields in each type of API object.
 - `remote_addr` - string, the ip + port of the remote peer
 - `local_addr` - string, the local ip + port of the connection
 - `connection` - integer, the nginx connection identifier, unique per nginx worker process
+- `required` - boolean, the `required` setting that was configured when the upstream was created
 - `resume_from` - string, the `resume_from` setting that was configured when the upstream was created
 - `sent_bytes` - integer, the number of bytes that were sent since the connection was established (gets reset if the connection is dropped)
 - `position` - integer, the position of the upstream in the send queue of the track. Can be used, for example, to compare different upstreams on the same track, in order to detect upstreams that are lagging
@@ -290,6 +294,9 @@ The request body must be a JSON object, with the following fields:
 - `url` - required, string, must include ip address and port (hostname is not supported), can optionally be prefixed with `kmp://`
 - `id` - optional, string, used for identifying the upstream in `republish` requests and in the API
 - `src_id` - optional, string, if supplied, must contain the id of an existing upstream on the track to copy from
+- `required` - optional, boolean, when set to `true`, an error in the upstream frees the output track, and the input connection associated with it.
+    When set to `false`, an error in the upstream is ignored, unless the upstream is the last upstream on the output track.
+    The default value is `true`.
 - `resume_from` - optional, string, sets the offset from which the module starts sending frames, if the upstream connection is re-established.
     The following values are defined:
     - `last_acked` - the frame after the last frame that was explicitly acked (this is the default)

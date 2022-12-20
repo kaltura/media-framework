@@ -363,9 +363,16 @@ ngx_kmp_out_upstream_free(ngx_kmp_out_upstream_t *u)
 static void
 ngx_kmp_out_upstream_free_notify(ngx_kmp_out_upstream_t *u)
 {
+    ngx_flag_t            required;
     ngx_kmp_out_track_t  *track = u->track;
 
+    required = u->required;
+
     ngx_kmp_out_upstream_free(u);
+
+    if (!required && !ngx_queue_empty(&track->upstreams)) {
+        return;
+    }
 
     ngx_kmp_out_track_error(track, "upstream_error");
 }
@@ -425,6 +432,7 @@ ngx_kmp_out_upstream_from_json(ngx_pool_t *temp_pool,
         return NGX_ABORT;
     }
 
+    u->required = json.required != 0;   /* enabled by default */
     ngx_json_set_uint_value(u->resume_from, json.resume_from);
 
     return NGX_OK;
