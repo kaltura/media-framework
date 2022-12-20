@@ -595,7 +595,7 @@ ngx_kmp_out_upstream_republish_send(ngx_kmp_out_upstream_t *u)
         return NGX_ERROR;
     }
 
-    u->republish_time = ngx_time() + u->track->conf->republish_interval;
+    u->republish_time = ngx_current_msec;
 
     return NGX_OK;
 }
@@ -615,21 +615,28 @@ ngx_kmp_out_upstream_republish_timer_handler(ngx_event_t *ev)
 static ngx_int_t
 ngx_kmp_out_upstream_republish(ngx_kmp_out_upstream_t *u)
 {
-    ngx_chain_t          *cl;
-    ngx_kmp_out_track_t  *track = u->track;
+    ngx_msec_t                 timer;
+    ngx_msec_t                 elapsed;
+    ngx_chain_t               *cl;
+    ngx_kmp_out_track_t       *track;
+    ngx_kmp_out_track_conf_t  *conf;
 
+    track = u->track;
     if (track->state != NGX_KMP_TRACK_ACTIVE) {
         return NGX_DECLINED;
     }
 
-    if (track->conf->ctrl_republish_url == NULL || u->no_republish) {
+    conf = track->conf;
+    if (conf->ctrl_republish_url == NULL || u->no_republish) {
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
             "ngx_kmp_out_upstream_republish: cannot republish");
         return NGX_DECLINED;
     }
 
-    if (ngx_time() < u->republish_time
-        && u->republishes >= u->track->conf->max_republishes)
+    elapsed = ngx_current_msec - u->republish_time;
+
+    if (elapsed < conf->republish_interval
+        && u->republishes >= conf->max_republishes)
     {
         ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
             "ngx_kmp_out_upstream_republish: republishes limit reached");
@@ -643,18 +650,20 @@ ngx_kmp_out_upstream_republish(ngx_kmp_out_upstream_t *u)
     ngx_memzero(&u->remote_addr, sizeof(u->remote_addr));
     ngx_memzero(&u->local_addr, sizeof(u->local_addr));
 
-    u->last = NULL;
+    if (u->last) {
+        u->last = NULL;
 
-    if (!u->busy) {
-        /* nothing to send, republish once more data is available */
-        return NGX_OK;
+        if (!u->busy) {
+            /* nothing to send, republish once more data is available */
+            return NGX_OK;
+        }
+
+        for (cl = u->busy; cl->next; cl = cl->next);
+
+        cl->next = u->free;
+        u->free = u->busy;
+        u->busy = NULL;
     }
-
-    for (cl = u->busy; cl->next; cl = cl->next);
-
-    cl->next = u->free;
-    u->free = u->busy;
-    u->busy = NULL;
 
     if (u->resume_from == ngx_kmp_out_resume_from_last_written) {
         if (ngx_kmp_out_upstream_auto_ack(u, NGX_MAX_SIZE_T_VALUE, 0) < 0) {
@@ -664,10 +673,19 @@ ngx_kmp_out_upstream_republish(ngx_kmp_out_upstream_t *u)
         }
     }
 
-    if (ngx_time() >= u->republish_time) {
+    if (elapsed >= conf->republish_interval) {
+        ngx_log_error(NGX_LOG_INFO, &u->log, 0,
+            "ngx_kmp_out_upstream_republish: resetting republishes counter");
+
         u->republishes = 0;
         return ngx_kmp_out_upstream_republish_send(u);
     }
+
+    timer = conf->republish_interval - elapsed;
+
+    ngx_log_error(NGX_LOG_INFO, &u->log, 0,
+        "ngx_kmp_out_upstream_republish: "
+        "setting republish timer %M, republishes: %ui", timer, u->republishes);
 
     u->republishes++;
 
@@ -675,7 +693,8 @@ ngx_kmp_out_upstream_republish(ngx_kmp_out_upstream_t *u)
     u->republish.data = u;
     u->republish.log = &u->log;
 
-    ngx_add_timer(&u->republish, (u->republish_time - ngx_time()) * 1000);
+    ngx_add_timer(&u->republish, timer);
+
     return NGX_OK;
 }
 

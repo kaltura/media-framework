@@ -35,7 +35,7 @@ typedef struct {
     ngx_msec_t       keepalive_interval;
     ngx_uint_t       log_frames;
 
-    time_t           republish_interval;
+    ngx_msec_t       republish_interval;
     ngx_uint_t       max_republishes;
 } ngx_kmp_out_track_conf_t;
 

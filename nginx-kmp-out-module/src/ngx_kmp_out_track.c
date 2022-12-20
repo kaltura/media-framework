@@ -128,7 +128,7 @@ ngx_kmp_out_track_init_conf(ngx_kmp_out_track_conf_t *conf)
         conf->mem_limit[media_type] = NGX_CONF_UNSET_SIZE;
     }
 
-    conf->republish_interval = NGX_CONF_UNSET;
+    conf->republish_interval = NGX_CONF_UNSET_MSEC;
     conf->max_republishes = NGX_CONF_UNSET_UINT;
 }
 
@@ -201,11 +201,11 @@ ngx_kmp_out_track_merge_conf(ngx_conf_t *cf, ngx_kmp_out_track_conf_t *conf,
     ngx_conf_merge_uint_value(conf->log_frames, prev->log_frames,
                               NGX_KMP_OUT_LOG_FRAMES_OFF);
 
-    ngx_conf_merge_value(conf->republish_interval,
-                         prev->republish_interval, 1);
+    ngx_conf_merge_msec_value(conf->republish_interval,
+                              prev->republish_interval, 1000);
 
     ngx_conf_merge_uint_value(conf->max_republishes,
-                              prev->max_republishes, 10);
+                              prev->max_republishes, 15);
 
     for (media_type = 0; media_type < KMP_MEDIA_COUNT; media_type++) {
         conf->lba[media_type] = ngx_lba_get_global(cf,

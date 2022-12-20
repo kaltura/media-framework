@@ -294,7 +294,7 @@ static ngx_command_t  ngx_stream_kmp_cc_commands[] = {
 
     { ngx_string("kmp_cc_out_republish_interval"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_sec_slot,
+      ngx_conf_set_msec_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_kmp_cc_srv_conf_t, out.republish_interval),
       NULL },
