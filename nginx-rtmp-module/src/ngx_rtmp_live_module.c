@@ -59,6 +59,7 @@ static ngx_command_t  ngx_rtmp_live_commands[] = {
       offsetof(ngx_rtmp_live_app_conf_t, buflen),
       NULL },
 
+#if 0
     { ngx_string("sync"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_rtmp_live_set_msec_slot,
@@ -86,6 +87,7 @@ static ngx_command_t  ngx_rtmp_live_commands[] = {
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_live_app_conf_t, wait_video),
       NULL },
+#endif
 
     { ngx_string("publish_notify"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
@@ -728,12 +730,16 @@ next:
 static ngx_int_t
 ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
 {
+    ngx_uint_t                      peers;
+    ngx_rtmp_live_ctx_t            *ctx;
+    ngx_rtmp_live_app_conf_t       *lacf;
+
+#if 0
     ngx_rtmp_live_ctx_t            *ctx, *pctx;
     ngx_rtmp_codec_ctx_t           *codec_ctx;
     ngx_chain_t                    *header, *coheader, *meta,
                                    *apkt, *aapkt, *acopkt, *rpkt;
     ngx_rtmp_core_srv_conf_t       *cscf;
-    ngx_rtmp_live_app_conf_t       *lacf;
     ngx_rtmp_session_t             *ss;
     ngx_rtmp_header_t               ch, lh, clh;
     ngx_int_t                       rc, mandatory, dummy_audio;
@@ -743,6 +749,8 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
     ngx_uint_t                      csidx;
     uint32_t                        delta;
     ngx_rtmp_live_chunk_stream_t   *cs;
+#endif
+
 #ifdef NGX_DEBUG
     const char                     *type_s;
 
@@ -791,6 +799,9 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
         goto done;
     }
 
+    return NGX_ERROR;
+
+#if 0
     apkt = NULL;
     aapkt = NULL;
     acopkt = NULL;
@@ -1066,6 +1077,8 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
         ngx_rtmp_free_shared_chain(cscf, acopkt);
     }
 
+#endif
+
 done:
 
     ngx_rtmp_update_bandwidth(&ctx->stream->bw_in, h->mlen);
@@ -1128,6 +1141,9 @@ next:
 static ngx_int_t
 ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 {
+    return NGX_ERROR;
+
+#if 0
     ngx_rtmp_live_app_conf_t       *lacf;
     ngx_rtmp_live_ctx_t            *ctx;
     u_char                          name[2 * sizeof(void *) + 1];
@@ -1169,6 +1185,7 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 next:
 
     return next_play(s, v);
+#endif
 }
 
 
