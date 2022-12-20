@@ -193,38 +193,6 @@ A higher number increases memory usage, but enables faster lookup of stream by n
 
 When set to non-zero, output messages are buffered in queue, until the number of buffers reaches the value set in `out_cork`.
 
-#### sync
-* **syntax**: `sync msec;`
-* **default**: `300ms`
-* **context**: `rtmp`, `server`, `application`
-
-When set to a non-zero value, if the duration of dropped packets exceeds the configured value, the stream is resynched.
-This parameter is not relevant in the context of Media-Framework.
-
-#### interleave
-* **syntax**: `interleave on | off;`
-* **default**: `off`
-* **context**: `rtmp`, `server`, `application`
-
-When enabled, audio and video data is transmitted on the same RTMP chunk stream.
-This parameter is not relevant in the context of Media-Framework.
-
-#### wait_key
-* **syntax**: `wait_key on | off;`
-* **default**: `off`
-* **context**: `rtmp`, `server`, `application`
-
-Makes video streams start with a key frame.
-This parameter is not relevant in the context of Media-Framework.
-
-#### wait_video
-* **syntax**: `wait_video on | off;`
-* **default**: `off`
-* **context**: `rtmp`, `server`, `application`
-
-Disable audio until first video frame is sent. Can be combined with wait_key to make client receive video key frame with all other data following it.
-This parameter is not relevant in the context of Media-Framework.
-
 #### publish_notify
 * **syntax**: `publish_notify on | off;`
 * **default**: `off`
