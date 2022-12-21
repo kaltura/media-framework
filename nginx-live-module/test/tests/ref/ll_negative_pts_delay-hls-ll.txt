@@ -63,6 +63,7 @@ seg-10-svar1-a.m4s
 #EXTINF:4.000,
 seg-11-svar1-a.m4s
 #EXT-X-PRELOAD-HINT:TYPE=PART,URI="part-12-1-svar1-a.m4s"
+#EXT-X-RENDITION-REPORT:URI="index-svar1-v.m3u8"
 
 URL: /index-svar1-v.m3u8
 HEADERS: 200 application/vnd.apple.mpegurl
@@ -122,6 +123,7 @@ seg-10-svar1-v.m4s
 #EXTINF:4.000,
 #EXT-X-BITRATE:406
 seg-11-svar1-v.m4s
+#EXT-X-RENDITION-REPORT:URI="index-svar1-a.m3u8"
 
 URL: /init-1-svar1-a.mp4
 HEADERS: 200 audio/mp4

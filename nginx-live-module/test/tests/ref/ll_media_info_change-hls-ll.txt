@@ -49,6 +49,7 @@ seg-3-svar1-a.m4s
 #EXTINF:2.133,
 #EXT-X-BITRATE:67
 seg-4-svar1-a.m4s
+#EXT-X-RENDITION-REPORT:URI="index-svar1-v.m3u8"
 #EXT-X-ENDLIST
 
 URL: /index-svar1-v.m3u8
@@ -92,6 +93,7 @@ seg-3-svar1-v.m4s
 #EXTINF:2.133,
 #EXT-X-BITRATE:109
 seg-4-svar1-v.m4s
+#EXT-X-RENDITION-REPORT:URI="index-svar1-a.m3u8"
 #EXT-X-ENDLIST
 
 URL: /init-1-svar1-a.mp4
