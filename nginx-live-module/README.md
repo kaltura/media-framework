@@ -1738,6 +1738,9 @@ The details provided for each field include -
     - `cancel` - integer (R), the number of read requests that were canceled (in order to release buffer locks and free channel memory)
 - `timelines` - object (R), the keys hold the timeline id, while the values are [Timeline Objects](#timeline-object)
 - `segment_list` - object (R), returns statistics about the segment list, contains the following fields:
+    - `node_count` - integer (R), the number of segment list nodes allocated in memory
+    - `elt_count` - integer (R), the total number of segment list elements, each element represents a set of consecutive segments with identical duration
+    - `segment_count` - integer (R), the total number of segments in the segment list
     - `min_index` - integer (R), the oldest segment that currently exists in the segment list
     - `min_index` - integer (R), the newest segment that currently exists in the segment list
 - `truncate` - integer (R), the last segment index that could not be saved successfully, a caused truncation of the timelines. Returns zero if the timelines were never truncated.
