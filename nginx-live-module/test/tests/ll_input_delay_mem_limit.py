@@ -4,6 +4,9 @@ def updateConf(conf):
     block = getConfBlock(conf, ['live', 'preset ll'])
     block.append(['ll_segmenter_close_segment_delay', '0'])
 
+    block = getConfBlock(conf, ['http', 'server', 'location ~ /hls-ll/(?P<channel_id>[^/]+)/tl/(?P<timeline_id>[^/]+)'])
+    block.insert(0, ['pckg_m3u8_rendition_reports', 'off'])
+
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()
     st.created = int(time.time() * 90000)
