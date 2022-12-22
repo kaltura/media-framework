@@ -55,6 +55,9 @@ typedef struct {
 
     ngx_live_track_t             *source;
     uint32_t                      source_refs;
+    uint32_t                      gap_fill_source;
+
+    uint32_t                      gap_fill_dest;
 
     ngx_live_media_info_node_t   *default_node;
 } ngx_live_media_info_track_ctx_t;
@@ -1354,8 +1357,10 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
     ngx_int_t                         rc;
     ngx_flag_t                        updated;
     ngx_queue_t                      *q;
+    ngx_live_track_t                 *source;
     ngx_live_track_t                 *cur_track;
     ngx_live_media_info_track_ctx_t  *cur_ctx;
+    ngx_live_media_info_track_ctx_t  *src_ctx;
 
     updated = 0;
 
@@ -1381,11 +1386,10 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
             continue;
         }
 
-        if (cur_ctx->source != NULL) {
-            if (cur_ctx->source->has_last_segment) {
-                cur_track->last_segment_bitrate =
-                    cur_ctx->source->last_segment_bitrate;
-                continue;
+        source = cur_ctx->source;
+        if (source != NULL) {
+            if (source->has_last_segment) {
+                goto fill;
             }
 
             ngx_live_media_info_source_clear(cur_ctx);
@@ -1400,8 +1404,6 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
         switch (rc) {
 
         case NGX_OK:
-            cur_track->last_segment_bitrate =
-                cur_ctx->source->last_segment_bitrate;
             break;
 
         case NGX_DONE:
@@ -1414,6 +1416,16 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
         }
 
         updated = 1;
+
+        source = cur_ctx->source;
+
+    fill:
+
+        cur_track->last_segment_bitrate = source->last_segment_bitrate;
+        cur_ctx->gap_fill_dest++;
+
+        src_ctx = ngx_live_get_module_ctx(source, ngx_live_media_info_module);
+        src_ctx->gap_fill_source++;
     }
 
     return updated ? NGX_OK : NGX_DONE;
@@ -1614,7 +1626,9 @@ ngx_live_media_info_track_json_get_size(void *obj)
 
     result = sizeof("\"group_id\":\"") - 1 +
         ngx_json_str_get_size(&ctx->group_id) +
-        sizeof("\",\"media_info\":{\"added\":,\"removed\":}") - 1 +
+        sizeof("\",\"gap_fill_dest\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"gap_fill_source\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"media_info\":{\"added\":,\"removed\":}") - 1 +
         2 * NGX_INT32_LEN;
 
     if (ngx_queue_empty(&ctx->active)) {
@@ -1662,7 +1676,14 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
 
     p = ngx_copy_fix(p, "\"group_id\":\"");
     p = ngx_json_str_write(p, &ctx->group_id);
-    p = ngx_copy_fix(p, "\",\"media_info\":{\"added\":");
+
+    p = ngx_copy_fix(p, "\",\"gap_fill_dest\":");
+    p = ngx_sprintf(p, "%uD", ctx->gap_fill_dest);
+
+    p = ngx_copy_fix(p, ",\"gap_fill_source\":");
+    p = ngx_sprintf(p, "%uD", ctx->gap_fill_source);
+
+    p = ngx_copy_fix(p, ",\"media_info\":{\"added\":");
     p = ngx_sprintf(p, "%uD", ctx->added);
     p = ngx_copy_fix(p, ",\"removed\":");
     p = ngx_sprintf(p, "%uD", ctx->removed);
