@@ -239,7 +239,7 @@ ngx_kmp_out_track_media_info_json_get_size(ngx_kmp_out_track_t *track)
 {
     size_t  size;
 
-    size = sizeof("\"media_info\":{}") - 1;
+    size = sizeof("\"media_info\":{") - 1 + sizeof("}") - 1;
 
     switch (track->media_info.media_type) {
 

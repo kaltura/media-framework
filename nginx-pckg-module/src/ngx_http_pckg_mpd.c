@@ -773,7 +773,7 @@ ngx_http_pckg_mpd_init_cea_params(ngx_pckg_channel_t *channel,
         case 8:
         case 9:
             /* service1 - service63 */
-            if (c7_end - c7_p < 12) {
+            if (c7_end - c7_p < 6 + (ssize_t) sizeof("=lang:") - 1) {
                 ngx_log_error(NGX_LOG_WARN, channel->log, 0,
                     "ngx_http_pckg_mpd_init_cea_params: "
                     "708 value overflow");

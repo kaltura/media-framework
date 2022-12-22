@@ -1628,16 +1628,18 @@ ngx_live_media_info_track_json_get_size(void *obj)
         ngx_json_str_get_size(&ctx->group_id) +
         sizeof("\",\"gap_fill_dest\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"gap_fill_source\":") - 1 + NGX_INT32_LEN +
-        sizeof(",\"media_info\":{\"added\":,\"removed\":}") - 1 +
-        2 * NGX_INT32_LEN;
+        sizeof(",\"media_info\":{\"added\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"removed\":") - 1 + NGX_INT32_LEN +
+        sizeof("}") - 1;
 
     if (ngx_queue_empty(&ctx->active)) {
         return result;
     }
 
     if (ctx->source) {
-        result += sizeof(",\"source\":\"\"") - 1 +
-            ctx->source->sn.str.len + ctx->source->id_escape;
+        result += sizeof(",\"source\":\"") - 1
+            + ctx->source->sn.str.len + ctx->source->id_escape
+            + sizeof("\"") - 1;
     }
 
     q = ngx_queue_last(&ctx->active);
