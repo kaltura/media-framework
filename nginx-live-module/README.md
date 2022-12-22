@@ -1787,6 +1787,8 @@ The details provided for each field include -
     When filling a gap in some track, the preference is to use a track with a matching group id.
     This can be used, for example, to pair the primary and backup versions of the same rendition.
     The maximum allowed length is 32 chars.
+- `gap_fill_dest` - integer (R), the number of segments that were copied to this track in order to fill media gaps, since the channel was created on the server (not persisted)
+- `gap_fill_source` - integer (R), the number of segments that were copied from this track in order to fill media gaps, since the channel was created on the server (not persisted)
 - `media_info` - object (R), returns statistics about the media info queue of the track, contains the following fields:
     - `added` - integer (R), the total number of media info nodes that were created
     - `removed` - integer (R), the total number of media info nodes that were removed, due to the sliding of the live window
