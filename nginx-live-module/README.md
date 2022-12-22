@@ -1888,7 +1888,8 @@ The details provided for each field include -
 
 - `period_count` - integer (R), the number of periods in the timeline
 - `segment_count` - integer (R), the total number of segments in the timeline
-- `duration` - integer (R), the sum of the duration of all the periods in the timeline
+- `duration` - integer (R), the sum of the duration of all the periods in the timeline, in timescale units
+- `removed_duration` - integer (R), the total duration of all the segments that were removed from the timeline since its creation, in timescale units
 - `first_segment_index` - integer (R), the index of the oldest segment that exists in the timeline
 - `last_segment_created` - integer (R), a unix timestamp of the last time a segment was added to the timeline
 - `last_accessed` - integer (R), unix timestamp of the last time a KSMP request for the timeline was received

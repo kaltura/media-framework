@@ -24,6 +24,7 @@ out nostatic ngx_live_timeline_json ngx_live_timeline_t
     period_count %uD
     segment_count %uD
     duration %uL
+    removed_duration %uL
     first_segment_index %uD ngx_live_timeline_get_first_index(obj)
     last_segment_created %T
     last_accessed %T

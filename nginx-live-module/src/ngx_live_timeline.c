@@ -94,9 +94,17 @@ typedef struct {
 } ngx_live_timeline_persist_manifest_t;
 
 
+/* TODO: remove this! */
 typedef struct {
     int64_t                   last_time;
     int64_t                   last_segment_created;
+} ngx_live_timeline_persist_v1_t;
+
+
+typedef struct {
+    int64_t                   last_time;
+    int64_t                   last_segment_created;
+    uint64_t                  removed_duration;
 } ngx_live_timeline_persist_t;
 
 
@@ -1149,6 +1157,8 @@ ngx_live_timeline_remove_segment(ngx_live_timeline_t *timeline)
 
     timeline->segment_count--;
     timeline->duration -= duration;
+
+    timeline->removed_duration += duration;
 
     if (period->segment_count > 0) {
         return;
@@ -2656,6 +2666,7 @@ ngx_live_timeline_write_index(ngx_persist_write_ctx_t *write_ctx,
 
     tp.last_time = ts->last_time;
     tp.last_segment_created = ts->last_segment_created;
+    tp.removed_duration = timeline->removed_duration;
 
     if (ngx_persist_write_block_open(write_ctx,
             NGX_LIVE_TIMELINE_PERSIST_BLOCK) != NGX_OK ||
@@ -2780,6 +2791,7 @@ ngx_live_timeline_read_periods(ngx_persist_block_hdr_t *header,
 {
     u_char                               *p, *end;
     uint32_t                              min_index;
+    uint64_t                              prev_duration;
     ngx_int_t                             rc;
     ngx_queue_t                          *q;
     ngx_live_period_t                    *period;
@@ -2891,14 +2903,14 @@ ngx_live_timeline_read_periods(ngx_persist_block_hdr_t *header,
         period->segment_count += cur.segment_count;
         timeline->segment_count += cur.segment_count;
 
-        timeline->duration -= period->duration;
+        prev_duration = period->duration;
 
         rc = ngx_live_period_reset_duration(channel, period);
         if (rc != NGX_OK) {
             return NGX_BAD_DATA;
         }
 
-        timeline->duration += period->duration;
+        timeline->duration += period->duration - prev_duration;
     }
 
     return NGX_OK;
@@ -3016,6 +3028,7 @@ ngx_live_timeline_read_index(ngx_persist_block_hdr_t *header,
     ngx_live_channel_t                    *channel = obj;
     ngx_live_timeline_t                   *timeline;
     ngx_live_timeline_persist_t            tp;
+    ngx_live_timeline_persist_v1_t         tp1;
     ngx_live_timeline_channel_ctx_t       *cctx;
     ngx_live_timeline_persist_manifest_t   mp;
 
@@ -3038,10 +3051,26 @@ ngx_live_timeline_read_index(ngx_persist_block_hdr_t *header,
     orig_log = rs->log;
     rs->log = &timeline->log;
 
-    if (ngx_mem_rstream_read(rs, &tp, sizeof(tp)) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_live_timeline_read_index: read failed, timeline: %V", &id);
-        return NGX_BAD_DATA;
+    if (rs->version >= 10) {
+        if (ngx_mem_rstream_read(rs, &tp, sizeof(tp)) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_live_timeline_read_index: read failed, timeline: %V",
+                &id);
+            return NGX_BAD_DATA;
+        }
+
+    } else {
+        /* TODO: remove this! */
+        if (ngx_mem_rstream_read(rs, &tp1, sizeof(tp1)) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_live_timeline_read_index: read failed, timeline: %V",
+                &id);
+            return NGX_BAD_DATA;
+        }
+
+        tp.last_time = tp1.last_time;
+        tp.last_segment_created = tp1.last_segment_created;
+        tp.removed_duration = 0;
     }
 
     if (ngx_mem_rstream_read(rs, &mp, sizeof(mp)) != NGX_OK) {
@@ -3066,6 +3095,7 @@ ngx_live_timeline_read_index(ngx_persist_block_hdr_t *header,
 
     timeline->last_time = tp.last_time;
     timeline->last_segment_created = tp.last_segment_created;
+    timeline->removed_duration = tp.removed_duration;
 
     rc = ngx_live_manifest_timeline_read(timeline, &mp);
     if (rc != NGX_OK) {
