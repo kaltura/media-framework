@@ -9,7 +9,7 @@ LONG_TEST = 1
 # test options
 DISABLE_DVR = False
 BLOCKING_SEGMENT_REQUEST = False
-WAIT_ACKS = False
+WAIT_ACKS = True
 MEDIA_INFO_CHANGE = False
 NO_TRUNCATE = False
 
@@ -170,8 +170,8 @@ class WaitAckSender(object):
             type, header_size, data_size, reserved = kmpGetHeader(header)
             if type != KMP_PACKET_ACK_FRAMES:
                 continue
-            data = self.s.recv(header_size + data_size)
-            frameId, offset = struct.unpack('<qL', data[:12])
+            data = self.s.recv(header_size + data_size - KMP_PACKET_HEADER_SIZE)
+            frameId, = struct.unpack('<q', data[:8])
             self.ackedFrames = frameId
 
 def test(channelId=CHANNEL_ID):

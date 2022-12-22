@@ -32,6 +32,10 @@ typedef struct {
     ngx_uint_t                     bp_idx;
     ngx_log_t                     *log;
 
+    uint32_t                       node_count;
+    uint32_t                       elt_count;
+    uint32_t                       segment_count;
+
     int64_t                        last_time;
     unsigned                       is_first:1;      /* temp during read */
 } ngx_live_segment_list_t;
