@@ -819,6 +819,11 @@ mp4_muxer_write_emsg_atom(u_char* p, size_t atom_size, media_segment_t* segment)
     start_dts = track->start_dts;
     timescale = track->media_info->timescale;
 
+    if (start_dts < 0)
+    {
+        start_dts = 0;
+    }
+
     write_atom_header(p, atom_size, 'e', 'm', 's', 'g');
     write_be32(p, 0x01000000);                  // version + flags
     write_be32(p, timescale);                   // timescale
@@ -912,6 +917,11 @@ mp4_muxer_build_fragment_header(
         styp_atom_size = sizeof(styp_atom);
 
         earliest_pres_time = mp4_muxer_get_earliest_pres_time(segment, 0);
+        if (earliest_pres_time < 0)
+        {
+            earliest_pres_time = 0;
+        }
+
         sidx_atom_size = ATOM_HEADER_SIZE + (earliest_pres_time > UINT_MAX ? sizeof(sidx64_atom_t) : sizeof(sidx_atom_t));
     }
     else
@@ -1011,6 +1021,11 @@ mp4_muxer_build_fragment_header(
         earliest_pres_time = mp4_muxer_get_earliest_pres_time(
             segment,
             cur_stream->index);
+        if (earliest_pres_time < 0)
+        {
+            earliest_pres_time = 0;
+        }
+
         p = mp4_fragment_write_tfdt64_atom(p, earliest_pres_time);
 
         // moof.traf.trun
