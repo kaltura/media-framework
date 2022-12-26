@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from common import printErr, exit
+from common import *
 import os
 
 
@@ -21,8 +21,7 @@ def get_config_deps(file_path):
 header_files = {}
 config_deps = set([])
 
-base_dir = os.path.join(os.path.dirname(__file__), '../..')
-base_dir = os.path.normpath(base_dir)
+base_dir = get_base_dir()
 
 for root, _, files in os.walk(base_dir):
     for name in files:
@@ -39,10 +38,10 @@ for root, _, files in os.walk(base_dir):
 
 missing_files = config_deps - set(header_files.keys())
 for file in missing_files:
-    printErr('Error: missing file referenced in config: %s' % file)
+    report_err('Error: missing file referenced in config: %s' % file)
 
 missing_deps = set(header_files.keys()) - config_deps
 for file in missing_deps:
-    printErr('Error: header file missing from config deps: %s' % header_files[file])
+    report_err('Error: header file missing from config deps: %s' % header_files[file])
 
 exit()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from common import printErr, exit
+from common import *
 import os
 import re
 
@@ -62,12 +62,11 @@ def parse_readme(path, out):
             route = 'LIST ' + route[len('GET '):-len('?list=1')]
 
         if route in out:
-            printErr('Warning: duplicate API endpoint \"%s\", in %s:%s' % (route, path, line_num))
+            report_err('Warning: duplicate API endpoint \"%s\", in %s:%s' % (route, path, line_num))
         out[route] = (path, line_num)
 
 
-base_dir = os.path.join(os.path.dirname(__file__), '../..')
-base_dir = os.path.normpath(base_dir)
+base_dir = get_base_dir()
 
 module_list = filter(lambda x: x.startswith('nginx'), os.listdir(base_dir))
 
@@ -90,9 +89,9 @@ for module in module_list:
     print('Info: ok, %s documented routes' % len(doc_routes))
 
     if len(undoc_routes) > 0:
-        printErr('Error: undocumented routes: %s' % undoc_routes)
+        report_err('Error: undocumented routes: %s' % undoc_routes)
 
     if len(non_exist_routes) > 0:
-        printErr('Error: routes missing from src: %s' % non_exist_routes)
+        report_err('Error: routes missing from src: %s' % non_exist_routes)
 
 exit()
