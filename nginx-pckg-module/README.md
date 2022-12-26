@@ -20,7 +20,7 @@ Optional dependencies:
 
 - Codecs
     - Video: *h264 / AVC*, *h265 / HEVC*
-    - Audio: *AAC*, *MP3*, *AC3*, *E-AC3*
+    - Audio: *AAC*, *MP3*, *AC3*, *E-AC3*, *OPUS*
     - Subtitle: *WebVTT*, *TTML*
 
 - Adaptive bitrate
