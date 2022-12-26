@@ -1,20 +1,14 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
+#include "ngx_ts_chain_reader.h"
 #include "ngx_ts_heavc.h"
 
 
 typedef struct {
-    ngx_chain_t                  *cl;
-    ngx_buf_t                    *buf;
-    u_char                       *pos;
-} ngx_ts_heavc_chain_reader_t;
-
-
-typedef struct {
-    ngx_ts_heavc_chain_reader_t   base;
-    uint32_t                      last_three;
-    size_t                        left;
+    ngx_ts_chain_reader_t   base;
+    uint32_t                last_three;
+    size_t                  left;
 } ngx_ts_heavc_chain_reader_ep_t;
 
 

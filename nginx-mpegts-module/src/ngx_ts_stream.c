@@ -805,8 +805,19 @@ ngx_ts_read_pmt(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_header_t *h,
         /* ES_info_length */
         (void) ngx_ts_byte_read16(&br, &elen);
 
-        /* ES_info */
-        (void) ngx_ts_byte_read_skip(&br, elen & 0x0fff);
+        elen &= 0x0fff;
+
+        if (elen > 0) {
+            es->info.data = ngx_pnalloc(ts->pool, elen);
+            if (es->info.data == NULL) {
+                return NGX_ERROR;
+            }
+
+            /* ES_info */
+            (void) ngx_ts_byte_read(&br, es->info.data, elen);
+
+            es->info.len = elen;
+        }
 
         pid = pid & 0x1fff;
 

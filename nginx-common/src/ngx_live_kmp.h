@@ -43,15 +43,26 @@
 #define KMP_CH_SURROUND_DIRECT_RIGHT    0x0000000400000000ULL
 #define KMP_CH_LOW_FREQUENCY_2          0x0000000800000000ULL
 
-#define KMP_CH_LAYOUT_MONO      (KMP_CH_FRONT_CENTER)
-#define KMP_CH_LAYOUT_STEREO    (KMP_CH_FRONT_LEFT|KMP_CH_FRONT_RIGHT)
-#define KMP_CH_LAYOUT_2_1       (KMP_CH_LAYOUT_STEREO|KMP_CH_BACK_CENTER)
-#define KMP_CH_LAYOUT_SURROUND  (KMP_CH_LAYOUT_STEREO|KMP_CH_FRONT_CENTER)
-#define KMP_CH_LAYOUT_4POINT0   (KMP_CH_LAYOUT_SURROUND|KMP_CH_BACK_CENTER)
-#define KMP_CH_LAYOUT_2_2       (KMP_CH_LAYOUT_STEREO|KMP_CH_SIDE_LEFT       \
-                                    |KMP_CH_SIDE_RIGHT)
-#define KMP_CH_LAYOUT_5POINT0   (KMP_CH_LAYOUT_SURROUND|KMP_CH_SIDE_LEFT     \
-                                    |KMP_CH_SIDE_RIGHT)
+#define KMP_CH_LAYOUT_MONO          (KMP_CH_FRONT_CENTER)
+#define KMP_CH_LAYOUT_STEREO        (KMP_CH_FRONT_LEFT|KMP_CH_FRONT_RIGHT)
+#define KMP_CH_LAYOUT_2_1           (KMP_CH_LAYOUT_STEREO|KMP_CH_BACK_CENTER)
+#define KMP_CH_LAYOUT_SURROUND      (KMP_CH_LAYOUT_STEREO|KMP_CH_FRONT_CENTER)
+#define KMP_CH_LAYOUT_4POINT0       (KMP_CH_LAYOUT_SURROUND|KMP_CH_BACK_CENTER)
+#define KMP_CH_LAYOUT_2_2           (KMP_CH_LAYOUT_STEREO|KMP_CH_SIDE_LEFT   \
+                                        |KMP_CH_SIDE_RIGHT)
+#define KMP_CH_LAYOUT_QUAD          (KMP_CH_LAYOUT_STEREO|KMP_CH_BACK_LEFT   \
+                                        |KMP_CH_BACK_RIGHT)
+
+#define KMP_CH_LAYOUT_5POINT0       (KMP_CH_LAYOUT_SURROUND|KMP_CH_SIDE_LEFT \
+                                        |KMP_CH_SIDE_RIGHT)
+#define KMP_CH_LAYOUT_5POINT1       (KMP_CH_LAYOUT_5POINT0                   \
+                                        |KMP_CH_LOW_FREQUENCY)
+#define KMP_CH_LAYOUT_5POINT0_BACK  (KMP_CH_LAYOUT_SURROUND|KMP_CH_BACK_LEFT \
+                                        |KMP_CH_BACK_RIGHT)
+#define KMP_CH_LAYOUT_5POINT1_BACK  (KMP_CH_LAYOUT_5POINT0_BACK              \
+                                        |KMP_CH_LOW_FREQUENCY)
+#define KMP_CH_LAYOUT_7POINT1       (KMP_CH_LAYOUT_5POINT1|KMP_CH_BACK_LEFT  \
+                                        |KMP_CH_BACK_RIGHT)
 
 
 /* enums */
@@ -108,6 +119,7 @@ enum {
 
     KMP_CODEC_AUDIO_AC3             = 1016,
     KMP_CODEC_AUDIO_EC3             = 1017,
+    KMP_CODEC_AUDIO_OPUS            = 1018,
 
     KMP_CODEC_SUBTITLE_WEBVTT       = 2001,
 };

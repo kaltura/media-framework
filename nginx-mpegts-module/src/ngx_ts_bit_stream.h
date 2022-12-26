@@ -6,6 +6,19 @@
 #include <ngx_core.h>
 
 
+#define ngx_ts_write_be16(p, w) {                                            \
+        *(p)++ = ((w) >> 8) & 0xff;                                          \
+        *(p)++ =  (w) & 0xff;                                                \
+    }
+
+#define ngx_ts_write_be32(p, dw) {                                           \
+        *(p)++ = ((dw) >> 24) & 0xff;                                        \
+        *(p)++ = ((dw) >> 16) & 0xff;                                        \
+        *(p)++ = ((dw) >> 8) & 0xff;                                         \
+        *(p)++ =  (dw) & 0xff;                                               \
+    }
+
+
 typedef struct {
     u_char      *pos;
     u_char      *last;
