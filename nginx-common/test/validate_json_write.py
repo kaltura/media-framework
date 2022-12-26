@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from common import printErr, exit
+from common import *
 import sys
 import re
 import os
@@ -24,13 +24,12 @@ def process_file(file_path):
 
     missing_sizeof = copies - sizeofs - set(["true"])
     for s in missing_sizeof:
-        printErr('Error: missing sizeof for %s in %s' % (s, file_path))
+        report_err('Error: missing sizeof for %s in %s' % (s, file_path))
 
 
-root_folder = os.path.join(os.path.dirname(__file__), '../..')
-root_folder = os.path.normpath(root_folder)
+base_dir = get_base_dir()
 
-for root, _, files in os.walk(root_folder):
+for root, _, files in os.walk(base_dir):
     for name in files:
         if os.path.splitext(name)[1] not in ['.c', '.h']:
             continue
