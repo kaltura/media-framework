@@ -176,7 +176,7 @@ BODY: SIZE: 5435, MD5: a1fe218188dd902692bc7bfd165b0d33
 
 URL: /init-1-salt2-a.mp4
 HEADERS: 200 audio/mp4
-BODY: SIZE: 594, MD5: 91bb0107a111d0030cdaea312e90bcbb
+BODY: SIZE: 592, MD5: 9a321ad186b9850f72d5bf89ce302fb7
 
 URL: /seg-1-salt2-a.m4s
 HEADERS: 200 audio/mp4
