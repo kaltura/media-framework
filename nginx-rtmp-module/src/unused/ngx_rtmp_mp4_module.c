@@ -226,7 +226,7 @@ ngx_rtmp_mp4_from_rtmp_timestamp(ngx_rtmp_mp4_track_t *t, uint32_t ts)
 #define NGX_RTMP_MP4_BUFLEN_ADDON       1000
 
 
-static u_char                           ngx_rtmp_mp4_buffer[1024 * 1024];
+static u_char                           ngx_rtmp_mp4_buffer[1048576];
 
 
 #if (NGX_WIN32)

@@ -45,7 +45,8 @@ static u_char  ngx_ts_opus_channel_map[][8] = {
 };
 
 
-static uint32_t  ngx_ts_opus_frame_duration[] = {   /* 1/10 msec */
+/* Note: the frame duration is in 1/10 msec */
+static uint32_t  ngx_ts_opus_frame_duration[] = {
     100, 200, 400, 600,
     100, 200, 400, 600,
     100, 200, 400, 600,

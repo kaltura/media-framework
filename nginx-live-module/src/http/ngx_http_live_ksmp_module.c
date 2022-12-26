@@ -708,6 +708,23 @@ ngx_http_live_ksmp_set_error(ngx_http_live_ksmp_params_t *params,
 }
 
 
+static void
+ngx_http_live_ksmp_copy_error_msg(ngx_http_request_t *r, ngx_str_t *message)
+{
+    ngx_http_live_ksmp_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_live_ksmp_module);
+
+    ctx->err_msg.data = ngx_pnalloc(r->pool, message->len);
+    if (ctx->err_msg.data == NULL) {
+        return;
+    }
+
+    ngx_memcpy(ctx->err_msg.data, message->data, message->len);
+    ctx->err_msg.len = message->len;
+}
+
+
 static ngx_int_t
 ngx_http_live_ksmp_output_error_str(ngx_http_request_t *r, uint32_t code,
     ngx_str_t *message)
@@ -721,11 +738,7 @@ ngx_http_live_ksmp_output_error_str(ngx_http_request_t *r, uint32_t code,
     ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
         "ngx_http_live_ksmp_output_error_str: %V, code: %uD", message, code);
 
-    ctx->err_msg.data = ngx_pnalloc(r->pool, message->len);
-    if (ctx->err_msg.data != NULL) {
-        ngx_memcpy(ctx->err_msg.data, message->data, message->len);
-        ctx->err_msg.len = message->len;
-    }
+    ngx_http_live_ksmp_copy_error_msg(r, message);
 
     ctx->err_code = code;
 
