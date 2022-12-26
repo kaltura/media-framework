@@ -17,7 +17,7 @@ def process_file(file_path):
 
     sizeofs = set(map(get_quoted_str, re.findall('sizeof\(([^)]*)\)', file_data)))
     copies = set(map(get_quoted_str, re.findall('ngx_copy_fix\(([^)]*)\)', file_data)))
-    
+
     missing_sizeof = copies - sizeofs - set(["true"])
     for s in missing_sizeof:
         print('Error: missing sizeof for %s in %s' % (s, file_path))

@@ -53,6 +53,7 @@ typedef struct {
     uint16_t                      pid;
     uint64_t                      pts;
     uint64_t                      dts;
+    ngx_str_t                     info;
     unsigned                      ptsf:1;
     unsigned                      rand:1;
     unsigned                      video:1;

@@ -1,8 +1,9 @@
 ﻿#include <ngx_config.h>
 #include <ngx_core.h>
 
-#include "ngx_ts_hevc.h"
+#include "ngx_ts_bit_stream.h"
 #include "ngx_ts_heavc.h"
+#include "ngx_ts_hevc.h"
 
 
 #define HEVC_NALU_HEADER_SIZE             2
@@ -13,18 +14,6 @@
 
 
 #define ngx_ts_hevc_get_nal_type(pc)  (((*pc) >> 1) & 0x3f)
-
-#define ngx_ts_hevc_write_be16(p, w) {                                       \
-        *(p)++ = ((w) >> 8) & 0xff;                                          \
-        *(p)++ =  (w) & 0xff;                                                \
-    }
-
-#define ngx_ts_hevc_write_be32(p, dw) {                                      \
-        *(p)++ = ((dw) >> 24) & 0xff;                                        \
-        *(p)++ = ((dw) >> 16) & 0xff;                                        \
-        *(p)++ = ((dw) >> 8) & 0xff;                                         \
-        *(p)++ =  (dw) & 0xff;                                               \
-    }
 
 
 typedef struct {
@@ -733,14 +722,14 @@ ngx_ts_hevc_hvcc_write_header(u_char *p, ngx_ts_hevc_ctx_t *ctx)
         | ctx->general_tier_flag << 5
         | ctx->general_profile_idc;
 
-    ngx_ts_hevc_write_be32(p, ctx->general_profile_compatibility_flags);
+    ngx_ts_write_be32(p, ctx->general_profile_compatibility_flags);
 
-    ngx_ts_hevc_write_be32(p, ctx->general_constraint_indicator_flags >> 16);
-    ngx_ts_hevc_write_be16(p, ctx->general_constraint_indicator_flags);
+    ngx_ts_write_be32(p, ctx->general_constraint_indicator_flags >> 16);
+    ngx_ts_write_be16(p, ctx->general_constraint_indicator_flags);
 
     *p++ = ctx->general_level_idc;
 
-    ngx_ts_hevc_write_be16(p, 0xf000 | ctx->min_spatial_segmentation_idc);
+    ngx_ts_write_be16(p, 0xf000 | ctx->min_spatial_segmentation_idc);
 
     *p++ = 0xfc | ctx->parallelism_type;
 
@@ -750,7 +739,7 @@ ngx_ts_hevc_hvcc_write_header(u_char *p, ngx_ts_hevc_ctx_t *ctx)
 
     *p++ = 0xf8 | ctx->bit_depth_chroma_minus8;
 
-    ngx_ts_hevc_write_be16(p, avg_frame_rate);
+    ngx_ts_write_be16(p, avg_frame_rate);
 
     *p++ = constant_frame_rate << 6
         | ctx->num_temporal_layers << 3
@@ -802,14 +791,14 @@ ngx_ts_hevc_hvcc_write_nalus(u_char *p, ngx_ts_hevc_nalu_array_t *nalus)
 
             size = b->last - b->pos;
 
-            ngx_ts_hevc_write_be16(p, size);
+            ngx_ts_write_be16(p, size);
 
             p = ngx_copy(p, b->pos, size);
 
             num_nalus++;
         }
 
-        ngx_ts_hevc_write_be16(pnum_nalus, num_nalus);
+        ngx_ts_write_be16(pnum_nalus, num_nalus);
 
         (*num_of_arrays)++;
     }

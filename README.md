@@ -197,7 +197,7 @@ When compiling nginx, the dependencies must be added (`--add-module`) before any
     - Removed features: hls/dash output, notifications, relay, auto push, rtmp playback etc.
 
 - [nginx-mpegts-module](nginx-mpegts-module/) - a modified version of [nginx-ts-module](https://github.com/arut/nginx-ts-module), used by: nginx-mpegts-kmp-module.
-    - Support for additional codecs: h265, AC3, E-AC3
+    - Support for additional codecs: h265, AC3, E-AC3, OPUS
     - Removed features: hls/dash output
 
 ### Debug Options

@@ -15,8 +15,10 @@ MPEGTS_CORE_SRCS="                                \
     $ngx_addon_dir/src/ngx_ts_ac3.c               \
     $ngx_addon_dir/src/ngx_ts_avc.c               \
     $ngx_addon_dir/src/ngx_ts_bit_stream.c        \
+    $ngx_addon_dir/src/ngx_ts_chain_reader.c      \
     $ngx_addon_dir/src/ngx_ts_heavc.c             \
     $ngx_addon_dir/src/ngx_ts_hevc.c              \
+    $ngx_addon_dir/src/ngx_ts_opus.c              \
     $ngx_addon_dir/src/ngx_ts_stream.c            \
     "
 
@@ -35,8 +37,10 @@ MPEGTS_DEPS="                                     \
     $ngx_addon_dir/src/ngx_ts_ac3.h               \
     $ngx_addon_dir/src/ngx_ts_avc.h               \
     $ngx_addon_dir/src/ngx_ts_bit_stream.h        \
+    $ngx_addon_dir/src/ngx_ts_chain_reader.h      \
     $ngx_addon_dir/src/ngx_ts_heavc.h             \
     $ngx_addon_dir/src/ngx_ts_hevc.h              \
+    $ngx_addon_dir/src/ngx_ts_opus.h              \
     $ngx_addon_dir/src/ngx_ts_stream.h            \
     "
 
