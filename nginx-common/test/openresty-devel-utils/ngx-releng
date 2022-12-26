@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+DIRNAME=`dirname $0`
+PREFIX=`realpath $DIRNAME`
 DIR=${1:-$PWD}
 
 cd $DIR
@@ -32,7 +34,6 @@ if [ -d src ]; then
     hfiles=`find -L src -name 'ngx_*.h' $find_opts`
     hfilesnojson=`find -L src -name 'ngx_*.h' -not -name 'ngx_*_json.h' $find_opts`
 
-    #ack '/\*  +' src /dev/null && exit 1
     ack '(?<=\#define)\s*DDEBUG\s*[1-9]' src /dev/null
     ack '\(\);' $hfilesnojson /dev/null
     ack '^\w+[^()]*?\*\s\w+' $hfiles /dev/null
@@ -234,7 +235,7 @@ if [ -d src ]; then
             close $in;
         }' $cfiles
 
-    ngx-style.pl $cfiles
+    $PREFIX/ngx-style.pl $cfiles
 fi
 
 if [ -d t ]; then
