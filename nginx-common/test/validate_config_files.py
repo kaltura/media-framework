@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import os
 
 def get_config_deps(file_path):

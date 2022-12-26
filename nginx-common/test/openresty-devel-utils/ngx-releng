@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+DIRNAME=`dirname $0`
+PREFIX=`realpath $DIRNAME`
 DIR=${1:-$PWD}
 
 cd $DIR
@@ -7,14 +9,6 @@ cd $DIR
 README_FILE=(README.*)
 
 if [ -f $README_FILE ]; then
-    wiki_file=`perl -e 'print glob "doc/*.wiki"'`
-    if [ -n "$wiki_file" -a  -f "$wiki_file" ]; then
-        echo "Generating $README_FILE"
-        (set -x; wiki2markdown.pl $wiki_file > $README_FILE 2>/dev/null || exit 1)
-        #wiki2pod.pl $wiki_file > /tmp/a.pod || exit 1
-        #pod2text /tmp/a.pod > README || exit 1
-    fi
-
     grep -Pzo '(?<=This document describes).*(?:-nginx-module|ngx_\w+)\s*\[v\d+\.\d[^\s\]]*' $README_FILE \
         | tr '\n' ' ' \
         | ack '(\w+).*?\[v(\S+)' --output '$1 $2'
@@ -32,7 +26,6 @@ if [ -d src ]; then
     hfiles=`find -L src -name 'ngx_*.h' $find_opts`
     hfilesnojson=`find -L src -name 'ngx_*.h' -not -name 'ngx_*_json.h' $find_opts`
 
-    #ack '/\*  +' src /dev/null && exit 1
     ack '(?<=\#define)\s*DDEBUG\s*[1-9]' src /dev/null
     ack '\(\);' $hfilesnojson /dev/null
     ack '^\w+[^()]*?\*\s\w+' $hfiles /dev/null
@@ -234,7 +227,7 @@ if [ -d src ]; then
             close $in;
         }' $cfiles
 
-    ngx-style.pl $cfiles
+    $PREFIX/ngx-style.pl $cfiles
 fi
 
 if [ -d t ]; then
