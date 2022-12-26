@@ -323,8 +323,9 @@ ngx_kmp_cc_service_track_create(ngx_kmp_cc_service_t *svc,
     }
 
     input_id_size = sizeof(NGX_KMP_CC_SERVICE_INPUT_ID_PREFIX) - 1
-        + ctx->input.channel_id.s.len + ctx->input.track_id.s.len
-        + svc->id.s.len + sizeof("//") - 1;
+        + ctx->input.channel_id.s.len + sizeof("/") - 1
+        + ctx->input.track_id.s.len + sizeof("/") - 1
+        + svc->id.s.len;
 
     json_size = sizeof(NGX_KMP_CC_SERVICE_TRACK_INFO_HEADER) - 1
         + ngx_kmp_cc_service_publish_json_get_size(svc);
