@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from common import printErr, exit
 import os
 import re
 
@@ -61,7 +62,7 @@ def parse_readme(path, out):
             route = 'LIST ' + route[len('GET '):-len('?list=1')]
 
         if route in out:
-            print('Warning: duplicate API endpoint \"%s\", in %s:%s' % (route, path, line_num))
+            printErr('Warning: duplicate API endpoint \"%s\", in %s:%s' % (route, path, line_num))
         out[route] = (path, line_num)
 
 
@@ -89,7 +90,9 @@ for module in module_list:
     print('Info: ok, %s documented routes' % len(doc_routes))
 
     if len(undoc_routes) > 0:
-        print('Error: undocumented routes: %s' % undoc_routes)
+        printErr('Error: undocumented routes: %s' % undoc_routes)
 
     if len(non_exist_routes) > 0:
-        print('Error: routes missing from src: %s' % non_exist_routes)
+        printErr('Error: routes missing from src: %s' % non_exist_routes)
+
+exit()

@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+
+from common import printErr, exit
 import os
 import re
 
@@ -116,7 +118,7 @@ def parse_source(path, out):
             if cmd_name in out:
                 prev = out[cmd_name]
                 if prev[0] == module_type:
-                    print('Warning: duplicate directive \"%s\", in %s:%s' % (cmd_name, path, line_num))
+                    printErr('Warning: duplicate directive \"%s\", in %s:%s' % (cmd_name, path, line_num))
                 prev_fields = prev[3]
                 prev_fields[1] += '|' + fields[1]
             else:
@@ -174,7 +176,7 @@ def parse_readme(path, out):
         attrs = {}
         cmd_name = cur_line.split()[1]
         if cmd_name in out:
-            print('Warning: duplicate directive \"%s\", in %s:%s' % (cmd_name, path, line_num))
+            printErr('Warning: duplicate directive \"%s\", in %s:%s' % (cmd_name, path, line_num))
         out[cmd_name] = (path, line_num, attrs)
 
 def get_command_ctx(flags):
@@ -198,12 +200,12 @@ def validate_syntax_args(cmd_name, syntax, handler, post):
         values = enums[post.lstrip('&')]
         expected = ' | '.join(values)
         if syntax != expected:
-            print('Error: invalid syntax for %s, expected: %s, got: %s' % (cmd_name, expected, syntax))
+            printErr('Error: invalid syntax for %s, expected: %s, got: %s' % (cmd_name, expected, syntax))
         return
 
     if 'complex_value' in handler:
         if not syntax.endswith('expr'):
-            print('Error: invalid syntax for %s, expected: expr, got: %s' % (cmd_name, syntax))
+            printErr('Error: invalid syntax for %s, expected: expr, got: %s' % (cmd_name, syntax))
         return
 
     if cmd_name.endswith('hash_max_size') or cmd_name.endswith('hash_bucket_size'):
@@ -214,7 +216,7 @@ def validate_syntax_args(cmd_name, syntax, handler, post):
         return
 
     if syntax not in expected:
-        print('Error: invalid syntax for %s, expected: %s, got: %s' % (cmd_name, expected, syntax))
+        printErr('Error: invalid syntax for %s, expected: %s, got: %s' % (cmd_name, expected, syntax))
 
 
 base_dir = os.path.join(os.path.dirname(__file__), '../..')
@@ -245,11 +247,11 @@ for module in module_list:
     print('Info: ok, %s documented directives' % len(doc_cmds))
 
     if len(undoc_cmds) > 0:
-        print('Error: undocumented directives: %s' % undoc_cmds)
+        printErr('Error: undocumented directives: %s' % undoc_cmds)
         print_undoc_commands(sorted([src_cmds[cmd][1:] + (cmd,) for cmd in undoc_cmds]))
 
     if len(non_exist_cmds) > 0:
-        print('Error: directives missing from src: %s' % non_exist_cmds)
+        printErr('Error: directives missing from src: %s' % non_exist_cmds)
 
     for cmd_name in set(doc_cmds).intersection(set(src_cmds)):
         doc_attrs = doc_cmds[cmd_name][2]
@@ -258,24 +260,26 @@ for module in module_list:
         exp_ctx = get_command_ctx(src_fields[1])
         doc_ctx = doc_attrs['context']
         if exp_ctx != '' and exp_ctx != doc_ctx.replace('stream/server', 'server'):
-            print('Error: invalid context for %s, expected: %s, got: %s' % (cmd_name, exp_ctx, doc_ctx))
+            printErr('Error: invalid context for %s, expected: %s, got: %s' % (cmd_name, exp_ctx, doc_ctx))
 
         doc_syntax = doc_attrs['syntax'].strip('`')
 
         if 'NGX_CONF_BLOCK' in src_fields[1]:
             if not doc_syntax.endswith(' { ... }'):
-                print('Error: syntax for %s missing block' % cmd_name)
+                printErr('Error: syntax for %s missing block' % cmd_name)
                 continue
             doc_syntax = doc_syntax[:-len(' { ... }')]
         else:
             if not doc_syntax.endswith(';'):
-                print('Error: syntax for %s missing semicolon' % cmd_name)
+                printErr('Error: syntax for %s missing semicolon' % cmd_name)
                 continue
             doc_syntax = doc_syntax[:-1]
 
         if not doc_syntax.startswith(cmd_name):
-            print('Error: invalid syntax for %s: %s' % (cmd_name, doc_syntax))
+            printErr('Error: invalid syntax for %s: %s' % (cmd_name, doc_syntax))
             continue
 
         doc_syntax = doc_syntax[(len(cmd_name) + 1):]
         validate_syntax_args(cmd_name, doc_syntax, src_fields[2], src_fields[-1])
+
+exit()
