@@ -1,7 +1,10 @@
 #!/usr/bin/env python
+
+from common import printErr, exit
 import sys
 import re
 import os
+
 
 def get_quoted_str(s):
     start = s.find('"')
@@ -21,7 +24,7 @@ def process_file(file_path):
 
     missing_sizeof = copies - sizeofs - set(["true"])
     for s in missing_sizeof:
-        print('Error: missing sizeof for %s in %s' % (s, file_path))
+        printErr('Error: missing sizeof for %s in %s' % (s, file_path))
 
 
 root_folder = os.path.join(os.path.dirname(__file__), '../..')
@@ -34,3 +37,5 @@ for root, _, files in os.walk(root_folder):
 
         file_path = os.path.join(root, name)
         process_file(file_path)
+
+exit()

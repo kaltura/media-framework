@@ -1,5 +1,7 @@
 #!/usr/bin/env python
+
 from __future__ import print_function
+from common import printErr, exit
 import sys
 import re
 import os
@@ -91,7 +93,7 @@ def process_file(file_path):
 
         # validate arg count
         if count_args(log_args) != log_msg.count('%') + log_msg.count('%*'):
-            print('Error: log args mismatch, args: %s, line:\n\t%s' % (log_args, log_msg))
+            printErr('Error: log args mismatch, args: %s, line:\n\t%s' % (log_args, log_msg))
 
         if ignore_path(file_path):
             continue
@@ -105,7 +107,7 @@ def process_file(file_path):
         log_func = log_msg.split(':')[0]
 
         if real_func != log_func and real_func not in IGNORE_FUNCS:
-            print('Error: log function mismatch, expected: "%s", got: "%s", line:\n\t%s' % (real_func, log_func, log_msg))
+            printErr('Error: log function mismatch, expected: "%s", got: "%s", line:\n\t%s' % (real_func, log_func, log_msg))
 
 
 root_folder = os.path.join(os.path.dirname(__file__), '../..')
@@ -121,3 +123,5 @@ for root, _, files in os.walk(root_folder):
             continue
 
         process_file(file_path)
+
+exit()
