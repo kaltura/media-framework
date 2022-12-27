@@ -2,10 +2,10 @@
 #include "media_format.h"
 #include "bit_read_stream.h"
 
-#define codec_config_copy_string(target, str)    \
-    {                                            \
-    vod_memcpy(target.data, str, sizeof(str));    \
-    target.len = sizeof(str) - 1;                \
+#define codec_config_copy_string(target, str)   \
+    {                                           \
+    vod_memcpy(target.data, str, sizeof(str));  \
+    target.len = sizeof(str) - 1;               \
     }
 
 #define AOT_ESCAPE (31)
