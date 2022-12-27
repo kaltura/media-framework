@@ -576,7 +576,7 @@ mp4_init_segment_write_esds_atom(u_char* p, media_info_t* media_info)
     *p++ = MP4ESDescrTag;                       // tag
     *p++ = 3 +                                  // len
         sizeof(descr_header_t) + sizeof(config_descr_t) +
-        extra_data_desc + 
+        extra_data_desc +
         sizeof(descr_header_t) + 1;
     write_be16(p, 0);                           // track id
     *p++ = 0;                                   // flags
