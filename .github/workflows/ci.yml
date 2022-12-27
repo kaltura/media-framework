@@ -43,4 +43,4 @@ jobs:
       - name: Check Coding Style
         run: | 
           LOG='nginx-common/test/ngx-releng.log';for MODULE in nginx-*; do nginx-common/test/openresty-devel-utils/ngx-releng $MODULE >> $LOG 2>&1;done
-          RC=`grep -vc "Checking sources in" $LOG`; exit $RC
+          RC=`grep -v "Checking sources in" $LOG | wc -l`; exit $RC
