@@ -32,10 +32,11 @@ jobs:
             libpcre3-dev \
             libxml2-dev \
             curl \
+            ack \
             libsrt-openssl-dev 
       - name : Build
         run: ./ci_build.sh ${{ matrix.confargs }}
       - name : Nginx binary loads
         run : /sbin/nginx -V
       - name: Validate
-        run: for VALIDATE_SCRIPT in validate_*py; do ./$VALIDATE_SCRIPT;done
+        run: cd nginx-common/test; for VALIDATE_SCRIPT in validate_*py; do ./$VALIDATE_SCRIPT;done
