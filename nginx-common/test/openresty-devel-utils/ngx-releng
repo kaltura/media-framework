@@ -49,7 +49,7 @@ if [ -d src ]; then
             while (<$in>) {
                 next if /^\s*$/ || m{^\s*/\*};
                 if (/^[a-z]\w+\(\S+.*?\) \{$/) {
-                    print "$fname:$.: \e[33m$_\e[0m";
+                    print "ERROR: $fname:$.: \e[33m$_\e[0m";
                     undef $func;
                     next;
                 }
@@ -64,7 +64,7 @@ if [ -d src ]; then
                 }
 
                 if ($func && /^ {4}[a-z]\S+.*? \{$/) {
-                    print "$fname:$.: \e[33m$_\e[0m";
+                    print "ERROR: $fname:$.: \e[33m$_\e[0m";
                     undef $func;
                     next;
                 }
@@ -86,7 +86,7 @@ if [ -d src ]; then
                 }
                 if ($seen && /^\{$/) {
                     my $ln = $. - 1;
-                    print "$fname:$ln: \e[33m$seen\e[0m";
+                    print "ERROR: $fname:$ln: \e[33m$seen\e[0m";
                     undef $seen;
                     next;
                 }
@@ -168,7 +168,7 @@ if [ -d src ]; then
                 }
                 if ($seen && !/^$/) {
                     my $ln = $. - 1;
-                    print "$fname:$ln: \e[33m$seen\e[0m";
+                    print "ERROR: $fname:$ln: \e[33m$seen\e[0m";
                     undef $seen;
                     next;
                 }
@@ -189,7 +189,7 @@ if [ -d src ]; then
                 if ($seen && /\breturn\s+NGX_CONF_ERROR/) {
                     my $ln = $.;
                     $seen = $_;
-                    print "$fname:$ln: \e[33m$seen\e[0m";
+                    print "ERROR: $fname:$ln: \e[33m$seen\e[0m";
                     next;
                 }
                 if (/^}$/) {
@@ -209,17 +209,17 @@ if [ -d src ]; then
                      $line_cont = 1;
 
                     if (length $1 != 77) {
-                        print "$fname:$.: \e[33m$1\e[0m$2";
+                        print "ERROR: $fname:$.: \e[33m$1\e[0m$2";
                         next;
                     }
 
                 } elsif (m{^ (\s+ .* ) (\\ \s*) $}x) {
                     if (!$line_cont) {
-                        print "$fname:$.: $_";
+                        print "ERROR: $fname:$.: $_";
                     }
 
                     if (length $1 != 77) {
-                        print "$fname:$.: \e[33m$1\e[0m$2";
+                        print "ERROR: $fname:$.: \e[33m$1\e[0m$2";
                         next;
                     }
                  }
