@@ -187,7 +187,7 @@ void vod_log_error(vod_uint_t level, vod_log_t *log, int err,
 
 // time functions
 #if (VOD_DEBUG)
-#define vod_time(request_context) (request_context->time > 0 ? request_context->time : ngx_time())
+#define vod_time(request_context) ((request_context)->time > 0 ? (request_context)->time : ngx_time())
 #else
 #define vod_time(request_context) ngx_time()
 #endif
