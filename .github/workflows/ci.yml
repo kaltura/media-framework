@@ -32,8 +32,15 @@ jobs:
             libpcre3-dev \
             libxml2-dev \
             curl \
+            ack \
             libsrt-openssl-dev 
       - name : Build
         run: ./ci_build.sh ${{ matrix.confargs }}
       - name : Nginx binary loads
         run : /sbin/nginx -V
+      - name: Validate
+        run: cd nginx-common/test; for VALIDATE_SCRIPT in validate_*py; do ./$VALIDATE_SCRIPT;done
+      - name: Check Coding Style
+        run: | 
+          LOG='nginx-common/test/ngx-releng.log';for MODULE in nginx-*; do nginx-common/test/openresty-devel-utils/ngx-releng $MODULE >> $LOG 2>&1;done
+          RC=`grep -vc "Checking sources in" $LOG || true`; cat $LOG; exit $RC
