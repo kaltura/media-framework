@@ -130,7 +130,7 @@ def parse_source(path, out):
 
 def scan_source_dir(top, out):
     for root, _, files in os.walk(top):
-        for name in files:
+        for name in sorted(files):
             if not os.path.splitext(name)[1] in set(['.c', '.h']):
                 continue
 
