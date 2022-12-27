@@ -41,5 +41,6 @@ jobs:
       - name: Validate
         run: cd nginx-common/test; for VALIDATE_SCRIPT in validate_*py; do ./$VALIDATE_SCRIPT;done
       - name: Check Coding Style
-        run: for MODULE in nginx-*; do nginx-common/test/openresty-devel-utils/ngx-releng $MODULE >> nginx-common/test/ngx-releng.log 2>&1;done
-        run: if grep -q "^ERROR:" nginx-common/test/ngx-releng.log;then cat nginx-common/test/ngx-releng.log;fi 
+        run: | 
+          for MODULE in nginx-*; do nginx-common/test/openresty-devel-utils/ngx-releng $MODULE >> nginx-common/test/ngx-releng.log 2>&1;done
+          if grep -q "^ERROR:" nginx-common/test/ngx-releng.log;then cat nginx-common/test/ngx-releng.log;fi 
