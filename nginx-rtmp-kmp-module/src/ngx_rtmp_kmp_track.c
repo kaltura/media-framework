@@ -313,14 +313,10 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
         ctx->last_timestamp = h->timestamp;
 
     } else {
-
-
-
         /* handle 32 bit wrap around */
         ctx->timestamp += (int32_t) h->timestamp - ctx->last_timestamp;
         ctx->last_timestamp = h->timestamp;
     }
-
 
     track->stats.last_timestamp = ctx->timestamp;
     frame->f.dts = ctx->timestamp * rtmpscale;
@@ -507,10 +503,3 @@ ngx_rtmp_kmp_track_create(ngx_kmp_out_track_conf_t *conf,
 
     return track;
 }
-
-
-
-
-
-
-
