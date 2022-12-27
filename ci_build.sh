@@ -24,8 +24,8 @@ cp -r . $BUILDDIR/$MEDIA_FRAMEWORK
 cd $BUILDDIR
 curl $NGINX_URI > kaltura-nginx-$NGINX_VERSION.tar.gz
 tar zxf kaltura-nginx-$NGINX_VERSION.tar.gz
-mv nginx-$NGINX_VERSION nginx
-cd nginx
+mv nginx-$NGINX_VERSION build_nginx
+cd build_nginx
 
 MEDIA_FRAMEWORK_MODULE_LIST="nginx-common nginx-kmp-in-module nginx-kmp-out-module nginx-rtmp-module nginx-rtmp-kmp-module nginx-mpegts-module nginx-mpegts-kmp-module nginx-kmp-cc-module nginx-kmp-rtmp-module nginx-live-module nginx-pckg-module"
 MEDIA_FRAMEWORK_MODULE_ARGS=''
