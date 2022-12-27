@@ -148,7 +148,7 @@ if [ -d src ]; then
                         || ($seen eq 1 && !/\bif\b.*?\s*==\s*NULL/))
                     {
                         if (!$whitelist{"$fname:$."}) {
-                            print "missing NULL check: $fname: line $.: $saved$_";
+                            print "ERROR: missing NULL check: $fname: line $.: $saved$_";
                         }
                     }
                 }
@@ -228,6 +228,7 @@ if [ -d src ]; then
         }' $cfiles
 
     $PREFIX/ngx-style.pl $cfiles
+    RC=$?
 fi
 
 if [ -d t ]; then

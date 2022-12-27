@@ -69,5 +69,5 @@ done
 	--with-stream \
         --with-cc-opt="-O3" \
         $MEDIA_FRAMEWORK_MODULE_ARGS
-make -j $(nproc)
+scan-build-11 make -j $(nproc)
 sudo make install
