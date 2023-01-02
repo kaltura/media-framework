@@ -59,6 +59,7 @@ ngx_kmp_in_stats_skip_json_get_size(ngx_kmp_in_stats_skip_t *obj)
     result =
         sizeof("{\"duplicate\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"empty\":") - 1 + NGX_INT_T_LEN +
+        sizeof(",\"empty_duration\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"no_media_info\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"no_key\":") - 1 + NGX_INT_T_LEN +
         sizeof("}") - 1;
@@ -74,6 +75,8 @@ ngx_kmp_in_stats_skip_json_write(u_char *p, ngx_kmp_in_stats_skip_t *obj)
     p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->duplicate);
     p = ngx_copy_fix(p, ",\"empty\":");
     p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->empty);
+    p = ngx_copy_fix(p, ",\"empty_duration\":");
+    p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->empty_duration);
     p = ngx_copy_fix(p, ",\"no_media_info\":");
     p = ngx_sprintf(p, "%ui", (ngx_uint_t) obj->no_media_info);
     p = ngx_copy_fix(p, ",\"no_key\":");

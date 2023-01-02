@@ -8,6 +8,7 @@ out nostatic ngx_kmp_in_stats_latency_json ngx_kmp_in_stats_latency_t
 out ngx_kmp_in_stats_skip_json ngx_kmp_in_stats_skip_t
     duplicate %ui
     empty %ui
+    empty_duration %ui
     no_media_info %ui
     no_key %ui
 

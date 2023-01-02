@@ -406,6 +406,13 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
         goto done;
     }
 
+    if (ctx->media_type == KMP_MEDIA_SUBTITLE && frame->pts_delay <= 0) {
+        ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+            "ngx_kmp_in_frame: skipping subtitle frame with empty duration");
+        ctx->skipped.empty_duration++;
+        goto done;
+    }
+
     if (ctx->wait_key) {
 
         /* ignore frames that arrive before the first key */

@@ -25,6 +25,7 @@ typedef struct {
 typedef struct {
     ngx_uint_t             duplicate;
     ngx_uint_t             empty;
+    ngx_uint_t             empty_duration;
     ngx_uint_t             no_media_info;
     ngx_uint_t             no_key;
 } ngx_kmp_in_stats_skip_t;
