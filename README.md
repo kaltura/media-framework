@@ -316,9 +316,11 @@ Represents a single video frame / audio frame / subtitle cue.
 The frame header contains the following fields:
 - `created` - integer, the time in which the frame was received by the first Media-Framework module in the pipeline, in timescale units.
 - `dts` - integer, the decode timestamp of the frame, in timescale units.
+    When the media type is `subtitle`, holds the start timestamp of the cue.
 - `flags` - integer, currently only one flag is defined -
     `key` - enabled on video keyframes.
 - `pts_delay` - integer, the difference between the presentation timestamp of the frame, and the decode timestamp, in timescale units.
+    When the media type is `subtitle`, holds the duration of the cue - `end_pts - start_pts`.
 
 When the media type is video / audio, the data of the frame packet holds the compressed media.
 When the media type is subtitle and the codec is WebVTT, the data of the frame follows the WebVTT Sample Format, as specified in `ISO/IEC 14496-30`
