@@ -314,13 +314,13 @@ static enum {
 } cc_state;
 
 
-static void cc_handler_start(void* priv)
+static void cc_handler_start(void *priv)
 {
     cc_state = cc_start;
 }
 
 
-static void cc_handler_add_setting(void* priv, ngx_str_t* str)
+static void cc_handler_add_setting(void *priv, ngx_str_t *str)
 {
     if (cc_state == cc_start) {
         cc_state = cc_settings;
@@ -345,7 +345,7 @@ static void cc_handler_write(void *priv, void *buf, size_t len)
 }
 
 
-static void cc_handler_end(void* priv, vlc_tick_t start, vlc_tick_t end)
+static void cc_handler_end(void *priv, vlc_tick_t start, vlc_tick_t end)
 {
     ngx_write_fd(STDOUT_FILENO, "\n\n", 2);
 
