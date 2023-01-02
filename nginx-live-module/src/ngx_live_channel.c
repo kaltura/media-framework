@@ -418,6 +418,65 @@ ngx_live_channel_ack_frames(ngx_live_channel_t *channel)
 }
 
 
+ngx_buf_chain_t *
+ngx_live_channel_copy_chains(ngx_live_channel_t *channel,
+    ngx_buf_chain_t *src, size_t size, ngx_buf_chain_t **out_tail)
+{
+    ngx_buf_chain_t   *dst;
+    ngx_buf_chain_t   *head, *tail;
+    ngx_buf_chain_t  **last;
+
+    dst = NULL;
+    last = &head;
+
+    while (size > 0) {
+
+#if (NGX_LIVE_VALIDATIONS)
+        if (size < src->size) {
+            ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
+                "ngx_live_channel_copy_chains: "
+                "size left %uz smaller than buf chain size %uz",
+                size, src->size);
+            ngx_debug_point();
+        }
+#endif
+
+        dst = ngx_live_channel_buf_chain_alloc(channel);
+        if (dst == NULL) {
+            goto failed;
+        }
+
+        *last = dst;
+        last = &dst->next;
+
+        dst->data = src->data;
+        dst->size = src->size;
+
+        size -= src->size;
+        src = src->next;
+    }
+
+    *last = NULL;
+
+    if (out_tail != NULL) {
+        *out_tail = dst;
+    }
+
+    return head;
+
+failed:
+
+    if (last != &head) {
+        *last = NULL;
+
+        tail = (ngx_buf_chain_t *) last; /* next is first in ngx_buf_chain_t */
+        ngx_live_channel_buf_chain_free_list(channel, head, tail);
+    }
+
+    return NULL;
+}
+
+
 ngx_int_t
 ngx_live_channel_block_str_set(ngx_live_channel_t *channel,
     ngx_block_str_t *dest, ngx_str_t *src)

@@ -185,6 +185,7 @@ ngx_live_segment_cache_validate_parts(ngx_live_segment_t *segment)
 {
     size_t                    data_size;
     int64_t                   dts;
+    ngx_flag_t                allow_overlap;
     ngx_uint_t                i, j, n;
     ngx_buf_chain_t          *data;
     ngx_list_part_t          *part;
@@ -195,6 +196,7 @@ ngx_live_segment_cache_validate_parts(ngx_live_segment_t *segment)
     cur = part->elts;
     last = cur + part->nelts;
 
+    allow_overlap = 0;
     data = segment->data_head;
     dts = segment->start_dts;
 
@@ -206,6 +208,56 @@ ngx_live_segment_cache_validate_parts(ngx_live_segment_t *segment)
         if (sp->frame_count <= 0) {
             /* gap part */
             continue;
+        }
+
+        if (allow_overlap) {
+
+            /* seek to the first frame of the part */
+
+            part = &segment->frames.part;
+            cur = part->elts;
+            last = cur + part->nelts;
+
+            dts = segment->start_dts;
+            data_size = 0;
+
+            for ( ;; ) {
+                if (cur >= last) {
+                    if (part->next == NULL) {
+                        ngx_log_error(NGX_LOG_ALERT, segment->pool->log, 0,
+                            "ngx_live_segment_cache_validate_parts: "
+                            "frame list overflow (1)");
+                        ngx_debug_point();
+                        break;
+                    }
+
+                    part = part->next;
+                    cur = part->elts;
+                    last = cur + part->nelts;
+                }
+
+                if (cur == sp->frame) {
+                    break;
+                }
+
+                dts += cur->duration;
+                data_size += cur->size;
+
+                cur++;
+            }
+
+            data = segment->data_head;
+            while (data_size > 0) {
+                data_size -= data->size;
+                data = data->next;
+            }
+
+        } else if (segment->track->media_type == KMP_MEDIA_SUBTITLE) {
+
+            /* subtitle parts can have overlaps (=a single frame can be
+                included in multiple parts) */
+
+            allow_overlap = 1;
         }
 
         if (sp->start_dts != dts) {
@@ -229,7 +281,7 @@ ngx_live_segment_cache_validate_parts(ngx_live_segment_t *segment)
                 if (part->next == NULL) {
                     ngx_log_error(NGX_LOG_ALERT, segment->pool->log, 0,
                         "ngx_live_segment_cache_validate_parts: "
-                        "frame list overflow");
+                        "frame list overflow (2)");
                     ngx_debug_point();
                     break;
                 }
@@ -281,6 +333,13 @@ ngx_live_segment_cache_validate_parts(ngx_live_segment_t *segment)
             "trailing frames after last part");
         ngx_debug_point();
     }
+
+    if (data != NULL) {
+        ngx_log_error(NGX_LOG_ALERT, segment->pool->log, 0,
+            "ngx_live_segment_cache_validate_parts: "
+            "trailing data after last part");
+        ngx_debug_point();
+    }
 }
 
 
@@ -300,14 +359,16 @@ ngx_live_segment_cache_validate(ngx_live_segment_t *segment)
     data_size = 0;
     data = segment->data_head;
 
-    for ( ;; ) {
+    if (data != NULL) {
+        for ( ;; ) {
 
-        data_size += data->size;
-        if (data->next == NULL) {
-            break;
+            data_size += data->size;
+            if (data->next == NULL) {
+                break;
+            }
+
+            data = data->next;
         }
-
-        data = data->next;
     }
 
     if (segment->data_size != data_size) {
@@ -415,59 +476,21 @@ ngx_live_segment_cache_shift_dts(ngx_live_segment_t *segment, uint32_t shift)
 ngx_int_t
 ngx_live_segment_cache_copy_chains(ngx_live_segment_t *segment)
 {
-    size_t                left;
-    ngx_buf_chain_t      *src, *dst;
     ngx_buf_chain_t      *head, *tail;
-    ngx_buf_chain_t     **last;
     ngx_live_channel_t   *channel;
 
     channel = segment->track->channel;
 
-    last = &head;
-    dst = NULL;
-
-    left = segment->data_size;
-    for (src = segment->data_head; left > 0; src = src->next) {
-
-#if (NGX_LIVE_VALIDATIONS)
-        if (left < src->size) {
-            ngx_log_error(NGX_LOG_ALERT, segment->pool->log, 0,
-                "ngx_live_segment_cache_copy_chains: "
-                "size left %uz smaller than buf chain size %uz",
-                left, src->size);
-            ngx_debug_point();
-        }
-#endif
-
-        dst = ngx_live_channel_buf_chain_alloc(channel);
-        if (dst == NULL) {
-            goto failed;
-        }
-
-        *last = dst;
-        last = &dst->next;
-
-        dst->data = src->data;
-        dst->size = src->size;
-
-        left -= src->size;
+    head = ngx_live_channel_copy_chains(channel, segment->data_head,
+        segment->data_size, &tail);
+    if (head == NULL) {
+        return NGX_ERROR;
     }
-
-    *last = NULL;
 
     segment->data_head = head;
-    segment->data_tail = dst;
+    segment->data_tail = tail;
 
     return NGX_OK;
-
-failed:
-
-    if (last != &head) {
-        tail = (ngx_buf_chain_t *) last; /* next is first in ngx_buf_chain_t */
-        ngx_live_channel_buf_chain_free_list(channel, head, tail);
-    }
-
-    return NGX_ERROR;
 }
 
 
@@ -584,7 +607,7 @@ ngx_live_segment_cache_get(ngx_live_track_t *track, uint32_t segment_index)
     ngx_live_segment_t  *segment;
 
     segment = ngx_live_segment_cache_get_internal(track, segment_index);
-    if (segment == NULL || !segment->ready) {
+    if (segment == NULL || !segment->ready || segment->frame_count <= 0) {
         return NULL;
     }
 
@@ -654,6 +677,37 @@ ngx_live_segment_cache_is_pending_part(ngx_live_track_t *track,
 }
 
 
+ngx_flag_t
+ngx_live_segment_cache_get_part_times(ngx_live_track_t *track,
+    uint32_t segment_index, uint32_t part_index,
+    uint32_t *offset, uint32_t *duration)
+{
+    uint32_t                  i;
+    ngx_live_segment_t       *segment;
+    ngx_live_segment_part_t  *parts;
+
+    segment = ngx_live_segment_cache_get_internal(track, segment_index);
+    if (segment == NULL || part_index >= segment->parts.nelts) {
+        return 0;
+    }
+
+    if (part_index == segment->parts.nelts - 1 && !segment->ready) {
+        return 0;
+    }
+
+    parts = segment->parts.elts;
+
+    *offset = 0;
+    for (i = 0; i < part_index; i++) {
+        *offset += parts[i].duration;
+    }
+
+    *duration = parts[part_index].duration;
+
+    return 1;
+}
+
+
 void
 ngx_live_segment_cache_free_input_bufs(ngx_live_track_t *track)
 {
@@ -701,7 +755,8 @@ ngx_live_segment_cache_free_by_index(ngx_live_channel_t *channel,
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
 
-        segment = ngx_live_segment_cache_get(cur_track, segment_index);
+        segment = ngx_live_segment_cache_get_internal(cur_track,
+            segment_index);
         if (segment == NULL) {
             continue;
         }
@@ -1332,11 +1387,19 @@ ngx_live_segment_cache_serve(ngx_live_segment_serve_req_t *req)
 
         if (part_index != NGX_LIVE_INVALID_PART_INDEX) {
             if (part_index >= segment->parts.nelts) {
-                continue;
+                ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+                    "ngx_live_segment_cache_serve: "
+                    "invalid part index %uD, segment: %uD, parts: %ui",
+                    part_index, segment_index, segment->parts.nelts);
+                return NGX_ABORT;
             }
 
             if (part_index == segment->parts.nelts - 1 && !segment->ready) {
-                continue;
+                ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+                    "ngx_live_segment_cache_serve: "
+                    "part index %uD is not ready, segment: %uD",
+                    part_index, segment_index);
+                return NGX_DECLINED;
             }
 
             parts = segment->parts.elts;
@@ -1346,6 +1409,12 @@ ngx_live_segment_cache_serve(ngx_live_segment_serve_req_t *req)
             }
 
         } else if (!segment->ready) {
+            ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+                "ngx_live_segment_cache_serve: "
+                "segment %uD is not ready", segment_index);
+            return NGX_DECLINED;
+
+        } else if (segment->frame_count <= 0) {
             continue;
         }
 

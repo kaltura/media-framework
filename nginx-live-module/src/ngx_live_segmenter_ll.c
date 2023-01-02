@@ -10,6 +10,10 @@
 #include "ngx_live_notif_segment.h"
 
 
+#define ngx_live_lls_started_tracks(p) ((p)->started_tracks[KMP_MEDIA_VIDEO] \
+    + (p)->started_tracks[KMP_MEDIA_AUDIO])
+
+
 /*
  * segment phases:
  *  start = the segment is created and accepting frames
@@ -151,6 +155,7 @@ typedef struct {
 
     ngx_int_t                          sstate;
     ngx_live_segment_t                *segment;
+    uint32_t                           segment_pending_frames;
     int64_t                            part_start_pts;
     int64_t                            part_end_pts;
     int64_t                            part_frame_created;
@@ -184,7 +189,6 @@ typedef struct {
     ngx_msec_t                         created;
     uint32_t                           part_sequence;
 
-    uint32_t                           total_started_tracks;
     uint32_t                           started_tracks[KMP_MEDIA_COUNT];
 
     unsigned                           exists:1;    /* in some timeline */
@@ -211,6 +215,8 @@ typedef struct {
     ngx_rbtree_node_t                  sentinel;
     uint32_t                           pending_frames_tracks[KMP_MEDIA_COUNT];
     uint32_t                           non_idle_tracks;
+
+    uint32_t                           subtitle_part_index;
 
     int64_t                            last_segment_end_pts;
     int64_t                            min_pending_end_pts;
@@ -239,6 +245,13 @@ static ngx_int_t ngx_live_lls_end_segments(ngx_live_channel_t *channel);
 
 static ngx_int_t ngx_live_lls_close_segments(ngx_live_channel_t *channel);
 static ngx_int_t ngx_live_lls_force_close_segment(ngx_live_channel_t *channel);
+
+static ngx_int_t ngx_live_lls_subtitle_start_segment(
+    ngx_live_channel_t *channel);
+static ngx_int_t ngx_live_lls_subtitle_start_part(ngx_live_channel_t *channel,
+    uint32_t segment_index, uint32_t part_index, int64_t pts);
+static ngx_int_t ngx_live_lls_subtitle_set_end_pts(
+    ngx_live_channel_t *channel);
 
 
 static ngx_conf_num_bounds_t  ngx_live_lls_max_pending_segments_bounds = {
@@ -627,7 +640,6 @@ static void
 ngx_live_lls_validate_pending(ngx_live_channel_t *channel,
     ngx_uint_t pending_index)
 {
-    uint32_t                     total_started_tracks;
     uint32_t                     started_tracks[KMP_MEDIA_COUNT];
     ngx_uint_t                   i;
     ngx_queue_t                 *q;
@@ -636,7 +648,6 @@ ngx_live_lls_validate_pending(ngx_live_channel_t *channel,
     ngx_live_lls_pending_seg_t  *pending;
     ngx_live_lls_channel_ctx_t  *cctx;
 
-    total_started_tracks = 0;
     ngx_memzero(started_tracks, sizeof(started_tracks));
 
     for (q = ngx_queue_head(&channel->tracks.queue);
@@ -649,21 +660,12 @@ ngx_live_lls_validate_pending(ngx_live_channel_t *channel,
         if (cur_track->pending_index == pending_index
             && cur_ctx->sstate == ngx_live_lls_ss_started)
         {
-            total_started_tracks++;
             started_tracks[cur_track->media_type]++;
         }
     }
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
     pending = &cctx->pending.elts[pending_index];
-
-    if (pending->total_started_tracks != total_started_tracks) {
-        ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
-            "ngx_live_lls_validate_pending: "
-            "invalid pending tracks count %uD expected %uD",
-            pending->total_started_tracks, total_started_tracks);
-        ngx_debug_point();
-    }
 
     for (i = 0; i < KMP_MEDIA_COUNT; i++) {
         if (pending->started_tracks[i] != started_tracks[i]) {
@@ -731,7 +733,14 @@ ngx_live_lls_validate(ngx_live_channel_t *channel)
             non_idle_tracks++;
         }
 
-        if (cur_ctx->frames.count > 0) {
+        if (cur_track->media_type == KMP_MEDIA_SUBTITLE) {
+            if (cur_ctx->fstate != ngx_live_lls_fs_idle) {
+                ngx_log_error(NGX_LOG_ALERT, &cur_track->log, 0,
+                    "ngx_live_lls_validate: non-idle subtitle track");
+                ngx_debug_point();
+            }
+
+        } else if (cur_ctx->frames.count > 0) {
             pending_frames_tracks[cur_track->media_type]++;
 
             if (cur_ctx->fstate == ngx_live_lls_fs_idle) {
@@ -860,13 +869,19 @@ ngx_live_lls_track_start_part(ngx_live_track_t *track,
     part->data_head = frame->data;
     part->data_size = segment->data_size;
 
-    ctx->part_frame_created = frame->created;
-
     ngx_log_debug4(NGX_LOG_DEBUG_LIVE, &track->log, 0,
         "ngx_live_lls_track_start_part: "
         "index: %ui, part: %ui, pts: %L, track: %V",
         segment->node.key, segment->parts.nelts - 1, ctx->part_start_pts,
         &track->sn.str);
+
+    if (ngx_live_lls_subtitle_start_part(channel, segment->node.key,
+        segment->parts.nelts - 1, ctx->part_start_pts) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_lls_track_start_part: start subtitle part failed");
+        return NGX_ERROR;
+    }
 
     return NGX_OK;
 }
@@ -879,6 +894,7 @@ ngx_live_lls_track_stop_part(ngx_live_track_t *track, ngx_flag_t is_last)
     uint32_t                     part_index;
     ngx_live_segment_t          *segment;
     ngx_live_channel_t          *channel;
+    ngx_live_media_info_t       *media_info;
     ngx_live_segment_part_t     *part, *parts;
     ngx_live_lls_track_ctx_t    *ctx;
     ngx_live_lls_pending_seg_t  *pending;
@@ -908,18 +924,31 @@ ngx_live_lls_track_stop_part(ngx_live_track_t *track, ngx_flag_t is_last)
 
     part = parts + part_index;
 
-    if (part->frame_count <= 0 && ctx->pending_dts_shift > 0) {
+    if (part->frame_count <= 0) {
 
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_live_lls_track_stop_part: "
-            "applying dts shift %uD, prev: %uD",
-            ctx->pending_dts_shift, ctx->dts_shift);
+        if (segment->frame_count > 0) {
+            media_info = ngx_live_media_info_queue_get_last(track);
+            if (media_info == NULL) {
+                ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
+                    "ngx_live_lls_track_stop_part: no media info");
+                return NGX_ERROR;
+            }
 
-        ngx_live_segment_cache_shift_dts(segment, ctx->pending_dts_shift);
-        part->start_dts -= ctx->pending_dts_shift;
+            segment->media_info = media_info;
+        }
 
-        ctx->dts_shift += ctx->pending_dts_shift;
-        ctx->pending_dts_shift = 0;
+        if (ctx->pending_dts_shift > 0) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_lls_track_stop_part: "
+                "applying dts shift %uD, prev: %uD",
+                ctx->pending_dts_shift, ctx->dts_shift);
+
+            ngx_live_segment_cache_shift_dts(segment, ctx->pending_dts_shift);
+            part->start_dts -= ctx->pending_dts_shift;
+
+            ctx->dts_shift += ctx->pending_dts_shift;
+            ctx->pending_dts_shift = 0;
+        }
     }
 
     part->frame_count = segment->frame_count - part->frame_count;
@@ -947,8 +976,10 @@ ngx_live_lls_track_stop_part(ngx_live_track_t *track, ngx_flag_t is_last)
 
     track->next_part_index = segment->parts.nelts;
 
-    ngx_kmp_in_update_latency_stats(channel->timescale, &ctx->latency,
-        ctx->part_frame_created);
+    if (part->frame_count > 0) {
+        ngx_kmp_in_update_latency_stats(channel->timescale, &ctx->latency,
+            ctx->part_frame_created);
+    }
 
     ngx_live_notif_segment_publish(track, segment->node.key, part_index,
         NGX_OK);
@@ -1030,6 +1061,13 @@ ngx_live_lls_pending_segment_push(ngx_live_channel_t *channel,
     default:
         ngx_log_error(NGX_LOG_NOTICE, log, 0,
             "ngx_live_lls_pending_segment_push: add segment failed");
+        return NGX_ERROR;
+    }
+
+    if (ngx_live_lls_subtitle_start_segment(channel) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_lls_pending_segment_push: "
+            "start subtitle segment failed");
         return NGX_ERROR;
     }
 
@@ -1255,21 +1293,94 @@ dispose:
 
 
 static ngx_int_t
-ngx_live_lls_track_start_segment(ngx_live_track_t *track,
-    ngx_live_lls_frame_t *frame, uint32_t pending_index)
+ngx_live_lls_track_create_segment(ngx_live_track_t *track,
+    uint32_t pending_index)
 {
     uint32_t                        segment_index;
-    ngx_int_t                       rc;
-    ngx_flag_t                      track_existed;
-    ngx_flag_t                      force_new_period;
-    ngx_live_channel_t             *channel;
     ngx_live_segment_t             *segment;
-    ngx_live_media_info_t          *media_info;
+    ngx_live_channel_t             *channel;
     ngx_live_lls_track_ctx_t       *ctx;
     ngx_live_lls_channel_ctx_t     *cctx;
     ngx_live_lls_pending_seg_t     *pending;
-    ngx_live_lls_preset_conf_t     *spcf;
     ngx_live_track_segment_info_t   info;
+
+    channel = track->channel;
+    ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
+
+    if (pending_index > track->pending_index) {
+
+        /* notify about gap segments */
+
+        ngx_memzero(ctx->pending + track->pending_index,
+            sizeof(ctx->pending[0]) * (pending_index - track->pending_index));
+
+        info.segment_index = channel->next_segment_index
+            + track->pending_index;
+        info.bitrate = 0;
+
+        if (ngx_live_core_track_event(track,
+            NGX_LIVE_EVENT_TRACK_SEGMENT_CREATED, &info) != NGX_OK)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_lls_track_create_segment: event failed");
+            return NGX_ERROR;
+        }
+
+        track->pending_index = pending_index;
+
+        ngx_live_notif_segment_publish(track, channel->next_segment_index
+            + pending_index - 1, NGX_LIVE_INVALID_PART_INDEX, NGX_OK);
+    }
+
+    /* create the segment */
+
+    segment_index = channel->next_segment_index + pending_index;
+
+    segment = ngx_live_segment_cache_create(track, segment_index);
+    if (segment == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_live_lls_track_create_segment: create segment failed");
+        return NGX_ERROR;
+    }
+
+    ctx->sstate = ngx_live_lls_ss_started;
+    ctx->segment = segment;
+    ctx->segment_pending_frames = 0;
+
+    pending = &cctx->pending.elts[pending_index];
+
+    pending->started_tracks[track->media_type]++;
+
+    segment->part_sequence = pending->part_sequence;
+
+    ctx->part_start_pts = pending->start_pts;
+    ctx->part_end_pts = ctx->part_start_pts + channel->part_duration;
+
+    track->has_pending_segment = 1;
+
+    ngx_log_debug3(NGX_LOG_DEBUG_LIVE, &track->log, 0,
+        "ngx_live_lls_track_create_segment: "
+        "index: %ui, pts: %L, track: %V",
+        segment->node.key, pending->start_pts, &track->sn.str);
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_lls_track_start_segment(ngx_live_track_t *track,
+    ngx_live_lls_frame_t *frame, uint32_t pending_index)
+{
+    uint32_t                     segment_index;
+    ngx_int_t                    rc;
+    ngx_flag_t                   track_existed;
+    ngx_flag_t                   force_new_period;
+    ngx_live_segment_t          *segment;
+    ngx_live_channel_t          *channel;
+    ngx_live_lls_track_ctx_t    *ctx;
+    ngx_live_lls_channel_ctx_t  *cctx;
+    ngx_live_lls_preset_conf_t  *spcf;
 
     channel = track->channel;
     ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
@@ -1352,73 +1463,20 @@ ngx_live_lls_track_start_segment(ngx_live_track_t *track,
         }
     }
 
-    if (pending_index > track->pending_index) {
-
-        /* add gap segments */
-
-        ngx_memzero(ctx->pending + track->pending_index,
-            sizeof(ctx->pending[0]) * (pending_index - track->pending_index));
-
-        info.segment_index = channel->next_segment_index
-            + track->pending_index;
-        info.bitrate = 0;
-
-        if (ngx_live_core_track_event(track,
-            NGX_LIVE_EVENT_TRACK_SEGMENT_CREATED, &info) != NGX_OK)
-        {
-            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                "ngx_live_lls_track_start_segment: event failed");
-            return NGX_ERROR;
-        }
-
-        track->pending_index = pending_index;
-
-        ngx_live_notif_segment_publish(track, channel->next_segment_index
-            + pending_index - 1, NGX_LIVE_INVALID_PART_INDEX, NGX_OK);
-    }
-
-    /* create the segment */
-
-    segment = ngx_live_segment_cache_create(track, segment_index);
-    if (segment == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-            "ngx_live_lls_track_start_segment: create segment failed");
+    if (ngx_live_lls_track_create_segment(track, pending_index)
+        != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
-    media_info = ngx_live_media_info_queue_get_last(track);
-    if (media_info == NULL) {
-        ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
-            "ngx_live_lls_track_start_segment: no media info");
-        return NGX_ERROR;
-    }
+    segment = ctx->segment;
 
-    ctx->sstate = ngx_live_lls_ss_started;
-    ctx->segment = segment;
-
-    pending = &cctx->pending.elts[pending_index];
-
-    pending->total_started_tracks++;
-    pending->started_tracks[track->media_type]++;
-
-    segment->media_info = media_info;
-    segment->part_sequence = pending->part_sequence;
     segment->start_dts = frame->dts - ctx->dts_shift;
     segment->data_head = frame->data;
-
-    ctx->part_start_pts = pending->start_pts;
-    ctx->part_end_pts = ctx->part_start_pts + channel->part_duration;
-
-    track->has_pending_segment = 1;
 
     if (!track->has_last_segment) {
         ngx_live_variants_update_active(channel);
     }
-
-    ngx_log_debug4(NGX_LOG_DEBUG_LIVE, &track->log, 0,
-        "ngx_live_lls_track_start_segment: "
-        "index: %ui, pts: %L, frame_pts: %L, track: %V",
-        segment->node.key, pending->start_pts, frame->pts, &track->sn.str);
 
     ngx_live_lls_validate(channel);
 
@@ -1448,9 +1506,13 @@ ngx_live_lls_track_stop_segment(ngx_live_track_t *track,
     cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
 
     segment = ctx->segment;
-    segment->end_dts = ctx->last_frame_dts + frame->duration - ctx->dts_shift;
-    segment->data_tail = ngx_buf_chain_terminate(segment->data_tail,
-        frame->size);
+
+    if (frame != NULL) {
+        segment->end_dts = ctx->last_frame_dts + frame->duration
+            - ctx->dts_shift;
+        segment->data_tail = ngx_buf_chain_terminate(segment->data_tail,
+            frame->size);
+    }
 
     if (ctx->frames.count <= 0) {
         ctx->frames.last_data_part = NULL;
@@ -1461,7 +1523,6 @@ ngx_live_lls_track_stop_segment(ngx_live_track_t *track,
 
     pending = &cctx->pending.elts[track->pending_index];
 
-    pending->total_started_tracks--;
     pending->started_tracks[track->media_type]--;
 
     tpending = &ctx->pending[track->pending_index];
@@ -1487,7 +1548,9 @@ ngx_live_lls_track_stop_segment(ngx_live_track_t *track,
         }
     }
 
-    if (pending->total_started_tracks <= 0) {
+    if (ngx_live_lls_started_tracks(pending) <= 0
+        && track->media_type < KMP_MEDIA_SUBTITLE)
+    {
         if (ngx_live_lls_close_segments(channel) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
                 "ngx_live_lls_track_stop_segment: close segments failed");
@@ -1601,19 +1664,24 @@ ngx_live_lls_track_flush_segment(ngx_live_track_t *track)
 
     /* update last frame duration */
 
-    last = segment->frames.last;
-    frames = last->elts;
+    if (segment->frame_count > 0) {
+        last = segment->frames.last;
+        frames = last->elts;
 
-    frame = &frames[last->nelts - 1];
+        frame = &frames[last->nelts - 1];
 
-    if (segment->frame_count > 1
-        && ctx->last_frame_dts > segment->start_dts)
-    {
-        frame->duration = (ctx->last_frame_dts - segment->start_dts)
-            / (segment->frame_count - 1);
+        if (segment->frame_count > 1
+            && ctx->last_frame_dts > segment->start_dts)
+        {
+            frame->duration = (ctx->last_frame_dts - segment->start_dts)
+                / (segment->frame_count - 1);
+
+        } else {
+            frame->duration = 1;
+        }
 
     } else {
-        frame->duration = 1;
+        frame = NULL;
     }
 
     /* stop the part and segment */
@@ -1676,6 +1744,10 @@ ngx_live_lls_set_end_pts(ngx_live_channel_t *channel, ngx_log_t *log)
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+        if (cur_track->media_type >= KMP_MEDIA_SUBTITLE) {
+            break;
+        }
+
         if (cur_track->pending_index != pending_index) {
             continue;
         }
@@ -1713,6 +1785,12 @@ ngx_live_lls_set_end_pts(ngx_live_channel_t *channel, ngx_log_t *log)
 
     pending->end_pts = pts;
     pending->end_set = 1;
+
+    if (ngx_live_lls_subtitle_set_end_pts(channel) != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_lls_set_end_pts: set subtitle end pts failed");
+        return NGX_ERROR;
+    }
 
     duration = pending->end_pts - pending->start_pts;
     segment_index = channel->next_segment_index + pending_index;
@@ -1776,8 +1854,10 @@ ngx_live_lls_track_end_segment(ngx_live_track_t *track)
 
     ctx->part_start_pts += part->duration;
 
-    ngx_kmp_in_update_latency_stats(channel->timescale, &ctx->latency,
-        ctx->part_frame_created);
+    if (part->frame_count > 0) {
+        ngx_kmp_in_update_latency_stats(channel->timescale, &ctx->latency,
+            ctx->part_frame_created);
+    }
 
     /* add gap parts */
 
@@ -1988,6 +2068,7 @@ ngx_live_lls_close_segment(ngx_live_channel_t *channel)
 static ngx_int_t
 ngx_live_lls_close_segments(ngx_live_channel_t *channel)
 {
+    uint32_t                     started_tracks;
     ngx_msec_t                   timer;
     ngx_live_lls_pending_seg_t  *pending;
     ngx_live_lls_channel_ctx_t  *cctx;
@@ -2003,10 +2084,12 @@ ngx_live_lls_close_segments(ngx_live_channel_t *channel)
     for ( ;; ) {
 
         pending = &cctx->pending.elts[0];
-        if (pending->total_started_tracks > 0) {
+
+        started_tracks = ngx_live_lls_started_tracks(pending);
+        if (started_tracks > 0) {
             ngx_log_debug1(NGX_LOG_DEBUG_LIVE, &channel->log, 0,
                 "ngx_live_lls_close_segments: started_tracks: %uD",
-                pending->total_started_tracks);
+                started_tracks);
             break;
         }
 
@@ -2255,6 +2338,8 @@ ngx_live_lls_process_frame(ngx_live_track_t *track,
                 "ngx_live_lls_process_frame: start part failed");
             return NGX_ERROR;
         }
+
+        ctx->part_frame_created = frame->created;
     }
 
     segment->frame_count++;
@@ -2437,6 +2522,9 @@ ngx_live_lls_flush_segment(ngx_live_channel_t *channel, uint32_t pending_index)
         q = ngx_queue_next(q))
     {
         cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+        if (cur_track->media_type >= KMP_MEDIA_SUBTITLE) {
+            break;
+        }
 
         if (cur_track->pending_index != pending_index) {
             continue;
@@ -2468,16 +2556,19 @@ ngx_live_lls_flush_segment(ngx_live_channel_t *channel, uint32_t pending_index)
 static ngx_int_t
 ngx_live_lls_force_close_segment(ngx_live_channel_t *channel)
 {
+    uint32_t                     started_tracks;
     ngx_live_lls_channel_ctx_t  *cctx;
     ngx_live_lls_preset_conf_t  *spcf;
 
     cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
 
-    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
-        "ngx_live_lls_force_close_segment: forcing close, started_tracks: %uD",
-        cctx->pending.elts[0].total_started_tracks);
+    started_tracks = ngx_live_lls_started_tracks(&cctx->pending.elts[0]);
 
-    if (cctx->pending.elts[0].total_started_tracks > 0) {
+    ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+        "ngx_live_lls_force_close_segment: "
+        "forcing close, started_tracks: %uD", started_tracks);
+
+    if (started_tracks > 0) {
         if (ngx_live_lls_flush_segment(channel, 0) != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
                 "ngx_live_lls_force_close_segment: flush segment failed");
@@ -2490,7 +2581,9 @@ ngx_live_lls_force_close_segment(ngx_live_channel_t *channel)
             return NGX_OK;
         }
 
-        if (cctx->pending.elts[0].total_started_tracks > 0) {
+        started_tracks = ngx_live_lls_started_tracks(&cctx->pending.elts[0]);
+
+        if (started_tracks > 0) {
             ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
                 "ngx_live_lls_force_close_segment: "
                 "nonzero started tracks after flush");
@@ -2503,6 +2596,471 @@ ngx_live_lls_force_close_segment(ngx_live_channel_t *channel)
             "ngx_live_lls_force_close_segment: close failed");
         return NGX_ERROR;
     }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_lls_subtitle_process_frames(ngx_live_track_t *track,
+    int64_t segment_end_pts)
+{
+    int64_t                     dispose_pts;
+    int64_t                     part_end_pts;
+    int64_t                     start_pts, end_pts;
+    ngx_int_t                   rc;
+    ngx_buf_chain_t            *data;
+    ngx_buf_chain_t           **data_tail;
+    ngx_list_part_t            *last;
+    ngx_live_frame_t           *frames;
+    ngx_live_frame_t           *seg_frame;
+    ngx_live_channel_t         *channel;
+    ngx_live_segment_t         *segment;
+    ngx_live_lls_frame_t       *frame;
+    ngx_live_lls_track_ctx_t   *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
+
+    segment = ctx->segment;
+    channel = track->channel;
+
+    if (segment_end_pts != NGX_LIVE_INVALID_TIMESTAMP) {
+        part_end_pts = segment_end_pts;
+
+    } else {
+        part_end_pts = ctx->part_end_pts;
+    }
+
+    while (ctx->frames.count > 0) {
+
+        frame = ngx_live_lls_frame_list_head(&ctx->frames);
+
+        start_pts = frame->dts;
+        end_pts = frame->pts;
+
+        if (ctx->segment_pending_frames > 0) {
+            dispose_pts = part_end_pts;
+
+        } else {
+            dispose_pts = ctx->part_start_pts;
+
+            if (segment->frame_count > 0 && start_pts < ctx->last_frame_pts) {
+                start_pts = ctx->last_frame_pts;
+            }
+        }
+
+        if (end_pts <= start_pts || end_pts <= dispose_pts) {
+            ngx_live_lls_free_frame_chains(channel, frame);
+
+            ngx_live_lls_frame_list_pop(&ctx->frames);
+
+            if (ctx->frames.count <= 0) {
+                ctx->frames.last_data_part = NULL;
+            }
+
+            if (ctx->segment_pending_frames > 0) {
+                ctx->segment_pending_frames--;
+            }
+
+            continue;
+        }
+
+        if (ctx->segment_pending_frames > 0 || start_pts >= part_end_pts) {
+            break;
+        }
+
+        if (segment->frame_count <= 0) {
+
+            segment->start_dts = start_pts;
+
+            ctx->part_frame_created = frame->created;
+
+            rc = ngx_live_media_info_pending_create_segment(track,
+                segment->node.key);
+            if (rc != NGX_OK && rc != NGX_DONE) {
+                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                    "ngx_live_lls_subtitle_process_frames: "
+                    "create media info failed");
+                return NGX_ERROR;
+            }
+
+            data_tail = &segment->data_head;
+
+        } else {
+
+            /* set the duration of the last frame */
+
+            last = segment->frames.last;
+
+            frames = last->elts;
+            seg_frame = &frames[last->nelts - 1];
+
+            seg_frame->duration = start_pts - ctx->last_frame_dts;
+
+            if (ctx->last_frame_pts <= ctx->part_start_pts) {
+                ctx->part_frame_created = frame->created;
+            }
+
+            data = ngx_buf_chain_get_tail(segment->data_tail, seg_frame->size);
+
+            data_tail = &data->next;
+        }
+
+        /* add the frame */
+
+        seg_frame = ngx_list_push(&segment->frames);
+        if (seg_frame == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_lls_subtitle_process_frames: push failed");
+            return NGX_ERROR;
+        }
+
+        seg_frame->size = frame->size;
+        seg_frame->pts_delay = end_pts - start_pts;
+        seg_frame->key_frame = 0;
+        seg_frame->duration = 0;
+
+        /* Note: duration is set when the next frame arrives */
+
+        data = ngx_live_channel_copy_chains(channel, frame->data, frame->size,
+            NULL);
+        if (data == NULL) {
+            ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                "ngx_live_lls_subtitle_process_frames: copy chains failed");
+            return NGX_ERROR;
+        }
+
+        *data_tail = data;
+
+        segment->frame_count++;
+
+        segment->data_size += frame->size;
+        segment->data_tail = data;
+
+        ctx->last_frame_pts = end_pts;
+        ctx->last_frame_dts = start_pts;
+        ctx->next_frame_id = frame->id + 1;
+
+        ctx->segment_pending_frames++;
+    }
+
+    return NGX_OK;
+}
+
+
+static void
+ngx_live_lls_subtitle_set_part_start(ngx_live_segment_t *segment,
+    int64_t start_pts)
+{
+    size_t                    size, left;
+    int64_t                   dts, pts;
+    ngx_uint_t                count;
+    ngx_buf_chain_t          *data;
+    ngx_list_part_t          *part;
+    ngx_live_frame_t         *cur, *last;
+    ngx_live_segment_part_t  *seg_part, *parts;
+
+    /* skip frames that end before start_pts */
+
+    count = 0;
+    size = 0;
+    dts = segment->start_dts;
+
+    part = &segment->frames.part;
+    cur = part->elts;
+    last = cur + part->nelts;
+
+    for ( ;; ) {
+
+        if (cur >= last) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            cur = part->elts;
+            last = cur + part->nelts;
+        }
+
+        pts = dts + cur->pts_delay;
+        if (pts > start_pts) {
+            break;
+        }
+
+        count++;
+        size += cur->size;
+        dts += cur->duration;
+
+        cur++;
+    }
+
+    /* get the head of the data chain */
+
+    left = size;
+    for (data = segment->data_head; left > 0; data = data->next) {
+        left -= data->size;
+    }
+
+    /* update the part */
+
+    parts = segment->parts.elts;
+    seg_part = &parts[segment->parts.nelts - 1];
+
+    seg_part->start_dts = dts;
+
+    seg_part->frame = cur;
+    seg_part->frame_part = part;
+    seg_part->frame_count = count;
+
+    seg_part->data_head = data;
+    seg_part->data_size = size;
+}
+
+
+static ngx_int_t
+ngx_live_lls_subtitle_track_start_part(ngx_live_track_t *track,
+    ngx_live_lls_frame_t *frame)
+{
+    ngx_live_lls_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
+
+    if (ctx->segment == NULL) {
+        return NGX_OK;
+    }
+
+    if (ngx_live_lls_track_start_part(track, frame) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_lls_subtitle_track_stop_part(ngx_live_track_t *track,
+    uint32_t part_index, int64_t end_pts)
+{
+    ngx_flag_t                 is_last;
+    ngx_live_segment_t        *segment;
+    ngx_live_lls_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
+
+    segment = ctx->segment;
+    if (segment == NULL) {
+        return NGX_OK;
+    }
+
+    if (part_index != segment->parts.nelts - 1) {
+        ngx_log_error(NGX_LOG_ALERT, &track->log, 0,
+            "ngx_live_lls_subtitle_track_stop_part: "
+            "invalid part index %uD, expected: %ui",
+            part_index, segment->parts.nelts - 1);
+        return NGX_ERROR;
+    }
+
+    if (ngx_live_lls_subtitle_process_frames(track, end_pts) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    ngx_live_lls_subtitle_set_part_start(segment, ctx->part_start_pts);
+
+    is_last = end_pts != NGX_LIVE_INVALID_TIMESTAMP;
+    if (ngx_live_lls_track_stop_part(track, is_last) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_lls_subtitle_start_segment(ngx_live_channel_t *channel)
+{
+    uint32_t                     pending_index;
+    ngx_queue_t                 *q;
+    ngx_live_track_t            *cur_track;
+    ngx_live_lls_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
+
+    pending_index = cctx->pending.nelts - 1;
+
+    cctx->subtitle_part_index = NGX_LIVE_INVALID_PART_INDEX;
+
+    for (q = ngx_queue_last(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
+        q = ngx_queue_prev(q))
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+        if (cur_track->media_type < KMP_MEDIA_SUBTITLE) {
+            break;
+
+        } else if (cur_track->media_type > KMP_MEDIA_SUBTITLE) {
+            continue;
+        }
+
+        if (ngx_live_lls_track_create_segment(cur_track, pending_index)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_lls_subtitle_start_part(ngx_live_channel_t *channel,
+    uint32_t segment_index, uint32_t part_index, int64_t pts)
+{
+    uint32_t                     subtitle_segment_index;
+    ngx_queue_t                 *q;
+    ngx_live_track_t            *cur_track;
+    ngx_live_lls_frame_t         frame;
+    ngx_live_lls_channel_ctx_t  *cctx;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
+
+    subtitle_segment_index = channel->next_segment_index
+        + cctx->pending.nelts - 1;
+
+    if (segment_index != subtitle_segment_index) {
+        return NGX_OK;
+    }
+
+    if (cctx->subtitle_part_index != NGX_LIVE_INVALID_PART_INDEX) {
+        if (part_index <= cctx->subtitle_part_index) {
+            return NGX_OK;
+        }
+
+        /* stop the previous part */
+
+        for (q = ngx_queue_last(&channel->tracks.queue);
+            q != ngx_queue_sentinel(&channel->tracks.queue);
+            q = ngx_queue_prev(q))
+        {
+            cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+            if (cur_track->media_type < KMP_MEDIA_SUBTITLE) {
+                break;
+
+            } else if (cur_track->media_type > KMP_MEDIA_SUBTITLE) {
+                continue;
+            }
+
+            if (ngx_live_lls_subtitle_track_stop_part(cur_track,
+                cctx->subtitle_part_index, NGX_LIVE_INVALID_TIMESTAMP)
+                != NGX_OK)
+            {
+                return NGX_ERROR;
+            }
+        }
+    }
+
+    /* start the new part */
+
+    cctx->subtitle_part_index = part_index;
+
+    ngx_memzero(&frame, sizeof(frame));
+
+    frame.dts = frame.pts = pts;
+
+    for (q = ngx_queue_last(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
+        q = ngx_queue_prev(q))
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+        if (cur_track->media_type < KMP_MEDIA_SUBTITLE) {
+            break;
+
+        } else if (cur_track->media_type > KMP_MEDIA_SUBTITLE) {
+            continue;
+        }
+
+        if (ngx_live_lls_subtitle_track_start_part(cur_track, &frame)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_lls_subtitle_track_stop_segment(ngx_live_track_t *track)
+{
+    ngx_list_part_t           *last;
+    ngx_live_frame_t          *frames, *frame;
+    ngx_live_segment_t        *segment;
+    ngx_live_lls_track_ctx_t  *ctx;
+
+    ctx = ngx_live_get_module_ctx(track, ngx_live_lls_module);
+
+    segment = ctx->segment;
+    if (segment == NULL) {
+        return NGX_OK;
+    }
+
+    if (segment->frame_count > 0) {
+        last = segment->frames.last;
+        frames = last->elts;
+
+        frame = &frames[last->nelts - 1];
+
+    } else {
+        frame = NULL;
+    }
+
+    if (ngx_live_lls_track_stop_segment(track, frame) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_lls_subtitle_set_end_pts(ngx_live_channel_t *channel)
+{
+    ngx_queue_t                 *q;
+    ngx_live_track_t            *cur_track;
+    uint32_t                     pending_index;
+    ngx_live_lls_channel_ctx_t  *cctx;
+    ngx_live_lls_pending_seg_t  *pending;
+
+    cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
+
+    pending_index = cctx->pending.nelts - 1;
+    pending = &cctx->pending.elts[pending_index];
+
+    for (q = ngx_queue_last(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
+        q = ngx_queue_prev(q))
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+        if (cur_track->media_type < KMP_MEDIA_SUBTITLE) {
+            break;
+
+        } else if (cur_track->media_type > KMP_MEDIA_SUBTITLE) {
+            continue;
+        }
+
+        if (ngx_live_lls_subtitle_track_stop_part(cur_track,
+            cctx->subtitle_part_index, pending->end_pts) != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+
+        if (ngx_live_lls_subtitle_track_stop_segment(cur_track) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
+
+    cctx->subtitle_part_index = NGX_LIVE_INVALID_PART_INDEX;
 
     return NGX_OK;
 }
@@ -2616,6 +3174,12 @@ ngx_live_lls_add_frame(void *data, ngx_kmp_in_evt_frame_t *evt)
     frame->flags = kmp_frame->flags;
     frame->size = evt->size;
 
+    ctx->last_data_ptr = evt->data_tail->data;
+
+    if (track->media_type == KMP_MEDIA_SUBTITLE) {
+        return NGX_OK;
+    }
+
     if (track->media_type != KMP_MEDIA_VIDEO
         || (frame->flags & KMP_FRAME_FLAG_KEY))
     {
@@ -2676,7 +3240,6 @@ ngx_live_lls_add_frame(void *data, ngx_kmp_in_evt_frame_t *evt)
     }
 
     ctx->last_added_pts = frame->pts;
-    ctx->last_data_ptr = evt->data_tail->data;
 
     if (ctx->fstate == ngx_live_lls_fs_idle) {
         cctx->non_idle_tracks++;
@@ -2735,8 +3298,9 @@ ngx_live_lls_start_stream(ngx_live_stream_stream_req_t *req)
         "ngx_live_lls_start_stream: flags: 0x%uxD, pending_frames: %ui",
         header->c.flags, ctx->frames.count);
 
-    if (!(header->c.flags & KMP_CONNECT_FLAG_CONSISTENT)) {
-
+    if (!(header->c.flags & KMP_CONNECT_FLAG_CONSISTENT)
+        && track->media_type != KMP_MEDIA_SUBTITLE)
+    {
         rc = ngx_live_lls_track_flush_frames(track,
             NGX_LIVE_LLS_FLAG_FLUSH_PART);
         switch (rc) {
@@ -2975,7 +3539,7 @@ ngx_live_lls_track_free(ngx_live_track_t *track, void *ectx)
     channel = track->channel;
     cctx = ngx_live_get_module_ctx(channel, ngx_live_lls_module);
 
-    if (ctx->frames.count > 0) {
+    if (ctx->frames.count > 0 && track->media_type != KMP_MEDIA_SUBTITLE) {
         ngx_rbtree_delete(&cctx->rbtree, &ctx->node);
         cctx->pending_frames_tracks[track->media_type]--;
     }
@@ -2983,10 +3547,11 @@ ngx_live_lls_track_free(ngx_live_track_t *track, void *ectx)
     if (ctx->sstate == ngx_live_lls_ss_started) {
         pending = &cctx->pending.elts[track->pending_index];
 
-        pending->total_started_tracks--;
         pending->started_tracks[track->media_type]--;
 
-        if (pending->total_started_tracks <= 0) {
+        if (ngx_live_lls_started_tracks(pending) <= 0
+            && track->media_type < KMP_MEDIA_SUBTITLE)
+        {
             ngx_add_timer(&cctx->close, 1);
         }
     }

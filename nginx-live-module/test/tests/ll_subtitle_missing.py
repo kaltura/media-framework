@@ -5,35 +5,28 @@ def updateConf(conf):
     block.append(['ll_segmenter_close_segment_delay', '0'])
 
 # EXPECTED:
-#   20 sec video
+#   30 sec audio + video + subtitle
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()
 
     nl = setupChannelTimeline(channelId, preset=LL_PRESET)
 
-    rv = KmpMediaFileReader(TEST_VIDEO1, 0)
-    ra = KmpMediaFileReader(TEST_VIDEO1, 1)
-    rs = KmpSRTReader(TEST_VIDEO1_CC_ENG)
-
     sv, sa = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
-    ss = createSubtitleVariant(nl, 'sub1', 's1', 'English', 'eng')
+    ssEn = createSubtitleVariant(nl, 'sub1', 's1', 'English', 'eng')
+    ssEs = createSubtitleVariant(nl, 'sub2', 's2', 'Spanish', 'spa')
+
+    sr = KmpSRTReader(TEST_VIDEO2_CC_ENG)
+    sr.cues = sr.cues[:3]
 
     kmpSendStreams([
-        (rv, sv),
-        (ra, sa),
-        (rs, ss),
-    ], st, 10)
+        (KmpMediaFileReader(TEST_VIDEO2, 0), sv),
+        (KmpMediaFileReader(TEST_VIDEO2, 1), sa),
+        (sr, ssEn),
+        (KmpSRTReader(TEST_VIDEO2_CC_SPA), ssEs),
+    ], st, 30)
 
-    nl.track.delete('a1')
-
-    kmpSendStreams([
-        (rv, sv),
-        (rs, ss),
-    ], st, 10)
-
-    kmpSendEndOfStream([sv, ss])
-    sa.close()
+    kmpSendEndOfStream([sv, sa, ssEn, ssEs])
 
     time.sleep(.5)
 

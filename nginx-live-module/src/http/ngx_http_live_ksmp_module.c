@@ -818,6 +818,7 @@ ngx_http_live_ksmp_wait_write_handler(ngx_http_request_t *r)
     ngx_event_t                     *wev;
     ngx_msec_int_t                   ms;
     ngx_connection_t                *c;
+    ngx_live_channel_t              *channel;
     ngx_live_timeline_t             *timeline;
     ngx_http_live_ksmp_ctx_t        *ctx;
     ngx_live_persist_serve_scope_t   scope;
@@ -846,12 +847,25 @@ ngx_http_live_ksmp_wait_write_handler(ngx_http_request_t *r)
     }
 
 
+    /* Note: if the wait notification handler was called, and then the channel
+        encountered a fatal error, this function will be called even though the
+        channel is no longer valid - must verify the channel still exists */
+
+    channel = ngx_live_channel_get(&ctx->params.channel_id);
+    if (channel != ctx->objs.channel) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_ksmp_wait_write_handler: "
+            "channel \"%V\" was deleted", &ctx->params.channel_id);
+        rc = NGX_HTTP_CONFLICT;
+        goto finalize;
+    }
+
     timeline = ctx->objs.timeline;
     if (timeline->manifest.segment_count <= 0) {
         rc = ngx_http_live_ksmp_output_error(r,
             NGX_KSMP_ERR_TIMELINE_EMPTIED,
             "timeline \"%V\" no longer has segments, channel: %V",
-            &timeline->sn.str, &timeline->channel->sn.str);
+            &timeline->sn.str, &channel->sn.str);
         goto finalize;
     }
 
@@ -1511,6 +1525,37 @@ ngx_http_live_ksmp_parse_variant_ids(ngx_http_request_t *r,
 }
 
 
+static void
+ngx_http_live_ksmp_init_part_times(ngx_http_live_ksmp_params_t *params,
+    ngx_live_persist_serve_scope_t *scope)
+{
+    ngx_uint_t             i, n;
+    ngx_live_track_t      *cur_track;
+    ngx_live_track_ref_t  *refs;
+
+    if (scope->track_refs == NULL) {
+        return;
+    }
+
+    refs = scope->track_refs->elts;
+    n = scope->track_refs->nelts;
+
+    for (i = 0; i < n; i++) {
+        cur_track = refs[i].track;
+        if (cur_track == NULL) {
+            continue;
+        }
+
+        if (ngx_live_segment_cache_get_part_times(cur_track,
+            params->segment_index, params->part_index,
+            &scope->si.part_offset, &scope->si.part_duration))
+        {
+            break;
+        }
+    }
+}
+
+
 static ngx_int_t
 ngx_http_live_ksmp_init_scope(ngx_http_request_t *r,
     ngx_live_persist_serve_scope_t *scope)
@@ -1573,6 +1618,8 @@ ngx_http_live_ksmp_init_scope(ngx_http_request_t *r,
 
     /* segment timestamp correction */
 
+    ngx_memzero(&scope->si, sizeof(scope->si));
+
     segment_index = params->segment_index;
 
     if (flags & NGX_KSMP_FLAG_MEDIA) {
@@ -1583,26 +1630,6 @@ ngx_http_live_ksmp_init_scope(ngx_http_request_t *r,
                 "segment %uD does not exist, timeline: %V, channel: %V",
                 segment_index, &timeline->sn.str, &channel->sn.str);
         }
-
-    } else {
-        scope->si.correction = 0;
-    }
-
-    if (flags & NGX_KSMP_FLAG_SEGMENT_TIME) {
-        if (ngx_live_timelines_get_segment_iter(channel,
-            &iter, segment_index, &scope->si.start))
-        {
-            return ngx_http_live_ksmp_output_error(r,
-                NGX_KSMP_ERR_SEGMENT_NOT_FOUND,
-                "segment %uD does not exist, channel: %V",
-                segment_index, &channel->sn.str);
-        }
-
-        scope->si.duration = ngx_live_segment_iter_get_one(&iter);
-
-    } else {
-        scope->si.start = 0;
-        scope->si.duration = 0;
     }
 
     scope->si.index = segment_index;
@@ -1715,6 +1742,25 @@ ngx_http_live_ksmp_init_scope(ngx_http_request_t *r,
                 NGX_KSMP_ERR_VARIANT_NO_MATCH,
                 "no variant matches the request, channel: %V",
                 &channel->sn.str);
+        }
+    }
+
+    /* segment / part timestamps */
+
+    if (flags & NGX_KSMP_FLAG_SEGMENT_TIME) {
+        if (ngx_live_timelines_get_segment_iter(channel,
+            &iter, segment_index, &scope->si.start))
+        {
+            return ngx_http_live_ksmp_output_error(r,
+                NGX_KSMP_ERR_SEGMENT_NOT_FOUND,
+                "segment %uD does not exist, channel: %V",
+                segment_index, &channel->sn.str);
+        }
+
+        scope->si.duration = ngx_live_segment_iter_get_one(&iter);
+
+        if (params->part_index != NGX_KSMP_INVALID_PART_INDEX) {
+            ngx_http_live_ksmp_init_part_times(params, scope);
         }
     }
 
@@ -1846,6 +1892,27 @@ ngx_http_live_ksmp_write(ngx_http_request_t *r,
 
             r->main->count++;
             return NGX_DONE;
+
+        case NGX_DECLINED:
+            if (params->part_index != NGX_KSMP_INVALID_PART_INDEX) {
+                return ngx_http_live_ksmp_output_error(r,
+                    NGX_KSMP_ERR_PART_NOT_READY,
+                    "part %uD in segment %uD is not ready, channel: %V",
+                    params->part_index, params->segment_index,
+                    &channel->sn.str);
+
+            } else {
+                return ngx_http_live_ksmp_output_error(r,
+                    NGX_KSMP_ERR_SEGMENT_NOT_READY,
+                    "segment %uD is not ready, channel: %V",
+                    params->segment_index, &channel->sn.str);
+            }
+
+        case NGX_ABORT:
+            return ngx_http_live_ksmp_output_error(r,
+                NGX_KSMP_ERR_PART_NOT_FOUND,
+                "part %uD in segment %uD does not exist, channel: %V",
+                params->part_index, params->segment_index, &channel->sn.str);
 
         default:
             ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,

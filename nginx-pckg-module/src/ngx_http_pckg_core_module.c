@@ -1299,8 +1299,15 @@ ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
 
     si = channel->segment_index;
     dst->segment_index = si->index;
-    dst->duration = si->duration;
+
     dst->start = si->start + si->correction;
+    if (si->part_duration > 0) {
+        dst->start += si->part_offset;
+        dst->duration = si->part_duration;
+
+    } else {
+        dst->duration = si->duration;
+    }
 
     found = 0;
 

@@ -256,6 +256,9 @@ void ngx_live_channel_setup_changed(ngx_live_channel_t *channel);
 void ngx_live_channel_ack_frames(ngx_live_channel_t *channel);
 
 
+ngx_buf_chain_t *ngx_live_channel_copy_chains(ngx_live_channel_t *channel,
+    ngx_buf_chain_t *src, size_t size, ngx_buf_chain_t **out_tail);
+
 ngx_int_t ngx_live_channel_block_str_set(ngx_live_channel_t *channel,
     ngx_block_str_t *dest, ngx_str_t *src);
 

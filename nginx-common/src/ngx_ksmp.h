@@ -200,6 +200,8 @@ typedef struct {
     int64_t                      start;
     int64_t                      time;
     int64_t                      correction;
+    uint32_t                     part_offset;
+    uint32_t                     part_duration;
 } ngx_ksmp_segment_index_t;
 
 
