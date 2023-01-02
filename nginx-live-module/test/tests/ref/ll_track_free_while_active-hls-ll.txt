@@ -3,8 +3,51 @@ HEADERS: 200 application/vnd.apple.mpegurl
 BODY: #EXTM3U
 #EXT-X-INDEPENDENT-SEGMENTS
 
-#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=103568,AVERAGE-BANDWIDTH=91881,RESOLUTION=160x120,FRAME-RATE=15.000,CODECS="avc1.64000b"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="sub14",NAME="English",LANGUAGE="eng",AUTOSELECT=NO,DEFAULT=NO,URI="index-ssub1-t.m3u8"
+
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=103568,AVERAGE-BANDWIDTH=91881,RESOLUTION=160x120,FRAME-RATE=15.000,CODECS="avc1.64000b",SUBTITLES="sub14"
 index-svar1-v.m3u8
+
+URL: /index-ssub1-t.m3u8
+HEADERS: 200 application/vnd.apple.mpegurl
+BODY: #EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-DISCONTINUITY-SEQUENCE:0
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24.000,PART-HOLD-BACK=3.000
+#EXT-X-PART-INF:PART-TARGET=1.000
+#EXT-X-PROGRAM-DATE-TIME:2020-01-01T00:00:00.000+00:00
+#EXTINF:4.000,
+seg-1-ssub1-t.vtt
+#EXTINF:3.933,
+seg-2-ssub1-t.vtt
+#EXT-X-PART:DURATION=1.000,URI="part-3-1-ssub1-t.vtt"
+#EXT-X-PART:DURATION=1.000,URI="part-3-2-ssub1-t.vtt"
+#EXT-X-PART:DURATION=1.000,URI="part-3-3-ssub1-t.vtt"
+#EXT-X-PART:DURATION=1.000,URI="part-3-4-ssub1-t.vtt"
+#EXTINF:4.000,
+seg-3-ssub1-t.vtt
+#EXT-X-PART:DURATION=1.000,URI="part-4-1-ssub1-t.vtt"
+#EXT-X-PART:DURATION=1.000,URI="part-4-2-ssub1-t.vtt"
+#EXT-X-PART:DURATION=1.000,URI="part-4-3-ssub1-t.vtt"
+#EXT-X-PART:DURATION=0.935,URI="part-4-4-ssub1-t.vtt"
+#EXTINF:3.935,
+seg-4-ssub1-t.vtt
+#EXT-X-PART:DURATION=1.000,URI="part-5-1-ssub1-t.vtt"
+#EXT-X-PART:DURATION=1.000,URI="part-5-2-ssub1-t.vtt"
+#EXT-X-PART:DURATION=1.000,URI="part-5-3-ssub1-t.vtt"
+#EXT-X-PART:DURATION=1.000,URI="part-5-4-ssub1-t.vtt"
+#EXT-X-PART:DURATION=0.050,URI="part-5-5-ssub1-t.vtt"
+#EXTINF:4.050,
+seg-5-ssub1-t.vtt
+#EXT-X-PART:DURATION=0.350,URI="part-6-1-ssub1-t.vtt"
+#EXTINF:0.350,
+seg-6-ssub1-t.vtt
+#EXT-X-RENDITION-REPORT:URI="index-svar1-v.m3u8"
+#EXT-X-ENDLIST
 
 URL: /index-svar1-v.m3u8
 HEADERS: 200 application/vnd.apple.mpegurl
@@ -48,7 +91,88 @@ seg-5-svar1-v.m4s
 #EXT-X-PART:DURATION=0.350,INDEPENDENT=YES,URI="part-6-1-svar1-v.m4s"
 #EXTINF:0.350,
 seg-6-svar1-v.m4s
+#EXT-X-RENDITION-REPORT:URI="index-ssub1-t.m3u8"
 #EXT-X-ENDLIST
+
+URL: /seg-1-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 180, MD5: a4e911d89cdff399eb550df5390e7de3
+
+URL: /seg-2-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 170, MD5: cc99c5f229950ad5f2eac1cdf006f4ed
+
+URL: /part-3-1-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 215, MD5: 0997231576ca5daace4a10bf06fd5920
+
+URL: /part-3-2-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 152, MD5: 44397f75ea14efce3dd9d531febf7ab6
+
+URL: /part-3-3-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 152, MD5: 7aa89e568480b270c19cd28ce4eed1a3
+
+URL: /part-3-4-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 213, MD5: 6d54d55d52613e991d68837a28fe4c8c
+
+URL: /seg-3-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 276, MD5: 37eaa314d565446f32004f0e047cc225
+
+URL: /part-4-1-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 181, MD5: bda51bafef01a97d8fa357031b021ac1
+
+URL: /part-4-2-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 120, MD5: f51adf890181df8e663ca97a7ccfacfc
+
+URL: /part-4-3-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 209, MD5: 37fe8fa890af11b9f54e980372adbe95
+
+URL: /part-4-4-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 144, MD5: 777f42fe881d570ff08dc8d1e93f304d
+
+URL: /seg-4-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 270, MD5: eb7bfd8f1f912b80629b17cd456a42bd
+
+URL: /part-5-1-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 144, MD5: 42c122bee91400f137a53a49963b1584
+
+URL: /part-5-2-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 144, MD5: 9c427cd4c9b78e444b59b6b49cb68a14
+
+URL: /part-5-3-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 213, MD5: 0a54484150d963377e8dcba42262e3b1
+
+URL: /part-5-4-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 124, MD5: 0a9fcc326e2b92a3f741a99348c6dfb2
+
+URL: /part-5-5-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 124, MD5: 6e7301ed9f1158eadd1fac5b5a7ac50c
+
+URL: /seg-5-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 213, MD5: 2f716ebc90ddccba89a850bb8ae9739c
+
+URL: /part-6-1-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 124, MD5: 1cb14d644dab490da9d2e1c4da26d869
+
+URL: /seg-6-ssub1-t.vtt
+HEADERS: 200 text/vtt
+BODY: SIZE: 124, MD5: 1cb14d644dab490da9d2e1c4da26d869
 
 URL: /init-1-svar1-v.mp4
 HEADERS: 200 video/mp4

@@ -616,6 +616,7 @@ ngx_pckg_ksmp_read_segment_parts(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                          d;
+    uint32_t                          mask;
     ngx_str_t                         data;
     ngx_uint_t                        i, n;
     ngx_pckg_track_t                 *track = obj;
@@ -686,6 +687,13 @@ ngx_pckg_ksmp_read_segment_parts(ngx_persist_block_hdr_t *header,
     parts->segment_index = h.segment_index;
     parts->count = n;
 
+    if (track->header.media_type == KMP_MEDIA_SUBTITLE) {
+        mask = ~NGX_KSMP_PART_GAP;
+
+    } else {
+        mask = NGX_MAX_UINT32_VALUE;
+    }
+
     n--;
     for (i = 0; i < n; i++) {
 
@@ -698,16 +706,22 @@ ngx_pckg_ksmp_read_segment_parts(ngx_persist_block_hdr_t *header,
                 "invalid part flags 0x%uxD", d);
             return NGX_BAD_DATA;
         }
+
+        parts->duration[i] &= mask;
     }
 
     d = parts->duration[n];
-    if (d != NGX_KSMP_PART_PRELOAD_HINT
-        && vod_all_flags_set(d, NGX_KSMP_PART_GAP | NGX_KSMP_PART_INDEPENDENT))
-    {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_segment_parts: "
-            "invalid last part flags 0x%uxD", d);
-        return NGX_BAD_DATA;
+    if (d != NGX_KSMP_PART_PRELOAD_HINT) {
+        if (vod_all_flags_set(d, NGX_KSMP_PART_GAP
+            | NGX_KSMP_PART_INDEPENDENT))
+        {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_pckg_ksmp_read_segment_parts: "
+                "invalid last part flags 0x%uxD", d);
+            return NGX_BAD_DATA;
+        }
+
+        parts->duration[n] &= mask;
     }
 
     return NGX_OK;

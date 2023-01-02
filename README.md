@@ -3,6 +3,7 @@
 ![Build Status](https://github.com/kaltura/media-framework/actions/workflows/ci.yml/badge.svg)
 
 A distributed framework for live video streaming. The system is composed of multiple components, each one responsible for a specific function.
+
 The components can be deployed on a single server for small scale deployments/testing, but it is recommended to deploy them separately
 for a more optimal resource utilization. For example, the transcoder can utilize the GPU, so it would be more cost efficient to deploy the
 transcoders on GPU-enabled servers, while the other components would run on servers without GPU.
@@ -427,7 +428,7 @@ For a detailed reference of the available API endpoints, see the documentation o
 ### Request Types
 
 The following HTTP verbs are used in the API:
-- `GET` - get the full status of the module, or a subset of it.
+- `GET` - get the full status of the module, or a subset of it. The argument `?pretty=1` can be added to the request, in order to return the response in a "pretty" / indented format.
 - `GET` with `?list=1` - return the names of the "folders" under a certain path in the API. Can be used to walk the tree of possible API routes.
 - `POST` - create an object.
 - `PUT` - update an object, the id of the object to update is passed on the URI.
@@ -438,8 +439,6 @@ The request body in `POST` / `PUT` requests must be a JSON (usually an object), 
 When the size of the request body exceeds a certain threshold, nginx writes it to a temporary file.
 However, the implementation of the Media-Framework API requires that the request body of `POST` / `PUT` requests will be available in memory.
 If needed, the nginx `client_body_buffer_size` directive can be used to increase the size of the buffer allocated for the request body.
-
-The argument `?pretty=1` can be added to `GET` requests in order to return the response in a "pretty" / indented format.
 
 ### Status Codes
 

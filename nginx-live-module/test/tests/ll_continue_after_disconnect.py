@@ -10,21 +10,26 @@ def updateConf(conf):
 def stream(nl, duration, eos):
     rv = KmpMediaFileReader(TEST_VIDEO1, 0)
     ra = KmpMediaFileReader(TEST_VIDEO1, 1)
+    rs = KmpSRTReader(TEST_VIDEO1_CC_ENG)
+
     st = KmpSendTimestamps()
 
     sv, sa = createVariant(nl, 'var1', [('v1', 'video'), ('a1', 'audio')])
+    ss = createSubtitleVariant(nl, 'sub1', 's1', 'English', 'eng')
 
     kmpSendStreams([
         (rv, sv),
         (ra, sa),
+        (rs, ss),
     ], st, duration)
 
     if eos:
-        kmpSendEndOfStream([sv, sa])
+        kmpSendEndOfStream([sv, sa, ss])
     else:
         time.sleep(2)
         sv.close()
         sa.close()
+        ss.close()
 
 def test(channelId=CHANNEL_ID):
     nl = setupChannelTimeline(channelId, preset=LL_PRESET)

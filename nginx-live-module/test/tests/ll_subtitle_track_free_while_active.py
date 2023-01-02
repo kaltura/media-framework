@@ -2,11 +2,10 @@ from test_base import *
 
 def updateConf(conf):
     block = getConfBlock(conf, ['live', 'preset ll'])
-    block.append(['ll_segmenter_max_pending_segments', '1'])
-    block.append(['ll_segmenter_frame_process_delay', '2s'])
+    block.append(['ll_segmenter_close_segment_delay', '0'])
 
 # EXPECTED:
-#   20 sec audio + video
+#   20 sec video
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()
@@ -24,14 +23,19 @@ def test(channelId=CHANNEL_ID):
         (rv, sv),
         (ra, sa),
         (rs, ss),
-    ], st, 20)
+    ], st, 10)
 
-    kmpSendEndOfStream([sv, sa, ss])
+    nl.track.delete('s1')
+
+    kmpSendStreams([
+        (rv, sv),
+        (ra, sa),
+    ], st, 10)
+
+    kmpSendEndOfStream([sv, sa])
+    sa.close()
+
+    time.sleep(.5)
 
     nl.timeline.update(NginxLiveTimeline(id=TIMELINE_ID, end_list='on'))
-
-    time.sleep(5)
-
     testLLDefaultStreams(channelId, __file__)
-
-    logTracker.assertContains(b'ngx_live_lls_force_close_segment: forcing close, started_tracks: 1')
