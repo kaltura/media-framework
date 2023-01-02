@@ -269,6 +269,28 @@ In addition to the per-track state, a segment index can be in one of two states 
     In order to reduce the chances of missing a segment, the segmenter waits a configured number of milliseconds before closing a segment (measured from the time the segment index was initially created).
     Saving a segment index to storage, starts only when the segment index is closed.
 
+##### Subtitle Tracks
+
+The timestamps of parts / segments are determined only by video / audio tracks - subtitle tracks do not affect the timestamps of parts / segments.
+
+When the first video / audio track starts handling a certain part, the part is started on all subtitle tracks.
+The subtitle parts are stopped when the end timestamp of the part is determined, either when -
+- the next part in the segment is started, or
+- the end timestamp of the segment is set
+
+When a subtitle part is stopped, all the subtitle cues that intersect with the time range of the part are added to the part.
+
+Unlike video / audio parts, subtitle parts are started regardless of the incoming subtitle cues.
+Therefore, it is possible that when a subtitle part is stopped, no cue intersects with the time range of the part.
+In this case, an empty part is created.
+
+For the same reason, it is also possible that an entire subtitle segment will not contain any cues.
+The empty subtitle segment is kept in memory until the corresponding segment index is persisted / removed from all timelines.
+Even though the empty segment contains no frames, it cannot be disposed, otherwise the empty parts it contains will disappear from the manifest.
+
+The timestamps of a subtitle cue may span across multiple parts in a segment.
+A cue is never added to a segment more than once, but in this case, a single cue is referenced by multiple parts (the different parts overlap with each other).
+
 #### Low Latency Limitations
 
 The low-latency segmenter has several limitations, when comparing it to the default segmenter:
