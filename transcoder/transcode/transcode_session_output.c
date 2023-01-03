@@ -43,8 +43,9 @@ int print_output(transcode_session_output_t* pOutput) {
         return 0;
     }
     if (pOutput->codec_type==AVMEDIA_TYPE_VIDEO) {
-        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"(%s) output configuration: mode: transcode bitrate: %d Kbit/s  resolution: %dx%d  profile: %s preset: %s",
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"(%s) output configuration: mode: codec: %s transcode bitrate: %d Kbit/s  resolution: %dx%d  profile: %s preset: %s",
                pOutput->track_id,
+               pOutput->codec,
                pOutput->bitrate / 1000,
                pOutput->videoParams.width,
                pOutput->videoParams.height,
@@ -76,6 +77,10 @@ int transcode_session_output_from_json(transcode_session_output_t* pOutput,const
     const json_value_t* pVideoParams,*pAudioParams;
     if (JSON_OK==json_get(json,"videoParams",&pVideoParams)) {
         pOutput->codec_type=AVMEDIA_TYPE_VIDEO;
+        // REMOVEME!:
+        LOGGER0(CATEGORY_CODEC,AV_LOG_ERROR,"NOTE: test version. forcing h265 encoder!");
+        strcpy(&pOutput->codec[0], "h265");
+        // end REMOVEME!:
         json_get_int(pVideoParams,"height",-2,&pOutput->videoParams.height);
         json_get_int(pVideoParams,"width",-2,&pOutput->videoParams.width);
         json_get_string(pVideoParams,"profile","",pOutput->videoParams.profile,sizeof(pOutput->videoParams.profile));
