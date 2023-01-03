@@ -1,8 +1,7 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['live', 'preset ll'])
-    block.append(['ll_segmenter_close_segment_delay', '0'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['ll_segmenter_close_segment_delay', '0'])
 
 # EXPECTED:
 #   20 sec video

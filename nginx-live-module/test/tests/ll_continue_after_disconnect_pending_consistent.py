@@ -1,9 +1,8 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['live', 'preset ll'])
-    block.append(['ll_segmenter_inactive_timeout', '100s'])
-    block.append(['ll_segmenter_frame_process_delay', '3s'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['ll_segmenter_inactive_timeout', '100s'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['ll_segmenter_frame_process_delay', '3s'])
 
 # EXPECTED:
 #   continuous 20 sec audio + video

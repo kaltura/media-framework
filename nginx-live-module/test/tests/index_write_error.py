@@ -1,15 +1,13 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['http', 'server'])
-    block.append(
+    appendConfDirective(conf, ['http', 'server'],
         [['location', '/store/channel/test/index'],
             [[['limit_except', 'GET'],
                 [['deny', 'all']]],
             ['lingering_timeout', '1']]])
 
-    block = getConfBlock(conf, ['live', 'preset main'])
-    block.append(['store_http_write_retries', '0'])
+    appendConfDirective(conf, ['live', 'preset main'], ['store_http_write_retries', '0'])
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

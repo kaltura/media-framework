@@ -5,9 +5,8 @@ from test_base import *
 #   8 sec segments are used before and after the restart
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['live', 'preset ll'])
-    block.append(['persist_bucket_size', '1'])
-    block.append(['ll_segmenter_close_segment_delay', '500ms'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['persist_bucket_size', '1'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['ll_segmenter_close_segment_delay', '500ms'])
 
 def stream(nl, duration, eos, initialFrameId=0, initialTs=0):
     rv = KmpMediaFileReader(TEST_VIDEO1, 0)

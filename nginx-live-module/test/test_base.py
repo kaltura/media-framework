@@ -175,6 +175,8 @@ def setupChannelVideoAudio(channelId, duration=10, timelineId=TIMELINE_ID):
     return nl
 
 def getConfBlock(c, path):
+    if len(path) == 0:
+        return c
     for cur in c:
         key = cur[0]
         if not isinstance(key, list):
@@ -193,7 +195,26 @@ def getConfParam(c, key):
 def delConfParam(c, key):
     for i in range(len(c) - 1, -1, -1):
         if c[i][0] == key:
-            c.pop(i)
+            del c[i]
+
+def addSpaces(params):
+    # work around a bug in nginxparser.py (assumes at least 2 args, if second arg is empty, it pops another arg)
+    if len(params) == 1 and type(params[0]) == str:
+        params.append('')
+        params.append('')
+
+    for i in range(len(params)):
+        if type(params[i]) == str:
+            params[i] += ' '
+        elif type(params[i]) == list:
+            addSpaces(params[i])
+    return params
+
+def appendConfDirective(conf, path, params):
+    getConfBlock(conf, path).append(addSpaces(params))
+
+def insertConfDirective(conf, path, params):
+    getConfBlock(conf, path).insert(0, addSpaces(params))
 
 def normalizeStreamInfo(info):
     info = info.replace('\r\n', '\n')

@@ -1,7 +1,7 @@
 from test_base import *
 
 def updateConf(conf):
-    getConfBlock(conf, ['live', 'preset ll']).append(['syncer', 'off'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['syncer', 'off'])
 
 # EXPECTED:
 #   10 sec audio + video, then jump to sec ~16 and plays until 20

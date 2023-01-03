@@ -3,7 +3,7 @@ from test_base import *
 KLPF_VERSION_OFFSET = 16
 
 def updateConf(conf):
-    getConfBlock(conf, ['live']).append(['persist_cancel_read_if_empty', 'off'])
+    appendConfDirective(conf, ['live'], ['persist_cancel_read_if_empty', 'off'])
 
 def setup(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

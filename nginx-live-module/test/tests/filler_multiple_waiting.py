@@ -4,8 +4,7 @@ from threading import Thread, Lock
 THREAD_COUNT = 5
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['http', 'server'])
-    block.append([['location', '/store/channel/__filler/filler'], [['proxy_pass', 'http://127.0.0.1:8002']]])
+    appendConfDirective(conf, ['http', 'server'], [['location', '/store/channel/__filler/filler'], [['proxy_pass', 'http://127.0.0.1:8002']]])
 
 def readRequestBody(s, header):
     headerEnd = header.find(b'\r\n\r\n') + 4

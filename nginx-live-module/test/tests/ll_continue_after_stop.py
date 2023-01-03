@@ -4,9 +4,8 @@ from test_base import *
 #   continuous 40 sec audio + video
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['live', 'preset ll'])
-    block.append(['ll_segmenter_inactive_timeout', '100s'])
-    block.append(['persist_bucket_size', '1'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['ll_segmenter_inactive_timeout', '100s'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['persist_bucket_size', '1'])
 
 def stream(nl, duration, eos):
     rv = KmpMediaFileReader(TEST_VIDEO1, 0)

@@ -13,8 +13,8 @@ FILLER_VIDEO = TEST_VIDEO1
 CREATE_WITH_CHANNEL = False
 
 def updateConf(conf):
-    getConfBlock(conf, ['stream', 'server']).append(['live_kmp_read_timeout', '1000000'])
-    getConfBlock(conf, ['live']).append(['persist_cancel_read_if_empty', 'off'])
+    appendConfDirective(conf, ['stream', 'server'], ['live_kmp_read_timeout', '1000000'])
+    appendConfDirective(conf, ['live'], ['persist_cancel_read_if_empty', 'off'])
 
 def setup(channelId=CHANNEL_ID):
     # create audio+video filler channel

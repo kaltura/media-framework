@@ -4,12 +4,16 @@ from test_base import *
 #   20 sec audio + video
 
 def updateConf(conf):
-    server = getConfBlock(conf, ['http', 'server'])
-    server.append(['pckg_m3u8_mux_segments', 'off'])
-    server.append(['pckg_enc_scope', 'track'])
-    server.append(['pckg_enc_scheme', 'aes-128'])
-    server.append(['pckg_enc_key_seed', 'keySeed$channel_id$pckg_variant_id$pckg_media_type'])
-    server.append(['pckg_enc_iv_seed', 'ivSeed$channel_id$pckg_variant_id$pckg_media_type'])
+    serverDirs = [
+        ['pckg_m3u8_mux_segments', 'off'],
+        ['pckg_enc_scope', 'track'],
+        ['pckg_enc_scheme', 'aes-128'],
+        ['pckg_enc_key_seed', 'keySeed$channel_id$pckg_variant_id$pckg_media_type'],
+        ['pckg_enc_iv_seed', 'ivSeed$channel_id$pckg_variant_id$pckg_media_type'],
+    ]
+
+    for sd in serverDirs:
+        appendConfDirective(conf, ['http', 'server'], sd)
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

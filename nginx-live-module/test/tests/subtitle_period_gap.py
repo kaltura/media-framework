@@ -8,7 +8,7 @@ from test_base import *
 #   26 sec audio + video + subtitle
 
 def updateConf(conf):
-    getConfBlock(conf, ['live', 'preset main']).append(['syncer', 'off'])
+    appendConfDirective(conf, ['live', 'preset main'], ['syncer', 'off'])
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

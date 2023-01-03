@@ -4,8 +4,7 @@ from threading import Lock
 SHORT_TIMELINE_ID = 'short'
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['http', 'server', 'location /store/'])
-    block.append([['if', '($request_method = PUT)'], [['proxy_pass', 'http://127.0.0.1:8002']]])
+    appendConfDirective(conf, ['http', 'server', 'location /store/'], [['if', '($request_method = PUT)'], [['proxy_pass', 'http://127.0.0.1:8002']]])
 
 def storeServer(s):
     global lock
