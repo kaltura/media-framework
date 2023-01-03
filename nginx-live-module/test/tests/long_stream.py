@@ -46,7 +46,7 @@ def updateConf(conf):
             delConfParam(block, key)
 
     if BLOCKING_SEGMENT_REQUEST:
-        appendConfDirective(conf, ['live', 'preset main'], ['segmenter_duration', '10s'])
+        appendConfDirective(conf, ['live', 'preset main'], ['segment_duration', '10s'])
         appendConfDirective(conf, ['http'], ['client_max_body_size', '64m'])
 
 class KmpMemorySender(object):
