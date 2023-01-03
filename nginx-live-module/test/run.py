@@ -9,13 +9,11 @@ import time
 import sys
 import os
 
-nginxParser = os.path.join(os.path.dirname(__file__), 'nginxparser.py')
-if not os.path.isfile(nginxParser):
-    print('Info: downloading %s' % nginxParser)
-    r = requests.get('https://raw.githubusercontent.com/fatiherikli/nginxparser/master/nginxparser.py')
-    open(nginxParser, 'wb').write(r.content)
-
-import nginxparser
+try:
+    import nginxparser_eb
+except ImportError:
+    print('Error: failed to load nginx parser, clone and install https://github.com/shenjinian/nginxparser-1')
+    sys.exit(1)
 
 try:
     input = raw_input
@@ -85,8 +83,8 @@ def restartNginx(nginxProc, confFile, fileName, cleanupFunc):
     return startNginx(confFile, fileName, 'a')
 
 def singleProcessUpdateConf(conf):
-    conf.append(['daemon', 'off'])
-    conf.append(['master_process', 'off'])
+    appendConfDirective(conf, [], ['daemon', 'off'])
+    appendConfDirective(conf, [], ['master_process', 'off'])
 
 def coverageResetCounters():
     print('Coverage: resetting counters')
@@ -173,10 +171,10 @@ def run(tests):
                 updateConfFuncs.append(singleProcessUpdateConf)
 
             if len(updateConfFuncs) > 0:
-                conf = nginxparser.load(open(NGINX_CONF, 'r'))
+                conf = nginxparser_eb.load(open(NGINX_CONF, 'r'))
                 for updateConfFunc in updateConfFuncs:
                     updateConfFunc(conf)
-                nginxparser.dump(conf, open(TEMP_NGINX_CONF, 'w'))
+                nginxparser_eb.dump(conf, open(TEMP_NGINX_CONF, 'w'))
                 confFile = TEMP_NGINX_CONF
             else:
                 confFile = NGINX_CONF

@@ -4,10 +4,9 @@ def updateConf(conf):
     block = getConfBlock(conf, ['live'])
     for key in ['persist_setup_path', 'persist_index_path', 'persist_delta_path']:
         delConfParam(block, key)
-    block.append(['force_memory_segments', '5'])
 
-    block = getConfBlock(conf, ['http', 'server', 'location /store/'])
-    block.append([['if', '($request_method = GET)'], [['proxy_pass', 'http://127.0.0.1:8002']]])
+    appendConfDirective(conf, ['live'], ['force_memory_segments', '5'])
+    appendConfDirective(conf, ['http', 'server', 'location /store/'], [['if', '($request_method = GET)'], [['proxy_pass', 'http://127.0.0.1:8002']]])
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

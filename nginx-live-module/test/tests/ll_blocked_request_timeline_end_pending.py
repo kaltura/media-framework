@@ -1,8 +1,7 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['live', 'preset ll'])
-    block.append(['ll_segmenter_inactive_timeout', '100s'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['ll_segmenter_inactive_timeout', '100s'])
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

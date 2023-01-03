@@ -8,7 +8,7 @@ from test_base import *
 #   25 sec audio + video
 
 def updateConf(conf):
-    getConfBlock(conf, ['stream', 'server']).append(['live_kmp_read_timeout', '1000000'])
+    appendConfDirective(conf, ['stream', 'server'], ['live_kmp_read_timeout', '1000000'])
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

@@ -1,13 +1,10 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['http', 'server'])
-    block.append([['location', '/store/channel/test/bucket/'], [['proxy_pass', 'http://127.0.0.1:8002']]])
+    appendConfDirective(conf, ['http', 'server'], [['location', '/store/channel/test/bucket/'], [['proxy_pass', 'http://127.0.0.1:8002']]])
 
-    block = getConfBlock(conf, ['live'])
-
-    block.append(['mem_limit', '16m'])
-    block.append(['store_http_write_resp_timeout', '1000000'])
+    appendConfDirective(conf, ['live'], ['mem_limit', '16m'])
+    appendConfDirective(conf, ['live'], ['store_http_write_resp_timeout', '1000000'])
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

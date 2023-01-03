@@ -6,14 +6,13 @@ PROGRAM_DATE_TIME = b'#EXT-X-PROGRAM-DATE-TIME:'
 DISCONTINUITY = b'#EXT-X-DISCONTINUITY'
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['live', 'preset ll'])
-    block.append(['ll_segmenter_frame_process_delay', '0'])
-    block.append(['ll_segmenter_close_segment_delay', '0'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['ll_segmenter_frame_process_delay', '0'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['ll_segmenter_close_segment_delay', '0'])
 
     # when comparing manifests, we check the last line to see that no parts/segments entered in between,
     # rendition reports can fool us to believe the manifests are the same, while they are not
-    block = getConfBlock(conf, ['http', 'server', 'location ~ /hls-ll/(?P<channel_id>[^/]+)/tl/(?P<timeline_id>[^/]+)'])
-    block.insert(0, ['pckg_m3u8_rendition_reports', 'off'])
+    insertConfDirective(conf, ['http', 'server', 'location ~ /hls-ll/(?P<channel_id>[^/]+)/tl/(?P<timeline_id>[^/]+)'],
+        ['pckg_m3u8_rendition_reports', 'off'])
 
 def getLastLine(s):
     newLine = s.rstrip().rfind(b'\n')

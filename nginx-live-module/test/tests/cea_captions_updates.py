@@ -2,8 +2,7 @@ from test_base import *
 import json
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['live'])
-    block.append(['dynamic_var_max_size', '10k'])
+    appendConfDirective(conf, ['live'], ['dynamic_var_max_size', '10k'])
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

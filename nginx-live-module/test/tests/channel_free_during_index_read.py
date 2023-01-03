@@ -3,11 +3,8 @@ import requests
 import json
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['http', 'server'])
-    block.append([['location', '/store/channel/test/index'], [['proxy_pass', 'http://127.0.0.1:8002']]])
-
-    block = getConfBlock(conf, ['live'])
-    block.append(['persist_cancel_read_if_empty', 'off'])
+    appendConfDirective(conf, ['http', 'server'], [['location', '/store/channel/test/index'], [['proxy_pass', 'http://127.0.0.1:8002']]])
+    appendConfDirective(conf, ['live'], ['persist_cancel_read_if_empty', 'off'])
 
 def setup(channelId=CHANNEL_ID):
     nl = setupChannelTimeline(channelId)

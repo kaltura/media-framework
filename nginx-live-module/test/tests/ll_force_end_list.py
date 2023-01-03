@@ -1,8 +1,7 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['live', 'preset ll'])
-    block.append(['ll_segmenter_inactive_timeout', '10'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['ll_segmenter_inactive_timeout', '10'])
 
 FORCED_TIMELINE_ID = 'forced'
 

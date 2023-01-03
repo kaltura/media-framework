@@ -4,18 +4,21 @@ from test_base import *
 #   20 sec audio + video
 
 def updateConf(conf):
-    server = getConfBlock(conf, ['http', 'server'])
-    server.append(['pckg_m3u8_mux_segments', 'off'])
-    server.append(['pckg_m3u8_enc_key_uri', '$scheme://$host:$server_port$base_uri/enc-s$pckg_variant_id-$media_type.key'])
-    server.append(['pckg_enc_scope', 'track'])
-    server.append(['pckg_enc_scheme', 'aes-128'])
-    server.append(['pckg_enc_key_seed', 'keySeed$channel_id$pckg_variant_id$pckg_media_type'])
-    server.append(['pckg_enc_iv_seed', 'ivSeed$channel_id$pckg_variant_id$pckg_media_type'])
+    serverDirs = [
+        ['pckg_m3u8_mux_segments', 'off'],
+        ['pckg_m3u8_enc_key_uri', '$scheme://$host:$server_port$base_uri/enc-s$pckg_variant_id-$media_type.key'],
+        ['pckg_enc_scope', 'track'],
+        ['pckg_enc_scheme', 'aes-128'],
+        ['pckg_enc_key_seed', 'keySeed$channel_id$pckg_variant_id$pckg_media_type'],
+        ['pckg_enc_iv_seed', 'ivSeed$channel_id$pckg_variant_id$pckg_media_type'],
+    ]
 
-    http = getConfBlock(conf, ['http'])
-    http.append([['map', '$uri', '$base_uri'],
+    for sd in serverDirs:
+        appendConfDirective(conf, ['http', 'server'], sd)
+
+    appendConfDirective(conf, ['http'], [['map', '$uri', '$base_uri'],
                 [['~^(?P<result>.*)/[^/]+', '$result']]])
-    http.append([['map', '$pckg_media_type', '$media_type'],
+    appendConfDirective(conf, ['http'], [['map', '$pckg_media_type', '$media_type'],
                 [['~^(?P<result>.)', '$result'], ['volatile']]])
 
 def test(channelId=CHANNEL_ID):

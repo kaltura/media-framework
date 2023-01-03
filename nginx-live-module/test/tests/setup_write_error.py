@@ -1,12 +1,10 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['http', 'server', 'location /store/'])
-    block.append(['lingering_timeout', '1'])
-    block.append(['return', '400'])
+    appendConfDirective(conf, ['http', 'server', 'location /store/'], ['lingering_timeout', '1'])
+    appendConfDirective(conf, ['http', 'server', 'location /store/'], ['return', '400'])
 
-    block = getConfBlock(conf, ['live', 'preset main'])
-    block.append(['store_http_write_retries', '0'])
+    appendConfDirective(conf, ['live', 'preset main'], ['store_http_write_retries', '0'])
 
 def test(channelId=CHANNEL_ID):
     nl = nginxLiveClient()

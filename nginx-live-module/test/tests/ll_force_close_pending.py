@@ -1,9 +1,8 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['live', 'preset ll'])
-    block.append(['ll_segmenter_max_pending_segments', '1'])
-    block.append(['ll_segmenter_frame_process_delay', '2s'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['ll_segmenter_max_pending_segments', '1'])
+    appendConfDirective(conf, ['live', 'preset ll'], ['ll_segmenter_frame_process_delay', '2s'])
 
 # EXPECTED:
 #   20 sec audio + video
