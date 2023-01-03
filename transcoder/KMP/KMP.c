@@ -162,6 +162,8 @@ static kmp_codec_id get_video_codec(AVCodecParameters *apar)
             return KMP_CODEC_VIDEO_ON2_VP6_ALPHA;
         case AV_CODEC_ID_H264:
             return KMP_CODEC_VIDEO_H264;
+        case AV_CODEC_ID_HEVC:
+            return KMP_CODEC_VIDEO_HEVC;
         default:
             return (kmp_codec_id)apar->codec_id;
     }
@@ -653,6 +655,9 @@ static void set_video_codec(int codecid,AVCodecParameters *apar)
         case KMP_CODEC_VIDEO_H264:
             apar->codec_id = AV_CODEC_ID_H264;
             break;
+         case KMP_CODEC_VIDEO_HEVC:
+             apar->codec_id = AV_CODEC_ID_HEVC;
+             break;
         default:
             apar->codec_tag = codecid;
             break;

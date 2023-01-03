@@ -28,7 +28,7 @@ RUN git clone https://github.com/kaltura/nginx-stream-preread-str-module
 
 ARG APP_VERSION=1.0
 
-ARG DEBUG_BUILD=0
+ARG DEBUG_BUILD=1
 
 ENV RTMP_KMP_VERSION="${APP_VERSION}"
 ENV MPEGTS_KMP_VERSION="${APP_VERSION}"
@@ -52,8 +52,10 @@ RUN [ "${DEBUG_BUILD}" -eq "1" ] && debug_option=--with-debug; \
             --with-http_ssl_module \
             --with-stream_ssl_module  $debug_option \
             $debug_option \
-            --with-cc-opt="-O2" \
-            --with-threads && \
+            --with-cc-opt="-g" \
+            --with-threads
+
+RUN cd /tmp/build/nginx &&  \
     make -j $(getconf _NPROCESSORS_ONLN) && \
     make install
 

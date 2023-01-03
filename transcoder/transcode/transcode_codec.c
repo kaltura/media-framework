@@ -250,7 +250,7 @@ init_video_encoder(transcode_codec_t * pContext,
         LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"set video encoder profile %s",pOutput->videoParams.profile);
     }
 
-    if(enc_ctx->codec_id == AV_CODEC_ID_H264) {
+    if(enc_ctx->codec_id == AV_CODEC_ID_H264 || enc_ctx->codec_id == AV_CODEC_ID_HEVC) {
        // force key frame when input key frame arrive
        enc_ctx->gop_size=INT_MAX;
        av_opt_set_int(enc_ctx->priv_data, "forced-idr", 1, 0);
