@@ -29,7 +29,8 @@ static int hw_decoder_init( transcode_codec_t * pContext,AVCodec* decoder,AVCode
             return -1;
         }
         if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
-            config->device_type == type) {
+            config->device_type == type &&
+            config->pix_fmt == AV_PIX_FMT_CUDA) {
             ctx->pix_fmt = config->pix_fmt;
             break;
         }
