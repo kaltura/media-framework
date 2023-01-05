@@ -73,9 +73,9 @@ static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,const enum AVPixelFo
 {
     const enum AVPixelFormat *p;
 
-
+    //TODO: sort pix_fmts according to hw support
     for (p = pix_fmts; *p != -1; p++) {
-        if (*p == ctx->pix_fmt) {
+        if (*p == AV_PIX_FMT_CUDA || *p == AV_PIX_FMT_NV12) {
             LOGGER(CATEGORY_CODEC, AV_LOG_INFO, "get_hw_format returned %s",av_get_pix_fmt_name (*p));
             return *p;
         }
