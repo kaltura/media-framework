@@ -348,7 +348,7 @@ ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
     }
 
     upstreams = json.upstreams;
-    if (upstreams->type != NGX_JSON_OBJECT) {
+    if (upstreams->count != 0 && upstreams->type != NGX_JSON_OBJECT) {
         ngx_log_error(NGX_LOG_ERR, &track->log, 0,
             "ngx_kmp_out_track_publish_json: "
             "invalid upstreams element type %d", upstreams->type);
