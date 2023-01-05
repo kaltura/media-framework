@@ -115,6 +115,7 @@ ngx_http_pckg_capture_init_frame_processor(ngx_http_request_t *r,
 {
     vod_status_t                  rc;
     segment_writer_t             *writer;
+    media_segment_track_t        *track;
     ngx_http_pckg_core_ctx_t     *ctx;
     ngx_http_pckg_capture_ctx_t  *cctx;
 
@@ -124,7 +125,16 @@ ngx_http_pckg_capture_init_frame_processor(ngx_http_request_t *r,
     writer = &ctx->segment_writer;
     cctx->params.time = ctx->channel->segment_index->time;
 
-    rc = thumb_grabber_init_state(&ctx->request_context, segment->tracks,
+    track = segment->tracks;
+
+    if (track->frame_count <= 0) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_pckg_capture_init_frame_processor: "
+            "segment %uD not found", segment->segment_index);
+        return NGX_HTTP_NOT_FOUND;
+    }
+
+    rc = thumb_grabber_init_state(&ctx->request_context, track,
         &cctx->params, writer->write_tail, writer->context, &processor->ctx);
     if (rc != VOD_OK) {
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
