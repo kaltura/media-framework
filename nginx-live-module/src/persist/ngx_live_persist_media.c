@@ -638,6 +638,8 @@ ngx_live_persist_media_serve_parse_header(
             "ngx_live_persist_media_serve_parse_header: "
             "segment %uD not found on any track",
             ctx->segment_index);
+
+        ctx->write_ctx = NULL;
     }
 
     if (ctx->write_ctx == NULL) {
