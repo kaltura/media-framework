@@ -49,6 +49,7 @@ RUN [ "${DEBUG_BUILD}" -eq "1" ] && debug_option=--with-debug; \
             --add-module=/tmp/build/nginx-stream-preread-str-module \
             --with-file-aio \
             --with-stream \
+            --with-http_v2_module \
             --with-http_ssl_module \
             --with-stream_ssl_module  $debug_option \
             $debug_option \
