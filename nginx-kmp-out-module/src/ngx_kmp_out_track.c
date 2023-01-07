@@ -311,6 +311,8 @@ ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
     kmp_connect_packet_t      *header;
     ngx_kmp_out_track_json_t   json;
 
+    /* parse and validate the json */
+
     ngx_memset(&json, 0xff, sizeof(json));
 
     if (ngx_json_object_parse(temp_pool, obj, ngx_kmp_out_track_json,
@@ -356,6 +358,7 @@ ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
     }
 
     /* init the header */
+
     header = &track->connect;
     header->header.packet_type = KMP_PACKET_CONNECT;
     header->header.header_size = sizeof(*header);
@@ -374,6 +377,7 @@ ngx_kmp_out_track_publish_json(ngx_kmp_out_track_t *track,
     ngx_json_str_set_escape(&track->track_id);
 
     /* create the upstreams */
+
     if (upstreams->count == 0) {
         ngx_log_error(NGX_LOG_INFO, &track->log, 0,
             "ngx_kmp_out_track_publish_json: no upstreams");
@@ -476,6 +480,8 @@ ngx_kmp_out_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
     ngx_str_t *content_type, ngx_buf_t *body)
 {
     ngx_int_t                        rc;
+    ngx_str_t                        message;
+    ngx_str_t                        code_str;
     ngx_json_value_t                 obj;
     ngx_kmp_out_track_t             *track;
     ngx_http_call_ctx_t             *publish_call;
@@ -486,12 +492,30 @@ ngx_kmp_out_publish_handle(ngx_pool_t *temp_pool, void *arg, ngx_uint_t code,
     publish_call = track->publish_call;
     track->publish_call = NULL;
 
-    /* parse and validate the json */
     if (ngx_kmp_out_parse_json_response(temp_pool, &track->log, code,
         content_type, body, &obj) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_kmp_out_publish_handle: parse response failed");
+        goto retry;
+    }
+
+    rc = ngx_kmp_out_status_parse(temp_pool, &track->log, &obj.v.obj,
+        &code_str, &message);
+    switch (rc) {
+
+    case NGX_OK:
+        break;
+
+    case NGX_DECLINED:
+        ngx_log_error(NGX_LOG_ERR, &track->log, 0,
+            "ngx_kmp_out_publish_handle: "
+            "bad code \"%V\" in json, message=\"%V\"", &code_str, &message);
+        goto retry;
+
+    default:
+        ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+            "ngx_kmp_out_publish_handle: failed to parse status");
         goto retry;
     }
 

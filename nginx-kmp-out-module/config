@@ -36,7 +36,6 @@ KMP_OUT_HTTP_MODULES="                               \
     "
 
 KMP_OUT_CORE_SRCS="                                  \
-    $ngx_addon_dir/src/ngx_kmp_out_connect.c         \
     $ngx_addon_dir/src/ngx_kmp_out_module.c          \
     $ngx_addon_dir/src/ngx_kmp_out_track.c           \
     $ngx_addon_dir/src/ngx_kmp_out_upstream.c        \
@@ -50,14 +49,13 @@ KMP_OUT_HTTP_SRCS="                                  \
 KMP_OUT_DEPS="                                       \
     $ngx_addon_dir/src/ngx_http_kmp_out_api_json.h   \
     $ngx_addon_dir/src/ngx_http_kmp_out_api_routes.h \
-    $ngx_addon_dir/src/ngx_kmp_out_connect.h         \
-    $ngx_addon_dir/src/ngx_kmp_out_connect_json.h    \
     $ngx_addon_dir/src/ngx_kmp_out_track.h           \
     $ngx_addon_dir/src/ngx_kmp_out_track_internal.h  \
     $ngx_addon_dir/src/ngx_kmp_out_track_json.h      \
     $ngx_addon_dir/src/ngx_kmp_out_upstream.h        \
     $ngx_addon_dir/src/ngx_kmp_out_upstream_json.h   \
     $ngx_addon_dir/src/ngx_kmp_out_utils.h           \
+    $ngx_addon_dir/src/ngx_kmp_out_utils_json.h      \
     "
 
 KMP_OUT_INCS="$ngx_addon_dir/src"

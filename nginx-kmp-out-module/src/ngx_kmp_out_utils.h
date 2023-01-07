@@ -7,7 +7,7 @@
 #include <ngx_json_parser.h>
 
 
-#define NGX_LOG_DEBUG_KMP NGX_LOG_DEBUG_CORE
+#define NGX_LOG_DEBUG_KMP  NGX_LOG_DEBUG_CORE
 
 
 ngx_chain_t *ngx_kmp_out_alloc_chain_buf(ngx_pool_t *pool, void *pos,
@@ -20,6 +20,17 @@ ngx_chain_t *ngx_kmp_out_copy_chain(ngx_pool_t *pool, ngx_chain_t *src);
 ngx_int_t ngx_kmp_out_parse_json_response(ngx_pool_t *pool, ngx_log_t *log,
     ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *body,
     ngx_json_value_t *json);
+
+/*
+ * NGX_DECLINED - response with code != "ok"
+ * NGX_ERROR - error parsing the response
+ */
+ngx_int_t ngx_kmp_out_status_parse(ngx_pool_t *pool, ngx_log_t *log,
+    ngx_json_object_t *obj, ngx_str_t *code, ngx_str_t *message);
+
+ngx_int_t ngx_kmp_out_connect_parse(ngx_pool_t *pool, ngx_log_t *log,
+    ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *body,
+    ngx_str_t *desc);
 
 void ngx_kmp_out_float_to_rational(double f, int64_t md, int64_t *num,
     int64_t *denom);

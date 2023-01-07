@@ -2,12 +2,15 @@
 #include <ngx_core.h>
 #include <ngx_http_call.h>
 #include "ngx_kmp_out_utils.h"
+#include "ngx_kmp_out_utils_json.h"
 
 
 #define NGX_HTTP_OK                        200
 
 
-static ngx_str_t ngx_kmp_out_json_type = ngx_string("application/json");
+static ngx_str_t  ngx_kmp_out_json_type = ngx_string("application/json");
+
+static ngx_str_t  ngx_kmp_out_status_code_ok = ngx_string("ok");
 
 
 ngx_chain_t *
@@ -135,6 +138,90 @@ ngx_kmp_out_parse_json_response(ngx_pool_t *pool, ngx_log_t *log,
     }
 
     return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_kmp_out_status_parse(ngx_pool_t *pool, ngx_log_t *log,
+    ngx_json_object_t *obj, ngx_str_t *code, ngx_str_t *message)
+{
+    ngx_kmp_out_status_json_t  json;
+
+    ngx_memset(&json, 0xff, sizeof(json));
+
+    if (ngx_json_object_parse(pool, obj, ngx_kmp_out_status_json,
+        ngx_array_entries(ngx_kmp_out_status_json), &json)
+        != NGX_JSON_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_kmp_out_status_parse: failed to parse object");
+        return NGX_ERROR;
+    }
+
+
+    if (json.code.data == NGX_JSON_UNSET_PTR) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_kmp_out_status_parse: missing \"code\" element in json");
+        return NGX_ERROR;
+    }
+
+    if (json.code.len != ngx_kmp_out_status_code_ok.len ||
+        ngx_strncasecmp(json.code.data, ngx_kmp_out_status_code_ok.data,
+            ngx_kmp_out_status_code_ok.len) != 0)
+    {
+        *code = json.code;
+
+        if (json.message.data != NGX_JSON_UNSET_PTR) {
+            *message = json.message;
+            message->data[message->len] = '\0';
+
+        } else {
+            message->len = 0;
+            message->data = NULL;
+        }
+
+        return NGX_DECLINED;
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_kmp_out_connect_parse(ngx_pool_t *pool, ngx_log_t *log, ngx_uint_t code,
+    ngx_str_t *content_type, ngx_buf_t *body, ngx_str_t *desc)
+{
+    ngx_int_t         rc;
+    ngx_str_t         code_str;
+    ngx_json_value_t  obj;
+
+    if (ngx_kmp_out_parse_json_response(pool, log, code, content_type,
+        body, &obj) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_kmp_out_connect_parse: parse response failed");
+        return NGX_ERROR;
+    }
+
+    rc = ngx_kmp_out_status_parse(pool, log, &obj.v.obj, &code_str, desc);
+    switch (rc) {
+
+    case NGX_OK:
+        break;
+
+    case NGX_DECLINED:
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "ngx_kmp_out_connect_parse: "
+            "bad code \"%V\" in json, message=\"%V\"", &code_str, desc);
+        break;
+
+    default:
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "ngx_kmp_out_connect_parse: failed to parse status");
+        break;
+    }
+
+    return rc;
 }
 
 

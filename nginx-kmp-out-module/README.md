@@ -63,6 +63,7 @@ For example, when used with nginx-mpegts-kmp-module, the `rtmp` block is replace
 
 ```json
 {
+    "code": "ok",
     "channel_id": "somechannel",
     "track_id": "sometrack",
     "upstreams": [{
@@ -73,6 +74,8 @@ For example, when used with nginx-mpegts-kmp-module, the `rtmp` block is replace
 
 #### Response fields
 
+- `code` - required, string, the status code of the publish request, if set to a value other than `ok`, the publish request is retried.
+- `message` - optional, string, the error message, printed to log when `code` is not set to `ok`.
 - `channel_id` - required, string, the channel id sent on the KMP connect packet
 - `track_id` - required, string, the track id sent on the KMP connect packet
 - `upstreams` - required, array of objects, each object can contain the following fields:
@@ -148,12 +151,15 @@ The `reason` field in the request can have the following values:
 
 ```json
 {
+    "code": "ok",
     "url": "kmp://127.0.0.1:6543"
 }
 ```
 
 #### Response fields
 
+- `code` - required, string, the status code of the republish request, if set to a value other than `ok`, the republish request is retried.
+- `message` - optional, string, the error message, printed to log when `code` is not set to `ok`.
 - `url` - required, string, must include ip address and port (hostname is not supported), can optionally be prefixed with `kmp://`
 - `connect_data` - optional, string, base64 encoded, sent as the data of the KMP connect packet
 
