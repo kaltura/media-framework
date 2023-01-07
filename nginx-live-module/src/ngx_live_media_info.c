@@ -777,25 +777,36 @@ ngx_live_media_info_source_get_target(ngx_live_track_t *track)
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
+    /* use a pending node, if exists */
+
     q = ngx_queue_last(&ctx->pending);
     if (q != ngx_queue_sentinel(&ctx->pending)) {
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
         return &node->media_info.info;
     }
 
-    for (q = ngx_queue_last(&ctx->active);
-        q != ngx_queue_sentinel(&ctx->active);
-        q = ngx_queue_prev(q))
-    {
-        node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-        if (node->track_id != track->in.key) {
-            continue;
+    /* prefer a node with a matching track id, if no such node exists,
+        use the oldest node as fallback */
+
+    node = NULL;
+
+    for (q = ngx_queue_last(&ctx->active); ; q = ngx_queue_prev(q)) {
+
+        if (q == ngx_queue_sentinel(&ctx->active)) {
+            if (node == NULL) {
+                return NULL;
+            }
+
+            break;
         }
 
-        return &node->media_info.info;
+        node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+        if (node->track_id == track->in.key) {
+            break;
+        }
     }
 
-    return NULL;
+    return &node->media_info.info;
 }
 
 
