@@ -503,7 +503,10 @@ static ngx_int_t
 ngx_kmp_out_upstream_republish_handle(ngx_pool_t *temp_pool, void *arg,
     ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *body)
 {
+    ngx_int_t                          rc;
     ngx_url_t                          url;
+    ngx_str_t                          message;
+    ngx_str_t                          code_str;
     ngx_json_value_t                   obj;
     ngx_kmp_out_upstream_t            *u;
     ngx_kmp_out_upstream_json_t        json;
@@ -516,6 +519,25 @@ ngx_kmp_out_upstream_republish_handle(ngx_pool_t *temp_pool, void *arg,
     {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
             "ngx_kmp_out_upstream_republish_handle: parse response failed");
+        goto retry;
+    }
+
+    rc = ngx_kmp_out_status_parse(temp_pool, &u->log, &obj.v.obj,
+        &code_str, &message);
+    switch (rc) {
+
+    case NGX_OK:
+        break;
+
+    case NGX_DECLINED:
+        ngx_log_error(NGX_LOG_ERR, &u->log, 0,
+            "ngx_kmp_out_upstream_republish_handle: "
+            "bad code \"%V\" in json, message=\"%V\"", &code_str, &message);
+        goto retry;
+
+    default:
+        ngx_log_error(NGX_LOG_NOTICE, &u->log, 0,
+            "ngx_kmp_out_upstream_republish_handle: failed to parse status");
         goto retry;
     }
 

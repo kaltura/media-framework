@@ -4,7 +4,6 @@
 #include <ngx_http_call.h>
 #include <ngx_json_parser.h>
 #include <ngx_kmp_out_utils.h>
-#include <ngx_kmp_out_connect.h>
 
 #include "ngx_ts_kmp_module.h"
 #include "ngx_ts_kmp_track.h"

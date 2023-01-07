@@ -4,37 +4,37 @@
 #define ngx_array_entries(x)     (sizeof(x) / sizeof(x[0]))
 #endif
 
-/* ngx_kmp_out_connect_json reader */
+/* ngx_kmp_out_status_json reader */
 
 typedef struct {
     ngx_str_t  code;
     ngx_str_t  message;
-} ngx_kmp_out_connect_json_t;
+} ngx_kmp_out_status_json_t;
 
 
-static ngx_json_prop_t  ngx_kmp_out_connect_json_code = {
+static ngx_json_prop_t  ngx_kmp_out_status_json_code = {
     ngx_string("code"),
     3059181ULL,
     NGX_JSON_STRING,
     ngx_json_set_str_slot,
-    offsetof(ngx_kmp_out_connect_json_t, code),
+    offsetof(ngx_kmp_out_status_json_t, code),
     NULL
 };
 
 
-static ngx_json_prop_t  ngx_kmp_out_connect_json_message = {
+static ngx_json_prop_t  ngx_kmp_out_status_json_message = {
     ngx_string("message"),
     99739172871ULL,
     NGX_JSON_STRING,
     ngx_json_set_str_slot,
-    offsetof(ngx_kmp_out_connect_json_t, message),
+    offsetof(ngx_kmp_out_status_json_t, message),
     NULL
 };
 
 
-static ngx_json_prop_t  *ngx_kmp_out_connect_json[] = {
+static ngx_json_prop_t  *ngx_kmp_out_status_json[] = {
     NULL,
-    &ngx_kmp_out_connect_json_code,
+    &ngx_kmp_out_status_json_code,
     NULL,
-    &ngx_kmp_out_connect_json_message,
+    &ngx_kmp_out_status_json_message,
 };

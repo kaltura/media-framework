@@ -1,10 +1,11 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_rtmp.h>
 
-#include "ngx_rtmp_live_module.h"
+#include <ngx_rtmp.h>
+#include <ngx_rtmp_live_module.h>
+#include <ngx_kmp_out_track.h>
+
 #include "ngx_rtmp_kmp_module.h"
-#include "ngx_kmp_out_track.h"
 
 
 static size_t ngx_rtmp_kmp_api_streams_json_get_size(ngx_rtmp_session_t *s);

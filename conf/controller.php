@@ -345,6 +345,7 @@ case 'republish':
         break;
     }
 
+    $upstream['code'] = 'ok';
     outputJson($upstream);
     break;
 
@@ -373,6 +374,7 @@ else if (isset($params['cc']))
     setupSegmenterCCTrack($segmenterApiUrl, $channelId, $trackId);
 
     outputJson(array(
+        'code' => 'ok',
         'channel_id' => $channelId,
         'track_id' => $trackId,
         'upstreams' => array(array(
@@ -446,6 +448,7 @@ if ($mediaType == 'video' && $ccConf !== false)
 
 // return the publish response
 $params = array(
+    'code' => 'ok',
     'channel_id' => $channelId,
     'track_id' => $trackId,
     'upstreams' => $upstreams,
