@@ -15,7 +15,7 @@ typedef ngx_int_t (*ngx_live_store_http_create_read_pt)(ngx_pool_t *pool,
 
 void *ngx_live_store_http_read_init(ngx_live_store_read_request_t *request,
     ngx_url_t *url, ngx_live_store_http_create_read_pt create,
-    void *create_data);
+    void *create_data, ngx_live_store_stats_t *stats);
 
 ngx_int_t ngx_live_store_http_read(void *ctx, off_t offset, size_t size);
 
@@ -23,6 +23,7 @@ ngx_int_t ngx_live_store_http_read(void *ctx, off_t offset, size_t size);
 /* write */
 
 ngx_int_t ngx_live_store_http_write(ngx_live_store_write_request_t *request,
-    ngx_url_t *url, ngx_chain_t *headers, ngx_chain_t *body);
+    ngx_url_t *url, ngx_chain_t *headers, ngx_chain_t *body,
+    ngx_live_store_stats_t *stats);
 
 #endif /* _ngx_live_store_http_H_INCLUDED_ */

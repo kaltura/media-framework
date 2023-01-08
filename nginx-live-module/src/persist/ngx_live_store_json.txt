@@ -1,0 +1,10 @@
+
+out nostatic ngx_live_store_stats_json ngx_live_store_stats_t
+    started %uD
+    error %uD
+    success %uD
+    success_msec %uL
+    success_size %uL
+
+out noobject ngx_live_store_json void
+    store %objFunc-ngx_live_core_json NULL, NULL, NGX_LIVE_JSON_CTX_STORE

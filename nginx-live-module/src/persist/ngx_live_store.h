@@ -15,6 +15,15 @@
 #endif
 
 
+typedef struct {
+    uint32_t                          started;
+    uint32_t                          error;
+    uint32_t                          success;
+    uint64_t                          success_msec;
+    uint64_t                          success_size;
+} ngx_live_store_stats_t;
+
+
 /* read */
 
 typedef void (*ngx_live_store_read_handler_pt)(void *data, ngx_int_t rc,
@@ -71,5 +80,11 @@ typedef struct {
     ngx_live_store_read_pt            read;
     ngx_live_store_write_pt           write;
 } ngx_live_store_t;
+
+
+size_t ngx_live_store_stats_json_get_size(ngx_live_store_stats_t *obj);
+
+u_char *ngx_live_store_stats_json_write(u_char *p,
+    ngx_live_store_stats_t *obj);
 
 #endif /* _NGX_LIVE_STORE_H_INCLUDED_ */

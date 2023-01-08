@@ -35,6 +35,7 @@ LIVE_CORE_MODULES="                                           \
     ngx_live_notif_segment_module                             \
     ngx_live_segment_cache_module                             \
     ngx_live_segment_index_module                             \
+    ngx_live_store_module                                     \
     ngx_live_store_http_module                                \
     ngx_live_store_s3_module                                  \
     ngx_live_persist_module                                   \
@@ -94,6 +95,7 @@ LIVE_CORE_SRCS="                                              \
     $ngx_addon_dir/src/persist/ngx_live_persist_serve.c       \
     $ngx_addon_dir/src/persist/ngx_live_persist_setup.c       \
     $ngx_addon_dir/src/persist/ngx_live_persist_snap_frames.c \
+    $ngx_addon_dir/src/persist/ngx_live_store.c               \
     $ngx_addon_dir/src/persist/ngx_live_store_http.c          \
     $ngx_addon_dir/src/persist/ngx_live_store_s3.c            \
     "
@@ -143,6 +145,8 @@ LIVE_DEPS="$LIVE_DEPS                                         \
     $ngx_addon_dir/src/persist/ngx_live_persist_snap_frames.h \
     $ngx_addon_dir/src/persist/ngx_live_store.h               \
     $ngx_addon_dir/src/persist/ngx_live_store_http.h          \
+    $ngx_addon_dir/src/persist/ngx_live_store_json.h          \
+    $ngx_addon_dir/src/persist/ngx_live_store_s3_json.h       \
     $ngx_addon_dir/src/http/ngx_http_live_api_json.h          \
     $ngx_addon_dir/src/http/ngx_http_live_api_routes.h        \
     "
