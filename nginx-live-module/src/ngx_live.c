@@ -237,7 +237,7 @@ ngx_live_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_live_max_module = ngx_count_modules(cf->cycle, NGX_LIVE_MODULE);
 
 
-    /* the live main_conf context, it is the same in the all live contexts */
+    /* the live main_conf context, it is the same in all the live contexts */
 
     ctx->main_conf = ngx_pcalloc(cf->pool,
                                  sizeof(void *) * ngx_live_max_module);

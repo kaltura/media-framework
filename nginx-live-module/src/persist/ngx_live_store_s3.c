@@ -28,6 +28,8 @@ static char *ngx_live_store_s3_block(ngx_conf_t *cf, ngx_command_t *cmd,
 static char *ngx_live_store_s3_set_url_slot(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 
+static ngx_int_t ngx_live_store_s3_postconfiguration(ngx_conf_t *cf);
+
 static void *ngx_live_store_s3_create_main_conf(ngx_conf_t *cf);
 
 static void *ngx_live_store_s3_create_preset_conf(ngx_conf_t *cf);
@@ -36,7 +38,9 @@ static char *ngx_live_store_s3_merge_preset_conf(ngx_conf_t *cf, void *parent,
 
 
 typedef struct {
-    ngx_str_t                 name;
+    ngx_queue_t               queue;
+
+    ngx_json_str_t            name;
 
     /* conf */
     ngx_url_t                *url;
@@ -52,6 +56,9 @@ typedef struct {
     ngx_str_t                 signing_key;
     ngx_str_t                 key_scope;
     ngx_str_t                 key_scope_suffix;
+
+    ngx_live_store_stats_t    read_stats;
+    ngx_live_store_stats_t    write_stats;
 } ngx_live_store_s3_ctx_t;
 
 
@@ -61,7 +68,7 @@ typedef struct {
 
 
 typedef struct {
-    ngx_array_t               blocks;
+    ngx_queue_t               blocks;   /* ngx_live_store_s3_ctx_t * */
 } ngx_live_store_s3_main_conf_t;
 
 
@@ -135,7 +142,7 @@ static ngx_command_t  ngx_live_store_s3_block_commands[] = {
 
 static ngx_live_module_t  ngx_live_store_s3_module_ctx = {
     NULL,                                     /* preconfiguration */
-    NULL,                                     /* postconfiguration */
+    ngx_live_store_s3_postconfiguration,      /* postconfiguration */
 
     ngx_live_store_s3_create_main_conf,       /* create main configuration */
     NULL,                                     /* init main configuration */
@@ -166,6 +173,9 @@ static ngx_str_t  ngx_live_store_s3_aws4_request =
 
 static ngx_str_t  ngx_live_store_s3_aws4 =
     ngx_string("AWS4");
+
+
+#include "ngx_live_store_s3_json.h"
 
 
 static ngx_url_t *
@@ -468,20 +478,19 @@ ngx_live_store_s3_generate_signing_key(ngx_live_store_s3_ctx_t *ctx,
 
 
 static ngx_live_store_s3_ctx_t *
-ngx_live_store_s3_get_ctx(ngx_array_t *blocks, ngx_str_t *name)
+ngx_live_store_s3_get_ctx(ngx_queue_t *blocks, ngx_str_t *name)
 {
-    ngx_uint_t                 i;
-    ngx_live_store_s3_ctx_t   *ctx;
-    ngx_live_store_s3_ctx_t  **pctx;
+    ngx_queue_t              *q;
+    ngx_live_store_s3_ctx_t  *ctx;
 
-    pctx = blocks->elts;
+    for (q = ngx_queue_head(blocks);
+        q != ngx_queue_sentinel(blocks);
+        q = ngx_queue_next(q))
+    {
+        ctx = ngx_queue_data(q, ngx_live_store_s3_ctx_t, queue);
 
-    for (i = 0; i < blocks->nelts; i++) {
-
-        ctx = pctx[i];
-
-        if (ctx->name.len == name->len &&
-            ngx_strncasecmp(ctx->name.data, name->data, name->len) == 0)
+        if (ctx->name.s.len == name->len &&
+            ngx_strncasecmp(ctx->name.s.data, name->data, name->len) == 0)
         {
             return ctx;
         }
@@ -494,14 +503,13 @@ ngx_live_store_s3_get_ctx(ngx_array_t *blocks, ngx_str_t *name)
 static char *
 ngx_live_store_s3_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    char                        *rv;
-    ngx_str_t                    name;
-    ngx_str_t                   *value;
-    ngx_conf_t                   save;
-    ngx_array_t                 *blocks = conf;
-    ngx_live_store_s3_ctx_t     *ctx;
-    ngx_live_store_s3_ctx_t    **pctx;
-    ngx_live_block_conf_ctx_t    conf_ctx;
+    char                       *rv;
+    ngx_str_t                   name;
+    ngx_str_t                  *value;
+    ngx_conf_t                  save;
+    ngx_queue_t                *blocks = conf;
+    ngx_live_store_s3_ctx_t    *ctx;
+    ngx_live_block_conf_ctx_t   conf_ctx;
 
     value = cf->args->elts;
 
@@ -544,14 +552,10 @@ ngx_live_store_s3_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return rv;
     }
 
-    ctx->name = name;
+    ctx->name.s = name;
+    ngx_json_str_set_escape(&ctx->name);
 
-    pctx = ngx_array_push(blocks);
-    if (pctx == NULL) {
-        return NGX_CONF_ERROR;
-    }
-
-    *pctx = ctx;
+    ngx_queue_insert_tail(blocks, &ctx->queue);
 
     return NGX_CONF_OK;
 }
@@ -932,7 +936,7 @@ ngx_live_store_s3_get_info(ngx_live_channel_t *channel, ngx_str_t *name)
 
     ctx = conf->ctx;
 
-    *name = ctx->name;
+    *name = ctx->name.s;
 }
 
 
@@ -948,7 +952,7 @@ ngx_live_store_s3_read_init(ngx_live_store_read_request_t *request)
     ctx = conf->ctx;
 
     return ngx_live_store_http_read_init(request, ctx->url,
-        ngx_live_store_s3_get_request, ctx);
+        ngx_live_store_s3_get_request, ctx, &ctx->read_stats);
 }
 
 
@@ -987,7 +991,8 @@ ngx_live_store_s3_write(ngx_live_store_write_request_t *request)
     cl->buf = b;
     cl->next = NULL;
 
-    return ngx_live_store_http_write(request, ctx->url, cl, request->cl);
+    return ngx_live_store_http_write(request, ctx->url, cl, request->cl,
+        &ctx->write_stats);
 }
 
 
@@ -1036,6 +1041,28 @@ ngx_live_store_s3_set(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 }
 
 
+static ngx_live_json_writer_def_t  ngx_live_store_s3_json_writers[] = {
+    { { ngx_live_store_s3_json_get_size,
+        ngx_live_store_s3_json_write },
+      NGX_LIVE_JSON_CTX_STORE },
+
+      ngx_live_null_json_writer
+};
+
+
+static ngx_int_t
+ngx_live_store_s3_postconfiguration(ngx_conf_t *cf)
+{
+    if (ngx_live_core_json_writers_add(cf,
+        ngx_live_store_s3_json_writers) != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
 static void *
 ngx_live_store_s3_create_main_conf(ngx_conf_t *cf)
 {
@@ -1046,12 +1073,7 @@ ngx_live_store_s3_create_main_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    if (ngx_array_init(&smcf->blocks, cf->pool, 2,
-        sizeof(ngx_live_store_s3_ctx_t *))
-        != NGX_OK)
-    {
-        return NULL;
-    }
+    ngx_queue_init(&smcf->blocks);
 
     return smcf;
 }

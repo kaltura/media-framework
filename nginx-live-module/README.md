@@ -1709,6 +1709,16 @@ The details provided for each field include -
     - `size` - integer (R), the total size of memory occupied by zombie buffers
     - `count` - integer (R), the total number of zombie buffer queues
     - `lock_count` - integer (R), the total number of locks across all zombie buffers
+- `store` - object (R), contains statistics about storage reads/writes, the object contains the following fields:
+	- `s3` - object (R), contains statistics about s3 reads/writes.
+		The keys are s3 block names, as defined using the `store_s3_block` directive.
+		The values are objects, containing two fields - `read` / `write`.
+		Each one of them is an object containing the following fields:
+		- `started` - integer (R), the number of requests that were started
+		- `error` - integer (R), the number of failed requests
+		- `success` - integer (R), the number of successful requests
+		- `success_msec` - integer (R), the total number of milliseconds consumed by successful requests
+		- `success_size` - integer (R), the total number of bytes that were successfully written / read
 
 ### Channel Object
 
