@@ -869,6 +869,11 @@ ngx_kmp_out_upstream_auto_ack(ngx_kmp_out_upstream_t *u, size_t left,
         limit = u->track->stats.last_frame_written;
     }
 
+    ngx_log_debug4(NGX_LOG_DEBUG_KMP, &u->log, 0,
+        "ngx_kmp_out_upstream_auto_ack: "
+        "force: %i, connected: %d, acked_bytes: %O, limit: %O",
+        force, u->last != NULL, u->acked_bytes, limit);
+
     for (count = 0; ; count++) {
 
         rc = ngx_kmp_out_upstream_read_packet(u, &kmp_header, limit);
@@ -924,11 +929,9 @@ ngx_kmp_out_upstream_auto_ack(ngx_kmp_out_upstream_t *u, size_t left,
 
 done:
 
-    ngx_log_debug5(NGX_LOG_DEBUG_KMP, &u->log, 0,
+    ngx_log_debug2(NGX_LOG_DEBUG_KMP, &u->log, 0,
         "ngx_kmp_out_upstream_auto_ack: "
-        "acked %ui packets, force: %i, connected: %d, "
-        "acked_bytes: %O, limit: %O",
-        count, force, u->last != NULL, limit, u->acked_bytes);
+        "acked %ui packets, acked_bytes: %O", count, u->acked_bytes);
 
     return count;
 }
