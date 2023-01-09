@@ -17,6 +17,10 @@ $ccConf = null;
 $ccOutputAll = false;
 $ccDecoderUrl = 'kmp://127.0.0.1:8004';
 
+$rtmpOutUrl = null;     // 'rtmp://host:port/app/stream';
+$rtmpOutKmpUrl = 'kmp://127.0.0.1:8005';
+
+
 function outputJson($params)
 {
     header('Content-Type: application/json');
@@ -224,6 +228,25 @@ function getCCDecodeUpstream($segmenterKmpUrl, $channelId, $ccConf)
 }
 
 
+function getRtmpOutUpstream($rtmpOutUrl)
+{
+    global $rtmpOutKmpUrl;
+
+    $connectData = array(
+        'url' => $rtmpOutUrl,
+        'upstream_id' => 'rtmp',
+    );
+
+    return array(
+        'id' => 'rtmp-out',
+        'url' => $rtmpOutKmpUrl,
+        'required' => false,
+        'resume_from' => 'last_written',
+        'connect_data' => base64_encode(json_encode($connectData)),
+    );
+}
+
+
 function setupSegmenterTranscodedTracks($segmenterApiUrl, $channelId, $variants, $tracks, $mediaType)
 {
     $segmenterApi = array();
@@ -340,6 +363,10 @@ case 'republish':
         $upstream = getCCDecodeUpstream($segmenterKmpUrl, $channelId, $ccConf);
         break;
 
+    case 'rtmp-out':
+        $upstream = getRtmpOutUpstream($rtmpOutUrl);
+        break;
+
     default:
         $upstream = array('url' => $segmenterKmpUrl);
         break;
@@ -444,6 +471,12 @@ if ($mediaType == 'video' && $ccConf !== false)
     }
 
     $upstreams[] = getCCDecodeUpstream($segmenterKmpUrl, $channelId, $ccConf);
+}
+
+// rtmp output
+if ($rtmpOutUrl)
+{
+    $upstreams[] = getRtmpOutUpstream($rtmpOutUrl);
 }
 
 // return the publish response
