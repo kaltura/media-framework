@@ -221,6 +221,13 @@ int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo 
         ff_isom_write_avcc(extra,codecpar->extradata , codecpar->extradata_size);
         //override data_size with mp4 format
         header.data_size = avio_close_dyn_buf(extra, &actualExtraData);
+
+        LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] video kmp_media_info, codec id %d extradata_size %d bytes converted(mp4) %d bytes",
+                context->sessionName,
+                media_info.codec_id,
+                codecpar->extradata_size,
+                header.data_size);
+
     }
 
 
