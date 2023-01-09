@@ -127,6 +127,7 @@ ngx_kmp_out_upstream_copy(ngx_kmp_out_upstream_t *dst,
     dst->acked_frame_id = src->acked_frame_id;
     dst->acked_upstream_frame_id = src->acked_upstream_frame_id;
     dst->acked_offset = src->acked_offset;
+    dst->acked_bytes = src->acked_bytes;
 
     return NGX_OK;
 }
