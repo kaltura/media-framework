@@ -14,10 +14,18 @@ docker build -t kaltura/transcoder-dev -f Dockerfile ./
 ```sh
 docker run -p 16543:16543 -p 18001:18001 --cap-add=SYS_PTRACE --security-opt seccomp=unconfined -it -v `pwd`/config.json:/data/config.json kaltura/transcoder-dev:latest /build/transcoder -f /data/config.json
 ```
+## Supported codecs:
+### Input:
+* h254
+* h265
+### Output:
+* h254
+* h265
 
 ## Usage
 
 `transcoder [-c CONF_JSON] [-f CONF_FILE]`
+
 
 ### Options
 
