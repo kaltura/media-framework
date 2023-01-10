@@ -135,7 +135,7 @@ BODY: <?xml version="1.0"?>
       </SegmentTemplate>
       <Representation
           id="ssub1-t-stpp"
-          bandwidth="445"
+          bandwidth="649"
           mimeType="application/mp4"
           codecs="stpp"
           startWithSAP="1"/>
