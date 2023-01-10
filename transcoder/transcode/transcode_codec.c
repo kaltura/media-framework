@@ -29,7 +29,8 @@ static int hw_decoder_init( transcode_codec_t * pContext,AVCodec* decoder,AVCode
             return -1;
         }
         if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
-            config->device_type == type) {
+            config->device_type == type &&
+            config->pix_fmt == AV_PIX_FMT_CUDA) {
             ctx->pix_fmt = config->pix_fmt;
             break;
         }
@@ -72,9 +73,9 @@ static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,const enum AVPixelFo
 {
     const enum AVPixelFormat *p;
 
-
+    //TODO: sort pix_fmts according to hw support
     for (p = pix_fmts; *p != -1; p++) {
-        if (*p == ctx->pix_fmt) {
+        if (*p == AV_PIX_FMT_CUDA || *p == AV_PIX_FMT_NV12) {
             LOGGER(CATEGORY_CODEC, AV_LOG_INFO, "get_hw_format returned %s",av_get_pix_fmt_name (*p));
             return *p;
         }
@@ -250,7 +251,7 @@ init_video_encoder(transcode_codec_t * pContext,
         LOGGER(CATEGORY_CODEC,AV_LOG_INFO,"set video encoder profile %s",pOutput->videoParams.profile);
     }
 
-    if(enc_ctx->codec_id == AV_CODEC_ID_H264) {
+    if(enc_ctx->codec_id == AV_CODEC_ID_H264 || enc_ctx->codec_id == AV_CODEC_ID_HEVC) {
        // force key frame when input key frame arrive
        enc_ctx->gop_size=INT_MAX;
        av_opt_set_int(enc_ctx->priv_data, "forced-idr", 1, 0);

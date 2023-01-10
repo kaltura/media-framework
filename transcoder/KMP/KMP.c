@@ -162,6 +162,8 @@ static kmp_codec_id get_video_codec(AVCodecParameters *apar)
             return KMP_CODEC_VIDEO_ON2_VP6_ALPHA;
         case AV_CODEC_ID_H264:
             return KMP_CODEC_VIDEO_H264;
+        case AV_CODEC_ID_HEVC:
+            return KMP_CODEC_VIDEO_HEVC;
         default:
             return (kmp_codec_id)apar->codec_id;
     }
@@ -216,9 +218,24 @@ int KMP_send_mediainfo( KMP_session_t *context,transcode_mediaInfo_t* mediaInfo 
     if (codecpar->codec_type==AVMEDIA_TYPE_VIDEO && codecpar->extradata_size>0 && codecpar->extradata[0] != 1) { //convert to mp4 header
         AVIOContext *extra = NULL;
         avio_open_dyn_buf(&extra);
-        ff_isom_write_avcc(extra,codecpar->extradata , codecpar->extradata_size);
+
+        switch(codecpar->codec_id) {
+        case AV_CODEC_ID_H264:
+            ff_isom_write_avcc(extra,codecpar->extradata , codecpar->extradata_size);
+            break;
+        case AV_CODEC_ID_H265:
+            ff_isom_write_hvcc(extra,codecpar->extradata , codecpar->extradata_size, 0);
+            break;
+        };
         //override data_size with mp4 format
         header.data_size = avio_close_dyn_buf(extra, &actualExtraData);
+
+        LOGGER(CATEGORY_KMP,AV_LOG_DEBUG,"[%s] video kmp_media_info, codec id %d extradata_size %d bytes converted(mp4) %d bytes",
+                context->sessionName,
+                media_info.codec_id,
+                codecpar->extradata_size,
+                header.data_size);
+
     }
 
 
@@ -653,6 +670,9 @@ static void set_video_codec(int codecid,AVCodecParameters *apar)
         case KMP_CODEC_VIDEO_H264:
             apar->codec_id = AV_CODEC_ID_H264;
             break;
+         case KMP_CODEC_VIDEO_HEVC:
+             apar->codec_id = AV_CODEC_ID_HEVC;
+             break;
         default:
             apar->codec_tag = codecid;
             break;
