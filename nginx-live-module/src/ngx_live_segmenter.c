@@ -972,8 +972,9 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
             if (duration < 0 || duration > NGX_MAX_UINT32_VALUE) {
                 ngx_log_error(NGX_LOG_WARN, &track->log, 0,
                     "ngx_live_segmenter_frame_list_copy: "
-                    "invalid frame duration %L (1), dts: %L, prev: %L",
-                    duration, src->dts, prev_src->dts);
+                    "invalid frame duration %L (1), "
+                    "dts: %L, flags: 0x%uxD, prev_dts: %L",
+                    duration, src->dts, src->flags, prev_src->dts);
             }
 
             prev_dest->duration = duration;
