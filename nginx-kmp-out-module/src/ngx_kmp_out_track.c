@@ -1304,7 +1304,7 @@ ngx_kmp_out_track_write_frame(ngx_kmp_out_track_t *track,
     } else {
         ngx_log_debug6(NGX_LOG_DEBUG_KMP, &track->log, 0,
             "ngx_kmp_out_track_write_frame: input: %V, created: %L, "
-            "size: %uD, dts: %L, flags: %uD, ptsDelay: %uD",
+            "size: %uD, dts: %L, flags: 0x%uxD, ptsDelay: %uD",
             &track->input_id.s, frame->f.created, frame->header.data_size,
             frame->f.dts, frame->f.flags, frame->f.pts_delay);
     }
@@ -1425,7 +1425,7 @@ ngx_kmp_out_track_write_frame_end(ngx_kmp_out_track_t *track,
     } else {
         ngx_log_debug6(NGX_LOG_DEBUG_KMP, &track->log, 0,
             "ngx_kmp_out_track_write_frame_end: input: %V, created: %L, "
-            "size: %uD, dts: %L, flags: %uD, ptsDelay: %uD",
+            "size: %uD, dts: %L, flags: 0x%uxD, ptsDelay: %uD",
             &track->input_id.s, frame->f.created, frame->header.data_size,
             frame->f.dts, frame->f.flags, frame->f.pts_delay);
     }
