@@ -69,6 +69,7 @@ cd /opt/srt
 ./configure
 make
 sudo make install
+sudo ldconfig
 
 # build nginx
 cd /opt/nginx
