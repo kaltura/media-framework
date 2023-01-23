@@ -29,7 +29,7 @@ endif
 
 IDIRS = -I. -I$(FFMPEG_LIB_DIR) -I"./common" -I"./utils"  -I"./KMP" -I"./transcode" -I"./debug"
 LDIR = -L/usr/local/cuda/lib64 -L$(X264_LIB_DIR) -L$(FFMPEG_LIB_DIR)/libavfilter -L$(FFMPEG_LIB_DIR)/libswresample  -L$(FFMPEG_LIB_DIR)/libswscale -L$(FFMPEG_LIB_DIR)/libwresmple -L$(FFMPEG_LIB_DIR)/libavdevice -L$(FFMPEG_LIB_DIR)/libavutil -L$(FFMPEG_LIB_DIR)/libavformat -L$(FFMPEG_LIB_DIR)/libavcodec -L$(FFMPEG_LIB_DIR)/libpostproc -L/usr/local/lib
-FFMPEG_LIBS = -lavfilter  -lavformat -lswscale  -lavcodec   -lavutil  -lswresample -lpostproc -lx264  
+FFMPEG_LIBS = -lavfilter  -lavformat -lswscale  -lavcodec   -lavutil  -lswresample -lpostproc -lx264 -lx265
 LIBS = -lm -lpthread  -lz -lbz2 -ldl 
 CUDA_LIBS = -lnppig_static -lnppicc_static -lnppc_static -lnppidei_static -lcublas_static -lcudart_static -lculibos  -lcudart -lstdc++
 CFLAGS = -Wall -g $(IDIRS) -fPIC  -static -std=c11 -D_GNU_SOURCE -fexceptions

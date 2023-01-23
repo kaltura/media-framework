@@ -43,8 +43,9 @@ int print_output(transcode_session_output_t* pOutput) {
         return 0;
     }
     if (pOutput->codec_type==AVMEDIA_TYPE_VIDEO) {
-        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"(%s) output configuration: mode: transcode bitrate: %d Kbit/s  resolution: %dx%d  profile: %s preset: %s",
+        LOGGER(CATEGORY_OUTPUT,AV_LOG_INFO,"(%s) output configuration: mode: codec: %s transcode bitrate: %d Kbit/s  resolution: %dx%d  profile: %s preset: %s",
                pOutput->track_id,
+               pOutput->codec,
                pOutput->bitrate / 1000,
                pOutput->videoParams.width,
                pOutput->videoParams.height,
