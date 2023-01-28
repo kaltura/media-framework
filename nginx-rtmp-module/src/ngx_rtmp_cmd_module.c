@@ -211,7 +211,7 @@ ngx_rtmp_cmd_connect_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
         { NGX_RTMP_AMF_NUMBER,
           ngx_string("objectEncoding"),
-          &v.object_encoding, 0},
+          &v.object_encoding, 0 },
     };
 
     static ngx_rtmp_amf_elt_t  in_elts[] = {
