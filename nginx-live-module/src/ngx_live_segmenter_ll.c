@@ -1624,8 +1624,10 @@ ngx_live_lls_track_idle(ngx_live_track_t *track)
 
     ctx->fstate = ngx_live_lls_fs_idle;
 
-    (void) ngx_live_core_track_event(track,
-        NGX_LIVE_EVENT_TRACK_INACTIVE, NULL);
+    if (track->media_type != KMP_MEDIA_SUBTITLE) {
+        (void) ngx_live_core_track_event(track,
+            NGX_LIVE_EVENT_TRACK_INACTIVE, NULL);
+    }
 
     cctx->non_idle_tracks--;
     if (cctx->non_idle_tracks <= 0 && cctx->pending.nelts <= 0) {
