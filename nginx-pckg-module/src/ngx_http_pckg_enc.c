@@ -30,7 +30,7 @@ static ngx_conf_enum_t  ngx_http_pckg_enc_schemes[] = {
 
 static ngx_conf_enum_t  ngx_http_pckg_enc_scopes[] = {
     { ngx_string("channel"),    NGX_HTTP_PCKG_ENC_SCOPE_CHANNEL },
-    { ngx_string("media_type"), NGX_HTTP_PCKG_ENC_SCOPE_MEDIA_TYPE},
+    { ngx_string("media_type"), NGX_HTTP_PCKG_ENC_SCOPE_MEDIA_TYPE },
     { ngx_string("variant"),    NGX_HTTP_PCKG_ENC_SCOPE_VARIANT },
     { ngx_string("track"),      NGX_HTTP_PCKG_ENC_SCOPE_TRACK },
 
