@@ -14,27 +14,24 @@ docker build -t kaltura/transcoder-dev -f Dockerfile ./
 ```sh
 docker run -p 16543:16543 -p 18001:18001 --cap-add=SYS_PTRACE --security-opt seccomp=unconfined -it -v `pwd`/config.json:/data/config.json kaltura/transcoder-dev:latest /build/transcoder -f /data/config.json
 ```
-# Supported codecs:
+## Supported Codecs
 
-## Hardware codecs:
-  for more details please refer to [Dockerfile.build](Dockerfile.build)
+### Hardware Codecs
+
+For more details please refer to [Dockerfile.build](Dockerfile.build).
 * h264 - NVIDIA CUDA
 * h265 - NVIDIA CUDA
 
-## Video:
-### Input:
-* h254
-* h265
-### Output:
-* h254
-* h265
-## Audio:
-### Input:
-* aac
-* mp3
-### Output:
-* aac
-* mp3
+### Video
+
+- Input: *h264 / AVC*, *h265 / HEVC*
+- Output: *h264 / AVC*, *h265 / HEVC*
+
+### Audio
+
+- Input: *AAC*, *MP3*
+- Output: *AAC*, *MP3*
+
 ## Usage
 
 `transcoder [-c CONF_JSON] [-f CONF_FILE]`
