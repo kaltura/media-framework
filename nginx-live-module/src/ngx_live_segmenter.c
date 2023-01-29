@@ -1888,7 +1888,7 @@ ngx_live_segmenter_remove_frames(ngx_live_track_t *track, ngx_uint_t count,
     cctx = ngx_live_get_module_ctx(channel, ngx_live_segmenter_module);
 
     ctx->frame_count -= count;
-    if (ctx->frame_count <= 0) {
+    if (ctx->frame_count <= 0 && track->media_type != KMP_MEDIA_SUBTITLE) {
         (void) ngx_live_core_track_event(track,
             NGX_LIVE_EVENT_TRACK_INACTIVE, NULL);
     }
