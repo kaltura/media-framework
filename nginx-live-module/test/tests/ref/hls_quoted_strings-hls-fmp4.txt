@@ -188,7 +188,7 @@ BODY: SIZE: 1106, MD5: 0400e17df24da90ee5b4f9630ed6854f
 
 URL: /seg-1-smain.m4s
 HEADERS: 200 video/mp4
-BODY: SIZE: 46063, MD5: 7e4af5cf774c2c78f247914eea1b0ba3
+BODY: SIZE: 46063, MD5: f74df55c362bf16ad749c25e19edd5cc
 
 URL: /seg-2-smain.m4s
 HEADERS: 200 video/mp4
