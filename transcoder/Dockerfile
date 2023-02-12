@@ -20,6 +20,3 @@ WORKDIR /build
 COPY --from=dev /usr/lib/x86_64-linux-gnu/libx264.s* /usr/lib/x86_64-linux-gnu/
 COPY --from=dev /usr/lib/x86_64-linux-gnu/libx265.s* /usr/lib/x86_64-linux-gnu/libnuma.s* /usr/lib/x86_64-linux-gnu/
 COPY --from=dev /build/transcoder  /build/
-COPY --from=dev /build/service  /build/
-
-
