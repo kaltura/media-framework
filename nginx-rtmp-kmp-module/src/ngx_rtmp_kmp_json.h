@@ -25,9 +25,7 @@ ngx_rtmp_kmp_connect_rtmp_json_get_size(ngx_rtmp_kmp_connect_t *obj,
         sizeof("\",\"tc_url\":\"") - 1 + ngx_json_str_get_size(&obj->tc_url) +
         sizeof("\",\"page_url\":\"") - 1 +
             ngx_json_str_get_size(&obj->page_url) +
-        sizeof("\",\"addr\":\"") - 1 + s->connection->addr_text.len +
-            ngx_escape_json(NULL, s->connection->addr_text.data,
-            s->connection->addr_text.len) +
+        sizeof("\",\"addr\":\"") - 1 + ngx_json_str_get_size(&obj->addr) +
         sizeof("\",\"connection\":") - 1 + NGX_INT_T_LEN +
         sizeof("}") - 1;
 
@@ -50,8 +48,7 @@ ngx_rtmp_kmp_connect_rtmp_json_write(u_char *p, ngx_rtmp_kmp_connect_t *obj,
     p = ngx_copy_fix(p, "\",\"page_url\":\"");
     p = ngx_json_str_write(p, &obj->page_url);
     p = ngx_copy_fix(p, "\",\"addr\":\"");
-    p = (u_char *) ngx_escape_json(p, s->connection->addr_text.data,
-        s->connection->addr_text.len);
+    p = ngx_json_str_write(p, &obj->addr);
     p = ngx_copy_fix(p, "\",\"connection\":");
     p = ngx_sprintf(p, "%uA", (ngx_atomic_uint_t) s->connection->number);
     *p++ = '}';

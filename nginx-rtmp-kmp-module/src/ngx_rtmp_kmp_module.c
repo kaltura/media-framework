@@ -40,6 +40,7 @@ typedef struct {
     ngx_json_str_t  swf_url;
     ngx_json_str_t  tc_url;
     ngx_json_str_t  page_url;
+    ngx_json_str_t  addr;
 } ngx_rtmp_kmp_connect_t;
 
 #include "ngx_rtmp_kmp_json.h"
@@ -357,7 +358,7 @@ ngx_rtmp_kmp_get_publish_info(ngx_rtmp_kmp_publish_t *kp,
 
 static void
 ngx_rtmp_kmp_get_connect_info(ngx_rtmp_kmp_connect_t *kc,
-    ngx_rtmp_connect_t *v)
+    ngx_rtmp_connect_t *v, ngx_connection_t *c)
 {
     ngx_json_str_from_c(kc->app, v->app);
     ngx_json_str_from_c(kc->args, v->args);
@@ -365,6 +366,9 @@ ngx_rtmp_kmp_get_connect_info(ngx_rtmp_kmp_connect_t *kc,
     ngx_json_str_from_c(kc->swf_url, v->swf_url);
     ngx_json_str_from_c(kc->tc_url, v->tc_url);
     ngx_json_str_from_c(kc->page_url, v->page_url);
+    kc->addr.s.data = (c->proxy_protocol != NULL && c->proxy_protocol->src_addr.len > 0) ? c->proxy_protocol->src_addr.data : c->addr_text.data;
+    kc->addr.s.len = (c->proxy_protocol != NULL && c->proxy_protocol->src_addr.len > 0) ? c->proxy_protocol->src_addr.len : c->addr_text.len;
+    ngx_json_str_set_escape(&kc->addr);
 }
 
 
@@ -546,7 +550,7 @@ ngx_rtmp_kmp_connect_create(void *arg, ngx_pool_t *pool, ngx_chain_t **body)
 
     s = ctx->s;
 
-    ngx_rtmp_kmp_get_connect_info(&connect, &ctx->connect);
+    ngx_rtmp_kmp_get_connect_info(&connect, &ctx->connect, s->connection);
 
     size = ngx_rtmp_kmp_connect_json_get_size(&connect, s);
 
