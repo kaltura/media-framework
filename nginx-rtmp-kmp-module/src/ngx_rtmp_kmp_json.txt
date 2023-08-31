@@ -5,7 +5,7 @@ out ngx_rtmp_kmp_connect_rtmp_json ngx_rtmp_kmp_connect_t ngx_rtmp_session_t *s
     swf_url %jV
     tc_url %jV
     page_url %jV
-    addr %V s->connection->addr_text
+    addr %jV
     connection %uA s->connection->number
 
 out ngx_rtmp_kmp_connect_json ngx_rtmp_kmp_connect_t ngx_rtmp_session_t *s
