@@ -1,11 +1,13 @@
 
 out ngx_rtmp_kmp_connect_rtmp_json ngx_rtmp_kmp_connect_t ngx_rtmp_session_t *s
+    - %var ngx_rtmp_kmp_ctx_t *ctx
+    - %code ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_kmp_module);
     app %jV
     flashver %jV
     swf_url %jV
     tc_url %jV
     page_url %jV
-    addr %V s->connection->addr_text
+    addr %jV ctx->remote_addr
     connection %uA s->connection->number
 
 out ngx_rtmp_kmp_connect_json ngx_rtmp_kmp_connect_t ngx_rtmp_session_t *s
