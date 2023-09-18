@@ -258,7 +258,7 @@ void log_frame_side_data(const char* category,const AVFrame *pFrame)
     }
 }
 
-int add_packet_frame_id(AVPacket *packet,int64_t frame_id,int64_t pts) {
+int add_packet_frame_id(AVPacket *packet,int64_t frame_id,pts_t pts) {
      AVDictionary * frameDict = NULL;
      int frameDictSize = 0;
      char buf[sizeof("9223372036854775807")];
@@ -295,7 +295,7 @@ int get_packet_frame_id(const AVPacket *packet,int64_t *frame_id_ptr)
     return 0;
 }
 
-int get_packet_pts(const AVPacket *packet,int64_t *pts_ptr)
+int get_packet_pts(const AVPacket *packet,pts_t *pts_ptr)
 {
     const char *pts_str;
      AVDictionary * frameDict = NULL;
@@ -308,7 +308,7 @@ int get_packet_pts(const AVPacket *packet,int64_t *pts_ptr)
     pts_str = av_dict_get(frameDict, "pts", NULL, 0)->value;
     if(!pts_str)
        return AVERROR(EINVAL);
-    *pts_ptr = strtoull(pts_str,NULL,10);
+    *pts_ptr = strtoll(pts_str,NULL,10);
     av_dict_free(&frameDict);
     return 0;
 }
@@ -327,14 +327,14 @@ int get_frame_id(const AVFrame *frame,uint64_t *frame_id_ptr)
     return AVERROR(EINVAL);
 }
 
-int get_frame_pts(const AVFrame *frame,int64_t *pts_ptr)
+int get_frame_pts(const AVFrame *frame,pts_t *pts_ptr)
 {
     *pts_ptr = AV_NOPTS_VALUE;
     if(frame->metadata) {
         const char *pts_str = av_dict_get(frame->metadata, "pts", NULL, 0)->value;
          if(!pts_str)
             return AVERROR(EINVAL);
-        *pts_ptr = strtoull(pts_str,NULL,10);
+        *pts_ptr = strtoll(pts_str,NULL,10);
         return 0;
     }
     return AVERROR(EINVAL);

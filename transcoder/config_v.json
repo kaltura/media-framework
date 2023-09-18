@@ -1,7 +1,7 @@
 {
     "input": {
-        "file": "/media/worng_order_audio_only.ts",
-        "realTime": false,
+        "file": "/media/worng_order_video_only.mp4",
+        "realTime": true,
         "activeStream": 0,
         "xduration": 9000000,
         "randomDataPercentage": 0,
@@ -67,20 +67,20 @@
         },
         {
             "trackId": "a33",
-            "enabled": true,
+            "enabled": false,
             "bitrate": 64000,
             "passthrough": false,
             "codec": "aac",
             "audioParams": {
-                "samplingRate": 44100,
+                "samplingRate": -1,
                 "channels": 2
             }
         },
         {
             "trackId": "v33",
             "passthrough": false,
-            "enabled": false,
-            "bitrate": 900,
+            "enabled": true,
+            "bitrate": 900000,
             "codec": "h264",
             "videoParams": {
                 "profile": "main",
