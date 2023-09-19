@@ -119,7 +119,7 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
             pthread_mutex_lock(&server->diagnostics_locker);  // lock the critical section
             samples_stats_add(&server->receiverStats,packet->dts,packet->pos,packet->size);
             pthread_mutex_unlock(&server->diagnostics_locker);  // lock the critical section
-            if(add_packet_frame_id(packet,received_frame_id,packet->pts)){
+            if(add_packet_frame_id_and_pts(packet,received_frame_id,packet->pts)){
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_ERROR,"[%s] failed to set frame id %lld on packet",session->stream_name,received_frame_id);
             }
             LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"[%s] received packet %s (%p) #: %lld",session->stream_name,getPacketDesc(packet),transcode_session,received_frame_id);

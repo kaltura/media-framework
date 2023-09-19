@@ -33,12 +33,11 @@ char *av_get_packet_desc(char *buf,int len, const AVPacket * packet);
 char* av_socket_info(char* buf,int len,const struct sockaddr_in* sa);
 void log_frame_side_data(const char* category,const AVFrame *pFrame);
 typedef int64_t pts_t;
-int add_packet_frame_id(AVPacket *packet,int64_t frame_id,pts_t pts);
+int add_packet_frame_id_and_pts(AVPacket *packet,int64_t frame_id,pts_t pts);
 int get_frame_id(const AVFrame *frame,uint64_t *frame_id_ptr);
 int get_packet_frame_id(const AVPacket *packet,int64_t *frame_id_ptr);
-int add_packet_pts(AVPacket *packet,pts_t pts);
-int get_packet_pts(const AVPacket *packet,pts_t *pts_ptr);
-int get_frame_pts(const AVFrame *frame,pts_t *pts_ptr);
+int get_packet_original_pts(const AVPacket *packet,pts_t *pts_ptr);
+int get_frame_original_pts(const AVFrame *frame,pts_t *pts_ptr);
 /**
  * Convenience macro, the return value should be used only directly in
  * function arguments but never stand-alone.

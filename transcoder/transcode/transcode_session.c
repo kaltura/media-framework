@@ -388,7 +388,7 @@ encoder_error:
                getPacketDesc(pOutPacket),
                encoderId);
         output_frame_id = pContext->transcoded_frame_first_id+pOutput->stats.totalFrames;
-        add_packet_frame_id(pOutPacket,output_frame_id,pOutPacket->pts);
+        add_packet_frame_id_and_pts(pOutPacket,output_frame_id,pOutPacket->pts);
 
         pOutPacket->pos=clock_estimator_get_clock(&pContext->clock_estimator,pOutPacket->dts);
 
@@ -593,7 +593,7 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
 
     // we do not rely on decoder timestamps since it does not
     // take into account arbitrary jumps.
-    if(!get_frame_pts(frame,&pts)) {
+    if(!get_frame_original_pts(frame,&pts)) {
         frame->pts = frame->pkt_dts = pts;
     }
 
