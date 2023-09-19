@@ -1,11 +1,10 @@
 {
     "input": {
-        "file": "/media/worng_order_audio_only.ts",
-        "realTime": false,
+        "file": "",
+        "realTime": true,
         "activeStream": 0,
-        "xduration": 9000000,
-        "randomDataPercentage": 0,
-        "jumpOffsetSec": -60
+        "duration": 9000000,
+        "randomDataPercentage": 0
     },
     "frameDropper1": {
         "enabled": false,
@@ -57,7 +56,7 @@
     "outputTracks": [
         {
             "trackId": "v32",
-            "enabled": false,
+            "enabled": true,
             "passthrough": true
         },
         {
@@ -67,19 +66,19 @@
         },
         {
             "trackId": "a33",
-            "enabled": true,
-            "bitrate": 64000,
+            "enabled": false,
+            "bitrate": 64,
             "passthrough": false,
             "codec": "aac",
             "audioParams": {
-                "samplingRate": 44100,
+                "samplingRate": -1,
                 "channels": 2
             }
         },
         {
             "trackId": "v33",
             "passthrough": false,
-            "enabled": false,
+            "enabled": true,
             "bitrate": 900,
             "codec": "h264",
             "videoParams": {
@@ -90,7 +89,7 @@
         },
         {
             "trackId": "v34",
-            "enabled": false,
+            "enabled": true,
             "passthrough": false,
             "bitrate": 600,
             "codec": "h264",
