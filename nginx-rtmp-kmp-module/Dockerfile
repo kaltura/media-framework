@@ -6,7 +6,7 @@ RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base 
 WORKDIR /tmp/build
 
 ARG NGINX_VERSION=1.21.0
-ARG SRT_VERSION=v1.5.2
+ARG SRT_VERSION=v1.5.3
 
 RUN git clone --branch ${SRT_VERSION} https://github.com/Haivision/srt/ && cd srt && ./configure && make && make install
 
