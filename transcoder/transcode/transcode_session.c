@@ -593,12 +593,9 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
 
     // we do not rely on decoder timestamps since it does not
     // take into account arbitrary jumps.
-    LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] before pts",ctx->name);
     if(!get_frame_original_pts(frame,&pts)) {
-        LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] pts is %d",ctx->name, pts);
         frame->pts = frame->pkt_dts = pts;
     }
-    LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] after pts",ctx->name);
 
     if(ctx->offset > 0){
         if(decoderCtx->codec_type == AVMEDIA_TYPE_AUDIO) {
