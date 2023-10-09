@@ -197,7 +197,7 @@ void get_filter_config(transcode_session_t *pSession,char *filterConfig,  transc
         char buf[64];
         av_get_channel_layout_string(buf,sizeof(buf),
             codec->ctx->channels,codec->ctx->channel_layout);
-        sprintf(filterConfig,"aresample=async=1000:out_sample_rate=%d:out_channel_layout=%s",
+        sprintf(filterConfig,"aresample=async=0:out_sample_rate=%d:out_channel_layout=%s",
             codec->ctx->sample_rate,buf);
     }
 }
@@ -383,13 +383,12 @@ encoder_error:
             goto encoder_error;
         }
 
-        output_frame_id = pContext->transcoded_frame_first_id+pOutput->stats.totalFrames;
-        add_packet_frame_id(pOutPacket,output_frame_id);
-
         LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] received encoded frame %s from encoder Id %d",
                pOutput->track_id,
                getPacketDesc(pOutPacket),
                encoderId);
+        output_frame_id = pContext->transcoded_frame_first_id+pOutput->stats.totalFrames;
+        add_packet_frame_id_and_pts(pOutPacket,output_frame_id,pOutPacket->pts);
 
         pOutPacket->pos=clock_estimator_get_clock(&pContext->clock_estimator,pOutPacket->dts);
 
@@ -572,6 +571,7 @@ static void shift_audio_samples(AVFrame *frame,int shift_by) {
 
 int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame *frame)
 {
+   uint64_t pts;
    for (int outputId=0;outputId<ctx->outputs;outputId++) {
          transcode_session_output_t *pOutput=&ctx->output[outputId];
          if (!pOutput->passthrough && pOutput->encoderId==-1) {
@@ -591,7 +591,11 @@ int OnDecodedFrame(transcode_session_t *ctx,AVCodecContext* decoderCtx, AVFrame 
         return 0;
     }
 
-
+    // we do not rely on decoder timestamps since it does not
+    // take into account arbitrary jumps.
+    if(!get_frame_original_pts(frame,&pts)) {
+        frame->pts = frame->pkt_dts = pts;
+    }
 
     if(ctx->offset > 0){
         if(decoderCtx->codec_type == AVMEDIA_TYPE_AUDIO) {

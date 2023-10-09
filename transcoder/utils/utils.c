@@ -138,12 +138,14 @@ const char* pict_type_to_string(int pt) {
 char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
 {
     uint64_t frame_id;
+    int64_t pts = AV_NOPTS_VALUE;
     if (pFrame==NULL) {
         return "<NULL>";
     }
     get_frame_id(pFrame,&frame_id);
+    get_packet_original_pts(pFrame,&pts);
     if (pFrame->width>0) {
-        snprintf(buf,size,"pts=%s;samples=%d;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;ar=%d/%d;has_53cc=%d;frame_id=%ld",
+        snprintf(buf,size,"pts=%s;samples=%d;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;ar=%d/%d;has_53cc=%d;frame_id=%ld;orig_pts=%s",
              pts2str(pFrame->pts),
              pFrame->nb_samples,
              pFrame->pkt_pos != 0 ? ts2str(pFrame->pkt_pos,false) :  "N/A",
@@ -156,11 +158,13 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
              pFrame->height,
              pFrame->sample_aspect_ratio.num,
              pFrame->sample_aspect_ratio.den,
-             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL, frame_id);
+             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL,
+             frame_id,
+             pts2str(pts));
     } else {
-        snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%ld;frame_id=%ld",
+        snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%ld;frame_id=%ld;orig_pts=%s",
                  pts2str(pFrame->pts),
-                 pFrame->channels,pFrame->sample_rate,pFrame->format,pFrame->nb_samples,pFrame->channel_layout,frame_id);
+                 pFrame->channels,pFrame->sample_rate,pFrame->format,pFrame->nb_samples,pFrame->channel_layout,frame_id,pts2str(pts));
     }
     return buf;
 }
@@ -168,11 +172,14 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
 char *av_get_packet_desc(char *buf,int len,const  AVPacket * packet)
 {
     int64_t frame_id;
+    int64_t pts = AV_NOPTS_VALUE;
     if (packet==NULL) {
         return "<NULL>";
     }
     get_packet_frame_id(packet,&frame_id);
-    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;dur=%s;clock=%s;key=%s;size=%d;flags=%d;frame_id=%ld",
+    get_packet_original_pts(packet,&pts);
+
+    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;dur=%s;clock=%s;key=%s;size=%d;flags=%d;frame_id=%ld;orig_pts=%s",
              packet,
              packet->data,
              pts2str(packet->pts),
@@ -182,7 +189,8 @@ char *av_get_packet_desc(char *buf,int len,const  AVPacket * packet)
              (packet->flags & AV_PKT_FLAG_KEY)==AV_PKT_FLAG_KEY ? "Yes" : "No",
              packet->size,
              packet->flags,
-             frame_id);
+             frame_id,
+             pts2str(pts));
     return buf;
 }
 
@@ -204,17 +212,21 @@ char* av_socket_info(char* buf,int len,const struct sockaddr_in* sa)
 
 char *av_pts_to_string(char *buf, int64_t pts)
 {
-    int64_t totalSeconds=llabs(pts/90000);
-    int milliseconds=abs((int)(pts % 90000)/90);
-    int seconds = (totalSeconds % 60);
-    int minutes = (totalSeconds % 3600) / 60;
-    int hours = (totalSeconds % 86400) / 3600;
-    int days = (int)(totalSeconds / 86400);
-
-    if (days==0) {
-        sprintf(buf,"%s%.2d:%.2d:%.2d.%.3d",pts>=0 ? "" : "-",hours,minutes,seconds,milliseconds);
+    if(AV_NOPTS_VALUE == pts){
+        strcpy(buf,"AV_NOPTS_VALUE");
     } else {
-        sprintf(buf,"%s%d %.2d:%.2d:%.2d.%.3d",pts>=0 ? "" : "-",days,hours,minutes,seconds,milliseconds);
+        int64_t totalSeconds = llabs(pts/90000);
+        int milliseconds = abs((int)(pts % 90000)/90);
+        int seconds = (totalSeconds % 60);
+        int minutes = (totalSeconds % 3600) / 60;
+        int hours = (totalSeconds % 86400) / 3600;
+        int days = (int)(totalSeconds / 86400);
+
+        if (days == 0) {
+            sprintf(buf,"%s%.2d:%.2d:%.2d.%.3d",pts>=0 ? "" : "-",hours,minutes,seconds,milliseconds);
+        } else {
+            sprintf(buf,"%s%d.%.2d:%.2d:%.2d.%.3d",pts>=0 ? "" : "-",days,hours,minutes,seconds,milliseconds);
+        }
     }
     return buf;
 }
@@ -252,13 +264,15 @@ void log_frame_side_data(const char* category,const AVFrame *pFrame)
     }
 }
 
-int add_packet_frame_id(AVPacket *packet,int64_t frame_id) {
+int add_packet_frame_id_and_pts(AVPacket *packet,int64_t frame_id,pts_t pts) {
      AVDictionary * frameDict = NULL;
      int frameDictSize = 0;
      char buf[sizeof("9223372036854775807")];
      uint8_t *frameDictData = NULL;
      sprintf(buf,"%lld",frame_id);
      _S(av_dict_set(&frameDict, "frame_id", buf, 0));
+     sprintf(buf,"%lld",pts);
+     _S(av_dict_set(&frameDict, "pts", buf, 0));
      // Pack dictionary to be able to use it as a side data in AVPacket
      frameDictData = av_packet_pack_dictionary(frameDict, &frameDictSize);
      if(!frameDictData)
@@ -287,6 +301,25 @@ int get_packet_frame_id(const AVPacket *packet,int64_t *frame_id_ptr)
     return 0;
 }
 
+int get_packet_original_pts(const AVPacket *packet,pts_t *pts_ptr)
+{
+    const char *pts_str;
+     AVDictionary * frameDict = NULL;
+     int frameDictSize = 0;
+     uint8_t *frameDictData = av_packet_get_side_data(packet, AV_PKT_DATA_STRINGS_METADATA, &frameDictSize);
+     *pts_ptr = AV_NOPTS_VALUE;
+     if (!frameDictData)
+        return AVERROR(EINVAL);
+    _S(av_packet_unpack_dictionary(frameDictData,frameDictSize,&frameDict));
+    pts_str = av_dict_get(frameDict, "pts", NULL, 0)->value;
+    if(!pts_str)
+       return AVERROR(EINVAL);
+    *pts_ptr = strtoll(pts_str,NULL,10);
+    av_dict_free(&frameDict);
+    return 0;
+}
+
+
 int get_frame_id(const AVFrame *frame,uint64_t *frame_id_ptr)
 {
     *frame_id_ptr = AV_NOPTS_VALUE;
@@ -295,6 +328,19 @@ int get_frame_id(const AVFrame *frame,uint64_t *frame_id_ptr)
          if(!frame_str)
             return AVERROR(EINVAL);
         *frame_id_ptr = strtoull(frame_str,NULL,10);
+        return 0;
+    }
+    return AVERROR(EINVAL);
+}
+
+int get_frame_original_pts(const AVFrame *frame,pts_t *pts_ptr)
+{
+    *pts_ptr = AV_NOPTS_VALUE;
+    if(frame->metadata) {
+        const char *pts_str = av_dict_get(frame->metadata, "pts", NULL, 0)->value;
+         if(!pts_str)
+            return AVERROR(EINVAL);
+        *pts_ptr = strtoll(pts_str,NULL,10);
         return 0;
     }
     return AVERROR(EINVAL);
