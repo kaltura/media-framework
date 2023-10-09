@@ -145,7 +145,7 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
     get_frame_id(pFrame,&frame_id);
     get_packet_original_pts(pFrame,&pts);
     if (pFrame->width>0) {
-        snprintf(buf,size,"pts=%s;samples=%d;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;ar=%d/%d;has_53cc=%d;frame_id=%ld;pts=%s",
+        snprintf(buf,size,"pts=%s;samples=%d;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;ar=%d/%d;has_53cc=%d;frame_id=%ld;orig_pts=%s",
              pts2str(pFrame->pts),
              pFrame->nb_samples,
              pFrame->pkt_pos != 0 ? ts2str(pFrame->pkt_pos,false) :  "N/A",
@@ -158,7 +158,9 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
              pFrame->height,
              pFrame->sample_aspect_ratio.num,
              pFrame->sample_aspect_ratio.den,
-             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL, frame_id, pts2str(pts));
+             av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL,
+             frame_id,
+             pts2str(pts));
     } else {
         snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%ld;frame_id=%ld;orig_pts=%s",
                  pts2str(pFrame->pts),
@@ -213,14 +215,14 @@ char *av_pts_to_string(char *buf, int64_t pts)
     if(AV_NOPTS_VALUE == pts){
         strcpy(buf,"AV_NOPTS_VALUE");
     } else {
-        int64_t totalSeconds=llabs(pts/90000);
-        int milliseconds=abs((int)(pts % 90000)/90);
+        int64_t totalSeconds = llabs(pts/90000);
+        int milliseconds = abs((int)(pts % 90000)/90);
         int seconds = (totalSeconds % 60);
         int minutes = (totalSeconds % 3600) / 60;
         int hours = (totalSeconds % 86400) / 3600;
         int days = (int)(totalSeconds / 86400);
 
-        if (days==0) {
+        if (days == 0) {
             sprintf(buf,"%s%.2d:%.2d:%.2d.%.3d",pts>=0 ? "" : "-",hours,minutes,seconds,milliseconds);
         } else {
             sprintf(buf,"%s%d.%.2d:%.2d:%.2d.%.3d",pts>=0 ? "" : "-",days,hours,minutes,seconds,milliseconds);
