@@ -266,7 +266,7 @@ void log_frame_side_data(const char* category,const AVFrame *pFrame)
 
 int add_packet_frame_id_and_pts(AVPacket *packet,int64_t frame_id,pts_t pts) {
      AVDictionary * frameDict = NULL;
-     int frameDictSize = 0;
+     size_t frameDictSize = 0;
      char buf[sizeof("9223372036854775807")];
      uint8_t *frameDictData = NULL;
      sprintf(buf,"%lld",frame_id);
@@ -287,7 +287,7 @@ int get_packet_frame_id(const AVPacket *packet,int64_t *frame_id_ptr)
 {
     const char *frame_str;
      AVDictionary * frameDict = NULL;
-     int frameDictSize = 0;
+     size_t frameDictSize = 0;
      uint8_t *frameDictData = av_packet_get_side_data(packet, AV_PKT_DATA_STRINGS_METADATA, &frameDictSize);
      *frame_id_ptr = AV_NOPTS_VALUE;
      if (!frameDictData)
@@ -305,7 +305,7 @@ int get_packet_original_pts(const AVPacket *packet,pts_t *pts_ptr)
 {
     const char *pts_str;
      AVDictionary * frameDict = NULL;
-     int frameDictSize = 0;
+     size_t frameDictSize = 0;
      uint8_t *frameDictData = av_packet_get_side_data(packet, AV_PKT_DATA_STRINGS_METADATA, &frameDictSize);
      *pts_ptr = AV_NOPTS_VALUE;
      if (!frameDictData)
