@@ -24,8 +24,11 @@ RUN cd nv-codec-headers && \
 RUN git clone --branch ${FFMPEG_VERSION}  https://github.com/ffmpeg/ffmpeg.git
 
 
-RUN  cd ffmpeg && \
-       ./configure --disable-doc --enable-nonfree --disable-shared --enable-nvenc --enable-cuda --enable-cuvid --enable-libnpp --extra-cflags=-Ilocal/include --enable-gpl --enable-version3 --disable-debug --disable-ffplay --disable-indev=sndio --disable-outdev=sndio     --enable-libx264  --enable-libx265  --extra-cflags=-I/usr/local/cuda/include --extra-ldflags=-L/usr/local/cuda/lib64 && \
+COPY tests/Makefile /build/ffmpeg/libavfilter
+COPY tests/allfilters.c /build/ffmpeg/libavfilter
+
+RUN  cd ffmpeg && rm libavfilter/vf_sharpen_npp.c && \
+       ./configure --disable-doc --enable-nonfree --disable-shared --enable-nvenc --enable-cuda-nvcc --enable-cuvid --enable-libnpp --extra-cflags=-Ilocal/include --enable-gpl --enable-version3 --disable-debug --disable-ffplay --disable-indev=sndio --disable-outdev=sndio     --enable-libx264  --enable-libx265  --extra-cflags=-I/usr/local/cuda/targets/x86_64-linux/include --extra-ldflags="-L/usr/local/cuda/targets/x86_64-linux/lib" && \
        make -j 8
 
 RUN apt-get install valgrind -y
