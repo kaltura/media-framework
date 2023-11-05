@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <arpa/inet.h>
+#include <libavcodec/avcodec.h>
 
 size_t load_file_to_memory(const char *filename, char **result);
 
