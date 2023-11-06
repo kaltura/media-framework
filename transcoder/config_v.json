@@ -8,7 +8,7 @@
         "jumpOffsetSec": -60
     },
     "throttler": {
-        "maxDataRate": 2.5,
+        "maxDataRate": 1.5,
         "coldSeconds": 0,
         "minThrottleWaitMs": 1
     },

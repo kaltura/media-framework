@@ -142,12 +142,14 @@ void* thread_stream_from_file(void *vargp)
 
         if (realTime && lastDts > 0) {
 
-            int64_t timePassed=av_rescale_q(packet.dts-lastDts,standard_timebase,AV_TIME_BASE_Q);
-            //LOGGER("SENDER",AV_LOG_DEBUG,"XXXX dt=%ld dd=%ld", (av_gettime_relative() - start_time),timePassed);
-            while ((av_gettime_relative() - start_time) < timePassed) {
+            int64_t timePassed=av_rescale_q(packet.dts,standard_timebase,AV_TIME_BASE_Q) + start_time,
+                    clockPassed = av_gettime_relative();
+            LOGGER("SENDER",AV_LOG_DEBUG,"XXXX clockPassed=%ld timePassed=%ld", clockPassed - start_time,timePassed - start_time);
+            while (clockPassed < timePassed) {
 
                 LOGGER0("SENDER",AV_LOG_DEBUG,"XXXX Sleep 10ms");
                 av_usleep(10*1000);//10ms
+                clockPassed = av_gettime_relative();
             }
         }
 
@@ -179,7 +181,7 @@ void* thread_stream_from_file(void *vargp)
          LOGGER("SENDER",AV_LOG_DEBUG,"sent packet pts=%s dts=%s  size=%d",
          ts2str(packet.pts,true),
          ts2str(packet.dts,true),
-         packet.dts,packet.size);
+         packet.size);
 
 
         av_packet_unref(&packet);
