@@ -1,11 +1,16 @@
 {
     "input": {
         "file": "/media/worng_order_video_only.mp4",
-        "realTime": true,
+        "realTime": false,
         "activeStream": 0,
         "xduration": 9000000,
         "randomDataPercentage": 0,
         "jumpOffsetSec": -60
+    },
+    "throttler": {
+        "maxDataRate": 2.5,
+        "coldSeconds": 0,
+        "minThrottleWaitMs": 1
     },
     "frameDropper1": {
         "enabled": false,

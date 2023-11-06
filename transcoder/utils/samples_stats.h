@@ -41,6 +41,7 @@ typedef struct
     uint64_t firstTimeStamp,lastTimeStamp;
     int64_t timeStampPassed;
     int64_t clockDrift;
+    int64_t throttleWait;
 } samples_stats_t;
 
 void sample_stats_init(samples_stats_t* pStats,AVRational basetime);

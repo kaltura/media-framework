@@ -1000,6 +1000,6 @@ json_status_t json_get_double(const json_value_t* obj,char* path,double defaultV
     if (jresult->type!=JSON_FRAC) {
         return JSON_BAD_DATA;
     }
-    *result = ((double)jresult->v.num.denom) / ((double)jresult->v.num.num);
+    *result = ((double)jresult->v.num.num) / ((double)jresult->v.num.denom);
     return JSON_OK;
 }

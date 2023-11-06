@@ -9,6 +9,7 @@
 #include "receiver_server.h"
 #include "KMP/KMP.h"
 #include "transcode_session.h"
+#include "utils/throttler.h"
 
 
 int atomFileWrite (char* fileName,char* content,size_t size)
@@ -27,8 +28,9 @@ int atomFileWrite (char* fileName,char* content,size_t size)
 int processedFrameCB(receiver_server_session_t *session,bool completed)
 {
     uint64_t now=av_gettime();
+    receiver_server_t *server=session->server;
     if (completed || now-session->lastStatsUpdated>session->diagnosticsIntervalInSeconds) {//1 second interval
-        receiver_server_t *server=session->server;
+
 
 
         char* tmpBuf=av_malloc(MAX_DIAGNOSTICS_STRING_LENGTH);
@@ -67,9 +69,11 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
     bool autoAckMode;
     uint64_t received_frame_id=0;
     kmp_frame_position_t current_position;
+    throttler_t throttler = {0};
 
     json_get_bool(GetConfig(),"autoAckModeEnabled",false,&autoAckMode);
 
+    _S(throttler_init(&server->receiverStats,&throttler));
 
     while (retVal >= 0 && session->kmpClient.socket) {
 
@@ -119,6 +123,9 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
             pthread_mutex_lock(&server->diagnostics_locker);  // lock the critical section
             samples_stats_add(&server->receiverStats,packet->dts,packet->pos,packet->size);
             pthread_mutex_unlock(&server->diagnostics_locker);  // lock the critical section
+
+            throttler_process(&throttler,transcode_session);
+
             if(add_packet_frame_id_and_pts(packet,received_frame_id,packet->pts)){
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_ERROR,"[%s] failed to set frame id %lld on packet",session->stream_name,received_frame_id);
             }

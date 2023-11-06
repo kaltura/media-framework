@@ -24,6 +24,7 @@ void sample_stats_init(samples_stats_t* pStats,AVRational basetime)
     pStats->firstTimeStamp=0;
     pStats->lastTimeStamp=0;
     pStats->lastDts=0;
+    pStats->throttleWait=0;
 }
 
 void drain(samples_stats_t* pStats,uint64_t clock)
@@ -102,12 +103,15 @@ void sample_stats_get_diagnostics(samples_stats_t *pStats,json_writer_ctx_t js)
     JSON_SERIALIZE_STRING("firstTimeStamp",pStats->firstTimeStamp>0 ? ts2str(pStats->firstTimeStamp,false): "N/A")
     JSON_SERIALIZE_STRING("lastTimeStamp",pStats->lastTimeStamp>0 ? ts2str(pStats->lastTimeStamp,false) : "N/A")
     JSON_SERIALIZE_INT64("lastDts",pStats->lastDts)
+    if(pStats->throttleWait > 0) {
+        JSON_SERIALIZE_INT64("throttle",pStats->throttleWait)
+    }
 }
 
 
 void samples_stats_log(const char* category,int level,samples_stats_t *stats,const char *prefix)
 {
-    LOGGER(category,level,"[%s] Stats: total frames: %ld total errors: %ld total time: %s (%s), clock drift %s,bitrate %.2lf Kbit/s fps=%.2lf rate=x%.2lf",
+    LOGGER(category,level,"[%s] Stats: total frames: %ld total errors: %ld total time: %s (%s), clock drift %s,bitrate %.2lf Kbit/s fps=%.2lf rate=x%.2lf throttleWait %s",
            prefix,
            stats->totalFrames,
            stats->totalErrors,
@@ -116,5 +120,6 @@ void samples_stats_log(const char* category,int level,samples_stats_t *stats,con
            pts2str(stats->clockDrift),
            ((double)stats->currentBitRate)/(1000.0),
            stats->currentFrameRate,
-           stats->currentRate)
+           stats->currentRate,
+           pts2str(stats->throttleWait))
 }
