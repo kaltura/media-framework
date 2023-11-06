@@ -10,7 +10,7 @@
 #include "json_parser.h"
 
 static void doThrottle(float maxDataRate,
-    int coldSeconds,
+    float coldSeconds,
     int minThrottleWaitMs,
     samples_stats_t *stats,
     AVRational targetFramerate);
@@ -21,7 +21,7 @@ throttler_init(samples_stats_t *stats,throttler_t *throttler) {
     json_get_double(config,"throttler.maxDataRate",INFINITY,(double*)&throttler->maxDataRate);
     *(bool*)&throttler->enabled = throttler->maxDataRate < INFINITY;
     if(throttler->enabled){
-        json_get_int(config,"throttler.coldSeconds",0,(int*)&throttler->coldSeconds);
+        json_get_double(config,"throttler.coldSeconds",0,(double*)&throttler->coldSeconds);
         json_get_int(config,"throttler.minThrottleWaitMs",1,(int*)&throttler->minThrottleWaitMs);
         throttler->stats = stats;
     }
@@ -50,7 +50,7 @@ throttler_process(throttler_t *throttler,transcode_session_t *transcode_session)
 static
 void
 doThrottle(float maxDataRate,
-    int coldSeconds,
+    float coldSeconds,
     int minThrottleWaitMs,
     samples_stats_t *stats,
     AVRational targetFramerate)
@@ -61,11 +61,13 @@ doThrottle(float maxDataRate,
 
          samples_stats_log(CATEGORY_RECEIVER,AV_LOG_DEBUG,stats,"throttleThread-Stats");
 
-         if(stats->totalFrames < coldSeconds * targetFramerate.num / targetFramerate.den) {
+         if(stats->totalFrames * targetFramerate.den < coldSeconds * targetFramerate.num ) {
              return;
          }
-
-         currentDataRate = stats->currentFrameRate * targetFramerate.den / (float)targetFramerate.num;
+         // when starting up use actual number of frames received so far and
+         // not the speed at which they accumulate
+         const currentFrameRate = __MIN(stats->totalFrames,stats->currentFrameRate);
+         currentDataRate = currentFrameRate * targetFramerate.den / (float)targetFramerate.num;
 
          LOGGER(CATEGORY_THROTTLER,
             AV_LOG_DEBUG,"throttleThread. data rate current: %.3f max: %.3f",
@@ -78,7 +80,7 @@ doThrottle(float maxDataRate,
              const int minThrottleWaitMs = 1;
              if(throttleWaitUSec > minThrottleWaitMs * 1000) {
                  LOGGER(CATEGORY_THROTTLER,AV_LOG_INFO,"throttleThread. throttling %.3f ms",throttleWaitUSec / 1000.f);
-                 stats->throttleWait += av_rescale_q( throttleWaitUSec, clockScale, standard_timebase);
+                 stats->throttleWait += av_rescale_q(throttleWaitUSec, clockScale, standard_timebase);
                  av_usleep(throttleWaitUSec);
              }
          }

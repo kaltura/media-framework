@@ -28,9 +28,8 @@ int atomFileWrite (char* fileName,char* content,size_t size)
 int processedFrameCB(receiver_server_session_t *session,bool completed)
 {
     uint64_t now=av_gettime();
-    receiver_server_t *server=session->server;
     if (completed || now-session->lastStatsUpdated>session->diagnosticsIntervalInSeconds) {//1 second interval
-
+        receiver_server_t *server=session->server;
 
 
         char* tmpBuf=av_malloc(MAX_DIAGNOSTICS_STRING_LENGTH);

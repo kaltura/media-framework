@@ -1,13 +1,12 @@
 {
     "input": {
-        "file": "/media/worng_order_video_only.mp4",
+        "file": "/media/worng_order_audio_only.ts",
         "realTime": false,
         "activeStream": 0,
-        "xduration": 9000000,
+        "zduration": 9000000,
         "randomDataPercentage": 0,
-        "jumpOffsetSec": -60,
-        "hiccupIntervalSec": 0,
-        "hiccupDurationSec": 0
+        "xhiccupIntervalSec": 5,
+        "xhiccupDurationSec": 2
     },
     "throttler": {
         "maxDataRate": 1.5,
@@ -69,13 +68,13 @@
         },
         {
             "trackId": "a32",
-            "enabled": false,
+            "enabled": true,
             "passthrough": true
         },
         {
             "trackId": "a33",
-            "enabled": false,
-            "bitrate": 64000,
+            "enabled": true,
+            "bitrate": 64,
             "passthrough": false,
             "codec": "aac",
             "audioParams": {
@@ -86,8 +85,8 @@
         {
             "trackId": "v33",
             "passthrough": false,
-            "enabled": true,
-            "bitrate": 900000,
+            "enabled": false,
+            "bitrate": 900,
             "codec": "h264",
             "videoParams": {
                 "profile": "main",

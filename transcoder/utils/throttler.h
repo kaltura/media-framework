@@ -7,7 +7,7 @@
 typedef struct {
     const bool enabled;
     const double maxDataRate;
-    const int coldSeconds;
+    const double coldSeconds;
     const int minThrottleWaitMs;
     samples_stats_t *stats;
 } throttler_t;
