@@ -5,7 +5,9 @@
         "activeStream": 0,
         "xduration": 9000000,
         "randomDataPercentage": 0,
-        "jumpOffsetSec": -60
+        "jumpOffsetSec": -60,
+        "hiccupIntervalSec": 0,
+        "hiccupDurationSec": 0
     },
     "throttler": {
         "maxDataRate": 1.5,
