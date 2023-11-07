@@ -80,16 +80,16 @@ getFrameRateFromMediaInfo(
 
 static
 int64_t calculateThrottleWindow(samples_stats_t *stats,AVRational targetFramerate){
+     // during startup frame rate is not stable and usually is high
+     // due to system delays related to various factors. therefore.
+     // we must work with high pressures in small intervals of time.
+     // In order to not overshoot we take smaller intervals proportional to
+     // time passed since beginning.
      if(targetFramerate.den == 0) {
         if(stats->dtsPassed < 90000) {
             return av_rescale(1000*1000,stats->dtsPassed , 90000);
         }
      } else if(stats->totalFrames * targetFramerate.den < targetFramerate.num) {
-         // during startup frame rate is not stable and usually is high
-         // due to system delays related to various factors. therefore.
-         // we must work with high pressures in small intervals of time.
-         // In order to not overshoot we take smaller intervals proportional to
-         // time passed since beginning.
          return av_rescale_q(1000*1000,
              (AVRational){stats->totalFrames,1},
              targetFramerate);
