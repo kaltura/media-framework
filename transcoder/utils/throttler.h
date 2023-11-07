@@ -5,10 +5,9 @@
 #define Throttler_h
 
 typedef struct {
-    const bool enabled;
+    const bool useStatsDataRate;
     const double maxDataRate;
-    const double coldSeconds;
-    const int minThrottleWaitMs;
+    const double minThrottleWaitMs;
     samples_stats_t *stats;
 } throttler_t;
 

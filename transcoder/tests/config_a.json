@@ -10,7 +10,7 @@
     },
     "throttler": {
         "maxDataRate": 1.5,
-        "coldSeconds": 0,
+        "useStatsDataRate": false,
         "minThrottleWaitMs": 1
     },
     "frameDropper1": {
