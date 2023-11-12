@@ -109,6 +109,7 @@ void* thread_stream_from_file(void *vargp)
         AVStream *in_stream=ifmt_ctx->streams[packet.stream_index];
 
         av_packet_rescale_ts(&packet,in_stream->time_base, standard_timebase);
+        packet.pos=createTime +packet.dts;
         if(jumpOffsetSec != 0 ) {
             const auto jumpOffset = jumpOffsetSec * standard_timebase.den;
             if(AV_NOPTS_VALUE == jumpAtTimestamp) {
@@ -124,7 +125,7 @@ void* thread_stream_from_file(void *vargp)
         }
         packet.pts+=cumulativeDuration;
         packet.dts+=cumulativeDuration;
-        packet.pos=createTime +packet.dts;
+
         if (duration!=-1) {
             if (packet.dts>=duration) {
                 LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"Duration exceeded %s>=%s, terminating!",pts2str(packet.dts),pts2str(duration));
