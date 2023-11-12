@@ -119,6 +119,7 @@ doThrottle(float maxDataRate,
          // going to sleep for a period of time gained due to race
          int64_t throttleWindowUs = calculateThrottleWindow(stats,targetFramerate);
          int throttleWaitUSec = (currentDataRate - maxDataRate) * throttleWindowUs;
+         throttleWaitUSec = __MIN(throttleWaitUSec, av_rescale(1000*1000,targetFramerate.den,targetFramerate.num) / maxDataRate);
          if(throttleWaitUSec > minThrottleWaitMs * 1000) {
              LOGGER(CATEGORY_THROTTLER,AV_LOG_INFO,"%s. throttling %.3f ms",
              __FUNCTION__,
