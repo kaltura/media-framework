@@ -31,6 +31,7 @@ struct ngx_live_input_bufs_lock_s {
     uint32_t                segment_index;
     uint32_t                ref_count;
     u_char                 *ptr;
+    ngx_log_t               log;
 };
 
 
@@ -395,6 +396,7 @@ ngx_live_input_bufs_lock(ngx_live_track_t *track, uint32_t segment_index,
     cur->ptr = ptr;
     cur->segment_index = segment_index;
     cur->ref_count = 1;
+    cur->log = track->log;
 
 done:
 
@@ -411,7 +413,7 @@ void
 ngx_live_input_bufs_unlock(ngx_live_input_bufs_lock_t *lock)
 {
     if (lock->ref_count <= 0) {
-        ngx_log_error(NGX_LOG_ALERT, ngx_cycle->log, 0,
+        ngx_log_error(NGX_LOG_ALERT, &lock->log, 0,
             "ngx_live_input_bufs_unlock: ref count is zero");
         return;
     }
@@ -419,7 +421,7 @@ ngx_live_input_bufs_unlock(ngx_live_input_bufs_lock_t *lock)
     lock->ref_count--;
     lock->input_bufs->lock_count--;
 
-    ngx_log_error(NGX_LOG_INFO, ngx_cycle->log, 0,
+    ngx_log_error(NGX_LOG_INFO, &lock->log, 0,
         "ngx_live_input_bufs_unlock: "
         "unlocked index: %uD, lock: %p, ref_count: %uD",
         lock->segment_index, lock, lock->ref_count);
