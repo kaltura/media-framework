@@ -3,6 +3,10 @@ GET  /
 GET /upstreams
 LIST /upstreams
 
+GET /upstreams/%
 DELETE /upstreams/%
+
+GET /upstreams/%/streams
+LIST /upstreams/%/streams
 
 DELETE /upstreams/%/tracks/%

@@ -14,6 +14,13 @@
 #define _NGX_TS_AVC_H_INCLUDED_
 
 
+#define NGX_TS_AVC_NAL_IDR  5
+#define NGX_TS_AVC_NAL_SEI  6
+#define NGX_TS_AVC_NAL_SPS  7
+#define NGX_TS_AVC_NAL_PPS  8
+#define NGX_TS_AVC_NAL_AUD  9
+
+
 typedef struct {
     ngx_uint_t   profile_idc;
     ngx_uint_t   constraints;
@@ -50,11 +57,10 @@ typedef struct {
 } ngx_ts_avc_params_t;
 
 
-ngx_int_t ngx_ts_avc_decode_params(ngx_ts_avc_params_t *avc,
-    ngx_ts_stream_t *ts,  u_char *sps, size_t sps_len,
-    u_char *pps, size_t pps_len);
+ngx_int_t ngx_ts_avc_get_ps_id(ngx_buf_t *b, ngx_log_t *log, uint32_t *idp);
 
-ngx_flag_t ngx_ts_avc_sei_detect_cea(ngx_log_t *log, ngx_chain_t *in,
-    u_char *pos, size_t size);
+ngx_int_t ngx_ts_avc_decode_params(ngx_ts_avc_params_t *avc,
+    ngx_ts_stream_t *ts, u_char *sps, size_t sps_len,
+    u_char *pps, size_t pps_len);
 
 #endif /* _NGX_TS_AVC_H_INCLUDED_ */

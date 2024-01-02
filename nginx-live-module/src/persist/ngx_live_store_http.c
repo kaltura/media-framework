@@ -151,16 +151,19 @@ typedef struct {
     ngx_live_store_read_handler_pt       handler;
     void                                *data;
 
-    ngx_uint_t                           retries_left;
+    ngx_live_store_stats_t              *stats;
     off_t                                offset;
     size_t                               size;
+    ngx_msec_t                           start;
+
+    ngx_uint_t                           retries_left;
 } ngx_live_store_http_read_ctx_t;
 
 
 void *
 ngx_live_store_http_read_init(ngx_live_store_read_request_t *request,
     ngx_url_t *url, ngx_live_store_http_create_read_pt create,
-    void *create_data)
+    void *create_data, ngx_live_store_stats_t *stats)
 {
     ngx_pool_t                      *pool;
     ngx_live_store_http_read_ctx_t  *ctx;
@@ -186,6 +189,8 @@ ngx_live_store_http_read_init(ngx_live_store_read_request_t *request,
 
     ctx->handler = request->handler;
     ctx->data = request->data;
+
+    ctx->stats = stats;
 
     return ctx;
 }
@@ -264,8 +269,14 @@ ngx_live_store_http_read_finished(ngx_pool_t *temp_pool, void *arg,
             break;
         }
 
+        ctx->stats->error++;
+
     } else {
         rc = NGX_OK;
+
+        ctx->stats->success++;
+        ctx->stats->success_msec += ngx_current_msec - ctx->start;
+        ctx->stats->success_size += ctx->size;
     }
 
     ctx->handler(ctx->data, rc, response);
@@ -306,14 +317,18 @@ ngx_live_store_http_read(void *arg, off_t offset, size_t size)
     ci.retry_interval = conf->read_retry_interval;
 
     ctx->retries_left = conf->read_retries;
+
     ctx->offset = offset;
     ctx->size = size;
+    ctx->start = ngx_current_msec;
 
     if (ngx_http_call_create(&ci) == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, ctx->pool->log, 0,
             "ngx_live_store_http_read: create http call failed");
         return NGX_ERROR;
     }
+
+    ctx->stats->started++;
 
     return NGX_DONE;
 }
@@ -329,6 +344,10 @@ typedef struct {
 
     ngx_live_store_write_handler_pt   handler;
     void                             *data;
+
+    ngx_live_store_stats_t           *stats;
+    size_t                            size;
+    ngx_msec_t                        start;
 
     ngx_uint_t                        retries_left;
 } ngx_live_store_http_write_ctx_t;
@@ -370,8 +389,14 @@ ngx_live_store_http_write_complete(ngx_pool_t *temp_pool, void *arg,
 
         rc = NGX_ERROR;
 
+        ctx->stats->error++;
+
     } else {
         rc = NGX_OK;
+
+        ctx->stats->success++;
+        ctx->stats->success_msec += ngx_current_msec - ctx->start;
+        ctx->stats->success_size += ctx->size;
     }
 
     ctx->handler(ctx->data, rc);
@@ -382,7 +407,8 @@ ngx_live_store_http_write_complete(ngx_pool_t *temp_pool, void *arg,
 
 ngx_int_t
 ngx_live_store_http_write(ngx_live_store_write_request_t *request,
-    ngx_url_t *url, ngx_chain_t *headers, ngx_chain_t *body)
+    ngx_url_t *url, ngx_chain_t *headers, ngx_chain_t *body,
+    ngx_live_store_stats_t *stats)
 {
     ngx_live_channel_t                 *channel;
     ngx_http_call_init_t                ci;
@@ -409,6 +435,10 @@ ngx_live_store_http_write(ngx_live_store_write_request_t *request,
     ctx->handler = request->handler;
     ctx->data = request->data;
 
+    ctx->stats = stats;
+    ctx->size = request->size;
+    ctx->start = ngx_current_msec;
+
     ngx_memzero(&ci, sizeof(ci));
 
     ci.pool = request->pool;
@@ -428,6 +458,8 @@ ngx_live_store_http_write(ngx_live_store_write_request_t *request,
             "ngx_live_store_http_write: create http call failed");
         return NGX_ERROR;
     }
+
+    stats->started++;
 
     return NGX_DONE;
 }

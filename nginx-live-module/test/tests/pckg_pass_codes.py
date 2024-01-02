@@ -5,7 +5,7 @@ def updateConf(conf):
     proxyPass = getConfParam(block, 'proxy_pass')
     proxyPass[1] = 'http://127.0.0.1:8002/ksmp/'
 
-    getConfBlock(conf, ['http', 'server']).append(['pckg_pass_codes', '404'])
+    appendConfDirective(conf, ['http', 'server'], ['pckg_pass_codes', '404'])
 
 def test(channelId=CHANNEL_ID):
     # by default status codes are mapped to 502

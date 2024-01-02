@@ -104,6 +104,8 @@ struct ngx_live_timeline_s {
 
     ngx_live_manifest_timeline_t       manifest;
 
+    uint64_t                           removed_duration;
+
     /* volatile */
     uint64_t                           duration;
     uint32_t                           segment_count;

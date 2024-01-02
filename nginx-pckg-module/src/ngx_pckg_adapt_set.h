@@ -24,6 +24,6 @@ typedef struct {
 
 ngx_int_t ngx_pckg_adapt_sets_init(ngx_pckg_adapt_sets_t *sets);
 
-size_t ngx_pckg_adapt_sets_get_variant_ids_size(ngx_pckg_adapt_sets_t *sets);
+size_t ngx_pckg_adapt_sets_get_selectors_size(ngx_pckg_adapt_sets_t *sets);
 
 #endif /* _NGX_PCKG_ADAPT_SET_H_INCLUDED_ */

@@ -38,8 +38,12 @@ uint64_t clock_estimator_get_clock(clock_estimator_t *fifo,int64_t dts)
     int64_t clock=0;
     for (int64_t runner=fifo->framesFifoHead;runner>=fifo->framesFifoTail;runner--) {
         clock_estimator_sample_t* sample=&(fifo->samples[runner %  TIME_ESTIMATOR_FIFO_SIZE]);
-        int64_t runnerdistance=llabs(sample->dts);
-        //LOGGER(CATEGORY_CLOCK_ESTIMATOR,AV_LOG_DEBUG,"runnerdistance  %ld distance %ld",runnerdistance,distance);
+        int64_t runnerdistance=llabs(dts - sample->dts);
+        LOGGER(CATEGORY_CLOCK_ESTIMATOR,AV_LOG_DEBUG,"runnerdistance  %ld distance %ld dts %s cur_dts %s",
+            runnerdistance,
+            distance,
+            pts2str(dts),
+            pts2str(sample->dts));
         if (runnerdistance<distance) {
             clock= dts - sample->dts + sample->clock;
             distance=runnerdistance;

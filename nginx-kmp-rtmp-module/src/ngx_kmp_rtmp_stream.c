@@ -246,7 +246,7 @@ ngx_kmp_rtmp_stream_write_meta_handler(ngx_event_t *ev)
     stream = ev->data;
 
     if (ngx_kmp_rtmp_stream_write_meta(stream) != NGX_OK) {
-        ngx_kmp_rtmp_upstream_free(stream->upstream);
+        ngx_kmp_rtmp_upstream_free(stream->upstream, "write_meta_failed");
     }
 }
 
@@ -387,7 +387,7 @@ ngx_kmp_rtmp_stream_detach_track(ngx_kmp_rtmp_stream_t *stream,
     }
 
     if (ngx_kmp_rtmp_stream_unpublish(stream) != NGX_OK) {
-        ngx_kmp_rtmp_upstream_free(u);
+        ngx_kmp_rtmp_upstream_free(u, "unpublish_stream_failed");
         return;
     }
 

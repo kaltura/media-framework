@@ -95,7 +95,7 @@ static ngx_str_t  ngx_http_api_json_type = ngx_string("application/json");
 static ngx_str_t  ngx_http_api_multi_end = ngx_string("}]");
 
 
-static ngx_http_api_method_t  methods[] = {
+static ngx_http_api_method_t  ngx_http_api_methods[] = {
     { ngx_string("GET"),    NGX_HTTP_GET },
     { ngx_string("POST"),   NGX_HTTP_POST },
     { ngx_string("PUT"),    NGX_HTTP_PUT },
@@ -354,7 +354,7 @@ ngx_http_api_multi_get_method(ngx_str_t *str)
 {
     ngx_http_api_method_t  *cur;
 
-    for (cur = methods; cur->name.len; cur++) {
+    for (cur = ngx_http_api_methods; cur->name.len; cur++) {
         if (ngx_str_equals(cur->name, *str)) {
             return cur->method;
         }
@@ -369,6 +369,7 @@ ngx_http_api_multi_parse(ngx_http_request_t *r, ngx_json_object_t *obj,
     ngx_http_api_request_t *req)
 {
     ngx_uint_t             i, n;
+    ngx_json_esc_str_t    *str;
     ngx_json_key_value_t  *elts;
 
     ngx_memzero(req, sizeof(*req));
@@ -380,17 +381,24 @@ ngx_http_api_multi_parse(ngx_http_request_t *r, ngx_json_object_t *obj,
     for (i = 0; i < n; i++) {
 
         if (elts[i].value.type == NGX_JSON_STRING) {
+            str = &elts[i].value.v.str;
+
             if (ngx_str_equals_c(elts[i].key, "uri")) {
-                req->uri = elts[i].value.v.str.s;
+                if (ngx_json_get_string(&req->uri, str) != NGX_JSON_OK) {
+                    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                        "ngx_http_api_multi_parse: "
+                        "failed to decode uri \"%V\"", &str->s);
+                        return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
+                }
+
                 continue;
 
             } else if (ngx_str_equals_c(elts[i].key, "method")) {
-                req->method = ngx_http_api_multi_get_method(
-                    &elts[i].value.v.str.s);
+                req->method = ngx_http_api_multi_get_method(&str->s);
                 if (!req->method) {
                     ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                        "ngx_http_api_multi_parse: invalid method \"%V\"",
-                        &elts[i].value.v.str);
+                        "ngx_http_api_multi_parse: "
+                        "invalid method \"%V\"", &str->s);
                     return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
                 }
 

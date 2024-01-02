@@ -259,8 +259,8 @@ def getObjectWriter(objectInfo, properties):
 
         if format.startswith('%'):
             format = format[1:]
-            if (format.startswith('func-') or format.startswith('objFunc-') or
-                format.startswith('arrFunc-')):
+            if (format.startswith('func-') or format.startswith('neFunc-') or
+                format.startswith('objFunc-') or format.startswith('arrFunc-')):
                 baseFunc = format.split('-', 1)[1]
 
                 if format.startswith('objFunc-'):
@@ -273,7 +273,7 @@ def getObjectWriter(objectInfo, properties):
                 if len(expr) > 0:
                     expr = ', %s' % expr
 
-                if fixed.endswith(','):
+                if fixed.endswith(',') and not format.startswith('neFunc-'):
                     addVarDef(writeVarDefs, 'u_char', '*next')
                     valueWrite = 'next = %s_write(p%s);' % (baseFunc, expr)
                     valueWrite += '\n' + 'p = next == p ? p - 1 : next;'
@@ -321,8 +321,8 @@ for (q = ngx_queue_head(&%s);
                 addVarDef(varDefs, 'ngx_queue_t', '*q')
                 addVarDef(varDefs, objectType, '*cur')
                 valueSize = ''
-            elif format.startswith('objQueueIds-'):
-                params = format[len('objQueueIds-'):].split(',')
+            elif format.startswith('queueIds-'):
+                params = format[len('queueIds-'):].split(',')
                 objectType, queueNode, idField, escField = params
                 fixed += '['
                 nextFixed = ']'
@@ -452,6 +452,13 @@ for (n = 0; n < %s.nelts; n++) {
                 addVarDef(varDefs, objectType, 'cur')
                 valueSize = ''
                 skipCond = ''
+            elif format.startswith('jV-'):
+                escField = format[len('jV-'):]
+                fixed += '"'
+                nextFixed = '"'
+                valueWrite = ('p = ngx_json_str_write_escape(p, &%s, %s);' %
+                    (expr, escField))
+                valueSize = '%s.len + %s' % (expr, escField)
             elif format == 'jV':
                 fixed += '"'
                 nextFixed = '"'
@@ -550,10 +557,10 @@ if (d) {
                 elif format == 'uL':
                     valueSize = 'NGX_INT64_LEN'
                     cast = 'uint64_t'
-                elif format == '016uxL':
+                elif format.endswith('uxL'):
                     fixed += '"'
                     nextFixed = '"'
-                    valueSize = '16'
+                    valueSize = 'sizeof(uint64_t) * 2'
                     cast = 'uint64_t'
                 elif format == 'uD':
                     valueSize = 'NGX_INT32_LEN'

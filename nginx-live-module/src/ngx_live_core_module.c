@@ -47,7 +47,7 @@ static ngx_command_t  ngx_live_core_commands[] = {
       NULL },
 
     { ngx_string("variables_hash_bucket_size"),
-      NGX_LIVE_MAIN_CONF |NGX_CONF_TAKE1,
+      NGX_LIVE_MAIN_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
       NGX_LIVE_MAIN_CONF_OFFSET,
       offsetof(ngx_live_core_main_conf_t, variables_hash_bucket_size),
@@ -169,7 +169,7 @@ ngx_module_t  ngx_live_core_module = {
 };
 
 
-static ngx_live_json_cmd_t  ngx_live_core_dyn_cmds[] = {
+static ngx_live_json_cmd_t  ngx_live_core_json_cmds[] = {
 
     { ngx_string("mem_limit"), NGX_JSON_INT, ngx_live_core_set_mem_limit },
 
@@ -631,7 +631,7 @@ ngx_live_core_preconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    if (ngx_live_json_cmds_add_multi(cf, ngx_live_core_dyn_cmds,
+    if (ngx_live_json_cmds_add_multi(cf, ngx_live_core_json_cmds,
         NGX_LIVE_JSON_CTX_CHANNEL) != NGX_OK)
     {
         return NGX_ERROR;
@@ -702,6 +702,22 @@ ngx_live_core_get_preset_conf(ngx_cycle_t *cycle, ngx_str_t *preset_name)
 }
 
 
+static void
+ngx_live_core_update_mem_limit(ngx_live_channel_t *channel, size_t mem_limit)
+{
+    ngx_live_core_preset_conf_t  *cpcf;
+
+    cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
+
+    channel->mem_limit = mem_limit;
+
+    channel->mem_high_watermark = (100 - cpcf->mem_high_watermark)
+        * mem_limit / 100;
+    channel->mem_low_watermark = (100 - cpcf->mem_low_watermark)
+        * mem_limit / 100;
+}
+
+
 static ngx_int_t
 ngx_live_core_set_mem_limit(ngx_live_json_cmds_ctx_t *jctx,
     ngx_live_json_cmd_t *cmd, ngx_json_value_t *value)
@@ -725,7 +741,7 @@ ngx_live_core_set_mem_limit(ngx_live_json_cmds_ctx_t *jctx,
         return NGX_ERROR;
     }
 
-    channel->mem_limit = mem_limit;
+    ngx_live_core_update_mem_limit(channel, mem_limit);
 
     ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
         "ngx_live_core_set_mem_limit: set to %uz", mem_limit);
@@ -741,12 +757,8 @@ ngx_live_core_channel_init(ngx_live_channel_t *channel)
 
     cpcf = ngx_live_get_module_preset_conf(channel, ngx_live_core_module);
 
-    channel->mem_limit = cpcf->mem_limit;
+    ngx_live_core_update_mem_limit(channel, cpcf->mem_limit);
     channel->mem_left = channel->mem_limit;
-    channel->mem_high_watermark = (100 - cpcf->mem_high_watermark) *
-        cpcf->mem_limit / 100;
-    channel->mem_low_watermark = (100 - cpcf->mem_low_watermark) *
-        cpcf->mem_limit / 100;
 
     channel->timescale = cpcf->timescale;
 

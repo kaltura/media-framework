@@ -7,10 +7,8 @@
 #include <ngx_json_parser.h>
 
 
-#define NGX_LOG_DEBUG_KMP NGX_LOG_DEBUG_CORE
+#define NGX_LOG_DEBUG_KMP  NGX_LOG_DEBUG_CORE
 
-
-ngx_chain_t *ngx_kmp_out_alloc_chain_temp_buf(ngx_pool_t *pool, size_t size);
 
 ngx_chain_t *ngx_kmp_out_alloc_chain_buf(ngx_pool_t *pool, void *pos,
     void *last);
@@ -19,16 +17,22 @@ ngx_chain_t *ngx_kmp_out_alloc_chain_buf(ngx_pool_t *pool, void *pos,
 ngx_chain_t *ngx_kmp_out_copy_chain(ngx_pool_t *pool, ngx_chain_t *src);
 #endif
 
-ngx_chain_t *ngx_kmp_out_format_json_http_request(ngx_pool_t *pool,
-    ngx_str_t *host, ngx_str_t *uri, ngx_array_t *headers, ngx_chain_t *body);
-
 ngx_int_t ngx_kmp_out_parse_json_response(ngx_pool_t *pool, ngx_log_t *log,
     ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *body,
     ngx_json_value_t *json);
 
+/*
+ * NGX_DECLINED - response with code != "ok"
+ * NGX_ERROR - error parsing the response
+ */
+ngx_int_t ngx_kmp_out_status_parse(ngx_pool_t *pool, ngx_log_t *log,
+    ngx_json_object_t *obj, ngx_str_t *code, ngx_str_t *message);
+
+ngx_int_t ngx_kmp_out_connect_parse(ngx_pool_t *pool, ngx_log_t *log,
+    ngx_uint_t code, ngx_str_t *content_type, ngx_buf_t *body,
+    ngx_str_t *desc);
+
 void ngx_kmp_out_float_to_rational(double f, int64_t md, int64_t *num,
     int64_t *denom);
-
-char *ngx_kmp_out_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 #endif /* _NGX_KMP_OUT_UTILS_H_INCLUDED_ */

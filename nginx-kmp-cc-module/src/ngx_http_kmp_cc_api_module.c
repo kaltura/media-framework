@@ -10,15 +10,10 @@
 #include "ngx_kmp_cc_version.h"
 
 
-/* routes */
+static ngx_int_t ngx_http_kmp_cc_api_postconfiguration(ngx_conf_t *cf);
 
-static ngx_int_t ngx_http_kmp_cc_api_get(ngx_http_request_t *r,
-    ngx_str_t *params, ngx_str_t *response);
-
-static ngx_int_t ngx_http_kmp_cc_api_session_delete(ngx_http_request_t *r,
-    ngx_str_t *params, ngx_str_t *response);
-
-#include "ngx_http_kmp_cc_api_routes.h"
+static char *ngx_http_kmp_cc_api(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
 
 
 static ngx_json_str_t  ngx_kmp_cc_version =
@@ -34,13 +29,6 @@ static time_t     ngx_kmp_cc_start_time = 0;
 
 
 #include "ngx_http_kmp_cc_api_json.h"
-
-
-/* module */
-static ngx_int_t ngx_http_kmp_cc_api_postconfiguration(ngx_conf_t *cf);
-
-static char *ngx_http_kmp_cc_api(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf);
 
 
 static ngx_command_t  ngx_http_kmp_cc_api_commands[] = {
@@ -130,6 +118,9 @@ ngx_http_kmp_cc_api_session_delete(ngx_http_request_t *r, ngx_str_t *params,
 
     return NGX_OK;
 }
+
+
+#include "ngx_http_kmp_cc_api_routes.h"
 
 
 static ngx_int_t

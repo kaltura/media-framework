@@ -279,7 +279,7 @@ ngx_block_pool_free_list(ngx_block_pool_t *block_pool, ngx_uint_t index,
     }
 
     for (cur = head; cur != NULL; cur = ngx_block_pool_free_next(cur)) {
-        memset((void **) cur + 1, 0xBD, slot->size - sizeof(void *));
+        memset((void **) cur + 1, 0xbd, slot->size - sizeof(void *));
     }
 #endif
 

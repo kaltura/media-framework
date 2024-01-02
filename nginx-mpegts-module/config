@@ -1,40 +1,91 @@
-ngx_addon_name=ngx_stream_ts_module
+ngx_addon_name=ngx_ts_module
 
 # source
 #
-MPEGTS_SRCS="$ngx_addon_dir/src/ngx_stream_ts_module.c     \
-                 $ngx_addon_dir/src/ngx_ts_aac.c           \
-                 $ngx_addon_dir/src/ngx_ts_avc.c           \
-                 $ngx_addon_dir/src/ngx_ts_stream.c"
+MPEGTS_STREAM_MODULES="                           \
+    ngx_stream_ts_module                          \
+    "
 
-MPEGTS_DEPS="$ngx_addon_dir/src/ngx_stream_ts_module.h     \
-                 $ngx_addon_dir/src/ngx_ts_aac.h           \
-                 $ngx_addon_dir/src/ngx_ts_avc.h           \
-                 $ngx_addon_dir/src/ngx_ts_stream.h"
+MPEGTS_HTTP_MODULES="                             \
+    ngx_http_ts_module                            \
+    "
+
+MPEGTS_CORE_SRCS="                                \
+    $ngx_addon_dir/src/ngx_ts_aac.c               \
+    $ngx_addon_dir/src/ngx_ts_ac3.c               \
+    $ngx_addon_dir/src/ngx_ts_avc.c               \
+    $ngx_addon_dir/src/ngx_ts_bit_stream.c        \
+    $ngx_addon_dir/src/ngx_ts_chain_reader.c      \
+    $ngx_addon_dir/src/ngx_ts_heavc.c             \
+    $ngx_addon_dir/src/ngx_ts_hevc.c              \
+    $ngx_addon_dir/src/ngx_ts_opus.c              \
+    $ngx_addon_dir/src/ngx_ts_stream.c            \
+    "
+
+MPEGTS_STREAM_SRCS="                              \
+    $ngx_addon_dir/src/ngx_stream_ts_module.c     \
+    "
+
+MPEGTS_HTTP_SRCS="                                \
+    $ngx_addon_dir/src/ngx_http_ts_module.c       \
+    "
+
+MPEGTS_DEPS="                                     \
+    $ngx_addon_dir/src/ngx_http_ts_module.h       \
+    $ngx_addon_dir/src/ngx_stream_ts_module.h     \
+    $ngx_addon_dir/src/ngx_ts_aac.h               \
+    $ngx_addon_dir/src/ngx_ts_ac3.h               \
+    $ngx_addon_dir/src/ngx_ts_avc.h               \
+    $ngx_addon_dir/src/ngx_ts_bit_stream.h        \
+    $ngx_addon_dir/src/ngx_ts_chain_reader.h      \
+    $ngx_addon_dir/src/ngx_ts_heavc.h             \
+    $ngx_addon_dir/src/ngx_ts_hevc.h              \
+    $ngx_addon_dir/src/ngx_ts_opus.h              \
+    $ngx_addon_dir/src/ngx_ts_stream.h            \
+    "
+
+MPEGTS_INCS="$ngx_addon_dir/src"
 
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir/src
     ngx_module_deps=$MPEGTS_DEPS
+    ngx_module_incs=$MPEGTS_INCS
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
-        ngx_module_name="ngx_stream_ts_module"
-        ngx_module_srcs="$MPEGTS_SRCS"
+        ngx_module_name="$MPEGTS_STREAM_MODULES $MPEGTS_HTTP_MODULES"
+        ngx_module_srcs="$MPEGTS_CORE_SRCS $MPEGTS_STREAM_SRCS $MPEGTS_HTTP_SRCS"
 
         . auto/module
 
     else
+        ngx_module_type=CORE
+        ngx_module_name=
+        ngx_module_srcs=$MPEGTS_CORE_SRCS
+
+        . auto/module
+
+        ngx_module_deps=
+        ngx_module_incs=
+
         ngx_module_type=STREAM
-        ngx_module_name=ngx_stream_ts_module
-        ngx_module_srcs=$MPEGTS_SRCS
+        ngx_module_name=$MPEGTS_STREAM_MODULES
+        ngx_module_srcs=$MPEGTS_STREAM_SRCS
+
+        . auto/module
+
+        ngx_module_type=HTTP
+        ngx_module_name=$MPEGTS_HTTP_MODULES
+        ngx_module_srcs=$MPEGTS_HTTP_SRCS
 
         . auto/module
     fi
 
 else
-    STREAM_MODULES="$STREAM_MODULES ngx_stream_ts_module"
+    STREAM_MODULES="$STREAM_MODULES $MPEGTS_STREAM_MODULES"
+    HTTP_MODULES="$HTTP_MODULES $MPEGTS_HTTP_MODULES"
 
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $MPEGTS_DEPS"
-    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $MPEGTS_SRCS"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $MPEGTS_CORE_SRCS $MPEGTS_STREAM_SRCS $MPEGTS_HTTP_SRCS"
 
-    CFLAGS="$CFLAGS -I$ngx_addon_dir"
+    CFLAGS="$CFLAGS -I$MPEGTS_INCS"
 fi

@@ -16,6 +16,7 @@ void* thread_stream_from_file(void *vargp)
     file_streamer_t* args=(file_streamer_t*)vargp;
     AVFormatContext *ifmt_ctx=NULL;
     int oldLevel= get_log_level(NULL);
+    int64_t jumpAtTimestamp = AV_NOPTS_VALUE;
 
     log_init(AV_LOG_WARNING);
     int ret = avformat_open_input(&ifmt_ctx, args->source_file_name, NULL, NULL);
@@ -47,6 +48,14 @@ void* thread_stream_from_file(void *vargp)
 
     char channelId[KMP_MAX_CHANNEL_ID];
     json_get_string(GetConfig(),"input.channelId","1_abcdefgh",channelId,sizeof(channelId));
+
+    int64_t jumpOffsetSec=0;
+    json_get_int64(GetConfig(),"input.jumpoffsetsec",0,&jumpOffsetSec);
+
+    int64_t hiccupDurationSec, hiccupIntervalSec;
+    json_get_int64(GetConfig(),"input.hiccupDurationSec",0,&hiccupDurationSec);
+
+    json_get_int64(GetConfig(),"input.hiccupIntervalSec",0,&hiccupIntervalSec);
 
     AVPacket packet;
     av_init_packet(&packet);
@@ -82,8 +91,10 @@ void* thread_stream_from_file(void *vargp)
     LOGGER("SENDER",AV_LOG_INFO,"Realtime = %s",realTime ? "true" : "false");
     srand((int)time(NULL));
     uint64_t lastDts=0;
-    int64_t start_time=av_gettime_relative();
-
+    int64_t start_time=av_gettime_relative(),
+            hiccup_duration =  hiccupDurationSec * 1000 * 1000,
+            hiccup_interval = hiccupIntervalSec * 1000 * 1000,
+            next_hiccup = start_time + hiccup_interval;
 
     samples_stats_t stats;
     sample_stats_init(&stats,standard_timebase);
@@ -105,9 +116,23 @@ void* thread_stream_from_file(void *vargp)
         AVStream *in_stream=ifmt_ctx->streams[packet.stream_index];
 
         av_packet_rescale_ts(&packet,in_stream->time_base, standard_timebase);
+        packet.pos=createTime +packet.dts;
+        if(jumpOffsetSec != 0 ) {
+            const auto jumpOffset = jumpOffsetSec * standard_timebase.den;
+            if(AV_NOPTS_VALUE == jumpAtTimestamp) {
+                jumpAtTimestamp = packet.pts + abs(jumpOffset);
+            }
+
+            if(packet.pts > jumpAtTimestamp) {
+              packet.pts += jumpOffset;
+              packet.dts += jumpOffset;
+              LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"pts %s shifted pts,dts by %s. jump ts %s",
+               pts2str(packet.pts),pts2str(jumpOffset),pts2str(jumpAtTimestamp));
+            }
+        }
         packet.pts+=cumulativeDuration;
         packet.dts+=cumulativeDuration;
-        packet.pos=createTime +packet.dts;
+
         if (duration!=-1) {
             if (packet.dts>=duration) {
                 LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"Duration exceeded %s>=%s, terminating!",pts2str(packet.dts),pts2str(duration));
@@ -123,14 +148,28 @@ void* thread_stream_from_file(void *vargp)
             }
         }
 
-        if (realTime) {
+        if (realTime && lastDts > 0) {
 
-            int64_t timePassed=av_rescale_q(packet.dts-cumulativeDuration,standard_timebase,AV_TIME_BASE_Q);
-            //LOGGER("SENDER",AV_LOG_DEBUG,"XXXX dt=%ld dd=%ld", (av_gettime_relative() - start_time),timePassed);
-            while ((av_gettime_relative() - start_time) < timePassed) {
+            int64_t timePassed=av_rescale_q(packet.dts,standard_timebase,AV_TIME_BASE_Q) + start_time,
+                    clockPassed = av_gettime_relative();
 
-                // LOGGER0("SENDER",AV_LOG_DEBUG,"XXXX Sleep 10ms");
+           if(clockPassed >= next_hiccup && clockPassed < next_hiccup + hiccup_duration) {
+               next_hiccup += hiccup_duration;
+               LOGGER("SENDER",AV_LOG_INFO,"hiccup! [ %ld - %ld ]",
+                ts2str((clockPassed - start_time) * 90,true),
+                ts2str((next_hiccup  - start_time) * 90,true));
+
+               av_usleep(next_hiccup - clockPassed);
+
+               next_hiccup = av_gettime_relative() + hiccup_interval;
+           }
+
+            LOGGER("SENDER",AV_LOG_DEBUG,"XXXX clockPassed=%ld timePassed=%ld", clockPassed - start_time,timePassed - start_time);
+            while (clockPassed < timePassed) {
+
+                LOGGER0("SENDER",AV_LOG_DEBUG,"XXXX Sleep 10ms");
                 av_usleep(10*1000);//10ms
+                clockPassed = av_gettime_relative();
             }
         }
 
@@ -159,11 +198,10 @@ void* thread_stream_from_file(void *vargp)
         }
 
 
-        /*
          LOGGER("SENDER",AV_LOG_DEBUG,"sent packet pts=%s dts=%s  size=%d",
          ts2str(packet.pts,true),
          ts2str(packet.dts,true),
-         packet.dts,packet.size);*/
+         packet.size);
 
 
         av_packet_unref(&packet);
@@ -171,8 +209,12 @@ void* thread_stream_from_file(void *vargp)
     }
     KMP_send_eof(&kmp);
 
+    LOGGER0("SENDER",AV_LOG_DEBUG,"sent EOF");
+
     KMP_close(&kmp);
     avformat_close_input(&ifmt_ctx);
+
+    LOGGER0("SENDER",AV_LOG_DEBUG,"exiting");
     return 0;
 }
 

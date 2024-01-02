@@ -60,7 +60,7 @@ BODY: SIZE: 1106, MD5: 78bfedacae081c4e8b14c6cd205654cc
 
 URL: /seg-1-svar1.m4s
 HEADERS: 200 video/mp4
-BODY: SIZE: 61982, MD5: 009d88560c2c2eaf04824c4f4db3d6da
+BODY: SIZE: 61982, MD5: 58cab3cc0f3f5b2995ebddbdc4185a70
 
 URL: /seg-2-svar1.m4s
 HEADERS: 200 video/mp4

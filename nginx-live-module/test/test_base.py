@@ -18,6 +18,8 @@ NGINX_LIVE_KMP_ADDR = (NGINX_LIVE_HOST, 6543)
 NGINX_LOG_PATH = '/var/log/nginx/error.log'
 
 TEST_VIDEO1 = 'video1.mp4'
+TEST_VIDEO1_CC_ENG = 'video1-eng.srt'
+
 TEST_VIDEO_HIGH = 'video-high.mp4'
 TEST_VIDEO_CEA608 = 'video-cea608.mp4'
 TEST_AUDIO_MP3 = 'audio-mp3.mp4'
@@ -30,6 +32,8 @@ TEST_VIDEO2_CC_GER = 'video2-ger.srt'
 
 TEST_VIDEO_URLS = {
     TEST_VIDEO1: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_k13xaap6/flavorId/0_4c84uq72/format/download/a.mp4',
+    TEST_VIDEO1_CC_ENG: 'http://cdnapi.kaltura.com/api_v3/service/caption_captionasset/action/serve/captionAssetId/1_sib9kn2l/a.srt',
+
     TEST_VIDEO_HIGH: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_g0nj9w94/flavorId/0_0smocyms/format/download/a.mp4',
     TEST_VIDEO_CEA608: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/1_q4smvuo2/flavorId/1_df7tv1ni/format/download/a.mp4',
     TEST_AUDIO_MP3: 'http://cdnapi.kaltura.com/p/2035982/playManifest/entryId/0_tfb5x3j0/flavorId/0_i30q8rs2/format/download/a.mp4',
@@ -150,8 +154,8 @@ def createVariant(nl, varName, tracks, initialFrameId=0, flags=0):
         result.append(createTrack(nl, trackName, mediaType, varName, initialFrameId, flags))
     return result
 
-def createSubtitleVariant(nl, variantId, trackId, label, lang):
-    ss = createTrack(nl, trackId, 'subtitle')
+def createSubtitleVariant(nl, variantId, trackId, label, lang, flags=0):
+    ss = createTrack(nl, trackId, 'subtitle', flags=flags)
     nl.variant.create(NginxLiveVariant(id=variantId, role='alternate', label=label, lang=lang, track_ids={'subtitle': trackId}))
     return ss
 
@@ -171,6 +175,8 @@ def setupChannelVideoAudio(channelId, duration=10, timelineId=TIMELINE_ID):
     return nl
 
 def getConfBlock(c, path):
+    if len(path) == 0:
+        return c
     for cur in c:
         key = cur[0]
         if not isinstance(key, list):
@@ -189,7 +195,32 @@ def getConfParam(c, key):
 def delConfParam(c, key):
     for i in range(len(c) - 1, -1, -1):
         if c[i][0] == key:
-            c.pop(i)
+            del c[i]
+
+def addSpaces(params):
+    # work around a bug in nginxparser.py (assumes at least 2 args, if second arg is empty, it pops another arg)
+    if len(params) == 1 and type(params[0]) == str:
+        params.append('')
+        params.append('')
+
+    for i in range(len(params)):
+        if type(params[i]) == str:
+            params[i] += ' '
+        elif type(params[i]) == list:
+            addSpaces(params[i])
+    return params
+
+def appendConfDirective(conf, path, params):
+    getConfBlock(conf, path).append(addSpaces(params))
+
+def insertConfDirective(conf, path, params):
+    getConfBlock(conf, path).insert(0, addSpaces(params))
+
+def normalizeStreamInfo(info):
+    info = info.replace('\r\n', '\n')
+    info = re.sub('(schemeIdUri="urn:mpeg:dash:utc:direct:2014"\s*value=")[^"]+("/>)', r'\1\2', info)
+    info = re.sub('(suggestedPresentationDelay=")[^"]+(">)', r'\1\2', info)
+    return info
 
 def testStream(url, basePath, streamName):
     splittedPath = os.path.split(basePath)
@@ -197,7 +228,8 @@ def testStream(url, basePath, streamName):
     filePath = os.path.join(splittedPath[0], 'ref', fileName)
 
     info = manifest_utils.getStreamInfo(url)
-    info = info.replace('\r\n', '\n')
+    info = normalizeStreamInfo(info)
+
     if not os.path.isfile(filePath):
         print('Info: saving stream, url: %s, file: %s' % (url, filePath))
         open(filePath, 'w').write(info)

@@ -11,7 +11,13 @@ in ngx_kmp_rtmp_connect_data_json
     tc_url %V
     page_url %V
 
-out ngx_kmp_rtmp_upstream_json ngx_kmp_rtmp_upstream_t
+out nostatic noobject ngx_kmp_rtmp_upstream_streams_json ngx_kmp_rtmp_upstream_t
+    - %objQueue-ngx_kmp_rtmp_stream_json,ngx_kmp_rtmp_stream_t,queue,sn.str,id_escape obj->streams.queue
+
+out nostatic noobject ngx_kmp_rtmp_upstream_stream_ids_json ngx_kmp_rtmp_upstream_t
+    - %queueIds-ngx_kmp_rtmp_stream_t,queue,sn.str,id_escape obj->streams.queue
+
+out nostatic ngx_kmp_rtmp_upstream_json ngx_kmp_rtmp_upstream_t
     url %jV
     header %jV
     opaque %rV
@@ -21,12 +27,20 @@ out ngx_kmp_rtmp_upstream_json ngx_kmp_rtmp_upstream_t
     mem_limit %uz
     mem_left %uz
     written_bytes %uz
-    sent_bytes %O obj->peer.connection->sent
+    sent_bytes %O (obj->peer.connection ? obj->peer.connection->sent : 0)
     received_bytes %uz
-    streams %objQueue-ngx_kmp_rtmp_stream_json,ngx_kmp_rtmp_stream_t,queue,sn.str,id_escape obj->streams.queue
+    streams %func-ngx_kmp_rtmp_upstream_streams_json obj
+
+out ngx_kmp_rtmp_upstream_free_json ngx_kmp_rtmp_upstream_t
+    event_type rtmp_close
+    reason %jV obj->free_reason
+    upstream_id %jV-obj->id_escape obj->sn.str
+    url %jV
+    header %jV
+    opaque %rV
 
 out nostatic noobject ngx_kmp_rtmp_upstreams_json void
     - %objQueue-ngx_kmp_rtmp_upstream_json,ngx_kmp_rtmp_upstream_t,queue,sn.str,id_escape ngx_kmp_rtmp_upstreams.queue
 
 out nostatic noobject ngx_kmp_rtmp_upstream_ids_json void
-    - %objQueueIds-ngx_kmp_rtmp_upstream_t,queue,sn.str,id_escape ngx_kmp_rtmp_upstreams.queue
+    - %queueIds-ngx_kmp_rtmp_upstream_t,queue,sn.str,id_escape ngx_kmp_rtmp_upstreams.queue

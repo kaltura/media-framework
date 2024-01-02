@@ -4,10 +4,9 @@ def updateConf(conf):
     block = getConfBlock(conf, ['live'])
     for key in ['persist_setup_path', 'persist_index_path', 'persist_delta_path']:
         delConfParam(block, key)
-    block.append(['force_memory_segments', '5'])
 
-    block = getConfBlock(conf, ['http', 'server', 'location /store/'])
-    block.append([['limit_except', 'PUT'], [['deny', 'all']]])
+    appendConfDirective(conf, ['live'], ['force_memory_segments', '5'])
+    appendConfDirective(conf, ['http', 'server', 'location /store/'], [['limit_except', 'PUT'], [['deny', 'all']]])
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

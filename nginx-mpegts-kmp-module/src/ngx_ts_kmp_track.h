@@ -1,6 +1,7 @@
 #ifndef _NGX_TS_KMP_TRACK_H_INCLUDED_
 #define _NGX_TS_KMP_TRACK_H_INCLUDED_
 
+
 #include <ngx_config.h>
 #include <ngx_core.h>
 
@@ -9,14 +10,15 @@
 #include <ngx_kmp_out_track.h>
 
 
-typedef struct  {
+typedef struct {
     ngx_rbtree_node_t        in;
     ngx_queue_t              queue;
     ngx_kmp_out_track_t     *track;
-    ngx_buf_t                sps;
-    ngx_buf_t                pps;
+
+    void                    *codec;
     ngx_ts_aac_params_t      last_aac_params;
     uint32_t                 caption_tries;
+
     int64_t                  timestamp;
     int64_t                  last_timestamp;
     unsigned                 timestamps_synced:1;

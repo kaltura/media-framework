@@ -5,7 +5,7 @@ def parseSRTTimestamp(ts):
     if len(vals) < 3 or len(vals) > 4:
         return None
     try:
-        vals = map(int, vals)
+        vals = list(map(int, vals))
     except ValueError:
         return None
     mult = [3600000, 60000, 1000, 1]
@@ -21,7 +21,7 @@ def parseSRTCues(data):
     for curLine in data.split('\n'):
         curLine = curLine.strip()
         if curLine.count('-->') == 1:
-            ts = map(parseSRTTimestamp, curLine.split('-->'))
+            ts = list(map(parseSRTTimestamp, curLine.split('-->')))
             if None in ts:
                 continue
 

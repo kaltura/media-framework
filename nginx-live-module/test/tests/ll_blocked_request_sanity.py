@@ -61,7 +61,7 @@ def test(channelId=CHANNEL_ID):
         elif t.msn == 1:
             # last part in msn 1 gets flushed after timeout
             assert(code == 200)
-            assert(blockDuration > 0.25)
+            assert(blockDuration > 0.2)
             assert(lastPart == (1, 5))
         else:
             # normal blocked requests

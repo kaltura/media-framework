@@ -114,6 +114,8 @@ ngx_json_status_t ngx_json_parse(ngx_pool_t *pool, u_char *string,
 
 ngx_json_status_t ngx_json_decode_string(ngx_str_t *dest, ngx_str_t *src);
 
+ngx_json_status_t ngx_json_get_string(ngx_str_t *dst, ngx_json_esc_str_t *src);
+
 
 ngx_json_status_t ngx_json_object_parse(ngx_pool_t *pool,
     ngx_json_object_t *object, ngx_json_prop_t **hash, ngx_uint_t size,

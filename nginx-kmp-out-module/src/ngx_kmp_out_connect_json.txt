@@ -1,4 +1,0 @@
-
-in ngx_kmp_out_connect_json
-    code %V
-    message %V

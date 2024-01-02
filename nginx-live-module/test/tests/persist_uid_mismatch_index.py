@@ -12,7 +12,7 @@ CHANNEL_UID_START = 0x38 + len(socket.gethostname() + ':0.1')
 CHANNEL_UID_END = CHANNEL_UID_START + 8
 
 def updateConf(conf):
-    getConfBlock(conf, ['live']).append(['persist_cancel_read_if_empty', 'off'])
+    appendConfDirective(conf, ['live'], ['persist_cancel_read_if_empty', 'off'])
 
 def setup(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

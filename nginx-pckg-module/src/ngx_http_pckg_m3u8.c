@@ -36,10 +36,10 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 
 #define M3U8_MASTER_HEADER           "#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n"
 
-#define M3U8_SESSION_DATA_ID         "#EXT-X-SESSION-DATA:DATA-ID=\"%V\""
-#define M3U8_SESSION_DATA_VALUE      ",VALUE=\"%V\""
-#define M3U8_SESSION_DATA_URI        ",URI=\"%V\""
-#define M3U8_SESSION_DATA_LANG       ",LANGUAGE=\"%V\""
+#define M3U8_SESSION_DATA_ID         "#EXT-X-SESSION-DATA:DATA-ID=\""
+#define M3U8_SESSION_DATA_VALUE      ",VALUE=\""
+#define M3U8_SESSION_DATA_URI        ",URI=\""
+#define M3U8_SESSION_DATA_LANG       ",LANGUAGE=\""
 
 #define M3U8_STREAM_BASE             "#EXT-X-STREAM-INF:PROGRAM-ID=1"        \
     ",BANDWIDTH=%uD"
@@ -56,14 +56,15 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 #define M3U8_STREAM_TAG_NO_CC        ",CLOSED-CAPTIONS=NONE"
 
 #define M3U8_MEDIA_BASE              "#EXT-X-MEDIA:TYPE=%V"                  \
-    ",GROUP-ID=\"%V%uD\",NAME=\"%V\""
-#define M3U8_MEDIA_LANG              ",LANGUAGE=\"%V\""
+    ",GROUP-ID=\"%V%uD\",NAME=\""
+#define M3U8_MEDIA_LANG              ",LANGUAGE=\""
 #define M3U8_MEDIA_DEFAULT           ",AUTOSELECT=YES,DEFAULT=YES"
 #define M3U8_MEDIA_NON_DEFAULT       ",AUTOSELECT=NO,DEFAULT=NO"
 #define M3U8_MEDIA_CHANNELS          ",CHANNELS=\"%uD\""
 #define M3U8_MEDIA_URI               ",URI=\""
-#define M3U8_MEDIA_CC                "#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS"     \
-    ",GROUP-ID=\"CC\",NAME=\"%V\",INSTREAM-ID=\"%V\""
+#define M3U8_MEDIA_CC1               "#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS"     \
+    ",GROUP-ID=\"CC\",NAME=\""
+#define M3U8_MEDIA_CC2               "\",INSTREAM-ID=\"%V\""
 
 /* index playlist */
 #define M3U8_INDEX_HEADER            "#EXTM3U\n#EXT-X-TARGETDURATION:%uD\n"  \
@@ -112,7 +113,8 @@ static char *ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent,
 #define M3U8_SKIPPED_SEGMENTS        "#EXT-X-SKIP:SKIPPED-SEGMENTS=%uD\n"
 
 #define M3U8_RENDITION_REPORT_URI    "#EXT-X-RENDITION-REPORT:URI=\""
-#define M3U8_RENDITION_REPORT_ATTRS  "\",LAST-MSN=%uD,LAST-PART=%uD\n"
+#define M3U8_RENDITION_REPORT_MSN    ",LAST-MSN=%uD"
+#define M3U8_RENDITION_REPORT_PART   ",LAST-PART=%uD"
 
 
 #define M3U8_ARG_PREFIX              "_HLS_"
@@ -153,9 +155,10 @@ typedef struct {
     ngx_uint_t                      version;
     ngx_uint_t                      container;
     ngx_uint_t                      subtitle_format;
-    ngx_flag_t                      mux_segments;
+    ngx_http_complex_value_t       *mux_segments;
     ngx_flag_t                      parts;
     ngx_flag_t                      rendition_reports;
+    ngx_http_complex_value_t       *program_date_time;
     ngx_http_pckg_m3u8_ctl_conf_t   ctl;
     ngx_http_pckg_m3u8_enc_conf_t   enc;
 } ngx_http_pckg_m3u8_loc_conf_t;
@@ -206,7 +209,7 @@ static ngx_command_t  ngx_http_pckg_m3u8_commands[] = {
 
     { ngx_string("pckg_m3u8_mux_segments"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_flag_slot,
+      ngx_http_set_complex_value_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_m3u8_loc_conf_t, mux_segments),
       NULL },
@@ -223,6 +226,13 @@ static ngx_command_t  ngx_http_pckg_m3u8_commands[] = {
       ngx_conf_set_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_m3u8_loc_conf_t, rendition_reports),
+      NULL },
+
+    { ngx_string("pckg_m3u8_program_date_time"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_set_complex_value_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_m3u8_loc_conf_t, program_date_time),
       NULL },
 
     { ngx_string("pckg_m3u8_ctl_block_reload"),
@@ -335,6 +345,35 @@ static ngx_str_t  ngx_http_pckg_m3u8_default_label = ngx_string("default");
 
 
 /* shared */
+
+static u_char *
+ngx_http_pckg_m3u8_quoted_str_write(u_char *dst, ngx_str_t *str)
+{
+    u_char       ch;
+    u_char      *src;
+    ngx_uint_t   n;
+
+    src = str->data;
+    n = str->len;
+
+    while (n) {
+        ch = *src++;
+        n--;
+
+        switch (ch) {
+
+        case '"':
+        case '\n':
+        case '\r':
+            continue;
+        }
+
+        *dst++ = ch;
+    }
+
+    return dst;
+}
+
 
 static ngx_http_pckg_container_t *
 ngx_http_pckg_m3u8_get_container(ngx_http_request_t *r,
@@ -547,7 +586,7 @@ ngx_http_pckg_m3u8_enc_key_write(u_char *p, ngx_http_request_t *r,
     /* uri */
     p = ngx_copy_fix(p, M3U8_ENC_KEY_URI);
     if (ctx != NULL) {
-        p = ngx_copy_str(p, ctx->key_uri);
+        p = ngx_http_pckg_m3u8_quoted_str_write(p, &ctx->key_uri);
 
     } else if (elcf->scheme == NGX_HTTP_PCKG_ENC_CENC) {
         p = ngx_copy_fix(p, M3U8_URI_BASE64_DATA);
@@ -571,14 +610,15 @@ ngx_http_pckg_m3u8_enc_key_write(u_char *p, ngx_http_request_t *r,
     /* keyformat */
     if (mlcf->enc.key_format.len != 0) {
         p = ngx_copy_fix(p, M3U8_ENC_KEY_KEY_FORMAT);
-        p = ngx_copy_str(p, mlcf->enc.key_format);
+        p = ngx_http_pckg_m3u8_quoted_str_write(p, &mlcf->enc.key_format);
         *p++ = '"';
     }
 
     /* keyformatversions */
     if (mlcf->enc.key_format_versions.len != 0) {
         p = ngx_copy_fix(p, M3U8_ENC_KEY_KEY_FORMAT_VER);
-        p = ngx_copy_str(p, mlcf->enc.key_format_versions);
+        p = ngx_http_pckg_m3u8_quoted_str_write(p,
+            &mlcf->enc.key_format_versions);
         *p++ = '"';
     }
 
@@ -811,7 +851,7 @@ ngx_http_pckg_m3u8_media_group_get_size(ngx_pckg_media_group_t *group,
         sizeof(M3U8_MEDIA_DEFAULT) - 1 +
         sizeof(M3U8_MEDIA_URI) - 1 +
         ngx_http_pckg_prefix_index.len +
-        sizeof("-s-v\"\n") - 1 +
+        sizeof("\"\"\"\n") - 1 +
         ngx_http_pckg_m3u8_ext.len;
 
     if (media_type == KMP_MEDIA_AUDIO) {
@@ -829,7 +869,8 @@ ngx_http_pckg_m3u8_media_group_get_size(ngx_pckg_media_group_t *group,
         label = variant->label.len > 0 ? &variant->label :
             &ngx_http_pckg_m3u8_default_label;
 
-        result += label->len + variant->lang.len + variant->id.len;
+        result += label->len + variant->lang.len
+            + ngx_pckg_sep_selector_get_size(&variant->id);
     }
 
     return result;
@@ -863,11 +904,15 @@ ngx_http_pckg_m3u8_media_group_write(u_char *p, ngx_pckg_media_group_t *group,
         p = ngx_sprintf(p, M3U8_MEDIA_BASE,
             &ngx_http_pckg_m3u8_media_type_name[media_type],
             &ngx_http_pckg_m3u8_media_group_id[media_type],
-            media_info->codec_id,
-            label);
+            media_info->codec_id);
+
+        p = ngx_http_pckg_m3u8_quoted_str_write(p, label);
+        *p++ = '"';
 
         if (variant->lang.len) {
-            p = ngx_sprintf(p, M3U8_MEDIA_LANG, &variant->lang);
+            p = ngx_copy_fix(p, M3U8_MEDIA_LANG);
+            p = ngx_http_pckg_m3u8_quoted_str_write(p, &variant->lang);
+            *p++ = '"';
         }
 
         if (variant->header.is_default) {
@@ -884,9 +929,9 @@ ngx_http_pckg_m3u8_media_group_write(u_char *p, ngx_pckg_media_group_t *group,
 
         p = ngx_copy_fix(p, M3U8_MEDIA_URI);
 
-        p = ngx_sprintf(p, "%V-s%V-%c%V", &ngx_http_pckg_prefix_index,
-            &variant->id, ngx_http_pckg_media_type_code[media_type],
-            &ngx_http_pckg_m3u8_ext);
+        p = ngx_copy_str(p, ngx_http_pckg_prefix_index);
+        p = ngx_pckg_sep_selector_write(p, &variant->id, 1 << media_type);
+        p = ngx_copy_str(p, ngx_http_pckg_m3u8_ext);
 
         *p++ = '"';
         *p++ = '\n';
@@ -923,8 +968,9 @@ ngx_http_pckg_m3u8_closed_captions_get_size(ngx_pckg_channel_t *channel)
     css = channel->css.elts;
     n = channel->css.nelts;
 
-    size = sizeof("\n") - 1 + (sizeof(M3U8_MEDIA_CC) - 1
-        + sizeof(M3U8_MEDIA_LANG) - 1 + sizeof("\n") - 1) * n;
+    size = sizeof("\n") - 1 + (sizeof(M3U8_MEDIA_CC1) - 1
+        + sizeof(M3U8_MEDIA_CC2) - 1 + sizeof(M3U8_MEDIA_LANG) - 1
+        + sizeof("\"\n") - 1) * n;
 
     for (i = 0; i < n; i++) {
         cs = &css[i];
@@ -960,10 +1006,14 @@ ngx_http_pckg_m3u8_closed_captions_write(u_char *p,
 
         ngx_http_pckg_m3u8_upper(&cs->id);
 
-        p = ngx_sprintf(p, M3U8_MEDIA_CC, &cs->label, &cs->id);
+        p = ngx_copy_fix(p, M3U8_MEDIA_CC1);
+        p = ngx_http_pckg_m3u8_quoted_str_write(p, &cs->label);
+        p = ngx_sprintf(p, M3U8_MEDIA_CC2, &cs->id);
 
         if (cs->lang.len) {
-            p = ngx_sprintf(p, M3U8_MEDIA_LANG, &cs->lang);
+            p = ngx_copy_fix(p, M3U8_MEDIA_LANG);
+            p = ngx_http_pckg_m3u8_quoted_str_write(p, &cs->lang);
+            *p++ = '"';
         }
 
         if (cs->is_default) {
@@ -990,7 +1040,8 @@ ngx_http_pckg_m3u8_session_data_get_size(ngx_array_t *arr)
     size = sizeof("\n") - 1 + (sizeof(M3U8_SESSION_DATA_ID) - 1
         + sizeof(M3U8_SESSION_DATA_VALUE) - 1
         + sizeof(M3U8_SESSION_DATA_URI) - 1
-        + sizeof(M3U8_SESSION_DATA_LANG) - 1 + sizeof("\n") - 1) * n;
+        + sizeof(M3U8_SESSION_DATA_LANG) - 1
+        + sizeof("\"\"\"\"\n") - 1) * n;
 
     for (i = 0; i < n; i++) {
         dv = &dvs[i];
@@ -1019,18 +1070,26 @@ ngx_http_pckg_m3u8_session_data_write(u_char *p, ngx_array_t *arr)
     for (i = 0; i < n; i++) {
         dv = &dvs[i];
 
-        p = ngx_sprintf(p, M3U8_SESSION_DATA_ID, &dv->id);
+        p = ngx_copy_fix(p, M3U8_SESSION_DATA_ID);
+        p = ngx_http_pckg_m3u8_quoted_str_write(p, &dv->id);
+        *p++ = '"';
 
         if (dv->value.len > 0) {
-            p = ngx_sprintf(p, M3U8_SESSION_DATA_VALUE, &dv->value);
+            p = ngx_copy_fix(p, M3U8_SESSION_DATA_VALUE);
+            p = ngx_http_pckg_m3u8_quoted_str_write(p, &dv->value);
+            *p++ = '"';
         }
 
         if (dv->uri.len > 0) {
-            p = ngx_sprintf(p, M3U8_SESSION_DATA_URI, &dv->uri);
+            p = ngx_copy_fix(p, M3U8_SESSION_DATA_URI);
+            p = ngx_http_pckg_m3u8_quoted_str_write(p, &dv->uri);
+            *p++ = '"';
         }
 
         if (dv->lang.len > 0) {
-            p = ngx_sprintf(p, M3U8_SESSION_DATA_LANG, &dv->lang);
+            p = ngx_copy_fix(p, M3U8_SESSION_DATA_LANG);
+            p = ngx_http_pckg_m3u8_quoted_str_write(p, &dv->lang);
+            *p++ = '"';
         }
 
         *p++ = '\n';
@@ -1079,7 +1138,7 @@ ngx_http_pckg_m3u8_streams_get_size(ngx_array_t *streams)
 
     cur = streams->elts;
     for (last = cur + streams->nelts; cur < last; cur++) {
-        result += ngx_http_pckg_selector_get_size(&cur->variant->id);
+        result += ngx_pckg_sep_selector_get_size(&cur->variant->id);
 
         if (cur->groups[KMP_MEDIA_AUDIO] != NULL) {
             result += sizeof(M3U8_STREAM_TAG_AUDIO) - 1
@@ -1244,6 +1303,12 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
 
             p = ngx_sprintf(p, M3U8_STREAM_CODECS, &audio->codec_name);
 
+            if (subtitle_group != NULL
+                && mlcf->subtitle_format == NGX_HTTP_PCKG_M3U8_SUBTITLE_IMSC)
+            {
+                p = ngx_copy_fix(p, M3U8_STREAM_CODEC_STPP);
+            }
+
             *p++ = '\"';
 
         } else {
@@ -1256,20 +1321,20 @@ ngx_http_pckg_m3u8_streams_write(u_char *p, ngx_http_request_t *r,
                 audio->codec_id);
         }
 
-        if (tracks[KMP_MEDIA_VIDEO] != NULL) {
-            if (subtitle_group != NULL) {
-                p = ngx_sprintf(p, M3U8_STREAM_TAG_SUBTITLE,
-                    &ngx_http_pckg_m3u8_media_group_id[KMP_MEDIA_SUBTITLE],
-                    subtitle_group->media_info->codec_id);
-            }
+        if (subtitle_group != NULL) {
+            p = ngx_sprintf(p, M3U8_STREAM_TAG_SUBTITLE,
+                &ngx_http_pckg_m3u8_media_group_id[KMP_MEDIA_SUBTITLE],
+                subtitle_group->media_info->codec_id);
+        }
 
+        if (tracks[KMP_MEDIA_VIDEO] != NULL) {
             p = ngx_copy_str(p, cc_group);
         }
 
         *p++ = '\n';
 
         p = ngx_copy_str(p, ngx_http_pckg_prefix_index);
-        p = ngx_http_pckg_selector_write(p, &variant->id, cur->media_types);
+        p = ngx_pckg_sep_selector_write(p, &variant->id, cur->media_types);
         p = ngx_copy_str(p, ngx_http_pckg_m3u8_ext);
         *p++ = '\n';
     }
@@ -1309,7 +1374,7 @@ ngx_http_pckg_m3u8_master_build(ngx_http_request_t *r,
     groups.channel = channel;
 
     groups.flags = 0;
-    if (mlcf->mux_segments) {
+    if (ngx_http_complex_value_flag(r, mlcf->mux_segments, 1)) {
         groups.flags |= NGX_PCKG_MEDIA_GROUP_MUX_SEGMENTS;
     }
 
@@ -1853,7 +1918,7 @@ ngx_http_pckg_m3u8_get_selector(ngx_http_request_t *r,
 
     variant = channel->variants.elts;
 
-    size = ngx_http_pckg_selector_get_size(&variant->id);
+    size = ngx_pckg_sep_selector_get_size(&variant->id);
 
     p = ngx_pnalloc(r->pool, size);
     if (p == NULL) {
@@ -1863,7 +1928,7 @@ ngx_http_pckg_m3u8_get_selector(ngx_http_request_t *r,
     }
 
     result->data = p;
-    p = ngx_http_pckg_selector_write(p, &variant->id, channel->media_types);
+    p = ngx_pckg_sep_selector_write(p, &variant->id, channel->media_types);
     result->len = p - result->data;
 
     return NGX_OK;
@@ -1997,9 +2062,11 @@ ngx_http_pckg_m3u8_redition_reports_get_size(ngx_pckg_channel_t *channel)
 
         size += (sizeof(M3U8_RENDITION_REPORT_URI) - 1
             + ngx_http_pckg_prefix_index.len
-            + ngx_http_pckg_selector_get_size(&variant_rr->variant_id)
+            + ngx_pckg_sep_selector_get_size(&variant_rr->variant_id)
             + ngx_http_pckg_m3u8_ext.len
-            + sizeof(M3U8_RENDITION_REPORT_ATTRS) - 1 + 2 * NGX_INT32_LEN)
+            + sizeof(M3U8_RENDITION_REPORT_MSN) - 1 + NGX_INT32_LEN
+            + sizeof(M3U8_RENDITION_REPORT_PART) - 1 + NGX_INT32_LEN
+            + sizeof("\"\n") - 1)
             * variant_rr->nelts;
     }
 
@@ -2025,11 +2092,22 @@ ngx_http_pckg_m3u8_redition_reports_write(u_char *p,
 
             p = ngx_copy_fix(p, M3U8_RENDITION_REPORT_URI);
             p = ngx_copy_str(p, ngx_http_pckg_prefix_index);
-            p = ngx_http_pckg_selector_write(p, &variant_rr->variant_id,
+            p = ngx_pckg_sep_selector_write(p, &variant_rr->variant_id,
                 1 << track_rr->media_type);
             p = ngx_copy_str(p, ngx_http_pckg_m3u8_ext);
-            p = ngx_sprintf(p, M3U8_RENDITION_REPORT_ATTRS,
-                track_rr->last_sequence, track_rr->last_part_index);
+            *p++ = '"';
+
+            if (track_rr->last_sequence != channel->rr_last_sequence) {
+                p = ngx_sprintf(p, M3U8_RENDITION_REPORT_MSN,
+                    track_rr->last_sequence);
+            }
+
+            if (track_rr->last_part_index != channel->rr_last_part_index) {
+                p = ngx_sprintf(p, M3U8_RENDITION_REPORT_PART,
+                    track_rr->last_part_index);
+            }
+
+            *p++ = '\n';
         }
     }
 
@@ -2052,6 +2130,7 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r, ngx_str_t *result)
     ngx_int_t                       rc;
     ngx_str_t                       selector, seg_suffix;
     ngx_uint_t                      i, n;
+    ngx_flag_t                      program_date_time;
 #if (NGX_HAVE_OPENSSL_EVP)
     ngx_pckg_track_t               *track;
 #endif
@@ -2135,7 +2214,14 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r, ngx_str_t *result)
         ngx_http_pckg_prefix_seg.len + sizeof("-") - 1 +
         segment_index_size + seg_suffix.len;
 
-    period_size = sizeof(M3U8_DISCONTINUITY) - 1 + M3U8_PROGRAM_DATE_TIME_LEN;
+    period_size = sizeof(M3U8_DISCONTINUITY) - 1;
+
+    program_date_time = ngx_http_complex_value_flag(r,
+        mlcf->program_date_time, 1);
+
+    if (program_date_time) {
+        period_size += M3U8_PROGRAM_DATE_TIME_LEN;
+    }
 
     if (container->init_file_ext) {
         period_size +=
@@ -2276,12 +2362,14 @@ ngx_http_pckg_m3u8_index_build(ngx_http_request_t *r, ngx_str_t *result)
             last_map_index = map_index;
         }
 
-        ngx_gmtime(ph->time / timescale, &gmt);
+        if (program_date_time) {
+            ngx_gmtime(ph->time / timescale, &gmt);
 
-        p = ngx_sprintf(p, M3U8_PROGRAM_DATE_TIME,
-            gmt.ngx_tm_year, gmt.ngx_tm_mon, gmt.ngx_tm_mday,
-            gmt.ngx_tm_hour, gmt.ngx_tm_min, gmt.ngx_tm_sec,
-            (int) ((ph->time / milliscale) % 1000));
+            p = ngx_sprintf(p, M3U8_PROGRAM_DATE_TIME,
+                gmt.ngx_tm_year, gmt.ngx_tm_mon, gmt.ngx_tm_mday,
+                gmt.ngx_tm_hour, gmt.ngx_tm_min, gmt.ngx_tm_sec,
+                (int) ((ph->time / milliscale) % 1000));
+        }
 
         p = ngx_http_pckg_m3u8_write_period_segments(p, period,
             &seg_suffix, milliscale, bi);
@@ -2533,7 +2621,7 @@ ngx_http_pckg_m3u8_low_latency(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     value = cf->args->elts;
 
     if (ngx_strcasecmp(value[1].data, (u_char *) "on") == 0) {
-        ngx_conf_init_value(mlcf->mux_segments, 0);
+        ngx_conf_init_complex_int_value(mlcf->mux_segments, 0);
         ngx_conf_init_value(mlcf->parts, 1);
         ngx_conf_init_value(mlcf->rendition_reports, 1);
 
@@ -2542,7 +2630,7 @@ ngx_http_pckg_m3u8_low_latency(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         ngx_conf_init_complex_int_value(mlcf->ctl.part_hold_back_percent, 300);
 
     } else if (ngx_strcasecmp(value[1].data, (u_char *) "off") == 0) {
-        ngx_conf_init_value(mlcf->mux_segments, 1);
+        ngx_conf_init_complex_int_value(mlcf->mux_segments, 1);
         ngx_conf_init_value(mlcf->parts, 0);
         ngx_conf_init_value(mlcf->rendition_reports, 0);
 
@@ -2589,7 +2677,6 @@ ngx_http_pckg_m3u8_create_loc_conf(ngx_conf_t *cf)
 
     conf->container = NGX_CONF_UNSET_UINT;
     conf->subtitle_format = NGX_CONF_UNSET_UINT;
-    conf->mux_segments = NGX_CONF_UNSET;
     conf->parts = NGX_CONF_UNSET;
     conf->rendition_reports = NGX_CONF_UNSET;
 
@@ -2613,14 +2700,19 @@ ngx_http_pckg_m3u8_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
                               prev->subtitle_format,
                               NGX_HTTP_PCKG_M3U8_SUBTITLE_WEBVTT);
 
-    ngx_conf_merge_value(conf->mux_segments,
-                         prev->mux_segments, 1);
+    if (conf->mux_segments == NULL) {
+        conf->mux_segments = prev->mux_segments;
+    }
 
     ngx_conf_merge_value(conf->parts,
                          prev->parts, 0);
 
     ngx_conf_merge_value(conf->rendition_reports,
                          prev->rendition_reports, 0);
+
+    if (conf->program_date_time == NULL) {
+        conf->program_date_time = prev->program_date_time;
+    }
 
 
     if (conf->ctl.block_reload == NULL) {

@@ -10,7 +10,7 @@ if test -n "$ngx_module_link"; then
         exit 1
     fi
 else
-    if echo $NGX_ADDON_SRCS | grep " ngx_json_parser" > /dev/null; then
+    if echo $NGX_ADDON_SRCS | grep "ngx_json_parser" > /dev/null; then
         echo "found ngx_live_common for $ngx_addon_name; looks good."
     else
         echo "error: ngx_live_common is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2
@@ -30,9 +30,12 @@ KMP_IN_DEPS="                                       \
     $ngx_addon_dir/src/ngx_kmp_in_json.h            \
     "
 
+KMP_IN_INCS="$ngx_addon_dir/src"
+
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir/src
     ngx_module_deps=$KMP_IN_DEPS
+    ngx_module_incs=$KMP_IN_INCS
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="ngx_kmp_in_module"
@@ -54,5 +57,5 @@ else
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $KMP_IN_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $KMP_IN_CORE_SRCS"
 
-    CFLAGS="$CFLAGS -I$ngx_addon_dir"
+    CFLAGS="$CFLAGS -I$KMP_IN_INCS"
 fi

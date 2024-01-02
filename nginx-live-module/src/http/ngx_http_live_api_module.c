@@ -21,29 +21,14 @@ static char *ngx_http_live_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static ngx_int_t ngx_http_live_api_channel_update(ngx_http_request_t *r);
 
 
-static ngx_json_str_t  ngx_http_live_version = {
-    ngx_string(NGX_LIVE_VERSION),
-    0
-};
-
-
-static ngx_json_str_t  ngx_http_live_nginx_version = {
-    ngx_string(NGINX_VERSION),
-    0
-};
-
-
-static ngx_json_str_t  ngx_http_live_compiler = {
-    ngx_string(NGX_COMPILER),
-    0
-};
-
-
-static ngx_json_str_t  ngx_http_live_built = {
-    ngx_string(__DATE__ " " __TIME__),
-    0
-};
-
+static ngx_json_str_t  ngx_http_live_version =
+    ngx_json_string(NGX_LIVE_VERSION);
+static ngx_json_str_t  ngx_http_live_nginx_version =
+    ngx_json_string(NGINX_VERSION);
+static ngx_json_str_t  ngx_http_live_compiler =
+    ngx_json_string(NGX_COMPILER);
+static ngx_json_str_t  ngx_http_live_built =
+    ngx_json_string(__DATE__ " " __TIME__);
 
 static time_t          ngx_http_live_start_time = 0;
 
@@ -1381,6 +1366,54 @@ ngx_http_live_api_track_delete(ngx_http_request_t *r, ngx_str_t *params,
 
 
 static ngx_int_t
+ngx_http_live_api_track_input_delete(ngx_http_request_t *r, ngx_str_t *params,
+    ngx_str_t *response)
+{
+    ngx_int_t            rc;
+    ngx_str_t            track_id;
+    ngx_str_t            channel_id;
+    ngx_kmp_in_ctx_t    *input;
+    ngx_live_track_t    *track;
+    ngx_live_channel_t  *channel;
+
+    channel_id = params[0];
+    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    track_id = params[1];
+    track = ngx_live_track_get(channel, &track_id);
+    if (track == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_api_track_input_delete: "
+            "unknown track \"%V\" in channel \"%V\"",
+            &track_id, &channel_id);
+        return NGX_HTTP_NOT_FOUND;
+    }
+
+    input = track->input;
+    if (input == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_api_track_input_delete: "
+            "no input connected to track \"%V\" in channel \"%V\"",
+            &track_id, &channel_id);
+        return NGX_HTTP_CONFLICT;
+    }
+
+    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+        "ngx_http_live_api_track_input_delete: "
+        "disconnecting the input of track \"%V\" in channel \"%V\"",
+        &track_id, &channel_id);
+
+    input->disconnect(input, NGX_OK);
+
+    return NGX_OK;
+
+}
+
+
+static ngx_int_t
 ngx_http_live_api_variant_tracks_post(ngx_http_request_t *r, ngx_str_t *params,
     ngx_json_value_t *body)
 {
@@ -1699,16 +1732,18 @@ ngx_http_live_api_timeline_get(ngx_http_request_t *r, ngx_str_t *params,
         (ngx_live_json_writer_write_pt) ngx_live_timeline_json_write,
     };
 
-    ngx_int_t             rc;
     ngx_str_t             channel_id;
     ngx_str_t             timeline_id;
     ngx_live_channel_t   *channel;
     ngx_live_timeline_t  *timeline;
 
     channel_id = params[0];
-    rc = ngx_http_live_api_channel_get_unblocked(r, &channel_id, &channel);
-    if (rc != NGX_OK) {
-        return rc;
+    channel = ngx_live_channel_get(&channel_id);
+    if (channel == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_live_api_timeline_get: unknown channel \"%V\"",
+            &channel_id);
+        return NGX_HTTP_NOT_FOUND;
     }
 
     timeline_id = params[1];
@@ -1819,6 +1854,7 @@ ngx_http_live_api_timeline_delete(ngx_http_request_t *r, ngx_str_t *params,
 
     return NGX_OK;
 }
+
 
 #include "ngx_http_live_api_routes.h"
 

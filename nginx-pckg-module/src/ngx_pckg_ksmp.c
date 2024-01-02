@@ -526,7 +526,7 @@ ngx_pckg_ksmp_read_media_info_queue(ngx_persist_block_hdr_t *header,
     }
 
     rc = ngx_persist_conf_read_blocks(channel->persist,
-        NGX_PCKG_KSMP_CTX_MEDIA_INFO, rs, track);
+        NGX_PCKG_KSMP_CTX_MEDIA_INFO_QUEUE, rs, track);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_pckg_ksmp_read_media_info_queue: read blocks failed %i", rc);
@@ -616,6 +616,7 @@ ngx_pckg_ksmp_read_segment_parts(ngx_persist_block_hdr_t *header,
     ngx_mem_rstream_t *rs, void *obj)
 {
     uint32_t                          d;
+    uint32_t                          mask;
     ngx_str_t                         data;
     ngx_uint_t                        i, n;
     ngx_pckg_track_t                 *track = obj;
@@ -686,6 +687,13 @@ ngx_pckg_ksmp_read_segment_parts(ngx_persist_block_hdr_t *header,
     parts->segment_index = h.segment_index;
     parts->count = n;
 
+    if (track->header.media_type == KMP_MEDIA_SUBTITLE) {
+        mask = ~NGX_KSMP_PART_GAP;
+
+    } else {
+        mask = NGX_MAX_UINT32_VALUE;
+    }
+
     n--;
     for (i = 0; i < n; i++) {
 
@@ -698,16 +706,22 @@ ngx_pckg_ksmp_read_segment_parts(ngx_persist_block_hdr_t *header,
                 "invalid part flags 0x%uxD", d);
             return NGX_BAD_DATA;
         }
+
+        parts->duration[i] &= mask;
     }
 
     d = parts->duration[n];
-    if (d != NGX_KSMP_PART_PRELOAD_HINT
-        && vod_all_flags_set(d, NGX_KSMP_PART_GAP | NGX_KSMP_PART_INDEPENDENT))
-    {
-        ngx_log_error(NGX_LOG_ERR, rs->log, 0,
-            "ngx_pckg_ksmp_read_segment_parts: "
-            "invalid last part flags 0x%uxD", d);
-        return NGX_BAD_DATA;
+    if (d != NGX_KSMP_PART_PRELOAD_HINT) {
+        if (vod_all_flags_set(d, NGX_KSMP_PART_GAP
+            | NGX_KSMP_PART_INDEPENDENT))
+        {
+            ngx_log_error(NGX_LOG_ERR, rs->log, 0,
+                "ngx_pckg_ksmp_read_segment_parts: "
+                "invalid last part flags 0x%uxD", d);
+            return NGX_BAD_DATA;
+        }
+
+        parts->duration[n] &= mask;
     }
 
     return NGX_OK;
@@ -770,6 +784,9 @@ ngx_pckg_ksmp_read_rendition_reports(ngx_persist_block_hdr_t *header,
             h.count, channel->rrs.nelts);
         return NGX_BAD_DATA;
     }
+
+    channel->rr_last_sequence = h.last_sequence;
+    channel->rr_last_part_index = h.last_part_index;
 
     return NGX_OK;
 }
@@ -909,6 +926,77 @@ ngx_pckg_ksmp_parse_avc_extra_data(ngx_pckg_channel_t *channel,
 }
 
 
+static ngx_int_t
+ngx_pckg_ksmp_parse_hevc_transfer_char(ngx_pckg_channel_t *channel,
+    media_info_t *mi)
+{
+    void               *parser_ctx;
+    vod_status_t        rc;
+    request_context_t   request_context;
+
+    ngx_memzero(&request_context, sizeof(request_context));
+    request_context.pool = channel->pool;
+    request_context.log = channel->log;
+
+    rc = avc_hevc_parser_init_ctx(&request_context, &parser_ctx);
+    if (rc != VOD_OK) {
+        return NGX_ERROR;
+    }
+
+    rc = hevc_parser_parse_extra_data(parser_ctx, &mi->extra_data,
+        NULL, NULL);
+    if (rc != VOD_OK) {
+        return rc == VOD_BAD_DATA ? NGX_BAD_DATA : NGX_ERROR;
+    }
+
+    mi->u.video.transfer_characteristics =
+        hevc_parser_get_transfer_characteristics(parser_ctx);
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_pckg_ksmp_parse_hevc_extra_data(ngx_pckg_channel_t *channel,
+    media_info_t *mi)
+{
+    u_char  *p;
+    size_t   size;
+
+    size = codec_config_hvcc_nal_units_get_size(channel->log, &mi->extra_data);
+    if (size <= 0) {
+        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
+            "ngx_pckg_ksmp_parse_hevc_extra_data: parse failed");
+        return NGX_BAD_DATA;
+    }
+
+    p = ngx_pnalloc(channel->pool, size);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, channel->log, 0,
+            "ngx_pckg_ksmp_parse_hevc_extra_data: alloc failed");
+        return NGX_ERROR;
+    }
+
+    mi->parsed_extra_data.data = p;
+    p = codec_config_hvcc_nal_units_write(p, &mi->extra_data);
+    mi->parsed_extra_data.len = p - mi->parsed_extra_data.data;
+
+    if (mi->parsed_extra_data.len != size) {
+        ngx_log_error(NGX_LOG_ALERT, channel->log, 0,
+            "ngx_pckg_ksmp_parse_hevc_extra_data: "
+            "actual extra data size %uz different from calculated %uz",
+            mi->parsed_extra_data.len, size);
+        return NGX_ERROR;
+    }
+
+    vod_log_buffer(VOD_LOG_DEBUG_LEVEL, channel->log, 0,
+        "ngx_pckg_ksmp_parse_hevc_extra_data: parsed extra data ",
+        mi->parsed_extra_data.data, mi->parsed_extra_data.len);
+
+    return NGX_OK;
+}
+
+
 ngx_int_t
 ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
     ngx_pckg_media_info_t *node)
@@ -924,7 +1012,57 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
 
     case KMP_MEDIA_VIDEO:
 
-        if (src->codec_id != KMP_CODEC_VIDEO_H264) {
+        switch (src->codec_id) {
+
+        case KMP_CODEC_VIDEO_H264:
+            dest->u.video.nal_packet_size_length =
+                codec_config_avcc_get_nal_length_size(channel->log,
+                    &dest->extra_data);
+            if (dest->u.video.nal_packet_size_length == 0) {
+                return NGX_BAD_DATA;
+            }
+
+            if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_TRANSFER_CHAR) {
+                /* ignore errors - if we fail, just assume no transfer char */
+                (void) ngx_pckg_ksmp_parse_avc_transfer_char(channel, dest);
+            }
+
+            if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_EXTRA_DATA) {
+                rc = ngx_pckg_ksmp_parse_avc_extra_data(channel, dest);
+                if (rc != NGX_OK) {
+                    return rc;
+                }
+            }
+
+            dest->codec_id = VOD_CODEC_ID_AVC;
+            dest->format = FORMAT_AVC1;
+            break;
+
+        case KMP_CODEC_VIDEO_H265:
+            dest->u.video.nal_packet_size_length =
+                codec_config_hvcc_get_nal_length_size(channel->log,
+                    &dest->extra_data);
+            if (dest->u.video.nal_packet_size_length == 0) {
+                return NGX_BAD_DATA;
+            }
+
+            if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_TRANSFER_CHAR) {
+                /* ignore errors - if we fail, just assume no transfer char */
+                (void) ngx_pckg_ksmp_parse_hevc_transfer_char(channel, dest);
+            }
+
+            if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_EXTRA_DATA) {
+                rc = ngx_pckg_ksmp_parse_hevc_extra_data(channel, dest);
+                if (rc != NGX_OK) {
+                    return rc;
+                }
+            }
+
+            dest->codec_id = VOD_CODEC_ID_HEVC;
+            dest->format = FORMAT_HVC1;
+            break;
+
+        default:
             ngx_log_error(NGX_LOG_ERR, channel->log, 0,
                 "ngx_pckg_ksmp_parse_media_info: invalid video codec id %uD",
                 src->codec_id);
@@ -941,28 +1079,7 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
             return NGX_BAD_DATA;
         }
 
-        dest->u.video.nal_packet_size_length =
-            codec_config_avcc_get_nal_length_size(channel->log,
-                &dest->extra_data);
-        if (dest->u.video.nal_packet_size_length == 0) {
-            return NGX_BAD_DATA;
-        }
-
-        if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_TRANSFER_CHAR) {
-            /* ignore errors - if we fail, just assume no transfer char */
-            (void) ngx_pckg_ksmp_parse_avc_transfer_char(channel, dest);
-        }
-
-        if (channel->parse_flags & NGX_PCKG_KSMP_PARSE_FLAG_EXTRA_DATA) {
-            rc = ngx_pckg_ksmp_parse_avc_extra_data(channel, dest);
-            if (rc != NGX_OK) {
-                return rc;
-            }
-        }
-
         dest->media_type = MEDIA_TYPE_VIDEO;
-        dest->codec_id = VOD_CODEC_ID_AVC;
-        dest->format = FORMAT_AVC1;
 
         dest->u.video.width = src->u.video.width;
         dest->u.video.height = src->u.video.height;
@@ -978,6 +1095,7 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
                 "failed to get video codec name");
             return NGX_BAD_DATA;
         }
+
         break;
 
     case KMP_MEDIA_AUDIO:
@@ -1006,7 +1124,22 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
             dest->codec_id = VOD_CODEC_ID_MP3;
             dest->format = FORMAT_MP4A;
             dest->u.audio.object_type_id = src->u.audio.sample_rate > 24000 ?
-                0x6B : 0x69;
+                0x6b : 0x69;
+            break;
+
+        case KMP_CODEC_AUDIO_AC3:
+            dest->codec_id = VOD_CODEC_ID_AC3;
+            dest->format = FORMAT_AC3;
+            break;
+
+        case KMP_CODEC_AUDIO_EC3:
+            dest->codec_id = VOD_CODEC_ID_EAC3;
+            dest->format = FORMAT_EAC3;
+            break;
+
+        case KMP_CODEC_AUDIO_OPUS:
+            dest->codec_id = VOD_CODEC_ID_OPUS;
+            dest->format = FORMAT_OPUS;
             break;
 
         default:
@@ -1030,6 +1163,7 @@ ngx_pckg_ksmp_parse_media_info(ngx_pckg_channel_t *channel,
                 "failed to get audio codec name");
             return NGX_BAD_DATA;
         }
+
         break;
 
     case KMP_MEDIA_SUBTITLE:
@@ -1568,7 +1702,7 @@ static ngx_persist_block_t  ngx_pckg_ksmp_blocks[] = {
     { NGX_KSMP_BLOCK_MEDIA_INFO_QUEUE, NGX_PCKG_KSMP_CTX_TRACK, 0, NULL,
       ngx_pckg_ksmp_read_media_info_queue },
 
-    { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_PCKG_KSMP_CTX_MEDIA_INFO, 0, NULL,
+    { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_PCKG_KSMP_CTX_MEDIA_INFO_QUEUE, 0, NULL,
       ngx_pckg_ksmp_read_media_info },
 
     { NGX_KSMP_BLOCK_TRACK_PARTS, NGX_PCKG_KSMP_CTX_TRACK, 0, NULL,
@@ -1651,16 +1785,17 @@ ngx_pckg_ksmp_create_request(ngx_pool_t *pool, ngx_pckg_ksmp_req_t *req,
     timeline_escape = ngx_escape_uri(NULL, req->timeline_id.data,
         req->timeline_id.len, NGX_ESCAPE_ARGS);
 
-    size = sizeof("channel_id=") - 1 + req->channel_id.len + channel_escape +
-        sizeof("&timeline_id=") - 1 + req->timeline_id.len + timeline_escape +
-        sizeof("&flags=") - 1 + NGX_INT32_HEX_LEN;
+    size = sizeof("channel_id=") - 1 + req->channel_id.len + 2 * channel_escape
+        + sizeof("&timeline_id=") - 1 + req->timeline_id.len
+            + 2 * timeline_escape
+        + sizeof("&flags=") - 1 + NGX_INT32_HEX_LEN;
 
     if (req->variant_ids.data != NULL) {
         variants_escape = ngx_escape_uri(NULL, req->variant_ids.data,
             req->variant_ids.len, NGX_ESCAPE_ARGS);
 
-        size += sizeof("&variant_ids=") - 1 + req->variant_ids.len +
-            variants_escape;
+        size += sizeof("&variant_ids=") - 1 + req->variant_ids.len
+            + 2 * variants_escape;
 
     } else {
         variants_escape = 0;    /* suppress warning */

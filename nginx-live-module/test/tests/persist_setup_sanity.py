@@ -1,7 +1,7 @@
 from test_base import *
 
 def updateConf(conf):
-    getConfBlock(conf, ['live']).append(['persist_cancel_read_if_empty', 'off'])
+    appendConfDirective(conf, ['live'], ['persist_cancel_read_if_empty', 'off'])
 
 def setup(channelId=CHANNEL_ID):
     global before
@@ -9,7 +9,7 @@ def setup(channelId=CHANNEL_ID):
     nl = setupChannelTimeline(channelId, FILLER_TIMELINE_ID)
     nl.channel.update(NginxLiveChannel(id=channelId, segment_duration=6000, input_delay=1234, vars={'var': 'val'}, opaque='x' * 150, initial_segment_index=456))
     nl.setChannelId(channelId)
-    nl.variant.create(NginxLiveVariant(id='no-tracks', is_default=True, label='lab', lang='lang', role='alternate', opaque='y' * 150))
+    nl.variant.create(NginxLiveVariant(id='no_tracks', is_default=True, label='lab', lang='lang', role='alternate', opaque='y' * 150))
     nl.track.create(NginxLiveTrack(id='v1', media_type='video', group_id='gid', opaque='z' * 150))
     nl.track.create(NginxLiveTrack(id='a1', media_type='audio'))
     nl.variant.create(NginxLiveVariant(id='av', track_ids={'video':'v1', 'audio':'a1'}))

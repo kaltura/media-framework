@@ -1,0 +1,17 @@
+
+out ngx_http_rtmp_kmp_api_json void
+    version %jV ngx_http_rtmp_kmp_version
+    nginx_version %jV ngx_http_rtmp_kmp_nginx_version
+    rtmp_version %jV ngx_http_rtmp_kmp_rtmp_version
+    compiler %jV ngx_http_rtmp_kmp_compiler
+    built %jV ngx_http_rtmp_kmp_built
+    pid %ui ngx_getpid()
+    uptime %i (ngx_cached_time->sec - ngx_http_rtmp_kmp_start_time)
+    naccepted %ui ngx_rtmp_naccepted
+
+    bw_in %uL (ngx_rtmp_bw_in.bandwidth * 8)
+    bytes_in %uL ngx_rtmp_bw_in.bytes
+    bw_out %uL (ngx_rtmp_bw_out.bandwidth * 8)
+    bytes_out %uL ngx_rtmp_bw_out.bytes
+
+    servers %func-ngx_rtmp_kmp_api_servers_json obj

@@ -20,7 +20,7 @@ out noobject ngx_kmp_out_track_audio_json ngx_kmp_out_track_t
     codec_id %uD obj->media_info.
     extra_data %xV
     channels %uD obj->media_info.u.audio.
-    channel_layout %uL obj->media_info.u.audio.
+    channel_layout %uxL obj->media_info.u.audio.
     bits_per_sample %uD obj->media_info.u.audio.
     sample_rate %uD obj->media_info.u.audio.
 
@@ -40,9 +40,13 @@ out noobject ngx_kmp_out_track_unpublish_json ngx_kmp_out_track_t
     reason %jV obj->unpublish_reason
 
 
-out nostatic ngx_kmp_out_track_json ngx_kmp_out_track_t
-    - %return-null !obj
+out nostatic noobject ngx_kmp_out_track_upstreams_json ngx_kmp_out_track_t
+    - %queue-ngx_kmp_out_upstream_json,ngx_kmp_out_upstream_t,queue obj->upstreams
 
+out nostatic noobject ngx_kmp_out_track_upstream_ids_json ngx_kmp_out_track_t
+    - %queueIds-ngx_kmp_out_upstream_t,queue,id.s,id.escape obj->upstreams
+
+out noobject ngx_kmp_out_track_fields_json ngx_kmp_out_track_t
     input_id %jV
     channel_id %jV
     track_id %jV
@@ -57,6 +61,20 @@ out nostatic ngx_kmp_out_track_json ngx_kmp_out_track_t
     bitrate %ui obj->stats.
     frame_rate %.2uD obj->stats.
 
-    - %func-ngx_kmp_out_track_media_info_json obj
+    - %neFunc-ngx_kmp_out_track_media_info_json obj
 
-    upstreams %queue-ngx_kmp_out_upstream_json,ngx_kmp_out_upstream_t,queue
+    upstreams %func-ngx_kmp_out_track_upstreams_json obj
+
+out nostatic ngx_kmp_out_track_json ngx_kmp_out_track_t
+    - %return-null !obj
+    kmp_out_id %jV-obj->id_escape obj->sn.str
+    - %neFunc-ngx_kmp_out_track_fields_json obj
+
+out ngx_kmp_out_track_int_json ngx_kmp_out_track_t
+    - %neFunc-ngx_kmp_out_track_fields_json obj
+
+out nostatic noobject ngx_kmp_out_tracks_json void
+    - %objQueue-ngx_kmp_out_track_int_json,ngx_kmp_out_track_t,queue,sn.str,id_escape ngx_kmp_out_tracks.queue
+
+out nostatic noobject ngx_kmp_out_track_ids_json void
+    - %queueIds-ngx_kmp_out_track_t,queue,sn.str,id_escape ngx_kmp_out_tracks.queue

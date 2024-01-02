@@ -376,12 +376,14 @@ ngx_live_get_variable(ngx_live_variables_ctx_t *ctx, ngx_str_t *name,
             return NULL;
         }
 
+        vv = ngx_palloc(ctx->pool, sizeof(ngx_live_variable_value_t));
+        if (vv == NULL) {
+            return NULL;
+        }
+
         ngx_live_variable_depth--;
 
-        vv = ngx_palloc(ctx->pool,
-                        sizeof(ngx_live_variable_value_t));
-
-        if (vv && v->get_handler(ctx, vv, v->data) == NGX_OK) {
+        if (v->get_handler(ctx, vv, v->data) == NGX_OK) {
             ngx_live_variable_depth++;
             return vv;
         }

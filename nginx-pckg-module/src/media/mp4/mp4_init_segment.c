@@ -17,7 +17,6 @@
 
 // macros
 #define mp4_rescale_millis(millis, timescale) (millis * ((timescale) / 1000))
-#define mp4_esds_atom_size(extra_data_len) (ATOM_HEADER_SIZE + 29 + extra_data_len)
 #define mp4_copy_atom(p, raw_atom) vod_copy(p, (raw_atom).ptr, (raw_atom).size)
 
 // typedefs
@@ -161,7 +160,7 @@ static const u_char smhd_atom[] = {
 };
 
 static const u_char sthd_atom[] = {
-    0x00, 0x00, 0x00, 0x0C,        // atom size
+    0x00, 0x00, 0x00, 0x0c,        // atom size
     0x73, 0x74, 0x68, 0x64,        // sthd
     0x00, 0x00, 0x00, 0x00,        // version & flags
 };
@@ -404,7 +403,40 @@ mp4_init_segment_write_tkhd64_atom(
 
 
 static u_char*
-mp4_init_segment_write_mdhd_atom(u_char* p, uint32_t timescale, uint32_t duration)
+mp4_init_segment_write_mdhd_lang(u_char* p, vod_str_t* lang)
+{
+    uint32_t i;
+    uint16_t code;
+    u_char ch;
+
+    if (lang->len != 3)
+    {
+        goto und;
+    }
+
+    code = 0;
+    for (i = 0; i < 3; i++)
+    {
+        ch = lang->data[i];
+        if (ch < 'a' || ch > 'z')
+        {
+            goto und;
+        }
+
+        code = (code << 5) | (ch - 0x60);
+    }
+
+    write_be16(p, code);
+    return p;
+
+und:
+    write_be16(p, 0x55c4);
+    return p;
+}
+
+
+static u_char*
+mp4_init_segment_write_mdhd_atom(u_char* p, uint32_t timescale, uint32_t duration, vod_str_t* lang)
 {
     size_t atom_size = ATOM_HEADER_SIZE + sizeof(mdhd_atom_t);
 
@@ -414,14 +446,14 @@ mp4_init_segment_write_mdhd_atom(u_char* p, uint32_t timescale, uint32_t duratio
     write_be32(p, 0);                // modification time
     write_be32(p, timescale);        // timescale
     write_be32(p, duration);         // duration
-    write_be16(p, 0x55c4);           // language (und)
+    p = mp4_init_segment_write_mdhd_lang(p, lang); // language
     write_be16(p, 0);                // reserved
     return p;
 }
 
 
 static u_char*
-mp4_init_segment_write_mdhd64_atom(u_char* p, uint32_t timescale, uint64_t duration)
+mp4_init_segment_write_mdhd64_atom(u_char* p, uint32_t timescale, uint64_t duration, vod_str_t* lang)
 {
     size_t atom_size = ATOM_HEADER_SIZE + sizeof(mdhd64_atom_t);
 
@@ -431,7 +463,7 @@ mp4_init_segment_write_mdhd64_atom(u_char* p, uint32_t timescale, uint64_t durat
     write_be64(p, 0LL);              // modification time
     write_be32(p, timescale);        // timescale
     write_be64(p, duration);         // duration
-    write_be16(p, 0x55c4);           // language (und)
+    p = mp4_init_segment_write_mdhd_lang(p, lang); // language
     write_be16(p, 0);                // reserved
     return p;
 }
@@ -449,12 +481,24 @@ mp4_init_segment_write_avcc_atom(u_char* p, media_info_t* media_info)
 
 
 static u_char*
+mp4_init_segment_write_hvcc_atom(u_char* p, media_info_t* media_info)
+{
+    size_t atom_size = ATOM_HEADER_SIZE + media_info->extra_data.len;
+
+    write_atom_header(p, atom_size, 'h', 'v', 'c', 'C');
+    p = vod_copy(p, media_info->extra_data.data, media_info->extra_data.len);
+    return p;
+}
+
+
+static u_char*
 mp4_init_segment_write_stsd_video_entry(u_char* p, media_info_t* media_info)
 {
     size_t atom_size = ATOM_HEADER_SIZE + sizeof(sample_entry_t) + sizeof(stsd_video_t) +
         ATOM_HEADER_SIZE + media_info->extra_data.len;
 
-    write_atom_header(p, atom_size, 'a', 'v', 'c', '1');
+    write_be32(p, atom_size);
+    p = ngx_copy(p, &media_info->format, sizeof(media_info->format));
 
     // sample_entry_t
     write_be32(p, 0);        // reserved
@@ -478,55 +522,118 @@ mp4_init_segment_write_stsd_video_entry(u_char* p, media_info_t* media_info)
     write_be16(p, 0x18);    // depth
     write_be16(p, 0xffff);    // pre defined
 
-    p = mp4_init_segment_write_avcc_atom(p, media_info);
+    switch (media_info->codec_id)
+    {
+    case VOD_CODEC_ID_AVC:
+        p = mp4_init_segment_write_avcc_atom(p, media_info);
+        break;
+
+    case VOD_CODEC_ID_HEVC:
+        p = mp4_init_segment_write_hvcc_atom(p, media_info);
+        break;
+    }
 
     return p;
+}
+
+
+static vod_inline size_t
+mp4_init_segment_get_esds_atom_size(media_info_t* media_info)
+{
+    size_t size;
+
+    size = ATOM_HEADER_SIZE + 27;
+
+    if (media_info->extra_data.len > 0)
+    {
+        size += sizeof(descr_header_t) + media_info->extra_data.len;
+    }
+
+    return size;
 }
 
 
 static u_char*
 mp4_init_segment_write_esds_atom(u_char* p, media_info_t* media_info)
 {
-    size_t extra_data_len = media_info->extra_data.len;
-    size_t atom_size = mp4_esds_atom_size(extra_data_len);
+    size_t extra_data_len;
+    size_t extra_data_desc;
+    size_t atom_size = mp4_init_segment_get_esds_atom_size(media_info);
+
+    extra_data_len = media_info->extra_data.len;
+    if (extra_data_len > 0)
+    {
+        extra_data_desc = sizeof(descr_header_t) + extra_data_len;
+    }
+    else
+    {
+        extra_data_desc = 0;
+    }
 
     write_atom_header(p, atom_size, 'e', 's', 'd', 's');
-    write_be32(p, 0);                            // version + flags
+    write_be32(p, 0);                           // version + flags
 
-    *p++ = MP4ESDescrTag;                        // tag
-    *p++ = 3 + 3 * sizeof(descr_header_t) +        // len
-        sizeof(config_descr_t) + extra_data_len + 1;
-    write_be16(p, 0);                            // track id
-    *p++ = 0;                                    // flags
+    *p++ = MP4ESDescrTag;                       // tag
+    *p++ = 3 +                                  // len
+        sizeof(descr_header_t) + sizeof(config_descr_t) +
+        extra_data_desc +
+        sizeof(descr_header_t) + 1;
+    write_be16(p, 0);                           // track id
+    *p++ = 0;                                   // flags
 
     *p++ = MP4DecConfigDescrTag;                // tag
-    *p++ = sizeof(config_descr_t) +                // len
-        sizeof(descr_header_t) + extra_data_len;
+    *p++ = sizeof(config_descr_t) +             // len
+        extra_data_desc;
     *p++ = media_info->u.audio.object_type_id;
     *p++ = 0x15;                                // stream type
-    write_be24(p, 0);                            // buffer size
-    write_be32(p, media_info->bitrate);    // max bitrate
-    write_be32(p, media_info->bitrate);    // avg bitrate
+    write_be24(p, 0);                           // buffer size
+    write_be32(p, media_info->bitrate);         // max bitrate
+    write_be32(p, media_info->bitrate);         // avg bitrate
 
-    *p++ = MP4DecSpecificDescrTag;                // tag
-    *p++ = extra_data_len;                        // len
-    p = vod_copy(p, media_info->extra_data.data, extra_data_len);
+    if (extra_data_desc > 0)
+    {
+        *p++ = MP4DecSpecificDescrTag;          // tag
+        *p++ = extra_data_len;                  // len
+        p = vod_copy(p, media_info->extra_data.data, extra_data_len);
+    }
 
-    *p++ = MP4SLDescrTag;                        // tag
-    *p++ = 1;                                    // len
+    *p++ = MP4SLDescrTag;                       // tag
+    *p++ = 1;                                   // len
     *p++ = 2;
 
     return p;
 }
 
 
+static vod_inline size_t
+mp4_init_segment_get_stsd_audio_entry_size(media_info_t* media_info)
+{
+    size_t size;
+
+    size = ATOM_HEADER_SIZE + sizeof(sample_entry_t) + sizeof(stsd_audio_t);
+
+    if (media_info->format == FORMAT_MP4A)
+    {
+        size += mp4_init_segment_get_esds_atom_size(media_info);
+    }
+    else
+    {
+        size += ATOM_HEADER_SIZE + media_info->extra_data.len;
+    }
+
+    return size;
+}
+
+
 static u_char*
 mp4_init_segment_write_stsd_audio_entry(u_char* p, media_info_t* media_info)
 {
-    size_t atom_size = ATOM_HEADER_SIZE + sizeof(sample_entry_t) + sizeof(stsd_audio_t) +
-        mp4_esds_atom_size(media_info->extra_data.len);
+    size_t atom_size;
 
-    write_atom_header(p, atom_size, 'm', 'p', '4', 'a');
+    atom_size = mp4_init_segment_get_stsd_audio_entry_size(media_info);
+
+    write_be32(p, atom_size);
+    p = ngx_copy(p, &media_info->format, sizeof(media_info->format));
 
     // sample_entry_t
     write_be32(p, 0);        // reserved
@@ -543,7 +650,31 @@ mp4_init_segment_write_stsd_audio_entry(u_char* p, media_info_t* media_info)
     write_be16(p, media_info->u.audio.sample_rate);
     write_be16(p, 0);
 
-    p = mp4_init_segment_write_esds_atom(p, media_info);
+    if (media_info->format == FORMAT_MP4A)
+    {
+        p = mp4_init_segment_write_esds_atom(p, media_info);
+    }
+    else
+    {
+        atom_size = ATOM_HEADER_SIZE + media_info->extra_data.len;
+
+        switch (media_info->codec_id)
+        {
+        case VOD_CODEC_ID_AC3:
+            write_atom_header(p, atom_size, 'd', 'a', 'c', '3');
+            break;
+
+        case VOD_CODEC_ID_EAC3:
+            write_atom_header(p, atom_size, 'd', 'e', 'c', '3');
+            break;
+
+        case VOD_CODEC_ID_OPUS:
+            write_atom_header(p, atom_size, 'd', 'O', 'p', 's');
+            break;
+        }
+
+        p = vod_copy(p, media_info->extra_data.data, media_info->extra_data.len);
+    }
 
     return p;
 }
@@ -598,7 +729,6 @@ mp4_init_segment_write_stsd_stpp_entry(u_char* p, media_info_t* media_info)
 }
 
 
-
 static size_t
 mp4_init_segment_get_stsd_atom_size(media_info_t* media_info)
 {
@@ -612,8 +742,7 @@ mp4_init_segment_get_stsd_atom_size(media_info_t* media_info)
         break;
 
     case MEDIA_TYPE_AUDIO:
-        atom_size += ATOM_HEADER_SIZE + sizeof(sample_entry_t) + sizeof(stsd_audio_t) +
-            mp4_esds_atom_size(media_info->extra_data.len);
+        atom_size += mp4_init_segment_get_stsd_audio_entry_size(media_info);
         break;
 
     case MEDIA_TYPE_SUBTITLE:
@@ -642,6 +771,7 @@ mp4_init_segment_write_stsd_atom(u_char* p, size_t atom_size, media_info_t* medi
     write_atom_header(p, atom_size, 's', 't', 's', 'd');
     write_be32(p, 0);                // version + flags
     write_be32(p, 1);                // entries
+
     switch (media_info->media_type)
     {
     case MEDIA_TYPE_VIDEO:
@@ -785,11 +915,11 @@ mp4_init_segment_write(
         // moov.trak.mdia.mdhd
         if (duration > UINT_MAX)
         {
-            p = mp4_init_segment_write_mdhd64_atom(p, timescale, duration);
+            p = mp4_init_segment_write_mdhd64_atom(p, timescale, duration, &segment->lang);
         }
         else
         {
-            p = mp4_init_segment_write_mdhd_atom(p, timescale, duration);
+            p = mp4_init_segment_write_mdhd_atom(p, timescale, duration, &segment->lang);
         }
 
         // moov.trak.mdia.hdlr

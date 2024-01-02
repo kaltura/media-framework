@@ -3,6 +3,7 @@
 #include <ngx_stream.h>
 
 #include <ngx_buf_queue.h>
+#include <ngx_http_call.h>
 #include <ngx_kmp_in.h>
 
 #include "ngx_kmp_rtmp_track.h"
@@ -85,10 +86,10 @@ static ngx_command_t  ngx_stream_kmp_rtmp_commands[] = {
 
     { ngx_string("kmp_rtmp_in_log_frames"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_flag_slot,
+      ngx_conf_set_enum_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_kmp_rtmp_srv_conf_t, in.log_frames),
-      NULL },
+      &ngx_kmp_in_log_frames },
 
     { ngx_string("kmp_rtmp_in_mem_limit"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
@@ -116,6 +117,42 @@ static ngx_command_t  ngx_stream_kmp_rtmp_commands[] = {
       ngx_conf_set_num_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_kmp_rtmp_srv_conf_t, in_max_free_buffers),
+      NULL },
+
+
+    { ngx_string("kmp_rtmp_out_notif_url"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_http_call_url_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_kmp_rtmp_srv_conf_t, out.notif_url),
+      NULL },
+
+    { ngx_string("kmp_rtmp_out_notif_add_header"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE2,
+      ngx_conf_set_keyval_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_kmp_rtmp_srv_conf_t, out.notif_headers),
+      NULL },
+
+    { ngx_string("kmp_rtmp_out_notif_timeout"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_kmp_rtmp_srv_conf_t, out.notif_timeout),
+      NULL },
+
+    { ngx_string("kmp_rtmp_out_notif_read_timeout"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_kmp_rtmp_srv_conf_t, out.notif_read_timeout),
+      NULL },
+
+    { ngx_string("kmp_rtmp_out_notif_buffer_size"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_kmp_rtmp_srv_conf_t, out.notif_buffer_size),
       NULL },
 
 
@@ -619,6 +656,7 @@ ngx_stream_kmp_rtmp_create_srv_conf(ngx_conf_t *cf)
 static char *
 ngx_stream_kmp_rtmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 {
+    ngx_stream_core_srv_conf_t      *cscf;
     ngx_stream_kmp_rtmp_srv_conf_t  *prev = parent;
     ngx_stream_kmp_rtmp_srv_conf_t  *conf = child;
 
@@ -659,6 +697,11 @@ ngx_stream_kmp_rtmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->out.lba == NULL) {
         return NGX_CONF_ERROR;
     }
+
+    cscf = ngx_stream_conf_get_module_srv_conf(cf, ngx_stream_core_module);
+
+    conf->out.resolver = cscf->resolver;
+    conf->out.resolver_timeout = cscf->resolver_timeout;
 
     return NGX_CONF_OK;
 }

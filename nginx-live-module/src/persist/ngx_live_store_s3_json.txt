@@ -1,0 +1,9 @@
+
+out ngx_live_store_s3_block_json ngx_live_store_s3_ctx_t
+    read %func-ngx_live_store_stats_json &obj->read_stats
+    write %func-ngx_live_store_stats_json &obj->write_stats
+
+out noobject ngx_live_store_s3_json void
+    - %var ngx_live_store_s3_main_conf_t *smcf
+    - %code smcf = ngx_live_cycle_get_module_main_conf(ngx_cycle, ngx_live_store_s3_module);
+    s3 %objQueue-ngx_live_store_s3_block_json,ngx_live_store_s3_ctx_t,queue,name.s,name.escape smcf->blocks

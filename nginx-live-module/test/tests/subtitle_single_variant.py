@@ -4,11 +4,15 @@ from test_base import *
 #   doesn't play on iPhone, this is not a valid use case... it's only to make sure we don't crash on it
 
 def updateConf(conf):
-    server = getConfBlock(conf, ['http', 'server'])
-    server.append(['pckg_enc_scope', 'channel'])
-    server.append(['pckg_enc_scheme', 'cbcs'])
-    server.append(['pckg_enc_key_seed', 'keySeed$channel_id'])
-    server.append(['pckg_enc_iv_seed', 'ivSeed$channel_id'])
+    serverDirs = [
+        ['pckg_enc_scope', 'channel'],
+        ['pckg_enc_scheme', 'cbcs'],
+        ['pckg_enc_key_seed', 'keySeed$channel_id'],
+        ['pckg_enc_iv_seed', 'ivSeed$channel_id'],
+    ]
+
+    for sd in serverDirs:
+        appendConfDirective(conf, ['http', 'server'], sd)
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

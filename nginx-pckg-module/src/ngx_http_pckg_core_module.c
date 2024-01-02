@@ -122,6 +122,13 @@ static ngx_conf_enum_t  ngx_http_pckg_media_type_selector[] = {
 };
 
 
+static ngx_conf_enum_t  ngx_http_pckg_media_timestamps[] = {
+    { ngx_string("relative"), NGX_KSMP_FLAG_RELATIVE_DTS },
+    { ngx_string("absolute"), 0 },
+    { ngx_null_string, 0 }
+};
+
+
 static ngx_command_t  ngx_http_pckg_core_commands[] = {
 
     { ngx_string("pckg"),
@@ -247,6 +254,13 @@ static ngx_command_t  ngx_http_pckg_core_commands[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_pckg_core_loc_conf_t, back_fill),
       NULL },
+
+    { ngx_string("pckg_media_timestamps"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_enum_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_pckg_core_loc_conf_t, media_timestamps),
+      &ngx_http_pckg_media_timestamps },
 
     { ngx_string("pckg_empty_segments"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -768,16 +782,18 @@ ngx_http_pckg_core_init_ctx(ngx_http_request_t *r, ngx_pckg_ksmp_req_t *params,
     plcf = ngx_http_get_module_loc_conf(r, ngx_http_pckg_core_module);
 
     /* get the channel id */
-    if (plcf->channel_id == NULL) {
+    if (plcf->channel_id != NULL) {
+        rc = ngx_http_complex_value(r, plcf->channel_id, &params->channel_id);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                "ngx_http_pckg_core_init_ctx: complex value failed (1) %i",
+                rc);
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+    } else if (plcf->format != NGX_PCKG_PERSIST_TYPE_MEDIA) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
             "ngx_http_pckg_core_init_ctx: pckg_channel_id not set in conf");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    rc = ngx_http_complex_value(r, plcf->channel_id, &params->channel_id);
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-            "ngx_http_pckg_core_init_ctx: complex value failed (1) %i", rc);
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
@@ -1283,8 +1299,15 @@ ngx_http_pckg_media_segment(ngx_http_request_t *r, media_segment_t **segment)
 
     si = channel->segment_index;
     dst->segment_index = si->index;
-    dst->duration = si->duration;
+
     dst->start = si->start + si->correction;
+    if (si->part_duration > 0) {
+        dst->start += si->part_offset;
+        dst->duration = si->part_duration;
+
+    } else {
+        dst->duration = si->duration;
+    }
 
     found = 0;
 
@@ -1362,6 +1385,7 @@ ngx_http_pckg_media_init_segment(ngx_http_request_t *r,
 {
     ngx_uint_t                   i, n;
     ngx_pckg_track_t            *tracks;
+    ngx_pckg_variant_t          *variant;
     ngx_pckg_channel_t          *channel;
     ngx_http_pckg_core_ctx_t    *ctx;
     media_init_segment_track_t  *dst_track;
@@ -1377,6 +1401,9 @@ ngx_http_pckg_media_init_segment(ngx_http_request_t *r,
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
+    variant = channel->variants.elts;
+
+    dst->lang = variant->lang;
     dst->first = dst_track;
 
     tracks = channel->tracks.elts;
@@ -2085,6 +2112,7 @@ ngx_http_pckg_core_create_loc_conf(ngx_conf_t *cf)
     conf->media_type_selector = NGX_CONF_UNSET_UINT;
     conf->back_fill = NGX_CONF_UNSET;
 
+    conf->media_timestamps = NGX_CONF_UNSET_UINT;
     conf->empty_segments = NGX_CONF_UNSET;
 
     return conf;
@@ -2146,6 +2174,10 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_value(conf->back_fill,
                          prev->back_fill, 0);
 
+    ngx_conf_merge_uint_value(conf->media_timestamps,
+                              prev->media_timestamps,
+                              NGX_KSMP_FLAG_RELATIVE_DTS);
+
     ngx_conf_merge_value(conf->empty_segments,
                          prev->empty_segments, 0);
 
@@ -2157,7 +2189,7 @@ ngx_http_pckg_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
         conf->segment_metadata = prev->segment_metadata;
     }
 
-    conf->base_flags = NGX_KSMP_FLAG_DYNAMIC_VAR;
+    conf->base_flags = NGX_KSMP_FLAG_DYNAMIC_VAR | conf->media_timestamps;
     if (conf->back_fill) {
         conf->base_flags |= NGX_KSMP_FLAG_BACK_FILL;
     }

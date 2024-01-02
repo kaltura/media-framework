@@ -9,7 +9,7 @@ TEST_VIDEO = TEST_VIDEO2
 FILLER_VIDEO = TEST_VIDEO1
 
 def updateConf(conf):
-    getConfBlock(conf, ['stream', 'server']).append(['live_kmp_read_timeout', '1000000'])
+    appendConfDirective(conf, ['stream', 'server'], ['live_kmp_read_timeout', '1000000'])
 
 def setupFiller():
     nl = setupChannelTimeline(FILLER_CHANNEL_ID, FILLER_TIMELINE_ID)

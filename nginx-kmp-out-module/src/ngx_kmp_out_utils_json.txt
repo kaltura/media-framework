@@ -1,0 +1,4 @@
+
+in ngx_kmp_out_status_json
+    code %V
+    message %V

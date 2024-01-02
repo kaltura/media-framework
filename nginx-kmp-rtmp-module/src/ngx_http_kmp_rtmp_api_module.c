@@ -112,6 +112,42 @@ ngx_http_kmp_rtmp_api_upstreams_list(ngx_http_request_t *r, ngx_str_t *params,
 
 
 static ngx_int_t
+ngx_http_kmp_rtmp_api_upstream_json(ngx_http_request_t *r,
+    ngx_str_t *params, ngx_http_api_json_writer_t *writer, ngx_str_t *response)
+{
+    ngx_str_t                 upstream_id;
+    ngx_kmp_rtmp_upstream_t  *u;
+
+    upstream_id = params[0];
+
+    u = ngx_kmp_rtmp_upstream_get(&upstream_id);
+    if (u == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "ngx_http_kmp_rtmp_api_upstream_json: "
+            "unknown upstream \"%V\"", &upstream_id);
+        return NGX_HTTP_NOT_FOUND;
+    }
+
+    return ngx_http_api_build_json(r, writer, u, response);
+}
+
+
+static ngx_int_t
+ngx_http_kmp_rtmp_api_upstream_get(ngx_http_request_t *r,
+    ngx_str_t *params, ngx_str_t *response)
+{
+    static ngx_http_api_json_writer_t  writer = {
+        (ngx_http_api_json_writer_get_size_pt)
+            ngx_kmp_rtmp_upstream_json_get_size,
+        (ngx_http_api_json_writer_write_pt)
+            ngx_kmp_rtmp_upstream_json_write,
+    };
+
+    return ngx_http_kmp_rtmp_api_upstream_json(r, params, &writer, response);
+}
+
+
+static ngx_int_t
 ngx_http_kmp_rtmp_api_upstream_delete(ngx_http_request_t *r,
     ngx_str_t *params, ngx_str_t *response)
 {
@@ -128,9 +164,39 @@ ngx_http_kmp_rtmp_api_upstream_delete(ngx_http_request_t *r,
         return NGX_HTTP_NOT_FOUND;
     }
 
-    ngx_kmp_rtmp_upstream_free(u);
+    ngx_kmp_rtmp_upstream_free(u, "api_delete");
 
     return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_kmp_rtmp_api_streams_get(ngx_http_request_t *r,
+    ngx_str_t *params, ngx_str_t *response)
+{
+    static ngx_http_api_json_writer_t  writer = {
+        (ngx_http_api_json_writer_get_size_pt)
+            ngx_kmp_rtmp_upstream_streams_json_get_size,
+        (ngx_http_api_json_writer_write_pt)
+            ngx_kmp_rtmp_upstream_streams_json_write,
+    };
+
+    return ngx_http_kmp_rtmp_api_upstream_json(r, params, &writer, response);
+}
+
+
+static ngx_int_t
+ngx_http_kmp_rtmp_api_streams_list(ngx_http_request_t *r,
+    ngx_str_t *params, ngx_str_t *response)
+{
+    static ngx_http_api_json_writer_t  writer = {
+        (ngx_http_api_json_writer_get_size_pt)
+            ngx_kmp_rtmp_upstream_stream_ids_json_get_size,
+        (ngx_http_api_json_writer_write_pt)
+            ngx_kmp_rtmp_upstream_stream_ids_json_write,
+    };
+
+    return ngx_http_kmp_rtmp_api_upstream_json(r, params, &writer, response);
 }
 
 

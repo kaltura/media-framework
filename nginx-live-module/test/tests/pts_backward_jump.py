@@ -4,7 +4,7 @@ from test_base import *
 #   27 sec video plays, then jumps to 37 sec with discontinuity
 
 def updateConf(conf):
-    getConfBlock(conf, ['live', 'preset main']).append(['syncer', 'off'])
+    appendConfDirective(conf, ['live', 'preset main'], ['syncer', 'off'])
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

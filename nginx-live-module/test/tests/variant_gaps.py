@@ -6,7 +6,7 @@ from test_base import *
 #   var3:    av1, av1, av2, av1, av2, av1 (30 sec each)
 
 def updateConf(conf):
-    getConfBlock(conf, ['stream', 'server']).append(['live_kmp_read_timeout', '1000000'])
+    appendConfDirective(conf, ['stream', 'server'], ['live_kmp_read_timeout', '1000000'])
 
 def test(channelId=CHANNEL_ID):
     st = KmpSendTimestamps()

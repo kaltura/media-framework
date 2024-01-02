@@ -6,8 +6,9 @@ RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base 
 WORKDIR /tmp/build
 
 ARG NGINX_VERSION=1.21.0
+ARG SRT_VERSION=v1.5.3
 
-RUN git clone https://github.com/Haivision/srt/ && cd srt && ./configure && make && make install
+RUN git clone --branch ${SRT_VERSION} https://github.com/Haivision/srt/ && cd srt && ./configure && make && make install
 
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     tar -zxvf nginx-${NGINX_VERSION}.tar.gz && \
@@ -17,11 +18,14 @@ RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
 
 COPY nginx-common nginx-common
 COPY nginx-rtmp-module nginx-rtmp-module
+COPY nginx-kmp-in-module nginx-kmp-in-module
 COPY nginx-kmp-out-module nginx-kmp-out-module
 COPY nginx-rtmp-kmp-module nginx-rtmp-kmp-module
 COPY nginx-mpegts-module nginx-mpegts-module
 COPY nginx-mpegts-kmp-module nginx-mpegts-kmp-module
+COPY nginx-kmp-cc-module nginx-kmp-cc-module
 RUN git clone https://github.com/kaltura/nginx-srt-module
+RUN git clone https://github.com/kaltura/nginx-stream-preread-str-module
 
 ARG APP_VERSION=1.0
 
@@ -36,11 +40,14 @@ RUN [ "${DEBUG_BUILD}" -eq "1" ] && debug_option=--with-debug; \
             --with-http_stub_status_module \
             --add-module=/tmp/build/nginx-common \
             --add-module=/tmp/build/nginx-rtmp-module \
+            --add-module=/tmp/build/nginx-kmp-in-module \
             --add-module=/tmp/build/nginx-kmp-out-module \
             --add-module=/tmp/build/nginx-rtmp-kmp-module \
             --add-module=/tmp/build/nginx-mpegts-module \
             --add-module=/tmp/build/nginx-mpegts-kmp-module \
+            --add-module=/tmp/build/nginx-kmp-cc-module \
             --add-module=/tmp/build/nginx-srt-module \
+            --add-module=/tmp/build/nginx-stream-preread-str-module \
             --with-file-aio \
             --with-stream \
             --with-http_ssl_module \

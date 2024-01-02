@@ -23,10 +23,14 @@
 #define NGX_TS_VIDEO_MPEG2     0x02 /* ISO/IEC 13818-2, MPEG-2 Video */
 #define NGX_TS_VIDEO_MPEG4     0x10 /* ISO/IEC 14496-2, MPEG-4 Video */
 #define NGX_TS_VIDEO_AVC       0x1b /* ISO/IEC 14496-10, AVC */
+#define NGX_TS_VIDEO_HEVC      0x24
+
 
 #define NGX_TS_AUDIO_MPEG1     0x03 /* ISO/IEC 11172-3, MPEG-1 Audio */
 #define NGX_TS_AUDIO_MPEG2     0x04 /* ISO/IEC 13818-3, MPEG-2 Audio */
 #define NGX_TS_AUDIO_AAC       0x0f /* ISO/IEC 13818-7, MPEG-2 AAC ADTS Audio */
+#define NGX_TS_AUDIO_AC3       0x81
+#define NGX_TS_AUDIO_EC3       0x87
 
 
 typedef enum {
@@ -49,6 +53,7 @@ typedef struct {
     uint16_t                      pid;
     uint64_t                      pts;
     uint64_t                      dts;
+    ngx_str_t                     info;
     unsigned                      ptsf:1;
     unsigned                      rand:1;
     unsigned                      video:1;
@@ -81,9 +86,20 @@ typedef struct {
     ngx_ts_bufs_t                 bufs;  /* PAT */
     ngx_ts_handler_t             *handlers;
     void                         *data;
-    ngx_str_t                     header;
+    ngx_str_t                     stream_id;
     size_t                        mem_left;
+
+    ngx_str_t                     dump_folder;
+    ngx_fd_t                      dump_fd;
+    unsigned                      dump_input:1;
 } ngx_ts_stream_t;
+
+
+typedef struct {
+    size_t                        mem_limit;
+    ngx_str_t                     stream_id;
+    ngx_str_t                     dump_folder;
+} ngx_ts_stream_conf_t;
 
 
 typedef struct {
@@ -113,7 +129,8 @@ struct ngx_ts_handler_s {
 };
 
 
-ngx_ts_stream_t *ngx_ts_stream_create(ngx_connection_t *c, size_t mem_limit);
+ngx_ts_stream_t *ngx_ts_stream_create(ngx_connection_t *c, ngx_pool_t *pool,
+    ngx_ts_stream_conf_t *conf);
 ngx_int_t ngx_ts_add_handler(ngx_ts_stream_t *ts, ngx_ts_handler_pt handler,
     void *data);
 ngx_int_t ngx_ts_read(ngx_ts_stream_t *ts, ngx_chain_t *in);

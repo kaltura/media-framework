@@ -1,0 +1,46 @@
+name: GitHub CI
+
+on: [push, pull_request]
+
+defaults:
+  run:
+    shell: 'bash -Eeuo pipefail -x {0}'
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [clang-14, gcc-11]
+        confargs: ['--add-module','--add-dynamic-module']
+
+    env:
+      CC: ${{ matrix.compiler }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Dependencies
+        run: |
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            build-essential \
+            clang-14 \
+            gcc-11 \
+            libssl-dev \
+            libpcre3-dev \
+            libxml2-dev \
+            curl \
+            ack \
+            libsrt-openssl-dev 
+      - name : Build
+        run: ./ci_build.sh ${{ matrix.confargs }}
+      - name : Nginx binary loads
+        run : /sbin/nginx -V
+      - name: Validate
+        run: cd nginx-common/test; for VALIDATE_SCRIPT in validate_*py; do ./$VALIDATE_SCRIPT;done
+      - name: Check Coding Style
+        run: | 
+          LOG='nginx-common/test/ngx-releng.log';for MODULE in nginx-*; do nginx-common/test/openresty-devel-utils/ngx-releng $MODULE >> $LOG 2>&1;done
+          RC=`grep -vc "Checking sources in" $LOG || true`; cat $LOG; exit $RC

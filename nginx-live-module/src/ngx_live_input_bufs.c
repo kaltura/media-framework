@@ -76,7 +76,7 @@ static ngx_command_t  ngx_live_input_bufs_commands[] = {
 
     { ngx_string("input_bufs_bin_count"),
       NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_size_slot,
+      ngx_conf_set_num_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_input_bufs_preset_conf_t, bin_count),
       NULL },
@@ -617,7 +617,7 @@ ngx_live_input_bufs_global_json_write(u_char *p, void *obj)
         cur = ngx_queue_data(q, ngx_live_input_bufs_t, queue);
 
         buf_queue = &cur->buf_queue;
-        size += buf_queue->nbuffers * buf_queue->alloc_size;
+        size += ngx_buf_queue_mem_used(buf_queue);
         lock_count += cur->lock_count;
         count++;
     }
@@ -658,7 +658,7 @@ ngx_live_input_bufs_track_json_write(u_char *p, void *obj)
     ctx = ngx_live_get_module_ctx(track, ngx_live_input_bufs_module);
 
     buf_queue = &ctx->input_bufs->buf_queue;
-    size = buf_queue->nbuffers * buf_queue->alloc_size;
+    size = ngx_buf_queue_mem_used(buf_queue);
 
     p = ngx_copy_fix(p, "\"input_bufs\":{\"size\":");
     p = ngx_sprintf(p, "%uz", size);

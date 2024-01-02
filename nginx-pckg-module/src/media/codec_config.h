@@ -66,23 +66,29 @@ typedef struct {
     uint8_t channel_config;
 } mp4a_config_t;
 
+
 // functions
 uint32_t codec_config_avcc_get_nal_length_size(
     vod_log_t* log,
     vod_str_t* extra_data);
-
-vod_status_t codec_config_hevc_get_nal_units(
-    request_context_t* request_context,
-    vod_str_t* extra_data,
-    bool_t size_only,
-    uint32_t* nal_packet_size_length,
-    vod_str_t* result);
 
 size_t codec_config_avcc_nal_units_get_size(
     vod_log_t* log,
     vod_str_t* extra_data);
 
 u_char* codec_config_avcc_nal_units_write(u_char* p, vod_str_t* extra_data);
+
+
+uint32_t codec_config_hvcc_get_nal_length_size(
+    vod_log_t* log,
+    vod_str_t* extra_data);
+
+size_t codec_config_hvcc_nal_units_get_size(
+    vod_log_t* log,
+    vod_str_t* extra_data);
+
+u_char* codec_config_hvcc_nal_units_write(u_char* p, vod_str_t* extra_data);
+
 
 // get codec name according to http://tools.ietf.org/html/rfc6381
 vod_status_t codec_config_get_video_codec_name(vod_log_t* log, struct media_info_s* media_info);

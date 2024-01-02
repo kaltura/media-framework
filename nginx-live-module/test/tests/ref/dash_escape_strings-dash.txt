@@ -1,0 +1,292 @@
+URL: /manifest.mpd
+HEADERS: 200 application/dash+xml
+BODY: <?xml version="1.0"?>
+<MPD
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="urn:mpeg:dash:schema:mpd:2011"
+    xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd"
+    profiles="urn:mpeg:dash:profile:isoff-live:2011"
+    type="dynamic"
+    availabilityStartTime="2019-12-31T23:59:59Z"
+    publishTime="2020-01-01T00:00:29Z"
+    mediaPresentationDuration="PT29.738S"
+    minBufferTime="PT4.067S"
+    timeShiftBufferDepth="PT29.738S"
+    suggestedPresentationDelay="">
+  <Period id="0" start="PT0.977S">
+    <AdaptationSet
+        id="1"
+        maxWidth="160"
+        maxHeight="120"
+        maxFrameRate="15/1"
+        segmentAlignment="true">
+      <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015"
+          value="CC1=&lt;&gt;&amp;;CC2=&quot;'x"/>
+      <Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015"
+          value="3=lang:&lt;&gt;&amp;;4=lang:&quot;'x"/>
+      <SegmentTemplate
+          timescale="90000"
+          media="seg-$Number$-$RepresentationID$.m4s"
+          initialization="init-1-$RepresentationID$.mp4"
+          startNumber="1">
+        <SegmentTimeline>
+          <S d="356090"/>
+          <S d="354000"/>
+          <S d="366000"/>
+          <S d="354000"/>
+          <S d="360000" r="1"/>
+          <S d="342000"/>
+          <S d="184369"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation
+          id="smain-v"
+          bandwidth="103583"
+          width="160"
+          height="120"
+          sar="1:1"
+          frameRate="15/1"
+          mimeType="video/mp4"
+          codecs="avc1.64000b"
+          startWithSAP="1"/>
+    </AdaptationSet>
+    <AdaptationSet
+        id="2"
+        lang="e&quot;&amp;&lt;&gt;'"
+        segmentAlignment="true">
+      <Label>Aud&quot;&amp;&lt;&gt;'io1</Label>
+      <AudioChannelConfiguration
+          schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011"
+          value="2"/>
+      <SegmentTemplate
+          timescale="90000"
+          media="seg-$Number$-$RepresentationID$.m4s"
+          initialization="init-1-$RepresentationID$.mp4"
+          startNumber="1">
+        <SegmentTimeline>
+          <S d="356090"/>
+          <S d="354000"/>
+          <S d="366000"/>
+          <S d="354000"/>
+          <S d="360000" r="1"/>
+          <S d="342000"/>
+          <S d="184369"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation
+          id="salt1-a"
+          bandwidth="19349"
+          audioSamplingRate="44100"
+          mimeType="audio/mp4"
+          codecs="mp4a.40.2"
+          startWithSAP="1"/>
+    </AdaptationSet>
+    <AdaptationSet
+        id="3"
+        lang="fre"
+        segmentAlignment="true">
+      <Label>Audio2</Label>
+      <AudioChannelConfiguration
+          schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011"
+          value="2"/>
+      <SegmentTemplate
+          timescale="90000"
+          media="seg-$Number$-$RepresentationID$.m4s"
+          initialization="init-1-$RepresentationID$.mp4"
+          startNumber="1">
+        <SegmentTimeline>
+          <S d="356090"/>
+          <S d="354000"/>
+          <S d="366000"/>
+          <S d="354000"/>
+          <S d="360000" r="1"/>
+          <S d="342000"/>
+          <S d="184369"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation
+          id="salt2-a"
+          bandwidth="67754"
+          audioSamplingRate="44100"
+          mimeType="audio/mp4"
+          codecs="mp4a.40.2"
+          startWithSAP="1"/>
+    </AdaptationSet>
+    <AdaptationSet
+        id="4"
+        contentType="text"
+        lang="e&quot;&amp;&lt;&gt;'"
+        segmentAlignment="true">
+      <Label>Eng&quot;&amp;&lt;&gt;'lish</Label>
+      <SegmentTemplate
+          timescale="90000"
+          media="seg-$Number$-$RepresentationID$.m4s"
+          initialization="init-1-$RepresentationID$.mp4"
+          startNumber="1">
+        <SegmentTimeline>
+          <S d="356090"/>
+          <S d="354000"/>
+          <S d="366000"/>
+          <S d="354000"/>
+          <S d="360000" r="1"/>
+          <S d="342000"/>
+          <S d="184369"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation
+          id="ssub1-t-stpp"
+          bandwidth="649"
+          mimeType="application/mp4"
+          codecs="stpp"
+          startWithSAP="1"/>
+    </AdaptationSet>
+  </Period>
+  <UTCTiming
+      schemeIdUri="urn:mpeg:dash:utc:direct:2014"
+      value=""/>
+</MPD>
+
+URL: /init-1-smain-v.mp4
+HEADERS: 200 video/mp4
+BODY: SIZE: 659, MD5: 2baf2fd317f909719eca26dc9b8f8526
+
+URL: /seg-1-smain-v.m4s
+HEADERS: 200 video/mp4
+BODY: SIZE: 36047, MD5: 39e49993002cd16ccd09dfe3fb950ab1
+
+URL: /seg-2-smain-v.m4s
+HEADERS: 200 video/mp4
+BODY: SIZE: 51991, MD5: f1eb141b354ab214d0a54f66182d3936
+
+URL: /seg-3-smain-v.m4s
+HEADERS: 200 video/mp4
+BODY: SIZE: 49059, MD5: 9f94b6942feca2103ec54d020a291173
+
+URL: /seg-4-smain-v.m4s
+HEADERS: 200 video/mp4
+BODY: SIZE: 46626, MD5: b2d2e7e685e1f3e13ab1855f582d2c57
+
+URL: /seg-5-smain-v.m4s
+HEADERS: 200 video/mp4
+BODY: SIZE: 46228, MD5: 3c61674e401532f59348a293dea7effa
+
+URL: /seg-6-smain-v.m4s
+HEADERS: 200 video/mp4
+BODY: SIZE: 39191, MD5: c4c33495c9a50da01011a8753bffc8f8
+
+URL: /seg-7-smain-v.m4s
+HEADERS: 200 video/mp4
+BODY: SIZE: 34621, MD5: d8c4ef040f0a8d62f6f76803b2c8d2ee
+
+URL: /seg-8-smain-v.m4s
+HEADERS: 200 video/mp4
+BODY: SIZE: 24570, MD5: d02d591d1680946332045bedab9dc8b3
+
+URL: /init-1-salt1-a.mp4
+HEADERS: 200 audio/mp4
+BODY: SIZE: 599, MD5: 4eb2653a2cd89112a681fcfd07d20558
+
+URL: /seg-1-salt1-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 9723, MD5: 313a942f9553ea712b5aa0130a777d7e
+
+URL: /seg-2-salt1-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 9682, MD5: d27f8c89631c73dd8c0a2d810d3239d2
+
+URL: /seg-3-salt1-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 9921, MD5: ccffedf28d1fcd8f1baadbdbbebea13a
+
+URL: /seg-4-salt1-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 9693, MD5: cabe9487607df4898e892085efab31e0
+
+URL: /seg-5-salt1-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 9854, MD5: 426dc534c3e8b1d593e2281b4620c21a
+
+URL: /seg-6-salt1-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 9833, MD5: e4fbc562454daddc71256eaf5c4b9adb
+
+URL: /seg-7-salt1-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 9389, MD5: 647f622f929e3a295c527b24d2071f90
+
+URL: /seg-8-salt1-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 5435, MD5: 3de444e54ec665a13c5e349445a5d2bb
+
+URL: /init-1-salt2-a.mp4
+HEADERS: 200 audio/mp4
+BODY: SIZE: 596, MD5: 732ed2d7c8bb2c1bf0cd559d214d1186
+
+URL: /seg-1-salt2-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 33208, MD5: e295c06ec244b0a3fc5ad4d824a87a25
+
+URL: /seg-2-salt2-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 33289, MD5: 56784be6b1d7797a32bb01509bf42af1
+
+URL: /seg-3-salt2-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 34610, MD5: 0ef58beacad9be85b8bb534000366584
+
+URL: /seg-4-salt2-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 32865, MD5: aeffefe2e49917b5fe442b842b219296
+
+URL: /seg-5-salt2-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 34047, MD5: 88f487b3c399c790ebf069e45b2f078e
+
+URL: /seg-6-salt2-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 33528, MD5: 4679c0bd9b1d2ac78f352bd564913a84
+
+URL: /seg-7-salt2-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 31833, MD5: 649f9dc0b0d340ac726d90e86cb3b0c4
+
+URL: /seg-8-salt2-a.m4s
+HEADERS: 200 audio/mp4
+BODY: SIZE: 18734, MD5: 213cf4953e56368c5f181aa7083565de
+
+URL: /init-1-ssub1-t-stpp.mp4
+HEADERS: 200 application/mp4
+BODY: SIZE: 748, MD5: 68cac4587aa6ef881290a1cf542b855a
+
+URL: /seg-1-ssub1-t-stpp.m4s
+HEADERS: 200 application/mp4
+BODY: SIZE: 518, MD5: 422f64e20031c0ab0686e2b7fc1c917b
+
+URL: /seg-2-ssub1-t-stpp.m4s
+HEADERS: 200 application/mp4
+BODY: SIZE: 639, MD5: 7bc0063745a2fc1512d2cd53573f36c5
+
+URL: /seg-3-ssub1-t-stpp.m4s
+HEADERS: 200 application/mp4
+BODY: SIZE: 696, MD5: 14e916b153fd256e3c61e3ded0716c9e
+
+URL: /seg-4-ssub1-t-stpp.m4s
+HEADERS: 200 application/mp4
+BODY: SIZE: 678, MD5: 17b8b409aae3e9fd7c432f625899e9b8
+
+URL: /seg-5-ssub1-t-stpp.m4s
+HEADERS: 200 application/mp4
+BODY: SIZE: 764, MD5: 1777dc8982d3e2ee71c702f829b8ef22
+
+URL: /seg-6-ssub1-t-stpp.m4s
+HEADERS: 200 application/mp4
+BODY: SIZE: 665, MD5: 9c8efc8b152c286a360da28c1d2b2443
+
+URL: /seg-7-ssub1-t-stpp.m4s
+HEADERS: 200 application/mp4
+BODY: SIZE: 675, MD5: 6cb6afe532d783be243470b20ae1bba4
+
+URL: /seg-8-ssub1-t-stpp.m4s
+HEADERS: 200 application/mp4
+BODY: SIZE: 581, MD5: bbea30377f3c7cc2cbadc8dd09148506
+

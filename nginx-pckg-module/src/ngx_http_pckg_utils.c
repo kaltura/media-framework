@@ -18,13 +18,6 @@ static ngx_int_t  ngx_http_pckg_error_map[VOD_ERROR_LAST - VOD_ERROR_FIRST] = {
 };
 
 
-u_char  ngx_http_pckg_media_type_code[KMP_MEDIA_COUNT] = {
-    'v',    /* video */
-    'a',    /* audio */
-    't',    /* subtitle (text) */
-};
-
-
 #if nginx_version < 1021000
 char *
 ngx_http_set_complex_value_zero_slot(ngx_conf_t *cf, ngx_command_t *cmd,
@@ -249,6 +242,7 @@ ngx_http_pckg_extract_string(u_char *start_pos, u_char *end_pos,
     }                                                                        \
     start_pos++;
 
+
 ngx_int_t
 ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
     u_char *start_pos, u_char *end_pos, uint32_t flags,
@@ -297,12 +291,6 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
 
         start_pos = ngx_http_pckg_extract_string(start_pos, end_pos,
             &result->variant_ids);
-        if (ngx_strlchr(result->variant_ids.data, start_pos, ',') != NULL) {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "ngx_http_pckg_parse_uri_file_name: "
-                "invalid variant id \"%V\"", &result->variant_ids);
-            return NGX_HTTP_BAD_REQUEST;
-        }
     }
 
     /* optional params */
@@ -338,11 +326,10 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
             start_pos++;    /* skip the s */
 
             if (p > result->variant_ids.data) {
-                *p++ = ',';
+                *p++ = NGX_KSMP_VARIANT_IDS_DELIM;
             }
 
-            start_pos = ngx_http_pckg_extract_string(start_pos, end_pos,
-                &cur);
+            start_pos = ngx_http_pckg_extract_string(start_pos, end_pos, &cur);
 
             p = ngx_copy_str(p, cur);
 
@@ -365,7 +352,8 @@ ngx_http_pckg_parse_uri_file_name(ngx_http_request_t *r,
         result->variant_ids.len = p - result->variant_ids.data;
 
         if ((flags & NGX_HTTP_PCKG_PARSE_OPTIONAL_SINGLE_VARIANT)
-            && ngx_strlchr(result->variant_ids.data, p, ',') != NULL)
+            && ngx_strlchr(result->variant_ids.data, p,
+                NGX_KSMP_VARIANT_IDS_DELIM) != NULL)
         {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "ngx_http_pckg_parse_uri_file_name: "
@@ -472,127 +460,6 @@ ngx_http_pckg_complex_value_json(ngx_http_request_t *r,
 }
 
 
-static ngx_int_t
-ngx_http_pckg_base64_decoded_length(ngx_str_t *base64, size_t *decoded_len)
-{
-    u_char  *p, *end;
-    size_t   padding;
-
-    if ((base64->len & 3) != 0) {
-        return NGX_BAD_DATA;
-    }
-
-    end = base64->data + base64->len;
-    for (p = end; p > base64->data && p[-1] == '='; p--);
-    padding = end - p;
-
-    if (padding > 2) {
-        return NGX_BAD_DATA;
-    }
-
-    *decoded_len = (base64->len >> 2) * 3 - padding;
-    return NGX_OK;
-}
-
-
-ngx_int_t
-ngx_http_pckg_parse_base64_fixed(ngx_str_t *str, u_char *dst, size_t size)
-{
-    size_t     decoded_len;
-    ngx_str_t  dst_str;
-
-    if (ngx_http_pckg_base64_decoded_length(str, &decoded_len) != NGX_OK) {
-        return NGX_BAD_DATA;
-    }
-
-    if (decoded_len != size) {
-        return NGX_BAD_DATA;
-    }
-
-    dst_str.data = dst;
-    if (ngx_decode_base64(&dst_str, str) != NGX_OK) {
-        return NGX_BAD_DATA;
-    }
-
-    if (dst_str.len != size) {
-        return NGX_BAD_DATA;
-    }
-
-    return NGX_OK;
-}
-
-
-ngx_int_t
-ngx_http_pckg_parse_base64(ngx_pool_t *pool, ngx_str_t *str, ngx_str_t *dst)
-{
-    dst->data = ngx_pnalloc(pool, ngx_base64_decoded_length(str->len));
-    if (dst->data == NULL) {
-        return NGX_ERROR;
-    }
-
-    if (ngx_decode_base64(dst, str) != NGX_OK) {
-        return NGX_BAD_DATA;
-    }
-
-    return NGX_OK;
-}
-
-
-static ngx_inline int
-ngx_http_pckg_parse_hex_char(int ch)
-{
-    if (ch >= '0' && ch <= '9') {
-        return (ch - '0');
-    }
-
-    ch = (ch | 0x20);        /* lower case */
-
-    if (ch >= 'a' && ch <= 'f') {
-        return (ch - 'a' + 10);
-    }
-
-    return -1;
-}
-
-
-ngx_int_t
-ngx_http_pckg_parse_guid(ngx_str_t *str, u_char *dst)
-{
-    int      c1, c2;
-    u_char  *p, *end, *dst_end;
-
-    dst_end = dst + NGX_HTTP_PCKG_GUID_SIZE;
-
-    p = str->data;
-    end = p + str->len;
-    while (p + 1 < end) {
-        if (*p == '-') {
-            p++;
-            continue;
-        }
-
-        if (dst >= dst_end) {
-            return NGX_BAD_DATA;
-        }
-
-        c1 = ngx_http_pckg_parse_hex_char(p[0]);
-        c2 = ngx_http_pckg_parse_hex_char(p[1]);
-        if (c1 < 0 || c2 < 0) {
-            return NGX_BAD_DATA;
-        }
-
-        *dst++ = ((c1 << 4) | c2);
-        p += 2;
-    }
-
-    if (dst < dst_end) {
-        return NGX_BAD_DATA;
-    }
-
-    return NGX_OK;
-}
-
-
 /* Implemented according to nginx's ngx_http_range_parse,
     dropped multi range support */
 
@@ -693,47 +560,6 @@ found:
     *out_end = end;
 
     return NGX_OK;
-}
-
-
-u_char *
-ngx_http_pckg_write_media_type_mask(u_char *p, uint32_t media_type_mask)
-{
-    uint32_t  i;
-
-    if (media_type_mask == KMP_MEDIA_TYPE_MASK) {
-        return p;
-    }
-
-    *p++ = '-';
-    for (i = 0; i < KMP_MEDIA_COUNT; i++) {
-        if (media_type_mask & (1 << i)) {
-            *p++ = ngx_http_pckg_media_type_code[i];
-        }
-    }
-
-    return p;
-}
-
-
-size_t
-ngx_http_pckg_selector_get_size(ngx_str_t *variant_id)
-{
-    return sizeof("-s-") - 1 + variant_id->len + KMP_MEDIA_COUNT;
-}
-
-
-u_char *
-ngx_http_pckg_selector_write(u_char *p, ngx_str_t *variant_id,
-    uint32_t media_type_mask)
-{
-    *p++ = '-';
-    *p++ = 's';
-    p = ngx_copy_str(p, *variant_id);
-
-    p = ngx_http_pckg_write_media_type_mask(p, media_type_mask);
-
-    return p;
 }
 
 

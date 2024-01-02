@@ -10,7 +10,7 @@ if test -n "$ngx_module_link"; then
         exit 1
     fi
 else
-    if echo $NGX_ADDON_SRCS | grep " ngx_kmp_out_module" > /dev/null; then
+    if echo $NGX_ADDON_SRCS | grep "ngx_kmp_out_module" > /dev/null; then
         echo "found ngx_kmp_out_module for $ngx_addon_name; looks good."
     else
         echo "error: ngx_kmp_out_module is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2
@@ -27,18 +27,29 @@ echo "#define NGX_RTMP_KMP_VERSION \""$RTMP_KMP_VERSION"\"" > $NGX_OBJS/ngx_rtmp
 
 # source
 #
+RTMP_KMP_CORE_MODULES="                               \
+    ngx_rtmp_kmp_module                               \
+    "
+
+RTMP_KMP_HTTP_MODULES="                               \
+    ngx_http_rtmp_kmp_api_module                      \
+    "
+
 RTMP_KMP_CORE_SRCS="                                  \
+    $ngx_addon_dir/src/ngx_rtmp_kmp_api.c             \
     $ngx_addon_dir/src/ngx_rtmp_kmp_module.c          \
     $ngx_addon_dir/src/ngx_rtmp_kmp_track.c           \
     "
 
 RTMP_KMP_HTTP_SRCS="                                  \
-    $ngx_addon_dir/src/ngx_rtmp_kmp_api_module.c      \
+    $ngx_addon_dir/src/ngx_http_rtmp_kmp_api_module.c \
     "
 
 RTMP_KMP_DEPS="                                       \
+    $ngx_addon_dir/src/ngx_http_rtmp_kmp_api_json.h   \
+    $ngx_addon_dir/src/ngx_http_rtmp_kmp_api_routes.h \
+    $ngx_addon_dir/src/ngx_rtmp_kmp_api.h             \
     $ngx_addon_dir/src/ngx_rtmp_kmp_api_json.h        \
-    $ngx_addon_dir/src/ngx_rtmp_kmp_api_routes.h      \
     $ngx_addon_dir/src/ngx_rtmp_kmp_json.h            \
     $ngx_addon_dir/src/ngx_rtmp_kmp_module.h          \
     $ngx_addon_dir/src/ngx_rtmp_kmp_track.h           \
@@ -46,38 +57,36 @@ RTMP_KMP_DEPS="                                       \
     "
 
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir
     ngx_module_deps=$RTMP_KMP_DEPS
+    ngx_module_incs=
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
-        ngx_module_name="ngx_rtmp_kmp_module ngx_rtmp_kmp_api_module"
+        ngx_module_name="$RTMP_KMP_CORE_MODULES $RTMP_KMP_HTTP_MODULES"
         ngx_module_srcs="$RTMP_KMP_CORE_SRCS $RTMP_KMP_HTTP_SRCS"
 
         . auto/module
 
     else
         ngx_module_type=CORE
-        ngx_module_name=ngx_rtmp_kmp_module
+        ngx_module_name=$RTMP_KMP_CORE_MODULES
         ngx_module_srcs=$RTMP_KMP_CORE_SRCS
 
         . auto/module
 
+        ngx_module_deps=
 
         ngx_module_type=HTTP
-        ngx_module_name=ngx_rtmp_kmp_api_module
-        ngx_module_incs=
-        ngx_module_deps=
+        ngx_module_name=$RTMP_KMP_HTTP_MODULES
         ngx_module_srcs=$RTMP_KMP_HTTP_SRCS
 
         . auto/module
     fi
 
 else
-    CORE_MODULES="$CORE_MODULES ngx_rtmp_kmp_module"
-    HTTP_MODULES="$HTTP_MODULES ngx_rtmp_kmp_api_module"
+    CORE_MODULES="$CORE_MODULES $RTMP_KMP_CORE_MODULES"
+    HTTP_MODULES="$HTTP_MODULES $RTMP_KMP_HTTP_MODULES"
 
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $RTMP_KMP_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $RTMP_KMP_CORE_SRCS $RTMP_KMP_HTTP_SRCS"
-
-    CFLAGS="$CFLAGS -I$ngx_addon_dir"
 fi

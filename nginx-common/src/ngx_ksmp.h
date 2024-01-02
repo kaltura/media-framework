@@ -20,6 +20,7 @@
 #define NGX_KSMP_BLOCK_SEGMENT_PARTS        (0x74727073)  /* sprt */
 #define NGX_KSMP_BLOCK_SEGMENT_INFO         (0x666e6773)  /* sgnf */
 #define NGX_KSMP_BLOCK_SEGMENT_INDEX        (0x78696773)  /* sgix */
+#define NGX_KSMP_BLOCK_SEGMENT_MEDIA_INFO   (0x696d6773)  /* sgmi */
 #define NGX_KSMP_BLOCK_SEGMENT              (0x746d6773)  /* sgmt */
 #define NGX_KSMP_BLOCK_RENDITION_REPORT     (0x74707272)  /* rrpt */
 #define NGX_KSMP_BLOCK_VARIANT_RR           (0x72767272)  /* rrvr */
@@ -85,8 +86,10 @@
 #define NGX_KSMP_MAX_MEDIA_INFOS            (65536)
 #define NGX_KSMP_MAX_SEGMENT_PARTS          (1024)
 
-#define NGX_KSMP_MIN_PADDING                sizeof(ngx_persist_block_hdr_t)
-#define NGX_KSMP_MAX_PADDING                128
+#define NGX_KSMP_MIN_PADDING                (sizeof(ngx_persist_block_hdr_t))
+#define NGX_KSMP_MAX_PADDING                (128)
+
+#define NGX_KSMP_VARIANT_IDS_DELIM          '-'
 
 
 /* Note: ordered by desc prio */
@@ -197,6 +200,8 @@ typedef struct {
     int64_t                      start;
     int64_t                      time;
     int64_t                      correction;
+    uint32_t                     part_offset;
+    uint32_t                     part_duration;
 } ngx_ksmp_segment_index_t;
 
 
@@ -219,6 +224,8 @@ typedef struct {
 
 typedef struct {
     uint32_t                     count;
+    uint32_t                     last_sequence;
+    uint32_t                     last_part_index;
 } ngx_ksmp_rendition_reports_header_t;
 
 

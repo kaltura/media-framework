@@ -43,8 +43,26 @@
 #define KMP_CH_SURROUND_DIRECT_RIGHT    0x0000000400000000ULL
 #define KMP_CH_LOW_FREQUENCY_2          0x0000000800000000ULL
 
-#define KMP_CH_LAYOUT_MONO      (KMP_CH_FRONT_CENTER)
-#define KMP_CH_LAYOUT_STEREO    (KMP_CH_FRONT_LEFT|KMP_CH_FRONT_RIGHT)
+#define KMP_CH_LAYOUT_MONO          (KMP_CH_FRONT_CENTER)
+#define KMP_CH_LAYOUT_STEREO        (KMP_CH_FRONT_LEFT|KMP_CH_FRONT_RIGHT)
+#define KMP_CH_LAYOUT_2_1           (KMP_CH_LAYOUT_STEREO|KMP_CH_BACK_CENTER)
+#define KMP_CH_LAYOUT_SURROUND      (KMP_CH_LAYOUT_STEREO|KMP_CH_FRONT_CENTER)
+#define KMP_CH_LAYOUT_4POINT0       (KMP_CH_LAYOUT_SURROUND|KMP_CH_BACK_CENTER)
+#define KMP_CH_LAYOUT_2_2           (KMP_CH_LAYOUT_STEREO|KMP_CH_SIDE_LEFT   \
+                                        |KMP_CH_SIDE_RIGHT)
+#define KMP_CH_LAYOUT_QUAD          (KMP_CH_LAYOUT_STEREO|KMP_CH_BACK_LEFT   \
+                                        |KMP_CH_BACK_RIGHT)
+
+#define KMP_CH_LAYOUT_5POINT0       (KMP_CH_LAYOUT_SURROUND|KMP_CH_SIDE_LEFT \
+                                        |KMP_CH_SIDE_RIGHT)
+#define KMP_CH_LAYOUT_5POINT1       (KMP_CH_LAYOUT_5POINT0                   \
+                                        |KMP_CH_LOW_FREQUENCY)
+#define KMP_CH_LAYOUT_5POINT0_BACK  (KMP_CH_LAYOUT_SURROUND|KMP_CH_BACK_LEFT \
+                                        |KMP_CH_BACK_RIGHT)
+#define KMP_CH_LAYOUT_5POINT1_BACK  (KMP_CH_LAYOUT_5POINT0_BACK              \
+                                        |KMP_CH_LOW_FREQUENCY)
+#define KMP_CH_LAYOUT_7POINT1       (KMP_CH_LAYOUT_5POINT1|KMP_CH_BACK_LEFT  \
+                                        |KMP_CH_BACK_RIGHT)
 
 
 /* enums */
@@ -81,6 +99,8 @@ enum {
     KMP_CODEC_VIDEO_SCREEN2         = 6,
     KMP_CODEC_VIDEO_H264            = 7,
 
+    KMP_CODEC_VIDEO_H265            = 8,
+
     /* NGX_RTMP_AUDIO_XXX + 1000 */
     KMP_CODEC_AUDIO_BASE            = 1000,
     KMP_CODEC_AUDIO_UNCOMPRESSED    = 1016,
@@ -97,11 +117,26 @@ enum {
     KMP_CODEC_AUDIO_MP3_8           = 1014,
     KMP_CODEC_AUDIO_DEVSPEC         = 1015,
 
+    KMP_CODEC_AUDIO_AC3             = 1016,
+    KMP_CODEC_AUDIO_EC3             = 1017,
+    KMP_CODEC_AUDIO_OPUS            = 1018,
+
     KMP_CODEC_SUBTITLE_WEBVTT       = 2001,
 };
 
 
 /* basic types */
+
+/* kmp header: KMP_PACKET_CONNECT */
+typedef struct {
+    u_char                  channel_id[KMP_MAX_CHANNEL_ID_LEN];
+    u_char                  track_id[KMP_MAX_TRACK_ID_LEN];
+    uint64_t                initial_frame_id;
+    uint64_t                initial_upstream_frame_id;
+    uint32_t                initial_offset;
+    uint32_t                flags;
+} kmp_connect_t;
+
 
 typedef struct {
     uint32_t                num;
@@ -131,6 +166,7 @@ typedef union {
 } kmp_media_info_union_t;
 
 
+/* kmp header: KMP_PACKET_MEDIA_INFO */
 typedef struct {
     uint32_t                media_type;
     uint32_t                codec_id;
@@ -140,12 +176,22 @@ typedef struct {
 } kmp_media_info_t;
 
 
+/* kmp header: KMP_PACKET_FRAME */
 typedef struct {
     int64_t                 created;
     int64_t                 dts;
     uint32_t                flags;
     int32_t                 pts_delay;
 } kmp_frame_t;
+
+
+/* kmp header: KMP_PACKET_ACK_FRAMES */
+typedef struct {
+    uint64_t                frame_id;
+    uint64_t                upstream_frame_id;
+    uint32_t                offset;
+    uint32_t                padding;
+} kmp_ack_frames_t;
 
 
 /* packets */
@@ -160,12 +206,7 @@ typedef struct {
 
 typedef struct {
     kmp_packet_header_t     header;
-    u_char                  channel_id[KMP_MAX_CHANNEL_ID_LEN];
-    u_char                  track_id[KMP_MAX_TRACK_ID_LEN];
-    uint64_t                initial_frame_id;
-    uint64_t                initial_upstream_frame_id;
-    uint32_t                initial_offset;
-    uint32_t                flags;
+    kmp_connect_t           c;
 } kmp_connect_packet_t;
 
 
@@ -183,10 +224,7 @@ typedef struct {
 
 typedef struct {
     kmp_packet_header_t     header;
-    uint64_t                frame_id;
-    uint64_t                upstream_frame_id;
-    uint32_t                offset;
-    uint32_t                padding;
+    kmp_ack_frames_t        a;
 } kmp_ack_frames_packet_t;
 
 

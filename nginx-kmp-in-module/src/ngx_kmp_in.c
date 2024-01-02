@@ -15,6 +15,21 @@
 #define NGX_KMP_IN_ISO8601_DATE_LEN          (sizeof("yyyy-mm-dd") - 1)
 
 
+enum {
+    NGX_KMP_IN_LOG_FRAMES_OFF,
+    NGX_KMP_IN_LOG_FRAMES_ALL,
+    NGX_KMP_IN_LOG_FRAMES_KEY,
+};
+
+
+ngx_conf_enum_t  ngx_kmp_in_log_frames[] = {
+    { ngx_string("all"), NGX_KMP_IN_LOG_FRAMES_ALL },
+    { ngx_string("key"), NGX_KMP_IN_LOG_FRAMES_KEY },
+    { ngx_string("off"), NGX_KMP_IN_LOG_FRAMES_OFF },
+    { ngx_null_string, 0 }
+};
+
+
 #if (nginx_version < 1013006)
 static size_t
 ngx_kmp_in_strnlen(u_char *p, size_t n)
@@ -335,6 +350,7 @@ ngx_kmp_in_media_info(ngx_kmp_in_ctx_t *ctx)
     }
 
     ctx->timescale = media_info->timescale;
+    ctx->media_type = media_info->media_type;
     ctx->wait_key = media_info->media_type == KMP_MEDIA_VIDEO;
     return NGX_OK;
 }
@@ -346,6 +362,7 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
     u_char                   data_md5[32];
     uint64_t                 frame_id;
     ngx_int_t                rc;
+    ngx_uint_t               log_frame;
     kmp_frame_t             *frame;
     ngx_buf_chain_t         *data;
     ngx_kmp_in_evt_frame_t   evt;
@@ -389,6 +406,13 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
         goto done;
     }
 
+    if (ctx->media_type == KMP_MEDIA_SUBTITLE && frame->pts_delay <= 0) {
+        ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+            "ngx_kmp_in_frame: skipping subtitle frame with empty duration");
+        ctx->skipped.empty_duration++;
+        goto done;
+    }
+
     if (ctx->wait_key) {
 
         /* ignore frames that arrive before the first key */
@@ -412,7 +436,13 @@ ngx_kmp_in_frame(ngx_kmp_in_ctx_t *ctx)
     ctx->received_data_bytes += ctx->packet_header.data_size;
     ctx->last_created = frame->created;
 
-    if (ctx->conf.log_frames) {
+    log_frame = ctx->conf.log_frames;
+    if (log_frame == NGX_KMP_IN_LOG_FRAMES_KEY) {
+        log_frame = ctx->media_type == KMP_MEDIA_VIDEO
+            && (frame->flags & KMP_FRAME_FLAG_KEY);
+    }
+
+    if (log_frame) {
         ngx_kmp_in_chain_md5_hex(data_md5, data);
 
         ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
@@ -766,12 +796,12 @@ ngx_kmp_in_write_handler(ngx_kmp_in_ctx_t *ctx)
                 ngx_del_timer(wev);
             }
 
-            if (ctx->ack_packet.frame_id != ctx->acked_frame_id) {
+            if (ctx->ack_packet.a.frame_id != ctx->acked_frame_id) {
                 /* got another ack while sending */
                 ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
                     "ngx_kmp_in_write_handler: sending ack %uL",
                     ctx->acked_frame_id);
-                ctx->ack_packet.frame_id = ctx->acked_frame_id;
+                ctx->ack_packet.a.frame_id = ctx->acked_frame_id;
                 ctx->ack_packet_pos = (u_char *) &ctx->ack_packet;
                 continue;
             }
@@ -816,12 +846,50 @@ ngx_kmp_in_ack_frames(ngx_kmp_in_ctx_t *ctx, uint64_t next_frame_id)
     ngx_log_error(NGX_LOG_INFO, ctx->log, 0,
         "ngx_kmp_in_ack_frames: sending ack %uL", ctx->acked_frame_id);
 
-    ctx->ack_packet.frame_id = ctx->acked_frame_id;
+    ctx->ack_packet.a.frame_id = ctx->acked_frame_id;
     ctx->ack_packet_pos = (u_char *) &ctx->ack_packet;
     ctx->writing = 1;
 
     wev = ctx->connection->write;
     ngx_post_event(wev, &ngx_posted_events);
+}
+
+
+static ngx_fd_t
+ngx_kmp_in_open_dump_file(ngx_kmp_in_ctx_t *ctx)
+{
+    ngx_fd_t            fd;
+    ngx_str_t           name;
+    ngx_kmp_in_conf_t  *conf;
+
+    conf = &ctx->conf;
+    if (conf->dump_folder.len == 0) {
+        return NGX_INVALID_FILE;
+    }
+
+    name.len = conf->dump_folder.len + sizeof("/ngx_live_kmp_dump___.dat") +
+        NGX_KMP_IN_ISO8601_DATE_LEN + NGX_INT64_LEN + NGX_ATOMIC_T_LEN;
+    name.data = ngx_alloc(name.len, ctx->connection->log);
+    if (name.data == NULL) {
+        return NGX_INVALID_FILE;
+    }
+
+    ngx_sprintf(name.data, "%V/ngx_live_kmp_dump_%*s_%P_%uA.dat%Z",
+        &conf->dump_folder, NGX_KMP_IN_ISO8601_DATE_LEN,
+        ngx_cached_http_log_iso8601.data, ngx_pid, ctx->connection->number);
+
+    fd = ngx_open_file((char *) name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
+        NGX_FILE_DEFAULT_ACCESS);
+    if (fd == NGX_INVALID_FILE) {
+        ngx_log_error(NGX_LOG_ERR, ctx->connection->log, ngx_errno,
+            "ngx_kmp_in_open_dump_file: "
+            ngx_open_file_n " \"%s\" failed", name.data);
+        ngx_free(name.data);
+        return NGX_INVALID_FILE;
+    }
+
+    ngx_free(name.data);
+    return fd;
 }
 
 
@@ -867,6 +935,7 @@ ngx_kmp_in_read_header(ngx_kmp_in_ctx_t *ctx)
 
     ctx->received_bytes = sizeof(*header);
 
+    ctx->dump_fd = ngx_kmp_in_open_dump_file(ctx);
     if (ctx->dump_fd != NGX_INVALID_FILE) {
         if (ngx_write_fd(ctx->dump_fd, b->pos, b->last - b->pos)
             == NGX_ERROR)
@@ -903,22 +972,22 @@ ngx_kmp_in_read_header(ngx_kmp_in_ctx_t *ctx)
         return NGX_KMP_IN_BAD_REQUEST;
     }
 
-    if (header->initial_frame_id >= KMP_INVALID_FRAME_ID) {
+    if (header->c.initial_frame_id >= KMP_INVALID_FRAME_ID) {
         ngx_log_error(NGX_LOG_ERR, c->log, 0,
             "ngx_kmp_in_read_header: invalid initial frame id %uL",
-            header->initial_frame_id);
+            header->c.initial_frame_id);
         return NGX_KMP_IN_BAD_REQUEST;
     }
 
     /* send connected event */
-    ctx->channel_id.s.data = header->channel_id;
-    ctx->channel_id.s.len = ngx_kmp_in_strnlen(header->channel_id,
-        sizeof(header->channel_id));
+    ctx->channel_id.s.data = header->c.channel_id;
+    ctx->channel_id.s.len = ngx_kmp_in_strnlen(header->c.channel_id,
+        sizeof(header->c.channel_id));
     ngx_json_str_set_escape(&ctx->channel_id);
 
-    ctx->track_id.s.data = header->track_id;
-    ctx->track_id.s.len = ngx_kmp_in_strnlen(header->track_id,
-        sizeof(header->track_id));
+    ctx->track_id.s.data = header->c.track_id;
+    ctx->track_id.s.len = ngx_kmp_in_strnlen(header->c.track_id,
+        sizeof(header->c.track_id));
     ngx_json_str_set_escape(&ctx->track_id);
 
     ngx_memzero(&evt, sizeof(evt));
@@ -954,8 +1023,8 @@ ngx_kmp_in_read_header(ngx_kmp_in_ctx_t *ctx)
     /* initialize sender */
     ctx->ack_packet.header.packet_type = KMP_PACKET_ACK_FRAMES;
     ctx->ack_packet.header.header_size = sizeof(ctx->ack_packet);
-    ctx->cur_frame_id = header->initial_frame_id;
-    ctx->acked_frame_id = header->initial_frame_id;
+    ctx->cur_frame_id = header->c.initial_frame_id;
+    ctx->acked_frame_id = header->c.initial_frame_id;
 
     level = evt.skip_count > 0 ? NGX_LOG_NOTICE : NGX_LOG_INFO;
 
@@ -1035,44 +1104,6 @@ again:
 }
 
 
-static ngx_fd_t
-ngx_kmp_in_open_dump_file(ngx_kmp_in_ctx_t *ctx)
-{
-    ngx_fd_t            fd;
-    ngx_str_t           name;
-    ngx_kmp_in_conf_t  *conf;
-
-    conf = &ctx->conf;
-    if (conf->dump_folder.len == 0) {
-        return NGX_INVALID_FILE;
-    }
-
-    name.len = conf->dump_folder.len + sizeof("/ngx_live_kmp_dump___.dat") +
-        NGX_KMP_IN_ISO8601_DATE_LEN + NGX_INT64_LEN + NGX_ATOMIC_T_LEN;
-    name.data = ngx_alloc(name.len, ctx->connection->log);
-    if (name.data == NULL) {
-        return NGX_INVALID_FILE;
-    }
-
-    ngx_sprintf(name.data, "%V/ngx_live_kmp_dump_%*s_%P_%uA.dat%Z",
-        &conf->dump_folder, NGX_KMP_IN_ISO8601_DATE_LEN,
-        ngx_cached_http_log_iso8601.data, ngx_pid, ctx->connection->number);
-
-    fd = ngx_open_file((char *) name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
-        NGX_FILE_DEFAULT_ACCESS);
-    if (fd == NGX_INVALID_FILE) {
-        ngx_log_error(NGX_LOG_ERR, ctx->connection->log, ngx_errno,
-            "ngx_kmp_in_open_dump_file: "
-            ngx_open_file_n " \"%s\" failed", name.data);
-        ngx_free(name.data);
-        return NGX_INVALID_FILE;
-    }
-
-    ngx_free(name.data);
-    return fd;
-}
-
-
 ngx_kmp_in_ctx_t *
 ngx_kmp_in_create(ngx_connection_t *c, ngx_kmp_in_conf_t *conf)
 {
@@ -1106,7 +1137,7 @@ ngx_kmp_in_create(ngx_connection_t *c, ngx_kmp_in_conf_t *conf)
 
     ngx_json_str_set_escape(&ctx->remote_addr);
 
-    ctx->dump_fd = ngx_kmp_in_open_dump_file(ctx);
+    ctx->dump_fd = NGX_INVALID_FILE;
 
     cln->handler = ngx_kmp_in_cleanup;
 
@@ -1119,7 +1150,7 @@ ngx_kmp_in_init_conf(ngx_kmp_in_conf_t *conf)
 {
     conf->read_timeout = NGX_CONF_UNSET_MSEC;
     conf->send_timeout = NGX_CONF_UNSET_MSEC;
-    conf->log_frames = NGX_CONF_UNSET;
+    conf->log_frames = NGX_CONF_UNSET_UINT;
 }
 
 
@@ -1134,5 +1165,6 @@ ngx_kmp_in_merge_conf(ngx_kmp_in_conf_t *prev, ngx_kmp_in_conf_t *conf)
 
     ngx_conf_merge_str_value(conf->dump_folder, prev->dump_folder, "");
 
-    ngx_conf_merge_value(conf->log_frames, prev->log_frames, 0);
+    ngx_conf_merge_uint_value(conf->log_frames, prev->log_frames,
+                              NGX_KMP_IN_LOG_FRAMES_OFF);
 }

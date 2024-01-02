@@ -55,6 +55,9 @@ typedef struct {
 
     ngx_live_track_t             *source;
     uint32_t                      source_refs;
+    uint32_t                      gap_fill_source;
+
+    uint32_t                      gap_fill_dest;
 
     ngx_live_media_info_node_t   *default_node;
 } ngx_live_media_info_track_ctx_t;
@@ -129,7 +132,7 @@ ngx_module_t  ngx_live_media_info_module = {
 };
 
 
-static ngx_live_json_cmd_t  ngx_live_media_info_dyn_cmds[] = {
+static ngx_live_json_cmd_t  ngx_live_media_info_json_cmds[] = {
 
     { ngx_string("group_id"), NGX_JSON_STRING,
       ngx_live_media_info_set_group_id },
@@ -142,11 +145,10 @@ static ngx_live_json_cmd_t  ngx_live_media_info_dyn_cmds[] = {
 
 ngx_int_t
 ngx_live_media_info_write(ngx_persist_write_ctx_t *write_ctx,
-    ngx_live_media_info_persist_t *mp, ngx_live_media_info_t *media_info)
+    uint32_t block_id, ngx_live_media_info_persist_t *mp,
+    ngx_live_media_info_t *media_info)
 {
-    if (ngx_persist_write_block_open(write_ctx,
-            NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO) != NGX_OK)
-    {
+    if (ngx_persist_write_block_open(write_ctx, block_id) != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -391,7 +393,8 @@ ngx_live_media_info_node_write(ngx_persist_write_ctx_t *write_ctx,
     mp.segment_index = node->node.key;
     mp.stats = node->stats;
 
-    return ngx_live_media_info_write(write_ctx, &mp, &node->media_info);
+    return ngx_live_media_info_write(write_ctx,
+        NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO, &mp, &node->media_info);
 }
 
 
@@ -774,25 +777,36 @@ ngx_live_media_info_source_get_target(ngx_live_track_t *track)
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_media_info_module);
 
+    /* use a pending node, if exists */
+
     q = ngx_queue_last(&ctx->pending);
     if (q != ngx_queue_sentinel(&ctx->pending)) {
         node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
         return &node->media_info.info;
     }
 
-    for (q = ngx_queue_last(&ctx->active);
-        q != ngx_queue_sentinel(&ctx->active);
-        q = ngx_queue_prev(q))
-    {
-        node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
-        if (node->track_id != track->in.key) {
-            continue;
+    /* prefer a node with a matching track id, if no such node exists,
+        use the oldest node as fallback */
+
+    node = NULL;
+
+    for (q = ngx_queue_last(&ctx->active); ; q = ngx_queue_prev(q)) {
+
+        if (q == ngx_queue_sentinel(&ctx->active)) {
+            if (node == NULL) {
+                return NULL;
+            }
+
+            break;
         }
 
-        return &node->media_info.info;
+        node = ngx_queue_data(q, ngx_live_media_info_node_t, queue);
+        if (node->track_id == track->in.key) {
+            break;
+        }
     }
 
-    return NULL;
+    return &node->media_info.info;
 }
 
 
@@ -1354,8 +1368,10 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
     ngx_int_t                         rc;
     ngx_flag_t                        updated;
     ngx_queue_t                      *q;
+    ngx_live_track_t                 *source;
     ngx_live_track_t                 *cur_track;
     ngx_live_media_info_track_ctx_t  *cur_ctx;
+    ngx_live_media_info_track_ctx_t  *src_ctx;
 
     updated = 0;
 
@@ -1381,11 +1397,10 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
             continue;
         }
 
-        if (cur_ctx->source != NULL) {
-            if (cur_ctx->source->has_last_segment) {
-                cur_track->last_segment_bitrate =
-                    cur_ctx->source->last_segment_bitrate;
-                continue;
+        source = cur_ctx->source;
+        if (source != NULL) {
+            if (source->has_last_segment) {
+                goto fill;
             }
 
             ngx_live_media_info_source_clear(cur_ctx);
@@ -1400,8 +1415,6 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
         switch (rc) {
 
         case NGX_OK:
-            cur_track->last_segment_bitrate =
-                cur_ctx->source->last_segment_bitrate;
             break;
 
         case NGX_DONE:
@@ -1414,6 +1427,16 @@ ngx_live_media_info_queue_fill_gaps(ngx_live_channel_t *channel,
         }
 
         updated = 1;
+
+        source = cur_ctx->source;
+
+    fill:
+
+        cur_track->last_segment_bitrate = source->last_segment_bitrate;
+        cur_ctx->gap_fill_dest++;
+
+        src_ctx = ngx_live_get_module_ctx(source, ngx_live_media_info_module);
+        src_ctx->gap_fill_source++;
     }
 
     return updated ? NGX_OK : NGX_DONE;
@@ -1614,16 +1637,20 @@ ngx_live_media_info_track_json_get_size(void *obj)
 
     result = sizeof("\"group_id\":\"") - 1 +
         ngx_json_str_get_size(&ctx->group_id) +
-        sizeof("\",\"media_info\":{\"added\":,\"removed\":}") - 1 +
-        2 * NGX_INT32_LEN;
+        sizeof("\",\"gap_fill_dest\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"gap_fill_source\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"media_info\":{\"added\":") - 1 + NGX_INT32_LEN +
+        sizeof(",\"removed\":") - 1 + NGX_INT32_LEN +
+        sizeof("}") - 1;
 
     if (ngx_queue_empty(&ctx->active)) {
         return result;
     }
 
     if (ctx->source) {
-        result += sizeof(",\"source\":\"\"") - 1 +
-            ctx->source->sn.str.len + ctx->source->id_escape;
+        result += sizeof(",\"source\":\"") - 1
+            + ctx->source->sn.str.len + ctx->source->id_escape
+            + sizeof("\"") - 1;
     }
 
     q = ngx_queue_last(&ctx->active);
@@ -1662,7 +1689,14 @@ ngx_live_media_info_track_json_write(u_char *p, void *obj)
 
     p = ngx_copy_fix(p, "\"group_id\":\"");
     p = ngx_json_str_write(p, &ctx->group_id);
-    p = ngx_copy_fix(p, "\",\"media_info\":{\"added\":");
+
+    p = ngx_copy_fix(p, "\",\"gap_fill_dest\":");
+    p = ngx_sprintf(p, "%uD", ctx->gap_fill_dest);
+
+    p = ngx_copy_fix(p, ",\"gap_fill_source\":");
+    p = ngx_sprintf(p, "%uD", ctx->gap_fill_source);
+
+    p = ngx_copy_fix(p, ",\"media_info\":{\"added\":");
     p = ngx_sprintf(p, "%uD", ctx->added);
     p = ngx_copy_fix(p, ",\"removed\":");
     p = ngx_sprintf(p, "%uD", ctx->removed);
@@ -1964,7 +1998,7 @@ ngx_live_media_info_write_index_queue(ngx_persist_write_ctx_t *write_ctx,
     }
 
     return ngx_live_persist_write_blocks(track->channel, write_ctx,
-        NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO, track);
+        NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO_QUEUE, track);
 }
 
 
@@ -2011,7 +2045,7 @@ ngx_live_media_info_read_index_queue(ngx_persist_block_hdr_t *header,
     }
 
     rc = ngx_live_persist_read_blocks(track->channel,
-        NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO, rs, track);
+        NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO_QUEUE, rs, track);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, rs->log, 0,
             "ngx_live_media_info_read_index_queue: read blocks failed");
@@ -2182,7 +2216,8 @@ ngx_live_media_info_write_media_segment(
 
     segment = ctx->segment;
 
-    return ngx_live_media_info_write(write_ctx, NULL, segment->media_info);
+    return ngx_live_media_info_write(write_ctx,
+        NGX_KSMP_BLOCK_SEGMENT_MEDIA_INFO, NULL, segment->media_info);
 }
 
 
@@ -2243,7 +2278,7 @@ ngx_live_media_info_write_serve_queue(ngx_persist_write_ctx_t *write_ctx,
         ngx_persist_write_reserve(write_ctx, sizeof(header), &marker)
             != NGX_OK ||
         ngx_live_persist_write_blocks(track->channel, write_ctx,
-            NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO, track) != NGX_OK)
+            NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO_QUEUE, track) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_live_media_info_write_serve_queue: write failed");
@@ -2375,9 +2410,12 @@ static ngx_persist_block_t  ngx_live_media_info_blocks[] = {
      * persist header:
      *   ngx_live_media_info_persist_t  p;
      *   kmp_media_info_t               kmp;
+     *
+     * persist data:
+     *   u_char                         extra_data[];
      */
     { NGX_LIVE_PERSIST_BLOCK_MEDIA_INFO,
-      NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO, 0,
+      NGX_LIVE_PERSIST_CTX_INDEX_MEDIA_INFO_QUEUE, 0,
       ngx_live_media_info_write_index,
       ngx_live_media_info_read_index },
 
@@ -2393,15 +2431,28 @@ static ngx_persist_block_t  ngx_live_media_info_blocks[] = {
     /*
      * persist header:
      *   kmp_media_info_t  kmp;
+     *
+     * persist data:
+     *   u_char            extra_data[];
      */
-    { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER, 0,
-      NULL, ngx_live_media_info_read_media_segment },
+    { NGX_KSMP_BLOCK_SEGMENT_MEDIA_INFO,
+      NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER, 0, NULL,
+      ngx_live_media_info_read_media_segment },
+
+    /* TODO: remove this, for backward compatibility */
+    { NGX_KSMP_BLOCK_MEDIA_INFO,
+      NGX_LIVE_PERSIST_CTX_MEDIA_SEGMENT_HEADER, 0, NULL,
+      ngx_live_media_info_read_media_segment },
 
     /*
      * persist header:
      *   kmp_media_info_t  kmp;
+     *
+     * persist data:
+     *   u_char            extra_data[];
      */
-    { NGX_KSMP_BLOCK_MEDIA_INFO, NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, 0,
+    { NGX_KSMP_BLOCK_SEGMENT_MEDIA_INFO,
+      NGX_LIVE_PERSIST_CTX_SERVE_SEGMENT_HEADER, 0,
       ngx_live_media_info_write_media_segment, NULL },
 
     /*
@@ -2416,9 +2467,12 @@ static ngx_persist_block_t  ngx_live_media_info_blocks[] = {
      * persist header:
      *   ngx_ksmp_media_info_header_t  p;
      *   kmp_media_info_t              kmp;
+     *
+     * persist data:
+     *   u_char                        extra_data[];
      */
     { NGX_KSMP_BLOCK_MEDIA_INFO,
-      NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO, 0,
+      NGX_LIVE_PERSIST_CTX_SERVE_MEDIA_INFO_QUEUE, 0,
       ngx_live_media_info_write_serve, NULL },
 
       ngx_null_persist_block
@@ -2434,7 +2488,7 @@ ngx_live_media_info_preconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
-    if (ngx_live_json_cmds_add_multi(cf, ngx_live_media_info_dyn_cmds,
+    if (ngx_live_json_cmds_add_multi(cf, ngx_live_media_info_json_cmds,
         NGX_LIVE_JSON_CTX_TRACK) != NGX_OK)
     {
         return NGX_ERROR;

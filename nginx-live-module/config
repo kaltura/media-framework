@@ -10,7 +10,7 @@ if test -n "$ngx_module_link"; then
         exit 1
     fi
 else
-    if echo $NGX_ADDON_SRCS | grep " ngx_kmp_in_module" > /dev/null; then
+    if echo $NGX_ADDON_SRCS | grep "ngx_kmp_in_module" > /dev/null; then
         echo "found ngx_kmp_in_module for $ngx_addon_name; looks good."
     else
         echo "error: ngx_kmp_in_module is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2
@@ -35,6 +35,7 @@ LIVE_CORE_MODULES="                                           \
     ngx_live_notif_segment_module                             \
     ngx_live_segment_cache_module                             \
     ngx_live_segment_index_module                             \
+    ngx_live_store_module                                     \
     ngx_live_store_http_module                                \
     ngx_live_store_s3_module                                  \
     ngx_live_persist_module                                   \
@@ -94,6 +95,7 @@ LIVE_CORE_SRCS="                                              \
     $ngx_addon_dir/src/persist/ngx_live_persist_serve.c       \
     $ngx_addon_dir/src/persist/ngx_live_persist_setup.c       \
     $ngx_addon_dir/src/persist/ngx_live_persist_snap_frames.c \
+    $ngx_addon_dir/src/persist/ngx_live_store.c               \
     $ngx_addon_dir/src/persist/ngx_live_store_http.c          \
     $ngx_addon_dir/src/persist/ngx_live_store_s3.c            \
     "
@@ -143,13 +145,16 @@ LIVE_DEPS="$LIVE_DEPS                                         \
     $ngx_addon_dir/src/persist/ngx_live_persist_snap_frames.h \
     $ngx_addon_dir/src/persist/ngx_live_store.h               \
     $ngx_addon_dir/src/persist/ngx_live_store_http.h          \
+    $ngx_addon_dir/src/persist/ngx_live_store_json.h          \
+    $ngx_addon_dir/src/persist/ngx_live_store_s3_json.h       \
     $ngx_addon_dir/src/http/ngx_http_live_api_json.h          \
     $ngx_addon_dir/src/http/ngx_http_live_api_routes.h        \
     "
 
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir
     ngx_module_deps=$LIVE_DEPS
+    ngx_module_incs=
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="$LIVE_CORE_MODULES $LIVE_STREAM_MODULES $LIVE_HTTP_MODULES"
@@ -163,6 +168,8 @@ if [ -f auto/module ] ; then
         ngx_module_srcs=$LIVE_CORE_SRCS
 
         . auto/module
+
+        ngx_module_deps=
 
         ngx_module_type=STREAM
         ngx_module_name=$LIVE_STREAM_MODULES
@@ -184,6 +191,4 @@ else
 
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $LIVE_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $LIVE_CORE_SRCS $LIVE_STREAM_SRCS $LIVE_HTTP_SRCS"
-
-    CFLAGS="$CFLAGS -I$ngx_addon_dir"
 fi

@@ -363,15 +363,15 @@ typedef struct
     cea708_wa_direction_e scroll_direction;
     cea708_wa_direction_e effect_direction;
 
-    cea708_wa_effect_e display_effect;
-
     uint8_t b_word_wrap;
+
+    cea708_wa_effect_e display_effect;
 
     uint8_t effect_speed;
     uint8_t fill_color;
-    uint8_t border_color;
     cea708_opacity_e fill_opacity;
     cea708_edge_e border_type;
+    uint8_t border_color;
 } cea708_window_style_t;
 
 typedef uint8_t cea708_text_char_t[4];
@@ -530,24 +530,6 @@ static void CEA708_Window_Reset(cea708_window_t *p_w)
     CEA708_Window_Init(p_w);
 }
 
-static uint8_t CEA708_Window_ColCount(const cea708_window_t *p_w)
-{
-    const cea708_text_row_t *p_row = p_w->rows[p_w->row];
-
-    if (!p_row || p_row->lastcol < p_row->firstcol)
-        return 0;
-
-    return 1 + p_row->lastcol - p_row->firstcol;
-}
-
-static uint8_t CEA708_Window_RowCount(const cea708_window_t *p_w)
-{
-    if (p_w->i_lastrow < p_w->i_firstrow)
-        return 0;
-
-    return 1 + p_w->i_lastrow - p_w->i_firstrow;
-}
-
 static void CEA708_Window_UpdateFirstLastRow(cea708_window_t *p_w)
 {
     while (p_w->i_firstrow < CEA708_WINDOW_MAX_ROWS && !p_w->rows[p_w->i_firstrow])
@@ -568,9 +550,9 @@ static void CEA708_Window_ScrollRight(cea708_window_t *p_w)
         if (!row)
             continue;
 
-        if (row->lastcol > CEA708_WINDOW_MAX_ROWS - 2)
+        if (row->lastcol > CEA708_WINDOW_MAX_COLS - 2)
         {
-            row->lastcol = CEA708_WINDOW_MAX_ROWS - 2;
+            row->lastcol = CEA708_WINDOW_MAX_COLS - 2;
         }
 
         if (row->lastcol < row->firstcol)
@@ -707,47 +689,43 @@ static void CEA708_Window_CarriageReturn(cea708_window_t *p_w)
     switch (p_w->style.scroll_direction)
     {
         case CEA708_WA_DIRECTION_LTR:
-            if (p_w->col > 0 &&
-                CEA708_Window_ColCount(p_w) < p_w->i_col_count)
+            if (p_w->col > 0)
                 p_w->col--;
             else
                 CEA708_Window_Scroll(p_w);
 
             p_w->row = (p_w->style.print_direction == CEA708_WA_DIRECTION_TB) ?
-                       0 : CEA708_WINDOW_MAX_ROWS - 1;
+                       0 : p_w->i_row_count - 1;
             break;
 
         case CEA708_WA_DIRECTION_RTL:
-            if (p_w->col < CEA708_WINDOW_MAX_COLS - 1 &&
-                CEA708_Window_ColCount(p_w) < p_w->i_col_count)
+            if (p_w->col < p_w->i_col_count - 1)
                 p_w->col++;
             else
                 CEA708_Window_Scroll(p_w);
 
             p_w->row = (p_w->style.print_direction == CEA708_WA_DIRECTION_TB) ?
-                       0 : CEA708_WINDOW_MAX_ROWS - 1;
+                       0 : p_w->i_row_count - 1;
             break;
 
         case CEA708_WA_DIRECTION_TB:
-            if (p_w->row > 0 &&
-                CEA708_Window_RowCount(p_w) < p_w->i_row_count)
+            if (p_w->row > 0)
                 p_w->row--;
             else
                 CEA708_Window_Scroll(p_w);
 
             p_w->col = (p_w->style.print_direction == CEA708_WA_DIRECTION_LTR) ?
-                       0 : CEA708_WINDOW_MAX_COLS - 1;
+                       0 : p_w->i_col_count - 1;
             break;
 
         case CEA708_WA_DIRECTION_BT:
-            if (p_w->row < CEA708_WINDOW_MAX_ROWS - 1 &&
-                CEA708_Window_RowCount(p_w) < p_w->i_row_count)
+            if (p_w->row < p_w->i_row_count - 1)
                 p_w->row++;
             else
                 CEA708_Window_Scroll(p_w);
 
             p_w->col = (p_w->style.print_direction == CEA708_WA_DIRECTION_LTR) ?
-                       0 : CEA708_WINDOW_MAX_COLS - 1;
+                       0 : p_w->i_col_count - 1;
             break;
     }
 }
@@ -757,7 +735,7 @@ static void CEA708_Window_Forward(cea708_window_t *p_w)
     switch (p_w->style.print_direction)
     {
         case CEA708_WA_DIRECTION_LTR:
-            if (p_w->col < CEA708_WINDOW_MAX_COLS - 1)
+            if (p_w->col < p_w->i_col_count - 1)
                 p_w->col++;
             else
                 CEA708_Window_CarriageReturn(p_w);
@@ -771,7 +749,7 @@ static void CEA708_Window_Forward(cea708_window_t *p_w)
             break;
 
         case CEA708_WA_DIRECTION_TB:
-            if (p_w->row < CEA708_WINDOW_MAX_ROWS - 1)
+            if (p_w->row < p_w->i_row_count - 1)
                 p_w->row++;
             else
                 CEA708_Window_CarriageReturn(p_w);
@@ -1307,14 +1285,14 @@ static int CEA708_Decode_EXT1(cea708_t *h)
     v = cea708_input_buffer_peek(ib, 1);
     cc_log_debug2(h->log, "CEA708-%uD: [EXT1 0x%02uxD]", h->id, (uint32_t) v);
 
-    if (v < 0x20)
+    if (v <= 0x1f)
     {
         /* C2 extended code set */
-        if (v > 0x17)
+        if (v >= 0x18)
             i = 3;
-        else if (v > 0x0f)
+        else if (v >= 0x10)
             i = 2;
-        else if (v > 0x07)
+        else if (v >= 0x08)
             i = 1;
         else
             i = 0;
@@ -1322,16 +1300,27 @@ static int CEA708_Decode_EXT1(cea708_t *h)
         REQUIRE_ARGS_AND_POP_COMMAND(1 + i);
         POP_ARGS(1 + i);
     }
-    else if (v > 0x7f && v < 0xa0)
+    else if (v >= 0x80 && v <= 0x8f)
     {
         /* C3 extended code set */
-        if (v > 0x87)
+        if (v >= 0x88)
             i = 5;
         else
             i = 4;
 
         REQUIRE_ARGS_AND_POP_COMMAND(1 + i);
         POP_ARGS(1 + i);
+    }
+    else if (v >= 0x90 && v <= 0x9f)
+    {
+        /* Variable length codes */
+        REQUIRE_ARGS(2);
+
+        v = cea708_input_buffer_peek(ib, 2);
+        i = v & 0x1f;
+
+        REQUIRE_ARGS_AND_POP_COMMAND(2 + i);
+        POP_ARGS(2 + i);
     }
     else
     {
@@ -1631,11 +1620,11 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
 
             v = cea708_input_buffer_get(ib);
             h->p_cw->style.fill_opacity = v >> 6;
-            h->p_cw->style.fill_color = v & 0x3F;
+            h->p_cw->style.fill_color = v & 0x3f;
 
             v = cea708_input_buffer_get(ib);
-            h->p_cw->style.border_color = v & 0x3F;
             h->p_cw->style.border_type = v >> 6;
+            h->p_cw->style.border_color = v & 0x3f;
 
             v = cea708_input_buffer_get(ib);
             h->p_cw->style.border_type |= ((v & 0x80) >> 5);
@@ -1687,9 +1676,17 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
                 v = cea708_input_buffer_get(ib);
                 h->p_cw->anchor_point = v >> 4;
                 h->p_cw->i_row_count = (v & 0x0f) + 1;
+                if (h->p_cw->i_row_count > CEA708_WINDOW_MAX_ROWS)
+                {
+                    h->p_cw->i_row_count = CEA708_WINDOW_MAX_ROWS;
+                }
 
                 v = cea708_input_buffer_get(ib);
-                h->p_cw->i_col_count = v & 0x3f;
+                h->p_cw->i_col_count = (v & 0x3f) + 1;
+                if (h->p_cw->i_col_count > CEA708_WINDOW_MAX_COLS)
+                {
+                    h->p_cw->i_col_count = CEA708_WINDOW_MAX_COLS;
+                }
 
                 v = cea708_input_buffer_get(ib);
                 /* zero values style set on init, avoid dealing with updt case */
@@ -1698,11 +1695,13 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
                     h->p_cw->style = cea708_default_window_styles[i-1];
                 else if (!h->p_cw->b_defined) /* Set to style #1 or ignore */
                     h->p_cw->style = cea708_default_window_styles[0];
+
                 i = v & 0x07; /* Pen style id */
                 if (i > 0)
                     h->p_cw->pen = cea708_default_pen_styles[i-1];
                 else if (!h->p_cw->b_defined) /* Set to style #1 or ignore */
                     h->p_cw->pen = cea708_default_pen_styles[0];
+
                 h->p_cw->b_defined = true;
             }
             else
@@ -1738,7 +1737,7 @@ static void CEA708_Decode_ServiceBuffer(cea708_t *h)
 
         c = cea708_input_buffer_peek(ib, 0);
 
-        if (c < 0x20)
+        if (c <= 0x1f)
             i_ret = CEA708_Decode_C0(h, c);
         else if (c <= 0x7f)
             i_ret = CEA708_Decode_G0(h, c);

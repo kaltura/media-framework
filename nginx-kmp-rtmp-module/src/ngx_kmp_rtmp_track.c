@@ -294,7 +294,7 @@ ngx_kmp_rtmp_track_get_input_buf(void *data, ngx_buf_t *b)
 
     p = ngx_buf_queue_get(&track->buf_queue);
     if (p == NULL) {
-        ngx_kmp_rtmp_upstream_finalize(track->upstream);
+        ngx_kmp_rtmp_upstream_finalize(track->upstream, "get_buf_failed");
         return NGX_ERROR;
     }
 
@@ -448,7 +448,7 @@ ngx_kmp_rtmp_track_add_media_info(void *data, ngx_kmp_in_evt_media_info_t *evt)
 
 fatal:
 
-    ngx_kmp_rtmp_upstream_finalize(track->upstream);
+    ngx_kmp_rtmp_upstream_finalize(track->upstream, "add_media_info_failed");
     return NGX_ABORT;
 }
 
@@ -477,7 +477,7 @@ ngx_kmp_rtmp_track_add_frame(void *data, ngx_kmp_in_evt_frame_t *evt)
     if (frame == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
             "ngx_kmp_rtmp_track_add_frame: push failed");
-        ngx_kmp_rtmp_upstream_finalize(track->upstream);
+        ngx_kmp_rtmp_upstream_finalize(track->upstream, "push_frame_failed");
         return NGX_ABORT;
     }
 
@@ -790,6 +790,7 @@ ngx_kmp_rtmp_track_create(ngx_kmp_rtmp_stream_t *stream, uint32_t media_type)
 ngx_int_t
 ngx_kmp_rtmp_track_connect(ngx_kmp_rtmp_track_connect_t *connect)
 {
+    char                         *reason;
     size_t                        mem_used;
     uint32_t                      media_type;
     ngx_int_t                     rc;
@@ -812,14 +813,15 @@ ngx_kmp_rtmp_track_connect(ngx_kmp_rtmp_track_connect_t *connect)
         connect->value, &u, &name);
     if (rc != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
-            "ngx_kmp_rtmp_track_connect: failed to get upstream");
+            "ngx_kmp_rtmp_track_connect: failed to create upstream");
         return rc;
     }
 
     stream = ngx_kmp_rtmp_stream_get_or_create(u, &name);
     if (stream == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, temp_pool->log, 0,
-            "ngx_kmp_rtmp_track_connect: failed to get stream");
+            "ngx_kmp_rtmp_track_connect: failed to create stream");
+        reason = "create_stream_failed";
         goto fatal;
     }
 
@@ -851,6 +853,7 @@ ngx_kmp_rtmp_track_connect(ngx_kmp_rtmp_track_connect_t *connect)
 
         track = ngx_kmp_rtmp_track_create(stream, media_type);
         if (track == NULL) {
+            reason = "create_track_failed";
             goto fatal;
         }
     }
@@ -866,6 +869,7 @@ ngx_kmp_rtmp_track_connect(ngx_kmp_rtmp_track_connect_t *connect)
             "ngx_kmp_rtmp_track_connect: "
             "used memory %uz overflows upstream memory left %uz",
             mem_used, u->mem_left);
+        reason = "mem_limit_exceeded";
         goto fatal;
     }
 
@@ -898,7 +902,7 @@ ngx_kmp_rtmp_track_connect(ngx_kmp_rtmp_track_connect_t *connect)
 
 fatal:
 
-    ngx_kmp_rtmp_upstream_finalize(u);
+    ngx_kmp_rtmp_upstream_finalize(u, reason);
     return NGX_ABORT;
 }
 

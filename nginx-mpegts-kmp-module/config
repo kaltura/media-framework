@@ -10,7 +10,7 @@ if test -n "$ngx_module_link"; then
         exit 1
     fi
 else
-    if echo $NGX_ADDON_SRCS | grep " ngx_kmp_out_module" > /dev/null; then
+    if echo $NGX_ADDON_SRCS | grep "ngx_kmp_out_module" > /dev/null; then
         echo "found ngx_kmp_out_module for $ngx_addon_name; looks good."
     else
         echo "error: ngx_kmp_out_module is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2
@@ -27,57 +27,80 @@ echo "#define NGX_MPEGTS_KMP_VERSION \""$MPEGTS_KMP_VERSION"\"" > $NGX_OBJS/ngx_
 
 # source
 #
-MPEGTS_KMP_SRCS="                                   \
-    $ngx_addon_dir/src/ngx_ts_kmp_module.c          \
-    $ngx_addon_dir/src/ngx_ts_kmp_track.c           \
-    $ngx_addon_dir/src/ngx_stream_ts_kmp_module.c   \
+MPEGTS_KMP_CORE_MODULES="                               \
+    ngx_ts_kmp_module                                   \
     "
 
-MPEGTS_KMP_HTTP_SRCS="                              \
-    $ngx_addon_dir/src/ngx_ts_kmp_api_module.c      \
+MPEGTS_KMP_STREAM_MODULES="                             \
+    ngx_stream_ts_kmp_module                            \
     "
 
-MPEGTS_KMP_DEPS="                                   \
-    $ngx_addon_dir/src/ngx_ts_kmp_api_json.h        \
-    $ngx_addon_dir/src/ngx_ts_kmp_api_routes.h      \
-    $ngx_addon_dir/src/ngx_ts_kmp_json.h            \
-    $ngx_addon_dir/src/ngx_ts_kmp_module.h          \
-    $ngx_addon_dir/src/ngx_ts_kmp_track.h           \
-    $ngx_addon_dir/src/ngx_ts_kmp_track_json.h      \
+MPEGTS_KMP_HTTP_MODULES="                               \
+    ngx_http_ts_kmp_api_module                          \
+    ngx_http_ts_kmp_module                              \
+    "
+
+MPEGTS_KMP_CORE_SRCS="                                  \
+    $ngx_addon_dir/src/ngx_ts_kmp_module.c              \
+    $ngx_addon_dir/src/ngx_ts_kmp_track.c               \
+    "
+
+MPEGTS_KMP_STREAM_SRCS="                                \
+    $ngx_addon_dir/src/ngx_stream_ts_kmp_module.c       \
+    "
+
+MPEGTS_KMP_HTTP_SRCS="                                  \
+    $ngx_addon_dir/src/ngx_http_ts_kmp_api_module.c     \
+    $ngx_addon_dir/src/ngx_http_ts_kmp_module.c         \
+    "
+
+MPEGTS_KMP_DEPS="                                       \
+    $ngx_addon_dir/src/ngx_http_ts_kmp_api_json.h       \
+    $ngx_addon_dir/src/ngx_http_ts_kmp_api_routes.h     \
+    $ngx_addon_dir/src/ngx_ts_kmp_module.h              \
+    $ngx_addon_dir/src/ngx_ts_kmp_module_json.h         \
+    $ngx_addon_dir/src/ngx_ts_kmp_track.h               \
+    $ngx_addon_dir/src/ngx_ts_kmp_track_json.h          \
     "
 
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir/src
     ngx_module_deps=$MPEGTS_KMP_DEPS
+    ngx_module_incs=
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
-        ngx_module_name="ngx_stream_ts_kmp_module"
-        ngx_module_srcs="$MPEGTS_KMP_SRCS $MPEGTS_KMP_HTTP_SRCS"
+        ngx_module_name="$MPEGTS_KMP_CORE_MODULES $MPEGTS_KMP_STREAM_MODULES $MPEGTS_KMP_HTTP_MODULES"
+        ngx_module_srcs="$MPEGTS_KMP_CORE_SRCS $MPEGTS_KMP_STREAM_SRCS $MPEGTS_KMP_HTTP_SRCS"
 
         . auto/module
 
     else
+        ngx_module_type=CORE
+        ngx_module_name=$MPEGTS_KMP_CORE_MODULES
+        ngx_module_srcs=$MPEGTS_KMP_CORE_SRCS
+
+        . auto/module
+
+        ngx_module_deps=
+
         ngx_module_type=STREAM
-        ngx_module_name=ngx_stream_ts_kmp_module
-        ngx_module_srcs=$MPEGTS_KMP_SRCS
+        ngx_module_name=$MPEGTS_KMP_STREAM_MODULES
+        ngx_module_srcs=$MPEGTS_KMP_STREAM_SRCS
 
         . auto/module
 
         ngx_module_type=HTTP
-        ngx_module_name=ngx_ts_kmp_api_module
-        ngx_module_incs=
-        ngx_module_deps=
+        ngx_module_name=$MPEGTS_KMP_HTTP_MODULES
         ngx_module_srcs=$MPEGTS_KMP_HTTP_SRCS
 
         . auto/module
 fi
 
 else
-    STREAM_MODULES="$STREAM_MODULES ngx_stream_ts_kmp_module"
-    HTTP_MODULES="$HTTP_MODULES ngx_ts_kmp_api_module"
+    CORE_MODULES="$CORE_MODULES $MPEGTS_KMP_CORE_MODULES"
+    STREAM_MODULES="$STREAM_MODULES $MPEGTS_KMP_STREAM_MODULES"
+    HTTP_MODULES="$HTTP_MODULES $MPEGTS_KMP_HTTP_MODULES"
 
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $MPEGTS_KMP_DEPS"
-    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $MPEGTS_KMP_SRCS"
-
-    CFLAGS="$CFLAGS -I$ngx_addon_dir"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $MPEGTS_KMP_CORE_SRCS $MPEGTS_KMP_STREAM_SRCS $MPEGTS_KMP_HTTP_SRCS"
 fi

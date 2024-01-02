@@ -9,7 +9,7 @@ LONG_TEST = 1
 # test options
 DISABLE_DVR = False
 BLOCKING_SEGMENT_REQUEST = False
-WAIT_ACKS = False
+WAIT_ACKS = True
 MEDIA_INFO_CHANGE = False
 NO_TRUNCATE = False
 
@@ -46,11 +46,8 @@ def updateConf(conf):
             delConfParam(block, key)
 
     if BLOCKING_SEGMENT_REQUEST:
-        preset = getConfBlock(conf, ['live', 'preset main'])
-        preset.append(['segmenter_duration','10s'])
-
-        http = getConfBlock(conf, ['http'])
-        http.append(['client_max_body_size','64m'])
+        appendConfDirective(conf, ['live', 'preset main'], ['segment_duration', '10s'])
+        appendConfDirective(conf, ['http'], ['client_max_body_size', '64m'])
 
 class KmpMemorySender(object):
     def __init__(self):
@@ -170,8 +167,8 @@ class WaitAckSender(object):
             type, header_size, data_size, reserved = kmpGetHeader(header)
             if type != KMP_PACKET_ACK_FRAMES:
                 continue
-            data = self.s.recv(header_size + data_size)
-            frameId, offset = struct.unpack('<qL', data[:12])
+            data = self.s.recv(header_size + data_size - KMP_PACKET_HEADER_SIZE)
+            frameId, = struct.unpack('<q', data[:8])
             self.ackedFrames = frameId
 
 def test(channelId=CHANNEL_ID):

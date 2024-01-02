@@ -12,8 +12,7 @@ TRACKS = [
 
 def updateConf(conf):
     # avoid jumps in segment index whenever the channel becomes inactive
-    preset = getConfBlock(conf, ['live', 'preset main'])
-    preset.append(['persist_bucket_size','1'])
+    appendConfDirective(conf, ['live', 'preset main'], ['persist_bucket_size', '1'])
 
     # disable persistence - always start from scratch
     block = getConfBlock(conf, ['live'])
@@ -107,7 +106,7 @@ def testCycle(channelId, readers):
 
     print('any: ' + ','.join(actualAny))
     print('last: ' + ','.join(actualLast))
-    print()
+    print('')
     assert(expectedAny == actualAny)
     assert(expectedLast == actualLast)
 

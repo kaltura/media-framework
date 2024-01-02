@@ -12,6 +12,9 @@
 #include <openssl/sha.h>
 
 
+#define NGX_RTMP_ISO8601_DATE_LEN  (sizeof("yyyy-mm-dd") - 1)
+
+
 static void ngx_rtmp_handshake_send(ngx_event_t *wev);
 static void ngx_rtmp_handshake_recv(ngx_event_t *rev);
 static void ngx_rtmp_handshake_done(ngx_rtmp_session_t *s);
@@ -41,9 +44,9 @@ ngx_rtmp_server_key[] = {
     'S', 'e', 'r', 'v', 'e', 'r', ' ',
     '0', '0', '1',
 
-    0xF0, 0xEE, 0xC2, 0x4A, 0x80, 0x68, 0xBE, 0xE8, 0x2E, 0x00, 0xD0, 0xD1,
-    0x02, 0x9E, 0x7E, 0x57, 0x6E, 0xEC, 0x5D, 0x2D, 0x29, 0x80, 0x6F, 0xAB,
-    0x93, 0xB8, 0xE6, 0x36, 0xCF, 0xEB, 0x31, 0xAE
+    0xf0, 0xee, 0xc2, 0x4a, 0x80, 0x68, 0xbe, 0xe8, 0x2e, 0x00, 0xd0, 0xd1,
+    0x02, 0x9e, 0x7e, 0x57, 0x6e, 0xec, 0x5d, 0x2d, 0x29, 0x80, 0x6f, 0xab,
+    0x93, 0xb8, 0xe6, 0x36, 0xcf, 0xeb, 0x31, 0xae
 };
 
 
@@ -53,21 +56,21 @@ ngx_rtmp_client_key[] = {
     'F', 'l', 'a', 's', 'h', ' ', 'P', 'l', 'a', 'y', 'e', 'r', ' ',
     '0', '0', '1',
 
-    0xF0, 0xEE, 0xC2, 0x4A, 0x80, 0x68, 0xBE, 0xE8, 0x2E, 0x00, 0xD0, 0xD1,
-    0x02, 0x9E, 0x7E, 0x57, 0x6E, 0xEC, 0x5D, 0x2D, 0x29, 0x80, 0x6F, 0xAB,
-    0x93, 0xB8, 0xE6, 0x36, 0xCF, 0xEB, 0x31, 0xAE
+    0xf0, 0xee, 0xc2, 0x4a, 0x80, 0x68, 0xbe, 0xe8, 0x2e, 0x00, 0xd0, 0xd1,
+    0x02, 0x9e, 0x7e, 0x57, 0x6e, 0xec, 0x5d, 0x2d, 0x29, 0x80, 0x6f, 0xab,
+    0x93, 0xb8, 0xe6, 0x36, 0xcf, 0xeb, 0x31, 0xae
 };
 
 
 static const u_char
 ngx_rtmp_server_version[4] = {
-    0x0D, 0x0E, 0x0A, 0x0D
+    0x0d, 0x0e, 0x0a, 0x0d
 };
 
 
 static const u_char
 ngx_rtmp_client_version[4] = {
-    0x0C, 0x00, 0x0D, 0x0E
+    0x0c, 0x00, 0x0d, 0x0e
 };
 
 
@@ -392,6 +395,59 @@ ngx_rtmp_handshake_done(ngx_rtmp_session_t *s)
 }
 
 
+static ngx_fd_t
+ngx_rtmp_open_dump_file(ngx_rtmp_session_t *s)
+{
+    ngx_fd_t                   fd;
+    ngx_str_t                  name;
+    ngx_rtmp_core_srv_conf_t  *cscf;
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    name.len = cscf->dump_folder.len + sizeof("/ngx_rtmp_dump___.dat") +
+        NGX_RTMP_ISO8601_DATE_LEN + NGX_INT64_LEN + NGX_ATOMIC_T_LEN;
+    name.data = ngx_alloc(name.len, s->connection->log);
+    if (name.data == NULL) {
+        return NGX_INVALID_FILE;
+    }
+
+    ngx_sprintf(name.data, "%V/ngx_rtmp_dump_%*s_%P_%uA.dat%Z",
+        &cscf->dump_folder, NGX_RTMP_ISO8601_DATE_LEN,
+        ngx_cached_http_log_iso8601.data, ngx_pid, s->connection->number);
+
+    fd = ngx_open_file((char *) name.data, NGX_FILE_WRONLY, NGX_FILE_TRUNCATE,
+        NGX_FILE_DEFAULT_ACCESS);
+    if (fd == NGX_INVALID_FILE) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
+            ngx_open_file_n " \"%s\" failed", name.data);
+        ngx_free(name.data);
+        return NGX_INVALID_FILE;
+    }
+
+    ngx_free(name.data);
+    return fd;
+}
+
+
+static void
+ngx_rtmp_handshake_dump(ngx_rtmp_session_t *s, void *buf, size_t size)
+{
+    if (s->dump_fd == NGX_INVALID_FILE) {
+        s->dump_fd = ngx_rtmp_open_dump_file(s);
+        if (s->dump_fd == NGX_INVALID_FILE) {
+            s->dump_input = 0;
+            return;
+        }
+    }
+
+    if (ngx_write_fd(s->dump_fd, buf, size) == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
+            "ngx_rtmp_handshake_dump: write failed");
+        s->dump_input = 0;
+    }
+}
+
+
 static void
 ngx_rtmp_handshake_recv(ngx_event_t *rev)
 {
@@ -438,13 +494,8 @@ ngx_rtmp_handshake_recv(ngx_event_t *rev)
             return;
         }
 
-        if (s->dump_fd != NGX_INVALID_FILE) {
-            if (ngx_write_fd(s->dump_fd, b->last, n) == NGX_ERROR) {
-                ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
-                              "failed to write to rtmp dump file");
-                ngx_close_file(s->dump_fd);
-                s->dump_fd = NGX_INVALID_FILE;
-            }
+        if (s->dump_input) {
+            ngx_rtmp_handshake_dump(s, b->last, n);
         }
 
         b->last += n;

@@ -105,7 +105,7 @@ ngx_buf_chain_compare(ngx_buf_chain_t *head, void *buf, size_t size)
 
 
 ngx_buf_chain_t *
-ngx_buf_chain_terminate(ngx_buf_chain_t *data, uint32_t size)
+ngx_buf_chain_get_tail(ngx_buf_chain_t *data, uint32_t size)
 {
     for ( ;; ) {
 
@@ -123,6 +123,16 @@ ngx_buf_chain_terminate(ngx_buf_chain_t *data, uint32_t size)
         data = data->next;
     }
 
+    return data;
+}
+
+
+ngx_buf_chain_t *
+ngx_buf_chain_terminate(ngx_buf_chain_t *data, uint32_t size)
+{
+    data = ngx_buf_chain_get_tail(data, size);
+
     data->next = NULL;
+
     return data;
 }

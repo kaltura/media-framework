@@ -51,19 +51,19 @@ avc_parser_skip_hrd_parameters(bit_reader_state_t* reader)
     uint32_t cpb_cnt_minus1;
     uint32_t i;
 
-    cpb_cnt_minus1 = bit_read_stream_get_unsigned_exp(reader); // cpb_cnt_minus1
-    bit_read_stream_skip(reader, 4); // bit_rate_scale
-    bit_read_stream_skip(reader, 4); // cpb_size_scale
+    cpb_cnt_minus1 = bit_read_stream_get_unsigned_exp(reader);  // cpb_cnt_minus1
+    bit_read_stream_skip(reader, 4);        // bit_rate_scale
+    bit_read_stream_skip(reader, 4);        // cpb_size_scale
     for (i = 0; i <= cpb_cnt_minus1 && !reader->stream.eof_reached; i++)
     {
-        bit_read_stream_skip_unsigned_exp(reader); // bit_rate_value_minus1_SchedSelIdx_
-        bit_read_stream_skip_unsigned_exp(reader); // cpb_size_value_minus1_SchedSelIdx_
-        bit_read_stream_get_one(reader); // cbr_flag_SchedSelIdx_
+        bit_read_stream_skip_unsigned_exp(reader);  // bit_rate_value_minus1_SchedSelIdx_
+        bit_read_stream_skip_unsigned_exp(reader);  // cpb_size_value_minus1_SchedSelIdx_
+        bit_read_stream_get_one(reader);    // cbr_flag_SchedSelIdx_
     }
-    bit_read_stream_skip(reader, 5); // initial_cpb_removal_delay_length_minus1
-    bit_read_stream_skip(reader, 5); // cpb_removal_delay_length_minus1
-    bit_read_stream_skip(reader, 5); // dpb_output_delay_length_minus1
-    bit_read_stream_skip(reader, 5); // time_offset_length
+    bit_read_stream_skip(reader, 5);        // initial_cpb_removal_delay_length_minus1
+    bit_read_stream_skip(reader, 5);        // cpb_removal_delay_length_minus1
+    bit_read_stream_skip(reader, 5);        // dpb_output_delay_length_minus1
+    bit_read_stream_skip(reader, 5);        // time_offset_length
 }
 
 
@@ -81,72 +81,72 @@ avc_parser_parse_vui_parameters(avc_sps_t* sps, bit_reader_state_t* reader)
     uint32_t vcl_hrd_parameters_present_flag;
     uint32_t bitstream_restriction_flag;
 
-    aspect_ratio_info_present_flag = bit_read_stream_get_one(reader); // aspect_ratio_info_present_flag
+    aspect_ratio_info_present_flag = bit_read_stream_get_one(reader);       // aspect_ratio_info_present_flag
     if (aspect_ratio_info_present_flag)
     {
-        aspect_ratio_idc = bit_read_stream_get(reader, 8); // aspect_ratio_idc
+        aspect_ratio_idc = bit_read_stream_get(reader, 8);      // aspect_ratio_idc
         if (aspect_ratio_idc == EXTENDED_SAR)
         {
-            bit_read_stream_skip(reader, 16); // sar_width
-            bit_read_stream_skip(reader, 16); // sar_height
+            bit_read_stream_skip(reader, 16);       // sar_width
+            bit_read_stream_skip(reader, 16);       // sar_height
         }
     }
-    overscan_info_present_flag = bit_read_stream_get_one(reader); // overscan_info_present_flag
+    overscan_info_present_flag = bit_read_stream_get_one(reader);           // overscan_info_present_flag
     if (overscan_info_present_flag)
     {
-        bit_read_stream_get_one(reader); // overscan_appropriate_flag
+        bit_read_stream_get_one(reader);            // overscan_appropriate_flag
     }
-    video_signal_type_present_flag = bit_read_stream_get_one(reader); // video_signal_type_present_flag
+    video_signal_type_present_flag = bit_read_stream_get_one(reader);       // video_signal_type_present_flag
     if (video_signal_type_present_flag)
     {
-        bit_read_stream_skip(reader, 3); // video_format
-        bit_read_stream_get_one(reader); // video_full_range_flag
-        colour_description_present_flag = bit_read_stream_get_one(reader); // colour_description_present_flag
+        bit_read_stream_skip(reader, 3);            // video_format
+        bit_read_stream_get_one(reader);            // video_full_range_flag
+        colour_description_present_flag = bit_read_stream_get_one(reader);  // colour_description_present_flag
         if (colour_description_present_flag)
         {
-            bit_read_stream_skip(reader, 8); // colour_primaries
+            bit_read_stream_skip(reader, 8);        // colour_primaries
             sps->transfer_characteristics = bit_read_stream_get(reader, 8);
-            bit_read_stream_skip(reader, 8); // matrix_coefficients
+            bit_read_stream_skip(reader, 8);        // matrix_coefficients
         }
     }
-    chroma_loc_info_present_flag = bit_read_stream_get_one(reader); // chroma_loc_info_present_flag
+    chroma_loc_info_present_flag = bit_read_stream_get_one(reader);         // chroma_loc_info_present_flag
     if (chroma_loc_info_present_flag)
     {
-        bit_read_stream_skip_unsigned_exp(reader); // chroma_sample_loc_type_top_field
-        bit_read_stream_skip_unsigned_exp(reader); // chroma_sample_loc_type_bottom_field
+        bit_read_stream_skip_unsigned_exp(reader);  // chroma_sample_loc_type_top_field
+        bit_read_stream_skip_unsigned_exp(reader);  // chroma_sample_loc_type_bottom_field
     }
-    timing_info_present_flag = bit_read_stream_get_one(reader); // timing_info_present_flag
+    timing_info_present_flag = bit_read_stream_get_one(reader);     // timing_info_present_flag
     if (timing_info_present_flag)
     {
-        bit_read_stream_skip(reader, 32); // num_units_in_tick
-        bit_read_stream_skip(reader, 32); // time_scale
-        bit_read_stream_get_one(reader); // fixed_frame_rate_flag
+        bit_read_stream_skip(reader, 32);           // num_units_in_tick
+        bit_read_stream_skip(reader, 32);           // time_scale
+        bit_read_stream_get_one(reader);            // fixed_frame_rate_flag
     }
-    nal_hrd_parameters_present_flag = bit_read_stream_get_one(reader); // nal_hrd_parameters_present_flag
+    nal_hrd_parameters_present_flag = bit_read_stream_get_one(reader);      // nal_hrd_parameters_present_flag
     if (nal_hrd_parameters_present_flag)
     {
         avc_parser_skip_hrd_parameters(reader);
     }
-    vcl_hrd_parameters_present_flag = bit_read_stream_get_one(reader); // vcl_hrd_parameters_present_flag
+    vcl_hrd_parameters_present_flag = bit_read_stream_get_one(reader);      // vcl_hrd_parameters_present_flag
     if (vcl_hrd_parameters_present_flag)
     {
         avc_parser_skip_hrd_parameters(reader);
     }
     if (nal_hrd_parameters_present_flag || vcl_hrd_parameters_present_flag)
     {
-        bit_read_stream_get_one(reader); // low_delay_hrd_flag
+        bit_read_stream_get_one(reader);            // low_delay_hrd_flag
     }
-    bit_read_stream_get_one(reader); // pic_struct_present_flag
-    bitstream_restriction_flag = bit_read_stream_get_one(reader); // bitstream_restriction_flag
+    bit_read_stream_get_one(reader);                // pic_struct_present_flag
+    bitstream_restriction_flag = bit_read_stream_get_one(reader);           // bitstream_restriction_flag
     if (bitstream_restriction_flag)
     {
-        bit_read_stream_get_one(reader); // motion_vectors_over_pic_boundaries_flag
-        bit_read_stream_skip_unsigned_exp(reader); // max_bytes_per_pic_denom
-        bit_read_stream_skip_unsigned_exp(reader); // max_bits_per_mb_denom
-        bit_read_stream_skip_unsigned_exp(reader); // log2_max_mv_length_horizontal
-        bit_read_stream_skip_unsigned_exp(reader); // log2_max_mv_length_vertical
-        bit_read_stream_skip_unsigned_exp(reader); // num_reorder_frames
-        bit_read_stream_skip_unsigned_exp(reader); // max_dec_frame_buffering
+        bit_read_stream_get_one(reader);            // motion_vectors_over_pic_boundaries_flag
+        bit_read_stream_skip_unsigned_exp(reader);  // max_bytes_per_pic_denom
+        bit_read_stream_skip_unsigned_exp(reader);  // max_bits_per_mb_denom
+        bit_read_stream_skip_unsigned_exp(reader);  // log2_max_mv_length_horizontal
+        bit_read_stream_skip_unsigned_exp(reader);  // log2_max_mv_length_vertical
+        bit_read_stream_skip_unsigned_exp(reader);  // num_reorder_frames
+        bit_read_stream_skip_unsigned_exp(reader);  // max_dec_frame_buffering
     }
 }
 
@@ -185,12 +185,12 @@ avc_parser_seq_parameter_set_rbsp(avc_hevc_parse_ctx_t* ctx, bit_reader_state_t*
     bool_t vui_parameters_present_flag;
     bool_t frame_cropping_flag;
 
-    profile_idc = bit_read_stream_get(reader, 8); // profile_idc
-    bit_read_stream_get_one(reader); // constraint_set0_flag
-    bit_read_stream_get_one(reader); // constraint_set1_flag
-    bit_read_stream_get_one(reader); // constraint_set2_flag
-    bit_read_stream_skip(reader, 5); // reserved_zero_5bits
-    bit_read_stream_skip(reader, 8); // level_idc
+    profile_idc = bit_read_stream_get(reader, 8);   // profile_idc
+    bit_read_stream_get_one(reader);    // constraint_set0_flag
+    bit_read_stream_get_one(reader);    // constraint_set1_flag
+    bit_read_stream_get_one(reader);    // constraint_set2_flag
+    bit_read_stream_skip(reader, 5);    // reserved_zero_5bits
+    bit_read_stream_skip(reader, 8);    // level_idc
     seq_parameter_set_id = bit_read_stream_get_unsigned_exp(reader);
 
     if (seq_parameter_set_id >= MAX_SPS_COUNT)
@@ -210,20 +210,20 @@ avc_parser_seq_parameter_set_rbsp(avc_hevc_parse_ctx_t* ctx, bit_reader_state_t*
 
     switch (profile_idc)
     {
-    case 100: // High profile
-    case 110: // High10 profile
-    case 122: // High422 profile
-    case 244: // High444 Predictive profile
-    case  44: // Cavlc444 profile
-    case  83: // Scalable Constrained High profile (SVC)
-    case  86: // Scalable High Intra profile (SVC)
-    case 118: // Stereo High profile (MVC)
-    case 128: // Multiview High profile (MVC)
-    case 138: // Multiview Depth High profile (MVCD)
+    case 100:   // High profile
+    case 110:   // High10 profile
+    case 122:   // High422 profile
+    case 244:   // High444 Predictive profile
+    case  44:   // Cavlc444 profile
+    case  83:   // Scalable Constrained High profile (SVC)
+    case  86:   // Scalable High Intra profile (SVC)
+    case 118:   // Stereo High profile (MVC)
+    case 128:   // Multiview High profile (MVC)
+    case 138:   // Multiview Depth High profile (MVCD)
     case 139:
     case 134:
     case 135:
-        sps->chroma_format_idc = bit_read_stream_get_unsigned_exp(reader);    // chroma_format_idc
+        sps->chroma_format_idc = bit_read_stream_get_unsigned_exp(reader);  // chroma_format_idc
         sps->chroma_array_type = sps->chroma_format_idc;
         if (sps->chroma_format_idc == 3)
         {
@@ -233,9 +233,9 @@ avc_parser_seq_parameter_set_rbsp(avc_hevc_parse_ctx_t* ctx, bit_reader_state_t*
                 sps->chroma_array_type = 0;
             }
         }
-        bit_read_stream_skip_unsigned_exp(reader); // bit_depth_luma_minus8
-        bit_read_stream_skip_unsigned_exp(reader); // bit_depth_chroma_minus8
-        bit_read_stream_get_one(reader);    // qpprime_y_zero_transform_bypass_flag
+        bit_read_stream_skip_unsigned_exp(reader);  // bit_depth_luma_minus8
+        bit_read_stream_skip_unsigned_exp(reader);  // bit_depth_chroma_minus8
+        bit_read_stream_get_one(reader);            // qpprime_y_zero_transform_bypass_flag
         seq_scaling_matrix_present_flag = bit_read_stream_get_one(reader);
         if (seq_scaling_matrix_present_flag)
         {
@@ -274,34 +274,34 @@ avc_parser_seq_parameter_set_rbsp(avc_hevc_parse_ctx_t* ctx, bit_reader_state_t*
 
     case 1:
         sps->delta_pic_order_always_zero_flag = bit_read_stream_get_one(reader);
-        bit_read_stream_skip_signed_exp(reader);    // offset_for_non_ref_pic
-        bit_read_stream_skip_signed_exp(reader);    // offset_for_top_to_bottom_field
-        num_ref_frames_in_pic_order_cnt_cycle = bit_read_stream_get_unsigned_exp(reader);    // num_ref_frames_in_pic_order_cnt_cycle
+        bit_read_stream_skip_signed_exp(reader);        // offset_for_non_ref_pic
+        bit_read_stream_skip_signed_exp(reader);        // offset_for_top_to_bottom_field
+        num_ref_frames_in_pic_order_cnt_cycle = bit_read_stream_get_unsigned_exp(reader);   // num_ref_frames_in_pic_order_cnt_cycle
         for (i = 0; i < num_ref_frames_in_pic_order_cnt_cycle && !reader->stream.eof_reached; i++)
         {
             bit_read_stream_skip_signed_exp(reader);    // offset_for_ref_frame[i]
         }
         break;
     }
-    bit_read_stream_skip_unsigned_exp(reader);    // num_ref_frames
-    bit_read_stream_get_one(reader);    // gaps_in_frame_num_value_allowed_flag
+    bit_read_stream_skip_unsigned_exp(reader);          // num_ref_frames
+    bit_read_stream_get_one(reader);                    // gaps_in_frame_num_value_allowed_flag
     sps->pic_width_in_mbs = bit_read_stream_get_unsigned_exp(reader) + 1;
     sps->pic_height_in_map_units = bit_read_stream_get_unsigned_exp(reader) + 1;
     sps->frame_mbs_only_flag = bit_read_stream_get_one(reader);
     if (!sps->frame_mbs_only_flag)
     {
-        bit_read_stream_get_one(reader);    // mb_adaptive_frame_field_flag
+        bit_read_stream_get_one(reader);                // mb_adaptive_frame_field_flag
     }
-    bit_read_stream_get_one(reader);    // direct_8x8_inference_flag
-    frame_cropping_flag = bit_read_stream_get_one(reader);    // frame_cropping_flag
+    bit_read_stream_get_one(reader);                    // direct_8x8_inference_flag
+    frame_cropping_flag = bit_read_stream_get_one(reader);  // frame_cropping_flag
     if (frame_cropping_flag)
     {
-        bit_read_stream_skip_unsigned_exp(reader);    // frame_crop_left_offset
-        bit_read_stream_skip_unsigned_exp(reader);    // frame_crop_right_offset
-        bit_read_stream_skip_unsigned_exp(reader);    // frame_crop_top_offset
-        bit_read_stream_skip_unsigned_exp(reader);    // frame_crop_bottom_offset
+        bit_read_stream_skip_unsigned_exp(reader);      // frame_crop_left_offset
+        bit_read_stream_skip_unsigned_exp(reader);      // frame_crop_right_offset
+        bit_read_stream_skip_unsigned_exp(reader);      // frame_crop_top_offset
+        bit_read_stream_skip_unsigned_exp(reader);      // frame_crop_bottom_offset
     }
-    vui_parameters_present_flag = bit_read_stream_get_one(reader);    // vui_parameters_present_flag
+    vui_parameters_present_flag = bit_read_stream_get_one(reader);  // vui_parameters_present_flag
     if (vui_parameters_present_flag)
     {
         avc_parser_parse_vui_parameters(sps, reader);
@@ -377,15 +377,15 @@ avc_parser_pic_parameter_set_rbsp(
         {
             for (group = 0; group <= pps->num_slice_groups_minus1 && !reader->stream.eof_reached; group++)
             {
-                bit_read_stream_skip_unsigned_exp(reader);        // run_length_minus1[group]
+                bit_read_stream_skip_unsigned_exp(reader);      // run_length_minus1[group]
             }
         }
         else if (pps->slice_group_map_type == 2)
         {
             for (group = 0; group < pps->num_slice_groups_minus1 && !reader->stream.eof_reached; group++)
             {
-                bit_read_stream_skip_unsigned_exp(reader);        // top_left[ group ]
-                bit_read_stream_skip_unsigned_exp(reader);        // bottom_right[ group ]
+                bit_read_stream_skip_unsigned_exp(reader);      // top_left[ group ]
+                bit_read_stream_skip_unsigned_exp(reader);      // bottom_right[ group ]
             }
         }
         else if (pps->slice_group_map_type == 3 || pps->slice_group_map_type == 4 || pps->slice_group_map_type == 5)
@@ -398,7 +398,7 @@ avc_parser_pic_parameter_set_rbsp(
             pic_size_in_map_units_minus1 = bit_read_stream_get_unsigned_exp(reader);
             for (i = 0; i <= pic_size_in_map_units_minus1 && !reader->stream.eof_reached; i++)
             {
-                bit_read_stream_skip(reader, avc_hevc_parser_ceil_log2(pps->num_slice_groups_minus1 + 1));        // slice_group_id[ i ]
+                bit_read_stream_skip(reader, avc_hevc_parser_ceil_log2(pps->num_slice_groups_minus1 + 1));      // slice_group_id[ i ]
             }
         }
     }
@@ -422,7 +422,7 @@ avc_parser_pic_parameter_set_rbsp(
     }
 
     temp_reader = *reader;
-    if (avc_hevc_parser_rbsp_trailing_bits(&temp_reader))    // !more_rbsp_data
+    if (avc_hevc_parser_rbsp_trailing_bits(&temp_reader))   // !more_rbsp_data
     {
         return VOD_OK;
     }
@@ -595,11 +595,11 @@ avc_parser_skip_ref_pic_list_modification(
                 if (modification_of_pic_nums_idc == 0 ||
                     modification_of_pic_nums_idc == 1)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);    // abs_diff_pic_num_minus1
+                    bit_read_stream_skip_unsigned_exp(reader);  // abs_diff_pic_num_minus1
                 }
                 else if (modification_of_pic_nums_idc == 2)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);    // long_term_pic_num
+                    bit_read_stream_skip_unsigned_exp(reader);  // long_term_pic_num
                 }
             } while (modification_of_pic_nums_idc != 3 && !reader->stream.eof_reached);
         }
@@ -616,11 +616,11 @@ avc_parser_skip_ref_pic_list_modification(
                 if (modification_of_pic_nums_idc == 0 ||
                     modification_of_pic_nums_idc == 1)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);    // abs_diff_pic_num_minus1
+                    bit_read_stream_skip_unsigned_exp(reader);  // abs_diff_pic_num_minus1
                 }
                 else if (modification_of_pic_nums_idc == 2)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);    // long_term_pic_num
+                    bit_read_stream_skip_unsigned_exp(reader);  // long_term_pic_num
                 }
             } while (modification_of_pic_nums_idc != 3 && !reader->stream.eof_reached);
         }
@@ -650,16 +650,16 @@ avc_parser_skip_ref_pic_list_mvc_modification(
                 if (modification_of_pic_nums_idc == 0 ||
                     modification_of_pic_nums_idc == 1)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);    // abs_diff_pic_num_minus1
+                    bit_read_stream_skip_unsigned_exp(reader);  // abs_diff_pic_num_minus1
                 }
                 else if (modification_of_pic_nums_idc == 2)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);    // long_term_pic_num
+                    bit_read_stream_skip_unsigned_exp(reader);  // long_term_pic_num
                 }
                 else if (modification_of_pic_nums_idc == 4 ||
                     modification_of_pic_nums_idc == 5)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);    // abs_diff_view_idx_minus1
+                    bit_read_stream_skip_unsigned_exp(reader);  // abs_diff_view_idx_minus1
                 }
             } while (modification_of_pic_nums_idc != 3 && !reader->stream.eof_reached);
         }
@@ -676,16 +676,16 @@ avc_parser_skip_ref_pic_list_mvc_modification(
                 if (modification_of_pic_nums_idc == 0 ||
                     modification_of_pic_nums_idc == 1)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);    // abs_diff_pic_num_minus1
+                    bit_read_stream_skip_unsigned_exp(reader);  // abs_diff_pic_num_minus1
                 }
                 else if (modification_of_pic_nums_idc == 2)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);    // long_term_pic_num
+                    bit_read_stream_skip_unsigned_exp(reader);  // long_term_pic_num
                 }
                 else if (modification_of_pic_nums_idc == 4 ||
                     modification_of_pic_nums_idc == 5)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);    // abs_diff_view_idx_minus1
+                    bit_read_stream_skip_unsigned_exp(reader);  // abs_diff_view_idx_minus1
                 }
             } while (modification_of_pic_nums_idc != 3 && !reader->stream.eof_reached);
         }
@@ -706,10 +706,10 @@ avc_parser_skip_pred_weight_table(
     bool_t chroma_weight_l1_flag;
     int i, j;
 
-    bit_read_stream_skip_unsigned_exp(reader);        // luma_log2_weight_denom
+    bit_read_stream_skip_unsigned_exp(reader);          // luma_log2_weight_denom
     if (chroma_array_type != 0)
     {
-        bit_read_stream_skip_unsigned_exp(reader);        // chroma_log2_weight_denom
+        bit_read_stream_skip_unsigned_exp(reader);      // chroma_log2_weight_denom
     }
     for (i = 0; i < num_ref_idx[0] && !reader->stream.eof_reached; i++)
     {
@@ -782,19 +782,19 @@ avc_parser_skip_dec_ref_pic_marking(
                 memory_management_control_operation = bit_read_stream_get_unsigned_exp(reader);
                 if (memory_management_control_operation == 1 || memory_management_control_operation == 3)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);        // difference_of_pic_nums_minus1
+                    bit_read_stream_skip_unsigned_exp(reader);      // difference_of_pic_nums_minus1
                 }
                 if (memory_management_control_operation == 2)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);        // long_term_pic_num
+                    bit_read_stream_skip_unsigned_exp(reader);      // long_term_pic_num
                 }
                 if (memory_management_control_operation == 3 || memory_management_control_operation == 6)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);        // long_term_frame_idx
+                    bit_read_stream_skip_unsigned_exp(reader);      // long_term_frame_idx
                 }
                 if (memory_management_control_operation == 4)
                 {
-                    bit_read_stream_skip_unsigned_exp(reader);        // max_long_term_frame_idx_plus1
+                    bit_read_stream_skip_unsigned_exp(reader);      // max_long_term_frame_idx_plus1
                 }
             } while (memory_management_control_operation != 0 && !reader->stream.eof_reached);
         }
@@ -840,7 +840,7 @@ avc_parser_get_slice_header_size(
     nal_ref_idc = (buffer[0] >> 5) & 0x3;
     nal_unit_type = buffer[0] & 0x1f;
 
-    bit_read_stream_skip_unsigned_exp(&reader); // first_mb_in_slice
+    bit_read_stream_skip_unsigned_exp(&reader);     // first_mb_in_slice
     slice_type = bit_read_stream_get_unsigned_exp(&reader);
 
     if (slice_type > 9)
@@ -875,45 +875,45 @@ avc_parser_get_slice_header_size(
 
     if (sps->separate_colour_plane_flag == 1)
     {
-        bit_read_stream_skip(&reader, 2);    // colour_plane_id
+        bit_read_stream_skip(&reader, 2);       // colour_plane_id
     }
-    bit_read_stream_skip(&reader, sps->log2_max_frame_num);    // frame_num
+    bit_read_stream_skip(&reader, sps->log2_max_frame_num);     // frame_num
     if (!sps->frame_mbs_only_flag)
     {
         field_pic_flag = bit_read_stream_get_one(&reader);
         if (field_pic_flag)
         {
-            bit_read_stream_get_one(&reader);            // bottom_field_flag
+            bit_read_stream_get_one(&reader);   // bottom_field_flag
         }
     }
 
     if (nal_unit_type == AVC_NAL_IDR_SLICE)
     {
-        bit_read_stream_skip_unsigned_exp(&reader);        // idr_pic_id
+        bit_read_stream_skip_unsigned_exp(&reader);             // idr_pic_id
     }
 
     if (sps->pic_order_cnt_type == 0)
     {
-        bit_read_stream_skip(&reader, sps->log2_max_pic_order_cnt_lsb);        // pic_order_cnt_lsb
+        bit_read_stream_skip(&reader, sps->log2_max_pic_order_cnt_lsb);     // pic_order_cnt_lsb
         if (pps->bottom_field_pic_order_in_frame_present_flag && !field_pic_flag)
-            bit_read_stream_skip_signed_exp(&reader);    // delta_pic_order_cnt_bottom
+            bit_read_stream_skip_signed_exp(&reader);   // delta_pic_order_cnt_bottom
     }
 
     if (sps->pic_order_cnt_type == 1 && !sps->delta_pic_order_always_zero_flag)
     {
-        bit_read_stream_skip_signed_exp(&reader);        // delta_pic_order_cnt[ 0 ]
+        bit_read_stream_skip_signed_exp(&reader);       // delta_pic_order_cnt[ 0 ]
         if (pps->bottom_field_pic_order_in_frame_present_flag && !field_pic_flag)
-            bit_read_stream_skip_signed_exp(&reader);    // delta_pic_order_cnt[ 1 ]
+            bit_read_stream_skip_signed_exp(&reader);   // delta_pic_order_cnt[ 1 ]
     }
 
     if (pps->redundant_pic_cnt_present_flag)
     {
-        bit_read_stream_skip_unsigned_exp(&reader);        // redundant_pic_cnt
+        bit_read_stream_skip_unsigned_exp(&reader);     // redundant_pic_cnt
     }
 
     if (slice_type == AVC_SLICE_B)
     {
-        bit_read_stream_get_one(&reader);                // direct_spatial_mv_pred_flag
+        bit_read_stream_get_one(&reader);               // direct_spatial_mv_pred_flag
     }
 
     vod_memcpy(num_ref_idx, pps->num_ref_idx, sizeof(num_ref_idx));
@@ -951,17 +951,17 @@ avc_parser_get_slice_header_size(
 
     if (pps->entropy_coding_mode_flag && slice_type != AVC_SLICE_I && slice_type != AVC_SLICE_SI)
     {
-        bit_read_stream_skip_unsigned_exp(&reader);    // cabac_init_idc
+        bit_read_stream_skip_unsigned_exp(&reader);     // cabac_init_idc
     }
 
-    bit_read_stream_skip_signed_exp(&reader);        // slice_qp_delta
+    bit_read_stream_skip_signed_exp(&reader);           // slice_qp_delta
     if (slice_type == AVC_SLICE_SP || slice_type == AVC_SLICE_SI)
     {
         if (slice_type == AVC_SLICE_SP)
         {
-            bit_read_stream_get_one(&reader);        // sp_for_switch_flag
+            bit_read_stream_get_one(&reader);           // sp_for_switch_flag
         }
-        bit_read_stream_skip_signed_exp(&reader);     // slice_qs_delta
+        bit_read_stream_skip_signed_exp(&reader);       // slice_qs_delta
     }
 
     if (pps->deblocking_filter_control_present_flag)
@@ -969,8 +969,8 @@ avc_parser_get_slice_header_size(
         disable_deblocking_filter_idc = bit_read_stream_get_unsigned_exp(&reader);
         if (disable_deblocking_filter_idc != 1)
         {
-            bit_read_stream_skip_signed_exp(&reader);    // slice_alpha_c0_offset_div2
-            bit_read_stream_skip_signed_exp(&reader);    // slice_beta_offset_div2
+            bit_read_stream_skip_signed_exp(&reader);   // slice_alpha_c0_offset_div2
+            bit_read_stream_skip_signed_exp(&reader);   // slice_beta_offset_div2
         }
     }
     if (pps->num_slice_groups_minus1 > 0 &&
@@ -979,7 +979,7 @@ avc_parser_get_slice_header_size(
         pic_size_in_map_units = sps->pic_height_in_map_units * sps->pic_width_in_mbs;
         len = vod_div_ceil(pic_size_in_map_units, pps->slice_group_change_rate);
         len = avc_hevc_parser_ceil_log2(len + 1);
-        bit_read_stream_skip(&reader, len);        // slice_group_change_cycle
+        bit_read_stream_skip(&reader, len);             // slice_group_change_cycle
     }
 
     if (reader.stream.eof_reached)

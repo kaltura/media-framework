@@ -18,13 +18,14 @@ typedef struct {
     ngx_msec_t             read_timeout;
     ngx_msec_t             send_timeout;
     ngx_str_t              dump_folder;
-    ngx_flag_t             log_frames;
+    ngx_uint_t             log_frames;
 } ngx_kmp_in_conf_t;
 
 
 typedef struct {
     ngx_uint_t             duplicate;
     ngx_uint_t             empty;
+    ngx_uint_t             empty_duration;
     ngx_uint_t             no_media_info;
     ngx_uint_t             no_key;
 } ngx_kmp_in_stats_skip_t;
@@ -146,6 +147,7 @@ struct ngx_kmp_in_ctx_s {
     ngx_kmp_in_stats_latency_t      latency;
 
     ngx_uint_t                      timescale;
+    ngx_uint_t                      media_type;
 
     /* parser */
     ngx_buf_t                       active_buf;
@@ -196,5 +198,8 @@ u_char *ngx_kmp_in_stats_latency_json_write(u_char *p,
 
 void ngx_kmp_in_init_conf(ngx_kmp_in_conf_t *conf);
 void ngx_kmp_in_merge_conf(ngx_kmp_in_conf_t *prev, ngx_kmp_in_conf_t *conf);
+
+
+extern ngx_conf_enum_t  ngx_kmp_in_log_frames[];
 
 #endif /* _NGX_KMP_IN_H_INCLUDED_ */

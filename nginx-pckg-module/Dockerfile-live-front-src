@@ -23,3 +23,5 @@ RUN apk add --no-cache --virtual kaltura-deps wget git make cmake yasm zlib-dev 
 
 COPY nginx-pckg-module nginx-pckg-module
 COPY nginx-common nginx-common
+
+WORKDIR /usr/local/openresty/nginx/conf/

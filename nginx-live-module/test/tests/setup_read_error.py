@@ -1,8 +1,7 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['http', 'server', 'location /store/'])
-    block.append(['return', '400'])
+    appendConfDirective(conf, ['http', 'server', 'location /store/'], ['return', '400'])
 
 def test(channelId=CHANNEL_ID):
     nl = nginxLiveClient()

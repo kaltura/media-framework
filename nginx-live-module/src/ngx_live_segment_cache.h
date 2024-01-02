@@ -8,9 +8,6 @@
 #include "ngx_live.h"
 
 
-#define NGX_LIVE_READ_FLAG_LOCK_DATA  (0x01)
-
-
 struct ngx_live_segment_s {
     ngx_rbtree_node_t         node;
     ngx_queue_t               queue;
@@ -112,6 +109,8 @@ typedef struct {
 /*
  * NGX_OK - operation completed synchronously (incl. no segments found)
  * NGX_DONE - started asynchronous read, the callback will be called once done
+ * NGX_DECLINED - segment / part not ready
+ * NGX_ABORT - invalid part index
  * NGX_ERROR - error
  */
 typedef ngx_int_t (*ngx_live_serve_segment_pt)(
@@ -147,6 +146,10 @@ uint32_t ngx_live_segment_cache_get_last_part(ngx_live_track_t *track,
 
 ngx_flag_t ngx_live_segment_cache_is_pending_part(ngx_live_track_t *track,
     uint32_t segment_index, uint32_t part_index);
+
+ngx_flag_t ngx_live_segment_cache_get_part_times(ngx_live_track_t *track,
+    uint32_t segment_index, uint32_t part_index,
+    uint32_t *offset, uint32_t *duration);
 
 void ngx_live_segment_write_init_ctx(ngx_live_segment_write_ctx_t *ctx,
     ngx_live_segment_t *segment, uint32_t part_index, uint32_t flags,

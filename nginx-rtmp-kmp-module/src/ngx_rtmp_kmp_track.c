@@ -1,11 +1,12 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
+
 #include <ngx_rtmp.h>
 #include <ngx_rtmp_codec_module.h>
-
 #include <ngx_live_kmp.h>
-#include "ngx_kmp_out_track_internal.h"
-#include "ngx_kmp_out_utils.h"
+#include <ngx_kmp_out_track_internal.h>
+#include <ngx_kmp_out_utils.h>
+
 #include "ngx_rtmp_kmp_track.h"
 
 #include "ngx_rtmp_kmp_track_json.h"
@@ -453,8 +454,9 @@ ngx_rtmp_kmp_track_create(ngx_kmp_out_track_conf_t *conf,
     track->log.connection = s->connection->number;
 
     media_type_str = ngx_rtmp_kmp_media_types[media_type];
-    input_id_len = s->tc_url.len + publish->name.s.len +
-        media_type_str.len + sizeof("//") - 1;
+    input_id_len = s->tc_url.len + sizeof("/") - 1
+        + publish->name.s.len + sizeof("/") - 1
+        + media_type_str.len;
 
     json_len = ngx_rtmp_kmp_track_json_get_size(s, publish);
 

@@ -10,7 +10,7 @@ if test -n "$ngx_module_link"; then
         exit 1
     fi
 else
-    if echo $NGX_ADDON_SRCS | grep " ngx_kmp_in_module" > /dev/null; then
+    if echo $NGX_ADDON_SRCS | grep "ngx_kmp_in_module" > /dev/null; then
         echo "found ngx_kmp_in_module for $ngx_addon_name; looks good."
     else
         echo "error: ngx_kmp_in_module is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2
@@ -28,7 +28,7 @@ if test -n "$ngx_module_link"; then
         exit 1
     fi
 else
-    if echo $NGX_ADDON_SRCS | grep " ngx_kmp_out_module" > /dev/null; then
+    if echo $NGX_ADDON_SRCS | grep "ngx_kmp_out_module" > /dev/null; then
         echo "found ngx_kmp_out_module for $ngx_addon_name; looks good."
     else
         echo "error: ngx_kmp_out_module is required to build $ngx_addon_name; please put it before $ngx_addon_name." 1>&2
@@ -84,8 +84,9 @@ KMP_CC_DEPS="                                                 \
     "
 
 if [ -f auto/module ] ; then
-    ngx_module_incs=$ngx_addon_dir
     ngx_module_deps=$KMP_CC_DEPS
+    ngx_module_incs=
+    ngx_module_libs=
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="$KMP_CC_STREAM_MODULES $KMP_CC_HTTP_MODULES"
@@ -99,6 +100,8 @@ if [ -f auto/module ] ; then
         ngx_module_srcs=$KMP_CC_CORE_SRCS
 
         . auto/module
+
+        ngx_module_deps=
 
         ngx_module_type=STREAM
         ngx_module_name=$KMP_CC_STREAM_MODULES
@@ -119,6 +122,4 @@ else
 
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $KMP_CC_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $KMP_CC_CORE_SRCS $KMP_CC_STREAM_SRCS $KMP_CC_HTTP_SRCS"
-
-    CFLAGS="$CFLAGS -I$ngx_addon_dir"
 fi

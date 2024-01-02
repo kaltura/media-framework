@@ -45,10 +45,10 @@ typedef struct {
 } ngx_rtmp_codec_app_conf_t;
 
 
-static ngx_conf_enum_t ngx_rtmp_codec_meta_slots[] = {
-    { ngx_string("off"),            NGX_RTMP_CODEC_META_OFF  },
+static ngx_conf_enum_t  ngx_rtmp_codec_meta_slots[] = {
     { ngx_string("on"),             NGX_RTMP_CODEC_META_ON   },
     { ngx_string("copy"),           NGX_RTMP_CODEC_META_COPY },
+    { ngx_string("off"),            NGX_RTMP_CODEC_META_OFF  },
     { ngx_null_string,              0 }
 };
 
@@ -619,7 +619,7 @@ ngx_rtmp_codec_parse_avc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     ngx_rtmp_bit_read(&br, 16);
 
     /* nal type */
-    if (ngx_rtmp_bit_read_8(&br) != 0x67) {
+    if ((ngx_rtmp_bit_read_8(&br) & 0x1f) != 7) {
         return;
     }
 

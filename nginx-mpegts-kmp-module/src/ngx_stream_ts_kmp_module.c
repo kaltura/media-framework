@@ -1,11 +1,13 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_stream.h>
-#include <ngx_kmp_out_utils.h>
+
 #include <ngx_ts_stream.h>
+#include <ngx_http_call.h>
 #include <ngx_stream_ts_module.h>
 
 #include "ngx_ts_kmp_module.h"
+#include "ngx_ts_kmp_track.h"
 
 
 static void *ngx_stream_ts_kmp_create_srv_conf(ngx_conf_t *cf);
@@ -31,28 +33,28 @@ static ngx_command_t  ngx_stream_ts_kmp_commands[] = {
 
     { ngx_string("ts_kmp_ctrl_connect_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.ctrl_connect_url),
       NULL },
 
     { ngx_string("ts_kmp_ctrl_publish_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.t.ctrl_publish_url),
       NULL },
 
     { ngx_string("ts_kmp_ctrl_unpublish_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.t.ctrl_unpublish_url),
       NULL },
 
     { ngx_string("ts_kmp_ctrl_republish_url"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_kmp_out_url_slot,
+      ngx_http_call_url_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.t.ctrl_republish_url),
       NULL },
@@ -183,14 +185,14 @@ static ngx_command_t  ngx_stream_ts_kmp_commands[] = {
 
     { ngx_string("ts_kmp_log_frames"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_flag_slot,
+      ngx_conf_set_enum_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.t.log_frames),
-      NULL },
+      &ngx_kmp_out_log_frames },
 
     { ngx_string("ts_kmp_republish_interval"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_sec_slot,
+      ngx_conf_set_msec_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ts_kmp_srv_conf_t, kmp.t.republish_interval),
       NULL },
@@ -209,8 +211,10 @@ static ngx_command_t  ngx_stream_ts_kmp_commands[] = {
 static ngx_stream_module_t  ngx_stream_ts_kmp_module_ctx = {
     NULL,                                   /* preconfiguration */
     NULL,                                   /* postconfiguration */
+
     NULL,                                   /* create main configuration */
     NULL,                                   /* init main configuration */
+
     ngx_stream_ts_kmp_create_srv_conf,      /* create server configuration */
     ngx_stream_ts_kmp_merge_srv_conf        /* merge server configuration */
 };
@@ -239,13 +243,24 @@ ngx_stream_ts_kmp(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     kscf = ngx_stream_conf_get_module_srv_conf(cf, ngx_stream_ts_kmp_module);
 
-    if (ngx_stream_ts_add_init_handler(cf, ngx_ts_kmp_init_handler, kscf)
+    if (ngx_stream_ts_add_init_handler(cf, ngx_ts_kmp_init_handler, &kscf->kmp)
         != NGX_OK)
     {
         return NGX_CONF_ERROR;
     }
 
     return NGX_CONF_OK;
+}
+
+
+static void
+ngx_stream_ts_kmp_finalize(ngx_connection_t *c)
+{
+    ngx_stream_session_t  *s;
+
+    s = c->data;
+
+    ngx_stream_finalize_session(s, NGX_STREAM_INTERNAL_SERVER_ERROR);
 }
 
 
@@ -259,7 +274,6 @@ ngx_stream_ts_kmp_create_srv_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    ngx_queue_init(&conf->kmp.sessions);
     conf->kmp.ctrl_connect_url = NGX_CONF_UNSET_PTR;
     ngx_kmp_out_track_init_conf(&conf->kmp.t);
 
@@ -282,15 +296,7 @@ ngx_stream_ts_kmp_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
         return NGX_CONF_ERROR;
     }
 
+    conf->kmp.finalize = ngx_stream_ts_kmp_finalize;
+
     return NGX_CONF_OK;
-}
-
-
-ngx_ts_kmp_conf_t *
-ngx_stream_ts_get_ts_kmp_conf(ngx_stream_conf_ctx_t *ctx)
-{
-    ngx_stream_ts_kmp_srv_conf_t *cmsf =
-        ngx_stream_get_module_srv_conf(ctx, ngx_stream_ts_kmp_module);
-
-    return &cmsf->kmp;
 }

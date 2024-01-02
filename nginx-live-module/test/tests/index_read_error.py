@@ -1,8 +1,7 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['http', 'server'])
-    block.append([['location', '/store/channel/test/index'], [['return', '400']]])
+    appendConfDirective(conf, ['http', 'server'], [['location', '/store/channel/test/index'], [['return', '400']]])
 
 def setup(channelId=CHANNEL_ID):
     nl = setupChannelTimeline(channelId)

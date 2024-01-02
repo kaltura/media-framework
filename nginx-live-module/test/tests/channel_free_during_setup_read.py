@@ -1,8 +1,7 @@
 from test_base import *
 
 def updateConf(conf):
-    block = getConfBlock(conf, ['http', 'server'])
-    block.append([['location', '/store/channel/test/setup'], [['proxy_pass', 'http://127.0.0.1:8002']]])
+    appendConfDirective(conf, ['http', 'server'], [['location', '/store/channel/test/setup'], [['proxy_pass', 'http://127.0.0.1:8002']]])
 
 def test(channelId=CHANNEL_ID):
     nl = nginxLiveClient()

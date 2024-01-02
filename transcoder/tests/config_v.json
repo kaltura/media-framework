@@ -1,0 +1,148 @@
+{
+    "input": {
+        "file": "/media/worng_order_video_only.mp4",
+        "realTime": false,
+        "activeStream": 0,
+        "xduration": 9000000,
+        "randomDataPercentage": 0,
+        "jumpOffsetSec": -60,
+        "hiccupIntervalSec": 0,
+        "hiccupDurationSec": 0
+    },
+    "throttler": {
+        "maxDataRate": 1.5,
+        "useStatsDataRate": false,
+        "minThrottleWaitMs": 1
+    },
+    "frameDropper1": {
+        "enabled": false,
+        "queueDuration": 10,
+        "queueSize": 0,
+        "nonKeyFrameDropperThreshold": 4,
+        "decodedFrameDropperThreshold": 2
+    },
+    "logger": {
+        "logLevels": ["DEBUG","VERBOSE","INFO","WARN","ERROR","FATAL","PANIC"],
+        "logLevel": "DEBUG"
+    },
+    "kmp": {
+        "listenPort": 16543,
+        "listenAddress": "0.0.0.0",
+        "acceptTimeout": 15,
+        "idleTimeout": 10,
+        "connectTimeout": 10
+    },
+    "control": {
+        "listenPort": 18001,
+        "listenAddress": "0.0.0.0"
+    },
+    "debug": {
+        "diagnosticsIntervalInSeconds": 1
+    },
+    "output": {
+        "saveFile": true,
+        "outputFileNamePattern": "./output_%s.ts",
+        "streamingUrla": "kmp://localhost:6543",
+        "streamingUrl12": "kmp://192.168.11.59:6543",
+        "streamingUrl1": ""
+    },
+    "engine": {
+        "encoders": {
+            "h264": ["h264_nvenc","libx264","h264_videotoolbox"]
+        },
+        "presets": {
+            "A": {
+                "h264_videotoolbox": "default",
+                "libx264": "veryfast",
+                "h264_nvenc": "fast"
+            }
+        }
+    },
+    "errorPolicy": {
+        "exitOnError": false
+    },
+    "outputTracks": [
+        {
+            "trackId": "v32",
+            "enabled": false,
+            "passthrough": true
+        },
+        {
+            "trackId": "a32",
+            "enabled": false,
+            "passthrough": true
+        },
+        {
+            "trackId": "a33",
+            "enabled": false,
+            "bitrate": 64000,
+            "passthrough": false,
+            "codec": "aac",
+            "audioParams": {
+                "samplingRate": -1,
+                "channels": 2
+            }
+        },
+        {
+            "trackId": "v33",
+            "passthrough": false,
+            "enabled": true,
+            "bitrate": 900000,
+            "codec": "h264",
+            "videoParams": {
+                "profile": "main",
+                "preset": "A",
+                "height": 480
+            }
+        },
+        {
+            "trackId": "v34",
+            "enabled": false,
+            "passthrough": false,
+            "bitrate": 600,
+            "codec": "h264",
+            "videoParams": {
+                "profile": "baseline",
+                "preset": "A",
+                "height": 360
+            }
+        },
+        {
+            "trackId": "v35",
+            "enabled": false,
+            "passthrough": false,
+            "bitrate": 400,
+            "codec": "h264",
+            "videoParams": {
+                "profile": "baseline",
+                "preset": "A",
+                "height": 360
+            }
+        },
+        {
+            "trackId": "v42",
+            "enabled": false,
+            "passthrough": false,
+            "bitrate": 1500,
+            "codec": "h264",
+            "videoParams": {
+                "profile": "high",
+                "preset": "A",
+                "height": 720
+            }
+        },
+        {
+            "trackId": "v43",
+            "enabled": false,
+            "passthrough": false,
+            "bitrate": 2500,
+            "codec": "h264",
+            "videoParams": {
+                "profile": "high",
+                "preset": "A",
+                "height": 2160,
+                "skipFrame": 1
+            }
+        }
+    ]
+}

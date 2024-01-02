@@ -8,9 +8,9 @@
 #define get_context(ctx) ((mpegts_encoder_state_t*)ctx->context[THIS_FILTER])
 
 #define INITIAL_PID (0x100)
-#define PRIVATE_STREAM_1_SID (0xBD)
-#define FIRST_AUDIO_SID (0xC0)
-#define FIRST_VIDEO_SID (0xE0)
+#define PRIVATE_STREAM_1_SID (0xbd)
+#define FIRST_AUDIO_SID (0xc0)
+#define FIRST_VIDEO_SID (0xe0)
 
 #define SIZEOF_MPEGTS_HEADER (4)
 #define MPEGTS_PACKET_USABLE_SIZE (MPEGTS_PACKET_SIZE - SIZEOF_MPEGTS_HEADER)
@@ -73,7 +73,7 @@ static const u_char pmt_header_template[] = {
 };
 
 static const u_char pmt_entry_template_hevc[] = {
-    0x06, 0xe0, 0x00, 0xf0, 0x06,
+    0x24, 0xe0, 0x00, 0xf0, 0x06,
     0x05, 0x04, 0x48, 0x45, 0x56, 0x43        // registration_descriptor('HEVC')
 };
 
@@ -421,7 +421,7 @@ mpegts_encoder_init_streams(
     vod_memset(cur_packet + sizeof(pat_packet), 0xff, MPEGTS_PACKET_SIZE - sizeof(pat_packet));
 
     // make sure the continuity counters of the PAT/PMT are continous between segments
-    cur_packet[3] |= (segment_index & 0x0F);
+    cur_packet[3] |= (segment_index & 0x0f);
 
     // append PMT packet
     cur_packet += MPEGTS_PACKET_SIZE;
@@ -429,7 +429,7 @@ mpegts_encoder_init_streams(
     stream_state->pmt_packet_end = cur_packet + MPEGTS_PACKET_SIZE;
 
     vod_memcpy(cur_packet, pmt_header_template, sizeof(pmt_header_template));
-    cur_packet[3] |= (segment_index & 0x0F);
+    cur_packet[3] |= (segment_index & 0x0f);
     stream_state->pmt_packet_pos = cur_packet + sizeof(pmt_header_template);
 
     return VOD_OK;
@@ -698,7 +698,7 @@ mpegts_encoder_finalize_streams(mpegts_encoder_init_streams_state_t* stream_stat
     *p++ = (u_char)(crc);
 
     // set the padding
-    vod_memset(p, 0xFF, stream_state->pmt_packet_end - p);
+    vod_memset(p, 0xff, stream_state->pmt_packet_end - p);
 
     ts_header->data = stream_state->pat_packet_start;
     ts_header->len = MPEGTS_PACKET_SIZE * 2;
@@ -1144,7 +1144,7 @@ mpegts_encoder_flush_frame(media_filter_context_t* context, bool_t last_stream_f
     if (last_stream_frame &&
         state->stream_info.media_type != MEDIA_TYPE_NONE)        // don't output null packets in id3
     {
-        while (state->cc & 0x0F)
+        while (state->cc & 0x0f)
         {
             rc = mpegts_append_null_packet(state);
             if (rc != VOD_OK)
@@ -1323,10 +1323,10 @@ mpegts_encoder_simulated_flush_frame(media_filter_context_t* context, bool_t las
     // on the last frame, add null packets to set the continuity counters
     if (last_stream_frame)
     {
-        if ((state->cc & 0x0F) != 0 &&
+        if ((state->cc & 0x0f) != 0 &&
             state->stream_info.media_type != MEDIA_TYPE_NONE)    // don't output null packets in id3
         {
-            queue->cur_offset += (0x10 - (state->cc & 0x0F)) * MPEGTS_PACKET_SIZE;
+            queue->cur_offset += (0x10 - (state->cc & 0x0f)) * MPEGTS_PACKET_SIZE;
             queue->last_writer_context = state;
         }
         state->cc = state->initial_cc;
