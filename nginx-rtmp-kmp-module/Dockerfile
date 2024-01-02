@@ -29,7 +29,7 @@ RUN git clone https://github.com/kaltura/nginx-stream-preread-str-module
 
 ARG APP_VERSION=1.0
 
-ARG DEBUG_BUILD=1
+ARG DEBUG_BUILD=0
 
 ENV RTMP_KMP_VERSION="${APP_VERSION}"
 ENV MPEGTS_KMP_VERSION="${APP_VERSION}"
