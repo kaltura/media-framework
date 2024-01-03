@@ -33,6 +33,9 @@
 #define NGX_TS_AUDIO_EC3       0x87
 
 
+#define NGX_TS_META_DATA       0x15 /* Packetized metadata */
+
+
 typedef enum {
     NGX_TS_PAT = 0,
     NGX_TS_PMT,

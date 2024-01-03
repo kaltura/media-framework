@@ -1662,6 +1662,9 @@ ngx_ts_kmp_track_get_codec(ngx_ts_es_t *es)
     case NGX_TS_AUDIO_MPEG1:
     case NGX_TS_AUDIO_MPEG2:
         return KMP_CODEC_AUDIO_MP3;
+
+    case NGX_TS_META_DATA:
+        return NGX_DONE;
     }
 
     if (es->info.len >= sizeof(opus_desc)
@@ -1706,11 +1709,20 @@ ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
     for (n = 0, es = prog->es; n < prog->nes; n++, es++) {
 
         codec_id = ngx_ts_kmp_track_get_codec(es);
-        if (codec_id == NGX_ERROR) {
+
+        switch (codec_id) {
+
+        case NGX_ERROR:
             ngx_log_error(NGX_LOG_ERR, ts->log, 0,
                 "ngx_ts_kmp_track_create: invalid type %uD",
                 (uint32_t) es->type);
             return NGX_ERROR;
+
+        case NGX_DONE:
+            ngx_log_error(NGX_LOG_ERR, ts->log, 0,
+                "ngx_ts_kmp_track_create: ignored type %uD",
+                (uint32_t) es->type);
+             continue;
         }
 
         ts_track = ngx_ts_kmp_track_get(ctx, es->pid);
