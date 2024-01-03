@@ -1710,18 +1710,19 @@ ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
 
         codec_id = ngx_ts_kmp_track_get_codec(es);
 
-        if (codec_id == NGX_ERROR) {
+        switch (codec_id) {
+
+        case NGX_ERROR:
             ngx_log_error(NGX_LOG_ERR, ts->log, 0,
                 "ngx_ts_kmp_track_create: invalid type %uD",
                 (uint32_t) es->type);
             return NGX_ERROR;
-        }
 
-        if (codec_id == NGX_DONE) {
-            ngx_log_error(NGX_LOG_ERR, ts->log, 0,
-                "ngx_ts_kmp_track_create: ignored type %uD",
-                (uint32_t) es->type);
-            continue;
+        case NGX_DONE:
+             ngx_log_error(NGX_LOG_ERR, ts->log, 0,
+                 "ngx_ts_kmp_track_create: ignored type %uD",
+                 (uint32_t) es->type);
+             continue;
         }
 
         ts_track = ngx_ts_kmp_track_get(ctx, es->pid);
