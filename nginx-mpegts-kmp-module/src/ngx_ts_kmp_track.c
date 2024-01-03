@@ -1719,9 +1719,9 @@ ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
             return NGX_ERROR;
 
         case NGX_DONE:
-             ngx_log_error(NGX_LOG_ERR, ts->log, 0,
-                 "ngx_ts_kmp_track_create: ignored type %uD",
-                 (uint32_t) es->type);
+            ngx_log_error(NGX_LOG_ERR, ts->log, 0,
+                "ngx_ts_kmp_track_create: ignored type %uD",
+                (uint32_t) es->type);
              continue;
         }
 
