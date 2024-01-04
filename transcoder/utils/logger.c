@@ -53,109 +53,9 @@ pthread_mutex_t logger_locker;
 char context_id[256] = {0};
 char channel_id[256] = {0};
 
-#define FWRITE_STR(x) fwrite(x,1,sizeof(x)-1,out)
+static int stringify_message(FILE *out, const char *fmt, va_list args);
 
-/*
-https://tc39.es/ecma262/multipage/structured-data.html#sec-json.stringify
-*/
-static size_t json_escape(FILE *out, const char *str)
-{
-    const char *start = str;
-	while (*str)
-	{
-		char chr = *str;
-
-		if (chr == '"' || chr == '\\' || chr == '/')
-		{
-			FWRITE_STR("\\");
-			putc(chr,out);
-		}
-		else if (chr == '\b')
-		{
-		    FWRITE_STR("\\b");
-		}
-		else if (chr == '\f')
-		{
-		    FWRITE_STR("\\f");
-		}
-		else if (chr == '\n')
-		{
-		    FWRITE_STR("\\n");
-		}
-		else if (chr == '\r')
-		{
-		    FWRITE_STR("\\r");
-		}
-		else if (chr == '\t')
-		{
-		    FWRITE_STR("\\t");
-		}
-		else if (!isprint(chr))
-		{
-		    FWRITE_STR("\\u");
-			for (int i = 0; i < 4; i++)
-			{
-				int value = (chr >> 12) & 0xf;
-				if (value >= 0 && value <= 9)
-					putc((char)('0' + value),out);
-				else if (value >= 10 && value <= 15)
-					putc((char)('A' + (value - 10)),out);
-				chr <<= 4;
-			}
-		}
-		else
-		{
-			putc(chr,out);
-		}
-        str++;
-	}
-	return str - start;
-}
-
-typedef struct {
-  char *buf;
-  size_t size;
-  FILE *fp;
-} mem_stream_t;
-
-static mem_stream_t aux_mem_stream = {.buf = NULL,.size = 0,.fp = NULL};
-
-static int open_mem_stream(mem_stream_t *stream) {
-    if(!stream->fp){
-        stream->fp = open_memstream(&stream->buf,&stream->size);
-    }
-    if(!stream->fp) {
-        fprintf(stderr,"ERROR: could not open_memstream - os error code %d", errno);
-        return -1;
-    }
-    return 0;
-}
-
-static int JSONStringifyMessage(FILE *out, const char *fmt, va_list args) {
-      int ret = -1;
-      FWRITE_STR("\"");
-      if (args!=NULL) {
-        if((ret = open_mem_stream(&aux_mem_stream))){
-           goto error;
-        }
-        if((ret = fseek(aux_mem_stream.fp, 0, SEEK_SET))) {
-            fprintf(stderr,"ERROR: could not fseek %d - os error code %d", ret, errno);
-            goto error;
-         }
-         if( (ret = vfprintf(aux_mem_stream.fp, fmt, args )) > 0){
-            fflush(aux_mem_stream.fp);
-            aux_mem_stream.buf[ret] = '\0';
-            ret = json_escape(out, aux_mem_stream.buf);
-         } else {
-            fprintf(stderr,"WARNING: vfprintf error %d. os error code %d", ret, errno);
-         }
-      } else {
-         ret = json_escape(out, fmt);
-      }
-error:
-      FWRITE_STR("\"");
-      return ret;
-}
+void logger_unit_test();
 
 void logger2(const char* category,const char* subcategory,int level,const char *fmt, bool newLine, va_list args)
 {
@@ -177,7 +77,7 @@ void logger2(const char* category,const char* subcategory,int level,const char *
         fprintf( out, "{\"time\": \"%s.%03ld\", \"channelId\": \"%s\", \"category\": \"%s:%s\", \"logLevel\": \"%s\","
             "\"contextId\": \"%s\", \"pthread\":\"%lx\", \"log\": ",buf,( (now % 1000000)/1000 ), channel_id, category,
              subcategory!=NULL ? subcategory : "", levelStr,context_id,pthread_self());
-        JSONStringifyMessage(out, fmt, args);
+        stringify_message(out, fmt, args);
         fprintf( out, "}\n" );
     } else {
         fprintf( out, "%s.%03ld %s:%s %s |%s| [%lx] ",buf,( (now % 1000000)/1000 ),category,subcategory!=NULL ? subcategory : "", levelStr,context_id,pthread_self());
@@ -283,4 +183,122 @@ void loggerFlush()
 {
     fflush(stderr);
     fflush(stdout);
+}
+
+/*
+    json logger utils
+*/
+
+#define FWRITE_STR(x) fwrite(x,1,sizeof(x)-1,out)
+
+/*
+    escapes string according to https://tc39.es/ecma262/multipage/structured-data.html#sec-json.stringify
+*/
+const char *hex = "0123456789ABCDEF";
+static size_t json_escape(FILE *out, const char *str) {
+    const char *start = str;
+	while (*str) {
+		char chr = *str;
+
+		if (chr == '"' || chr == '\\' || chr == '/') {
+			FWRITE_STR("\\");
+			putc(chr,out);
+		} else if (chr == '\b')	{
+		    FWRITE_STR("\\b");
+		} else if (chr == '\f')	{
+		    FWRITE_STR("\\f");
+		} else if (chr == '\n')	{
+		    FWRITE_STR("\\n");
+		} else if (chr == '\r')	{
+		    FWRITE_STR("\\r");
+		} else if (chr == '\t')	{
+		    FWRITE_STR("\\t");
+		} else if (!isprint(chr)) {
+		    FWRITE_STR("\\u");
+			for (int i = 0; i < 4; i++)	{
+				int value = (chr >> 12) & 0xf;
+				if (value >= 0 && value <= 15)
+					putc(hex[value],out);
+				chr <<= 4;
+			}
+		} else {
+			putc(chr,out);
+		}
+        str++;
+	}
+	return str - start;
+}
+
+typedef struct {
+  char *buf;
+  size_t size;
+  FILE *fp;
+} mem_stream_t;
+
+static mem_stream_t aux_mem_stream = {.buf = NULL,.size = 0,.fp = NULL};
+
+static int open_mem_stream(mem_stream_t *stream) {
+    if(!stream->fp){
+        stream->fp = open_memstream(&stream->buf,&stream->size);
+    }
+    if(!stream->fp) {
+        fprintf(stderr,"ERROR: could not open_memstream - os error code %d", errno);
+        return -1;
+    }
+    return 0;
+}
+
+/*
+    stringify_message. prints log message as a json stringified string
+    NOTE: not thread safe! must be called from within a lock.
+*/
+static int stringify_message(FILE *out, const char *fmt, va_list args) {
+      int ret = -1;
+      FWRITE_STR("\"");
+      if (args!=NULL) {
+        if((ret = open_mem_stream(&aux_mem_stream))){
+           goto error;
+        }
+        if((ret = fseek(aux_mem_stream.fp, 0, SEEK_SET))) {
+            fprintf(stderr,"ERROR: could not fseek %d - os error code %d", ret, errno);
+            goto error;
+         }
+         if( (ret = vfprintf(aux_mem_stream.fp, fmt, args )) > 0){
+            fflush(aux_mem_stream.fp);
+            aux_mem_stream.buf[ret] = '\0';
+            ret = json_escape(out, aux_mem_stream.buf);
+         } else {
+            fprintf(stderr,"WARNING: vfprintf error %d. os error code %d", ret, errno);
+         }
+      } else {
+         ret = json_escape(out, fmt);
+      }
+error:
+      FWRITE_STR("\"");
+      return ret;
+}
+
+/*
+    runtime test
+*/
+void logger_unit_test() {
+      const char *special = "\a\b\t\n\r\f\"\\";
+      char table [255+sizeof(special)-1],
+            *walker = table;
+      memcpy(walker,special,strlen(special));
+      walker += strlen(special);
+      for(int i = 1; i < 256; i++) {
+          *walker++ = (char)i;
+      }
+
+      srand((unsigned) time(NULL));
+      for (int i = 0; i < 1024; i++) {
+          int a = rand() % sizeof(table), b =  rand() % sizeof(table);
+          int temp = table[a];
+          table[a] = table[b];
+          table[b] = temp;
+
+          LOGGER(CATEGORY_DEFAULT,AV_LOG_WARNING,"%s", table);
+      }
+      exit(0);
 }
