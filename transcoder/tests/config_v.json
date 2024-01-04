@@ -23,7 +23,10 @@
     },
     "logger": {
         "logLevels": ["DEBUG","VERBOSE","INFO","WARN","ERROR","FATAL","PANIC"],
-        "logLevel": "DEBUG"
+        "logLevel": "DEBUG",
+        "logOutputJson": true,
+        "channelId": "1_2345678",
+        "contextId": "ABCDE1234"
     },
     "kmp": {
         "listenPort": 16543,

@@ -71,6 +71,6 @@ int LoadConfig(int argc, char **argv)
         LOGGER(CATEGORY_DEFAULT,AV_LOG_FATAL,"Failed parsing configurtion! %s (%s)",configString,error);
         return -1;
     }
-    LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"Parsed configuration successfully: %s",configString);
+
     return 0;
 }

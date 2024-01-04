@@ -11,6 +11,8 @@
 
 static int logLevel =AV_LOG_VERBOSE;
 
+static bool logOutputJson = false;
+
 const char* getLevelStr(int level) {
     switch(level){
         case AV_LOG_PANIC: return "PANIC";
@@ -51,6 +53,110 @@ pthread_mutex_t logger_locker;
 char context_id[256] = {0};
 char channel_id[256] = {0};
 
+#define FWRITE_STR(x) fwrite(x,1,sizeof(x)-1,out)
+
+/*
+https://tc39.es/ecma262/multipage/structured-data.html#sec-json.stringify
+*/
+static size_t json_escape(FILE *out, const char *str)
+{
+    const char *start = str;
+	while (*str)
+	{
+		char chr = *str;
+
+		if (chr == '"' || chr == '\\' || chr == '/')
+		{
+			FWRITE_STR("\\");
+			putc(chr,out);
+		}
+		else if (chr == '\b')
+		{
+		    FWRITE_STR("\\b");
+		}
+		else if (chr == '\f')
+		{
+		    FWRITE_STR("\\f");
+		}
+		else if (chr == '\n')
+		{
+		    FWRITE_STR("\\n");
+		}
+		else if (chr == '\r')
+		{
+		    FWRITE_STR("\\r");
+		}
+		else if (chr == '\t')
+		{
+		    FWRITE_STR("\\t");
+		}
+		else if (!isprint(chr))
+		{
+		    FWRITE_STR("\\u");
+			for (int i = 0; i < 4; i++)
+			{
+				int value = (chr >> 12) & 0xf;
+				if (value >= 0 && value <= 9)
+					putc((char)('0' + value),out);
+				else if (value >= 10 && value <= 15)
+					putc((char)('A' + (value - 10)),out);
+				chr <<= 4;
+			}
+		}
+		else
+		{
+			putc(chr,out);
+		}
+        str++;
+	}
+	return str - start;
+}
+
+typedef struct {
+  char *buf;
+  size_t size;
+  FILE *fp;
+} mem_stream_t;
+
+static mem_stream_t aux_mem_stream = {.buf = NULL,.size = 0,.fp = NULL};
+
+static int open_mem_stream(mem_stream_t *stream) {
+    if(!stream->fp){
+        stream->fp = open_memstream(&stream->buf,&stream->size);
+    }
+    if(!stream->fp) {
+        fprintf(stderr,"ERROR: could not open_memstream - os error code %d", errno);
+        return -1;
+    }
+    return 0;
+}
+
+static int JSONStringifyMessage(FILE *out, const char *fmt, va_list args) {
+      int ret = -1;
+      FWRITE_STR("\"");
+      if (args!=NULL) {
+        if((ret = open_mem_stream(&aux_mem_stream))){
+           goto error;
+        }
+        if((ret = fseek(aux_mem_stream.fp, 0, SEEK_SET))) {
+            fprintf(stderr,"ERROR: could not fseek %d - os error code %d", ret, errno);
+            goto error;
+         }
+         if( (ret = vfprintf(aux_mem_stream.fp, fmt, args )) > 0){
+            fflush(aux_mem_stream.fp);
+            aux_mem_stream.buf[ret] = '\0';
+            ret = json_escape(out, aux_mem_stream.buf);
+         } else {
+            fprintf(stderr,"WARNING: vfprintf error %d. os error code %d", ret, errno);
+         }
+      } else {
+         ret = json_escape(out, fmt);
+      }
+error:
+      FWRITE_STR("\"");
+      return ret;
+}
+
 void logger2(const char* category,const char* subcategory,int level,const char *fmt, bool newLine, va_list args)
 {
     const char* levelStr=getLevelStr(level);
@@ -67,17 +173,22 @@ void logger2(const char* category,const char* subcategory,int level,const char *
 
     FILE* out=stdout;
 
-    fprintf( out, "{\"time\": \"%s.%03lld\", \"channelId\": \"%s\", \"category\": \"%s:%s\", \"logLevel\": \"%s\","
-        "\"contextId\": \"%s\", \"pthread\":\"%p\", \"log\": \"",buf,( (now % 1000000)/1000 ), channel_id, category,
-         subcategory!=NULL ? subcategory : "", levelStr,context_id,pthread_self());
-    if (args!=NULL) {
-        vfprintf( out, fmt, args );
+    if(logOutputJson) {
+        fprintf( out, "{\"time\": \"%s.%03ld\", \"channelId\": \"%s\", \"category\": \"%s:%s\", \"logLevel\": \"%s\","
+            "\"contextId\": \"%s\", \"pthread\":\"%lx\", \"log\": ",buf,( (now % 1000000)/1000 ), channel_id, category,
+             subcategory!=NULL ? subcategory : "", levelStr,context_id,pthread_self());
+        JSONStringifyMessage(out, fmt, args);
+        fprintf( out, "}\n" );
     } else {
-        fprintf(out,"%s",fmt);
-    }
-    fprintf( out, "\" }");
-    if (newLine) {
-        fprintf( out, "\n" );
+        fprintf( out, "%s.%03ld %s:%s %s |%s| [%lx] ",buf,( (now % 1000000)/1000 ),category,subcategory!=NULL ? subcategory : "", levelStr,context_id,pthread_self());
+         if (args!=NULL) {
+            vfprintf( out, fmt, args );
+        } else {
+            fwrite(fmt, strlen(fmt), 1, out);
+        }
+        if (newLine) {
+            fprintf( out, "\n" );
+        }
     }
     fflush(out);
     pthread_mutex_unlock(&logger_locker); // unlock once you are done
@@ -157,6 +268,17 @@ int get_log_level(const char* category)
 {
     return logLevel;
 }
+
+void set_log_output_json(bool val)
+{
+    logOutputJson = val;
+}
+
+bool get_log_output_json()
+{
+    return logOutputJson;
+}
+
 void loggerFlush()
 {
     fflush(stderr);
