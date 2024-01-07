@@ -80,7 +80,7 @@ void logger2(const char* category,const char* subcategory,int level,const char *
         stringify_message(out, fmt, args);
         fprintf( out, "}\n" );
     } else {
-        fprintf( out, "%s.%03ld %s:%s %s |%s| [%lx] ",buf,( (now % 1000000)/1000 ),category,subcategory!=NULL ? subcategory : "", levelStr,context_id,pthread_self());
+        fprintf( out, "%s.%03ld %s:%s %s |%s| [%s] [%lx] ",buf,( (now % 1000000)/1000 ),category,subcategory!=NULL ? subcategory : "", levelStr,context_id,channel_id,pthread_self());
          if (args!=NULL) {
             vfprintf( out, fmt, args );
         } else {
