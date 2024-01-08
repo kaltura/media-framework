@@ -166,6 +166,7 @@ int set_resource_limits()
     }
     return 0;
 }
+extern char *configString;
 
 int main(int argc, char **argv)
 {
@@ -175,8 +176,6 @@ int main(int argc, char **argv)
     }
 
     log_init(AV_LOG_DEBUG);
-
-    LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"Version: %s", APPLICATION_VERSION)
 
     signal(SIGINT, intHandler);
     signal(SIGPIPE, pipeHandler);
@@ -190,6 +189,15 @@ int main(int argc, char **argv)
     if (JSON_OK==json_get_string(GetConfig(),"logger.logLevel","VERBOSE",logLevel,sizeof(logLevel))) {
         set_log_level(logLevel);
     }
+
+    bool logOutputJson;
+    if (JSON_OK==json_get_bool(GetConfig(),"logger.logOutputJson",false,&logOutputJson)) {
+        set_log_output_json(logOutputJson);
+    }
+
+    LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"Version: %s", APPLICATION_VERSION)
+
+    LOGGER(CATEGORY_DEFAULT,AV_LOG_INFO,"Parsed configuration successfully: %s",configString);
 
     avformat_network_init();
 
