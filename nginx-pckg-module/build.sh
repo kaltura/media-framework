@@ -1,4 +1,4 @@
-OPENRESTY_VERSION="1.17.8.2"
+OPENRESTY_VERSION="1.25.3.1"
 OPENRESTY_DOCKER_VERSION="1.25.3.1-0"
 echo "building  kaltura/live-front-src"
 docker build -t kaltura/live-front-src:latest -f nginx-pckg-module/Dockerfile-live-front-src .
