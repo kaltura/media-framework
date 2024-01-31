@@ -8,7 +8,7 @@ WORKDIR /tmp/build
 ARG NGINX_VERSION=1.21.0
 ARG SRT_VERSION=v1.5.3
 
-RUN git clone --branch ${SRT_VERSION} https://github.com/Haivision/srt/ && cd srt && ./configure --ENABLE_AEAD_API_PREVIEW=1 --use-enclib=openssl-evp  && make && make install
+RUN git clone --branch ${SRT_VERSION} https://github.com/Haivision/srt/ && cd srt && ./configure --ENABLE_AEAD_API_PREVIEW --use-enclib=openssl-evp  && make && make install
 
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     tar -zxvf nginx-${NGINX_VERSION}.tar.gz && \
