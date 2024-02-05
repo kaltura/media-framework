@@ -8,7 +8,7 @@ WORKDIR /tmp/build
 ARG NGINX_VERSION=1.21.0
 ARG SRT_VERSION=v1.5.3
 
-RUN git clone --branch ${SRT_VERSION} https://github.com/Haivision/srt/ && cd srt && ./configure && make && make install
+RUN git clone --branch ${SRT_VERSION} https://github.com/Haivision/srt/ && cd srt && ./configure --ENABLE_AEAD_API_PREVIEW --use-enclib=openssl-evp  && make && make install
 
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     tar -zxvf nginx-${NGINX_VERSION}.tar.gz && \
@@ -53,7 +53,7 @@ RUN [ "${DEBUG_BUILD}" -eq "1" ] && debug_option=--with-debug; \
             --with-http_ssl_module \
             --with-stream_ssl_module  $debug_option \
             $debug_option \
-            --with-cc-opt="-O2" \
+            --with-cc-opt="-O2 -DENABLE_AEAD_API_PREVIEW" \
             --with-threads && \
     make -j $(getconf _NPROCESSORS_ONLN) && \
     make install
