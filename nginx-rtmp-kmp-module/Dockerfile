@@ -7,6 +7,7 @@ WORKDIR /tmp/build
 
 ARG NGINX_VERSION=1.21.0
 ARG SRT_VERSION=v1.5.3
+ARG SRT_NGINX_VERSION=master
 
 RUN git clone --branch ${SRT_VERSION} https://github.com/Haivision/srt/ && cd srt && ./configure --ENABLE_AEAD_API_PREVIEW --use-enclib=openssl-evp  && make && make install
 
@@ -24,7 +25,7 @@ COPY nginx-rtmp-kmp-module nginx-rtmp-kmp-module
 COPY nginx-mpegts-module nginx-mpegts-module
 COPY nginx-mpegts-kmp-module nginx-mpegts-kmp-module
 COPY nginx-kmp-cc-module nginx-kmp-cc-module
-RUN git clone https://github.com/kaltura/nginx-srt-module
+RUN git clone --branch ${SRT_NGINX_VERSION} https://github.com/kaltura/nginx-srt-module
 RUN git clone https://github.com/kaltura/nginx-stream-preread-str-module
 
 ARG APP_VERSION=1.0
