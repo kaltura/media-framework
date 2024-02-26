@@ -537,10 +537,9 @@ ngx_live_persist_core_merge_preset_conf(ngx_conf_t *cf, void *parent,
             conf->files[i].tag_value = NULL;
 
         } else if (conf->files[i].tag_value == NULL) {
-            conf->files[i].tag_value = prev->files[NGX_LIVE_PERSIST_FILE_MEDIA].tag_value;
+            conf->files[i].tag_value = prev->files[i].tag_value;
         }
 
-        //(ngx_live_complex_value_t *)"ttl=7"
         max_size = i == NGX_LIVE_PERSIST_FILE_MEDIA ? 0 : 5 * 1024 * 1024;
 
         ngx_conf_merge_size_value(conf->files[i].max_size,

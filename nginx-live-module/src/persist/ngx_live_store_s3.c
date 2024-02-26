@@ -922,26 +922,6 @@ ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         return NGX_ERROR;
     }
 
-ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                                "AAAA host %V",  host);
-    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                                "AAAA SHA %V",  &content_sha);
-
-    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                            "AAAA date %V",  &date);
-
-    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                            "AAAA access %V",  &ctx->access_key);
-    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                            "AAAA key scope %V",  &ctx->key_scope);
-    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                        "AAAA sig %V",  &signature);
-
-ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                        "AAAA signing key %V",  &ctx->signing_key);
-ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                        "AAAA str to sigh %V",  &string_to_sign);
-
 
     *result = b;
 
@@ -995,8 +975,6 @@ ngx_live_store_s3_write(ngx_live_store_write_request_t *request)
     ctx = conf->ctx;
 
     pool = request->pool;
-//    ngx_str_t tag_header = ngx_string("tag=test2");
-//    ngx_str_t* tag_header_p = &tag_header;
     if (ngx_live_store_s3_put_request(pool, ctx, &ctx->url->host,
         &request->path, request->cl, request->size, &b, &request->tag_value) != NGX_OK)
     {
@@ -1004,8 +982,6 @@ ngx_live_store_s3_write(ngx_live_store_write_request_t *request)
             "ngx_live_store_s3_write: create request failed");
         return NGX_ERROR;
     }
-    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-                                "FFFFFFF %V",  &request->tag_value);
     cl = ngx_alloc_chain_link(pool);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
