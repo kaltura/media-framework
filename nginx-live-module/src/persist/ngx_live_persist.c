@@ -255,6 +255,18 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel,
         goto failed;
     }
 
+    ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                            "111111 \n");
+    rc = ngx_live_complex_value(vctx, conf->tag_value, &request.tag_value);
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+            "ngx_live_persist_write_file: complex value failed");
+        goto failed;
+    }
+    ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
+                                "333333 \n");
+
+
     write_ctx = ngx_persist_write_init(pool, type->type,
         type->compress ? ppcf->comp_level : 0);
     if (write_ctx == NULL) {

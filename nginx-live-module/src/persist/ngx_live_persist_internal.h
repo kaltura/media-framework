@@ -10,6 +10,7 @@
 typedef struct {
     ngx_live_complex_value_t      *path;
     size_t                         max_size;
+    ngx_live_complex_value_t       *tag_value;
 } ngx_live_persist_file_conf_t;
 
 

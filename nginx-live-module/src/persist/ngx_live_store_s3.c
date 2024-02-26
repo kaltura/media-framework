@@ -748,7 +748,7 @@ ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 static ngx_int_t
 ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     ngx_str_t *uri, ngx_chain_t *body, size_t content_length,
-    ngx_buf_t **result)
+    ngx_buf_t **result, ngx_str_t *tag_header)
 {
     static const char request_template[] =
         "PUT %V HTTP/1.1\r\n"
@@ -758,8 +758,9 @@ ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         "Host: %V\r\n"
         "X-Amz-Content-SHA256: %V\r\n"
         "X-Amz-Date: %V\r\n"
+        "X-Amz-Tagging: %V\r\n"
         "Authorization: AWS4-HMAC-SHA256 Credential=%V/%V, "
-        "SignedHeaders=host;x-amz-content-sha256;x-amz-date, "
+        "SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-tagging, "
         "Signature=%V\r\n"
         "\r\n";
 
@@ -770,8 +771,9 @@ ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         "host:%V\n"
         "x-amz-content-sha256:%V\n"
         "x-amz-date:%V\n"
+        "x-amz-tagging:%V\n"
         "\n"
-        "host;x-amz-content-sha256;x-amz-date\n"
+        "host;x-amz-content-sha256;x-amz-date;x-amz-tagging\n"
         "%V";
 
     static const char string_to_sign_template[] =
@@ -848,7 +850,7 @@ ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     canonical_request.data = p;
 
     p = ngx_sprintf(p, canonical_request_template,
-        uri, host, &content_sha, &date, &content_sha);
+        uri, host, &content_sha, &date, tag_header, &content_sha);
 
     canonical_request.len = p - canonical_request.data;
 
@@ -909,7 +911,7 @@ ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
     }
 
     b->last = ngx_sprintf(b->last, request_template,
-        uri, content_length, host, &content_sha, &date,
+        uri, content_length, host, &content_sha, &date, tag_header,
         &ctx->access_key, &ctx->key_scope, &signature);
 
     if ((size_t) (b->last - b->pos) > size) {
@@ -919,6 +921,27 @@ ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
             (size_t) (b->last - b->pos), size);
         return NGX_ERROR;
     }
+
+ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                                "AAAA host %V",  host);
+    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                                "AAAA SHA %V",  &content_sha);
+
+    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                            "AAAA date %V",  &date);
+
+    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                            "AAAA access %V",  &ctx->access_key);
+    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                            "AAAA key scope %V",  &ctx->key_scope);
+    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                        "AAAA sig %V",  &signature);
+
+ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                        "AAAA signing key %V",  &ctx->signing_key);
+ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                        "AAAA str to sigh %V",  &string_to_sign);
+
 
     *result = b;
 
@@ -972,15 +995,17 @@ ngx_live_store_s3_write(ngx_live_store_write_request_t *request)
     ctx = conf->ctx;
 
     pool = request->pool;
-
+//    ngx_str_t tag_header = ngx_string("tag=test2");
+//    ngx_str_t* tag_header_p = &tag_header;
     if (ngx_live_store_s3_put_request(pool, ctx, &ctx->url->host,
-        &request->path, request->cl, request->size, &b) != NGX_OK)
+        &request->path, request->cl, request->size, &b, &request->tag_value) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_store_s3_write: create request failed");
         return NGX_ERROR;
     }
-
+    ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                                "FFFFFFF %V",  &request->tag_value);
     cl = ngx_alloc_chain_link(pool);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
@@ -990,7 +1015,6 @@ ngx_live_store_s3_write(ngx_live_store_write_request_t *request)
 
     cl->buf = b;
     cl->next = NULL;
-
     return ngx_live_store_http_write(request, ctx->url, cl, request->cl,
         &ctx->write_stats);
 }

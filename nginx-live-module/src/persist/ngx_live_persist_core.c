@@ -95,6 +95,13 @@ static ngx_command_t  ngx_live_persist_core_commands[] = {
       offsetof(ngx_live_persist_core_preset_conf_t, cancel_read_if_empty),
       NULL },
 
+    { ngx_string("persist_media_tag_value"),
+          NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+          ngx_live_set_complex_value_slot,
+          NGX_LIVE_PRESET_CONF_OFFSET,
+          offsetof(ngx_live_persist_core_preset_conf_t, files[NGX_LIVE_PERSIST_FILE_MEDIA].tag_value),
+          NULL },
+
       ngx_null_command
 };
 
@@ -526,7 +533,14 @@ ngx_live_persist_core_merge_preset_conf(ngx_conf_t *cf, void *parent,
         } else if (conf->files[i].path == NULL) {
             conf->files[i].path = prev->files[i].path;
         }
+        if (ppcf->store == NULL) {
+            conf->files[i].tag_value = NULL;
 
+        } else if (conf->files[i].tag_value == NULL) {
+            conf->files[i].tag_value = prev->files[NGX_LIVE_PERSIST_FILE_MEDIA].tag_value;
+        }
+
+        //(ngx_live_complex_value_t *)"ttl=7"
         max_size = i == NGX_LIVE_PERSIST_FILE_MEDIA ? 0 : 5 * 1024 * 1024;
 
         ngx_conf_merge_size_value(conf->files[i].max_size,
