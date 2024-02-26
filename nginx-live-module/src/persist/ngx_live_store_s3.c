@@ -975,12 +975,14 @@ ngx_live_store_s3_write(ngx_live_store_write_request_t *request)
 
     pool = request->pool;
     if (ngx_live_store_s3_put_request(pool, ctx, &ctx->url->host,
-        &request->path, request->cl, request->size, &b, &request->tag_value) != NGX_OK)
+        &request->path, request->cl, request->size, &b,
+        &request->tag_value) != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
             "ngx_live_store_s3_write: create request failed");
         return NGX_ERROR;
     }
+
     cl = ngx_alloc_chain_link(pool);
     if (cl == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
