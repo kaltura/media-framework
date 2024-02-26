@@ -1469,7 +1469,7 @@ The `$channel_id` and `$persist_bucket_id` variables should be used in order to 
 * **default**: ``
 * **context**: `live`, `preset`
 
-Sets a string that is sent in the tag header to the media file.
+Sets a string that is sent in the tag header for the media file.
 This setting can be used, for example, to set a ttl tag.
 The parameter value can contain variables.
 

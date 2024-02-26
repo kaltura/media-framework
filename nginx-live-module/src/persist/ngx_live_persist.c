@@ -259,10 +259,11 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel,
         rc = ngx_live_complex_value(vctx, conf->tag_value, &request.tag_value);
         if (rc != NGX_OK) {
             ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-                "ngx_live_persist_write_file: complex value failed");
+                "ngx_live_persist_write_file: tag complex value failed");
             goto failed;
         }
-    } else {
+    }
+    else {
         ngx_str_set(&request.tag_value, "");
     }
 
