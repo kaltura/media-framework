@@ -1464,6 +1464,15 @@ If the directive is not set, the module does not read / write media segments.
 The parameter value can contain variables.
 The `$channel_id` and `$persist_bucket_id` variables should be used in order to save different media buckets to different files.
 
+#### persist_media_tag_value
+* **syntax**: `persist_media_tag_value expr;`
+* **default**: ``
+* **context**: `live`, `preset`
+
+Sets a string that is sent in the tag header to the media file.
+This setting can be used, for example, to set a ttl tag.
+The parameter value can contain variables.
+
 #### persist_filler_path
 * **syntax**: `persist_filler_path expr;`
 * **default**: ``
