@@ -262,11 +262,9 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel,
                 "ngx_live_persist_write_file: complex value failed");
             goto failed;
         }
-    }
-    else {
+    } else {
         ngx_str_set(&request.tag_value, "");
     }
-
 
     write_ctx = ngx_persist_write_init(pool, type->type,
         type->compress ? ppcf->comp_level : 0);

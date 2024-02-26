@@ -533,10 +533,8 @@ ngx_live_persist_core_merge_preset_conf(ngx_conf_t *cf, void *parent,
         } else if (conf->files[i].path == NULL) {
             conf->files[i].path = prev->files[i].path;
         }
-        if (ppcf->store == NULL) {
-            conf->files[i].tag_value = NULL;
 
-        } else if (conf->files[i].tag_value == NULL) {
+        if (conf->files[i].tag_value == NULL) {
             conf->files[i].tag_value = prev->files[i].tag_value;
         }
 

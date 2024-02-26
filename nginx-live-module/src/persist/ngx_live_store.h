@@ -64,7 +64,6 @@ typedef struct {
     ngx_chain_t                      *cl;
     size_t                            size;
     ngx_str_t                         tag_value;
-
     ngx_live_store_write_handler_pt   handler;
     void                             *data;
 } ngx_live_store_write_request_t;

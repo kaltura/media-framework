@@ -922,7 +922,6 @@ ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
         return NGX_ERROR;
     }
 
-
     *result = b;
 
     return NGX_OK;
