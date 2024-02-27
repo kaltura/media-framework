@@ -1620,6 +1620,14 @@ Defines the parameters of an S3 bucket used for persistence.
 Enables persistence using the specified S3 bucket.
 The name parameter must match the name of a previously defined `store_s3_block` block.
 
+#### store_s3_put_add_header
+* **syntax**: `store_s3_put_add_header name value;`
+* **default**: ``
+* **context**: `live`, `preset`
+
+Adds an HTTP header to PUT requests sent to S3.
+The header value can contain variables.
+
 #### url
 * **syntax**: `url str;`
 * **default**: ``

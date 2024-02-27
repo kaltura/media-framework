@@ -14,6 +14,12 @@
 #include "ngx_live.h"
 
 
+#define ngx_live_null_complex_value                                          \
+    { ngx_null_string, 0, NULL, NULL, { 0 } }
+#define ngx_live_static_complex_value(v)                                     \
+    { ngx_string(v), 0, NULL, NULL, { 0 } }
+
+
 typedef struct {
     u_char                       *ip;
     u_char                       *pos;
