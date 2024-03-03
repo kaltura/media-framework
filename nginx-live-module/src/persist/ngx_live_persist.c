@@ -291,6 +291,7 @@ ngx_live_persist_write_file(ngx_live_channel_t *channel,
 
     request.pool = pool;
     request.channel = channel;
+    request.vctx = vctx;
     request.size = size;
     request.handler = handler;
     request.data = ctx;

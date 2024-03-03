@@ -60,6 +60,7 @@ typedef void (*ngx_live_store_write_handler_pt)(void *data, ngx_int_t rc);
 typedef struct {
     ngx_pool_t                       *pool;
     ngx_live_channel_t               *channel;
+    ngx_live_variables_ctx_t         *vctx;
     ngx_str_t                         path;
     ngx_chain_t                      *cl;
     size_t                            size;

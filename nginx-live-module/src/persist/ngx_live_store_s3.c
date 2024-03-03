@@ -28,6 +28,9 @@ static char *ngx_live_store_s3_block(ngx_conf_t *cf, ngx_command_t *cmd,
 static char *ngx_live_store_s3_set_url_slot(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 
+static char *ngx_live_store_s3_header_slot(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+
 static ngx_int_t ngx_live_store_s3_postconfiguration(ngx_conf_t *cf);
 
 static void *ngx_live_store_s3_create_main_conf(ngx_conf_t *cf);
@@ -37,38 +40,72 @@ static char *ngx_live_store_s3_merge_preset_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
 
-typedef struct {
-    ngx_queue_t               queue;
+enum {
+    NGX_LIVE_STORE_S3_HEADER_HOST,
+    NGX_LIVE_STORE_S3_HEADER_DATE,
+    NGX_LIVE_STORE_S3_HEADER_RANGE,
+    NGX_LIVE_STORE_S3_HEADER_CONTENT_SHA,
+    NGX_LIVE_STORE_S3_HEADER_CONTENT_LEN,
+    NGX_LIVE_STORE_S3_HEADER_BUILTIN_COUNT,
 
-    ngx_json_str_t            name;
+    NGX_LIVE_STORE_S3_HEADER_STATIC,
+    NGX_LIVE_STORE_S3_HEADER_COMPLEX,
+
+    NGX_LIVE_STORE_S3_HEADER_SIGNED = 0x80000000,
+};
+
+
+typedef struct {
+    ngx_uint_t                 flags;
+    ngx_str_t                  key;
+    u_char                    *lowcase_key;
+    ngx_live_complex_value_t   value;
+} ngx_live_store_s3_header_t;
+
+
+typedef struct {
+    ngx_array_t               *conf;  /* ngx_live_store_s3_header_t */
+    ngx_str_t                  builtin[NGX_LIVE_STORE_S3_HEADER_BUILTIN_COUNT];
+    u_char                     date_buf[NGX_LIVE_STORE_S3_AMZ_TIME_LEN];
+    ngx_str_t                 *values;
+    ngx_str_t                  sign;
+    size_t                     size;
+} ngx_live_store_s3_headers_t;
+
+
+typedef struct {
+    ngx_queue_t                queue;
+
+    ngx_json_str_t             name;
 
     /* conf */
-    ngx_url_t                *url;
-    ngx_str_t                 host;
-    ngx_str_t                 access_key;
-    ngx_str_t                 secret_key;
-    ngx_str_t                 service;
-    ngx_str_t                 region;
+    ngx_url_t                 *url;
+    ngx_str_t                  host;
+    ngx_str_t                  access_key;
+    ngx_str_t                  secret_key;
+    ngx_str_t                  service;
+    ngx_str_t                  region;
 
     /* derivatives */
-    ngx_str_t                 secret_key_prefix;
-    ngx_str_t                 signing_key_date;
-    ngx_str_t                 signing_key;
-    ngx_str_t                 key_scope;
-    ngx_str_t                 key_scope_suffix;
+    ngx_str_t                  secret_key_prefix;
+    ngx_str_t                  signing_key_date;
+    ngx_str_t                  signing_key;
+    ngx_str_t                  key_scope;
+    ngx_str_t                  key_scope_suffix;
 
-    ngx_live_store_stats_t    read_stats;
-    ngx_live_store_stats_t    write_stats;
+    ngx_live_store_stats_t     read_stats;
+    ngx_live_store_stats_t     write_stats;
 } ngx_live_store_s3_ctx_t;
 
 
 typedef struct {
-    ngx_live_store_s3_ctx_t  *ctx;
+    ngx_live_store_s3_ctx_t   *ctx;
+    ngx_array_t                put_headers;  /* ngx_live_store_s3_header_t */
 } ngx_live_store_s3_preset_conf_t;
 
 
 typedef struct {
-    ngx_queue_t               blocks;   /* ngx_live_store_s3_ctx_t * */
+    ngx_queue_t                blocks;   /* ngx_live_store_s3_ctx_t * */
 } ngx_live_store_s3_main_conf_t;
 
 
@@ -86,6 +123,13 @@ static ngx_command_t  ngx_live_store_s3_commands[] = {
       ngx_live_store_s3_block,
       NGX_LIVE_MAIN_CONF_OFFSET,
       offsetof(ngx_live_store_s3_main_conf_t, blocks),
+      NULL },
+
+    { ngx_string("store_s3_put_add_header"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE2,
+      ngx_live_store_s3_header_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_store_s3_preset_conf_t, put_headers),
       NULL },
 
       ngx_null_command
@@ -175,6 +219,80 @@ static ngx_str_t  ngx_live_store_s3_aws4 =
     ngx_string("AWS4");
 
 
+/* must be sorted by lowcase_key */
+static ngx_live_store_s3_header_t  ngx_live_store_s3_get_headers[] = {
+
+    { NGX_LIVE_STORE_S3_HEADER_STATIC,
+      ngx_string("Connection"),
+      (u_char *) "connection",
+      ngx_live_static_complex_value("Close") },
+
+    { NGX_LIVE_STORE_S3_HEADER_HOST|NGX_LIVE_STORE_S3_HEADER_SIGNED,
+      ngx_string("Host"),
+      (u_char *) "host",
+      ngx_live_null_complex_value },
+
+    { NGX_LIVE_STORE_S3_HEADER_RANGE,
+      ngx_string("Range"),
+      (u_char *) "range",
+      ngx_live_null_complex_value },
+
+    { NGX_LIVE_STORE_S3_HEADER_CONTENT_SHA|NGX_LIVE_STORE_S3_HEADER_SIGNED,
+      ngx_string("X-Amz-Content-SHA256"),
+      (u_char *) "x-amz-content-sha256",
+      ngx_live_null_complex_value },
+
+    { NGX_LIVE_STORE_S3_HEADER_DATE|NGX_LIVE_STORE_S3_HEADER_SIGNED,
+      ngx_string("X-Amz-Date"),
+      (u_char *) "x-amz-date",
+      ngx_live_null_complex_value },
+
+};
+
+
+/* must be sorted by lowcase_key */
+static ngx_live_store_s3_header_t  ngx_live_store_s3_put_headers[] = {
+
+    { NGX_LIVE_STORE_S3_HEADER_STATIC,
+      ngx_string("Connection"),
+      (u_char *) "connection",
+      ngx_live_static_complex_value("Close") },
+
+    { NGX_LIVE_STORE_S3_HEADER_CONTENT_LEN,
+      ngx_string("Content-Length"),
+      (u_char *) "content-length",
+      ngx_live_null_complex_value },
+
+    { NGX_LIVE_STORE_S3_HEADER_STATIC,
+      ngx_string("Expect"),
+      (u_char *) "expect",
+      ngx_live_static_complex_value("100-continue") },
+
+    { NGX_LIVE_STORE_S3_HEADER_HOST|NGX_LIVE_STORE_S3_HEADER_SIGNED,
+      ngx_string("Host"),
+      (u_char *) "host",
+      ngx_live_null_complex_value },
+
+    { NGX_LIVE_STORE_S3_HEADER_CONTENT_SHA|NGX_LIVE_STORE_S3_HEADER_SIGNED,
+      ngx_string("X-Amz-Content-SHA256"),
+      (u_char *) "x-amz-content-sha256",
+      ngx_live_null_complex_value },
+
+    { NGX_LIVE_STORE_S3_HEADER_DATE|NGX_LIVE_STORE_S3_HEADER_SIGNED,
+      ngx_string("X-Amz-Date"),
+      (u_char *) "x-amz-date",
+      ngx_live_null_complex_value },
+
+};
+
+
+static ngx_str_t  ngx_live_store_s3_method_get = ngx_string("GET");
+static ngx_str_t  ngx_live_store_s3_method_put = ngx_string("PUT");
+
+static ngx_str_t  ngx_live_store_s3_host = ngx_string("host");
+static ngx_str_t  ngx_live_store_s3_amz_prefix = ngx_string("x-amz-");
+
+
 #include "ngx_live_store_s3_json.h"
 
 
@@ -228,6 +346,87 @@ ngx_live_store_s3_set_url_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     *u = ngx_live_store_s3_parse_url(cf, &value[1]);
     if (*u == NULL) {
         return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+
+static ngx_flag_t
+ngx_live_store_s3_header_signed(ngx_live_store_s3_header_t *header)
+{
+    if (header->key.len == ngx_live_store_s3_host.len &&
+        ngx_strncmp(header->lowcase_key, ngx_live_store_s3_host.data,
+            ngx_live_store_s3_host.len) == 0)
+    {
+        return 1;
+
+    } else if (header->key.len > ngx_live_store_s3_amz_prefix.len &&
+        ngx_strncmp(header->lowcase_key, ngx_live_store_s3_amz_prefix.data,
+            ngx_live_store_s3_amz_prefix.len) == 0)
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+static char *
+ngx_live_store_s3_header_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    char  *p = conf;
+
+    ngx_str_t                         *value;
+    ngx_array_t                       *a;
+    ngx_conf_post_t                   *post;
+    ngx_live_store_s3_header_t        *h;
+    ngx_live_compile_complex_value_t   ccv;
+
+    a = (ngx_array_t *) (p + cmd->offset);
+
+    if (a->nelts == 0) {
+        if (ngx_array_init(a, cf->pool, 4, sizeof(ngx_live_store_s3_header_t))
+            != NGX_OK)
+        {
+            return NGX_CONF_ERROR;
+        }
+    }
+
+    h = ngx_array_push(a);
+    if (h == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    value = cf->args->elts;
+
+    h->flags = NGX_LIVE_STORE_S3_HEADER_COMPLEX;
+    h->key = value[1];
+
+    h->lowcase_key = ngx_pnalloc(cf->pool, h->key.len);
+    if (h->lowcase_key == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    ngx_strlow(h->lowcase_key, h->key.data, h->key.len);
+
+    ngx_memzero(&ccv, sizeof(ngx_live_compile_complex_value_t));
+
+    ccv.cf = cf;
+    ccv.value = &value[2];
+    ccv.complex_value = &h->value;
+
+    if (ngx_live_compile_complex_value(&ccv) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
+    if (ngx_live_store_s3_header_signed(h)) {
+        h->flags |= NGX_LIVE_STORE_S3_HEADER_SIGNED;
+    }
+
+    if (cmd->post) {
+        post = cmd->post;
+        return post->post_handler(cf, post, h);
     }
 
     return NGX_CONF_OK;
@@ -562,183 +761,382 @@ ngx_live_store_s3_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
 
 static ngx_int_t
-ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
-    ngx_str_t *uri, off_t range_start, off_t range_end, ngx_buf_t **result)
+ngx_live_store_s3_init_headers(ngx_live_variables_ctx_t *vctx,
+    ngx_pool_t *pool, ngx_live_store_s3_headers_t *h)
 {
-    static const char  request_template[] =
-        "GET %V HTTP/1.1\r\n"
-        "Connection: Close\r\n"
-        "Host: %V\r\n"
-        "X-Amz-Content-SHA256: " NGX_LIVE_STORE_S3_EMPTY_SHA256 "\r\n"
-        "X-Amz-Date: %V\r\n"
-        "Authorization: AWS4-HMAC-SHA256 Credential=%V/%V, "
-        "SignedHeaders=host;x-amz-content-sha256;x-amz-date, "
-        "Signature=%V\r\n";
+    size_t                       date_len;
+    size_t                       signed_size;
+    u_char                      *p;
+    struct tm                    tm;
+    ngx_str_t                    value;
+    ngx_uint_t                   i, n;
+    ngx_uint_t                   type;
+    ngx_live_store_s3_header_t  *hdr, *hdrs;
 
-    static const char  range_header[] =
-        "Range: bytes=%O-%O\r\n";
+    /* initialize the date header */
 
-    static const char  canonical_request_template[] =
-        "GET\n"
-        "%V\n"
-        "\n"
-        "host:%V\n"
-        "x-amz-content-sha256:" NGX_LIVE_STORE_S3_EMPTY_SHA256 "\n"
-        "x-amz-date:%V\n"
-        "\n"
-        "host;x-amz-content-sha256;x-amz-date\n"
-        NGX_LIVE_STORE_S3_EMPTY_SHA256;
+    ngx_libc_gmtime(ngx_time(), &tm);
+    date_len = strftime((char *) h->date_buf, sizeof(h->date_buf),
+        NGX_LIVE_STORE_S3_AMZ_TIME_FORMAT, &tm);
+    if (date_len == 0) {
+        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
+            "ngx_live_store_s3_init_headers: strftime failed");
+        return NGX_ERROR;
+    }
 
+    h->builtin[NGX_LIVE_STORE_S3_HEADER_DATE].len = date_len;
+    h->builtin[NGX_LIVE_STORE_S3_HEADER_DATE].data = h->date_buf;
+
+
+    /* initialize the values */
+
+    h->values = ngx_palloc(pool, h->conf->nelts * sizeof(ngx_str_t));
+    if (h->values == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_store_s3_init_headers: alloc header values failed");
+        return NGX_ERROR;
+    }
+
+    signed_size = 0;
+
+    hdrs = h->conf->elts;
+    n = h->conf->nelts;
+
+    for (i = 0; i < n; i++) {
+        hdr = &hdrs[i];
+
+        type = hdr->flags & ~NGX_LIVE_STORE_S3_HEADER_SIGNED;
+        switch (type) {
+
+        case NGX_LIVE_STORE_S3_HEADER_STATIC:
+            value = hdr->value.value;
+            break;
+
+        case NGX_LIVE_STORE_S3_HEADER_COMPLEX:
+            if (ngx_live_complex_value(vctx, &hdr->value, &value) != NGX_OK) {
+                ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+                    "ngx_live_store_s3_init_headers: complex value failed");
+                return NGX_ERROR;
+            }
+            break;
+
+        default:
+            value = h->builtin[type];
+        }
+
+        h->values[i] = value;
+        if (value.len == 0) {
+            continue;
+        }
+
+        h->size += hdr->key.len + value.len + sizeof(": \r\n") - 1;
+        if (hdr->flags & NGX_LIVE_STORE_S3_HEADER_SIGNED) {
+            signed_size += hdr->key.len + 1;
+        }
+    }
+
+    /* build the list of signed headers */
+
+    p = ngx_pnalloc(pool, signed_size);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_store_s3_init_headers: alloc signed headers failed");
+        return NGX_ERROR;
+    }
+
+    h->sign.data = p;
+
+    for (i = 0; i < n; i++) {
+        hdr = &hdrs[i];
+        if (!(hdr->flags & NGX_LIVE_STORE_S3_HEADER_SIGNED)
+            || h->values[i].len == 0)
+        {
+            continue;
+        }
+
+        if (p > h->sign.data) {
+            *p++ = ';';
+        }
+
+        p = ngx_copy(p, hdr->lowcase_key, hdr->key.len);
+    }
+
+    h->sign.len = p - h->sign.data;
+
+    return NGX_OK;
+}
+
+
+static u_char *
+ngx_live_store_s3_write_headers(u_char *p,
+    ngx_live_store_s3_headers_t *headers)
+{
+    ngx_uint_t                   i, n;
+    ngx_live_store_s3_header_t  *hdrs;
+
+    hdrs = headers->conf->elts;
+    n = headers->conf->nelts;
+
+    for (i = 0; i < n; i++) {
+        if (headers->values[i].len == 0) {
+            continue;
+        }
+
+        p = ngx_copy_str(p, hdrs[i].key);
+        *p++ = ':';
+        *p++ = ' ';
+        p = ngx_copy_str(p, headers->values[i]);
+        *p++ = '\r';
+        *p++ = '\n';
+    }
+
+    return p;
+}
+
+
+static ngx_int_t
+ngx_live_store_s3_get_canonical_hash(ngx_pool_t *pool, ngx_str_t *method,
+    ngx_str_t *uri, ngx_live_store_s3_headers_t *headers, u_char *out)
+{
+    u_char                      *p;
+    size_t                       size;
+    ngx_str_t                    content_sha;
+    ngx_str_t                    canonical_request;
+    ngx_uint_t                   i, n;
+    ngx_live_store_s3_header_t  *hdr, *hdrs;
+
+    /* get the canonical request size */
+
+    content_sha = headers->builtin[NGX_LIVE_STORE_S3_HEADER_CONTENT_SHA];
+    size = method->len + uri->len + headers->sign.len + content_sha.len
+        + sizeof("\n\n\n\n\n");
+
+    hdrs = headers->conf->elts;
+    n = headers->conf->nelts;
+
+    for (i = 0; i < n; i++) {
+        hdr = &hdrs[i];
+        if (!(hdr->flags & NGX_LIVE_STORE_S3_HEADER_SIGNED)
+            || headers->values[i].len == 0)
+        {
+            continue;
+        }
+
+        size += hdr->key.len + headers->values[i].len + sizeof(":\n") - 1;
+    }
+
+    p = ngx_alloc(size, pool->log);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_store_s3_get_canonical_hash: "
+            "alloc canonical request failed");
+        return NGX_ERROR;
+    }
+
+    /* build the canonical request */
+
+    canonical_request.data = p;
+
+    p = ngx_copy_str(p, *method);
+    *p++ = '\n';
+
+    p = ngx_copy_str(p, *uri);
+    *p++ = '\n';
+
+    *p++ = '\n';
+
+    for (i = 0; i < n; i++) {
+        hdr = &hdrs[i];
+        if (!(hdr->flags & NGX_LIVE_STORE_S3_HEADER_SIGNED)
+            || headers->values[i].len == 0)
+        {
+            continue;
+        }
+
+        p = ngx_copy(p, hdr->lowcase_key, hdr->key.len);
+        *p++ = ':';
+        p = ngx_copy_str(p, headers->values[i]);
+        *p++ = '\n';
+    }
+
+    *p++ = '\n';
+
+    p = ngx_copy_str(p, headers->sign);
+    *p++ = '\n';
+
+    p = ngx_copy_str(p, content_sha);
+
+    canonical_request.len = p - canonical_request.data;
+
+    if (canonical_request.len > size) {
+        ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
+            "ngx_live_store_s3_get_canonical_hash: "
+            "buffer size %uz greater than allocated length %uz",
+            canonical_request.len, size);
+        return NGX_ERROR;
+    }
+
+    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, pool->log, 0,
+        "ngx_live_store_s3_get_canonical_hash: canonical request \"%V\"",
+        &canonical_request);
+
+    /* hash the canonical request */
+
+    ngx_live_store_s3_sha256_hex_buf(&canonical_request, out);
+
+    ngx_free(canonical_request.data);
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_store_s3_sign(ngx_pool_t *pool, ngx_live_store_s3_ctx_t *ctx,
+    ngx_str_t *date, ngx_str_t *canonical_sha, ngx_str_t *signature)
+{
     static const char  string_to_sign_template[] =
         "AWS4-HMAC-SHA256\n"
         "%V\n"
         "%V\n"
         "%V";
 
-    u_char                   *p;
-    u_char                   *temp_buf;
-    size_t                    size;
-    size_t                    temp_size;
-    struct tm                 tm;
-    ngx_str_t                 date;
-    ngx_str_t                 signature;
-    ngx_str_t                 string_to_sign;
-    ngx_str_t                 canonical_sha;
-    ngx_str_t                 canonical_request;
-    ngx_buf_t                *b;
-    ngx_int_t                 rc;
-    ngx_live_store_s3_ctx_t  *ctx = arg;
+    u_char     *p;
+    size_t      size;
+    ngx_int_t   rc;
+    ngx_str_t   string_to_sign;
 
-    u_char  date_buf[NGX_LIVE_STORE_S3_AMZ_TIME_LEN];
+    /* build the string to sign */
+
+    size = sizeof(string_to_sign_template) +
+        date->len + ctx->key_scope.len + canonical_sha->len;
+
+    p = ngx_alloc(size, pool->log);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_store_s3_sign: alloc failed");
+        return NGX_ERROR;
+    }
+
+    string_to_sign.data = p;
+
+    p = ngx_sprintf(p, string_to_sign_template,
+        date, &ctx->key_scope, canonical_sha);
+
+    string_to_sign.len = p - string_to_sign.data;
+
+    if (string_to_sign.len > size) {
+        ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
+            "ngx_live_store_s3_sign: "
+            "buffer size %uz greater than allocated length %uz",
+            string_to_sign.len, size);
+        return NGX_ERROR;
+    }
+
+    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, pool->log, 0,
+        "ngx_live_store_s3_sign: string to sign \"%V\"", &string_to_sign);
+
+    /* calc the signature */
+
+    rc = ngx_live_store_s3_hmac_sha256_hex(pool->log, &ctx->signing_key,
+        &string_to_sign, signature);
+
+    ngx_free(string_to_sign.data);
+
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_store_s3_sign: failed to sign");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_live_store_s3_build_request(ngx_pool_t *pool, ngx_live_store_s3_ctx_t *ctx,
+    ngx_str_t *method, ngx_str_t *uri, ngx_live_store_s3_headers_t *headers,
+    ngx_buf_t **result)
+{
+    static const char  request_template[] =
+        "%V %V HTTP/1.1\r\n";
+
+    static const char  authorization_template[] =
+        "Authorization: AWS4-HMAC-SHA256 Credential=%V/%V, "
+        "SignedHeaders=%V, "
+        "Signature=%V\r\n"
+        "\r\n";
+
+    u_char     *p;
+    size_t      size;
+    ngx_buf_t  *b;
+    ngx_str_t   date;
+    ngx_str_t   signature;
+    ngx_str_t   canonical_sha;
+
     u_char  signature_buf[NGX_LIVE_STORE_S3_HMAC_HEX_LEN];
     u_char  canonical_sha_buf[NGX_LIVE_STORE_S3_SHA256_HEX_LEN];
 
-    if (ctx->host.len > 0) {
-        host = &ctx->host;
-    }
-
-    /* get the request date */
-    ngx_libc_gmtime(ngx_time(), &tm);
-    date.len = strftime((char *) date_buf, sizeof(date_buf),
-        NGX_LIVE_STORE_S3_AMZ_TIME_FORMAT, &tm);
-    if (date.len == 0) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_store_s3_get_request: strftime failed");
-        return NGX_ERROR;
-    }
-
-    date.data = date_buf;
-
     /* generate signing key */
+
     if (ngx_live_store_s3_generate_signing_key(ctx, pool->log) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_store_s3_get_request: generate signing key failed");
+            "ngx_live_store_s3_build_request: generate signing key failed");
         return NGX_ERROR;
     }
-
-    /* allocate a temp buffer */
-    temp_size =
-        sizeof(canonical_request_template) + uri->len + host->len + date.len +
-        sizeof(string_to_sign_template) + date.len + ctx->key_scope.len +
-        sizeof(canonical_sha_buf);
-
-    temp_buf = ngx_alloc(temp_size, pool->log);
-    if (temp_buf == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_store_s3_get_request: alloc temp failed");
-        return NGX_ERROR;
-    }
-
-    p = temp_buf;
-
-    /* build the canonical request */
-    canonical_request.data = p;
-
-    p = ngx_sprintf(p, canonical_request_template, uri, host, &date);
-
-    canonical_request.len = p - canonical_request.data;
-
-    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, pool->log, 0,
-        "ngx_live_store_s3_get_request: canonical request \"%V\"",
-        &canonical_request);
 
     /* get the canonical request hash */
-    ngx_live_store_s3_sha256_hex_buf(&canonical_request, canonical_sha_buf);
+
+    if (ngx_live_store_s3_get_canonical_hash(pool, method, uri, headers,
+        canonical_sha_buf) != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_store_s3_build_request: "
+            "failed to get canonical request hash");
+        return NGX_ERROR;
+    }
 
     canonical_sha.data = canonical_sha_buf;
     canonical_sha.len = sizeof(canonical_sha_buf);
 
-    /* build the string to sign */
-    string_to_sign.data = p;
-
-    p = ngx_sprintf(p, string_to_sign_template, &date, &ctx->key_scope,
-        &canonical_sha);
-
-    string_to_sign.len = p - string_to_sign.data;
-
-    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, pool->log, 0,
-        "ngx_live_store_s3_get_request: string to sign \"%V\"",
-        &string_to_sign);
-
-    if ((size_t) (p - temp_buf) > temp_size) {
-        ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
-            "ngx_live_store_s3_get_request: "
-            "temp size %uz greater than allocated length %uz",
-            (size_t) (p - temp_buf), temp_size);
-        return NGX_ERROR;
-    }
-
-    /* get the signature */
     signature.data = signature_buf;
-
-    rc = ngx_live_store_s3_hmac_sha256_hex(pool->log, &ctx->signing_key,
-        &string_to_sign, &signature);
-
-    ngx_free(temp_buf);
-
-    if (rc != NGX_OK) {
+    date = headers->builtin[NGX_LIVE_STORE_S3_HEADER_DATE];
+    if (ngx_live_store_s3_sign(pool, ctx, &date, &canonical_sha, &signature)
+        != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_store_s3_get_request: failed to sign");
+            "ngx_live_store_s3_build_request: failed to sign");
         return NGX_ERROR;
     }
 
     /* build the request */
-    size = sizeof(request_template) + uri->len + host->len +
-        date.len + ctx->access_key.len + ctx->key_scope.len + signature.len +
-        sizeof(CRLF) - 1;
 
-    if (range_end != -1) {
-        size += sizeof(range_header) - 1 + 2 * NGX_OFF_T_LEN;
-    }
+    size = sizeof(request_template) + method->len + uri->len + headers->size
+        + sizeof(authorization_template) + ctx->access_key.len
+        + ctx->key_scope.len + headers->sign.len + signature.len;
 
     b = ngx_create_temp_buf(pool, size);
     if (b == NULL) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_store_s3_get_request: alloc buf failed");
+            "ngx_live_store_s3_build_request: alloc buf failed");
         return NGX_ERROR;
     }
 
-    p = b->last;
+    p = ngx_sprintf(b->last, request_template, method, uri);
 
-    p = ngx_sprintf(p, request_template, uri, host, &date,
-        &ctx->access_key, &ctx->key_scope, &signature);
+    p = ngx_live_store_s3_write_headers(p, headers);
 
-    if (range_end != -1) {
-        p = ngx_sprintf(p, range_header, range_start, range_end);
-    }
-
-    *p++ = CR; *p++ = LF;
+    p = ngx_sprintf(p, authorization_template,
+        &ctx->access_key, &ctx->key_scope, &headers->sign, &signature);
 
     if ((size_t) (p - b->pos) > size) {
         ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
-            "ngx_live_store_s3_get_request: "
+            "ngx_live_store_s3_build_request: "
             "buffer size %uz greater than allocated length %uz",
             (size_t) (p - b->pos), size);
         return NGX_ERROR;
     }
 
     b->last = p;
-
     *result = b;
 
     return NGX_OK;
@@ -746,181 +1144,53 @@ ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
 
 
 static ngx_int_t
-ngx_live_store_s3_put_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
-    ngx_str_t *uri, ngx_chain_t *body, size_t content_length,
-    ngx_buf_t **result)
+ngx_live_store_s3_get_request(ngx_pool_t *pool, void *arg, ngx_str_t *host,
+    ngx_str_t *uri, off_t range_start, off_t range_end, ngx_buf_t **result)
 {
-    static const char request_template[] =
-        "PUT %V HTTP/1.1\r\n"
-        "Connection: Close\r\n"
-        "Content-Length: %uz\r\n"
-        "Expect: 100-continue\r\n"
-        "Host: %V\r\n"
-        "X-Amz-Content-SHA256: %V\r\n"
-        "X-Amz-Date: %V\r\n"
-        "Authorization: AWS4-HMAC-SHA256 Credential=%V/%V, "
-        "SignedHeaders=host;x-amz-content-sha256;x-amz-date, "
-        "Signature=%V\r\n"
-        "\r\n";
+    size_t                        range_len;
+    ngx_array_t                   headers_arr;
+    ngx_live_store_s3_ctx_t      *ctx = arg;
+    ngx_live_store_s3_headers_t   headers;
 
-    static const char canonical_request_template[] =
-        "PUT\n"
-        "%V\n"
-        "\n"
-        "host:%V\n"
-        "x-amz-content-sha256:%V\n"
-        "x-amz-date:%V\n"
-        "\n"
-        "host;x-amz-content-sha256;x-amz-date\n"
-        "%V";
+    u_char  range_buf[sizeof("bytes=-") + 2 * NGX_OFF_T_LEN];
 
-    static const char string_to_sign_template[] =
-        "AWS4-HMAC-SHA256\n"
-        "%V\n"
-        "%V\n"
-        "%V";
+    ngx_memzero(&headers, sizeof(headers));
 
-    u_char                   *p;
-    u_char                   *temp_buf;
-    size_t                    size;
-    size_t                    temp_size;
-    struct tm                 tm;
-    ngx_str_t                 date;
-    ngx_str_t                 signature;
-    ngx_str_t                 content_sha;
-    ngx_str_t                 canonical_sha;
-    ngx_str_t                 string_to_sign;
-    ngx_str_t                 canonical_request;
-    ngx_buf_t                *b;
-    ngx_int_t                 rc;
-    ngx_live_store_s3_ctx_t  *ctx = arg;
-
-    u_char  date_buf[NGX_LIVE_STORE_S3_AMZ_TIME_LEN];
-    u_char  signature_buf[NGX_LIVE_STORE_S3_HMAC_HEX_LEN];
-    u_char  content_sha_buf[NGX_LIVE_STORE_S3_SHA256_HEX_LEN];
-    u_char  canonical_sha_buf[NGX_LIVE_STORE_S3_SHA256_HEX_LEN];
+    headers_arr.elts = ngx_live_store_s3_get_headers;
+    headers_arr.nelts = ngx_array_entries(ngx_live_store_s3_get_headers);
+    headers.conf = &headers_arr;
 
     if (ctx->host.len > 0) {
-        host = &ctx->host;
+        headers.builtin[NGX_LIVE_STORE_S3_HEADER_HOST] = ctx->host;
+
+    } else {
+        headers.builtin[NGX_LIVE_STORE_S3_HEADER_HOST] = *host;
     }
 
-    /* get the request date */
-    ngx_libc_gmtime(ngx_time(), &tm);
-    date.len = strftime((char *) date_buf, sizeof(date_buf),
-        NGX_LIVE_STORE_S3_AMZ_TIME_FORMAT, &tm);
-    if (date.len == 0) {
-        ngx_log_error(NGX_LOG_ERR, pool->log, 0,
-            "ngx_live_store_s3_put_request: strftime failed");
-        return NGX_ERROR;
+    if (range_end != -1) {
+        range_len = ngx_sprintf(range_buf, "bytes=%O-%O",
+            range_start, range_end) - range_buf;
+        headers.builtin[NGX_LIVE_STORE_S3_HEADER_RANGE].data = range_buf;
+        headers.builtin[NGX_LIVE_STORE_S3_HEADER_RANGE].len = range_len;
     }
 
-    date.data = date_buf;
+    ngx_str_set(&headers.builtin[NGX_LIVE_STORE_S3_HEADER_CONTENT_SHA],
+        NGX_LIVE_STORE_S3_EMPTY_SHA256);
+    ngx_str_set(&headers.builtin[NGX_LIVE_STORE_S3_HEADER_CONTENT_LEN], "0");
 
-    /* generate signing key */
-    if (ngx_live_store_s3_generate_signing_key(ctx, pool->log) != NGX_OK) {
+    if (ngx_live_store_s3_init_headers(NULL, pool, &headers) != NGX_OK) {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_store_s3_put_request: generate signing key failed");
+            "ngx_live_store_s3_get_request: init headers failed");
         return NGX_ERROR;
     }
 
-    /* allocate a temp buffer */
-    temp_size =
-        sizeof(canonical_request_template) + uri->len + host->len +
-            2 * sizeof(content_sha_buf) + date.len +
-        sizeof(string_to_sign_template) + date.len + ctx->key_scope.len +
-            sizeof(canonical_sha_buf);
-
-    temp_buf = ngx_alloc(temp_size, pool->log);
-    if (temp_buf == NULL) {
+    if (ngx_live_store_s3_build_request(pool, ctx,
+        &ngx_live_store_s3_method_get, uri, &headers, result) != NGX_OK)
+    {
         ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_store_s3_put_request: alloc temp failed");
+            "ngx_live_store_s3_get_request: build request failed");
         return NGX_ERROR;
     }
-
-    p = temp_buf;
-
-    /* get the content sha256 + hex */
-    ngx_live_store_s3_sha256_hex_chain(body, content_sha_buf);
-    content_sha.data = content_sha_buf;
-    content_sha.len = sizeof(content_sha_buf);
-
-    /* build the canonical request */
-    canonical_request.data = p;
-
-    p = ngx_sprintf(p, canonical_request_template,
-        uri, host, &content_sha, &date, &content_sha);
-
-    canonical_request.len = p - canonical_request.data;
-
-    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, pool->log, 0,
-        "ngx_live_store_s3_put_request: canonical request \"%V\"",
-        &canonical_request);
-
-    /* get the canonical request hash */
-    ngx_live_store_s3_sha256_hex_buf(&canonical_request, canonical_sha_buf);
-
-    canonical_sha.data = canonical_sha_buf;
-    canonical_sha.len = sizeof(canonical_sha_buf);
-
-    /* build the string to sign */
-    string_to_sign.data = p;
-
-    p = ngx_sprintf(p, string_to_sign_template,
-        &date, &ctx->key_scope, &canonical_sha);
-
-    string_to_sign.len = p - string_to_sign.data;
-
-    ngx_log_debug1(NGX_LOG_DEBUG_LIVE, pool->log, 0,
-        "ngx_live_store_s3_put_request: string to sign \"%V\"",
-        &string_to_sign);
-
-    if ((size_t) (p - temp_buf) > temp_size) {
-        ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
-            "ngx_live_store_s3_put_request: "
-            "temp size %uz greater than allocated length %uz",
-            (size_t) (p - temp_buf), temp_size);
-        return NGX_ERROR;
-    }
-
-    /* get the signature */
-    signature.data = signature_buf;
-
-    rc = ngx_live_store_s3_hmac_sha256_hex(pool->log, &ctx->signing_key,
-        &string_to_sign, &signature);
-
-    ngx_free(temp_buf);
-
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_store_s3_put_request: failed to sign");
-        return NGX_ERROR;
-    }
-
-    /* build the request */
-    size = sizeof(request_template) + uri->len + NGX_SIZE_T_LEN +
-        host->len + content_sha.len + date.len + ctx->access_key.len +
-        ctx->key_scope.len + signature.len;
-
-    b = ngx_create_temp_buf(pool, size);
-    if (b == NULL) {
-        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
-            "ngx_live_store_s3_put_request: alloc buf failed");
-        return NGX_ERROR;
-    }
-
-    b->last = ngx_sprintf(b->last, request_template,
-        uri, content_length, host, &content_sha, &date,
-        &ctx->access_key, &ctx->key_scope, &signature);
-
-    if ((size_t) (b->last - b->pos) > size) {
-        ngx_log_error(NGX_LOG_ALERT, pool->log, 0,
-            "ngx_live_store_s3_put_request: "
-            "buffer size %uz greater than allocated length %uz",
-            (size_t) (b->last - b->pos), size);
-        return NGX_ERROR;
-    }
-
-    *result = b;
 
     return NGX_OK;
 }
@@ -959,12 +1229,18 @@ ngx_live_store_s3_read_init(ngx_live_store_read_request_t *request)
 static ngx_int_t
 ngx_live_store_s3_write(ngx_live_store_write_request_t *request)
 {
+    size_t                            content_len_size;
     ngx_buf_t                        *b;
+    ngx_str_t                        *builtin;
     ngx_pool_t                       *pool;
     ngx_chain_t                      *cl;
     ngx_live_channel_t               *channel;
     ngx_live_store_s3_ctx_t          *ctx;
+    ngx_live_store_s3_headers_t       headers;
     ngx_live_store_s3_preset_conf_t  *conf;
+
+    u_char  content_sha_buf[NGX_LIVE_STORE_S3_SHA256_HEX_LEN];
+    u_char  content_len_buf[NGX_SIZE_T_LEN];
 
     channel = request->channel;
     conf = ngx_live_get_module_preset_conf(channel, ngx_live_store_s3_module);
@@ -973,11 +1249,42 @@ ngx_live_store_s3_write(ngx_live_store_write_request_t *request)
 
     pool = request->pool;
 
-    if (ngx_live_store_s3_put_request(pool, ctx, &ctx->url->host,
-        &request->path, request->cl, request->size, &b) != NGX_OK)
+    ngx_memzero(&headers, sizeof(headers));
+    headers.conf = &conf->put_headers;
+
+    builtin = headers.builtin;
+
+    if (ctx->host.len > 0) {
+        builtin[NGX_LIVE_STORE_S3_HEADER_HOST] = ctx->host;
+
+    } else {
+        builtin[NGX_LIVE_STORE_S3_HEADER_HOST] = ctx->url->host;
+    }
+
+    ngx_live_store_s3_sha256_hex_chain(request->cl, content_sha_buf);
+    builtin[NGX_LIVE_STORE_S3_HEADER_CONTENT_SHA].data = content_sha_buf;
+    builtin[NGX_LIVE_STORE_S3_HEADER_CONTENT_SHA].len =
+        sizeof(content_sha_buf);
+
+    content_len_size = ngx_sprintf(content_len_buf, "%uz", request->size)
+        - content_len_buf;
+    builtin[NGX_LIVE_STORE_S3_HEADER_CONTENT_LEN].data = content_len_buf;
+    builtin[NGX_LIVE_STORE_S3_HEADER_CONTENT_LEN].len = content_len_size;
+
+    if (ngx_live_store_s3_init_headers(request->vctx, pool, &headers)
+        != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, pool->log, 0,
+            "ngx_live_store_s3_write: init headers failed");
+        return NGX_ERROR;
+    }
+
+    if (ngx_live_store_s3_build_request(pool, ctx,
+        &ngx_live_store_s3_method_put, &request->path, &headers, &b)
+        != NGX_OK)
     {
         ngx_log_error(NGX_LOG_NOTICE, &channel->log, 0,
-            "ngx_live_store_s3_write: create request failed");
+            "ngx_live_store_s3_write: build request failed");
         return NGX_ERROR;
     }
 
@@ -1095,6 +1402,93 @@ ngx_live_store_s3_create_preset_conf(ngx_conf_t *cf)
 }
 
 
+static ngx_flag_t
+ngx_live_store_s3_header_exists(ngx_array_t *conf,
+    ngx_live_store_s3_header_t *header)
+{
+    ngx_uint_t                   i, n;
+    ngx_live_store_s3_header_t  *hdrs;
+
+    hdrs = conf->elts;
+    n = conf->nelts;
+
+    for (i = 0; i < n; i++) {
+        if (hdrs[i].key.len == header->key.len &&
+            ngx_strncmp(hdrs[i].lowcase_key, header->lowcase_key,
+                header->key.len) == 0)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+
+static int ngx_libc_cdecl
+ngx_live_store_s3_compare_headers(const void *one, const void *two)
+{
+    size_t                             len;
+    ngx_int_t                          rc;
+    const ngx_live_store_s3_header_t  *h1 = one;
+    const ngx_live_store_s3_header_t  *h2 = two;
+
+    len = ngx_min(h1->key.len, h2->key.len);
+    rc = ngx_memcmp(h1->lowcase_key, h2->lowcase_key, len);
+    if (rc != 0) {
+        return rc;
+    }
+
+    if (h1->key.len < h2->key.len) {
+        return -1;
+    }
+
+    if (h1->key.len > h2->key.len) {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+static ngx_int_t
+ngx_live_store_s3_merge_headers(ngx_array_t *conf, ngx_array_t *prev,
+    ngx_live_store_s3_header_t *builtin, ngx_uint_t nbuiltin)
+{
+    ngx_uint_t                   i;
+    ngx_live_store_s3_header_t  *header;
+
+    if (conf->nelts == 0) {
+        if (prev->nelts == 0) {
+            conf->elts = builtin;
+            conf->nelts = nbuiltin;
+            return NGX_OK;
+        }
+
+        *conf = *prev;
+    }
+
+    for (i = 0; i < nbuiltin; i++) {
+
+        if (ngx_live_store_s3_header_exists(conf, &builtin[i])) {
+            continue;
+        }
+
+        header = ngx_array_push(conf);
+        if (header == NULL) {
+            return NGX_ERROR;
+        }
+
+        *header = builtin[i];
+    }
+
+    ngx_qsort(conf->elts, conf->nelts, sizeof(ngx_live_store_s3_header_t),
+        ngx_live_store_s3_compare_headers);
+
+    return NGX_OK;
+}
+
+
 static char *
 ngx_live_store_s3_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 {
@@ -1103,6 +1497,13 @@ ngx_live_store_s3_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_ptr_value(conf->ctx,
                              prev->ctx, NULL);
+
+    if (ngx_live_store_s3_merge_headers(&conf->put_headers, &prev->put_headers,
+        ngx_live_store_s3_put_headers,
+        ngx_array_entries(ngx_live_store_s3_put_headers)) != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
 
     return NGX_CONF_OK;
 }
