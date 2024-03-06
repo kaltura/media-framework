@@ -74,6 +74,7 @@ struct ngx_kmp_out_track_s {
     size_t                         mem_limit;
     size_t                         mem_high_watermark;
     size_t                         mem_low_watermark;
+    uint32_t                       prog_num;
     ngx_http_call_ctx_t           *publish_call;
 
     kmp_connect_packet_t           connect;

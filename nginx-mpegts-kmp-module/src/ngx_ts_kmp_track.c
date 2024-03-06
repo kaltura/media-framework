@@ -1759,6 +1759,7 @@ ngx_ts_kmp_track_create(ngx_ts_handler_data_t *hd)
 
         track->ctx = ctx;
         track->handler = ngx_ts_kmp_track_error;
+        track->prog_num = prog->number;
 
         track->log.connection = ctx->connection->number;
         ctx->track_index[media_type]++;

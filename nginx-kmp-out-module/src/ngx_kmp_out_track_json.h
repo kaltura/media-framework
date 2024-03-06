@@ -375,6 +375,7 @@ ngx_kmp_out_track_fields_json_get_size(ngx_kmp_out_track_t *obj)
             ngx_json_str_get_size(&obj->track_id) +
         sizeof("\",\"mem_left\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"mem_limit\":") - 1 + NGX_SIZE_T_LEN +
+        sizeof(",\"prog_num\":") - 1 + NGX_INT32_LEN +
         sizeof(",\"last_timestamp\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"last_created\":") - 1 + NGX_INT64_LEN +
         sizeof(",\"sent_frames\":") - 1 + NGX_INT_T_LEN +
@@ -403,6 +404,8 @@ ngx_kmp_out_track_fields_json_write(u_char *p, ngx_kmp_out_track_t *obj)
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_left);
     p = ngx_copy_fix(p, ",\"mem_limit\":");
     p = ngx_sprintf(p, "%uz", (size_t) obj->mem_limit);
+    p = ngx_copy_fix(p, ",\"prog_num\":");
+    p = ngx_sprintf(p, "%uD", (uint32_t) obj->prog_num);
     p = ngx_copy_fix(p, ",\"last_timestamp\":");
     p = ngx_sprintf(p, "%L", (int64_t) obj->stats.last_timestamp);
     p = ngx_copy_fix(p, ",\"last_created\":");

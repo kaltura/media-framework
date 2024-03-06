@@ -52,6 +52,7 @@ out noobject ngx_kmp_out_track_fields_json ngx_kmp_out_track_t
     track_id %jV
     mem_left %uz
     mem_limit %uz
+    prog_num %uD
 
     last_timestamp %L obj->stats.
     last_created %L obj->stats.
