@@ -21,6 +21,11 @@ enum {
 };
 
 
+static size_t ngx_kmp_out_track_info_json_get_size(ngx_kmp_out_track_t *track);
+static u_char *ngx_kmp_out_track_info_json_write(u_char *p,
+    ngx_kmp_out_track_t *track);
+
+
 ngx_conf_enum_t  ngx_kmp_out_log_frames[] = {
     { ngx_string("all"), NGX_KMP_OUT_LOG_FRAMES_ALL },
     { ngx_string("key"), NGX_KMP_OUT_LOG_FRAMES_KEY },
@@ -231,6 +236,22 @@ ngx_kmp_out_track_http_call_create(ngx_kmp_out_track_t *track,
     ci->buffer_size = conf->ctrl_buffer_size;
 
     return ngx_http_call_create(ci);
+}
+
+
+static size_t
+ngx_kmp_out_track_info_json_get_size(ngx_kmp_out_track_t *track)
+{
+    return track->json_info.len;
+}
+
+
+static u_char *
+ngx_kmp_out_track_info_json_write(u_char *p, ngx_kmp_out_track_t *track)
+{
+    p = ngx_copy_str(p, track->json_info);
+
+    return p;
 }
 
 
