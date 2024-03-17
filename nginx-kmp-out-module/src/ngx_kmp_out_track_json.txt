@@ -61,6 +61,7 @@ out noobject ngx_kmp_out_track_fields_json ngx_kmp_out_track_t
     bitrate %ui obj->stats.
     frame_rate %.2uD obj->stats.
 
+    - %func-ngx_kmp_out_track_info_json obj
     - %neFunc-ngx_kmp_out_track_media_info_json obj
 
     upstreams %func-ngx_kmp_out_track_upstreams_json obj

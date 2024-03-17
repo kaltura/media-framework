@@ -382,6 +382,7 @@ ngx_kmp_out_track_fields_json_get_size(ngx_kmp_out_track_t *obj)
         sizeof(",\"written\":") - 1 + NGX_SIZE_T_LEN +
         sizeof(",\"bitrate\":") - 1 + NGX_INT_T_LEN +
         sizeof(",\"frame_rate\":") - 1 + NGX_INT32_LEN + 1 +
+        sizeof(",") - 1 + ngx_kmp_out_track_info_json_get_size(obj) +
         sizeof(",") - 1 + ngx_kmp_out_track_media_info_json_get_size(obj) +
         sizeof(",\"upstreams\":") - 1 +
             ngx_kmp_out_track_upstreams_json_get_size(obj);
@@ -393,6 +394,8 @@ ngx_kmp_out_track_fields_json_get_size(ngx_kmp_out_track_t *obj)
 static u_char *
 ngx_kmp_out_track_fields_json_write(u_char *p, ngx_kmp_out_track_t *obj)
 {
+    u_char  *next;
+
     p = ngx_copy_fix(p, "\"input_id\":\"");
     p = ngx_json_str_write(p, &obj->input_id);
     p = ngx_copy_fix(p, "\",\"channel_id\":\"");
@@ -418,6 +421,9 @@ ngx_kmp_out_track_fields_json_write(u_char *p, ngx_kmp_out_track_t *obj)
     p = ngx_copy_fix(p, ",\"frame_rate\":");
     p = ngx_sprintf(p, "%uD.%02uD", (uint32_t) (obj->stats.frame_rate / 100),
         (uint32_t) (obj->stats.frame_rate % 100));
+    *p++ = ',';
+    next = ngx_kmp_out_track_info_json_write(p, obj);
+    p = next == p ? p - 1 : next;
     *p++ = ',';
     p = ngx_kmp_out_track_media_info_json_write(p, obj);
     p = ngx_copy_fix(p, ",\"upstreams\":");
