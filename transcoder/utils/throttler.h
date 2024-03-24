@@ -8,6 +8,8 @@ typedef struct {
     const bool useStatsDataRate;
     const double maxDataRate;
     const double minThrottleWaitMs;
+    const int defaultFramerate;
+    const int defaultSamplingRate;
     samples_stats_t *stats;
 } throttler_t;
 
