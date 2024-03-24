@@ -28,6 +28,8 @@ throttler_init(samples_stats_t *stats,throttler_t *throttler) {
     if(throttler->maxDataRate < INFINITY){
         json_get_bool(config,"throttler.useStatsDataRate",false,(bool*)&throttler->useStatsDataRate);
         json_get_double(config,"throttler.minThrottleWaitMs",1,(double*)&throttler->minThrottleWaitMs);
+        json_get_int(config,"throttler.defaultFramerate",60,(bool*)&throttler->defaultFramerate);
+        json_get_int(config,"throttler.defaultSamplingRate",48000,(double*)&throttler->defaultSamplingRate);
         throttler->stats = stats;
     }
     return 0;
@@ -42,6 +44,19 @@ throttler_process(throttler_t *throttler,transcode_session_t *transcode_session)
 
             if(!throttler->useStatsDataRate) {
                 getFrameRateFromMediaInfo(mediaInfo,&frameRate);
+                // handle misconfiguration case
+                if(frameRate.den <= 0 || frameRate.num <= 0) {
+                    switch(mediaInfo->codecParams->codec_type){
+                        case AVMEDIA_TYPE_VIDEO:
+                            frameRate = (AVRational){throttler->defaultFramerate,1};
+                            break;
+                        case AVMEDIA_TYPE_AUDIO:
+                            frameRate = (AVRational){throttler->defaultSamplingRate,1};
+                            break;
+                        default:
+                            break;
+                    }
+                }
             }
 
             doThrottle(throttler->maxDataRate,
