@@ -105,10 +105,14 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
 
    AVCodec *dec;
 
-   bool result;
+   bool result, useCuvidDecoder = false;
    json_get_bool(GetConfig(),"engine.nvidiaAccelerated",true,&result);
 
    pContext->nvidiaAccelerated = result && pCodecParams->codec_type == AVMEDIA_TYPE_VIDEO;
+
+   if(pContext->nvidiaAccelerated) {
+       json_get_bool(GetConfig(),"engine.useCuvidDecoder",false,&useCuvidDecoder);
+   }
 
  retry:
 
@@ -123,7 +127,33 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
 
     LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "attempt to use %s decoder",  pContext->nvidiaAccelerated ? "nvidia hw" : "sw");
 
-    dec = avcodec_find_decoder(pCodecParams->codec_id);
+    if (pContext->nvidiaAccelerated && useCuvidDecoder) {
+
+       switch(pCodecParams->codec_id) {
+            case AV_CODEC_ID_H264:
+                dec = avcodec_find_decoder_by_name("h264_cuvid");
+                break;
+            case AV_CODEC_ID_HEVC:
+                dec = avcodec_find_decoder_by_name("h265_cuvid");
+                break;
+            case AV_CODEC_ID_VP8:
+                dec = avcodec_find_decoder_by_name("vp8_cuvid");
+                break;
+             case AV_CODEC_ID_VP9:
+                 dec = avcodec_find_decoder_by_name("vp9_cuvid");
+                 break;
+        }
+        if(dec != NULL) {
+           LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "found cuvid decoder for %s",avcodec_get_name(pCodecParams->codec_id));
+        }
+    }
+
+    if(dec == NULL) {
+        dec = avcodec_find_decoder(pCodecParams->codec_id);
+        if(dec != NULL) {
+           LOGGER(CATEGORY_CODEC,AV_LOG_INFO, "found ffmpeg decoder for %s",avcodec_get_name(pCodecParams->codec_id));
+        }
+    }
 
     if (pContext->nvidiaAccelerated) {
        hardWareAcceleration=AV_HWDEVICE_TYPE_CUDA;
@@ -133,7 +163,7 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
 
     AVCodecContext *codec_ctx;
     if (!dec) {
-        LOGGER(CATEGORY_CODEC,AV_LOG_ERROR, "Failed to find decoder for stream %s",pCodecParams->codec_id);
+        LOGGER(CATEGORY_CODEC,AV_LOG_ERROR, "Failed to find decoder for stream %s",avcodec_get_name(pCodecParams->codec_id));
         FALLBACK_SW_DECODER;
         return AVERROR_DECODER_NOT_FOUND;
     }
@@ -172,7 +202,7 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
         FALLBACK_SW_DECODER;
         return ret;
     }
-    if (pContext->hw_device_ctx!=NULL) {
+    if (pContext->hw_frames_ctx!=NULL) {
         codec_ctx->hw_frames_ctx = av_buffer_ref(pContext->hw_frames_ctx);
     }
     pContext->ctx = codec_ctx;

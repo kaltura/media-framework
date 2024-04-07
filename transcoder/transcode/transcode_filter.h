@@ -21,7 +21,7 @@ typedef  struct
     uint64_t totalInErrors, totalOutErrors;
 } transcode_filter_t;
 
-int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,const char *filters_descr);
+int transcode_filter_init( transcode_filter_t *pFilter,transcode_codec_t *pDecoderContext,const char *filters_descr);
 int transcode_filter_send_frame( transcode_filter_t *pFilter,const AVFrame* pInFrame);
 int transcode_filter_receive_frame( transcode_filter_t *pFilter,struct AVFrame* pOutFrame);
 int transcode_filter_close( transcode_filter_t *pFilter);
