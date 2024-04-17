@@ -129,12 +129,7 @@ video_codecs[] = {
     "On2-VP6",
     "On2-VP6-Alpha",
     "ScreenVideo2",
-    "H264",
-    "",
-    "",
-    "",
-    "",
-    "H265",
+    "H264"
 };
 
 
