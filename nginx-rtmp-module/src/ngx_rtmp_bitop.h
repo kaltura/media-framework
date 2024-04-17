@@ -19,6 +19,7 @@ typedef struct {
     ngx_uint_t   err;
 } ngx_rtmp_bit_reader_t;
 
+void ngx_rtmp_hex_dump(ngx_log_t *log,const char * tag,u_char * start, u_char * end);
 
 void ngx_rtmp_bit_init_reader(ngx_rtmp_bit_reader_t *br, u_char *pos,
     u_char *last);

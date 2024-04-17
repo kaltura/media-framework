@@ -9,6 +9,30 @@
 #include "ngx_rtmp_bitop.h"
 
 
+//ngx_log_debug increase buffer, e.g.:
+//sed -i 's/#define NGX_MAX_ERROR_STR   2048/#define NGX_MAX_ERROR_STR   1024*1024/' ./src/core/ngx_log.h
+void
+ngx_rtmp_hex_dump(ngx_log_t *log, const char * tag, u_char * start, u_char * end)
+{
+    u_char buf[1024*1024], *p, *pp;
+    u_char hex[] = "0123456789abcdef";
+
+    for (pp = buf, p = start;
+         p < end && pp < buf + sizeof(buf) - 1;
+         ++p)
+    {
+        *pp++ = hex[*p >> 4];
+        *pp++ = hex[*p & 0x0f];
+        *pp++ = ' ';
+    }
+
+    *pp = 0;
+
+    ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "[hex][%s][%s] ", tag, buf);
+}
+
+
+
 void
 ngx_rtmp_bit_init_reader(ngx_rtmp_bit_reader_t *br, u_char *pos, u_char *last)
 {

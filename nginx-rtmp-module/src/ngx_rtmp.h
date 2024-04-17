@@ -651,5 +651,17 @@ extern ngx_thread_volatile ngx_event_t     *ngx_rtmp_init_queue;
 extern ngx_uint_t                           ngx_rtmp_max_module;
 extern ngx_module_t                         ngx_rtmp_core_module;
 
+// extension packetType as defined in https://veovera.org/docs/enhanced/enhanced-rtmp-v1
+typedef enum {
+    PacketTypeSequenceStart,
+    PacketTypeCodedFrames,
+    PacketTypeSequenceEnd,
+    PacketTypeCodedFramesX,
+    PacketTypeMetadata,
+    PacketTypeMPEG2TSSequenceStart,
+    PacketTypeLastReserved=15
+} ngx_rtmp_v1_packet_type_t;
+
+#define NGX_RTMP_CODEC_FOURCC_HEVC (0x31637668)
 
 #endif /* _NGX_RTMP_H_INCLUDED_ */
