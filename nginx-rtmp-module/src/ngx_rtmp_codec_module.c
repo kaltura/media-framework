@@ -871,8 +871,7 @@ ngx_rtmp_codec_parse_hevc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     char const             *err_msg;
 
 #if (NGX_DEBUG)
-    ngx_rtmp_hex_dump(s->connection->log, "ngx_rtmp_codec_parse_hevc_header", in->buf->pos, in->buf->last);
-    //ngx_rtmp_codec_dump_header(s, "ngx_rtmp_codec_parse_hevc_header in:", in);
+    ngx_rtmp_codec_dump_header(s, "ngx_rtmp_codec_parse_hevc_header in:", in);
 #endif
     // HEVCDecoderConfigurationRecord
     // http://ffmpeg.org/doxygen/trunk/hevc_8c_source.html#l00040
