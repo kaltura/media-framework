@@ -146,8 +146,10 @@ const char *
 ngx_rtmp_get_video_codec_name_from_fourcc(ngx_uint_t id)
 {
     switch(id){
-    case NGX_RTMP_CODEC_FOURCC_HEVC:
-        return "hvc1";
+    case NGX_RTMP_CODEC_FOURCC_HEV1:
+        return "HEV1";
+    case NGX_RTMP_CODEC_FOURCC_HVC1:
+        return "HVC1";
     default:
         return "";
     };
@@ -392,27 +394,12 @@ ngx_rtmp_codec_parse_extended_header(ngx_rtmp_session_t *s, ngx_chain_t *in, ngx
     if(in->buf->last - in->buf->pos > 4) {
 
         ngx_rtmp_codec_ctx_t        *ctx;
-        ngx_rtmp_chain_reader_t      reader;
 
         ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
 
-        ngx_rtmp_chain_reader_init(&reader, in);
-
-        /* frame info - 1 byte */
-        if (ngx_rtmp_chain_reader_skip(&reader, 1) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
-                  "ngx_rtmp_codec_parse_extended_header. failed to skip frame info");
-            return NGX_ERROR;
-        }
-
-        if (ngx_rtmp_chain_reader_read(&reader,&ctx->video_codec_id,4) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
-                  "ngx_rtmp_codec_parse_extended_header. failed to read video_codec_id");
-            return NGX_ERROR;
-        }
-
         switch(ctx->video_codec_id) {
-           case NGX_RTMP_CODEC_FOURCC_HEVC:
+           case NGX_RTMP_CODEC_FOURCC_HEV1:
+           case NGX_RTMP_CODEC_FOURCC_HVC1:
                 if(packet_type == PacketTypeSequenceStart) {
                     if(ngx_rtmp_codec_parse_hevc_header(s, in) < 0) {
                         return NGX_ERROR;
@@ -446,6 +433,8 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
     static ngx_uint_t                   sample_rates[] =
                                         { 5512, 11025, 22050, 44100 };
 
+    ngx_flag_t                          is_ext_header;
+
     if (h->type != NGX_RTMP_MSG_AUDIO && h->type != NGX_RTMP_MSG_VIDEO) {
         return NGX_OK;
     }
@@ -474,31 +463,38 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
     }
 
     fmt =  in->buf->pos[0];
-    if (h->type == NGX_RTMP_MSG_AUDIO) {
-        ctx->audio_codec_id = (fmt & 0xf0) >> 4;
-        ctx->audio_channels = (fmt & 0x01) + 1;
-        ctx->sample_size = (fmt & 0x02) ? 2 : 1;
 
-        if (ctx->sample_rate == 0) {
-            ctx->sample_rate = sample_rates[(fmt & 0x0c) >> 2];
-        }
+    is_ext_header = (fmt & 0x80);
 
-    } else {
-        ngx_uint_t is_ext_header = (fmt & 0x80);
-        // parse VideoTagHeader avc=7 hevc=12
-        if(is_ext_header) {
-            ngx_uint_t packet_type = (fmt & 0x0f);
-            header = &ctx->avc_header;
-            if(ngx_rtmp_codec_parse_extended_header(s, in,  packet_type) < 0){
-                header = NULL;
+    if(!is_ext_header) {
+        if (h->type == NGX_RTMP_MSG_AUDIO) {
+            ctx->audio_codec_id = (fmt & 0xf0) >> 4;
+            ctx->audio_channels = (fmt & 0x01) + 1;
+            ctx->sample_size = (fmt & 0x02) ? 2 : 1;
+
+            if (ctx->sample_rate == 0) {
+                ctx->sample_rate = sample_rates[(fmt & 0x0c) >> 2];
             }
+
         } else {
             ctx->video_codec_id = (fmt & 0x0f);
         }
-        ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-             "VideoTagHeader IsExHeader | FrameType %ui codec id: %ui",
-              (fmt >> 4) & 0x0f,
-              ctx->video_codec_id);
+    } else {
+        ngx_rtmp_chain_reader_t      reader;
+        ngx_rtmp_chain_reader_init(&reader, in);
+
+        /* frame info - 1 byte */
+        if (ngx_rtmp_chain_reader_skip(&reader, 1) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+                  "ngx_rtmp_codec_av. failed to skip frame info");
+            return NGX_ERROR;
+        }
+
+        if (ngx_rtmp_chain_reader_read(&reader,&ctx->video_codec_id,4) != NGX_OK) {
+            ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+                  "ngx_rtmp_codec_av. failed to read video_codec_id");
+            return NGX_ERROR;
+        }
     }
 
     /* save AVC/AAC header */
@@ -511,7 +507,8 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
         if (ctx->video_captions_tries > 0
             && h->type == NGX_RTMP_MSG_VIDEO
             && (ctx->video_codec_id == NGX_RTMP_VIDEO_H264
-            || ctx->video_codec_id == NGX_RTMP_CODEC_FOURCC_HEVC))
+            || ctx->video_codec_id == NGX_RTMP_CODEC_FOURCC_HVC1
+            || ctx->video_codec_id == NGX_RTMP_CODEC_FOURCC_HEV1))
         {
             if (ngx_rtmp_codec_detect_cea(s, in)) {
                 ctx->video_captions = 1;
@@ -528,16 +525,26 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
     header = NULL;
 
-    if (h->type == NGX_RTMP_MSG_AUDIO) {
-        if (ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC) {
-            header = &ctx->aac_header;
-            ngx_rtmp_codec_parse_aac_header(s, in);
-        }
+    if(is_ext_header){
+            ngx_uint_t packet_type = (fmt & 0x0f);
+
+            header = &ctx->avc_header;
+            if(ngx_rtmp_codec_parse_extended_header(s, in,  packet_type) < 0){
+                header = NULL;
+            }
 
     } else {
-        if (ctx->video_codec_id == NGX_RTMP_VIDEO_H264) {
-            header = &ctx->avc_header;
-            ngx_rtmp_codec_parse_avc_header(s, in);
+    if (h->type == NGX_RTMP_MSG_AUDIO) {
+            if (ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC) {
+                header = &ctx->aac_header;
+                ngx_rtmp_codec_parse_aac_header(s, in);
+            }
+
+        } else {
+            if (ctx->video_codec_id == NGX_RTMP_VIDEO_H264) {
+                header = &ctx->avc_header;
+                ngx_rtmp_codec_parse_avc_header(s, in);
+            }
         }
     }
 

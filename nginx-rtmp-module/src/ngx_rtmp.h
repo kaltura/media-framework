@@ -662,6 +662,7 @@ typedef enum {
     PacketTypeLastReserved=15
 } ngx_rtmp_v1_packet_type_t;
 
-#define NGX_RTMP_CODEC_FOURCC_HEVC (0x31637668)
+#define NGX_RTMP_CODEC_FOURCC_HEV1 (0x31766568)
+#define NGX_RTMP_CODEC_FOURCC_HVC1 (0x31637668)
 
 #endif /* _NGX_RTMP_H_INCLUDED_ */

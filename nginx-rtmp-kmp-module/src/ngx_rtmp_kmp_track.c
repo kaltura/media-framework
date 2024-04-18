@@ -163,7 +163,16 @@ ngx_rtmp_kmp_track_send_media_info(ngx_kmp_out_track_t *track,
 
     case KMP_MEDIA_VIDEO:
         /* KMP video codec ids match NGX_RTMP_VIDEO_XXX */
-        media_info->codec_id = codec_ctx->video_codec_id;
+        switch(codec_ctx->video_codec_id) {
+            case NGX_RTMP_CODEC_FOURCC_HVC1:
+            case NGX_RTMP_CODEC_FOURCC_HEV1:
+                media_info->codec_id = KMP_CODEC_VIDEO_H265;
+                break;
+            default:
+                media_info->codec_id = codec_ctx->video_codec_id;
+                break;
+        };
+
         media_info->bitrate = codec_ctx->video_data_rate * 1000;
 
         media_info->u.video.width = codec_ctx->width;
@@ -229,8 +238,6 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
 
     ext_header = (frame_info & EXT_HEADER_MASK) ? 1 : 0;
 
-    frame_info &= ~EXT_HEADER_MASK;
-
     rtmpscale = track->media_info.timescale / NGX_RTMP_TIMESCALE;
 
     ngx_memzero(frame, sizeof(*frame));
@@ -263,6 +270,7 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
             }
 
         } else  {
+            frame_info &= ~EXT_HEADER_MASK;
 
             rc = ngx_rtmp_kmp_copy(&track->log, &codec_id, src,
                 sizeof(codec_id), in);
@@ -301,6 +309,7 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
             ngx_kmp_out_track_set_error_reason(track, "rtmp_bad_data");
             return NGX_ERROR;
         }
+
         frame->header.data_size -= sizeof(comp_time);
 
         pts_delay =
