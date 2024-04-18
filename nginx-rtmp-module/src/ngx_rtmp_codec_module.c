@@ -433,7 +433,7 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
     static ngx_uint_t                   sample_rates[] =
                                         { 5512, 11025, 22050, 44100 };
 
-    ngx_flag_t                          is_ext_header;
+    ngx_flag_t                          is_ext_header = 0;
 
     if (h->type != NGX_RTMP_MSG_AUDIO && h->type != NGX_RTMP_MSG_VIDEO) {
         return NGX_OK;
@@ -464,36 +464,37 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
 
     fmt =  in->buf->pos[0];
 
-    is_ext_header = (fmt & 0x80);
+    if (h->type == NGX_RTMP_MSG_AUDIO) {
+        ctx->audio_codec_id = (fmt & 0xf0) >> 4;
+        ctx->audio_channels = (fmt & 0x01) + 1;
+        ctx->sample_size = (fmt & 0x02) ? 2 : 1;
 
-    if(!is_ext_header) {
-        if (h->type == NGX_RTMP_MSG_AUDIO) {
-            ctx->audio_codec_id = (fmt & 0xf0) >> 4;
-            ctx->audio_channels = (fmt & 0x01) + 1;
-            ctx->sample_size = (fmt & 0x02) ? 2 : 1;
+        if (ctx->sample_rate == 0) {
+            ctx->sample_rate = sample_rates[(fmt & 0x0c) >> 2];
+        }
 
-            if (ctx->sample_rate == 0) {
-                ctx->sample_rate = sample_rates[(fmt & 0x0c) >> 2];
+    } else {
+
+        is_ext_header = (fmt & 0x80);
+
+        if(!is_ext_header) {
+            ctx->video_codec_id = (fmt & 0x0f);
+        } else {
+            ngx_rtmp_chain_reader_t      reader;
+            ngx_rtmp_chain_reader_init(&reader, in);
+
+            /* frame info - 1 byte */
+            if (ngx_rtmp_chain_reader_skip(&reader, 1) != NGX_OK) {
+                ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+                      "ngx_rtmp_codec_av. failed to skip frame info");
+                return NGX_ERROR;
             }
 
-        } else {
-            ctx->video_codec_id = (fmt & 0x0f);
-        }
-    } else {
-        ngx_rtmp_chain_reader_t      reader;
-        ngx_rtmp_chain_reader_init(&reader, in);
-
-        /* frame info - 1 byte */
-        if (ngx_rtmp_chain_reader_skip(&reader, 1) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
-                  "ngx_rtmp_codec_av. failed to skip frame info");
-            return NGX_ERROR;
-        }
-
-        if (ngx_rtmp_chain_reader_read(&reader,&ctx->video_codec_id,4) != NGX_OK) {
-            ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
-                  "ngx_rtmp_codec_av. failed to read video_codec_id");
-            return NGX_ERROR;
+            if (ngx_rtmp_chain_reader_read(&reader,&ctx->video_codec_id,4) != NGX_OK) {
+                ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+                      "ngx_rtmp_codec_av. failed to read video_codec_id");
+                return NGX_ERROR;
+            }
         }
     }
 
