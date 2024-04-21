@@ -1070,11 +1070,11 @@ static void
 ngx_rtmp_codec_dump_header(ngx_rtmp_session_t *s, const char *type,
     ngx_chain_t *in)
 {
-    u_char buf[256],  *pp, *p = in->buf->pos;
+    u_char buf[257],  *pp, *p = in->buf->pos;
     u_char hex[] = "0123456789abcdef";
 
     while(p < in->buf->last) {
-        for (pp = buf;  p < in->buf->last && pp < buf + sizeof(buf) - 2;
+        for (pp = buf;  p < in->buf->last && pp < (buf + sizeof(buf) - 3);
              ++p)
         {
             *pp++ = hex[*p >> 4];

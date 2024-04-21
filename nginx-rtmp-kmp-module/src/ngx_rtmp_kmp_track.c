@@ -283,14 +283,13 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
 
             frame->header.data_size -= sizeof(codec_id);
 
-            ngx_log_debug2(NGX_LOG_DEBUG_RTMP, &track->log, 0,
-                    "ngx_rtmp_kmp_track_init_frame: parsed codec id: %ui extra data size: %ui",
-                    codec_id, frame->header.data_size);
-
             packet_type = (frame_info & 0x0f);
-        }
 
-        frame->header.data_size -= sizeof(packet_type);
+            ngx_log_debug3(NGX_LOG_DEBUG_RTMP, &track->log, 0,
+                    "ngx_rtmp_kmp_track_init_frame: parsed codec id: %ui data size: %ui packet type: %ui",
+                    codec_id, frame->header.data_size,packet_type);
+
+        }
 
         if (packet_type == NGX_RTMP_AVC_SEQUENCE_HEADER) {
             *sequence_header = 1;
