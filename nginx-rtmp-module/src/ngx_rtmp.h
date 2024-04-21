@@ -205,6 +205,19 @@ typedef enum {
     NGX_RTMP_TYPE3_EXT_TS_AUTO,
 } ngx_rtmp_type3_ext_ts_t;
 
+// extension packetType as defined in https://veovera.org/docs/enhanced/enhanced-rtmp-v1
+typedef enum {
+    PacketTypeSequenceStart,
+    PacketTypeCodedFrames,
+    PacketTypeSequenceEnd,
+    PacketTypeCodedFramesX,
+    PacketTypeMetadata,
+    PacketTypeMPEG2TSSequenceStart,
+    PacketTypeLastReserved=15
+} ngx_rtmp_v1_packet_type_t;
+
+#define NGX_RTMP_CODEC_FOURCC_HEV1 (0x31766568)
+#define NGX_RTMP_CODEC_FOURCC_HVC1 (0x31637668)
 
 typedef struct {
     uint32_t                   signature;  /* "RTMP" */ /* <-- FIXME wtf */
@@ -629,9 +642,16 @@ ngx_rtmp_get_video_frame_type(ngx_chain_t *in)
 
 
 static ngx_inline ngx_int_t
-ngx_rtmp_is_codec_header(ngx_chain_t *in)
+ngx_rtmp_is_codec_header(ngx_uint_t codec_id, ngx_chain_t *in)
 {
-    return in->buf->pos + 1 < in->buf->last && in->buf->pos[1] == 0;
+    switch(codec_id){
+    case NGX_RTMP_CODEC_FOURCC_HEV1:
+    case NGX_RTMP_CODEC_FOURCC_HVC1:
+        //HEVCDecoderConfigurationRecord configurationVersion byte
+        return in->buf->pos < in->buf->last && (in->buf->pos[0] & 0xf) == PacketTypeSequenceStart;
+    default:
+        return in->buf->pos + 1 < in->buf->last && in->buf->pos[1] == 0;
+    }
 }
 
 
@@ -651,18 +671,5 @@ extern ngx_thread_volatile ngx_event_t     *ngx_rtmp_init_queue;
 extern ngx_uint_t                           ngx_rtmp_max_module;
 extern ngx_module_t                         ngx_rtmp_core_module;
 
-// extension packetType as defined in https://veovera.org/docs/enhanced/enhanced-rtmp-v1
-typedef enum {
-    PacketTypeSequenceStart,
-    PacketTypeCodedFrames,
-    PacketTypeSequenceEnd,
-    PacketTypeCodedFramesX,
-    PacketTypeMetadata,
-    PacketTypeMPEG2TSSequenceStart,
-    PacketTypeLastReserved=15
-} ngx_rtmp_v1_packet_type_t;
-
-#define NGX_RTMP_CODEC_FOURCC_HEV1 (0x31766568)
-#define NGX_RTMP_CODEC_FOURCC_HVC1 (0x31637668)
 
 #endif /* _NGX_RTMP_H_INCLUDED_ */

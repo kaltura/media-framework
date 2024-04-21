@@ -869,7 +869,7 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
             }
 
             if (codec_ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC &&
-                ngx_rtmp_is_codec_header(in))
+                ngx_rtmp_is_codec_header(codec_ctx->audio_codec_id, in))
             {
                 prio = 0;
                 mandatory = 1;
@@ -882,8 +882,8 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
                 coheader = codec_ctx->aac_header;
             }
 
-            if (codec_ctx->video_codec_id == NGX_RTMP_VIDEO_H264 &&
-                ngx_rtmp_is_codec_header(in))
+            if (codec_ctx->video_codec_id >= NGX_RTMP_VIDEO_H264 &&
+                ngx_rtmp_is_codec_header(codec_ctx->video_codec_id, in))
             {
                 prio = 0;
                 mandatory = 1;

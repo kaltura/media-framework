@@ -381,12 +381,99 @@ ngx_rtmp_codec_detect_cea(ngx_rtmp_session_t *s, ngx_chain_t *in)
     return 0;
 }
 
+#define HEVC_HVCC_HEADER_SIZE             22
+size_t
+codec_config_hvcc_nal_units_get_size(ngx_log_t* log, ngx_rtmp_codec_ctx_t   *ctx,ngx_chain_t *in)
+{
+#define parse_be16(p) ( ((uint16_t) ((u_char*)(p))[0] << 8)  | (((u_char*)(p))[1]) )
+#define parse_be32(p) ( ((uint32_t) ((u_char*)(p))[0] << 24) | (((u_char*)(p))[1] << 16) | (((u_char*)(p))[2] << 8) | (((u_char*)(p))[3]) )
+
+#define read_be16(p, v) { v = parse_be16(&(p)); }
+#define read_be32(p, v) { v = parse_be32(&(p)); }
+
+    uint32_t unit_size;
+    uint16_t count;
+    uint8_t type_count;
+    size_t size;
+    ngx_rtmp_chain_reader_t      reader;
+    uint8_t nal_unit_size = sizeof(uint16_t);
+    uint8_t *nalp = (u_char *) &unit_size + sizeof(unit_size) - nal_unit_size;
+    ngx_rtmp_chain_reader_init(&reader, in);
+
+
+    if (ngx_rtmp_chain_reader_skip(&reader,5) < 0)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "codec_config_hvcc_nal_units_get_size: failed to skip to start of extra data");
+        return 0;
+    }
+
+    if (ngx_rtmp_chain_reader_skip(&reader,HEVC_HVCC_HEADER_SIZE) < 0)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "codec_config_hvcc_nal_units_get_size: extra data size <= %uz too small", HEVC_HVCC_HEADER_SIZE);
+        return 0;
+    }
+
+    size = 0;
+    if (ngx_rtmp_chain_reader_read(&reader,&type_count,1) < 0)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+            "codec_config_hvcc_nal_units_get_size: failed to read %d bytes: type_count ", sizeof(type_count));
+        return 0;
+    }
+
+    for (; type_count > 0; type_count--)
+    {
+        if (ngx_rtmp_chain_reader_skip(&reader,1) < 0)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "codec_config_hvcc_nal_units_get_size: failed to skip 1 byte");
+            return 0;
+        }
+
+        if (ngx_rtmp_chain_reader_read(&reader,&count,sizeof (count)) < 0)
+        {
+            ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                "codec_config_hvcc_nal_units_get_size: failed to read NAL count", HEVC_HVCC_HEADER_SIZE + 1);
+            return 0;
+        }
+        read_be16(count, count);
+
+        for (; count > 0; count--)
+        {
+            unit_size = 0;
+            if (ngx_rtmp_chain_reader_read(&reader,nalp ,nal_unit_size) < 0)
+            {
+                ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                    "codec_config_hvcc_nal_units_get_size: failed to read %d bytes unit_size", sizeof (unit_size));
+                return 0;
+            }
+            read_be32(unit_size, unit_size);
+
+            if (ngx_rtmp_chain_reader_skip(&reader,unit_size) < 0)
+            {
+                ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                    "codec_config_hvcc_nal_units_get_size: failed to skip NAL unit of size %d", unit_size);
+                return 0;
+            }
+
+            ngx_log_debug1(NGX_LOG_NOTICE, log, 0,
+              "codec_config_hvcc_nal_units_get_size: skipped NAL unit of size %d", unit_size);
+
+            size += nal_unit_size + 1 + unit_size;
+        }
+    }
+
+    return size;
+}
+
 static ngx_int_t
 ngx_rtmp_codec_parse_extended_header(ngx_rtmp_session_t *s, ngx_chain_t *in, ngx_uint_t packet_type)
 {
     if(packet_type > PacketTypeCodedFramesX) {
         //TODO: handle metadata AMF here
-        ngx_log_error(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
               "ngx_rtmp_codec_parse_extended_header. handling metadata is not supported");
         return NGX_OK;
     }
@@ -396,6 +483,10 @@ ngx_rtmp_codec_parse_extended_header(ngx_rtmp_session_t *s, ngx_chain_t *in, ngx
         ngx_rtmp_codec_ctx_t        *ctx;
 
         ctx = ngx_rtmp_stream_get_module_ctx(s, ngx_rtmp_codec_module);
+
+        ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+            "ngx_rtmp_codec_parse_extended_header. codec id: %ui packet type %ui",
+             ctx->video_codec_id, packet_type);
 
         switch(ctx->video_codec_id) {
            case NGX_RTMP_CODEC_FOURCC_HEV1:
@@ -420,6 +511,7 @@ ngx_rtmp_codec_parse_extended_header(ngx_rtmp_session_t *s, ngx_chain_t *in, ngx
               in->buf->last - in->buf->pos);
         return NGX_OK;
     }
+
     return NGX_OK;
 }
 
@@ -504,12 +596,11 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
     }
 
     /* no conf */
-    if (!ngx_rtmp_is_codec_header(in)) {
+    if (!ngx_rtmp_is_codec_header( h->type == NGX_RTMP_MSG_AUDIO
+        ? ctx->audio_codec_id : ctx->video_codec_id, in)) {
         if (ctx->video_captions_tries > 0
             && h->type == NGX_RTMP_MSG_VIDEO
-            && (ctx->video_codec_id == NGX_RTMP_VIDEO_H264
-            || ctx->video_codec_id == NGX_RTMP_CODEC_FOURCC_HVC1
-            || ctx->video_codec_id == NGX_RTMP_CODEC_FOURCC_HEV1))
+            && (ctx->video_codec_id >= NGX_RTMP_VIDEO_H264))
         {
             if (ngx_rtmp_codec_detect_cea(s, in)) {
                 ctx->video_captions = 1;
@@ -534,19 +625,18 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
                 header = NULL;
             }
 
-    } else {
-    if (h->type == NGX_RTMP_MSG_AUDIO) {
-            if (ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC) {
-                header = &ctx->aac_header;
-                ngx_rtmp_codec_parse_aac_header(s, in);
-            }
-
-        } else {
-            if (ctx->video_codec_id == NGX_RTMP_VIDEO_H264) {
-                header = &ctx->avc_header;
-                ngx_rtmp_codec_parse_avc_header(s, in);
-            }
+    } else if (h->type == NGX_RTMP_MSG_AUDIO) {
+        if (ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC) {
+            header = &ctx->aac_header;
+            ngx_rtmp_codec_parse_aac_header(s, in);
         }
+   
+    } else {
+        if (ctx->video_codec_id == NGX_RTMP_VIDEO_H264) {
+            header = &ctx->avc_header;
+            ngx_rtmp_codec_parse_avc_header(s, in);
+        }
+    
     }
 
     if (header == NULL) {
@@ -857,7 +947,7 @@ ngx_rtmp_codec_parse_avc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
                    ctx->width, ctx->height);
 }
 
-#define reader_check(expr) \
+#define bit_reader_check(expr) \
     if(ngx_rtmp_bit_read_err(&br) || ngx_rtmp_bit_read_eof(&br)) { \
         err_msg = #expr; \
         goto error; \
@@ -889,19 +979,19 @@ ngx_rtmp_codec_parse_hevc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     ngx_rtmp_bit_init_reader(&br, in->buf->pos, in->buf->last);
 
     //skip tag header and configurationVersion(1 byte)
-    reader_check(ngx_rtmp_bit_read(&br, 48));
+    bit_reader_check(ngx_rtmp_bit_read(&br, 48));
 
     /* unsigned int(2) general_profile_space; */
     /* unsigned int(1) general_tier_flag; */
     /* unsigned int(5) general_profile_idc; */
-    reader_check(ctx->avc_profile = (ngx_uint_t) (ngx_rtmp_bit_read_8(&br) & 0x1f));
+    bit_reader_check(ctx->avc_profile = (ngx_uint_t) (ngx_rtmp_bit_read_8(&br) & 0x1f));
 
     //unsigned int(32) general_profile_compatibility_flags;
-    reader_check(ctx->avc_compat = (ngx_uint_t) ngx_rtmp_bit_read_32(&br));
+    bit_reader_check(ctx->avc_compat = (ngx_uint_t) ngx_rtmp_bit_read_32(&br));
     //unsigned int(48) general_constraint_indicator_flags;
-    reader_check(ngx_rtmp_bit_read(&br, 48));
+    bit_reader_check(ngx_rtmp_bit_read(&br, 48));
     //unsigned int(8) general_level_idc;
-    reader_check(ctx->avc_level = (ngx_uint_t) ngx_rtmp_bit_read_8(&br));
+    bit_reader_check(ctx->avc_level = (ngx_uint_t) ngx_rtmp_bit_read_8(&br));
 
     /* bit(4) reserved = ‘1111’b; */
     /* unsigned int(12) min_spatial_segmentation_idc; */
@@ -913,37 +1003,34 @@ ngx_rtmp_codec_parse_hevc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     /* unsigned int(3) bit_depth_luma_minus8; */
     /* bit(5) reserved = ‘11111’b; */
     /* unsigned int(3) bit_depth_chroma_minus8; */
-   reader_check(ngx_rtmp_bit_read(&br, 48));
+   bit_reader_check(ngx_rtmp_bit_read(&br, 48));
 
     /* bit(16) avgFrameRate; */
-   reader_check(ctx->frame_rate = (ngx_uint_t) ngx_rtmp_bit_read_16(&br));
+   bit_reader_check(ctx->frame_rate = (ngx_uint_t) ngx_rtmp_bit_read_16(&br));
 
     /* bit(2) constantFrameRate; */
-    reader_check(ctx->avc_ref_frames = (ngx_uint_t) ngx_rtmp_bit_read(&br, 2));
+    bit_reader_check(ctx->avc_ref_frames = (ngx_uint_t) ngx_rtmp_bit_read(&br, 2));
     /* bit(3) numTemporalLayers; */
     /* bit(1) temporalIdNested; */
-    reader_check(ngx_rtmp_bit_read(&br, 4));
+    bit_reader_check(ngx_rtmp_bit_read(&br, 4));
 
     /* unsigned int(2) lengthSizeMinusOne; */
-    reader_check(ctx->avc_nal_bytes = (ngx_uint_t)ngx_rtmp_bit_read(&br, 2) + 1);
-    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0, "codec: hevc h265 ctx->avc_nal_bytes=%ui", ctx->avc_nal_bytes);
+    bit_reader_check(ctx->avc_nal_bytes = (ngx_uint_t)ngx_rtmp_bit_read(&br, 2) + 1);
 
     /* unsigned int(8) numOfArrays; 04 */
-    reader_check(narrs = (ngx_uint_t)ngx_rtmp_bit_read_8(&br));
+    bit_reader_check(narrs = (ngx_uint_t)ngx_rtmp_bit_read_8(&br));
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0, "codec: hevc header narrs=%ui ", narrs);
 
 
     //parse vps sps pps ..
     for ( j = 0; j < narrs; j++) {
         //bit(1) array_completeness;
-#if (NGX_DEBUG)
-        reader_check(nal_type = (ngx_uint_t)ngx_rtmp_bit_read_8(&br) & 0x3f);
-#endif
-        reader_check(nnal = (ngx_uint_t)ngx_rtmp_bit_read_16(&br));
+        bit_reader_check(nal_type = (ngx_uint_t)ngx_rtmp_bit_read_8(&br) & 0x3f);
+        bit_reader_check(nnal = (ngx_uint_t)ngx_rtmp_bit_read_16(&br));
         ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0, "codec: hevc nal_type=%ui nnal=%ui", nal_type, nnal);
         for (i = 0; i < nnal; i++) {
-            reader_check(nnall = (ngx_uint_t)ngx_rtmp_bit_read_16(&br));
-            reader_check(ngx_rtmp_bit_read(&br, nnall*8));
+            bit_reader_check(nnall = (ngx_uint_t)ngx_rtmp_bit_read_16(&br));
+            bit_reader_check(ngx_rtmp_bit_read(&br, nnall*8));
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0, "codec: hevc nnall=%ui",  nnall);
             //vps-32 sps-33 pps-34
         }
@@ -957,6 +1044,15 @@ ngx_rtmp_codec_parse_hevc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
            ctx->avc_profile, ctx->avc_compat, ctx->avc_level,
            ctx->avc_nal_bytes, ctx->avc_ref_frames, (ngx_uint_t)ctx->frame_rate,
            ctx->width, ctx->height);
+
+#if (NGX_DEBUG)
+    ngx_uint_t size = codec_config_hvcc_nal_units_get_size(s->connection->log,ctx, in);
+    if (size <= 0) {
+        ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+            "ngx_rtmp_codec_parse_hevc_header: codec_config_hvcc_nal_units_get_size failed");
+        return NGX_ERROR;
+    }
+#endif
 
     return NGX_OK;
 
@@ -974,21 +1070,22 @@ static void
 ngx_rtmp_codec_dump_header(ngx_rtmp_session_t *s, const char *type,
     ngx_chain_t *in)
 {
-    u_char buf[256], *p, *pp;
+    u_char buf[256],  *pp, *p = in->buf->pos;
     u_char hex[] = "0123456789abcdef";
 
-    for (pp = buf, p = in->buf->pos;
-         p < in->buf->last && pp < buf + sizeof(buf) - 2;
-         ++p)
-    {
-        *pp++ = hex[*p >> 4];
-        *pp++ = hex[*p & 0x0f];
-    }
+    while(p < in->buf->last) {
+        for (pp = buf;  p < in->buf->last && pp < buf + sizeof(buf) - 2;
+             ++p)
+        {
+            *pp++ = hex[*p >> 4];
+            *pp++ = hex[*p & 0x0f];
+        }
 
-    *pp = 0;
+        *pp = 0;
 
-    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                   "codec: %s header %s", type, buf);
+        ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                       "codec: %s header %s", type, buf);
+   }
 }
 #endif
 
