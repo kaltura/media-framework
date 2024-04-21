@@ -281,11 +281,11 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
                 return NGX_ERROR;
             }
 
-            ngx_log_debug1(NGX_LOG_DEBUG_RTMP, &track->log, 0,
-                    "ngx_rtmp_kmp_track_init_frame: parsed codec id: %ui",
-                    codec_id);
-
             frame->header.data_size -= sizeof(codec_id);
+
+            ngx_log_debug2(NGX_LOG_DEBUG_RTMP, &track->log, 0,
+                    "ngx_rtmp_kmp_track_init_frame: parsed codec id: %ui extra data size: %ui",
+                    codec_id, frame->header.data_size);
 
             packet_type = (frame_info & 0x0f);
         }
