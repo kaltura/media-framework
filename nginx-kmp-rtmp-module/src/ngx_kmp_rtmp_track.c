@@ -316,6 +316,7 @@ ngx_kmp_rtmp_validate_media_info(ngx_log_t *log, kmp_media_info_t *media_info)
         switch (media_info->codec_id) {
 
         case KMP_CODEC_VIDEO_H264:
+        case KMP_CODEC_VIDEO_H265:
             break;
 
         default:

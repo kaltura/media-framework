@@ -110,4 +110,11 @@ ngx_int_t ngx_kmp_rtmp_encoder_frame_write(ngx_kmp_rtmp_stream_ctx_t *sc,
     ngx_kmp_rtmp_frame_t *frame, uint32_t codec_id,
     ngx_kmp_rtmp_write_pt write, void *data);
 
+
+size_t ngx_kmp_rtmp_encoder_ext_sequence_get_size(
+    ngx_kmp_rtmp_stream_ctx_t *sc, ngx_str_t *extra_data);
+u_char *ngx_kmp_rtmp_encoder_ext_sequence_write(uint32_t codec_id, u_char *p,
+    ngx_kmp_rtmp_stream_ctx_t *sc, ngx_str_t *extra_data);
+
+
 #endif /* _NGX_KMP_RTMP_ENCODER_H_INCLUDED_ */

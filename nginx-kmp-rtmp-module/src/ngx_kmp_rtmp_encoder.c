@@ -33,6 +33,11 @@
 #define NGX_RTMP_AVC_SEQUENCE_HEADER  0
 #define NGX_RTMP_AVC_NALU             1
 
+#define NGX_RTMP_EXT_HEADER_SIZE      8  /* (frame | packet type), pts_delay, fourcc */
+#define NGX_RTMP_EXT_SEQUENCE_HEADER  0
+#define NGX_RTMP_EXT_NALU             1
+static const uint32_t NGX_RTMP_EXT_FOURCC_HVC1 = 0x31637668;
+
 /* audio */
 #define NGX_RTMP_AAC_HEADER_SIZE      2  /* sound_info + packet_type */
 
@@ -52,7 +57,7 @@
 
 
 #define NGX_RTMP_FRAME_HEADER_MAX_SIZE  (NGX_RTMP_HEADER_0_SIZE              \
-    + NGX_RTMP_EXT_TIMESTAMP_SIZE + NGX_RTMP_AVC_HEADER_SIZE)
+    + NGX_RTMP_EXT_TIMESTAMP_SIZE + NGX_RTMP_EXT_HEADER_SIZE)
 
 
 #define ngx_kmp_rtmp_chunk_count(mlen, chunk_size)                           \
@@ -483,6 +488,9 @@ static ngx_kmp_rtmp_amf_field_t  ngx_kmp_rtmp_amf_onfi[] = {
       ngx_kmp_rtmp_amf_null_field
 };
 
+static u_char *
+ngx_kmp_rtmp_encoder_ext_header_write(uint32_t codec_id, u_char *p, u_char packet_type,
+    u_char key_frame, uint32_t pts_delay);
 
 static ngx_inline u_char *
 ngx_kmp_rtmp_encoder_write_header(u_char *p, ngx_kmp_rtmp_header_t *h)
@@ -1015,6 +1023,14 @@ ngx_kmp_rtmp_encoder_frame_write(ngx_kmp_rtmp_stream_ctx_t *sc,
             frame->flags & KMP_FRAME_FLAG_KEY, frame->pts_delay);
         break;
 
+    case KMP_CODEC_VIDEO_H265:
+        header_size = NGX_RTMP_EXT_HEADER_SIZE - 4;
+        h.type = NGX_RTMP_MSG_VIDEO;
+
+        p = ngx_kmp_rtmp_encoder_ext_header_write(codec_id, p, NGX_RTMP_AVC_NALU,
+            frame->flags & KMP_FRAME_FLAG_KEY, frame->pts_delay);
+        break;
+
     case KMP_CODEC_AUDIO_MP3:
         header_size = 1;
         h.type = NGX_RTMP_MSG_AUDIO;
@@ -1097,4 +1113,67 @@ ngx_kmp_rtmp_encoder_frame_write(ngx_kmp_rtmp_stream_ctx_t *sc,
     sc->last_timestamp = frame->dts;
 
     return NGX_OK;
+}
+
+size_t
+ngx_kmp_rtmp_encoder_ext_sequence_get_size(ngx_kmp_rtmp_stream_ctx_t *sc,
+    ngx_str_t *extra_data)
+{
+    size_t  mlen;
+
+    mlen = NGX_RTMP_EXT_HEADER_SIZE - 3 + extra_data->len;
+
+    return NGX_RTMP_HEADER_0_SIZE + mlen
+        + (ngx_kmp_rtmp_chunk_count(mlen, sc->chunk_size) - 1)
+        * NGX_RTMP_HEADER_3_SIZE;
+}
+
+
+u_char *
+ngx_kmp_rtmp_encoder_ext_sequence_write(uint32_t codec_id, u_char *p,
+    ngx_kmp_rtmp_stream_ctx_t *sc, ngx_str_t *extra_data)
+{
+    u_char                 *body;
+    ngx_kmp_rtmp_header_t   h;
+
+
+    ngx_memzero(&h, sizeof(h));
+    h.csid = sc->csid;
+    h.mlen = NGX_RTMP_EXT_HEADER_SIZE - 3 + extra_data->len;
+    h.type = NGX_RTMP_MSG_VIDEO;
+    h.msid = sc->msid;
+
+    p = ngx_kmp_rtmp_encoder_write_header(p, &h);
+
+    body = p;
+    p = ngx_kmp_rtmp_encoder_ext_header_write(codec_id, p, NGX_RTMP_EXT_SEQUENCE_HEADER,
+        1, 0);
+    ngx_memcpy(p, extra_data->data, extra_data->len);
+
+    return ngx_kmp_rtmp_encoder_add_chunk_headers(body, h.mlen, sc->chunk_size,
+        h.csid);
+}
+
+static u_char *
+ngx_kmp_rtmp_encoder_ext_header_write(uint32_t codec_id, u_char *p, u_char packet_type,
+    u_char key_frame, uint32_t pts_delay)
+{
+    u_char  frame_type;
+
+    frame_type = key_frame ? NGX_RTMP_FRAME_TYPE_KEY
+        : NGX_RTMP_FRAME_TYPE_INTER;
+
+    *p++ = (frame_type << 4) | 0x80 | packet_type;
+
+    if(packet_type == NGX_RTMP_EXT_NALU) {
+         ngx_kmp_rtmp_amf_write_be24(p, pts_delay);
+    }
+
+    if(KMP_CODEC_VIDEO_H265 == codec_id) {
+        // TODO: support for “vp09” and “av01”
+        ngx_memcpy(p, &NGX_RTMP_EXT_FOURCC_HVC1, 4);
+        p += 4;
+    }
+
+    return p;
 }

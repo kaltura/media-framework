@@ -190,6 +190,10 @@ ngx_kmp_rtmp_stream_write_meta(ngx_kmp_rtmp_stream_t *stream)
             &stream->ctx, &extra_data[KMP_MEDIA_VIDEO]);
     }
 
+    if (meta.mi[KMP_MEDIA_VIDEO].codec_id == KMP_CODEC_VIDEO_H265) {
+        size += ngx_kmp_rtmp_encoder_ext_sequence_get_size(&stream->ctx, &extra_data[KMP_MEDIA_VIDEO]);
+    }
+
     if (meta.mi[KMP_MEDIA_AUDIO].codec_id == KMP_CODEC_AUDIO_AAC) {
         size += ngx_kmp_rtmp_encoder_aac_sequence_get_size(
             &stream->ctx, &extra_data[KMP_MEDIA_AUDIO]);
@@ -207,6 +211,11 @@ ngx_kmp_rtmp_stream_write_meta(ngx_kmp_rtmp_stream_t *stream)
     if (meta.mi[KMP_MEDIA_VIDEO].codec_id == KMP_CODEC_VIDEO_H264) {
         p = ngx_kmp_rtmp_encoder_avc_sequence_write(p, &stream->ctx,
             &extra_data[KMP_MEDIA_VIDEO]);
+    }
+
+    if (meta.mi[KMP_MEDIA_VIDEO].codec_id == KMP_CODEC_VIDEO_H265) {
+        p = ngx_kmp_rtmp_encoder_ext_sequence_write(meta.mi[KMP_MEDIA_VIDEO].codec_id,
+            p, &stream->ctx, &extra_data[KMP_MEDIA_VIDEO]);
     }
 
     if (meta.mi[KMP_MEDIA_AUDIO].codec_id == KMP_CODEC_AUDIO_AAC) {
