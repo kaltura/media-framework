@@ -32,6 +32,20 @@ enum {
     NGX_RTMP_AUDIO_DEVSPEC          = 15,
 };
 
+// extension packetType as defined in https://veovera.org/docs/enhanced/enhanced-rtmp-v1
+typedef enum {
+    PacketTypeSequenceStart,
+    PacketTypeCodedFrames,
+    PacketTypeSequenceEnd,
+    PacketTypeCodedFramesX,
+    PacketTypeMetadata,
+    PacketTypeMPEG2TSSequenceStart,
+    PacketTypeLastReserved=15
+} ngx_rtmp_v1_packet_type_t;
+
+#define NGX_RTMP_CODEC_FOURCC_HEV1 (0x31766568)
+#define NGX_RTMP_CODEC_FOURCC_HVC1 (0x31637668)
+#define NGX_RTMP_EXT_HEADER_MASK (0x80)
 
 /* Video codecs */
 enum {
@@ -81,6 +95,19 @@ typedef struct {
     ngx_chain_t                *meta;
     ngx_uint_t                  meta_version;
 } ngx_rtmp_codec_ctx_t;
+
+static ngx_inline ngx_int_t
+ngx_rtmp_is_codec_header(ngx_uint_t codec_id, ngx_chain_t *in)
+{
+    switch(codec_id){
+    case NGX_RTMP_CODEC_FOURCC_HEV1:
+    case NGX_RTMP_CODEC_FOURCC_HVC1:
+        //HEVCDecoderConfigurationRecord configurationVersion byte
+        return in->buf->pos < in->buf->last && (in->buf->pos[0] & 0xf) == PacketTypeSequenceStart;
+    default:
+        return in->buf->pos + 1 < in->buf->last && in->buf->pos[1] == 0;
+    }
+}
 
 
 extern ngx_module_t  ngx_rtmp_codec_module;
