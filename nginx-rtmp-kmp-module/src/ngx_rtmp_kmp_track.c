@@ -282,7 +282,8 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
             *sequence_header = 1;
         }
 
-        if(packet_type == PacketTypeCodedFrames) {
+        if(codec_id >= NGX_RTMP_VIDEO_H264
+                   || packet_type == PacketTypeCodedFrames) {
             rc = ngx_rtmp_kmp_copy(&track->log, &comp_time, src,
                 sizeof(comp_time), in);
             if (rc != NGX_OK) {
