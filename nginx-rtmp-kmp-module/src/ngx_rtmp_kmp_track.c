@@ -272,18 +272,30 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
             frame->header.data_size -= sizeof(packet_type);
         } else  {
             packet_type = (frame_info & 0x0f);
-
-            ngx_log_debug3(NGX_LOG_DEBUG_RTMP, &track->log, 0,
-                    "ngx_rtmp_kmp_track_init_frame: extended rtmp. codec id: %ui data size: %ui packet type: %ui",
-                    codec_id, frame->header.data_size,packet_type);
         }
 
         if (packet_type == NGX_RTMP_AVC_SEQUENCE_HEADER) {
             *sequence_header = 1;
         }
 
-        if(codec_id >= NGX_RTMP_VIDEO_H264
-                   || packet_type == PacketTypeCodedFrames) {
+        if(ext_header) {
+            rc = ngx_rtmp_kmp_copy(&track->log, &codec_id, src,
+                sizeof(codec_id), in);
+            if (rc != NGX_OK) {
+                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
+                    "ngx_rtmp_kmp_track_init_frame: extended rtmp. failed to read codec_id");
+                ngx_kmp_out_track_set_error_reason(track, "rtmp_bad_data");
+                return NGX_ERROR;
+            }
+
+            frame->header.data_size -= sizeof(codec_id);
+
+        }
+
+        if(codec_id == NGX_RTMP_VIDEO_H264
+            || ((codec_id == NGX_RTMP_CODEC_FOURCC_HVC1
+            || codec_id == NGX_RTMP_CODEC_FOURCC_HEV1)
+                && packet_type == PacketTypeCodedFrames) ) {
             rc = ngx_rtmp_kmp_copy(&track->log, &comp_time, src,
                 sizeof(comp_time), in);
             if (rc != NGX_OK) {
@@ -309,20 +321,13 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
         } else {
             frame->f.pts_delay = 0;
         }
-
-        if(ext_header) {
-            rc = ngx_rtmp_kmp_copy(&track->log, &codec_id, src,
-                sizeof(codec_id), in);
-            if (rc != NGX_OK) {
-                ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                    "ngx_rtmp_kmp_track_init_frame: extended rtmp. failed to read codec_id");
-                ngx_kmp_out_track_set_error_reason(track, "rtmp_bad_data");
-                return NGX_ERROR;
-            }
-
-            frame->header.data_size -= sizeof(codec_id);
-
-        }
+        ngx_log_debug5(NGX_LOG_DEBUG_RTMP, &track->log, 0,
+                "ngx_rtmp_kmp_track_init_frame: %s rtmp. codec id: %ui data size: %ui packet type: %ui pts delay %uD",
+                ext_header ? "extended" : "",
+                codec_id,
+                frame->header.data_size,
+                packet_type,
+                frame->f.pts_delay);
         break;
 
     case NGX_RTMP_MSG_AUDIO:

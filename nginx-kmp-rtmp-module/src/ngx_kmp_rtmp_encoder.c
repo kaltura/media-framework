@@ -1165,14 +1165,11 @@ ngx_kmp_rtmp_encoder_ext_header_write(uint32_t codec_id, u_char *p, u_char packe
 
     *p++ = (frame_type << 4) | 0x80 | packet_type;
 
+    // TODO: support for “vp09” and “av01”
+    p = ngx_copy(p, &NGX_RTMP_EXT_FOURCC_HVC1, 4);
+
     if(packet_type == NGX_RTMP_EXT_NALU) {
          ngx_kmp_rtmp_amf_write_be24(p, pts_delay);
-    }
-
-    if(KMP_CODEC_VIDEO_H265 == codec_id) {
-        // TODO: support for “vp09” and “av01”
-        ngx_memcpy(p, &NGX_RTMP_EXT_FOURCC_HVC1, 4);
-        p += 4;
     }
 
     return p;
