@@ -32,7 +32,8 @@ enum {
     NGX_RTMP_AUDIO_DEVSPEC          = 15,
 };
 
-// extension packetType as defined in "https://veovera.org/docs/enhanced/enhanced.rtmp.v1"
+
+// extension packetType as defined in "https://veovera.org/docs/enhanced/enhanced-rtmp-v1"
 typedef enum {
     PacketTypeSequenceStart,
     PacketTypeCodedFrames,

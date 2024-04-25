@@ -591,7 +591,7 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
             header = &ctx->aac_header;
             ngx_rtmp_codec_parse_aac_header(s, in);
         }
-   
+
     } else {
         if (ctx->video_codec_id == NGX_RTMP_VIDEO_H264) {
             header = &ctx->avc_header;
@@ -991,7 +991,7 @@ ngx_rtmp_codec_parse_hevc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
         ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0, "codec: hevc nal_type=%ui nnal=%ui", nal_type, nnal);
         for (i = 0; i < nnal; i++) {
             bit_reader_check(nnall = (ngx_uint_t) ngx_rtmp_bit_read_16(&br));
-            bit_reader_check(ngx_rtmp_bit_read(&br, nnall*8));
+            bit_reader_check(ngx_rtmp_bit_read(&br, nnall * 8));
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0, "codec: hevc nnall=%ui",  nnall);
             // vps: 32 sps: 33 pps: 34
         }
