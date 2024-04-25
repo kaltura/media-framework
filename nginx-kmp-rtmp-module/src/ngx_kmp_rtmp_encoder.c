@@ -488,6 +488,7 @@ static ngx_kmp_rtmp_amf_field_t  ngx_kmp_rtmp_amf_onfi[] = {
       ngx_kmp_rtmp_amf_null_field
 };
 
+
 static u_char *
 ngx_kmp_rtmp_encoder_ext_header_write(uint32_t codec_id, u_char *p, u_char packet_type,
     u_char key_frame, uint32_t pts_delay);
@@ -1115,6 +1116,7 @@ ngx_kmp_rtmp_encoder_frame_write(ngx_kmp_rtmp_stream_ctx_t *sc,
     return NGX_OK;
 }
 
+
 size_t
 ngx_kmp_rtmp_encoder_ext_sequence_get_size(ngx_kmp_rtmp_stream_ctx_t *sc,
     ngx_str_t *extra_data)
@@ -1154,6 +1156,7 @@ ngx_kmp_rtmp_encoder_ext_sequence_write(uint32_t codec_id, u_char *p,
         h.csid);
 }
 
+
 static u_char *
 ngx_kmp_rtmp_encoder_ext_header_write(uint32_t codec_id, u_char *p, u_char packet_type,
     u_char key_frame, uint32_t pts_delay)
@@ -1169,7 +1172,7 @@ ngx_kmp_rtmp_encoder_ext_header_write(uint32_t codec_id, u_char *p, u_char packe
     p = ngx_copy(p, &NGX_RTMP_EXT_FOURCC_HVC1, 4);
 
     if(packet_type == NGX_RTMP_EXT_NALU) {
-         ngx_kmp_rtmp_amf_write_be24(p, pts_delay);
+        ngx_kmp_rtmp_amf_write_be24(p, pts_delay);
     }
 
     return p;

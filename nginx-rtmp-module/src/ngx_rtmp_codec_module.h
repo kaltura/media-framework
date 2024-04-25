@@ -40,7 +40,7 @@ typedef enum {
     PacketTypeCodedFramesX,
     PacketTypeMetadata,
     PacketTypeMPEG2TSSequenceStart,
-    PacketTypeLastReserved=15
+    PacketTypeLastReserved = 15
 } ngx_rtmp_v1_packet_type_t;
 
 #define NGX_RTMP_CODEC_FOURCC_HEV1 (0x31766568)
@@ -95,6 +95,7 @@ typedef struct {
     ngx_chain_t                *meta;
     ngx_uint_t                  meta_version;
 } ngx_rtmp_codec_ctx_t;
+
 
 static ngx_inline ngx_int_t
 ngx_rtmp_is_codec_header(ngx_uint_t codec_id, ngx_chain_t *in)
