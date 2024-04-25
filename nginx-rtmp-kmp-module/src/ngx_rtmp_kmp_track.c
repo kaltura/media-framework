@@ -217,7 +217,7 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
 {
     u_char                     frame_info;
     u_char                     packet_type;
-    uint32_t                   codec_id;
+    uint32_t                   codec_id = 0;
     int32_t                    pts_delay;
     uint32_t                   rtmpscale;
     ngx_int_t                  rc;

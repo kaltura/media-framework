@@ -1530,7 +1530,7 @@ codec_config_hvcc_nal_units_get_size(ngx_log_t* log, ngx_rtmp_codec_ctx_t   *ctx
         if (ngx_rtmp_chain_reader_read(&reader,&count,sizeof (count)) < 0)
         {
             ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                "codec_config_hvcc_nal_units_get_size: failed to read NAL count", HEVC_HVCC_HEADER_SIZE + 1);
+                "codec_config_hvcc_nal_units_get_size: failed to read NAL count %uD", sizeof (count));
             return 0;
         }
         read_be16(count, count);
@@ -1541,7 +1541,7 @@ codec_config_hvcc_nal_units_get_size(ngx_log_t* log, ngx_rtmp_codec_ctx_t   *ctx
             if (ngx_rtmp_chain_reader_read(&reader,nalp ,nal_unit_size) < 0)
             {
                 ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                    "codec_config_hvcc_nal_units_get_size: failed to read %d bytes unit_size", sizeof (unit_size));
+                    "codec_config_hvcc_nal_units_get_size: failed to read %uD bytes unit_size", sizeof (unit_size));
                 return 0;
             }
             read_be32(unit_size, unit_size);
@@ -1549,12 +1549,12 @@ codec_config_hvcc_nal_units_get_size(ngx_log_t* log, ngx_rtmp_codec_ctx_t   *ctx
             if (ngx_rtmp_chain_reader_skip(&reader,unit_size) < 0)
             {
                 ngx_log_error(NGX_LOG_NOTICE, log, 0,
-                    "codec_config_hvcc_nal_units_get_size: failed to skip NAL unit of size %d", unit_size);
+                    "codec_config_hvcc_nal_units_get_size: failed to skip NAL unit of size %uD", unit_size);
                 return 0;
             }
 
             ngx_log_debug1(NGX_LOG_NOTICE, log, 0,
-              "codec_config_hvcc_nal_units_get_size: skipped NAL unit of size %d", unit_size);
+              "codec_config_hvcc_nal_units_get_size: skipped NAL unit of size %uD", unit_size);
 
             size += nal_unit_size + 1 + unit_size;
         }
