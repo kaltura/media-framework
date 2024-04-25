@@ -184,6 +184,13 @@ int transcode_codec_init_decoder( transcode_codec_t * pContext,transcode_mediaIn
             codec_ctx->sample_aspect_ratio.num,
             codec_ctx->sample_aspect_ratio.den,
             codec_ctx->extradata_size);
+
+        if(codec_ctx->extradata_size > 0) {
+            LOGGER0(CATEGORY_CODEC,AV_LOG_INFO, "dump extradata:");
+
+            hex_dump(CATEGORY_CODEC,AV_LOG_INFO,
+                codec_ctx->extradata,codec_ctx->extradata + codec_ctx->extradata_size);
+        }
     }
     if (codec_ctx->codec_type==AVMEDIA_TYPE_AUDIO) {
         char temp[128];
