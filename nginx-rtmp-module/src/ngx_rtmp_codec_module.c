@@ -554,11 +554,9 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
     }
 
     /* no conf */
-    if (h->type == NGX_RTMP_MSG_VIDEO && !ngx_rtmp_is_codec_header( h->type == NGX_RTMP_MSG_AUDIO
-        ? ctx->audio_codec_id : ctx->video_codec_id, in)) {
-        if (ctx->video_captions_tries > 0
-            && h->type == NGX_RTMP_MSG_VIDEO
-            && (ctx->video_codec_id == NGX_RTMP_VIDEO_H264
+    if (h->type == NGX_RTMP_MSG_VIDEO && !ngx_rtmp_is_codec_header(ctx->video_codec_id, in))
+    {
+        if (ctx->video_captions_tries > 0 && (ctx->video_codec_id == NGX_RTMP_VIDEO_H264
             || ctx->video_codec_id == NGX_RTMP_CODEC_FOURCC_HVC1
             || ctx->video_codec_id == NGX_RTMP_CODEC_FOURCC_HEV1
             ))
