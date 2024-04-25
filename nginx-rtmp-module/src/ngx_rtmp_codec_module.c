@@ -926,6 +926,7 @@ ngx_rtmp_codec_parse_hevc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     ngx_rtmp_codec_ctx_t   *ctx;
     ngx_rtmp_bit_reader_t   br;
     char const             *err_msg;
+    ngx_uint_t              frame_rate;
 
 #if (NGX_DEBUG)
     ngx_rtmp_codec_dump_header(s, "ngx_rtmp_codec_parse_hevc_header in:", in);
@@ -965,10 +966,14 @@ ngx_rtmp_codec_parse_hevc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
    bit_reader_check(ngx_rtmp_bit_read(&br, 48));
 
     /* bit(16) avgFrameRate; */
-   bit_reader_check(ctx->frame_rate = (ngx_uint_t) ngx_rtmp_bit_read_16(&br));
+   bit_reader_check(frame_rate = (ngx_uint_t) ngx_rtmp_bit_read_16(&br));
 
-    /* bit(2) constantFrameRate; */
-    bit_reader_check(ctx->avc_ref_frames = (ngx_uint_t) ngx_rtmp_bit_read(&br, 2));
+   if(ctx->frame_rate <= 0) {
+        ctx->frame_rate = frame_rate;
+   }
+
+   /* bit(2) constantFrameRate; */
+   bit_reader_check(ctx->avc_ref_frames = (ngx_uint_t) ngx_rtmp_bit_read(&br, 2));
     /* bit(3) numTemporalLayers; */
     /* bit(1) temporalIdNested; */
     bit_reader_check(ngx_rtmp_bit_read(&br, 4));
@@ -999,9 +1004,9 @@ ngx_rtmp_codec_parse_hevc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     ngx_log_debug8(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
            "codec: hevc header "
            "profile=%ui, compat=%ui, level=%ui, "
-           "nal_bytes=%ui, ref_frames=%ui, frame_rate=%ui, width=%ui, height=%ui",
+           "nal_bytes=%ui, ref_frames=%ui, frame_rate=%.2f, width=%ui, height=%ui",
            ctx->avc_profile, ctx->avc_compat, ctx->avc_level,
-           ctx->avc_nal_bytes, ctx->avc_ref_frames, (ngx_uint_t) ctx->frame_rate,
+           ctx->avc_nal_bytes, ctx->avc_ref_frames, ctx->frame_rate,
            ctx->width, ctx->height);
 
 #if (NGX_DEBUG)
