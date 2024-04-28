@@ -911,7 +911,8 @@ ngx_rtmp_codec_parse_avc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
         err_msg = #expr;                                            \
         goto error;                                                 \
     }                                                               \
-    expr;
+    expr;                                                           \
+
 
 
 static ngx_int_t
