@@ -920,13 +920,13 @@ ngx_rtmp_codec_parse_hevc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
 
 #if (NGX_DEBUG)
     ngx_uint_t nal_type;
-#endif
     ngx_uint_t              i, j, nnal, nnall;
     ngx_uint_t              narrs;
+#endif
+
     ngx_rtmp_codec_ctx_t   *ctx;
     ngx_rtmp_bit_reader_t   br;
     char const             *err_msg;
-    ngx_uint_t              frame_rate;
 
 #if (NGX_DEBUG)
     ngx_rtmp_codec_dump_header(s, "ngx_rtmp_codec_parse_hevc_header in:", in);
@@ -963,24 +963,16 @@ ngx_rtmp_codec_parse_hevc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
     /* unsigned int(3) bit_depth_luma_minus8; */
     /* bit(5) reserved = ‘11111’b; */
     /* unsigned int(3) bit_depth_chroma_minus8; */
-   bit_reader_check(ngx_rtmp_bit_read(&br, 48));
-
     /* bit(16) avgFrameRate; */
-   bit_reader_check(frame_rate = (ngx_uint_t) ngx_rtmp_bit_read_16(&br));
-
-   if(ctx->frame_rate <= 0) {
-        ctx->frame_rate = frame_rate;
-   }
-
-   /* bit(2) constantFrameRate; */
-   bit_reader_check(ctx->avc_ref_frames = (ngx_uint_t) ngx_rtmp_bit_read(&br, 2));
+    /* bit(2) constantFrameRate; */
     /* bit(3) numTemporalLayers; */
     /* bit(1) temporalIdNested; */
-    bit_reader_check(ngx_rtmp_bit_read(&br, 4));
+    bit_reader_check(ngx_rtmp_bit_read(&br, 70));
 
     /* unsigned int(2) lengthSizeMinusOne; */
     bit_reader_check(ctx->avc_nal_bytes = (ngx_uint_t) ngx_rtmp_bit_read(&br, 2) + 1);
 
+#if (NGX_DEBUG)
     /* unsigned int(8) numOfArrays; 04 */
     bit_reader_check(narrs = (ngx_uint_t) ngx_rtmp_bit_read_8(&br));
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0, "codec: hevc header narrs=%ui ", narrs);
@@ -1000,7 +992,6 @@ ngx_rtmp_codec_parse_hevc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
         }
     }
 
-    /* todo ctx->avc_ref_frames =  and so on*/
     ngx_log_debug8(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
            "codec: hevc header "
            "profile=%ui, compat=%ui, level=%ui, "
@@ -1009,7 +1000,7 @@ ngx_rtmp_codec_parse_hevc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
            ctx->avc_nal_bytes, ctx->avc_ref_frames, ctx->frame_rate,
            ctx->width, ctx->height);
 
-#if (NGX_DEBUG)
+
     ngx_uint_t size = codec_config_hvcc_nal_units_get_size(s->connection->log, ctx, in);
     if (size <= 0) {
         ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
