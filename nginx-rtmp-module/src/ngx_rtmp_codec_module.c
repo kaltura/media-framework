@@ -595,7 +595,6 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
             header = &ctx->avc_header;
             ngx_rtmp_codec_parse_avc_header(s, in);
         }
-    
     }
 
     if (header == NULL) {
@@ -906,8 +905,7 @@ ngx_rtmp_codec_parse_avc_header(ngx_rtmp_session_t *s, ngx_chain_t *in)
                    ctx->width, ctx->height);
 }
 
-#define bit_reader_check(expr)                                      \
-    if(ngx_rtmp_bit_read_err(&br) || ngx_rtmp_bit_read_eof(&br)) {  \
+#define bit_reader_check(expr)   if(ngx_rtmp_bit_read_err(&br) || ngx_rtmp_bit_read_eof(&br)) {  \
         err_msg = #expr;                                            \
         goto error;                                                 \
     }                                                               \
