@@ -162,16 +162,18 @@ ngx_rtmp_kmp_track_send_media_info(ngx_kmp_out_track_t *track,
     switch (media_info->media_type) {
 
     case KMP_MEDIA_VIDEO:
-        /* KMP video codec ids match NGX_RTMP_VIDEO_XXX */
-        switch(codec_ctx->video_codec_id) {
-            case NGX_RTMP_CODEC_FOURCC_HVC1:
-            case NGX_RTMP_CODEC_FOURCC_HEV1:
-                media_info->codec_id = KMP_CODEC_VIDEO_H265;
-                break;
-            default:
-                media_info->codec_id = codec_ctx->video_codec_id;
-                break;
-        };
+        switch (codec_ctx->video_codec_id) {
+
+        case NGX_RTMP_CODEC_FOURCC_HVC1:
+        case NGX_RTMP_CODEC_FOURCC_HEV1:
+            media_info->codec_id = KMP_CODEC_VIDEO_H265;
+            break;
+
+        default:
+            /* KMP video codec ids match NGX_RTMP_VIDEO_XXX */
+            media_info->codec_id = codec_ctx->video_codec_id;
+            break;
+        }
 
         media_info->bitrate = codec_ctx->video_data_rate * 1000;
 
@@ -217,13 +219,14 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
 {
     u_char                     frame_info;
     u_char                     packet_type;
-    uint32_t                   codec_id = 0;
+    u_char                     comp_time[3];
     int32_t                    pts_delay;
+    uint32_t                   codec_id;
     uint32_t                   rtmpscale;
     ngx_int_t                  rc;
-    ngx_rtmp_kmp_track_ctx_t  *ctx = track->ctx;
     ngx_flag_t                 ext_header;
-    u_char                     comp_time[3];
+    ngx_flag_t                 has_pts_delay;
+    ngx_rtmp_kmp_track_ctx_t  *ctx = track->ctx;
 
     *sequence_header = 0;
 
@@ -235,10 +238,6 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
         return NGX_ERROR;
     }
 
-    ext_header = (frame_info & NGX_RTMP_EXT_HEADER_MASK) ? 1 : 0;
-
-    frame_info &= ~NGX_RTMP_EXT_HEADER_MASK;
-
     rtmpscale = track->media_info.timescale / NGX_RTMP_TIMESCALE;
 
     ngx_memzero(frame, sizeof(*frame));
@@ -246,16 +245,13 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
     frame->header.packet_type = KMP_PACKET_FRAME;
     frame->header.header_size = sizeof(*frame);
 
-    if ((frame_info >> 4) == NGX_RTMP_KEY_FRAME) {
-        frame->f.flags |= KMP_FRAME_FLAG_KEY;
-    }
-
     switch (h->type) {
 
     case NGX_RTMP_MSG_VIDEO:
-        if(!ext_header) {
-            codec_id = frame_info & 0x0f;
+        ext_header = (frame_info & NGX_RTMP_EXT_HEADER_MASK) ? 1 : 0;
+        if (!ext_header) {
 
+            codec_id = frame_info & 0x0f;
             if (codec_id != NGX_RTMP_VIDEO_H264) {
                 break;
             }
@@ -264,36 +260,54 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
                 sizeof(packet_type), in);
             if (rc != NGX_OK) {
                 ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                    "ngx_rtmp_kmp_track_init_frame: failed to read packet_type");
+                    "ngx_rtmp_kmp_track_init_frame: "
+                    "failed to read packet_type");
                 ngx_kmp_out_track_set_error_reason(track, "rtmp_bad_data");
                 return NGX_ERROR;
             }
 
             frame->header.data_size -= sizeof(packet_type);
 
+            has_pts_delay = 1;
+
         } else  {
+
+            frame_info &= ~NGX_RTMP_EXT_HEADER_MASK;
             packet_type = (frame_info & 0x0f);
-        }
 
-        if (packet_type == NGX_RTMP_AVC_SEQUENCE_HEADER) {
-            *sequence_header = 1;
-        }
-
-        if(ext_header) {
             rc = ngx_rtmp_kmp_copy(&track->log, &codec_id, src,
                 sizeof(codec_id), in);
             if (rc != NGX_OK) {
                 ngx_log_error(NGX_LOG_NOTICE, &track->log, 0,
-                    "ngx_rtmp_kmp_track_init_frame: extended rtmp. failed to read codec_id");
+                    "ngx_rtmp_kmp_track_init_frame: "
+                    "failed to read extended codec_id");
                 ngx_kmp_out_track_set_error_reason(track, "rtmp_bad_data");
                 return NGX_ERROR;
             }
 
             frame->header.data_size -= sizeof(codec_id);
 
+            switch (codec_id) {
+
+            case NGX_RTMP_CODEC_FOURCC_HVC1:
+            case NGX_RTMP_CODEC_FOURCC_HEV1:
+                has_pts_delay = packet_type == NGX_RTMP_PKT_TYPE_CODED_FRAMES;
+                break;
+
+            default:
+                has_pts_delay = 0;
+            }
         }
 
-        if(codec_id == NGX_RTMP_VIDEO_H264 || ((codec_id == NGX_RTMP_CODEC_FOURCC_HVC1 || codec_id == NGX_RTMP_CODEC_FOURCC_HEV1)&& packet_type == PacketTypeCodedFrames)) {
+        if ((frame_info >> 4) == NGX_RTMP_KEY_FRAME) {
+            frame->f.flags |= KMP_FRAME_FLAG_KEY;
+        }
+
+        if (packet_type == NGX_RTMP_AVC_SEQUENCE_HEADER) {
+            *sequence_header = 1;
+        }
+
+        if (has_pts_delay) {
             rc = ngx_rtmp_kmp_copy(&track->log, &comp_time, src,
                 sizeof(comp_time), in);
             if (rc != NGX_OK) {
@@ -316,17 +330,13 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
             }
 
             frame->f.pts_delay = pts_delay * rtmpscale;
-
-        } else {
-            frame->f.pts_delay = 0;
         }
 
         ngx_log_debug5(NGX_LOG_DEBUG_RTMP, &track->log, 0,
-                "ngx_rtmp_kmp_track_init_frame: %s rtmp. codec id: %ui data size: %ui packet type: %ui pts delay %uD",
-                ext_header ? "extended" : "",
-                codec_id,
-                frame->header.data_size,
-                packet_type,
+                "ngx_rtmp_kmp_track_init_frame: %s rtmp, codec_id: 0x%uxD, "
+                "data_size: %uD, packet_type: %uD, pts_delay: %D",
+                ext_header ? "extended" : "", codec_id,
+                frame->header.data_size, (uint32_t) packet_type,
                 frame->f.pts_delay);
         break;
 

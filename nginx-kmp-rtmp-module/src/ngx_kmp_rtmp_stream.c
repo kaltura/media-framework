@@ -185,13 +185,17 @@ ngx_kmp_rtmp_stream_write_meta(ngx_kmp_rtmp_stream_t *stream)
 
     size = ngx_kmp_rtmp_encoder_metadata_get_size(&stream->ctx, &meta);
 
-    if (meta.mi[KMP_MEDIA_VIDEO].codec_id == KMP_CODEC_VIDEO_H264) {
+    switch (meta.mi[KMP_MEDIA_VIDEO].codec_id) {
+
+    case KMP_CODEC_VIDEO_H264:
         size += ngx_kmp_rtmp_encoder_avc_sequence_get_size(
             &stream->ctx, &extra_data[KMP_MEDIA_VIDEO]);
-    }
+        break;
 
-    if (meta.mi[KMP_MEDIA_VIDEO].codec_id == KMP_CODEC_VIDEO_H265) {
-        size += ngx_kmp_rtmp_encoder_ext_sequence_get_size(&stream->ctx, &extra_data[KMP_MEDIA_VIDEO]);
+    case KMP_CODEC_VIDEO_H265:
+        size += ngx_kmp_rtmp_encoder_ext_sequence_get_size(
+            &stream->ctx, &extra_data[KMP_MEDIA_VIDEO]);
+        break;
     }
 
     if (meta.mi[KMP_MEDIA_AUDIO].codec_id == KMP_CODEC_AUDIO_AAC) {
@@ -208,14 +212,17 @@ ngx_kmp_rtmp_stream_write_meta(ngx_kmp_rtmp_stream_t *stream)
 
     p = ngx_kmp_rtmp_encoder_metadata_write(start, &stream->ctx, &meta);
 
-    if (meta.mi[KMP_MEDIA_VIDEO].codec_id == KMP_CODEC_VIDEO_H264) {
+    switch (meta.mi[KMP_MEDIA_VIDEO].codec_id) {
+
+    case KMP_CODEC_VIDEO_H264:
         p = ngx_kmp_rtmp_encoder_avc_sequence_write(p, &stream->ctx,
             &extra_data[KMP_MEDIA_VIDEO]);
-    }
+        break;
 
-    if (meta.mi[KMP_MEDIA_VIDEO].codec_id == KMP_CODEC_VIDEO_H265) {
-        p = ngx_kmp_rtmp_encoder_ext_sequence_write(meta.mi[KMP_MEDIA_VIDEO].codec_id,
-            p, &stream->ctx, &extra_data[KMP_MEDIA_VIDEO]);
+    case KMP_CODEC_VIDEO_H265:
+        p = ngx_kmp_rtmp_encoder_ext_sequence_write(p, &stream->ctx,
+            NGX_RTMP_EXT_FOURCC_HVC1, &extra_data[KMP_MEDIA_VIDEO]);
+        break;
     }
 
     if (meta.mi[KMP_MEDIA_AUDIO].codec_id == KMP_CODEC_AUDIO_AAC) {
