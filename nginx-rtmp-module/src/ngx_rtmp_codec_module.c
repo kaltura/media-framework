@@ -580,7 +580,7 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
         ngx_uint_t packet_type = (fmt & 0x0f);
 
         header = &ctx->avc_header;
-        if(ngx_rtmp_codec_parse_extended_header(s, in,  packet_type) < 0){
+        if(ngx_rtmp_codec_parse_extended_header(s, in,  packet_type) < 0) {
             header = NULL;
         }
 

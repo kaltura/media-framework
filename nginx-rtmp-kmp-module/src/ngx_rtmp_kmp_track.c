@@ -293,7 +293,7 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
 
         }
 
-        if(codec_id == NGX_RTMP_VIDEO_H264 || ((codec_id == NGX_RTMP_CODEC_FOURCC_HVC1 || codec_id == NGX_RTMP_CODEC_FOURCC_HEV1)&& packet_type == PacketTypeCodedFrames)) {
+        if(codec_id == NGX_RTMP_VIDEO_H264 || ((codec_id == NGX_RTMP_CODEC_FOURCC_HVC1 || codec_id == NGX_RTMP_CODEC_FOURCC_HEV1) && packet_type == PacketTypeCodedFrames)) {
             rc = ngx_rtmp_kmp_copy(&track->log, &comp_time, src,
                 sizeof(comp_time), in);
             if (rc != NGX_OK) {
