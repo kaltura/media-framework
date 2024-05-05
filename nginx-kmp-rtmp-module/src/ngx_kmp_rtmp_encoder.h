@@ -14,6 +14,8 @@
 
 #define NGX_KMP_RTMP_TIMESCALE    (1000)
 
+#define NGX_RTMP_EXT_FOURCC_HVC1  0x31637668
+
 
 typedef ngx_int_t (*ngx_kmp_rtmp_write_pt)(void *data, void *buf, size_t size);
 
@@ -95,6 +97,11 @@ size_t ngx_kmp_rtmp_encoder_avc_sequence_get_size(
 u_char *ngx_kmp_rtmp_encoder_avc_sequence_write(u_char *p,
     ngx_kmp_rtmp_stream_ctx_t *sc, ngx_str_t *extra_data);
 
+size_t ngx_kmp_rtmp_encoder_ext_sequence_get_size(
+    ngx_kmp_rtmp_stream_ctx_t *sc, ngx_str_t *extra_data);
+u_char *ngx_kmp_rtmp_encoder_ext_sequence_write(u_char *p,
+    ngx_kmp_rtmp_stream_ctx_t *sc, uint32_t fourcc, ngx_str_t *extra_data);
+
 size_t ngx_kmp_rtmp_encoder_aac_sequence_get_size(
     ngx_kmp_rtmp_stream_ctx_t *sc, ngx_str_t *extra_data);
 u_char *ngx_kmp_rtmp_encoder_aac_sequence_write(u_char *p,
@@ -109,12 +116,5 @@ u_char *ngx_kmp_rtmp_encoder_onfi_write(u_char *p,
 ngx_int_t ngx_kmp_rtmp_encoder_frame_write(ngx_kmp_rtmp_stream_ctx_t *sc,
     ngx_kmp_rtmp_frame_t *frame, uint32_t codec_id,
     ngx_kmp_rtmp_write_pt write, void *data);
-
-
-size_t ngx_kmp_rtmp_encoder_ext_sequence_get_size(
-    ngx_kmp_rtmp_stream_ctx_t *sc, ngx_str_t *extra_data);
-u_char *ngx_kmp_rtmp_encoder_ext_sequence_write(uint32_t codec_id, u_char *p,
-    ngx_kmp_rtmp_stream_ctx_t *sc, ngx_str_t *extra_data);
-
 
 #endif /* _NGX_KMP_RTMP_ENCODER_H_INCLUDED_ */
