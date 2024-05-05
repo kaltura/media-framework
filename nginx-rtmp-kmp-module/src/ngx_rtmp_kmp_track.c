@@ -303,10 +303,6 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
             frame->f.flags |= KMP_FRAME_FLAG_KEY;
         }
 
-        if (packet_type == NGX_RTMP_AVC_SEQUENCE_HEADER) {
-            *sequence_header = 1;
-        }
-
         if (has_pts_delay) {
             rc = ngx_rtmp_kmp_copy(&track->log, &comp_time, src,
                 sizeof(comp_time), in);
