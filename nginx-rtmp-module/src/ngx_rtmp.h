@@ -628,13 +628,6 @@ ngx_rtmp_get_video_frame_type(ngx_chain_t *in)
 }
 
 
-static ngx_inline ngx_int_t
-ngx_rtmp_is_codec_header(ngx_chain_t *in)
-{
-    return in->buf->pos + 1 < in->buf->last && in->buf->pos[1] == 0;
-}
-
-
 extern ngx_rtmp_bandwidth_t                 ngx_rtmp_bw_out;
 extern ngx_rtmp_bandwidth_t                 ngx_rtmp_bw_in;
 

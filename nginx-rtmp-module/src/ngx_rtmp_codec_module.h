@@ -33,6 +33,17 @@ enum {
 };
 
 
+#define NGX_RTMP_EXT_HEADER_MASK    (0x80)
+
+/* https://veovera.org/docs/enhanced/enhanced-rtmp-v1 */
+enum {
+    NGX_RTMP_PKT_TYPE_SEQUENCE_START,
+    NGX_RTMP_PKT_TYPE_CODED_FRAMES,
+    NGX_RTMP_PKT_TYPE_SEQUENCE_END,
+    NGX_RTMP_PKT_TYPE_CODED_FRAMES_X,
+};
+
+
 /* Video codecs */
 enum {
     NGX_RTMP_VIDEO_JPEG             = 1,
@@ -43,6 +54,9 @@ enum {
     NGX_RTMP_VIDEO_SCREEN2          = 6,
     NGX_RTMP_VIDEO_H264             = 7
 };
+
+#define NGX_RTMP_CODEC_FOURCC_HEV1  (0x31766568)
+#define NGX_RTMP_CODEC_FOURCC_HVC1  (0x31637668)
 
 
 u_char *ngx_rtmp_get_audio_codec_name(ngx_uint_t id);
@@ -81,6 +95,23 @@ typedef struct {
     ngx_chain_t                *meta;
     ngx_uint_t                  meta_version;
 } ngx_rtmp_codec_ctx_t;
+
+
+static ngx_inline ngx_int_t
+ngx_rtmp_is_codec_header(ngx_uint_t codec_id, ngx_chain_t *in)
+{
+    switch (codec_id) {
+
+    case NGX_RTMP_CODEC_FOURCC_HEV1:
+    case NGX_RTMP_CODEC_FOURCC_HVC1:
+        /* HEVCDecoderConfigurationRecord configurationVersion byte */
+        return in->buf->pos < in->buf->last
+            && (in->buf->pos[0] & 0xf) == NGX_RTMP_PKT_TYPE_SEQUENCE_START;
+
+    default:
+        return in->buf->pos + 1 < in->buf->last && in->buf->pos[1] == 0;
+    }
+}
 
 
 extern ngx_module_t  ngx_rtmp_codec_module;
