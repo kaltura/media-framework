@@ -582,7 +582,8 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h, ngx_chain_t *in)
     /* no conf */
     if (!ngx_rtmp_is_codec_header(ctx->video_codec_id, in)) {
         if(h->type != NGX_RTMP_MSG_VIDEO
-            || ctx->video_captions_tries <= 0) {
+            || ctx->video_captions_tries <= 0)
+        {
             return NGX_OK;
         }
 
