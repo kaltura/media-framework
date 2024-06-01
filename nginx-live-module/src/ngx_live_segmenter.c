@@ -1986,7 +1986,8 @@ done:
 
 
 static void
-ngx_live_segmenter_remove_all_frames(ngx_live_track_t *track)
+ngx_live_segmenter_remove_all_frames(ngx_live_track_t *track,
+    ngx_flag_t reconnect)
 {
     ngx_live_segmenter_track_ctx_t  *ctx;
 
@@ -1995,7 +1996,7 @@ ngx_live_segmenter_remove_all_frames(ngx_live_track_t *track)
         return;
     }
 
-    if (ctx->frame_count > 0) {
+    if (ctx->frame_count > 0 && reconnect) {
         (void) ngx_live_core_track_event(track,
             NGX_LIVE_EVENT_TRACK_RECONNECT, NULL);
     }
@@ -2019,6 +2020,23 @@ ngx_live_segmenter_remove_all_frames(ngx_live_track_t *track)
     }
 
     ngx_live_segmenter_validate_track_ctx(track);
+}
+
+
+static void
+ngx_live_segmenter_remove_all_channel_frames(ngx_live_channel_t *channel)
+{
+    ngx_queue_t       *q;
+    ngx_live_track_t  *cur_track;
+
+    for (q = ngx_queue_head(&channel->tracks.queue);
+        q != ngx_queue_sentinel(&channel->tracks.queue);
+        q = ngx_queue_next(q))
+    {
+        cur_track = ngx_queue_data(q, ngx_live_track_t, queue);
+
+        ngx_live_segmenter_remove_all_frames(cur_track, 0);
+    }
 }
 
 
@@ -2605,6 +2623,7 @@ ngx_live_segmenter_dispose_segment(ngx_live_channel_t *channel,
     int64_t end_pts)
 {
     ngx_flag_t                         removed;
+    ngx_flag_t                         active_tracks;
     ngx_flag_t                         force_new_period;
     ngx_queue_t                       *q;
     ngx_live_track_t                  *cur_track;
@@ -2612,6 +2631,7 @@ ngx_live_segmenter_dispose_segment(ngx_live_channel_t *channel,
     ngx_live_segmenter_channel_ctx_t  *cctx;
 
     removed = 0;
+    active_tracks = 0;
     force_new_period = 0;
 
     for (q = ngx_queue_head(&channel->tracks.queue);
@@ -2623,6 +2643,12 @@ ngx_live_segmenter_dispose_segment(ngx_live_channel_t *channel,
             ngx_live_segmenter_module);
 
         if (cur_ctx->copy_index <= 0) {
+            if (cur_ctx->frame_count > 0
+                && cur_ctx->state != ngx_live_track_inactive)
+            {
+                active_tracks = 1;
+            }
+
             continue;
         }
 
@@ -2642,6 +2668,14 @@ ngx_live_segmenter_dispose_segment(ngx_live_channel_t *channel,
     }
 
     if (!removed) {
+        if (!active_tracks) {
+            ngx_log_error(NGX_LOG_INFO, &channel->log, 0,
+                "ngx_live_segmenter_dispose_segment: "
+                "no active tracks, removing all frames");
+            ngx_live_segmenter_remove_all_channel_frames(channel);
+            return NGX_OK;
+        }
+
         ngx_log_error(NGX_LOG_ALERT, &channel->log, 0,
             "ngx_live_segmenter_dispose_segment: no frames removed");
         return NGX_ERROR;
@@ -3319,7 +3353,7 @@ ngx_live_segmenter_start_stream(ngx_live_stream_stream_req_t *req)
 
     track = req->track;
 
-    ngx_live_segmenter_remove_all_frames(track);
+    ngx_live_segmenter_remove_all_frames(track, 1);
 
     initial_frame_id = req->header->c.initial_frame_id;
     if (track->next_frame_id > initial_frame_id) {
