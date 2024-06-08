@@ -59,6 +59,7 @@ typedef struct {
 
     ngx_msec_t                        candidate_margin;
     ngx_msec_t                        keyframe_alignment_margin;
+    ngx_msec_t                        max_span_average;
 
     ngx_uint_t                        ready_threshold;
     ngx_uint_t                        initial_ready_threshold;
@@ -208,6 +209,7 @@ typedef struct {
 
     uint32_t                          candidate_margin;
     uint32_t                          keyframe_alignment_margin;
+    uint32_t                          max_span_average;
 
     uint32_t                          ready_duration;
     uint32_t                          initial_ready_duration;
@@ -307,6 +309,13 @@ static ngx_command_t  ngx_live_segmenter_commands[] = {
       ngx_conf_set_msec_slot,
       NGX_LIVE_PRESET_CONF_OFFSET,
       offsetof(ngx_live_segmenter_preset_conf_t, keyframe_alignment_margin),
+      NULL },
+
+    { ngx_string("segmenter_max_span_average"),
+      NGX_LIVE_MAIN_CONF|NGX_LIVE_PRESET_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_LIVE_PRESET_CONF_OFFSET,
+      offsetof(ngx_live_segmenter_preset_conf_t, max_span_average),
       NULL },
 
     { ngx_string("segmenter_ready_threshold"),
@@ -2391,7 +2400,13 @@ ngx_live_segmenter_get_segment_times(ngx_live_channel_t *channel,
             continue;
         }
 
-        cur_pts = (max[i] + min[i]) / 2;
+        if (max[i] - min[i] < cctx->max_span_average) {
+            cur_pts = (max[i] + min[i]) / 2;
+
+        } else {
+            cur_pts = candidates.elts[i].pts;
+        }
+
         if (target_pts == NGX_LIVE_INVALID_PTS ||
             ngx_abs_diff(cur_pts, boundary_pts) <
             ngx_abs_diff(target_pts, boundary_pts))
@@ -3629,6 +3644,8 @@ ngx_live_segmenter_channel_init(ngx_live_channel_t *channel, void *ectx)
         spcf->candidate_margin, 1000, channel->timescale);
     cctx->keyframe_alignment_margin = ngx_live_rescale_time(
         spcf->keyframe_alignment_margin, 1000, channel->timescale);
+    cctx->max_span_average = ngx_live_rescale_time(
+        spcf->max_span_average, 1000, channel->timescale);
 
     cctx->create.data = channel;
     cctx->create.handler = ngx_live_segmenter_create_handler;
@@ -3890,6 +3907,7 @@ ngx_live_segmenter_create_preset_conf(ngx_conf_t *cf)
 
     conf->candidate_margin = NGX_CONF_UNSET_MSEC;
     conf->keyframe_alignment_margin = NGX_CONF_UNSET_MSEC;
+    conf->max_span_average = NGX_CONF_UNSET_MSEC;
 
     conf->ready_threshold = NGX_CONF_UNSET_UINT;
     conf->initial_ready_threshold = NGX_CONF_UNSET_UINT;
@@ -3944,6 +3962,9 @@ ngx_live_segmenter_merge_preset_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_msec_value(conf->keyframe_alignment_margin,
                               prev->keyframe_alignment_margin, 500);
+
+    ngx_conf_merge_msec_value(conf->max_span_average,
+                              prev->max_span_average, 500);
 
     ngx_conf_merge_uint_value(conf->ready_threshold,
                               prev->ready_threshold, 150);
