@@ -1179,6 +1179,15 @@ tweaks the timestamp of the existing candidate instead of adding a new value to 
 Sets a margin around the minimum span for segment pts candidates.
 When choosing the end pts for a segment, candidates whose span is greater than the minimum span by more than the configured margin are disqualified.
 
+#### segmenter_max_span_average
+* **syntax**: `segmenter_max_span_average msec;`
+* **default**: `500ms`
+* **context**: `live`, `preset`
+
+Sets a maximum value for averaging the min/max segment split pts values.
+When choosing the end pts for a segment, if the difference between the min/max split pts of the different tracks is lower than this value, the average of the min/max is used.
+Otherwise, the original candidate pts is used.
+
 #### segmenter_ready_threshold
 * **syntax**: `segmenter_ready_threshold percent;`
 * **default**: `150`
