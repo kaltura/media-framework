@@ -889,8 +889,13 @@ ngx_ts_read_pes(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_es_t *es,
     if (b) {
         if (es->cont != NGX_TS_CC_UNSET && h->cont != ((es->cont + 1) & 0x0f)) {
             ngx_log_error(NGX_LOG_WARN, ts->log, 0,
-                "TS invalid continuity counter, cur: %uD, last: %uD, pid: %uD",
-                (uint32_t) es->cont, (uint32_t) h->cont, (uint32_t) h->pid);
+                "TS invalid continuity counter, cur: %uD, %uD, last: %uD, pid: %uD",
+              (uint32_t) h->pusi,  (uint32_t) es->cont, (uint32_t) h->cont, (uint32_t) h->pid);
+
+            if(!h->pusi) {
+                /* drop reordered/dropped packets for this frame */
+                ngx_ts_free_chain(ts, &es->bufs);
+            }
         }
 
         es->cont = h->cont;
