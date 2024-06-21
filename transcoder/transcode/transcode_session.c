@@ -219,7 +219,7 @@ transcode_filter_t* GetFilter(transcode_session_t* pContext,transcode_session_ou
     }
     if ( pOutput->filterId==-1) {
         pFilter=&pContext->filter[pContext->filters];
-        int ret=transcode_filter_init(pFilter,pDecoderContext->ctx,filterConfig);
+        int ret=transcode_filter_init(pFilter,pDecoderContext,filterConfig);
         if (ret<0) {
             LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"Output %s - Cannot create filter %s",pOutput->track_id,filterConfig);
             return NULL;

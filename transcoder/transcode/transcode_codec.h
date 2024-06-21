@@ -10,12 +10,10 @@
 #define TranscoderEncoder_h
 
 #include <stdio.h>
-#include "transcode_filter.h"
 #include "transcode_session_output.h"
 #include "samples_stats.h"
 
-typedef struct
-{
+typedef struct {
     char name[256];
     AVBufferRef *hw_device_ctx,*hw_frames_ctx;
     AVCodec* codec;
@@ -25,6 +23,9 @@ typedef struct
     samples_stats_t inStats,outStats;
 
 } transcode_codec_t;
+
+#include "transcode_filter.h"
+
 
 int transcode_codec_init(transcode_codec_t * pContext);
 

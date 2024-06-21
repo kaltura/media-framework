@@ -6,19 +6,19 @@
 //  Copyright © 2019 Kaltura. All rights reserved.
 //
 
-#include "transcode_filter.h"
+#include "transcode_codec.h"
 #define stream_check_return(val,ret) \
  if((ret) < 0 && !((ret) == AVERROR(EAGAIN) || (ret) == AVERROR_EOF)) \
      (val)++;
 
 
-int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,const char *filters_descr)
+int transcode_filter_init( transcode_filter_t *pFilter, transcode_codec_t *pDecoderContext,const char *filters_descr)
 {
     char args[512];
     int ret = 0;
     const AVFilter *buffersrc=NULL;
     const AVFilter *buffersink=NULL;
-
+    AVCodecContext *dec_ctx = pDecoderContext->ctx;
 
     if (dec_ctx->codec_type==AVMEDIA_TYPE_VIDEO) {
         buffersrc  = avfilter_get_by_name("buffer");
@@ -28,7 +28,7 @@ int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,
                  dec_ctx->width, dec_ctx->height, dec_ctx->pix_fmt,
                  standard_timebase.num, standard_timebase.den,
                  dec_ctx->sample_aspect_ratio.num, dec_ctx->sample_aspect_ratio.den,
-                 dec_ctx->framerate.num, dec_ctx->framerate.den);
+                 dec_ctx->framerate.num ? dec_ctx->framerate.num : 30, dec_ctx->framerate.den ? dec_ctx->framerate.den : 1 );
     }
     if (dec_ctx->codec_type==AVMEDIA_TYPE_AUDIO) {
         buffersrc  = avfilter_get_by_name("abuffer");
@@ -67,12 +67,12 @@ int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,
 
 
 
-    if (dec_ctx->hw_frames_ctx!=NULL) {
+    if (pDecoderContext->hw_frames_ctx!=NULL) {
         LOGGER0(CATEGORY_FILTER, AV_LOG_INFO, "Setting hardware device context")
         AVBufferSrcParameters *par = av_buffersrc_parameters_alloc();
         memset(par, 0, sizeof(*par));
         par->format = AV_PIX_FMT_NONE;
-        par->hw_frames_ctx=dec_ctx->hw_frames_ctx;
+        par->hw_frames_ctx=pDecoderContext->hw_frames_ctx;
         ret = av_buffersrc_parameters_set(pFilter->src_ctx, par);
         if (ret<0) {
             LOGGER(CATEGORY_FILTER, AV_LOG_ERROR, "Failed setting hardware device context %d (%s)",ret,av_err2str(ret))
@@ -117,9 +117,9 @@ int transcode_filter_init( transcode_filter_t *pFilter, AVCodecContext *dec_ctx,
         goto end;
     }
 
-    if (dec_ctx->hw_frames_ctx!=NULL) {
+    if (pDecoderContext->hw_frames_ctx!=NULL) {
         for (int i = 0; i < pFilter->filter_graph->nb_filters; i++) {
-            pFilter->filter_graph->filters[i]->hw_device_ctx = av_buffer_ref(dec_ctx->hw_frames_ctx);
+            pFilter->filter_graph->filters[i]->hw_device_ctx = av_buffer_ref(pDecoderContext->hw_device_ctx);
         }
     }
 

@@ -18,7 +18,7 @@ void* thread_stream_from_file(void *vargp)
     int oldLevel= get_log_level(NULL);
     int64_t jumpAtTimestamp = AV_NOPTS_VALUE;
 
-    log_init(AV_LOG_WARNING);
+    log_init(AV_LOG_INFO);
     int ret = avformat_open_input(&ifmt_ctx, args->source_file_name, NULL, NULL);
     if (ret < 0) {
         LOGGER(CATEGORY_DEFAULT,AV_LOG_FATAL,"Unable to open input %s %d (%s)",args->source_file_name,ret,av_err2str(ret));
