@@ -190,6 +190,26 @@ ngx_ts_byte_read_init(ngx_ts_byte_read_t *br, ngx_chain_t *cl)
 }
 
 
+static size_t
+ngx_ts_byte_left(ngx_ts_byte_read_t *br)
+{
+    size_t        size;
+    ngx_chain_t  *cl;
+
+    cl = br->cl;
+    if (!cl) {
+        return 0;
+    }
+
+    size = cl->buf->last - br->p;
+    for (cl = cl->next; cl; cl = cl->next) {
+        size += cl->buf->last - cl->buf->pos;
+    }
+
+    return size;
+}
+
+
 static ngx_int_t
 ngx_ts_byte_read(ngx_ts_byte_read_t *br, u_char *dst, size_t len)
 {
@@ -865,6 +885,7 @@ ngx_ts_read_pes(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_es_t *es,
      */
 
     u_char              sid, pfx[3], v8, hlen;
+    size_t              size;
     uint16_t            len, flags, v16;
     uint64_t            pts, dts;
     ngx_uint_t          ptsf;
@@ -924,14 +945,7 @@ ngx_ts_read_pes(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_es_t *es,
         return NGX_OK;
     }
 
-    if (len) {
-        pr = br;
-
-        if (ngx_ts_byte_read_skip(&pr, len) == NGX_AGAIN) {
-            return NGX_OK;
-        }
-
-    } else if (b) {
+    if (b) {
         /* wait for PUSI */
         return NGX_OK;
     }
@@ -1067,14 +1081,13 @@ ngx_ts_read_pes(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_es_t *es,
     }
 
     if (len) {
-        pr = br;
-
-        if (ngx_ts_byte_read_skip(&pr, len) == NGX_AGAIN) {
+        size = ngx_ts_byte_left(&br);
+        if (size != len) {
+            ngx_log_error(NGX_LOG_WARN, ts->log, 0,
+                "TS invalid packet size, expected: %uD, actual: %uz",
+                (uint32_t) len, size);
+            ngx_ts_free_chain(ts, &es->bufs);
             return NGX_OK;
-        }
-
-        if (pr.cl) {
-            pr.cl->buf->last = pr.p;
         }
     }
 
