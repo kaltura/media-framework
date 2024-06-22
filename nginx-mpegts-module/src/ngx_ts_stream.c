@@ -912,6 +912,7 @@ ngx_ts_read_pes(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_es_t *es,
             ngx_log_error(NGX_LOG_WARN, ts->log, 0,
                 "TS invalid continuity counter, cur: %uD, last: %uD, pid: %uD",
                 (uint32_t) es->cont, (uint32_t) h->cont, (uint32_t) h->pid);
+            es->corrupt = 1;
         }
 
         es->cont = h->cont;
@@ -1086,15 +1087,22 @@ ngx_ts_read_pes(ngx_ts_stream_t *ts, ngx_ts_program_t *prog, ngx_ts_es_t *es,
             ngx_log_error(NGX_LOG_WARN, ts->log, 0,
                 "TS invalid packet size, expected: %uD, actual: %uz",
                 (uint32_t) len, size);
-            ngx_ts_free_chain(ts, &es->bufs);
-            return NGX_OK;
+            es->corrupt = 1;
         }
     }
 
-    es->ptsf = ptsf;
+    if (!es->corrupt) {
+        es->ptsf = ptsf;
 
-    if (ngx_ts_run_handlers(NGX_TS_PES, ts, prog, es, br.cl) != NGX_OK) {
-        return NGX_ERROR;
+        if (ngx_ts_run_handlers(NGX_TS_PES, ts, prog, es, br.cl) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+    } else {
+        ngx_log_debug0(NGX_LOG_DEBUG_CORE, ts->log, 0,
+            "TS dropped corrupt packet");
+
+        es->corrupt = 0;
     }
 
     ngx_ts_free_chain(ts, &es->bufs);
