@@ -993,6 +993,14 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
             }
 
             prev_dest->duration = duration;
+
+#if (NGX_DEBUG)
+            ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+                "ngx_live_segmenter_frame_list_copy: "
+                "frame duration %L (1), "
+                "dts: %L, flags: 0x%uxD, prev_dts: %L",
+                duration, src->dts, src->flags, prev_src->dts);
+#endif
         }
 
         dest = ngx_list_push(&segment->frames);
