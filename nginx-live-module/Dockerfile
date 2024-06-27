@@ -27,11 +27,15 @@ COPY nginx-kmp-in-module nginx-kmp-in-module
 
 ARG APP_VERSION="0.1"
 ARG LIVE_VERSION="${APP_VERSION}"
+# TODO: set back to 0
+ARG DEBUG_BUILD="1"
 
 ENV RTMP_KMP_VERSION="${APP_VERSION}"
 
-RUN cd /tmp/build/nginx && \
-    ./configure --with-http_secure_link_module \
+RUN [ "${DEBUG_BUILD}" -eq "1" ] && debug_option=--with-debug; \
+    cd /tmp/build/nginx && \
+    ./configure "$debug_option" \
+            --with-http_secure_link_module \
             --with-http_stub_status_module \
             --add-module=/tmp/build/nginx-common \
             --add-module=/tmp/build/nginx-kmp-in-module \
