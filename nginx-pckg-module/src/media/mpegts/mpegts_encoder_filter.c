@@ -263,7 +263,8 @@ mpegts_write_pes_header(
     mpegts_stream_info_t* stream_info,
     output_frame_t* f,
     u_char** pes_size_ptr,
-    bool_t data_aligned)
+    bool_t data_aligned,
+    ngx_log_t *log )
 {
     unsigned header_size;
     unsigned flags;
@@ -310,6 +311,13 @@ mpegts_write_pes_header(
     {
         p = mpegts_write_pts(p, 1, f->dts + MPEGTS_INITIAL_DTS);
     }
+
+#if (NGX_DEBUG)
+    ngx_log_error(NGX_LOG_INFO, log, 0,
+        "mpegts_write_pes_header: "
+        "pts: %L, dts: %L, data_aligned: %uD, media_type: 0x%uxD",
+        f->pts, f->dts, data_aligned, stream_info->media_type );
+#endif
 
     return p;
 }
@@ -813,6 +821,13 @@ mpegts_encoder_start_frame(media_filter_context_t* context, output_frame_t* fram
     size_t excess_size;
     bool_t write_direct;
 
+#if (NGX_DEBUG)
+    ngx_log_error(NGX_LOG_INFO, context->request_context->log, 0,
+        "mpegts_encoder_start_frame: "
+        "pts: %L, dts: %L,",
+        frame->pts, frame->dts );
+#endif
+
     last_writer_state = state->queue->last_writer_context;
     if (!state->interleave_frames && last_writer_state != state && last_writer_state != NULL)
     {
@@ -842,7 +857,8 @@ mpegts_encoder_start_frame(media_filter_context_t* context, output_frame_t* fram
             return rc;
         }
 
-        state->cur_pos = mpegts_write_pes_header(state->cur_packet_start, &state->stream_info, frame, &state->cur_pes_size_ptr, TRUE);
+        state->cur_pos = mpegts_write_pes_header(state->cur_packet_start, &state->stream_info, frame, &state->cur_pes_size_ptr, TRUE,
+         context->request_context->log );
 
         state->packet_bytes_left = state->cur_packet_end - state->cur_pos;
 
@@ -868,7 +884,7 @@ mpegts_encoder_start_frame(media_filter_context_t* context, output_frame_t* fram
         state->cur_pos += pes_header_size;
 
         // write the pes
-        mpegts_write_pes_header(pes_packet_start, &state->stream_info, frame, &state->cur_pes_size_ptr, FALSE);
+        mpegts_write_pes_header(pes_packet_start, &state->stream_info, frame, &state->cur_pes_size_ptr, FALSE, context->request_context->log);
 
         state->packet_bytes_left = state->cur_packet_end - state->cur_pos;
 
@@ -896,7 +912,7 @@ mpegts_encoder_start_frame(media_filter_context_t* context, output_frame_t* fram
         // copy the packet and push in the pes
         vod_memcpy(pes_packet_start, state->temp_packet, SIZEOF_MPEGTS_HEADER);
 
-        p = mpegts_write_pes_header(pes_packet_start, &state->stream_info, frame, &state->cur_pes_size_ptr, FALSE);
+        p = mpegts_write_pes_header(pes_packet_start, &state->stream_info, frame, &state->cur_pes_size_ptr, FALSE, context->request_context->log);
 
         vod_memcpy(
             p,
@@ -945,7 +961,7 @@ mpegts_encoder_start_frame(media_filter_context_t* context, output_frame_t* fram
             MPEGTS_PACKET_USABLE_SIZE - pes_header_size);
 
         // write the pes
-        mpegts_write_pes_header(pes_packet_start, &state->stream_info, frame, &state->cur_pes_size_ptr, FALSE);
+        mpegts_write_pes_header(pes_packet_start, &state->stream_info, frame, &state->cur_pes_size_ptr, FALSE, context->request_context->log);
     }
 
     return VOD_OK;

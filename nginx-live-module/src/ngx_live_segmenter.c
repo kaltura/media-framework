@@ -998,8 +998,9 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
             ngx_log_error(NGX_LOG_INFO, &track->log, 0,
                 "ngx_live_segmenter_frame_list_copy: "
                 "frame duration %L, "
-                "dts: %L, flags: 0x%uxD, prev_dts: %L",
-                duration, src->dts, src->flags, prev_src->dts);
+                "dts: %L, flags: 0x%uxD, prev_dts: %L key: %L pts_delay %L",
+                duration, src->dts, src->flags, prev_src->dts,
+                prev_dest->key_frame, prev_dest->pts_delay);
 #endif
         }
 
