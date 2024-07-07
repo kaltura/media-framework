@@ -1,5 +1,11 @@
 OPENRESTY_VERSION="1.25.3.1"
 OPENRESTY_DOCKER_VERSION="1.25.3.1-0"
+
+if [ "$DEBUG" -ne "1" ]
+then
+  DEBUG_OPT="--with-debug"
+fi
+
 echo "building  kaltura/live-front-src"
 docker build -t kaltura/live-front-src:latest -f nginx-pckg-module/Dockerfile-live-front-src .
 if [ $? -ne 0 ]
@@ -15,7 +21,7 @@ docker build -t kaltura/live-front:$tag -t kaltura/live-front:latest \
 --build-arg RESTY_IMAGE_BASE="kaltura/live-front-src" \
 --build-arg RESTY_IMAGE_TAG="latest" \
 --build-arg RESTY_EVAL_POST_MAKE="rm -rf /tmp/nginx-secure-token-module /tmp/nginx_mod_akamai_g2o /tmp/nginx-common /tmp/nginx-pckg-module" \
---build-arg RESTY_CONFIG_OPTIONS_MORE="--add-dynamic-module=/tmp/nginx-secure-token-module --add-dynamic-module=/tmp/nginx_mod_akamai_g2o --add-dynamic-module=/tmp/nginx-common --add-dynamic-module=/tmp/nginx-pckg-module" \
+--build-arg RESTY_CONFIG_OPTIONS_MORE="$DEBUG_OPT  --add-dynamic-module=/tmp/nginx-secure-token-module --add-dynamic-module=/tmp/nginx_mod_akamai_g2o --add-dynamic-module=/tmp/nginx-common --add-dynamic-module=/tmp/nginx-pckg-module" \
 . -f alpine/Dockerfile
 if [ $? -ne 0 ]
 then
