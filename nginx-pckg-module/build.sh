@@ -1,7 +1,8 @@
 OPENRESTY_VERSION="1.25.3.1"
 OPENRESTY_DOCKER_VERSION="1.25.3.1-0"
+DEBUG=${DEBUG:-1}
 
-if [ "$DEBUG" -ne "1" ]
+if [ "$DEBUG" = "1" ]
 then
   DEBUG_OPT="--with-debug"
 fi
