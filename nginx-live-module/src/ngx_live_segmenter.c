@@ -998,9 +998,9 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
             ngx_log_error(NGX_LOG_INFO, &track->log, 0,
                 "ngx_live_segmenter_frame_list_copy: "
                 "frame duration %L, "
-                "dts: %L, flags: 0x%uxD, prev_dts: %L key: %L pts_delay %L",
+                "dts: %L, flags: 0x%uxD, prev_dts: %L key: %L prev_duration %L pts_delay %L",
                 duration, src->dts, src->flags, prev_src->dts,
-                prev_dest->key_frame, prev_dest->pts_delay);
+                prev_dest->key_frame, prev_dest->duration, prev_dest->pts_delay);
 #endif
         }
 
@@ -1036,7 +1036,14 @@ ngx_live_segmenter_frame_list_copy(ngx_live_segmenter_frame_list_t *list,
 
     } else if (count > 1) {
         duration = (prev_src->dts - segment->start_dts) / (count - 1);
-
+#if (NGX_DEBUG)
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+                "ngx_live_segmenter_frame_list_copy: "
+                "count-1: %L"
+                "frame_duration %L, "
+                "src_dts: %L, segment_start_dts: %L",
+                count - 1, duration, src->dts, segment->start_dts);
+#endif
     } else {
         duration = 0;
     }
