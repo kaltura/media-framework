@@ -3173,7 +3173,7 @@ ngx_live_segmenter_add_frame(void *data, ngx_kmp_in_evt_frame_t *evt)
 
     ctx = ngx_live_get_module_ctx(track, ngx_live_segmenter_module);
 
-    ngx_log_debug7(NGX_LOG_DEBUG_LIVE, &track->log, 0,
+    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
         "ngx_live_segmenter_add_frame: track: %V, created: %L, size: %uz, "
         "dts: %L, flags: 0x%uxD, ptsDelay: %D, ptsDelta: %L",
         &track->sn.str, frame_info->created, evt->size, frame_info->dts,

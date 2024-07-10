@@ -432,6 +432,13 @@ done:
     frame->dts += ctx->correction;
     ctx->last_output_dts = frame->dts;
 
+#if (NGX_DEBUG)
+    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+            "ngx_live_syncer_add_frame: "
+            " created: %L dts: %L pts_delay %L flags %uL",
+            frame->created, frame->dts, frame->pts_delay, frame->flags);
+#endif
+
     return spcf->next_add_frame(track, evt);
 }
 
