@@ -31,6 +31,8 @@ typedef struct {
     ngx_rtmp_session_t  *s;
     int64_t              timestamp;
     int32_t              last_timestamp;
+    int64_t              audio_base_dts;
+    int64_t              audio_samples;
     unsigned             timestamps_synced:1;
     unsigned             media_info_sent:1;
     unsigned             published:1;
@@ -212,6 +214,48 @@ ngx_rtmp_kmp_track_send_media_info(ngx_kmp_out_track_t *track,
 }
 
 
+static void
+ngx_rtmp_kmp_track_sync_audio(ngx_kmp_out_track_t *track,
+    kmp_frame_packet_t *frame)
+{
+    int64_t                    est_dts;
+    uint32_t                   margin;
+    uint32_t                   timescale;
+    uint32_t                   sample_rate;
+    ngx_rtmp_kmp_track_ctx_t  *ctx;
+
+    if (track->media_info.codec_id != KMP_CODEC_AUDIO_AAC) {
+        return;
+    }
+
+    sample_rate = track->media_info.u.audio.sample_rate;
+    if (sample_rate == 0) {
+        return;
+    }
+
+    timescale = track->media_info.timescale;
+    margin = track->conf->audio_sync_margin * timescale / NGX_RTMP_TIMESCALE;
+
+    ctx = track->ctx;
+    est_dts = ctx->audio_base_dts + ctx->audio_samples
+        * timescale / sample_rate;
+
+    if (frame->f.dts >= est_dts - margin
+        && frame->f.dts <= est_dts + margin)
+    {
+        frame->f.dts = est_dts;
+
+    } else {
+        ctx->audio_base_dts = frame->f.dts;
+        ctx->audio_samples = 0;
+    }
+
+    /* TODO: identify short frames (960) from extra data */
+
+    ctx->audio_samples += 1024;
+}
+
+
 static ngx_int_t
 ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
     kmp_frame_packet_t *frame, ngx_rtmp_header_t *h, ngx_chain_t **in,
@@ -390,6 +434,10 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
     track->stats.last_timestamp = ctx->timestamp;
     frame->f.dts = ctx->timestamp * rtmpscale;
 
+    if (h->type == NGX_RTMP_MSG_AUDIO) {
+        ngx_rtmp_kmp_track_sync_audio(track, frame);
+    }
+
     return NGX_OK;
 }
 
@@ -498,7 +546,7 @@ ngx_rtmp_kmp_track_av(ngx_kmp_out_track_t *track, ngx_rtmp_header_t *h,
 
 ngx_kmp_out_track_t *
 ngx_rtmp_kmp_track_create(ngx_kmp_out_track_conf_t *conf,
-    ngx_rtmp_session_t *s, ngx_rtmp_kmp_publish_t  *publish,
+    ngx_rtmp_session_t *s, ngx_rtmp_kmp_publish_t *publish,
     ngx_rtmp_header_t *h, ngx_chain_t *in)
 {
     u_char                    *p;
