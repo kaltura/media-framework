@@ -60,6 +60,7 @@ typedef struct {
     unsigned                      ptsf:1;
     unsigned                      rand:1;
     unsigned                      video:1;
+    unsigned                      corrupt:1;
     ngx_ts_bufs_t                 bufs;  /* ES */
 } ngx_ts_es_t;
 

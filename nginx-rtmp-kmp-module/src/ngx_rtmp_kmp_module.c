@@ -214,6 +214,13 @@ static ngx_command_t  ngx_rtmp_kmp_commands[] = {
       offsetof(ngx_rtmp_kmp_app_conf_t, t.mem_limit[KMP_MEDIA_AUDIO]),
       NULL },
 
+    { ngx_string("kmp_audio_sync_margin"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_kmp_app_conf_t, t.audio_sync_margin),
+      NULL },
+
     { ngx_string("kmp_flush_timeout"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_msec_slot,

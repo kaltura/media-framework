@@ -9,7 +9,7 @@
 #endif // VOD_HAVE_OPENSSL_EVP
 
 // from ffmpeg mpegtsenc
-#define DEFAULT_PES_HEADER_FREQ 16
+#define DEFAULT_PES_HEADER_FREQ 3
 #define DEFAULT_PES_PAYLOAD_SIZE ((DEFAULT_PES_HEADER_FREQ - 1) * 184 + 170)
 
 // typedefs

@@ -124,6 +124,7 @@ ngx_kmp_out_track_init_conf(ngx_kmp_out_track_conf_t *conf)
     conf->buffer_bin_count = NGX_CONF_UNSET_UINT;
     conf->mem_high_watermark = NGX_CONF_UNSET_UINT;
     conf->mem_low_watermark = NGX_CONF_UNSET_UINT;
+    conf->audio_sync_margin = NGX_CONF_UNSET_MSEC;
     conf->flush_timeout = NGX_CONF_UNSET_MSEC;
     conf->keepalive_interval = NGX_CONF_UNSET_MSEC;
     conf->log_frames = NGX_CONF_UNSET_UINT;
@@ -197,6 +198,9 @@ ngx_kmp_out_track_merge_conf(ngx_conf_t *cf, ngx_kmp_out_track_conf_t *conf,
             prev->mem_limit[media_type],
             ngx_kmp_out_track_default_mem_limit[media_type]);
     }
+
+    ngx_conf_merge_msec_value(conf->audio_sync_margin,
+                              prev->audio_sync_margin, 2);
 
     ngx_conf_merge_msec_value(conf->flush_timeout, prev->flush_timeout, 1000);
 

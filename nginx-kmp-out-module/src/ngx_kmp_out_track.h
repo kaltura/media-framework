@@ -30,6 +30,7 @@ typedef struct {
     size_t           buffer_size[KMP_MEDIA_COUNT];
     size_t           mem_limit[KMP_MEDIA_COUNT];
     ngx_lba_t       *lba[KMP_MEDIA_COUNT];
+    ngx_msec_t       audio_sync_margin;
 
     ngx_msec_t       flush_timeout;
     ngx_msec_t       keepalive_interval;
