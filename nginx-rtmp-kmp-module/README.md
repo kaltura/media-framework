@@ -242,6 +242,16 @@ A large value can be more efficient, but increases the latency (a buffer is sent
 Sets the maximum total size of the buffers used to send audio data to the upstream server.
 If the limit is hit, the module drops the RTMP connection.
 
+#### kmp_audio_sync_margin
+* **syntax**: `kmp_audio_sync_margin msec;`
+* **default**: `2ms`
+* **context**: `rtmp`, `server`, `application`
+
+Sets the maximum correction value applied to the timestamps of audio frames.
+In order to overcome loss of precision in audio timestamps (RTMP uses millis timescale),
+the module extrapolates the audio timestamps using the actual duration of the audio frames.
+Frames that have a timestamp within kmp_audio_sync_margin from the extrapolated value, will use the extrapolated value.
+
 #### kmp_flush_timeout
 * **syntax**: `kmp_flush_timeout msec;`
 * **default**: `1s`
