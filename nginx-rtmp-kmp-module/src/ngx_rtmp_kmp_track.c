@@ -248,12 +248,6 @@ ngx_rtmp_kmp_track_sync_audio(ngx_kmp_out_track_t *track,
     } else {
         ctx->audio_base_dts = frame->f.dts;
         ctx->audio_samples = 0;
-
-        //TODO: use only in debug builds!
-        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-            "ngx_rtmp_kmp_track_sync_audio: "
-            "reset audio_base_dts frame_dts  %L est_dts %L margin %L",
-            frame->f.dts, est_dts, margin);
     }
 
     /* TODO: identify short frames (960) from extra data */
