@@ -24,6 +24,7 @@ adts_encoder_set_media_info(
 {
     adts_encoder_state_t* state = get_context(context);
     mp4a_config_t* codec_config = &media_info->u.audio.codec_config;
+    request_context_t *request_context = context->request_context;
 
     if (context->request_context->simulation_only)
     {
@@ -41,6 +42,13 @@ adts_encoder_set_media_info(
     adts_frame_header_set_sample_rate_index(state->header, codec_config->sample_rate_index);
     adts_frame_header_set_channel_configuration(state->header, codec_config->channel_config);
     adts_frame_header_set_adts_buffer_fullness(state->header, 0x7ff);
+
+    ngx_log_error(NGX_LOG_INFO, &request_context->log, 0,
+            "adts_encoder_set_media_info: mp4a object_type: %D sample_rate_index: %D channel_config: %D",
+            codec_config->object_type,
+            codec_config->sample_rate_index,
+            codec_config->channel_config);
+
 
     return VOD_OK;
 }
