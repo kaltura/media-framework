@@ -496,26 +496,36 @@ codec_config_mp4a_config_parse(
 
     if (reader.stream.eof_reached)
     {
-        vod_log_error(VOD_LOG_ERR, log, 0,
-            "codec_config_mp4a_config_parse: failed to read all required audio extra data fields");
-        return VOD_BAD_DATA;
+        goto error;
     }
 
     if (result->object_type == AOT_SBR || result->object_type == AOT_PS )
     {
+        uint8_t ext_sample_rate_index = bit_read_stream_get(&reader, 4);
+        if (ext_sample_rate_index == 0x0f)
+            bit_read_stream_get(&reader, 24);
+
+        if (reader.stream.eof_reached)
+        {
+           goto error;
+        }
+
         result->object_type = bit_read_stream_get(&reader, 5);
         if (result->object_type == AOT_ESCAPE)
             result->object_type = 32 + bit_read_stream_get(&reader, 6);
 
         if (reader.stream.eof_reached)
         {
-            vod_log_error(VOD_LOG_ERR, log, 0,
-                "codec_config_mp4a_config_parse: failed to read all required audio extra data fields");
-            return VOD_BAD_DATA;
+            goto error;
         }
     }
 
     return VOD_OK;
+error:
+
+    vod_log_error(VOD_LOG_ERR, log, 0,
+        "codec_config_mp4a_config_parse: failed to read all required audio extra data fields");
+    return VOD_BAD_DATA;
 }
 
 uint32_t
