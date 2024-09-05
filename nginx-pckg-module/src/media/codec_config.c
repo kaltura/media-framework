@@ -10,6 +10,10 @@
 
 #define AOT_ESCAPE (31)
 
+#define AOT_SBR (5)
+
+#define AOT_PS (29)
+
 #define HVCC_HEADER_SIZE (22)
 
 
@@ -495,6 +499,20 @@ codec_config_mp4a_config_parse(
         vod_log_error(VOD_LOG_ERR, log, 0,
             "codec_config_mp4a_config_parse: failed to read all required audio extra data fields");
         return VOD_BAD_DATA;
+    }
+
+    if (result->object_type == AOT_SBR || result->object_type == AOT_PS )
+    {
+        result->object_type = bit_read_stream_get(&reader, 5);
+        if (result->object_type == AOT_ESCAPE)
+            result->object_type = 32 + bit_read_stream_get(&reader, 6);
+
+        if (reader.stream.eof_reached)
+        {
+            vod_log_error(VOD_LOG_ERR, log, 0,
+                "codec_config_mp4a_config_parse: failed to read all required audio extra data fields");
+            return VOD_BAD_DATA;
+        }
     }
 
     return VOD_OK;
