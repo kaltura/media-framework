@@ -521,10 +521,12 @@ codec_config_mp4a_config_parse(
     }
 
     return VOD_OK;
+
 error:
 
     vod_log_error(VOD_LOG_ERR, log, 0,
         "codec_config_mp4a_config_parse: failed to read all required audio extra data fields");
+
     return VOD_BAD_DATA;
 }
 
