@@ -314,10 +314,6 @@ ngx_rtmp_kmp_track_init_frame(ngx_kmp_out_track_t *track,
 
             has_pts_delay = 1;
 
-            if (packet_type == NGX_RTMP_AVC_SEQUENCE_HEADER) {
-                *sequence_header = 1;
-            }
-
         } else  {
 
             frame_info &= ~NGX_RTMP_EXT_HEADER_MASK;
