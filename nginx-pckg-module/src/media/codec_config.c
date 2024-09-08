@@ -504,11 +504,13 @@ codec_config_mp4a_config_parse(
     {
         ext_sample_rate_index = bit_read_stream_get(&reader, 4);
         if (ext_sample_rate_index == 0x0f)
+        {
             bit_read_stream_get(&reader, 24);
+        }
 
         if (reader.stream.eof_reached)
         {
-           goto error;
+            goto error;
         }
 
         result->object_type = bit_read_stream_get(&reader, 5);

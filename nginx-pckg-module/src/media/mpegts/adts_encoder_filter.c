@@ -44,7 +44,7 @@ adts_encoder_set_media_info(
 
 #if (VOD_DEBUG)
 
-    ngx_log_error(NGX_LOG_INFO, context->request_context->log, 0,
+    vod_log_debug3(VOD_LOG_DEBUG_LEVEL, context->request_context->log, 0,
             "adts_encoder_set_media_info: mp4a object_type: %D sample_rate_index: %D channel_config: %D",
             codec_config->object_type,
             codec_config->sample_rate_index,
