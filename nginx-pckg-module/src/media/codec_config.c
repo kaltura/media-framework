@@ -478,7 +478,7 @@ codec_config_mp4a_config_parse(
     vod_str_t* extra_data,
     mp4a_config_t* result)
 {
-    bit_reader_state_t reader;
+    bit_reader_state_t reader, temp_reader;
     uint8_t ext_sample_rate_index;
 
     vod_log_buffer(VOD_LOG_DEBUG_LEVEL, log, 0, "codec_config_mp4a_config_parse: extra data ", extra_data->data, extra_data->len);
@@ -500,7 +500,9 @@ codec_config_mp4a_config_parse(
         goto error;
     }
 
-    if (result->object_type == AOT_SBR || result->object_type == AOT_PS)
+temp_reader = reader;
+if (result->object_type == AOT_SBR || (result->object_type == AOT_PS &&
+    !(bit_read_stream_get(&temp_reader, 3) & 0x03 && !(bit_read_stream_get(&temp_reader, 9) & 0x3f))))
     {
         ext_sample_rate_index = bit_read_stream_get(&reader, 4);
         if (ext_sample_rate_index == 0x0f)
