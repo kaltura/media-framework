@@ -517,7 +517,9 @@ codec_config_mp4a_config_parse(
 
         result->object_type = bit_read_stream_get(&reader, 5);
         if (result->object_type == AOT_ESCAPE)
+        {
             result->object_type = 32 + bit_read_stream_get(&reader, 6);
+        }
 
         if (reader.stream.eof_reached)
         {
