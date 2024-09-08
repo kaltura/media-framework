@@ -109,7 +109,24 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
             }
             LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] received packet  KMP_PACKET_MEDIA_INFO",session->stream_name);
 
-            transcode_session_async_set_mediaInfo(transcode_session, newParams);
+            if( (retVal = transcode_session_async_set_mediaInfo(transcode_session, newParams)) < 0)
+            {
+                LOGGER(CATEGORY_RECEIVER,AV_LOG_ERROR,"[%s] transcode_session_async_set_mediaInfo failed",session->stream_name);
+
+                LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] flushing",session->stream_name);
+                _S(transcode_session_async_send_packet(transcode_session, NULL));
+
+                if(!autoAckMode) {
+                    transcode_session_get_ack_frame_id(transcode_session,&current_position);
+                    // TODO: we cheat here, received_frame_id may have not been persisted yet
+                    // so we should make sure all of the frames are consumed ny upstream
+                    current_position.frame_id = current_position.transcoded_frame_id = received_frame_id;
+                    LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] sending ack for packet # : %lld",session->stream_name,current_position.frame_id);
+                    _S(KMP_send_ack(&session->kmpClient,&current_position));
+                }
+
+                break;
+            }
         }
         if (header.packet_type==KMP_PACKET_FRAME)
         {

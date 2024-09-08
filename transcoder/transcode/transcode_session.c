@@ -85,8 +85,7 @@ int transcode_session_async_set_mediaInfo(transcode_session_t *ctx,transcode_med
         return transcode_session_set_media_info(ctx,mediaInfo);
     }
     LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_DEBUG,"[%s] enqueue media info",ctx->name);
-    packet_queue_write_mediaInfo(&ctx->packetQueue, mediaInfo);
-    return 0;
+    return packet_queue_write_mediaInfo(&ctx->packetQueue, mediaInfo);
 }
 
 int transcode_session_async_send_packet(transcode_session_t *ctx, struct AVPacket* packet)
@@ -121,8 +120,9 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
 
         if (currentCodecParams->extradata_size>0 &&
             newCodecParams->extradata!=NULL &&
-            currentCodecParams->extradata!=NULL &&
-            0!=memcmp(newCodecParams->extradata,currentCodecParams->extradata,currentCodecParams->extradata_size))
+            currentCodecParams->extradata!=NULL
+            // FIXME: uncomment memcp!!!
+            /*&& 0!=memcmp(newCodecParams->extradata,currentCodecParams->extradata,currentCodecParams->extradata_size)*/)
             changed=true;
 
         if (!changed) {
@@ -130,6 +130,10 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
             avcodec_parameters_free(&newMediaInfo->codecParams);
             av_free(newMediaInfo);
             return 0;
+        } else {
+
+            LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"changing media info on the fly is currently not supported");
+            return -1;
         }
     }
 

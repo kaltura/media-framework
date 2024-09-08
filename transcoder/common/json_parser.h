@@ -116,7 +116,7 @@ typedef struct {
 
 #define JSON_SERIALIZE_STRING(key,value)  ADD_COMMA() JSON_WRITE("\"%s\": \"%s\"",key,value); js->shouldAddComma=true;
 #define JSON_SERIALIZE_INT(key,value)     ADD_COMMA() JSON_WRITE("\"%s\": %d",key,value); js->shouldAddComma=true;
-#define JSON_SERIALIZE_INT64(key,value)   ADD_COMMA() JSON_WRITE("\"%s\": %lld",key,value); js->shouldAddComma=true;
+#define JSON_SERIALIZE_INT64(key,value)   ADD_COMMA() JSON_WRITE("\"%s\": %ld",key,value); js->shouldAddComma=true;
 #define JSON_SERIALIZE_BOOL(key,value)    ADD_COMMA() JSON_WRITE("\"%s\": %s",key,value ? "true" : "false"); js->shouldAddComma=true;
 #define JSON_SERIALIZE_DOUBLE(key,value)  ADD_COMMA() JSON_WRITE("\"%s\": %.2lf",key,value); js->shouldAddComma=true;
 
