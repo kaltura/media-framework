@@ -500,7 +500,7 @@ codec_config_mp4a_config_parse(
         goto error;
     }
 
-    if (result->object_type == AOT_SBR || result->object_type == AOT_PS )
+    if (result->object_type == AOT_SBR || result->object_type == AOT_PS)
     {
         ext_sample_rate_index = bit_read_stream_get(&reader, 4);
         if (ext_sample_rate_index == 0x0f)
