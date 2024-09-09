@@ -112,18 +112,21 @@ void transcode_session_get_ack_frame_id(transcode_session_t *ctx,kmp_frame_posit
 int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInfo_t* newMediaInfo)
 {
     if (ctx->currentMediaInfo) {
-        AVCodecParameters *currentCodecParams=ctx->currentMediaInfo->codecParams;
-        AVCodecParameters *newCodecParams=newMediaInfo->codecParams;
-        bool changed=newCodecParams->width!=currentCodecParams->width ||
-            newCodecParams->height!=currentCodecParams->height ||
-            newCodecParams->extradata_size!=currentCodecParams->extradata_size;
+        bool changed = false;
+        if(ctx->currentMediaInfo != newMediaInfo) {
+            AVCodecParameters *currentCodecParams=ctx->currentMediaInfo->codecParams;
+            AVCodecParameters *newCodecParams=newMediaInfo->codecParams;
+            changed=newCodecParams->width!=currentCodecParams->width ||
+                newCodecParams->height!=currentCodecParams->height ||
+                newCodecParams->extradata_size!=currentCodecParams->extradata_size;
 
-        if (currentCodecParams->extradata_size>0 &&
-            newCodecParams->extradata!=NULL &&
-            currentCodecParams->extradata!=NULL
-            // FIXME: uncomment memcp!!!
-            /*&& 0!=memcmp(newCodecParams->extradata,currentCodecParams->extradata,currentCodecParams->extradata_size)*/)
-            changed=true;
+            if (currentCodecParams->extradata_size>0 &&
+                newCodecParams->extradata!=NULL &&
+                currentCodecParams->extradata!=NULL
+                // FIXME: uncomment memcp!!!
+                /*&& 0!=memcmp(newCodecParams->extradata,currentCodecParams->extradata,currentCodecParams->extradata_size)*/)
+                changed=true;
+        }
 
         if (!changed) {
 
