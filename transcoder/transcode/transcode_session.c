@@ -124,6 +124,7 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
                 newCodecParams->extradata!=NULL &&
                 currentCodecParams->extradata!=NULL
                 // FIXME: uncomment memcp!!!
+                && ctx->processedStats.totalFrames > 0
                 /*&& 0!=memcmp(newCodecParams->extradata,currentCodecParams->extradata,currentCodecParams->extradata_size)*/)
                 changed=true;
         }
