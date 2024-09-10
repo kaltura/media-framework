@@ -107,7 +107,8 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_FATAL,"[%s] Invalid mediainfo",session->stream_name);
                 break;
             }
-            LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] received packet  KMP_PACKET_MEDIA_INFO",session->stream_name);
+
+            KMP_log_mediainfo(transcode_session, CATEGORY_RECEIVER, AV_LOG_INFO, newParams);
 
             if( (retVal = transcode_session_async_set_mediaInfo(transcode_session, newParams)) < 0)
             {

@@ -781,3 +781,67 @@ bool KMP_read_ack(KMP_session_t *context,uint64_t* frame_id)
     }
     return false;
 }
+
+static const char *hex = "0123456789ABCDEF";
+
+int KMP_log_mediainfo(KMP_session_t *context,
+    const char *category, int level,
+    transcode_mediaInfo_t* transcodeMediaInfo) {
+
+    AVCodecParameters* params = transcodeMediaInfo->codecParams;
+
+    if(!params){
+        return -1;
+    }
+
+    char *ex = NULL;
+    if(params->extradata_size > 0 ){
+        ex = av_malloc(2 * params->extradata_size + 1);
+        char *walk = ex;
+        for(int i = 0; i < params->extradata_size; i++) {
+           *walk++ = hex[params->extradata[i] >> 4];
+           *walk++ = hex[params->extradata[i] & 0x0f];
+        }
+        *walk = '\0';
+    }
+
+    if (params->codec_type == AVMEDIA_TYPE_AUDIO) {
+
+        LOGGER(category,level,"[%s] KMP_PACKET_MEDIA_INFO type=audio"
+            " codec_id=%s (0x%x) samplerate=%d bps=%d channels=%d channel_layout=%d"
+            " bitrate=%.3f kbps timescale=%d:%d"
+            " extra_data=%s",
+            context->sessionName,
+            avcodec_get_name(params->codec_id),
+            params->codec_tag,
+            params->sample_rate,
+            params->bits_per_coded_sample,
+            params->channels,
+            params->channel_layout,
+            params->bit_rate / 1000.0, transcodeMediaInfo->timeScale.num, transcodeMediaInfo->timeScale.den,
+            ex);
+    }
+    else if (params->codec_type == AVMEDIA_TYPE_VIDEO) {
+
+        LOGGER(category,level,"[%s] KMP_PACKET_MEDIA_INFO type=video"
+            " codec_id=%s (0x%x) width=%d height=%d frame_rate=%d:%d"
+            " bitrate=%.3f kbps timescale=%d:%d"
+            " cc=%s extra_data=%s",
+            context->sessionName,
+            avcodec_get_name(params->codec_id),
+            params->codec_tag,
+            params->width,
+            params->height,
+            transcodeMediaInfo->frameRate.num, transcodeMediaInfo->frameRate.den,
+            params->bit_rate / 1000.0, transcodeMediaInfo->timeScale.num, transcodeMediaInfo->timeScale.den,
+            transcodeMediaInfo->closed_captions ? "yes" : "no",
+            ex);
+    }
+
+    if(ex) {
+        av_free(ex);
+    }
+
+    return 0;
+}
+

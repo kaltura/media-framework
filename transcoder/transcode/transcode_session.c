@@ -123,7 +123,7 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
             if (currentCodecParams->extradata_size>0 &&
                 newCodecParams->extradata!=NULL &&
                 currentCodecParams->extradata!=NULL
-                // FIXME: uncomment memcp!!!
+                // FIXME: uncomment memcmp!!!
                 && ctx->processedStats.totalFrames > 0
                 /*&& 0!=memcmp(newCodecParams->extradata,currentCodecParams->extradata,currentCodecParams->extradata_size)*/)
                 changed=true;
@@ -137,6 +137,8 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
         } else {
 
             LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"changing media info on the fly is currently not supported");
+            avcodec_parameters_free(&newMediaInfo->codecParams);
+            av_free(newMediaInfo);
             return -1;
         }
     }

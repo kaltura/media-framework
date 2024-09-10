@@ -50,6 +50,8 @@ int KMP_send_ack( KMP_session_t *context,kmp_frame_position_t *cur_pos);
 
 int KMP_close( KMP_session_t *context);
 
+int KMP_log_mediainfo(KMP_session_t *context, const char *category,int level,     transcode_mediaInfo_t* mediaInfo);
+
 
 int KMP_listen( KMP_session_t *context);
 int KMP_accept( KMP_session_t *context, KMP_session_t *client);
