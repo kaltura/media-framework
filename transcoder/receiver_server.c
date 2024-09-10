@@ -108,7 +108,7 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
                 break;
             }
 
-            KMP_log_mediainfo(transcode_session, CATEGORY_RECEIVER, AV_LOG_INFO, newParams);
+            KMP_log_mediainfo(&session->kmpClient, CATEGORY_RECEIVER, AV_LOG_INFO, newParams);
 
             if( (retVal = transcode_session_async_set_mediaInfo(transcode_session, newParams)) < 0)
             {
