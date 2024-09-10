@@ -818,7 +818,7 @@ int KMP_log_mediainfo(KMP_session_t *context,
             params->bits_per_coded_sample,
             params->channels,
             params->channel_layout,
-            params->bit_rate / 1000.0, transcodeMediaInfo->timeScale.num, transcodeMediaInfo->timeScale.den,
+            params->bit_rate / 1024.0, transcodeMediaInfo->timeScale.num, transcodeMediaInfo->timeScale.den,
             ex);
     }
     else if (params->codec_type == AVMEDIA_TYPE_VIDEO) {
@@ -833,7 +833,7 @@ int KMP_log_mediainfo(KMP_session_t *context,
             params->width,
             params->height,
             transcodeMediaInfo->frameRate.num, transcodeMediaInfo->frameRate.den,
-            params->bit_rate / 1000.0, transcodeMediaInfo->timeScale.num, transcodeMediaInfo->timeScale.den,
+            params->bit_rate / 1024.0, transcodeMediaInfo->timeScale.num, transcodeMediaInfo->timeScale.den,
             transcodeMediaInfo->closed_captions ? "yes" : "no",
             ex);
     }
