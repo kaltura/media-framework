@@ -120,14 +120,11 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
                 newCodecParams->height!=currentCodecParams->height ||
                 newCodecParams->extradata_size!=currentCodecParams->extradata_size;
 
-            if (currentCodecParams->extradata_size>0 &&
-                newCodecParams->extradata!=NULL &&
-                currentCodecParams->extradata!=NULL
-                // FIXME: uncomment memcmp!!!
-                && ctx->processedStats.totalFrames > 0
-                /*&& 0!=memcmp(newCodecParams->extradata,currentCodecParams->extradata,currentCodecParams->extradata_size)*/)
-                changed=true;
-        }
+        if (currentCodecParams->extradata_size>0 &&
+            newCodecParams->extradata!=NULL &&
+            currentCodecParams->extradata!=NULL &&
+            0!=memcmp(newCodecParams->extradata,currentCodecParams->extradata,currentCodecParams->extradata_size))
+            changed=true;
 
         if (!changed) {
 
