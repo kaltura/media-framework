@@ -1456,6 +1456,7 @@ ngx_rtmp_codec_postconfiguration(ngx_conf_t *cf)
     ngx_rtmp_core_main_conf_t          *cmcf;
     ngx_rtmp_handler_pt                *h;
     ngx_rtmp_amf_handler_t             *ch;
+    ngx_uint_t                          nelts;
 
     cmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_core_module);
 
@@ -1464,11 +1465,21 @@ ngx_rtmp_codec_postconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
+    nelts = cmcf->events[NGX_RTMP_MSG_AUDIO].nelts;
+    for(;nelts > 1;nelts--, h--) {
+       *h =  h[-1];
+    }
+
     *h = ngx_rtmp_codec_av;
 
     h = ngx_array_push(&cmcf->events[NGX_RTMP_MSG_VIDEO]);
     if (h == NULL) {
         return NGX_ERROR;
+    }
+
+    nelts = cmcf->events[NGX_RTMP_MSG_VIDEO].nelts;
+    for(;nelts > 1;nelts--, h--) {
+       *h =  h[-1];
     }
 
     *h = ngx_rtmp_codec_av;
