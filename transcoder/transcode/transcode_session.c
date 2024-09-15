@@ -112,13 +112,11 @@ void transcode_session_get_ack_frame_id(transcode_session_t *ctx,kmp_frame_posit
 int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInfo_t* newMediaInfo)
 {
     if (ctx->currentMediaInfo) {
-        bool changed = false;
-        if(ctx->currentMediaInfo != newMediaInfo) {
-            AVCodecParameters *currentCodecParams=ctx->currentMediaInfo->codecParams;
-            AVCodecParameters *newCodecParams=newMediaInfo->codecParams;
-            changed=newCodecParams->width!=currentCodecParams->width ||
-                newCodecParams->height!=currentCodecParams->height ||
-                newCodecParams->extradata_size!=currentCodecParams->extradata_size;
+        AVCodecParameters *currentCodecParams=ctx->currentMediaInfo->codecParams;
+        AVCodecParameters *newCodecParams=newMediaInfo->codecParams;
+        bool changed=newCodecParams->width!=currentCodecParams->width ||
+            newCodecParams->height!=currentCodecParams->height ||
+            newCodecParams->extradata_size!=currentCodecParams->extradata_size;
 
         if (currentCodecParams->extradata_size>0 &&
             newCodecParams->extradata!=NULL &&
@@ -126,16 +124,14 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
             0!=memcmp(newCodecParams->extradata,currentCodecParams->extradata,currentCodecParams->extradata_size))
             changed=true;
 
-        if (!changed) {
+        avcodec_parameters_free(&newMediaInfo->codecParams);
+        av_free(newMediaInfo);
 
-            avcodec_parameters_free(&newMediaInfo->codecParams);
-            av_free(newMediaInfo);
+        if (!changed) {
+            LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"transcode_session_set_media_info. media info did not change");
             return 0;
         } else {
-
-            LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"changing media info on the fly is currently not supported");
-            avcodec_parameters_free(&newMediaInfo->codecParams);
-            av_free(newMediaInfo);
+            LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"transcode_session_set_media_info, changing media info on the fly is currently not supported");
             return -1;
         }
     }
