@@ -109,37 +109,22 @@ void transcode_session_get_ack_frame_id(transcode_session_t *ctx,kmp_frame_posit
     }
 }
 
-int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInfo_t* newMediaInfo)
-{
-    if (ctx->currentMediaInfo) {
-        AVCodecParameters *currentCodecParams=ctx->currentMediaInfo->codecParams;
-        AVCodecParameters *newCodecParams=newMediaInfo->codecParams;
-        bool changed=newCodecParams->width!=currentCodecParams->width ||
-            newCodecParams->height!=currentCodecParams->height ||
-            newCodecParams->extradata_size!=currentCodecParams->extradata_size;
-
-        if (currentCodecParams->extradata_size>0 &&
-            newCodecParams->extradata!=NULL &&
-            currentCodecParams->extradata!=NULL &&
-            0!=memcmp(newCodecParams->extradata,currentCodecParams->extradata,currentCodecParams->extradata_size))
-            changed=true;
-
-        avcodec_parameters_free(&newMediaInfo->codecParams);
-        av_free(newMediaInfo);
-
-        if (!changed) {
-            LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"transcode_session_set_media_info. media info did not change");
-            return 0;
-        } else {
-            LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"transcode_session_set_media_info, changing media info on the fly is currently not supported");
-            return -1;
-        }
+static
+int transcode_session_init_pipeline(transcode_session_t *ctx) {
+    if (!ctx->currentMediaInfo) {
+        LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"transcode_session_init_pipeline "
+        "media info not set");
+        return -1;
     }
 
-    ctx->currentMediaInfo=newMediaInfo;
+    if (ctx->decoders > 0) {
+        LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR, "transcode_session_init_pipeline "
+        "decoder already initialized");
+        return -1;
+    }
 
     transcode_codec_t *pDecoderContext=&ctx->decoder[0];
-    transcode_codec_init_decoder(pDecoderContext,newMediaInfo);
+    transcode_codec_init_decoder(pDecoderContext,ctx->currentMediaInfo);
     sprintf(pDecoderContext->name,"Decoder for input %s",ctx->name);
     ctx->decoders++;
     if (init_outputs_from_config(ctx)<0) {
@@ -165,6 +150,51 @@ int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInf
 
     if(ctx->outputs && !ctx->ack_handler)
         ctx->ack_handler = &ctx->output[0];
+
+    return 0;
+}
+
+
+int transcode_session_set_media_info(transcode_session_t *ctx,transcode_mediaInfo_t* newMediaInfo)
+{
+    if(!newMediaInfo) {
+       LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"transcode_session_set_media_info. newMediaInfo == NULL");
+       return AVERROR(EINVAL);
+    }
+
+    if (ctx->currentMediaInfo) {
+        if(ctx->decoders > 0) {
+            AVCodecParameters *currentCodecParams=ctx->currentMediaInfo->codecParams;
+            AVCodecParameters *newCodecParams=newMediaInfo->codecParams;
+            bool changed=newCodecParams->width!=currentCodecParams->width ||
+                newCodecParams->height!=currentCodecParams->height ||
+                newCodecParams->extradata_size!=currentCodecParams->extradata_size;
+
+            if (currentCodecParams->extradata_size>0 &&
+                newCodecParams->extradata!=NULL &&
+                currentCodecParams->extradata!=NULL &&
+                0!=memcmp(newCodecParams->extradata,currentCodecParams->extradata,currentCodecParams->extradata_size))
+                changed=true;
+
+            avcodec_parameters_free(&newMediaInfo->codecParams);
+            av_free(newMediaInfo);
+
+            if (!changed) {
+                LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_INFO,"transcode_session_set_media_info. media info did not change");
+                return 0;
+            } else {
+                LOGGER0(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR,"transcode_session_set_media_info, changing media info on the fly is currently not supported");
+                return -1;
+            }
+        } else {
+            avcodec_parameters_free(&ctx->currentMediaInfo->codecParams);
+            av_free(ctx->currentMediaInfo);
+            ctx->currentMediaInfo = NULL;
+        }
+    }
+
+    ctx->currentMediaInfo=newMediaInfo;
+
     return 0;
 }
 
@@ -710,6 +740,14 @@ int transcode_session_send_packet(transcode_session_t *ctx ,struct AVPacket* pac
         clock_estimator_push_frame(&ctx->clock_estimator,packet->dts,packet->pos);
         ctx->lastInputDts=packet->dts;
         samples_stats_add(&ctx->processedStats,packet->dts,packet->pos,packet->size);
+
+        if(!ctx->decoders) {
+            if( (ret = transcode_session_init_pipeline(ctx)) < 0) {
+               LOGGER(CATEGORY_TRANSCODING_SESSION,AV_LOG_ERROR, "transcode_session_init_pipeline failed %d",ret);
+               return ret;
+            }
+        }
+
     }
     bool shouldDecode=false;
     for (int i=0;i<ctx->outputs;i++) {
