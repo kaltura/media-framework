@@ -125,14 +125,7 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
                     _S(KMP_send_ack(&session->kmpClient,&current_position));
                 }
                 break;
-            } else if(!autoAckMode) {
-                received_frame_id++;
-                kmp_frame_position_t media_info_position = { received_frame_id, received_frame_id, 0 };
-                LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] sending ack for media packet # : %lld",
-                    session->stream_name, media_info_position.frame_id);
-                _S(KMP_send_ack(&session->kmpClient,&media_info_position));
             }
-
          }
         if (header.packet_type==KMP_PACKET_FRAME)
         {
