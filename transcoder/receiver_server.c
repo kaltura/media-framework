@@ -110,8 +110,7 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
 
             KMP_log_mediainfo(&session->kmpClient, CATEGORY_RECEIVER, AV_LOG_INFO, newParams);
 
-            if( (retVal = transcode_session_async_set_mediaInfo(transcode_session, newParams)) < 0)
-            {
+            if( (retVal = transcode_session_async_set_mediaInfo(transcode_session, newParams)) < 0) {
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_ERROR,"[%s] transcode_session_async_set_mediaInfo failed",session->stream_name);
 
                 LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] flushing",session->stream_name);
@@ -125,10 +124,16 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
                     LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] sending ack for packet # : %lld",session->stream_name,current_position.frame_id);
                     _S(KMP_send_ack(&session->kmpClient,&current_position));
                 }
-
                 break;
+            } else if(!autoAckMode) {
+                received_frame_id++;
+                kmp_frame_position_t media_info_position = { received_frame_id, received_frame_id, 0 };
+                LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] sending ack for media packet # : %lld",
+                    session->stream_name, media_info_position.frame_id);
+                _S(KMP_send_ack(&session->kmpClient,&media_info_position));
             }
-        }
+
+         }
         if (header.packet_type==KMP_PACKET_FRAME)
         {
             AVPacket* packet=av_packet_alloc();
