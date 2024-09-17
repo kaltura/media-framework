@@ -1218,13 +1218,13 @@ ngx_kmp_out_track_log_media_info(ngx_kmp_out_track_t *track)
     if(track->extra_data.len > 0)
     {
         buf = ngx_pnalloc(track->pool, 2 * track->extra_data.len + 1);
-        if(buf == NULL)
+        if (buf == NULL)
         {
-             ngx_log_error(NGX_LOG_ERR, &track->log, 0,
+            ngx_log_error(NGX_LOG_ERR, &track->log, 0,
                   "ngx_kmp_out_track_log_media_info:"
                   "failed to allocate buffer for extra data size %uD",
                   2 * track->extra_data.len + 1);
-             return NGX_ERROR;
+            return NGX_ERROR;
         }
 
         p = ngx_hex_dump(buf, track->extra_data.data, track->extra_data.len);
@@ -1238,32 +1238,33 @@ ngx_kmp_out_track_log_media_info(ngx_kmp_out_track_t *track)
         " extra_data: %s",
         track->media_info.media_type, track->media_info.codec_id,
         track->media_info.timescale,  track->media_info.bitrate,  buf);
-    switch(track->media_info.media_type)
+    switch (track->media_info.media_type)
     {
        case KMP_MEDIA_VIDEO:
-            ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-                  "ngx_kmp_out_track_log_media_info: video"
-                  " width: %uD height: %uD frame_rate: %uD/%uD cea_captions: %s",
-                  track->media_info.u.video.width, track->media_info.u.video.height,
-                  track->media_info.u.video.frame_rate.num, track->media_info.u.video.frame_rate.denom,
-                  track->media_info.u.video.cea_captions ? "true" : "false");
+           ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+               "ngx_kmp_out_track_log_media_info: video"
+               " width: %uD height: %uD frame_rate: %uD/%uD cea_captions: %s",
+               track->media_info.u.video.width, track->media_info.u.video.height,
+               track->media_info.u.video.frame_rate.num, track->media_info.u.video.frame_rate.denom,
+               track->media_info.u.video.cea_captions ? "true" : "false");
             break;
        case KMP_MEDIA_AUDIO:
-            ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-                  "ngx_kmp_out_track_log_media_info: audio"
-                  " channels: %uD bits_per_sample: %uD sample_rate: %uD channel_layout: %uD",
-                  track->media_info.u.audio.channels, track->media_info.u.audio.bits_per_sample,
-                  track->media_info.u.audio.sample_rate, track->media_info.u.audio.channel_layout);
+           ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+               "ngx_kmp_out_track_log_media_info: audio"
+               " channels: %uD bits_per_sample: %uD sample_rate: %uD channel_layout: %uD",
+               track->media_info.u.audio.channels, track->media_info.u.audio.bits_per_sample,
+               track->media_info.u.audio.sample_rate, track->media_info.u.audio.channel_layout);
             break;
     };
 
-    if(buf)
+    if (buf)
     {
         ngx_pfree(track->pool, buf);
     }
 
     return NGX_OK;
 }
+
 
 ngx_int_t
 ngx_kmp_out_track_write_media_info(ngx_kmp_out_track_t *track)
