@@ -58,7 +58,7 @@ void* thread_stream_from_file(void *vargp)
     json_get_int64(GetConfig(),"input.hiccupIntervalSec",0,&hiccupIntervalSec);
 
     int64_t resendMediaInfoIntervalSec;
-    json_get_int64(GetConfig(),"input.resendMediaInfoIntervalSec",10,&resendMediaInfoIntervalSec);
+    json_get_int64(GetConfig(),"input.resendMediaInfoIntervalSec",0,&resendMediaInfoIntervalSec);
 
 
     AVPacket packet;
