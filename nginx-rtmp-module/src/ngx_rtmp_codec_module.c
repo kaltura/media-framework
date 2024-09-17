@@ -1467,7 +1467,7 @@ ngx_rtmp_codec_postconfiguration(ngx_conf_t *cf)
 
     nelts = cmcf->events[NGX_RTMP_MSG_AUDIO].nelts;
     for(;nelts > 1;nelts--, h--) {
-       *h =  h[-1];
+        *h =  h[-1];
     }
 
     *h = ngx_rtmp_codec_av;
@@ -1479,7 +1479,7 @@ ngx_rtmp_codec_postconfiguration(ngx_conf_t *cf)
 
     nelts = cmcf->events[NGX_RTMP_MSG_VIDEO].nelts;
     for(;nelts > 1;nelts--, h--) {
-       *h =  h[-1];
+        *h =  h[-1];
     }
 
     *h = ngx_rtmp_codec_av;
