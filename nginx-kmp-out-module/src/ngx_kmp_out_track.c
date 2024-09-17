@@ -1250,7 +1250,7 @@ ngx_kmp_out_track_log_media_info(ngx_kmp_out_track_t *track)
             break;
        case KMP_MEDIA_AUDIO:
             ngx_log_error(NGX_LOG_INFO, &track->log, 0,
-                  "ngx_kmp_out_track_write_media_info: audio"
+                  "ngx_kmp_out_track_log_media_info: audio"
                   " channels: %uD bits_per_sample: %uD sample_rate: %uD channel_layout: %uD",
                  track->media_info.u.audio.channels, track->media_info.u.audio.bits_per_sample,
                  track->media_info.u.audio.sample_rate, track->media_info.u.audio.channel_layout);
