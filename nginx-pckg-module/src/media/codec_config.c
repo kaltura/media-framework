@@ -10,6 +10,10 @@
 
 #define AOT_ESCAPE (31)
 
+#define AOT_SBR (5)
+
+#define AOT_PS (29)
+
 #define HVCC_HEADER_SIZE (22)
 
 
@@ -474,7 +478,8 @@ codec_config_mp4a_config_parse(
     vod_str_t* extra_data,
     mp4a_config_t* result)
 {
-    bit_reader_state_t reader;
+    bit_reader_state_t reader, temp_reader;
+    uint8_t ext_sample_rate_index;
 
     vod_log_buffer(VOD_LOG_DEBUG_LEVEL, log, 0, "codec_config_mp4a_config_parse: extra data ", extra_data->data, extra_data->len);
 
@@ -492,12 +497,44 @@ codec_config_mp4a_config_parse(
 
     if (reader.stream.eof_reached)
     {
-        vod_log_error(VOD_LOG_ERR, log, 0,
-            "codec_config_mp4a_config_parse: failed to read all required audio extra data fields");
-        return VOD_BAD_DATA;
+        goto error;
+    }
+
+    temp_reader = reader;
+    if (result->object_type == AOT_SBR || (result->object_type == AOT_PS &&
+        !(bit_read_stream_get(&temp_reader, 3) & 0x03 && !(bit_read_stream_get(&temp_reader, 9) & 0x3f))))
+    {
+        ext_sample_rate_index = bit_read_stream_get(&reader, 4);
+        if (ext_sample_rate_index == 0x0f)
+        {
+            bit_read_stream_get(&reader, 24);
+        }
+
+        if (reader.stream.eof_reached)
+        {
+            goto error;
+        }
+
+        result->object_type = bit_read_stream_get(&reader, 5);
+        if (result->object_type == AOT_ESCAPE)
+        {
+            result->object_type = 32 + bit_read_stream_get(&reader, 6);
+        }
+
+        if (reader.stream.eof_reached)
+        {
+            goto error;
+        }
     }
 
     return VOD_OK;
+
+error:
+
+    vod_log_error(VOD_LOG_ERR, log, 0,
+        "codec_config_mp4a_config_parse: failed to read all required audio extra data fields");
+
+    return VOD_BAD_DATA;
 }
 
 uint32_t
