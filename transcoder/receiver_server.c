@@ -119,9 +119,14 @@ int clientLoop(receiver_server_t *server,receiver_server_session_t *session,tran
                 if(!autoAckMode) {
                     transcode_session_get_ack_frame_id(transcode_session,&current_position);
                     // TODO: we cheat here, received_frame_id may have not been persisted yet
-                    // so we should make sure all of the frames are consumed ny upstream
+                    // so we should ensure all of the frames up to received_frame_id
+                    // inclusively, are consumed by upstream
                     current_position.frame_id = current_position.transcoded_frame_id = received_frame_id;
-                    LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] sending ack for packet # : %lld",session->stream_name,current_position.frame_id);
+                    LOGGER(CATEGORY_RECEIVER,AV_LOG_INFO,"[%s] sending ack for frame position: %lld, %lld, %lld",
+                        session->stream_name,
+                        current_position.frame_id,
+                        current_position.transcoded_frame_id,
+                        current_position.offset);
                     _S(KMP_send_ack(&session->kmpClient,&current_position));
                 }
                 break;

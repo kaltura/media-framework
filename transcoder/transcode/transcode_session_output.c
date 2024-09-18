@@ -130,14 +130,16 @@ int transcode_session_output_send_output_packet(transcode_session_output_t *pOut
         }
         av_write_frame(pOutput->oc, NULL);
 
-        ack_desc_t desc = {0};
-        if( (ret = get_packet_frame_id(cpPacket,&desc.id)) >= 0) {
-            if(pOutput->acker.ctx){
-                 pOutput->acker.map(&pOutput->acker,desc.id,&desc);
-             }
-            pOutput->lastMappedAck = desc.id;
-            pOutput->lastAck=desc.id;
-            pOutput->lastOffset=desc.offset;
+        if(cpPacket->flags & AV_PKT_FLAG_KEY) {
+            ack_desc_t desc = {0};
+            if( (ret = get_packet_frame_id(cpPacket,&desc.id)) >= 0) {
+                if(pOutput->acker.ctx){
+                     pOutput->acker.map(&pOutput->acker,desc.id,&desc);
+                 }
+                pOutput->lastMappedAck = desc.id;
+                pOutput->lastAck=desc.id;
+                pOutput->lastOffset=desc.offset;
+            }
         }
 
         av_packet_free(&cpPacket);
