@@ -47,9 +47,19 @@ typedef int64_t     vlc_tick_t;
     ngx_log_debug2(NGX_LOG_DEBUG_CORE, (log), 0, fmt, arg1, arg2)
 #define cc_log_debug3(log, fmt, arg1, arg2, arg3)                            \
     ngx_log_debug3(NGX_LOG_DEBUG_CORE, (log), 0, fmt, arg1, arg2, arg3)
+#define cc_log_debug4(log, fmt, arg1, arg2, arg3, arg4)                      \
+    ngx_log_debug4(NGX_LOG_DEBUG_CORE, (log), 0, fmt, arg1, arg2, arg3,      \
+                   arg4)
+#define cc_log_debug5(log, fmt, arg1, arg2, arg3, arg4, arg5)                \
+    ngx_log_debug5(NGX_LOG_DEBUG_CORE, (log), 0, fmt, arg1, arg2, arg3,      \
+                   arg4, arg5)
 #define cc_log_debug6(log, fmt, arg1, arg2, arg3, arg4, arg5, arg6)          \
     ngx_log_debug6(NGX_LOG_DEBUG_CORE, (log), 0, fmt, arg1, arg2, arg3,      \
                    arg4, arg5, arg6)
+#define cc_log_debug8(log, fmt, arg1, arg2, arg3, arg4, arg5, arg6, arg7,    \
+                      arg8)                                                  \
+    ngx_log_debug8(NGX_LOG_DEBUG_CORE, (log), 0, fmt, arg1, arg2, arg3,      \
+                   arg4, arg5, arg6, arg7, arg8)
 
 #define cc_debug_point  ngx_debug_point
 
