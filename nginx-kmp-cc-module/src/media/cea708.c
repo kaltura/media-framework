@@ -834,6 +834,54 @@ static void CEA708_Window_Write(cea708_window_t *p_w, cea708_text_char_t c)
                             return CEA708_STATUS_STARVING
 #define REQUIRE_ARGS_AND_POP_COMMAND(n) REQUIRE_ARGS(n); else POP_COMMAND()
 
+#define cea708_log_command0(h, cmd)                                         \
+    cc_log_debug2((h)->log, "CEA708-%uD: [%s]",                             \
+        (h)->id,                                                            \
+        (cmd))
+
+#define cea708_log_command1(h, cmd)                                         \
+    cc_log_debug3((h)->log, "CEA708-%uD: [%s 0x%02uxD]",                    \
+        (h)->id,                                                            \
+        (cmd),                                                              \
+        (uint32_t) cea708_input_buffer_peek(ib, 0))
+
+#define cea708_log_command2(h, cmd)                                         \
+    cc_log_debug4((h)->log, "CEA708-%uD: [%s 0x%02uxD 0x%02uxD]",           \
+        (h)->id,                                                            \
+        (cmd),                                                              \
+        (uint32_t) cea708_input_buffer_peek(ib, 0),                         \
+        (uint32_t) cea708_input_buffer_peek(ib, 1))
+
+#define cea708_log_command3(h, cmd)                                         \
+    cc_log_debug5((h)->log, "CEA708-%uD: [%s 0x%02uxD 0x%02uxD 0x%02uxD]",  \
+        (h)->id,                                                            \
+        (cmd),                                                              \
+        (uint32_t) cea708_input_buffer_peek(ib, 0),                         \
+        (uint32_t) cea708_input_buffer_peek(ib, 1),                         \
+        (uint32_t) cea708_input_buffer_peek(ib, 2))
+
+#define cea708_log_command4(h, cmd)                                         \
+    cc_log_debug6((h)->log, "CEA708-%uD: "                                  \
+        "[%s 0x%02uxD 0x%02uxD 0x%02uxD 0x%02uxD]",                         \
+        (h)->id,                                                            \
+        (cmd),                                                              \
+        (uint32_t) cea708_input_buffer_peek(ib, 0),                         \
+        (uint32_t) cea708_input_buffer_peek(ib, 1),                         \
+        (uint32_t) cea708_input_buffer_peek(ib, 2),                         \
+        (uint32_t) cea708_input_buffer_peek(ib, 3))
+
+#define cea708_log_command6(h, cmd)                                         \
+    cc_log_debug8((h)->log, "CEA708-%uD: "                                  \
+        "[%s 0x%02uxD 0x%02uxD 0x%02uxD 0x%02uxD 0x%02uxD 0x%02uxD]",       \
+        (h)->id,                                                            \
+        (cmd),                                                              \
+        (uint32_t) cea708_input_buffer_peek(ib, 0),                         \
+        (uint32_t) cea708_input_buffer_peek(ib, 1),                         \
+        (uint32_t) cea708_input_buffer_peek(ib, 2),                         \
+        (uint32_t) cea708_input_buffer_peek(ib, 3),                         \
+        (uint32_t) cea708_input_buffer_peek(ib, 4),                         \
+        (uint32_t) cea708_input_buffer_peek(ib, 5))
+
 
 enum
 {
@@ -1433,6 +1481,9 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
     uint8_t b_output = 0;
     uint8_t v, i;
     int i_ret = CEA708_STATUS_OK;
+#if (NGX_DEBUG)
+    char cmd[4];
+#endif
 
     switch (code)
     {
@@ -1549,7 +1600,7 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
 
         case CEA708_C1_SPA:  /* Set Pen Attributes */
             REQUIRE_ARGS_AND_POP_COMMAND(2);
-            cc_log_debug1(h->log, "CEA708-%uD: [SPA]", h->id);
+            cea708_log_command2(h, "SPA");
 
             if (!h->p_cw->b_defined)
             {
@@ -1571,7 +1622,7 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
 
         case CEA708_C1_SPC:  /* Set Pen Color */
             REQUIRE_ARGS_AND_POP_COMMAND(3);
-            cc_log_debug1(h->log, "CEA708-%uD: [SPC]", h->id);
+            cea708_log_command3(h, "SPC");
 
             if (!h->p_cw->b_defined)
             {
@@ -1593,7 +1644,7 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
 
         case CEA708_C1_SPL:  /* Set Pen Location */
             REQUIRE_ARGS_AND_POP_COMMAND(2);
-            cc_log_debug1(h->log, "CEA708-%uD: [SPL]", h->id);
+            cea708_log_command2(h, "SPL");
 
             if (!h->p_cw->b_defined)
             {
@@ -1610,7 +1661,7 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
 
         case CEA708_C1_SWA:  /* Set Window Attributes */
             REQUIRE_ARGS_AND_POP_COMMAND(4);
-            cc_log_debug1(h->log, "CEA708-%uD: [SWA]", h->id);
+            cea708_log_command4(h, "SWA");
 
             if (!h->p_cw->b_defined)
             {
@@ -1645,7 +1696,14 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
                 /* Set Current Window 0-7 */
                 POP_COMMAND();
                 code -= CEA708_C1_CW0;
-                cc_log_debug2(h->log, "CEA708-%uD: [CW %uD]", h->id, (uint32_t) code);
+
+#if (NGX_DEBUG)
+                cmd[0] = 'C';
+                cmd[1] = 'W';
+                cmd[2] = '0' + code;
+                cmd[3] = '\0';
+                cea708_log_command0(h, cmd);
+#endif
 
                 if (h->window[code].b_defined)
                     h->p_cw = &h->window[code];
@@ -1655,7 +1713,14 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
                 /* Define Window 0-7 */
                 REQUIRE_ARGS_AND_POP_COMMAND(6);
                 code -= CEA708_C1_DF0;
-                cc_log_debug2(h->log, "CEA708-%uD: [DF %uD]", h->id, (uint32_t) code);
+
+                #if (NGX_DEBUG)
+                cmd[0] = 'D';
+                cmd[1] = 'F';
+                cmd[2] = '0' + code;
+                cmd[3] = '\0';
+                cea708_log_command6(h, cmd);
+                #endif
 
                 /* also sets current window */
                 h->p_cw = &h->window[code];
