@@ -1498,7 +1498,7 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
                 {
                     if (h->window[i].b_defined)
                     {
-                        b_output = h->window[i].b_visible;
+                        b_output |= h->window[i].b_visible;
                     }
 
                     CEA708_Window_ClearText(&h->window[i]);
@@ -1534,7 +1534,7 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
                 {
                     if (h->window[i].b_defined)
                     {
-                        b_output = h->window[i].b_visible;
+                        b_output |= h->window[i].b_visible;
                         h->window[i].b_visible = false;
                     }
                 }
@@ -1552,7 +1552,7 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
                 {
                     if (h->window[i].b_defined)
                     {
-                        b_output = h->window[i].b_visible;
+                        b_output |= h->window[i].b_visible;
                         h->window[i].b_visible = !h->window[i].b_visible;
                     }
                 }
@@ -1570,7 +1570,7 @@ static int CEA708_Decode_C1(cea708_t *h, uint8_t code)
                 {
                     if (h->window[i].b_defined)
                     {
-                        b_output = h->window[i].b_visible;
+                        b_output |= h->window[i].b_visible;
                         CEA708_Window_Reset(&h->window[i]);
                     }
                 }
