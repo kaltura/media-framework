@@ -69,7 +69,7 @@ COPY --from=builder /usr/local/nginx /usr/local/nginx
 COPY --from=builder /usr/local/lib /usr/local/lib
 
 RUN apk add cmd:pip3
-RUN pip3 install redis
+RUN pip3 install redis==5.2.1
 ENV LD_LIBRARY_PATH="/usr/local/lib"
 
 

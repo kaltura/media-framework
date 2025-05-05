@@ -46,7 +46,7 @@ RUN apk add --update \
 COPY --from=builder /usr/local/nginx /usr/local/nginx
 
 RUN apk add cmd:pip3
-RUN pip3 install redis boto3
+RUN pip3 install redis==5.2.1 boto3
 
 EXPOSE 6543
 EXPOSE 8003
