@@ -1,7 +1,8 @@
 #!/bin/sh
 set -eo nounset                              # Treat unset variables as an error
-
+echo "lala"
 BASE_DOWNLOAD_URI=http://nginx.org/en/download.html
+echo $BASE_DOWNLOAD_URI
 NGINX_VERSION=`curl -L "$BASE_DOWNLOAD_URI" |
    grep -oP 'href="nginx-\K[0-9]+\.[0-9]+\.[0-9]+' |
    sort -t. -rn -k1,1 -k2,2 -k3,3 | head -1`
