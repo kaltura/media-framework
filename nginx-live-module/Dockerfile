@@ -5,7 +5,7 @@ RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base 
 
 WORKDIR /tmp/build
 
-ARG NGINX_VERSION=1.21.0
+ARG NGINX_VERSION=1.27.3
 ARG NGX_DEVEL_KIT_VERSION=v0.3.1
 ARG SET_MISC_NGINX_MODULE_VERSION=v0.32
 ARG SET_AWS_AUTH_MODULE_VERSION=1.1
