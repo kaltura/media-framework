@@ -5,7 +5,13 @@
 
 #include "libs.h"
 
-#define _S(EXP) if ((EXP)<0) { return EXP;}
+#define _S(EXP) {           \
+    int retVal = (EXP);     \
+    if(retVal < 0) {        \
+        return retVal;      \
+    }                       \
+}
+
 #ifndef u_char
 #define u_char  unsigned char
 #endif
