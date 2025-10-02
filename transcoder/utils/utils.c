@@ -139,13 +139,23 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
 {
     uint64_t frame_id;
     int64_t pts = AV_NOPTS_VALUE;
+    int64_t created = AV_NOPTS_VALUE;
     if (pFrame==NULL) {
         return "<NULL>";
     }
     get_frame_id(pFrame,&frame_id);
     get_packet_original_pts(pFrame,&pts);
+
+    // Try to get created timestamp from frame metadata
+    if(pFrame->metadata) {
+        const AVDictionaryEntry *created_entry = av_dict_get(pFrame->metadata, "created", NULL, 0);
+        if(created_entry && created_entry->value) {
+            created = strtoll(created_entry->value, NULL, 10);
+        }
+    }
+
     if (pFrame->width>0) {
-        snprintf(buf,size,"pts=%s;samples=%d;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;ar=%d/%d;has_53cc=%d;frame_id=%ld;orig_pts=%s",
+        snprintf(buf,size,"pts=%s;samples=%d;clock=%s;key=%s;data=%p;hwctx=%p;format=%s;pictype=%s;width=%d;height=%d;ar=%d/%d;has_53cc=%d;frame_id=%ld;orig_pts=%s;created=%lld",
              pts2str(pFrame->pts),
              pFrame->nb_samples,
              pFrame->pkt_pos != 0 ? ts2str(pFrame->pkt_pos,false) :  "N/A",
@@ -160,11 +170,13 @@ char *av_get_frame_desc(char* buf, int size,const AVFrame * pFrame)
              pFrame->sample_aspect_ratio.den,
              av_frame_get_side_data(pFrame,AV_FRAME_DATA_A53_CC) != NULL,
              frame_id,
-             pts2str(pts));
+             pts2str(pts),
+             created);
     } else {
-        snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%ld;frame_id=%ld;orig_pts=%s",
+        snprintf(buf,size,"pts=%s;channels=%d;sampleRate=%d;format=%d;size=%d;channel_layout=%ld;frame_id=%ld;orig_pts=%s;created=%lld",
                  pts2str(pFrame->pts),
-                 pFrame->channels,pFrame->sample_rate,pFrame->format,pFrame->nb_samples,pFrame->channel_layout,frame_id,pts2str(pts));
+                 pFrame->channels,pFrame->sample_rate,pFrame->format,pFrame->nb_samples,pFrame->channel_layout,frame_id,pts2str(pts),
+                 created);
     }
     return buf;
 }
@@ -173,13 +185,15 @@ char *av_get_packet_desc(char *buf,int len,const  AVPacket * packet)
 {
     int64_t frame_id;
     int64_t pts = AV_NOPTS_VALUE;
+    int64_t created = AV_NOPTS_VALUE;
     if (packet==NULL) {
         return "<NULL>";
     }
     get_packet_frame_id(packet,&frame_id);
     get_packet_original_pts(packet,&pts);
+    get_packet_created_timestamp(packet,&created);
 
-    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;dur=%s;clock=%s;key=%s;size=%d;flags=%d;frame_id=%ld;orig_pts=%s",
+    snprintf(buf,len,"mem=%p;data=%p;pts=%s;dts=%s;dur=%s;clock=%s;key=%s;size=%d;flags=%d;frame_id=%ld;orig_pts=%s;created=%lld",
              packet,
              packet->data,
              pts2str(packet->pts),
@@ -190,7 +204,8 @@ char *av_get_packet_desc(char *buf,int len,const  AVPacket * packet)
              packet->size,
              packet->flags,
              frame_id,
-             pts2str(pts));
+             pts2str(pts),
+             created);
     return buf;
 }
 
@@ -283,6 +298,29 @@ int add_packet_frame_id_and_pts(AVPacket *packet,int64_t frame_id,pts_t pts) {
      return av_packet_add_side_data(packet, AV_PKT_DATA_STRINGS_METADATA, frameDictData, frameDictSize);
 }
 
+int add_packet_frame_metadata(AVPacket *packet,int64_t frame_id,pts_t pts,int64_t created) {
+     AVDictionary * frameDict = NULL;
+     size_t frameDictSize = 0;
+     char buf[sizeof("9223372036854775807")];
+     uint8_t *frameDictData = NULL;
+
+     sprintf(buf,"%lld",frame_id);
+     _S(av_dict_set(&frameDict, "frame_id", buf, 0));
+     sprintf(buf,"%lld",pts);
+     _S(av_dict_set(&frameDict, "pts", buf, 0));
+     sprintf(buf,"%lld",created);
+     _S(av_dict_set(&frameDict, "created", buf, 0));
+
+     // Pack dictionary to be able to use it as a side data in AVPacket
+     frameDictData = av_packet_pack_dictionary(frameDict, &frameDictSize);
+     if(!frameDictData)
+      return AVERROR(ENOMEM);
+     // Free dictionary not used any more
+     av_dict_free(&frameDict);
+     // Add side_data to AVPacket which will be decoded
+     return av_packet_add_side_data(packet, AV_PKT_DATA_STRINGS_METADATA, frameDictData, frameDictSize);
+}
+
 int get_packet_frame_id(const AVPacket *packet,int64_t *frame_id_ptr)
 {
     const char *frame_str;
@@ -317,6 +355,85 @@ int get_packet_original_pts(const AVPacket *packet,pts_t *pts_ptr)
     *pts_ptr = strtoll(pts_str,NULL,10);
     av_dict_free(&frameDict);
     return 0;
+}
+
+int get_packet_created_timestamp(const AVPacket *packet,int64_t *created_ptr)
+{
+    const char *created_str;
+     AVDictionary * frameDict = NULL;
+     size_t frameDictSize = 0;
+     uint8_t *frameDictData = av_packet_get_side_data(packet, AV_PKT_DATA_STRINGS_METADATA, &frameDictSize);
+     *created_ptr = AV_NOPTS_VALUE;
+     if (!frameDictData)
+        return AVERROR(EINVAL);
+    _S(av_packet_unpack_dictionary(frameDictData,frameDictSize,&frameDict));
+    AVDictionaryEntry *entry = av_dict_get(frameDict, "created", NULL, 0);
+    if(!entry || !entry->value)
+       goto cleanup_and_fail;
+    created_str = entry->value;
+    *created_ptr = strtoll(created_str,NULL,10);
+    av_dict_free(&frameDict);
+    return 0;
+
+cleanup_and_fail:
+    av_dict_free(&frameDict);
+    return AVERROR(EINVAL);
+}
+
+int add_packet_timing_context(AVPacket *packet,int64_t frame_id,pts_t pts,int64_t input_created,int64_t input_dts) {
+     AVDictionary * frameDict = NULL;
+     size_t frameDictSize = 0;
+     char buf[sizeof("9223372036854775807")];
+     uint8_t *frameDictData = NULL;
+
+     sprintf(buf,"%lld",frame_id);
+     _S(av_dict_set(&frameDict, "frame_id", buf, 0));
+     sprintf(buf,"%lld",pts);
+     _S(av_dict_set(&frameDict, "pts", buf, 0));
+     sprintf(buf,"%lld",input_created);
+     _S(av_dict_set(&frameDict, "input_created", buf, 0));
+     sprintf(buf,"%lld",input_dts);
+     _S(av_dict_set(&frameDict, "input_dts", buf, 0));
+
+     // Pack dictionary to be able to use it as a side data in AVPacket
+     frameDictData = av_packet_pack_dictionary(frameDict, &frameDictSize);
+     if(!frameDictData)
+      return AVERROR(ENOMEM);
+     // Free dictionary not used any more
+     av_dict_free(&frameDict);
+     // Add side_data to AVPacket which will be decoded
+     return av_packet_add_side_data(packet, AV_PKT_DATA_STRINGS_METADATA, frameDictData, frameDictSize);
+}
+
+int get_packet_input_timing_context(const AVPacket *packet,int64_t *input_created_ptr,int64_t *input_dts_ptr)
+{
+    const char *input_created_str, *input_dts_str;
+     AVDictionary * frameDict = NULL;
+     size_t frameDictSize = 0;
+     uint8_t *frameDictData = av_packet_get_side_data(packet, AV_PKT_DATA_STRINGS_METADATA, &frameDictSize);
+     *input_created_ptr = AV_NOPTS_VALUE;
+     *input_dts_ptr = AV_NOPTS_VALUE;
+     if (!frameDictData)
+        return AVERROR(EINVAL);
+    _S(av_packet_unpack_dictionary(frameDictData,frameDictSize,&frameDict));
+
+    AVDictionaryEntry *created_entry = av_dict_get(frameDict, "input_created", NULL, 0);
+    AVDictionaryEntry *dts_entry = av_dict_get(frameDict, "input_dts", NULL, 0);
+
+    if(!created_entry || !created_entry->value || !dts_entry || !dts_entry->value)
+       goto cleanup_and_fail_timing;
+
+    input_created_str = created_entry->value;
+    input_dts_str = dts_entry->value;
+
+    *input_created_ptr = strtoll(input_created_str,NULL,10);
+    *input_dts_ptr = strtoll(input_dts_str,NULL,10);
+    av_dict_free(&frameDict);
+    return 0;
+
+cleanup_and_fail_timing:
+    av_dict_free(&frameDict);
+    return AVERROR(EINVAL);
 }
 
 

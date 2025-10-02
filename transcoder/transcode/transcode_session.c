@@ -390,7 +390,8 @@ encoder_error:
         output_frame_id = pContext->transcoded_frame_first_id+pOutput->stats.totalFrames;
         add_packet_frame_id_and_pts(pOutPacket,output_frame_id,pOutPacket->pts);
 
-        pOutPacket->pos=clock_estimator_get_clock(&pContext->clock_estimator,pOutPacket->dts);
+        // Use enhanced clock estimator with metadata support and neighbor interpolation
+        pOutPacket->pos = clock_estimator_get_clock(&pContext->clock_estimator, pOutPacket);
 
         if(pContext->ack_handler == pOutput){
             _S(ackEncode(pEncoder->ctx,&pContext->ack_handler->acker,pOutPacket));

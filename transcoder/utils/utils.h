@@ -35,9 +35,13 @@ char* av_socket_info(char* buf,int len,const struct sockaddr_in* sa);
 void log_frame_side_data(const char* category,const AVFrame *pFrame);
 typedef int64_t pts_t;
 int add_packet_frame_id_and_pts(AVPacket *packet,int64_t frame_id,pts_t pts);
+int add_packet_frame_metadata(AVPacket *packet,int64_t frame_id,pts_t pts,int64_t created);
+int add_packet_timing_context(AVPacket *packet,int64_t frame_id,pts_t pts,int64_t input_created,int64_t input_dts);
 int get_frame_id(const AVFrame *frame,uint64_t *frame_id_ptr);
 int get_packet_frame_id(const AVPacket *packet,int64_t *frame_id_ptr);
 int get_packet_original_pts(const AVPacket *packet,pts_t *pts_ptr);
+int get_packet_created_timestamp(const AVPacket *packet,int64_t *created_ptr);
+int get_packet_input_timing_context(const AVPacket *packet,int64_t *input_created_ptr,int64_t *input_dts_ptr);
 int get_frame_original_pts(const AVFrame *frame,pts_t *pts_ptr);
 /**
  * Convenience macro, the return value should be used only directly in
