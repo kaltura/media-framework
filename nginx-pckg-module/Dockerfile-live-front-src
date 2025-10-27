@@ -1,5 +1,5 @@
 # add  for debug:   gdb ../sbin/nginx
-ARG ALPINE_VER=3.16
+ARG ALPINE_VER=3.22
 FROM alpine:$ALPINE_VER as builder
 
 WORKDIR /tmp
