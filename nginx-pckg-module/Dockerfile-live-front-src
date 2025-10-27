@@ -11,7 +11,7 @@ ARG FFMPEG_VERSION="n4.3.1"
 
 RUN apk add --no-cache --virtual kaltura-deps wget git make cmake yasm zlib-dev alpine-sdk && \
     git clone --branch ${FFMPEG_VERSION}  https://github.com/ffmpeg/ffmpeg.git && \
-    cd ffmpeg && ./configure --disable-everything --disable-doc --enable-shared --enable-parser=h264 --enable-decoder=h264 --enable-encoder=jpeg2000 --enable-encoder=jpegls --enable-encoder=ljpeg --enable-encoder=mjpeg && \
+    cd ffmpeg && ./configure --arch=aarch64 --disable-x86asm --disable-inline-asm --disable-everything --disable-doc --enable-shared --enable-parser=h264 --enable-decoder=h264 --enable-encoder=jpeg2000 --enable-encoder=jpegls --enable-encoder=ljpeg --enable-encoder=mjpeg && \
     make -j 8 && \
     make install && \
     cd /tmp && \
