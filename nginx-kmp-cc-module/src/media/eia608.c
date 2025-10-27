@@ -1026,7 +1026,7 @@ eia608_t *Eia608New(cc_log_t *log, uint32_t id, void *priv, subtitle_handler_t *
 {
     eia608_t *h;
 
-    h = calloc(sizeof(*h), 1);
+    h = calloc(1, sizeof(*h));
     if (h == NULL)
     {
         return NULL;

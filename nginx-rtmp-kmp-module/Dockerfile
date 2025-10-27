@@ -1,11 +1,11 @@
-ARG ALPINE_VER=3.16
+ARG ALPINE_VER=3.22
 FROM alpine:$ALPINE_VER as builder
 
 RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base libaio-dev linux-headers tcl cmake
 
 WORKDIR /tmp/build
 
-ARG NGINX_VERSION=1.21.0
+ARG NGINX_VERSION=1.27.3
 ARG SRT_VERSION=v1.5.3
 ARG SRT_NGINX_VERSION=master
 
@@ -69,7 +69,7 @@ COPY --from=builder /usr/local/nginx /usr/local/nginx
 COPY --from=builder /usr/local/lib /usr/local/lib
 
 RUN apk add cmd:pip3
-RUN pip3 install redis==5.2.1
+RUN apk add --no-cache py3-redis
 ENV LD_LIBRARY_PATH="/usr/local/lib"
 
 
