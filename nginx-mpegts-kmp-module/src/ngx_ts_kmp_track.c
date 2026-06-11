@@ -16,7 +16,7 @@
 #include "ngx_ts_kmp_track.h"
 
 
-#define NGX_TS_KMP_MAX_FRAME_NALS   16
+#define NGX_TS_KMP_MAX_FRAME_NALS   64
 #define NGX_TS_KMP_CAPTION_TRIES    10
 
 #define NGX_TS_TIMESCALE            90000
