@@ -57,6 +57,10 @@ void* thread_stream_from_file(void *vargp)
 
     json_get_int64(GetConfig(),"input.hiccupIntervalSec",0,&hiccupIntervalSec);
 
+    int64_t resendMediaInfoIntervalSec;
+    json_get_int64(GetConfig(),"input.resendMediaInfoIntervalSec",0,&resendMediaInfoIntervalSec);
+
+
     AVPacket packet;
     av_init_packet(&packet);
 
@@ -94,7 +98,11 @@ void* thread_stream_from_file(void *vargp)
     int64_t start_time=av_gettime_relative(),
             hiccup_duration =  hiccupDurationSec * 1000 * 1000,
             hiccup_interval = hiccupIntervalSec * 1000 * 1000,
-            next_hiccup = start_time + hiccup_interval;
+            next_hiccup = start_time + hiccup_interval,
+            resendMediaInfoInterval = resendMediaInfoIntervalSec * 1000 * 1000,
+            nextSentMediaInfoTime = av_gettime_relative() + resendMediaInfoInterval;
+
+    uint64_t frame_id_ack = createTime - 1;
 
     samples_stats_t stats;
     sample_stats_init(&stats,standard_timebase);
@@ -173,6 +181,23 @@ void* thread_stream_from_file(void *vargp)
             }
         }
 
+        if(resendMediaInfoIntervalSec > 0
+            && (packet.flags & AV_PKT_FLAG_KEY)
+            && nextSentMediaInfoTime < av_gettime_relative())
+        {
+            LOGGER0(CATEGORY_RECEIVER,AV_LOG_WARNING,"sending mediainfo");
+            if (KMP_send_mediainfo(&kmp,&extra)<0) {
+                LOGGER0(CATEGORY_RECEIVER,AV_LOG_FATAL,"couldn't send mediainfo!");
+                break;
+            }
+
+            if (KMP_read_ack(&kmp,&frame_id_ack)) {
+                LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"received ack for packet id  %lld",frame_id_ack);
+            }
+
+            nextSentMediaInfoTime = av_gettime_relative() + resendMediaInfoInterval;
+        }
+
         lastDts=packet.dts;
 
         samples_stats_add(&stats,packet.dts,packet.pos,packet.size);
@@ -188,20 +213,21 @@ void* thread_stream_from_file(void *vargp)
                rate)*/
 
 
-        uint64_t frame_id_ack;
+
         if (KMP_send_packet(&kmp,&packet)<0) {
             LOGGER0(CATEGORY_RECEIVER,AV_LOG_FATAL,"couldn't send packet!");
             break;
         }
+        frame_id++;
         if (KMP_read_ack(&kmp,&frame_id_ack)) {
             LOGGER(CATEGORY_RECEIVER,AV_LOG_DEBUG,"received ack for packet id  %lld",frame_id_ack);
         }
 
 
-         LOGGER("SENDER",AV_LOG_DEBUG,"sent packet pts=%s dts=%s  size=%d",
+         LOGGER("SENDER",AV_LOG_DEBUG,"sent packet pts=%s dts=%s  size=%d frame_id=%lld frame_id_ack=%lld",
          ts2str(packet.pts,true),
          ts2str(packet.dts,true),
-         packet.size);
+         packet.size, frame_id, frame_id_ack);
 
 
         av_packet_unref(&packet);
