@@ -4,7 +4,7 @@ ARG PYTHON_VERSION=3.8
 
 FROM $IMAGE_NAMESPACE/transcoder-dev:$BUILD_TAG as dev
 
-FROM python:${PYTHON_VERSION}-slim-buster
+FROM python:${PYTHON_VERSION}-slim-bullseye
 
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES video,compute,utility
