@@ -2,9 +2,10 @@
 set -eo nounset                              # Treat unset variables as an error
 
 BASE_DOWNLOAD_URI=http://nginx.org/download
-NGINX_VERSION=`curl -L "http://nginx.org/en/download.html" |
-   grep -oP 'href="/download/nginx-\K[0-9]+\.[0-9]+\.[0-9]+' |
-   sort -t. -rn -k1,1 -k2,2 -k3,3 | head -1`
+# Pin to the same nginx version the production Dockerfiles build against.
+# Do not track "newest": nginx 1.31.x added a core ngx_json_parse() that
+# collides with nginx-common's ngx_json_parse() (multiple definition at link).
+NGINX_VERSION=1.27.3
 NGINX_URI="$BASE_DOWNLOAD_URI/nginx-$NGINX_VERSION.tar.gz"
 
 if [ ! -x "`which curl 2>/dev/null`" ];then
