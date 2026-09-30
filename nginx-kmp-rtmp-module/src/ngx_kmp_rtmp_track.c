@@ -65,6 +65,8 @@ struct ngx_kmp_rtmp_track_s {
     size_t                      extra_data_size;
 
     ngx_kmp_rtmp_frame_list_t   frames;
+
+    unsigned                    logged_first_frame:1;
 };
 
 
@@ -499,6 +501,19 @@ ngx_kmp_rtmp_track_add_frame(void *data, ngx_kmp_in_evt_frame_t *evt)
     frame->size = evt->size;
     frame->data = evt->data_head;
 
+    if (!track->logged_first_frame) {
+        track->logged_first_frame = 1;
+
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+            "ngx_kmp_rtmp_track_add_frame: first frame, stream: %V, "
+            "media_type: %uD, added: %M, created: %L, dts: %L, flags: 0x%uxD, "
+            "key: %ui, wrote_meta: %ui",
+            &track->stream->sn.str, track->media_type, frame->added,
+            frame->created, frame->dts, frame->flags,
+            (ngx_uint_t) (frame->flags & KMP_FRAME_FLAG_KEY ? 1 : 0),
+            (ngx_uint_t) track->stream->wrote_meta);
+    }
+
     if (count > 0) {
         return NGX_OK;
     }
@@ -658,10 +673,26 @@ ngx_kmp_rtmp_track_process_expired(ngx_rbtree_node_t *node)
 void
 ngx_kmp_rtmp_track_stream_ready(ngx_kmp_rtmp_track_t *track)
 {
+    ngx_kmp_rtmp_frame_t     *frame;
     ngx_kmp_rtmp_upstream_t  *u;
+
+    ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+        "ngx_kmp_rtmp_track_stream_ready: stream: %V, media_type: %uD, "
+        "pending_frames: %ui, current: %M",
+        &track->stream->sn.str, track->media_type, track->frames.count,
+        ngx_current_msec);
 
     if (track->frames.count > 0) {
         u = track->upstream;
+
+        frame = ngx_kmp_rtmp_frame_list_head(&track->frames);
+
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+            "ngx_kmp_rtmp_track_stream_ready: head frame added: %M, "
+            "waited: %M, media_type: %uD",
+            frame->added, ngx_current_msec - frame->added,
+            track->media_type);
+
         ngx_rbtree_insert(&u->tracks.dts_rbtree, &track->dts_node);
         ngx_rbtree_insert(&u->tracks.added_rbtree, &track->added_node);
     }
