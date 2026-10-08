@@ -277,7 +277,22 @@ ngx_live_syncer_sync_track(ngx_live_track_t *track, int64_t pts,
         track_correction - channel_correction,
         ngx_live_syncer_wraparound_value(channel->timescale));
 
-    if ((uint64_t) ngx_abs(channel_correction - track_correction) <
+    /* subtitle timestamps (e.g. live captions) may carry a large, transient
+        created/pts offset (the first cue after attaching can be a stale,
+        buffered one). the pts is in the same domain as the audio/video, so
+        always follow the channel correction, and never let a subtitle track
+        override it */
+    if (track->media_type == KMP_MEDIA_SUBTITLE && cctx->sequence > 0 &&
+        channel_correction >= min_correction)
+    {
+        ngx_log_error(NGX_LOG_INFO, &track->log, 0,
+            "ngx_live_syncer_sync_track: "
+            "subtitle using channel, track: %L, channel_wrapped: %L, "
+            "channel: %L",
+            track_correction, channel_correction, cctx->correction);
+        ctx->correction = channel_correction;
+
+    } else if ((uint64_t) ngx_abs(channel_correction - track_correction) <
         spcf->correction_reuse_threshold * channel->timescale &&
         channel_correction >= min_correction)
     {
