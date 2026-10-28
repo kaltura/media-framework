@@ -1,4 +1,4 @@
-ARG ALPINE_VER=3.22
+ARG ALPINE_VER=3.23
 FROM alpine:$ALPINE_VER as builder
 
 RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base libaio-dev linux-headers
