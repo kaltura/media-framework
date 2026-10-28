@@ -1,4 +1,4 @@
-ARG ALPINE_VER=3.22
+ARG ALPINE_VER=3.23
 FROM alpine:$ALPINE_VER as builder
 
 RUN apk --update add wget git procps   openssl-dev pcre-dev zlib-dev build-base libaio-dev linux-headers tcl cmake
@@ -9,7 +9,8 @@ ARG NGINX_VERSION=1.27.3
 ARG SRT_VERSION=v1.5.3
 ARG SRT_NGINX_VERSION=master
 
-RUN git clone --branch ${SRT_VERSION} https://github.com/Haivision/srt/ && cd srt && ./configure --ENABLE_AEAD_API_PREVIEW --use-enclib=openssl-evp  && make && make install
+# alpine 3.23 ships cmake 4.x, which rejects SRT's cmake_minimum_required < 3.5
+RUN git clone --branch ${SRT_VERSION} https://github.com/Haivision/srt/ && cd srt && CMAKE_POLICY_VERSION_MINIMUM=3.5 ./configure --ENABLE_AEAD_API_PREVIEW --use-enclib=openssl-evp  && make && make install
 
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     tar -zxvf nginx-${NGINX_VERSION}.tar.gz && \
