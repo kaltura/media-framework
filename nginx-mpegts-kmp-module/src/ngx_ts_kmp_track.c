@@ -693,6 +693,15 @@ ngx_ts_kmp_track_heavc_pes_handler(ngx_ts_kmp_track_t *ts_track,
         return NGX_ERROR;
     }
 
+    if (!(nalus.types & ~heavc->nal_skip_mask)) {
+        /* e.g. a pes containing only aud/sps/pps - would produce an empty
+         * kmp frame */
+        ngx_log_error(NGX_LOG_INFO, &ts_track->track->log, 0,
+            "ngx_ts_kmp_track_heavc_pes_handler: "
+            "skipping empty frame, types: 0x%uxL", nalus.types);
+        return NGX_OK;
+    }
+
     is_key_frame = nalus.types & heavc->nal_idr_mask;
 
     ngx_ts_kmp_track_init_frame(ts_track, &frame, is_key_frame,
